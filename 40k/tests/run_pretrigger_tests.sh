@@ -231,6 +231,7 @@ TESTS=(
     "tests/test_custodes_detachments_11e.gd"
     "tests/test_custodes_enhancements_11e.gd"
     "tests/test_ork_codex_turn_flow_fixes.gd"
+    "tests/test_ork_abilities_11e.gd"
     "tests/test_keybinding_chord_no_pan.gd"
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"

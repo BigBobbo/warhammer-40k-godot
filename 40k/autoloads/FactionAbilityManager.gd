@@ -552,61 +552,14 @@ func _apply_waaagh_effects(player: int, keyword_scope: Array = []) -> void:
 			unit["flags"]["effect_advance_and_shoot"] = true
 			unit["flags"][WAAAGH_ASSAULT_MARKER] = true
 
-		# OA-17: Krumpin' Time — FNP 5+ while Waaagh! active (Meganobz)
-		if _unit_has_ability(unit, "Krumpin' Time"):
-			# Only set FNP if no better (lower) FNP already present
-			var current_fnp = unit["flags"].get("effect_fnp", 0)
-			if current_fnp == 0 or 5 <= current_fnp:
-				unit["flags"]["effect_fnp"] = 5
-				unit["flags"]["effect_fnp_source"] = "Krumpin' Time"
-				print("FactionAbilityManager: Krumpin' Time FNP 5+ applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-
-		# OA-41: Big an' Shooty — +1 to Hit for ranged attacks while Waaagh! active (Morkanaut)
-		if _unit_has_ability(unit, "Big an' Shooty"):
-			unit["flags"]["big_an_shooty_active"] = true
-			print("FactionAbilityManager: Big an' Shooty +1 Hit (ranged) applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-
-		# OA-41: Big an' Stompy — +1 to Hit for melee attacks while Waaagh! active (Gorkanaut)
-		if _unit_has_ability(unit, "Big an' Stompy"):
-			unit["flags"]["big_an_stompy_active"] = true
-			print("FactionAbilityManager: Big an' Stompy +1 Hit (melee) applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-
-		# OA-20: Prophet of Da Great Waaagh! — Crit Hit on 5+ while Waaagh! active (Ghazghkull leading)
-		# Check if any attached character has this ability and apply crit threshold to the led unit
-		var attachment_data = unit.get("attachment_data", {})
-		var attached_characters = attachment_data.get("attached_characters", [])
-		for char_id in attached_characters:
-			var char_unit = units.get(char_id, {})
-			if char_unit.is_empty():
-				continue
-			if _unit_has_ability(char_unit, "Prophet of Da Great Waaagh!"):
-				# Only set crit threshold if no better (lower) threshold already present
-				var current_crit = unit["flags"].get("effect_crit_hit_on", 0)
-				if current_crit == 0 or 5 < current_crit:
-					unit["flags"]["effect_crit_hit_on"] = 5
-					unit["flags"]["effect_crit_hit_on_source"] = "Prophet of Da Great Waaagh!"
-					print("FactionAbilityManager: Prophet of Da Great Waaagh! Crit Hit 5+ applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-				break
+		# (WP-O6: the pre-codex Krumpin' Time / Big an' Shooty / Big an' Stompy /
+		# Prophet of Da Great Waaagh! / Special Dose riders are gone — the Codex:
+		# Orks (11e) datasheet abilities live in OrkAbilities11e.gd.)
 
 		# OA-46: Da Boss Iz Watchin' — 4+ invuln and OC 5 while Waaagh! active (Nob with Waaagh! Banner)
 		# Upgrade invuln from 5+ to 4+ and set OC 5 for units with this ability
 		if _unit_has_ability(unit, "Da Boss Iz Watchin'"):
 			_apply_da_boss_iz_watchin(unit, unit_id)
-
-		# Special Dose — +6" to Move characteristic while Waaagh! active (Zodgrod Wortsnagga leading)
-		# Check if any attached character has this ability and apply movement bonus to the led unit
-		for char_id in attached_characters:
-			var char_unit = units.get(char_id, {})
-			if char_unit.is_empty():
-				continue
-			if _unit_has_ability(char_unit, "Special Dose"):
-				unit["flags"]["special_dose_active"] = true
-				# Also apply to the character unit itself (Zodgrod is part of the unit)
-				if not char_unit.has("flags"):
-					char_unit["flags"] = {}
-				char_unit["flags"]["special_dose_active"] = true
-				print("FactionAbilityManager: Special Dose +6\" Move applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-				break
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		print("FactionAbilityManager: Waaagh! effects applied to %s (%s) — %s" % [unit_name, unit_id, waaagh_effects_summary()])
@@ -638,34 +591,6 @@ func _clear_waaagh_effects(player: int) -> void:
 				flags.erase("effect_oc_override")
 				flags.erase("effect_oc_source")
 				print("FactionAbilityManager: Da Boss Iz Watchin' OC 5 cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-			# OA-17: Only clear FNP if it was from Krumpin' Time (don't clobber other sources)
-			if flags.get("effect_fnp_source", "") == "Krumpin' Time":
-				flags.erase("effect_fnp")
-				flags.erase("effect_fnp_source")
-				print("FactionAbilityManager: Krumpin' Time FNP 5+ cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-			# OA-20: Only clear crit hit if it was from Prophet of Da Great Waaagh! (don't clobber other sources)
-			if flags.get("effect_crit_hit_on_source", "") == "Prophet of Da Great Waaagh!":
-				flags.erase("effect_crit_hit_on")
-				flags.erase("effect_crit_hit_on_source")
-				print("FactionAbilityManager: Prophet of Da Great Waaagh! Crit Hit 5+ cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-			# Special Dose: Clear +6" Move bonus
-			if flags.get("special_dose_active", false):
-				flags.erase("special_dose_active")
-				print("FactionAbilityManager: Special Dose +6\" Move cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-				# Also clear from any attached characters
-				var attachment_data = unit.get("attachment_data", {})
-				var attached_characters = attachment_data.get("attached_characters", [])
-				for char_id in attached_characters:
-					var char_unit = units.get(char_id, {})
-					if not char_unit.is_empty():
-						char_unit.get("flags", {}).erase("special_dose_active")
-			# OA-41: Clear Big an' Shooty / Big an' Stompy flags
-			if flags.get("big_an_shooty_active", false):
-				flags.erase("big_an_shooty_active")
-				print("FactionAbilityManager: Big an' Shooty +1 Hit (ranged) cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-			if flags.get("big_an_stompy_active", false):
-				flags.erase("big_an_stompy_active")
-				print("FactionAbilityManager: Big an' Stompy +1 Hit (melee) cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			print("FactionAbilityManager: Waaagh! effects cleared from %s (%s)" % [unit_name, unit_id])
 

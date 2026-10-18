@@ -984,6 +984,18 @@ func start_battle_shock_sequence(start_unit_id: String = "", end_phase_after: bo
 			current_phase.stratagem_window_closed.connect(reopen, CONNECT_ONE_SHOT)
 			return true
 
+	# WP-O6: after a Codex: Orks datasheet ability is used in the
+	# battle_shock_step_start window the window re-opens with what is still on
+	# offer (OrkAbilities11e.REOFFER_WINDOWS) — the roll call waits for that
+	# decision too instead of opening a second modal on top of it.
+	if current_phase.has_method("has_pending_stratagem_window") and current_phase.has_pending_stratagem_window() \
+			and current_phase.has_signal("stratagem_window_closed"):
+		print("CommandController: Battle-shock roll call waits — a stratagem window is still open")
+		var reopen_again := func(_p, _w, _u):
+			call_deferred("start_battle_shock_sequence", start_unit_id, end_phase_after)
+		current_phase.stratagem_window_closed.connect(reopen_again, CONNECT_ONE_SHOT)
+		return true
+
 	_bs_order.clear()
 	for entry in queue:
 		_bs_order.append(str(entry.get("unit_id", "")))

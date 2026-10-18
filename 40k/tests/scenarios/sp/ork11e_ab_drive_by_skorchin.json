@@ -1,0 +1,131 @@
+{
+ "id": "ork11e_ab_drive_by_skorchin",
+ "covers": [
+  "codex.orks.datasheet_abilities.drive_by_skorchin",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.unit_selected_to_move",
+  "stratagem.fire_overwatch.eligibility"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) DRIVE-BY SKORCHIN' (Warbuggies) through the real unit_selected_to_move window. Fixture ork11e_ab_move: the Shield-Captain (INFANTRY) is within 6\" of the Warbuggies. A real click on the Warbuggies opens the window; 'Use on Warbuggies' + a real click on the Shield-Captain: it cannot be targeted with the Fire Overwatch stratagem until the end of the turn (StratagemManager's Fire Overwatch eligibility skips it).",
+ "fixture": "ork11e_ab_move",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 7
+  },
+  {
+   "act": "click_unit",
+   "unit_id": "U_WARBUGGIES_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "unit_selected_to_move"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_drive_by_skorchin/Buttons/Use_ork11e_ab_drive_by_skorchin_U_WARBUGGIES_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_drive_by_skorchin\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_drive_by_skorchin_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_drive_by_skorchin/Buttons/Use_ork11e_ab_drive_by_skorchin_U_WARBUGGIES_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemTargetDialog",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_SHIELD_CAPTAIN_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_SHIELD_CAPTAIN_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "return load(\"res://scripts/codex/orks/OrkAbilities11e.gd\").blocks_fire_overwatch(\"U_SHIELD_CAPTAIN_A\")",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "var ow = StratagemManager.get_fire_overwatch_eligible_units(2, \"U_WARBUGGIES_A\", GameState.state).map(func(e): return str(e.get(\"unit_id\", \"\")))\nprint(\"[wp-o6] overwatch-eligible: \", ow)\nreturn not \"U_SHIELD_CAPTAIN_A\" in ow",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Drive-by Skorchin\")",
+   "expect_min": 1
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+   "equals": false
+  },
+  {
+   "act": "screenshot",
+   "label": "02_drive_by_skorchin_applied"
+  }
+ ]
+}

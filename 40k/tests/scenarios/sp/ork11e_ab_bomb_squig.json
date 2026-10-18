@@ -1,0 +1,142 @@
+{
+ "id": "ork11e_ab_bomb_squig",
+ "covers": [
+  "codex.orks.datasheet_abilities.bomb_squig",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.unit_ended_normal_move"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) BOMB SQUIG (Squighog Boyz, once per battle) through the real unit_ended_normal_move window. Fixture ork11e_ab_move: Custodian Guard B is visible within 12\". The Squighog Boyz make a 1\" normal move (staged) and a real click on 'End This Unit's Move' opens the window; 'Use on Squighog Boyz' + a real click on Custodian Guard B rolls the D6 (3+: D3 mortal wounds) — event log; once per battle.",
+ "fixture": "ork11e_ab_move",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 7
+  },
+  {
+   "act": "click_unit",
+   "unit_id": "U_SQUIGHOG_BOYZ_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var u = GameState.get_unit(\"U_SQUIGHOG_BOYZ_A\")\nvar ok := true\nfor m in u.models:\n\tif not m.get(\"alive\", true) or m.get(\"position\", null) == null:\n\t\tcontinue\n\tvar p = m.position\n\tvar r = NetworkIntegration.route_action({\"type\": \"STAGE_MODEL_MOVE\", \"player\": 1, \"actor_unit_id\": \"U_SQUIGHOG_BOYZ_A\", \"payload\": {\"model_id\": str(m.id), \"dest\": [float(p.x) + 0.0, float(p.y) + 40.0], \"rotation\": float(m.get(\"rotation\", 0.0))}})\n\tif not r.get(\"success\", false):\n\t\tprint(\"[wp-o6] stage failed \", m.id, \" \", r.get(\"error\", r.get(\"errors\", \"\")))\n\t\tok = false\ntree.current_scene._recreate_unit_visuals()\nreturn ok",
+   "multiline": true,
+   "equals": true,
+   "comment": "stage U_SQUIGHOG_BOYZ_A 1.0\" (per-model STAGE_MODEL_MOVE, as the drag tool sends)"
+  },
+  {
+   "act": "click_node",
+   "button_text": "End This Unit's Move"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "unit_ended_normal_move"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_bomb_squig/Buttons/Use_ork11e_ab_bomb_squig_U_SQUIGHOG_BOYZ_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_bomb_squig\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_bomb_squig_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_bomb_squig/Buttons/Use_ork11e_ab_bomb_squig_U_SQUIGHOG_BOYZ_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemTargetDialog",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_B",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_B"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"sends a bomb squig at Custodian Guard\")",
+   "expect_min": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "return int(load(\"res://scripts/codex/orks/OrkAbilities11e.gd\").used_in_battle(\"U_SQUIGHOG_BOYZ_A\", \"bomb_squig\"))",
+   "multiline": true,
+   "equals": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "02_bomb_squig_resolved"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  }
+ ]
+}

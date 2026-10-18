@@ -307,6 +307,7 @@ func _section_free_advance_reroll() -> void:
 	_set_detachment(1, "Kult of Speed")  # no Kommandos movement stratagems in the way
 	PM.transition_to_phase(PHASE_MOVEMENT)
 	var phase = PM.get_current_phase_instance()
+	_decline_pending(phase)  # WP-O6: the codex Da Jump is offered at the start of the Movement phase
 	if not phase.command_reroll_opportunity.is_connected(_on_reroll):
 		phase.command_reroll_opportunity.connect(_on_reroll)
 	_check("source for Kommandos = Waaagh!", ArmyRules.free_advance_reroll_source(GS.state.units.U_KOMMANDOS_A) == "Waaagh!")
@@ -331,6 +332,7 @@ func _section_free_advance_reroll() -> void:
 	_set_detachment(1, "Kult of Speed")
 	PM.transition_to_phase(PHASE_MOVEMENT)
 	phase = PM.get_current_phase_instance()
+	_decline_pending(phase)  # WP-O6: the codex Da Jump is offered at the start of the Movement phase
 	phase.execute_action({"type": "BEGIN_ADVANCE", "actor_unit_id": "U_STORMBOYZ_A", "player": 1, "payload": {"rng_seed": _seed_rolling_at_most(5)}})
 	_decline_pending(phase)
 	var kept := int(phase._reroll_pending_data.get("advance_roll", -1))
@@ -342,6 +344,7 @@ func _section_free_advance_reroll() -> void:
 	_set_detachment(1, "Kult of Speed")
 	PM.transition_to_phase(PHASE_MOVEMENT)
 	phase = PM.get_current_phase_instance()
+	_decline_pending(phase)  # WP-O6: the codex Da Jump is offered at the start of the Movement phase
 	phase.execute_action({"type": "BEGIN_ADVANCE", "actor_unit_id": "U_KOMMANDOS_A", "player": 1, "payload": {"rng_seed": _seed_rolling_exactly(6)}})
 	_decline_pending(phase)
 	# (The paid Command Re-roll is still offered on a 6 — pre-existing engine
@@ -434,39 +437,39 @@ func _section_unstable_energies() -> void:
 	_check("psyker level 2: a third does not", not ArmyRules.can_use_psychic("U_WEIRDBOY_A", "Da Jump").get("ok", true))
 	GS.state.units.U_WEIRDBOY_A.flags.erase(ArmyRules.F_PSYKER_LEVEL_OVERRIDE)
 
-	# The Da Jump path (MovementPhase USE_DA_JUMP).
+	# The Da Jump path. WP-O6: the 10e USE_DA_JUMP teleport is gone — the codex
+	# Da Jump is a Codex: Orks (11e) datasheet ability offered in the
+	# movement_phase_start window (OrkAbilities11e), budgeted through this
+	# rule's can_use_psychic / record_psychic_use.
 	_reload()
 	_set_detachment(1, "Kult of Speed")
 	PM.transition_to_phase(PHASE_MOVEMENT)
 	var phase = PM.get_current_phase_instance()
-	var listed := false
-	for a in phase.get_available_actions():
-		if str(a.get("type", "")) == "USE_DA_JUMP" and str(a.get("actor_unit_id", "")) == "U_WEIRDBOY_A":
-			listed = true
-	_check("USE_DA_JUMP listed while the budget is free", listed)
+	var dj_ctx := {"phase": "movement", "window_id": "movement_phase_start"}
+	var dj_offered := func() -> bool:
+		for o in SM.get_all_window_offers(1, "movement_phase_start", dj_ctx):
+			if str(o.get("stratagem_id", "")) == "ork11e_ab_da_jump":
+				for t in o.get("targets", []):
+					if str(t.get("unit_id", "")) == "U_WEIRDBOY_A":
+						return true
+		return false
+	_check("Da Jump offered at the start of the Movement phase while the budget is free", dj_offered.call())
 	GS.apply_state_changes(ArmyRules.record_psychic_use("U_WEIRDBOY_A", "Warpath"))
-	listed = false
-	for a in phase.get_available_actions():
-		if str(a.get("type", "")) == "USE_DA_JUMP" and str(a.get("actor_unit_id", "")) == "U_WEIRDBOY_A":
-			listed = true
-	_check("USE_DA_JUMP not listed once the psyker level is spent", not listed)
-	var res: Dictionary = phase.execute_action({"type": "USE_DA_JUMP", "actor_unit_id": "U_WEIRDBOY_A", "player": 1})
-	_check("USE_DA_JUMP refused with the Unstable Energies reason", not res.get("success", true) and "Unstable Energies" in str(res.get("error", res.get("errors", ""))), str(res))
-	var gel = root.get_node_or_null("GameEventLog")
-	var fed_back := false
-	if gel and "entries" in gel:
-		for e in gel.entries:
-			if "Unstable Energies" in str(e.get("text", e)):
-				fed_back = true
-	_check("player-facing feedback in the Game Log", fed_back or gel == null)
+	_check("Da Jump not offered once the psyker level is spent", not dj_offered.call())
+	var res: Dictionary = SM.use_stratagem(1, "ork11e_ab_da_jump", "U_WEIRDBOY_A", dj_ctx)
+	_check("using Da Jump anyway is refused", not res.get("success", true), str(res))
 	# Fresh budget: Da Jump records its level.
 	_reload()
 	_set_detachment(1, "Kult of Speed")
 	PM.transition_to_phase(PHASE_MOVEMENT)
 	phase = PM.get_current_phase_instance()
-	res = phase.execute_action({"type": "USE_DA_JUMP", "actor_unit_id": "U_WEIRDBOY_A", "player": 1, "payload": {"rng_seed": 5}})
-	_check("USE_DA_JUMP with a free budget succeeds", res.get("success", false), str(res.get("error", "")))
+	_check("the movement_phase_start window is pending (Da Jump on offer)", phase.has_pending_stratagem_window()
+		and str(phase.get_pending_stratagem_window().get("window_id", "")) == "movement_phase_start")
+	res = phase.execute_action({"type": "USE_WINDOW_STRATAGEM", "player": 1, "window_id": "movement_phase_start",
+		"stratagem_id": "ork11e_ab_da_jump", "target_unit_id": "U_WEIRDBOY_A", "context": {}})
+	_check("Da Jump with a free budget succeeds", res.get("success", false), str(res.get("error", "")))
 	_check("Da Jump spent the psyker level", ArmyRules.psychic_levels_used(GS.state.units.U_WEIRDBOY_A) == 1)
+	_decline_pending(phase)
 	GS.set_edition(10)
 	_check("10e: no budget applies", ArmyRules.can_use_psychic("U_WEIRDBOY_A", "Warpath").get("ok", false))
 	GS.set_edition(11)

@@ -1,0 +1,151 @@
+{
+ "id": "ork11e_ab_full_throttle",
+ "covers": [
+  "codex.orks.datasheet_abilities.full_throttle",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.battle_shock_step_start"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) FULL THROTTLE (Wazdakka Gutsmek) through the real battle_shock_step_start window. Fixture ork11e_ab_command. The card offers the Throttlerokkit Shokka Engine choices; a real click on 'Turbo Engine': until the start of P1's next Command phase Wazdakka can advance or fall back and still charge (flags).",
+ "fixture": "ork11e_ab_command",
+ "edition": 11,
+ "rng_seed": 42,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 6
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.active_player",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "for c in tree.root.get_children():\n\tif c is Window and c != tree.root:\n\t\tc.hide()\n\t\tc.queue_free()\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege (see description)"
+  },
+  {
+   "act": "execute_script",
+   "script": "var cc = tree.current_scene.get_node_or_null(\"CommandController\")\nif cc == null:\n\treturn \"NO_CONTROLLER\"\ncc._refresh_ui()\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/BattleShockSection/BattleShockRollCallButton",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/BattleShockSection/BattleShockRollCallButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "battle_shock_step_start"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_full_throttle/Buttons/Use_ork11e_ab_full_throttle_U_WAZDAKKA_GUTSMEK_A_turbo",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_full_throttle\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_full_throttle_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_full_throttle/Buttons/Use_ork11e_ab_full_throttle_U_WAZDAKKA_GUTSMEK_A_turbo"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "return load(\"res://scripts/codex/orks/OrkAbilities11e.gd\").engine_of(\"U_WAZDAKKA_GUTSMEK_A\")",
+   "multiline": true,
+   "equals": "turbo"
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_WAZDAKKA_GUTSMEK_A.flags.effect_advance_and_charge",
+   "equals": true
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_WAZDAKKA_GUTSMEK_A.flags.effect_fall_back_and_charge",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Full Throttle\")",
+   "expect_min": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "02_full_throttle_turbo"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "battle_shock_step_start"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  }
+ ]
+}

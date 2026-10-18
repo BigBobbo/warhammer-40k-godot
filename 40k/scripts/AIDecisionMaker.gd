@@ -27,6 +27,7 @@ const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 # file, adding "Failed to compile depended scripts" SCRIPT ERROR lines to the
 # headless tests that reference AIDecisionMaker (RG-F6).
 static var _ork_codex_dispatcher = null
+static var _ork_abilities_module = null  # WP-O6 OrkAbilities11e (lazy)
 const PIXELS_PER_INCH: float = 40.0
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
 # Clearance added to base-to-base placements (pile-in/consolidate). The
@@ -5810,40 +5811,6 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			else:
 				_add_thinking_step("Skipping Da Kaptin on %s: %d pts and off-objective — not worth D3 MW or the once-per-battle" % [dk_name, int(dk_pts)])
 
-	# Grot Orderly (once per battle): return up to D3 destroyed Bodyguard
-	# models — hold it until 3+ are down so the D3 isn't wasted.
-	for action in available_actions:
-		if action.get("type") == "USE_GROT_ORDERLY":
-			var go_destroyed = 0
-			var go_desc = str(action.get("description", ""))
-			var go_re = RegEx.new()
-			go_re.compile("\\((\\d+) destroyed\\)")
-			var go_m = go_re.search(go_desc)
-			if go_m:
-				go_destroyed = int(go_m.get_string(1))
-			var go_round = snapshot.get("meta", {}).get("battle_round", 1)
-			if go_destroyed >= 3 or (go_round >= 4 and go_destroyed >= 1):
-				_add_thinking_step("Grot Orderly: %d bodyguard models down — reviving up to D3 now" % go_destroyed)
-				return {
-					"type": "USE_GROT_ORDERLY",
-					"unit_id": action.get("unit_id", ""),
-					"bodyguard_unit_id": action.get("bodyguard_unit_id", ""),
-					"_ai_description": action.get("description", "Grot Orderly revives bodyguard models")
-				}
-			else:
-				_add_thinking_step("Holding Grot Orderly (once per battle): only %d model(s) destroyed — waiting for a bigger heal" % go_destroyed)
-
-	# Fix Dat Armour Up (every Command phase): free 1-model return — always take it.
-	for action in available_actions:
-		if action.get("type") == "USE_FIX_DAT_ARMOUR_UP":
-			_add_thinking_step("Fix Dat Armour Up: free model return each Command phase — using it")
-			return {
-				"type": "USE_FIX_DAT_ARMOUR_UP",
-				"unit_id": action.get("unit_id", ""),
-				"bodyguard_unit_id": action.get("bodyguard_unit_id", ""),
-				"_ai_description": action.get("description", "Fix Dat Armour Up returns a model")
-			}
-
 	# Unleash the Lions (1 CP): split Allarus/Aquilon into single-model units —
 	# multiplies objective coverage. Best in the mid-game with CP to spare.
 	for action in available_actions:
@@ -6249,68 +6216,10 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 			"_ai_description": "Decline Command Re-roll (movement phase fallback)"
 		}
 
-	# Step 0.5: Handle Sawbonez healing ability (Painboss)
-	# Always use Sawbonez — free healing is always beneficial.
-	# Pick the most-wounded offered target and pass the model fields through —
-	# _process_use_sawbonez heals via target_model_index; dropping it made the
-	# heal a silent no-op.
-	if action_types.has("USE_SAWBONEZ"):
-		var best_sb = action_types["USE_SAWBONEZ"][0]
-		var best_sb_missing := -1.0
-		for sb in action_types["USE_SAWBONEZ"]:
-			var sb_tuid = sb.get("target_unit_id", "")
-			var sb_unit = snapshot.get("units", {}).get(sb_tuid, {})
-			var sb_idx = int(sb.get("target_model_index", -1))
-			var sb_models = sb_unit.get("models", [])
-			if sb_idx >= 0 and sb_idx < sb_models.size():
-				var m = sb_models[sb_idx]
-				var missing = float(m.get("wounds", 1)) - float(m.get("current_wounds", 1))
-				if missing > best_sb_missing:
-					best_sb_missing = missing
-					best_sb = sb
-		return {
-			"type": "USE_SAWBONEZ",
-			"actor_unit_id": best_sb.get("actor_unit_id", ""),
-			"target_unit_id": best_sb.get("target_unit_id", best_sb.get("actor_unit_id", "")),
-			"target_model_id": best_sb.get("target_model_id", ""),
-			"target_model_index": best_sb.get("target_model_index", -1),
-			"player": player,
-			"_ai_description": "AI uses Sawbonez healing (heal up to 3 wounds)"
-		}
-
-	# Step 0.6: Free heal windows (Grot Oiler: D3, Mekaniak: D3 + hit buff).
-	# Same shape as Sawbonez — always use, heal the most-wounded offered
-	# model. These BLOCK the whole movement phase until answered; with no
-	# branch here the AI used to hang on the watchdog (audit Tier 1).
-	for heal_type in ["USE_GROT_OILER", "USE_MEKANIAK"]:
-		if action_types.has(heal_type):
-			var best_h = action_types[heal_type][0]
-			var best_h_missing := -1.0
-			for h in action_types[heal_type]:
-				var h_tuid = h.get("target_unit_id", "")
-				var h_unit = snapshot.get("units", {}).get(h_tuid, {})
-				var h_idx = int(h.get("target_model_index", -1))
-				var h_models = h_unit.get("models", [])
-				if h_idx >= 0 and h_idx < h_models.size():
-					var hm = h_models[h_idx]
-					var missing = float(hm.get("wounds", 1)) - float(hm.get("current_wounds", 1))
-					if missing > best_h_missing:
-						best_h_missing = missing
-						best_h = h
-			return {
-				"type": heal_type,
-				"actor_unit_id": best_h.get("actor_unit_id", ""),
-				"target_unit_id": best_h.get("target_unit_id", ""),
-				"target_model_id": best_h.get("target_model_id", ""),
-				"target_model_index": best_h.get("target_model_index", -1),
-				"player": player,
-				"_ai_description": "AI uses %s (heal most-damaged model)" % heal_type
-			}
-
-	# Step 0.7: Free mortal-wound windows (Deff from Above: D6/model 4+ = 1 MW,
-	# Quicksilver Execution: D6/model 2+ = 2 MW). Free once-per-window damage —
-	# use it on the most grenade-worthy offered target.
-	for mw_type in ["USE_DEFF_FROM_ABOVE", "USE_QUICKSILVER_EXECUTION"]:
+	# Step 0.7: Free mortal-wound windows (Quicksilver Execution: D6/model
+	# 2+ = 2 MW). Free once-per-window damage — use it on the most
+	# grenade-worthy offered target.
+	for mw_type in ["USE_QUICKSILVER_EXECUTION"]:
 		if action_types.has(mw_type):
 			var best_mw = action_types[mw_type][0]
 			var best_mw_score := -INF
@@ -15468,22 +15377,6 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 	# (10e only: FactionAbilityManager.waaagh_melee_bonus_applies gates the bonus)
 	var waaagh_active = attacker.get("flags", {}).get("waaagh_active", false)
 	var waaagh_melee_bonus = _waaagh_melee_bonus_applies(attacker)
-	# Check for Da Biggest and Da Best (Warboss) — +4 Attacks while WAAAGH active
-	var has_da_biggest = false
-	# Check for Dead Brutal (Warboss in Mega Armour) — damage becomes 3 while WAAAGH active
-	var has_dead_brutal = false
-	if waaagh_active:
-		var attacker_abilities = attacker.get("meta", {}).get("abilities", [])
-		for ab in attacker_abilities:
-			var ab_name = ""
-			if ab is String:
-				ab_name = ab
-			elif ab is Dictionary:
-				ab_name = ab.get("name", "")
-			if ab_name == "Da Biggest and da Best":
-				has_da_biggest = true
-			elif ab_name == "Dead Brutal":
-				has_dead_brutal = true
 
 	for w in weapons:
 		if w.get("type", "").to_lower() != "melee":
@@ -15513,13 +15406,6 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		if waaagh_melee_bonus:
 			strength += 1
 			attacks += 1.0
-		if waaagh_active:
-			# Da Biggest and da Best: +4 additional attacks (Warboss only)
-			if has_da_biggest:
-				attacks += 4.0
-			# Dead Brutal: damage becomes 3 (Warboss in Mega Armour only)
-			if has_dead_brutal:
-				damage = 3.0
 
 		var p_hit = _hit_probability(ws)
 		var p_wound = _wound_probability(strength, target_toughness)
@@ -16546,17 +16432,6 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	if waaagh_active:
 		waaagh_buffs["active"] = true
 		waaagh_buffs["melee_bonus"] = waaagh_melee_bonus
-		var attacker_abilities = unit.get("meta", {}).get("abilities", [])
-		for ab in attacker_abilities:
-			var ab_name = ""
-			if ab is String:
-				ab_name = ab
-			elif ab is Dictionary:
-				ab_name = ab.get("name", "")
-			if ab_name == "Da Biggest and da Best":
-				waaagh_buffs["da_biggest"] = true
-			elif ab_name == "Dead Brutal":
-				waaagh_buffs["dead_brutal"] = true
 
 	# T7-29: Score each target by combined damage output + strategic value
 	# For each target, find the best weapon and compute a composite score
@@ -17037,10 +16912,6 @@ static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: i
 		if waaagh_buffs.get("melee_bonus", GameConstants.edition < 11):
 			strength += 1
 			attacks += 1.0
-		if waaagh_buffs.get("da_biggest", false):
-			attacks += 4.0
-		if waaagh_buffs.get("dead_brutal", false):
-			damage = 3.0
 
 	var p_hit = _hit_probability(ws)
 	var p_wound = _wound_probability(strength, target_toughness)
@@ -21451,6 +21322,12 @@ static func _ork_codex():
 		_ork_codex_dispatcher = load("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
 	return _ork_codex_dispatcher
 
+## WP-O6: Codex: Orks (11e) datasheet abilities (loaded on first use, like _ork_codex).
+static func _ork_abilities():
+	if _ork_abilities_module == null:
+		_ork_abilities_module = load("res://scripts/codex/orks/OrkAbilities11e.gd")
+	return _ork_abilities_module
+
 ## Codex: Adeptus Custodes army rules (CustodesKatah.gd) — loaded on first use,
 ## like _ork_codex (a const preload extends the `godot -s` compile cascade).
 static func _custodes_katah():
@@ -22344,15 +22221,23 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 		var cost := int(offer.get("cp_cost", strat.get("cp_cost", 1)))
 		var is_codex: bool = _ork_codex().handles(strat)
 		var kind: String = str(_ork_codex().ai_kind(strat)) if is_codex else "defensive"
+		# WP-O6: a Codex: Orks datasheet ability offer (0 CP) — scored by OrkAbilities11e.
+		var is_ability: bool = bool(offer.get("is_ability", false))
+		if is_ability:
+			kind = "ability"
 		for t in offer.get("targets", []):
 			var tid := str(t.get("unit_id", ""))
 			var score := 0.0
-			if is_codex:
+			if is_ability:
+				score = float(_ork_abilities().ai_score(player, sid, tid, window_id, ctx))
+			elif is_codex:
 				score = _ork_codex().ai_score(strat, player, tid, window_id, ctx)
 			elif units.has(tid):
 				score = _score_defensive_stratagem_target(units[tid], strat)
 			var threshold := 2.0
 			match kind:
+				"ability":
+					threshold = 1.0
 				"offensive":
 					if cp < 2:
 						considered.append("%s on %s: skip (CP %d < 2, keeping one for reactions)" % [offer.get("name", sid), tid, cp])

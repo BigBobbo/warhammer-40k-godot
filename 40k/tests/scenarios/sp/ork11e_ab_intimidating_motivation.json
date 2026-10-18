@@ -1,0 +1,145 @@
+{
+ "id": "ork11e_ab_intimidating_motivation",
+ "covers": [
+  "codex.orks.datasheet_abilities.intimidating_motivation",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.unit_selected_to_move",
+  "dialogs.StratagemTargetDialog"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) INTIMIDATING MOTIVATION (Warboss, once per battle round per army) through the real unit_selected_to_move window. Fixture ork11e_ab_move: the battle-shocked Boyz C stand within 6\" of the Warboss. A real click on the Warboss selects it for a normal move and opens the window; 'Use on Warboss' opens the friendly-ORKS picker; a real click on the Boyz: they are no longer battle-shocked and are riled up (until the start of P1's next turn). The held normal move then resumes.",
+ "fixture": "ork11e_ab_move",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 7
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.active_player",
+   "equals": 1
+  },
+  {
+   "act": "click_unit",
+   "unit_id": "U_WARBOSS_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "unit_selected_to_move"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_intimidating_motivation/Buttons/Use_ork11e_ab_intimidating_motivation_U_WARBOSS_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_intimidating_motivation\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_intimidating_motivation_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_intimidating_motivation/Buttons/Use_ork11e_ab_intimidating_motivation_U_WARBOSS_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemTargetDialog",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_C",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "screenshot",
+   "label": "02_intimidating_motivation_pick"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_C"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BOYZ_C\").flags.get(\"ork11e_riled_up\", false)",
+   "equals": true,
+   "comment": "U_BOYZ_C is riled up"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BOYZ_C\").flags.get(\"battle_shocked\", false)",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Intimidating Motivation\")",
+   "expect_min": 1
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().active_moves.has(\"U_WARBOSS_A\")",
+   "equals": true,
+   "comment": "the held normal move resumed"
+  },
+  {
+   "act": "screenshot",
+   "label": "03_intimidating_motivation_riled_up"
+  }
+ ]
+}

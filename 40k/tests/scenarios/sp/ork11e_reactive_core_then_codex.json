@@ -10,7 +10,7 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "Several reactive stratagems on ONE targeting, core card first: the reverse order of ork11e_grot_shields. Fixture ork11e_orks_reactive: P1 Custodes ACTIVE, P2 Orks. Setup-only privileges: P2's detachment is flipped to Runt Swarm and its stratagems reloaded; the Kommandos (SMOKE) are moved into Custodian Guard C's range. Custodian Guard C (selected by clicking its token) splits its guardian spears between the Flash Gitz, the Tankbustas and the Kommandos. After the Kommandos' Distraction Grot prompt is declined, the defender's dialog offers SMOKESCREEN (a legacy core card) and GROT SHIELDS. A real click on SMOKESCREEN's Use button spends 1 CP and the dialog RE-OPENS at the same stable path with GROT SHIELDS still on offer (SMOKESCREEN gone, once per phase); Use on Gretchin C -> the unit picker -> Tankbustas spends 1 CP more and the attack resumes.",
+  "description": "Several reactive stratagems on ONE targeting, core card first: the reverse order of ork11e_grot_shields. Fixture ork11e_orks_reactive: P1 Custodes ACTIVE, P2 Orks. Setup-only privileges: P2's detachment is flipped to Runt Swarm and its stratagems reloaded; the Kommandos (SMOKE) are moved into Custodian Guard C's range. Custodian Guard C (selected by clicking its token) splits its guardian spears between the Flash Gitz, the Tankbustas and the Kommandos. The defender's dialog offers SMOKESCREEN (a legacy core card) and GROT SHIELDS. A real click on SMOKESCREEN's Use button spends 1 CP and the dialog RE-OPENS at the same stable path with GROT SHIELDS still on offer (SMOKESCREEN gone, once per phase); Use on Gretchin C -> the unit picker -> Tankbustas spends 1 CP more and the attack resumes.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_phase", "equals": 8 },
@@ -37,9 +37,7 @@
     { "act": "expect_action_result", "path": "success", "equals": true },
     { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
     { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "expect_node_visible", "node": "/root/DistractionGrotDialog", "timeout_s": 3.0, "comment": "the Kommandos' own Distraction Grot prompt comes first — not under test, declined" },
-    { "act": "click_node", "button_text": "Decline" },
-    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "wait_seconds", "seconds": 0.8, "comment": "WP-O6: the 10e Distraction Grot prompt that came first is gone (the Codex: Orks Kommandos have no Distraction Grot)" },
 
     { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
     { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_smokescreen_11e/Buttons/Use_smokescreen_11e_U_KOMMANDOS_A", "property": "disabled", "equals": false },

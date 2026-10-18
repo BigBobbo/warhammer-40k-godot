@@ -8,6 +8,7 @@ extends Node
 ## concern; apply_state_changes here is a compatibility forwarder.
 const GameStateData = preload("res://autoloads/GameState.gd")
 const BasePhase = preload("res://phases/BasePhase.gd")
+const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")  # WP-O6
 
 # PhaseManager - Orchestrates phase transitions and manages the current active phase
 # This is the central controller for the modular phase system
@@ -152,6 +153,10 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 		# "This phase" unit markers end with the phase. Deterministic, so it
 		# runs on every peer (transition_to_phase runs on host and client).
 		_clear_phase_scoped_unit_flags()
+
+	# WP-O6: Codex: Orks (11e) datasheet-ability flag expiry / permanent states
+	# (deterministic, every peer) — before the new phase is entered.
+	OrkAbilities11eScript.on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
 
 	# Update game state to new phase
 	GameState.set_phase(new_phase)

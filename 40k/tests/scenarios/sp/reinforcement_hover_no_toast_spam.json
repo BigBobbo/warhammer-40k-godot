@@ -13,6 +13,8 @@
   "description": "Reinforcement / Deep Strike placement no longer spams validation toasts while you hover. The per-frame ghost-colour check (_process) reused the click-path validators, which each call _show_toast on failure — so hovering an illegal drop stacked a new 'Strategic Reserves must be within 6\" of a board edge' toast every frame until it hit MAX_TOASTS (the 5-toast pile). The validators now take a silent flag: the per-frame ghost check passes it (just reddens the ghost), while the click path (try_place_at) still surfaces the reason. Starts a Battlewagon Strategic-Reserves placement, hovers the board centre (>6\" from every edge = illegal) for over a second and asserts ZERO toasts accumulate, then dispatches an actual placement at the same illegal spot and asserts a toast DOES appear.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.0 },
+    {"act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn true", "equals": true, "comment": "WP-O6: the Orks' Weirdboy is offered the codex Da Jump at the start of their Movement phase — not under test, declined"},
+    {"act": "wait_seconds", "seconds": 0.5},
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
     { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
     { "act": "expect_state", "path": "units.U_BATTLEWAGON_G.status", "equals": 7 },

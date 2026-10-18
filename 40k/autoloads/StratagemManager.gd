@@ -20,6 +20,10 @@ signal stratagem_available(player: int, stratagem_id: String, trigger: String)
 # get_window_offers. Preloaded (not referenced by class_name) so headless
 # --script tests resolve it without a rebuilt global class cache.
 const OrkCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+# WP-O6: Codex: Orks (11e) datasheet abilities — activated ones ride the window
+# framework (offers appended in get_all_window_offers, "ork11e_ab_*" ids routed in
+# use_stratagem).
+const OrkAbilities = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 # Codex: Orks (11e) army / detachment rule choices (WP-O34): free rule offers
 # that ride the window framework (get_window_offers / use_stratagem hooks).
 const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
@@ -858,6 +862,9 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		if ability_mgr and ability_mgr.has_strategic_mastery(target_unit_id):
 			if not ability_mgr.is_once_per_round_used(player, "Strategic Mastery"):
 				effective_cost = maxi(effective_cost - 1, 0)
+	# WP-O6 TRAMPLASQUIG CHARGE (Codex: Orks 11e, Hunta Rig): Crushing Impact -1 CP.
+	if target_unit_id != "" and effective_cost > 0:
+		effective_cost = maxi(effective_cost - OrkAbilities.stratagem_cp_discount(str(strat.get("name", "")), target_unit_id), 0)
 	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus with Lord of Deceit aura
 	if target_unit_id != "":
 		effective_cost += get_lord_of_deceit_cp_increase(player, target_unit_id)
@@ -1123,6 +1130,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	Use a stratagem. Validates, deducts CP, records usage, and returns effect data.
 	Returns { "success": bool, "effects": Array, "diffs": Array, "message": String }
 	"""
+	# WP-O6: a Codex: Orks datasheet ability offered in a window (0 CP).
+	if OrkAbilities.handles_id(stratagem_id):
+		return OrkAbilities.use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
 	# Codex: Orks (11e) rule choice offered in a window (WP-O34): no CP, no stratagem bookkeeping.
 	if Ork11eDetachments.is_rule_offer_id(stratagem_id):
@@ -1149,6 +1159,12 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 				strategic_mastery_applied = true
 				ability_mgr.mark_once_per_round_used(player, "Strategic Mastery")
 				print("StratagemManager: Strategic Mastery reduces CP cost of %s by 1 (was %d, now %d)" % [strat.name, strat.cp_cost, effective_cp_cost])
+	# WP-O6 TRAMPLASQUIG CHARGE (Codex: Orks 11e, Hunta Rig): Crushing Impact -1 CP.
+	if target_unit_id != "" and effective_cp_cost > 0:
+		var tsc_disc := OrkAbilities.stratagem_cp_discount(str(strat.get("name", "")), target_unit_id)
+		if tsc_disc > 0:
+			effective_cp_cost = maxi(effective_cp_cost - tsc_disc, 0)
+			print("StratagemManager: Tramplasquig Charge reduces CP cost of %s by %d (now %d)" % [strat.name, tsc_disc, effective_cp_cost])
 	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus
 	var lord_of_deceit_increase = 0
 	if target_unit_id != "":
@@ -1468,6 +1484,22 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 	print("StratagemManager: get_window_offers(P%d, %s) -> %d offer(s)%s" % [
 		player, window_id, offers.size(),
 		"" if offers.is_empty() else " " + str(offers.map(func(o): return o.name))])
+	return offers
+
+## Everything `player` can do in window `window_id`: the window stratagems
+## (get_window_offers) plus the activated Codex: Orks (11e) datasheet
+## abilities whose timing is that window (WP-O6, OrkAbilities11e.gd). Ability
+## offers carry is_ability = true and cp_cost 0; they are used through
+## use_stratagem like a stratagem. The phases' window queue calls this.
+func get_all_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> Array:
+	var offers: Array = get_window_offers(player, window_id, ctx)
+	var wctx: Dictionary = ctx.duplicate(true)
+	wctx["window_id"] = window_id
+	var abil: Array = OrkAbilities.window_offers(player, window_id, wctx)
+	if not abil.is_empty():
+		print("StratagemManager: get_all_window_offers(P%d, %s) + %d datasheet ability offer(s) %s" % [
+			player, window_id, abil.size(), str(abil.map(func(o): return o.name))])
+	offers.append_array(abil)
 	return offers
 
 # ============================================================================
@@ -3798,6 +3830,10 @@ func get_fire_overwatch_eligible_units(player: int, enemy_unit_id: String, game_
 				break
 		if has_sneaky_gitz:
 			print("StratagemManager: %s has Sneaky Gitz — cannot Fire Overwatch" % unit_id)
+			continue
+		# WP-O6 Drive-by Skorchin' (Warbuggies): cannot be targeted with Fire Overwatch.
+		if OrkAbilities.blocks_fire_overwatch(str(unit_id)):
+			print("StratagemManager: %s was hit by Drive-by Skorchin' — cannot Fire Overwatch this turn" % unit_id)
 			continue
 
 		# Must not be battle-shocked
