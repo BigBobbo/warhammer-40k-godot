@@ -40,7 +40,13 @@
     { "act": "expect_state", "path": "meta.battle_round", "equals": 1 },
     { "act": "screenshot", "label": "02_after_p2_turn_still_round1" },
 
+    { "act": "click_if_visible", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true, "comment": "dismiss the new-secondaries review popup before ending the Command phase" },
+    { "act": "wait_seconds", "seconds": 0.4 },
     { "act": "dispatch_action", "action": { "type": "END_COMMAND", "player": 1 } },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")", "equals": "ork11e_war_cry", "comment": "WP-O34 (Codex: Orks 11e War Cry, 'at the start of the Command phase' — either player's): the Orks (P2) are offered WAR CRY in a rule window when P1's Command phase reaches the Battle-shock step — declined, not under test" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "wait_frames", "frames": 3 },
 
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },

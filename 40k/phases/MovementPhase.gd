@@ -1681,10 +1681,13 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 		advance_roll = tw_override
 		log_phase_message("Advance: %s — Thundering Wagons, flat %d\" (no roll)" % [unit_name, tw_override])
 	# Codex: Orks (11e) Blitz Brigade — Unstoppable Momentum: a WAGON's advance roll is changed to a 6 (WP-O34).
+	var ork11e_roll_changed := false
 	if tw_override == 0 and Ork11eDetachments.advance_roll_override(unit) > 0 and advance_roll < 6:
 		log_phase_message("Advance: %s — Unstoppable Momentum: advance roll %d changed to a 6" % [unit_name, advance_roll])
+		Ork11eDetachments.report_advance_roll_changed(unit_id, advance_roll)
 		advance_roll = Ork11eDetachments.advance_roll_override(unit)
 		tw_override = advance_roll  # a changed roll: no re-roll is offered below
+		ork11e_roll_changed = true
 
 	# Ability-granted Advance re-roll (Bloodthirsty Belligerence, SUPERFUELLED
 	# BOILER, Blitz Brigade's Eager for the Fight after disembarking): the
@@ -1704,7 +1707,7 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 	# re-roll offered in the same dialog instead of the Command Re-roll (WP-O34).
 	var free_rr_source: String = Ork11eArmyRules.free_advance_reroll_source(unit) if tw_override == 0 and advance_roll < 6 \
 		and not (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)) else ""
-	if strat_manager and free_rr_source == "":
+	if strat_manager and free_rr_source == "" and not ork11e_roll_changed:  # (WP-O34: a changed 6 is not re-rolled)
 		var reroll_check = strat_manager.is_command_reroll_available(current_player, unit_id)
 		reroll_available = reroll_check.available
 		if not reroll_available:

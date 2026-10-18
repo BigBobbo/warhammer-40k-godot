@@ -558,6 +558,17 @@ static func ranged_attacks_have_assault(u: Dictionary) -> bool:
 				return bool(flags.get("advanced", false)) or bool(flags.get("fell_back", false))
 	return false
 
+## Every [ASSAULT] grant the Codex: Orks (11e) rules give a unit's ranged
+## weapons — riled up (Waaagh!), Dakka! Dakka! Dakka!, Adrenaline Junkies — as
+## the 11e Assault shooting type (10.05) reads it: AssaultShooting hook (its
+## own check only sees the weapon's printed [ASSAULT]).
+static func unit_ranged_assault_11e(u: Dictionary) -> bool:
+	if not enabled() or u.is_empty():
+		return false
+	if ranged_attacks_have_assault(u):
+		return true
+	return group_kw(u, "ORKS") and group_riled_up(u)
+
 ## "That (advance) move does not prevent that unit from being eligible to
 ## declare a charge" — Adrenaline Junkies (SPEED FREEKS). Riled up is the
 ## Waaagh! flag. EffectPrimitives.has_effect_advance_and_charge hook.
@@ -587,6 +598,11 @@ static func advance_roll_override(u: Dictionary) -> int:
 	if unit_detachment(u) == BLITZ_BRIGADE and group_kw(u, "WAGON"):
 		return 6
 	return 0
+
+## Player-facing Game Log line for a changed advance roll (MovementPhase hook).
+static func report_advance_roll_changed(unit_id: String, old_roll: int) -> void:
+	var u := Common.unit(unit_id)
+	_event(int(u.get("owner", 0)), "Unstoppable Momentum — %s's advance roll %d is changed to a 6" % [Common.unit_name(unit_id), old_roll])
 
 ## Unstoppable Momentum: "Friendly Wagon units can re-roll charge rolls."
 static func charge_reroll_source(u: Dictionary) -> String:
@@ -1163,7 +1179,8 @@ static func use_rule_offer(player: int, sid: String, target_unit_id: String, ctx
 		_:
 			res = {"success": false, "error": "unknown Codex: Orks rule offer %s" % sid, "diffs": []}
 	if res.get("success", false):
-		res["reopen_window"] = true
+		# Hop Splat's window is rule-only and its pick is final: no re-offer.
+		res["reopen_window"] = sid != RULE_HOP_SPLAT
 		res["rule_use"] = true
 	return res
 

@@ -237,6 +237,8 @@ static func war_cry_available(player: int) -> bool:
 ## player's War Cry window — "At the start of the Command phase" is not "your".
 static func war_cry_window_entries(active_player: int) -> Array:
 	var other := 2 if active_player == 1 else 1
+	if _tutorial_active():
+		return []  # scripted lessons keep their taught flow (as for the free advance re-roll)
 	if not war_cry_available(other):
 		return []
 	return [{"player": other, "window_id": WINDOW_WAR_CRY, "ctx": {"phase": "command",
@@ -281,6 +283,9 @@ static func use_war_cry(player: int) -> Dictionary:
 	diffs.append({"op": "set", "path": "players.%d.%s" % [player, P_WAR_CRY_UNTIL], "value": until})
 	var msg := "WAR CRY — Player %d's Waaagh! units are riled up until the end of the next turn (called in the opponent's Command phase)" % player
 	Common.log_info("OrkArmyRules11e: " + msg)
+	var gel = _gel()
+	if gel:
+		gel.add_player_entry(player, msg)
 	_toast(msg)
 	return {"success": true, "diffs": diffs, "stratagem_name": "War Cry", "message": msg}
 

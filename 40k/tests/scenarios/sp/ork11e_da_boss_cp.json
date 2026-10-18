@@ -92,6 +92,15 @@
       "comment": "setup privilege: every Custodes model 12\" south, so no unit is engaged and the turn can be ended phase by phase"
     },
     {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
       "act": "dispatch_action",
       "action": {
         "type": "END_COMMAND",
@@ -410,6 +419,15 @@
       "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
       "equals": false
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
     },
     {
       "act": "dispatch_action",

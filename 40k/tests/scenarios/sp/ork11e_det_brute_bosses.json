@@ -1,0 +1,285 @@
+{
+  "id": "ork11e_det_brute_bosses",
+  "covers": [
+    "ork11e.detachment.brute_bosses.ard_as_nails",
+    "phases.FightPhase.fight_on_death"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Brute Bosses — 'ARD AS NAILS (WP-O34): when a friendly WARBOSS model is destroyed, if its unit has not been selected to fight this phase, roll one D6 (+1 if riled up): on a 3+ it is not removed until its unit has fought (or the phase ends). Setup: detachment Brute Bosses; the Warboss detached and standing alone in front of Custodian Guard Alpha with 1 wound left (the Boyz stepped back), riled up (+1); Custodian Guard Alpha has Fights First so the Custodes pick first — all set in the Charge phase, which then ends. Fight phase: Pile In passed, the Custodes click Custodian Guard Alpha, pick a Ka'tah stance, attack the Warboss and resolve: the Warboss is destroyed, 'Ard as Nails rolls (dice log), and on the pass it stays on the battlefield; the Orks then select it to fight and it is removed once it has fought.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Brute Bosses\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nCharacterAttachmentManager.detach_character(\"U_WARBOSS_A\")\nfor _m in GameState.state.units[\"U_BOYZ_B\"].models:\n\t_m[\"position\"] = {\"x\": float(_m.position.x), \"y\": float(_m.position.y) - 4.0 * 40.0}\nvar _ms_U_WARBOSS_A = GameState.state.units[\"U_WARBOSS_A\"].models\nfor _i in range(_ms_U_WARBOSS_A.size()):\n\t_ms_U_WARBOSS_A[_i][\"position\"] = {\"x\": (22.000000 + (float(_i) - float(_ms_U_WARBOSS_A.size() - 1) / 2.0) * 1.600000) * 40.0, \"y\": 29.200000 * 40.0}\nGameState.state.units[\"U_WARBOSS_A\"].models[0][\"current_wounds\"] = 1\nGameState.state.units[\"U_CUSTODIAN_GUARD_A\"][\"flags\"][\"fights_first\"] = true\nGameState.state.units[\"U_WARBOSS_A\"][\"flags\"][\"waaagh_active\"] = true\nGameState.state.players[\"2\"][\"cp\"] = 0\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Brute Bosses",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Brute Bosses (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkDetachments11e.gd\").ard_as_nails_roll_modifier(GameState.state.units[\"U_WARBOSS_A\"]).mod\n",
+      "multiline": true,
+      "equals": 1,
+      "comment": "riled up: +1"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(9)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_CHARGE",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_A",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_CUSTODIAN_GUARD_A\" in PhaseManager.get_current_phase_instance().units_that_fought",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"ork11e_fight_on_death\" and \"Ard as Nails\" in str(d)):\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "'Ard as Nails rolled when the Warboss was destroyed"
+    },
+    {
+      "act": "execute_script",
+      "script": "var w = GameState.get_unit(\"U_WARBOSS_A\").models[0]\nreturn \"%s,%d\" % [str(bool(w.get(\"alive\", false))), int(w.get(\"current_wounds\", 1))]",
+      "multiline": true,
+      "equals": "true,0",
+      "comment": "kept on the battlefield (pass)"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_ard_as_nails_warboss_kept"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_A",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "Decline"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "bool(GameState.get_unit(\"U_WARBOSS_A\").models[0].get(\"alive\", true))",
+      "equals": false,
+      "comment": "removed once its unit has fought"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_warboss_removed_after_fighting"
+    }
+  ]
+}

@@ -354,6 +354,8 @@ func _section_kult_of_speed() -> void:
 	var wid := _ranged_weapon("U_WARBIKERS_A")
 	var v: Dictionary = RE.validate_shoot({"actor_unit_id": "U_WARBIKERS_A", "payload": {"assignments": [_assign(GS.state, "U_WARBIKERS_A", wid, "U_CUSTODIAN_GUARD_C")]}}, GS.state)
 	_check("validate_shoot: no 'non-Assault after Advancing' error", not str(v.get("errors", [])).contains("after Advancing"), str(v.get("errors", [])))
+	_check("11e Assault shooting (10.05): eligible for the advanced Warbikers",
+		bool(load("res://scripts/rules/shootingtypes/AssaultShooting.gd").new().eligible("U_WARBIKERS_A", GS.state).get("eligible", false)))
 	bikes.flags.erase("advanced")
 	bikes.flags["fell_back"] = true
 	v = RE.validate_shoot({"actor_unit_id": "U_WARBIKERS_A", "payload": {"assignments": [_assign(GS.state, "U_WARBIKERS_A", wid, "U_CUSTODIAN_GUARD_C")]}}, GS.state)
@@ -411,8 +413,9 @@ func _section_blitz_brigade() -> void:
 		if phase.has_pending_stratagem_window():
 			var pw: Dictionary = phase.get_pending_stratagem_window()
 			phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": str(pw.get("window_id", ""))})
+	_check("a changed 6 is not re-rolled: no Waaagh! / Command Re-roll pause", not phase._awaiting_reroll_decision,
+		str(phase._reroll_pending_data))
 	if phase._awaiting_reroll_decision:
-		_check("no free Waaagh! re-roll of a changed 6", str(phase._reroll_pending_data.get("free_ability", "")) == "")
 		phase.execute_action({"type": "DECLINE_COMMAND_REROLL", "actor_unit_id": "U_BATTLEWAGON_A", "player": 1})
 	_check("BEGIN_ADVANCE (rolled a 1-2): the Battlewagon advances 6\"", int(phase.active_moves.get("U_BATTLEWAGON_A", {}).get("advance_roll", -1)) == 6, str(res.get("error", "")))
 	PM.transition_to_phase(PHASE_CHARGE)
@@ -479,6 +482,21 @@ func _section_shoota_boyz() -> void:
 	_u("U_KOMMANDOS_A").flags["advanced"] = true
 	var v: Dictionary = RE.validate_shoot({"actor_unit_id": "U_KOMMANDOS_A", "payload": {"assignments": [_assign(GS.state, "U_KOMMANDOS_A", wid, "U_CUSTODIAN_GUARD_C")]}}, GS.state)
 	_check("advanced Kommandos may fire %s" % wid, not str(v.get("errors", [])).contains("after Advancing"), str(v.get("errors", [])))
+	# The 11e shooting-type template (10.05 Assault shooting) the UI selects through.
+	var ast = load("res://scripts/rules/shootingtypes/AssaultShooting.gd").new()
+	var ae: Dictionary = ast.eligible("U_KOMMANDOS_A", GS.state)
+	_check("11e Assault shooting (10.05): eligible for the advanced Kommandos", bool(ae.get("eligible", false)), str(ae))
+	_check("... and it allows their printed non-[ASSAULT] %s" % wid, bool(ast.weapon_allowed(RE.get_weapon_profile(wid, GS.state), _u("U_KOMMANDOS_A"), GS.state).get("allowed", false)))
+	_set_detachment(1, "War Horde")
+	ae = ast.eligible("U_KOMMANDOS_A", GS.state)
+	_check("War Horde, not riled up: no Assault shooting type (no [ASSAULT] weapons)", not bool(ae.get("eligible", true)) and str(ae.get("reasons", [])).contains("ASSAULT"), str(ae))
+	FAM.detect_faction_abilities(1)
+	FAM.activate_waaagh(1)
+	ae = ast.eligible("U_KOMMANDOS_A", GS.state)
+	_check("War Horde, riled up (War Cry): Assault shooting type eligible — riled-up ranged [ASSAULT]", bool(ae.get("eligible", false)), str(ae))
+	FAM.deactivate_waaagh(1)
+	FAM.load_state({})  # War Cry is once per battle: reset it for the range checks below
+	_set_detachment(1, "Shoota Boyz")
 	_check("not riled up: no range bonus", Det.range_bonus_inches(_u("U_KOMMANDOS_A"), RE.get_weapon_profile(wid, GS.state)) == 0.0)
 	FAM.detect_faction_abilities(1)
 	FAM.activate_waaagh(1)
@@ -598,6 +616,10 @@ func _section_madcap_meks() -> void:
 	_check("Hop Splat window offers each candidate", offers.size() == 1 and offers[0].targets.size() == opts.size())
 	var dec: Array = Det.hop_splat_after_window(entry.ctx, {"used": false})
 	_check("a declined Hop Splat hits the closest candidate", not dec.is_empty())
+	var hs_use: Dictionary = SM.use_stratagem(1, Det.RULE_HOP_SPLAT, "U_CUSTODIAN_GUARD_D", entry.ctx)
+	_check("a Hop Splat pick succeeds and its rule-only window is NOT re-offered (one Hop Splat per roll)",
+		hs_use.get("success", false) and not bool(hs_use.get("reopen_window", true)), str(hs_use))
+	_check("... and the window's after-hook adds nothing once a unit was picked", Det.hop_splat_after_window(entry.ctx, {"used": true}).is_empty())
 	_check("AI pick is a candidate", Det.ai_pick_hop_splat(opts) in opts)
 	# The real CONFIRM_TARGETS path rolls and the post-shot hook clears it.
 	_reload("Madcap Meks")

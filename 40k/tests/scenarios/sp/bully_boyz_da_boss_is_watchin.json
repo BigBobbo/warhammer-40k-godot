@@ -5,11 +5,11 @@
   "faction.bully_boyz.second_waaagh_scoped"
  ],
  "fixture": "co_pretrigger",
- "edition": 11,
+ "edition": 10,
  "rng_seed": 42,
  "transition_to_phase": 6,
  "disable_ai": true,
- "description": "Da Boss Is Watchin' (Bully Boyz detachment rule) on the real Command-phase action path: with the Ork player's detachment flipped to Bully Boyz and the regular once-per-battle Waaagh! marked as spent (documented setup privilege), the CALL_WAAAGH action is offered again as the second Waaagh! and dispatching it succeeds — but the effects land only on WARBOSS/NOBZ/MEGANOBZ units (Warboss Beta and the reserve Meganobz gain waaagh_active + 5+ invuln; the deployed Painboss and Weirdboy stay untouched). The second call is once per battle: availability drops to false afterwards.",
+ "description": "Pinned to edition 10 by WP-O34: the second Waaagh! (Da Boss Is Watchin') is the 10th-edition Bully Boyz rule; the 11e Bully Boyz rule is Displays of Savagery (covered by ork11e_det_bully_boyz). Da Boss Is Watchin' (Bully Boyz detachment rule) on the real Command-phase action path: with the Ork player's detachment flipped to Bully Boyz and the regular once-per-battle Waaagh! marked as spent (documented setup privilege), the CALL_WAAAGH action is offered again as the second Waaagh! and dispatching it succeeds — but the effects land only on WARBOSS/NOBZ/MEGANOBZ units (Warboss Beta and the reserve Meganobz gain waaagh_active + 5+ invuln; the deployed Painboss and Weirdboy stay untouched). The second call is once per battle: availability drops to false afterwards.",
  "steps": [
   { "act": "wait_seconds", "seconds": 0.8 },
   { "act": "expect_phase", "equals": 6 },

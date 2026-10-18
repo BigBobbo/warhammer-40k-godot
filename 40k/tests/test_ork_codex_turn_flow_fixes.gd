@@ -805,7 +805,12 @@ func _section_command_reroll_15_01() -> void:
 	var use = phase.execute_action({"type": "USE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_selected_to_move", "stratagem_id": sid, "target_unit_id": "U_BOYZ_B"})
 	RE.set_test_seed(-1)
 	_check("'ERE WE GO used on the advancing Boyz", use.get("success", false), str(use.get("error", "")))
-	_check("no Command Re-roll prompt for its advance roll", not phase._awaiting_reroll_decision)
+	# WP-O34 (11e Waaagh! army rule): the advance may pause on the FREE Waaagh!
+	# re-roll (not a stratagem, so 15.01 does not bar it) — never on Command Re-roll.
+	_check("no Command Re-roll prompt for its advance roll", not phase._awaiting_reroll_decision \
+		or str(phase._reroll_pending_data.get("free_ability", "")) == "Waaagh!", str(phase._reroll_pending_data))
+	if phase._awaiting_reroll_decision:
+		phase.execute_action({"type": "DECLINE_COMMAND_REROLL", "actor_unit_id": "U_BOYZ_B", "player": 1})
 	var mvd: Dictionary = phase.active_moves.get("U_BOYZ_B", {})
 	var adv := int(mvd.get("advance_roll", -1))
 	_check("the advance resolved with the +2 (cap = M + roll)", adv >= 3 and absf(float(mvd.get("move_cap_inches", -1)) - (m_in + adv)) < 0.01, str(mvd.get("move_cap_inches")))
