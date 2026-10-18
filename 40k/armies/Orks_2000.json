@@ -2923,12 +2923,10 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Boss Nob",
      "1x Choppa",
-     "2x Rokkit pistol",
-     "5x Tankbusta",
-     "5x Close combat weapon",
-     "5x Rokkit launcha"
+     "2x Rokkit Pistol",
+     "5x Busta Rokkit Launcha",
+     "5x Gitstikka"
     ],
     "weapons": [
      {
@@ -2979,7 +2977,7 @@
       "damage": "1"
      },
      {
-      "name": "Close combat weapon",
+      "name": "Gitstikka",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
@@ -3008,7 +3006,7 @@
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob",
+      "description": "1 Nob",
       "line": 1
      },
      {
@@ -3101,46 +3099,85 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "5x Warbiker",
-     "5x Close combat weapon",
-     "5x Twin dakkagun",
-     "1x Boss Nob on Warbike",
-     "1x Close combat weapon",
-     "1x Twin dakkagun"
+     "1x Kustom Choppa",
+     "1x Dual Kombi-rokkit",
+     "5x Choppas",
+     "5x Dual Dakkagun"
     ],
     "weapons": [
      {
-      "name": "Twin dakkagun",
+      "name": "Dual Dakkagun",
       "type": "Ranged",
       "range": "18",
-      "attacks": "3",
+      "attacks": "6",
       "ballistic_skill": "5",
       "strength": "5",
       "ap": "0",
       "damage": "1",
-      "special_rules": "assault, rapid fire 2, twin linked",
+      "special_rules": "assault, lethal hits",
       "abilities": [
        {
         "id": "assault"
        },
        {
-        "id": "rapid_fire",
-        "x": 2
-       },
-       {
-        "id": "twin_linked"
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Close combat weapon",
+      "name": "Dual Kombi-rokkit – Busta Rokkit",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "assault",
+      "abilities": [
+       {
+        "id": "assault"
+       }
+      ]
+     },
+     {
+      "name": "Dual Kombi-rokkit – Dakkagun",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "6",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "assault, lethal hits",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "lethal_hits"
+       }
+      ]
+     },
+     {
+      "name": "Choppas",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "2",
+      "attacks": "3",
       "weapon_skill": "3",
-      "strength": "4",
-      "ap": "0",
+      "strength": "5",
+      "ap": "-1",
       "damage": "1"
+     },
+     {
+      "name": "Kustom Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2"
      }
     ],
     "abilities": [
@@ -3157,7 +3194,7 @@
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob on Warbike",
+      "description": "1 Biker Nob",
       "line": 1
      },
      {
@@ -3280,29 +3317,25 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "5x Warbiker",
-     "1x Choppa",
-     "5x Close combat weapon",
-     "1x Slugga",
-     "5x Twin dakkagun",
-     "1x Boss Nob on Warbike",
-     "1x Close combat weapon",
-     "1x Twin dakkagun"
+     "1x Kustom Choppa",
+     "1x Dual Kombi-rokkit",
+     "5x Choppas",
+     "5x Dual Dakkagun"
     ],
     "weapons": [
      {
-      "name": "Slugga",
+      "name": "Dual Dakkagun",
       "type": "Ranged",
-      "range": "12",
-      "attacks": "1",
+      "range": "18",
+      "attacks": "6",
       "ballistic_skill": "5",
-      "strength": "4",
+      "strength": "5",
       "ap": "0",
       "damage": "1",
-      "special_rules": "close quarters, lethal hits",
+      "special_rules": "assault, lethal hits",
       "abilities": [
        {
-        "id": "close_quarters"
+        "id": "assault"
        },
        {
         "id": "lethal_hits"
@@ -3310,41 +3343,37 @@
       ]
      },
      {
-      "name": "Twin dakkagun",
+      "name": "Dual Kombi-rokkit – Busta Rokkit",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "assault",
+      "abilities": [
+       {
+        "id": "assault"
+       }
+      ]
+     },
+     {
+      "name": "Dual Kombi-rokkit – Dakkagun",
       "type": "Ranged",
       "range": "18",
-      "attacks": "3",
+      "attacks": "6",
       "ballistic_skill": "5",
       "strength": "5",
       "ap": "0",
       "damage": "1",
-      "special_rules": "assault, rapid fire 2, twin linked",
+      "special_rules": "assault, lethal hits",
       "abilities": [
        {
         "id": "assault"
        },
        {
-        "id": "rapid_fire",
-        "x": 2
-       },
-       {
-        "id": "twin_linked"
-       }
-      ]
-     },
-     {
-      "name": "Big choppa",
-      "type": "Melee",
-      "range": "Melee",
-      "attacks": "5",
-      "weapon_skill": "3",
-      "strength": "7",
-      "ap": "-2",
-      "damage": "2",
-      "special_rules": "precision",
-      "abilities": [
-       {
-        "id": "precision"
+        "id": "lethal_hits"
        }
       ]
      },
@@ -3359,14 +3388,14 @@
       "damage": "1"
      },
      {
-      "name": "Close combat weapon",
+      "name": "Kustom Choppa",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "2",
+      "attacks": "4",
       "weapon_skill": "3",
-      "strength": "4",
-      "ap": "0",
-      "damage": "1"
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2"
      }
     ],
     "abilities": [
@@ -3383,7 +3412,7 @@
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob on Warbike",
+      "description": "1 Biker Nob",
       "line": 1
      },
      {

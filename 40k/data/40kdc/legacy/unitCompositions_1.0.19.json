@@ -32,7 +32,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "megatrakk-scrapjet",
@@ -71,7 +72,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "deffkoptas",
@@ -117,7 +119,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "kustom-boosta-blasta",
@@ -155,7 +158,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "painboy",
@@ -190,7 +194,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "killa-kans",
@@ -234,7 +239,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "lootas",
@@ -303,7 +309,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "squighog-boyz",
@@ -375,7 +382,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "wazbom-blastajet",
@@ -412,7 +420,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "battlewagon",
@@ -446,7 +455,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "boss-snikrot",
@@ -481,7 +491,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "morkanaut",
@@ -522,7 +533,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "ghazghkull-thraka",
@@ -575,7 +587,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "breaka-boyz",
@@ -629,7 +642,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "stompa",
@@ -671,7 +685,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "biged-bossbunka",
@@ -706,7 +721,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "kommandos",
@@ -760,7 +776,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "boyz",
@@ -828,7 +845,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "trukk",
@@ -863,7 +881,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "gorkanaut",
@@ -904,7 +923,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "mek-gunz",
@@ -928,7 +948,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "stormboyz",
@@ -996,7 +1017,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "blitza-bommer",
@@ -1033,7 +1055,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "deff-dread",
@@ -1071,7 +1094,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "wurrboy",
@@ -1106,7 +1130,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "beastboss",
@@ -1142,7 +1167,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "dakkajet",
@@ -1179,7 +1205,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "big-mek-in-mega-armour",
@@ -1214,7 +1241,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "rukkatrukk-squigbuggy",
@@ -1251,7 +1279,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "beast-snagga-boyz",
@@ -1319,7 +1348,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "mek",
@@ -1354,7 +1384,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "shokkjump-dragsta",
@@ -1391,7 +1422,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "gretchin",
@@ -1459,7 +1491,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "big-mek-with-shokk-attack-gun",
@@ -1494,7 +1527,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "burna-boyz",
@@ -1563,7 +1597,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "nobz",
@@ -1632,7 +1667,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "meganobz",
@@ -1671,7 +1707,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "boomdakka-snazzwagon",
@@ -1709,7 +1746,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "burna-bommer",
@@ -1746,7 +1784,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "warboss",
@@ -1782,7 +1821,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "bannernob",
@@ -1801,7 +1841,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "big-mek-dakkarig",
@@ -1821,7 +1862,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "bigboss",
@@ -1840,7 +1882,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "wartrakk",
@@ -1860,7 +1903,189 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
+ },
+ {
+  "unit_id": "warbikers",
+  "faction_id": "orks",
+  "models": [
+   {
+    "name": "Boss Nob on Warbike",
+    "min": 1,
+    "max": 1,
+    "default_weapon_ids": [
+     "close-combat-weapon",
+     "twin-dakkagun"
+    ],
+    "is_leader_model": true,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 75,
+     "length": 42
+    }
+   },
+   {
+    "name": "Warbiker",
+    "min": 2,
+    "max": 5,
+    "default_weapon_ids": [
+     "twin-dakkagun",
+     "close-combat-weapon"
+    ],
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 75,
+     "length": 42
+    }
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Boss Nob on Warbike",
+      "min": 1,
+      "max": 1
+     },
+     {
+      "name": "Warbiker",
+      "min": 2,
+      "max": 2
+     }
+    ]
+   },
+   {
+    "models": [
+     {
+      "name": "Boss Nob on Warbike",
+      "min": 1,
+      "max": 1
+     },
+     {
+      "name": "Warbiker",
+      "min": 3,
+      "max": 5
+     }
+    ]
+   }
+  ],
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "unit_id": "tankbustas",
+  "faction_id": "orks",
+  "models": [
+   {
+    "name": "Boss Nob",
+    "min": 1,
+    "max": 1,
+    "default_weapon_ids": [
+     "rokkit-pistol",
+     "rokkit-pistol",
+     "choppa-tankbustas"
+    ],
+    "is_leader_model": true,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    }
+   },
+   {
+    "name": "Tankbusta",
+    "min": 5,
+    "max": 5,
+    "default_weapon_ids": [
+     "rokkit-launcha-tankbustas",
+     "close-combat-weapon-tankbustas"
+    ],
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 32
+    }
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Boss Nob",
+      "min": 1,
+      "max": 1
+     },
+     {
+      "name": "Tankbusta",
+      "min": 5,
+      "max": 5
+     }
+    ]
+   }
+  ],
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "unit_id": "nazdreg",
+  "faction_id": "orks",
+  "models": [
+   {
+    "name": "Nazdreg",
+    "min": 1,
+    "max": 1,
+    "default_weapon_ids": [
+     "kustom-blasta-x",
+     "kustom-blasta-x-melee",
+     "moonchewa"
+    ],
+    "is_leader_model": true
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Nazdreg",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ],
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "unit_id": "runtherd",
+  "faction_id": "orks",
+  "models": [
+   {
+    "name": "Runtherd",
+    "min": 1,
+    "max": 1,
+    "default_weapon_ids": [
+     "slugga",
+     "runtherd-tools"
+    ],
+    "is_leader_model": true
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
  },
  {
   "unit_id": "telemon-heavy-dreadnought",
@@ -1897,7 +2122,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "contemptor-achillus-dreadnought",
@@ -1933,7 +2159,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "contemptor-galatus-dreadnought",
@@ -1967,7 +2194,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "blade-champion",
@@ -2001,7 +2229,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "caladius-grav-tank",
@@ -2038,7 +2267,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "allarus-custodians",
@@ -2100,7 +2330,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "shield-captain-on-dawneagle-jetbike",
@@ -2136,7 +2367,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "ares-gunship",
@@ -2173,7 +2405,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "orion-assault-dropship",
@@ -2213,7 +2446,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "knight-centura",
@@ -2247,7 +2481,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "anathema-psykana-rhino",
@@ -2282,7 +2517,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "custodian-wardens",
@@ -2325,7 +2561,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "pallas-grav-attack",
@@ -2361,7 +2598,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "vertus-praetors",
@@ -2406,7 +2644,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "shield-captain-in-allarus-terminator-armour",
@@ -2441,7 +2680,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "coronus-grav-carrier",
@@ -2478,7 +2718,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "shield-captain",
@@ -2512,7 +2753,8 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "unit_id": "trajann-valoris",
@@ -2547,6 +2789,7 @@
      }
     ]
    }
-  ]
+  ],
+  "frozen_from": "40kdc-data 1.0.19"
  }
 ]

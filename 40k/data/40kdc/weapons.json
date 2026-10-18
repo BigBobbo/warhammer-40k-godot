@@ -112231,6 +112231,25 @@
     "name": "Shell",
     "range": 36,
     "stats": {
+     "A": 2,
+     "S": 10,
+     "AP": -2,
+     "D": "D6+1",
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   },
+   {
+    "name": "Frag",
+    "range": 36,
+    "stats": {
      "A": 6,
      "S": 5,
      "AP": 0,
@@ -112248,25 +112267,6 @@
       "keyword_id": "blast",
       "parameters": {
        "value": 1
-      }
-     }
-    ]
-   },
-   {
-    "name": "Frag",
-    "range": 36,
-    "stats": {
-     "A": 2,
-     "S": 10,
-     "AP": -2,
-     "D": "D6+1",
-     "BS": 5
-    },
-    "keywords": [
-     {
-      "keyword_id": "rapid-fire",
-      "parameters": {
-       "value": 2
       }
      }
     ]
@@ -114350,6 +114350,25 @@
     "name": "Shell",
     "range": 36,
     "stats": {
+     "A": 2,
+     "S": 10,
+     "AP": -2,
+     "D": "D6+1",
+     "BS": 4
+    },
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   },
+   {
+    "name": "Frag",
+    "range": 36,
+    "stats": {
      "A": 4,
      "S": 5,
      "AP": 0,
@@ -114367,25 +114386,6 @@
       "keyword_id": "rapid-fire",
       "parameters": {
        "value": 4
-      }
-     }
-    ]
-   },
-   {
-    "name": "Frag",
-    "range": 36,
-    "stats": {
-     "A": 2,
-     "S": 10,
-     "AP": -2,
-     "D": "D6+1",
-     "BS": 4
-    },
-    "keywords": [
-     {
-      "keyword_id": "rapid-fire",
-      "parameters": {
-       "value": 2
       }
      }
     ]
@@ -119813,6 +119813,22 @@
   "profiles": [
    {
     "name": "Busta Rokkit",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "assault"
+     }
+    ]
+   },
+   {
+    "name": "Dakkagun",
     "range": 18,
     "stats": {
      "A": 6,
@@ -119833,22 +119849,6 @@
         "Vehicle"
        ]
       }
-     }
-    ]
-   },
-   {
-    "name": "Dakkagun",
-    "range": 24,
-    "stats": {
-     "A": 2,
-     "S": 10,
-     "AP": -2,
-     "D": 3,
-     "BS": 5
-    },
-    "keywords": [
-     {
-      "keyword_id": "assault"
      }
     ]
    }

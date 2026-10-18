@@ -72,3 +72,11 @@ None of these are in run_pretrigger_tests.sh. Each tested a 10e Ork datasheet ab
 ## WP-W3 (web army builder on the codex data)
 - server/tests/speedwaaagh-enhancements.test.mjs (4 Speedwaaagh! checks) and the Speedwaaagh! section of server/tests/e2e-builder.mjs: the Speedwaaagh! detachment is not in 40kdc 1.4.5 / Codex: Orks (11e), so the 1.0.19 data patch it pinned attaches nothing. Re-pointed, same regression path (pasted enhancement resolves, exports with its cost, builder total prices it, patches idempotent; the e2e dropdown adds its cost) on War Horde / Headwoppa's Killchoppa, plus a check that the Speedwaaagh! patch is a no-op.
 - server/tests/gameformat.test.mjs: the 1.0.19 Ork numbers (Beastboss 80, Boyz 75 / "Boss Nob" W2 / '10x Slugga', 150-pt Boyz text import) replaced by the codex values; the round-trip compares datasheet facts only for army files stamped with the converter's data_source (space_marines.json, tutorial_custodes.json, tutorial_orks.json are 1.0.19 snapshots: structure only) and accepts the priced-wargear surcharge of a weapon the file lists without a count (gameToRoster's documented 1x reconstruction).
+
+## WP-O1b (Codex: Orks weapon kits)
+Nothing deleted; test_loadout_resolution.gd checks that asserted the pre-codex Ork kits were rewritten to the printed codex kits (reasoning per check: RULINGS.md WP-O1b):
+- "Boyz -> 10 Slugga / no Shoota", "Boyz U_BOYZ_E/F -> 20 Slugga / no Shoota", "Boyz K / E -> 0 special", "Boyz K melee -> 1 Big choppa", "no-model_profiles Boyz -> Big choppa / Boss Nob": the 10e Boyz kit (every model a Slugga, Boss Nob Big choppa) -> codex Nob Kustom Choppa + Kombi-skorcha, Boy Choppa + Shoota + Slugga, 20 Boyz = 2 Nobs + 18 Boyz, the Nob(s) special.
+- "Deffkoptas -> 3 Kopta rokkits": no Kopta rokkits in the codex -> Rokkit Launcha (both profiles) + Slugga.
+- "Beast Snagga melee -> 9 Choppa / 1 Power snappa": the codex Choppa has Hunter / Standard profiles.
+- "Kommandos melee -> fallback (boss can't take Choppa)": the codex Nob carries a Choppa -> resolved, every model a Choppa.
+- resolved-uniform-k / resolved-total==k*alive / melee-uniform-k: counted profiles over the whole unit -> count weapons (profiles grouped) per composition role; a lone model whose roster took no gun may report none (codex Battlewagon).

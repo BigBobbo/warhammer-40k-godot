@@ -20,6 +20,12 @@ extends SceneTree
 #   4. Decision D1: a pre-codex (1.0.19) Telemon roster still resolves its
 #      loadout through the frozen legacy kit; Legends units in a roster
 #      (Lootas) are kept unchanged.
+#   5. WP-O1b: the Ork datasheets the codex re-kitted (Tankbustas, Warbikers,
+#      Runtherd, Nazdreg) carry the printed codex kit and weapon list, their
+#      40kdc 1.4.5 kit is frozen (frozen_from) for old rosters, a pre-codex
+#      Warbikers roster still resolves its old kit, the shipped rosters resolve
+#      the codex kit per model, and the Kannon / Dual Kombi-rokkit profiles
+#      carry their own printed numbers (an index merge had swapped them).
 #
 # Usage: godot --headless --path . -s tests/test_wahapedia_11e_import_data.gd
 
@@ -88,6 +94,7 @@ func _run() -> void:
 	_check("Prosecutor Squad token uses the Prosecutors art",
 		sr.resolve_sprite("Prosecutor Squad", "Adeptus Custodes", "INFANTRY") != null)
 	_check_legacy_roster()
+	_check_wp_o1b_kits()
 
 # int() of a JSON value that may be null / missing.
 func _i(v, fallback: int = -99) -> int:
@@ -295,3 +302,169 @@ func _check_legacy_roster() -> void:
 	var lootas := _unit_by_name("Orks_2000", "Lootas")
 	_check("D2: Legends unit (Lootas) kept in the roster unchanged", not lootas.is_empty() and
 		str(lootas.get("meta", {}).get("points", "")) != "")
+
+# WP-O1b — Ork datasheets the codex re-kitted (import_report_orks.md "kit
+# re-kitted by the codex"). The printed loadouts
+# (.llm/codex_11e_wahapedia/orks/wahapedia/Datasheets.csv): Tankbustas "The Nob
+# is equipped with: 1 Choppa; 2 Rokkit Pistol. Every Tankbusta is equipped
+# with: 1 Busta Rokkit Launcha; 1 Gitstikka."; Warbikers "The Biker Nob ... 1
+# Kustom Choppa; 1 Dual Kombi-rokkit. Every Warbiker ... 1 Choppa; 1 Dual
+# Dakkagun."; Runtherd "1 Runtherd's Toolz; 1 Slugga"; Nazdreg "1 Kustom
+# Blasta X; 1 Moonchewa".
+func _sorted(arr) -> Array:
+	var a: Array = (arr if arr is Array else []).duplicate()
+	a.sort()
+	return a
+
+func _profile(weapons: Dictionary, wid: String, pname: String) -> Dictionary:
+	for p in weapons.get(wid, {}).get("profiles", []):
+		if str(p.get("name", "")) == pname:
+			return p
+	return {}
+
+func _check_wp_o1b_kits() -> void:
+	var units := {}
+	for u in _read_json("res://data/40kdc/units.json"):
+		if str(u.get("faction_id", "")) == "orks":
+			units[str(u.get("id", ""))] = u
+	var comps := {}
+	for c in _read_json("res://data/40kdc/unitCompositions.json"):
+		if str(c.get("faction_id", "")) == "orks" and not comps.has(str(c.get("unit_id", ""))):
+			comps[str(c.get("unit_id", ""))] = c
+	var want_weapons := {
+		"tankbustas": ["choppa-tankbustas", "gitstikka", "rokkit-launcha-tankbustas", "rokkit-pistol", "smash-hammer"],
+		"warbikers": ["choppa", "dual-dakkagun", "dual-kombi-rokkit", "kustom-choppa-warbikers"],
+		"runtherd": ["runtherds-toolz", "slugga"],
+		"nazdreg": ["kustom-blasta-x", "moonchewa"],
+	}
+	for uid in want_weapons:
+		var got = _sorted(units.get(uid, {}).get("weapon_ids", []))
+		_check("WP-O1b: %s weapon list is the codex datasheet's" % uid, got == want_weapons[uid], str(got))
+	var want_kits := {
+		"tankbustas": [["Nob", ["choppa-tankbustas", "rokkit-pistol", "rokkit-pistol"]], ["Tankbusta", ["gitstikka", "rokkit-launcha-tankbustas"]]],
+		"warbikers": [["Biker Nob", ["dual-kombi-rokkit", "kustom-choppa-warbikers"]], ["Warbiker", ["choppa", "dual-dakkagun"]]],
+		"runtherd": [["Runtherd", ["runtherds-toolz", "slugga"]]],
+		"nazdreg": [["Nazdreg", ["kustom-blasta-x", "moonchewa"]]],
+	}
+	for uid in want_kits:
+		var got := []
+		for m in comps.get(uid, {}).get("models", []):
+			got.append([str(m.get("name", "")), _sorted(m.get("default_weapon_ids", []))])
+		_check("WP-O1b: %s composition is the printed codex kit (copies kept: 2 Rokkit Pistol)" % uid,
+			got == want_kits[uid], str(got))
+	# D1: the 40kdc 1.4.5 kits are frozen for rosters built on them.
+	var frozen := {}
+	var unstamped := 0
+	for c in _read_json("res://data/40kdc/legacy/unitCompositions_1.0.19.json"):
+		if str(c.get("frozen_from", "")) == "":
+			unstamped += 1
+		if str(c.get("faction_id", "")) == "orks" and str(c.get("frozen_from", "")) == "40kdc-data 1.4.5":
+			frozen[str(c.get("unit_id", ""))] = c
+	_check("WP-O1b: every legacy kit names the dataset it was frozen from", unstamped == 0, "%d records without frozen_from" % unstamped)
+	_check("WP-O1b: the 4 re-kitted Ork datasheets' 40kdc 1.4.5 kits are frozen",
+		_sorted(frozen.keys()) == ["nazdreg", "runtherd", "tankbustas", "warbikers"], str(frozen.keys()))
+	var old_tb: Array = frozen.get("tankbustas", {}).get("models", [])
+	_check("WP-O1b: frozen Tankbustas kit is the 40kdc one (Tankbusta: Close combat weapon)",
+		old_tb.size() == 2 and "close-combat-weapon-tankbustas" in old_tb[1].get("default_weapon_ids", []), str(old_tb))
+	# Profiles carry their own printed numbers.
+	var weapons := {}
+	for w in _read_json("res://data/40kdc/weapons.json"):
+		if str(w.get("faction_id", "")) == "orks" and not weapons.has(str(w.get("id", ""))):
+			weapons[str(w.get("id", ""))] = w
+	var dk := _profile(weapons, "dual-kombi-rokkit", "Dakkagun")
+	var br := _profile(weapons, "dual-kombi-rokkit", "Busta Rokkit")
+	_check("WP-O1b: Dual Kombi-rokkit – Dakkagun 18\" A6 S5 / – Busta Rokkit 24\" A2 S10 D3 (not swapped)",
+		_i(dk.get("range")) == 18 and _i(dk.get("stats", {}).get("A")) == 6 and _i(dk.get("stats", {}).get("S")) == 5 and
+		_i(br.get("range")) == 24 and _i(br.get("stats", {}).get("S")) == 10 and _i(br.get("stats", {}).get("D")) == 3, "%s / %s" % [dk, br])
+	var kf := _profile(weapons, "kannon", "Frag")
+	var ks := _profile(weapons, "kannon", "Shell")
+	_check("WP-O1b: Gunwagon Kannon – Frag A4 S5 / – Shell A2 S10 D6+1 (not swapped)",
+		_i(kf.get("stats", {}).get("A")) == 4 and _i(kf.get("stats", {}).get("S")) == 5 and
+		_i(ks.get("stats", {}).get("A")) == 2 and str(ks.get("stats", {}).get("D")) == "D6+1", "%s / %s" % [kf, ks])
+
+	var RE = root.get_node("RulesEngine")
+	# D1: a Warbikers roster built on the 40kdc kit (the pre-WP-O1b Orks_2000
+	# entry) keeps it — Twin dakkagun + Close combat weapon on every model.
+	var old_wb := {
+		"id": "U_OLD_WARBIKERS", "owner": 1,
+		"meta": {
+			"name": "Warbikers",
+			"weapons": [
+				{"name": "Twin dakkagun", "type": "Ranged", "range": "18", "attacks": "3", "ballistic_skill": "5", "strength": "5", "ap": "0", "damage": "1"},
+				{"name": "Close combat weapon", "type": "Melee", "range": "Melee", "attacks": "2", "weapon_skill": "3", "strength": "4", "ap": "0", "damage": "1"},
+			],
+			"wargear": ["5x Warbiker", "5x Close combat weapon", "5x Twin dakkagun", "1x Boss Nob on Warbike", "1x Close combat weapon", "1x Twin dakkagun"],
+		},
+		"models": [],
+	}
+	for i in range(6):
+		old_wb["models"].append({"id": "m%d" % (i + 1), "wounds": 3, "current_wounds": 3, "alive": true})
+	var key := UnitLoadoutResolver.datasheet_key(old_wb)
+	_check("D1/WP-O1b: pre-codex Warbikers roster resolves via its frozen kit", key == "Warbikers" + UnitLoadoutResolver.LEGACY_NAME_SUFFIX, key)
+	var old_melee = RE.get_unit_melee_weapons("U_OLD_WARBIKERS", {"units": {"U_OLD_WARBIKERS": old_wb}})
+	var ccw := 0
+	for mid in old_melee:
+		if old_melee[mid] == ["Close combat weapon"]:
+			ccw += 1
+	_check("D1/WP-O1b: pre-codex Warbikers keep a Close combat weapon each", ccw == 6, str(old_melee))
+	# D1: a pre-codex Tankbustas roster with NO wargear lines (the generated
+	# ork11e_o34_* fixtures). The 40kdc id "rokkit-launcha-tankbustas" is named
+	# "Busta Rokkit Launcha", so neither kit fits the menu by slug; the
+	# name-tolerant last resort picks the frozen kit (Tankbusta: Close combat
+	# weapon), as the 40kdc kit resolved it before the re-kit.
+	var old_tbu := {
+		"id": "U_OLD_TANKBUSTAS", "owner": 1,
+		"meta": {"name": "Tankbustas", "wargear": [], "weapons": [
+			{"name": "Busta Rokkit Launcha – Hunter", "type": "Ranged"},
+			{"name": "Busta Rokkit Launcha – Standard", "type": "Ranged"},
+			{"name": "Rokkit Pistol", "type": "Ranged"},
+			{"name": "Choppa", "type": "Melee"},
+			{"name": "Close combat weapon", "type": "Melee"},
+			{"name": "Smash Hammer – Hunter", "type": "Melee"},
+			{"name": "Smash Hammer – Standard", "type": "Melee"},
+		]},
+		"models": [],
+	}
+	for i in range(6):
+		old_tbu["models"].append({"id": "m%d" % (i + 1), "wounds": 2, "current_wounds": 2, "alive": true})
+	var tkey := UnitLoadoutResolver.datasheet_key(old_tbu)
+	_check("D1/WP-O1b: wargear-less pre-codex Tankbustas resolve via the frozen kit", tkey == "Tankbustas" + UnitLoadoutResolver.LEGACY_NAME_SUFFIX, tkey)
+	var otm = RE.get_unit_melee_weapons("U_OLD_TANKBUSTAS", {"units": {"U_OLD_TANKBUSTAS": old_tbu}})
+	var tccw := 0
+	for i in range(1, 6):
+		if otm.get("m%d" % i, []) == ["Close combat weapon"]:
+			tccw += 1
+	_check("D1/WP-O1b: ... Nob Choppa, every Tankbusta its Close combat weapon (not the whole menu)",
+		otm.get("m0", []) == ["Choppa"] and tccw == 5, str(otm))
+	# The shipped rosters resolve the codex kit per model (Biker Nob first).
+	var wb := _unit_by_name("Orks_2000", "Warbikers")
+	_check("WP-O1b: shipped Warbikers resolve against the codex kit", UnitLoadoutResolver.datasheet_key(wb) == "Warbikers", UnitLoadoutResolver.datasheet_key(wb))
+	var wbid := str(wb.get("id", "U_WARBIKERS_A"))
+	var wr = RE.get_unit_weapons(wbid, {"units": {wbid: wb}})
+	var wm = RE.get_unit_melee_weapons(wbid, {"units": {wbid: wb}})
+	var nob_ok := false
+	var bikers_ok := 0
+	var models: Array = wb.get("models", [])
+	for i in range(models.size()):
+		var r: Array = wr.get(str(models[i].get("id", "")), [])
+		var m: Array = wm.get("m%d" % i, [])
+		if i == 0:
+			nob_ok = r.size() == 2 and str(r[0]).begins_with("dual_kombi_rokkit") and m == ["Kustom Choppa"]
+		elif r == ["dual_dakkagun_ranged"] and m.size() == 1 and str(m[0]).begins_with("Choppa"):
+			bikers_ok += 1
+	_check("WP-O1b: Biker Nob = Dual Kombi-rokkit (both profiles) + Kustom Choppa", nob_ok, "%s / %s" % [wr, wm])
+	_check("WP-O1b: every Warbiker = Dual Dakkagun + Choppa", bikers_ok == models.size() - 1, "%d of %d: %s / %s" % [bikers_ok, models.size() - 1, wr, wm])
+	var tb := _unit_by_name("battlewagons", "Tankbustas")
+	var tbid := str(tb.get("id", "U_TANKBUSTAS_A"))
+	var tm = RE.get_unit_melee_weapons(tbid, {"units": {tbid: tb}})
+	var gits := 0
+	for i in range(1, tb.get("models", []).size()):
+		if tm.get("m%d" % i, []) == ["Gitstikka"]:
+			gits += 1
+	_check("WP-O1b: Tankbustas melee = the Nob's Choppa + a Gitstikka per Tankbusta",
+		tm.get("m0", []) == ["Choppa"] and gits == 5, str(tm))
+	var tbw: Array = []
+	for w in tb.get("meta", {}).get("weapons", []):
+		tbw.append(str(w.get("name", "")))
+	_check("WP-O1b: shipped Tankbustas list the codex weapons (Busta Rokkit Launcha, Rokkit Pistol, Choppa, Gitstikka; no Close combat weapon)",
+		"Gitstikka" in tbw and "Rokkit Pistol" in tbw and "Busta Rokkit Launcha – Standard" in tbw and not "Close combat weapon" in tbw, str(tbw))

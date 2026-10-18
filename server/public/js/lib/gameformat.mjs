@@ -173,6 +173,31 @@ export function weaponBaseName(s) {
   return String(s).split(/\s+[–-]\s+/)[0];
 }
 
+// How many models each composition row gets at a unit size — the split the
+// game's models array is built with (buildModelsArray), shared with
+// generate-armies.mjs so its wargear lines count the same models. 11e codex
+// units come in fixed sizes that are whole multiples of the minimum ("1-2 Nob
+// + 9-18 Boy" is 10 or 20 models): when every row scales by that multiple
+// within its range, use it (20 Boyz = 2 Nobs + 18 Boyz — the same split
+// RulesEngine._positional_roles infers). Otherwise every row but the last
+// takes its minimum and the last takes the rest (`minFirst` forces this).
+export function compositionCounts(compModels, modelCount, { minFirst = false } = {}) {
+  const rows = compModels ?? [];
+  const minTotal = rows.reduce((s, m) => s + (m.min ?? 0), 0);
+  const mult = minTotal > 0 && modelCount % minTotal === 0 ? modelCount / minTotal : 0;
+  if (!minFirst && mult > 1 && rows.every(m => (m.min ?? 0) * mult <= (m.max ?? m.min ?? 0))) {
+    return rows.map(m => (m.min ?? 0) * mult);
+  }
+  const counts = [];
+  let remaining = modelCount;
+  for (let k = 0; k < rows.length; k++) {
+    const take = k === rows.length - 1 ? remaining : Math.min(rows[k].min ?? 0, remaining);
+    counts.push(Math.max(0, take));
+    remaining -= take;
+  }
+  return counts;
+}
+
 // Enhancement names may carry a trailing qualifier in the dataset
 // ("Targetin' Gizmos (Upgrade)", "Fear Made Manifest (Aura)", "Memento
 // Moritoi (one per army)"); rosters and the game's enhancement tables use the
@@ -496,27 +521,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     const modelsOut = [];
     let mi = 1;
     const compModels = comp?.models ?? [{ name: dcUnit.name, min: modelCount, max: modelCount }];
-    // scale composition to the roster's model count. 11e codex units come in
-    // fixed sizes that are whole multiples of the minimum ("1-2 Nob + 9-18 Boy"
-    // is 10 or 20 models): when every row scales by that multiple within its
-    // range, use it (20 Boyz = 2 Nobs + 18 Boyz — the same split
-    // RulesEngine._positional_roles infers). Otherwise every row but the last
-    // takes its minimum and the last takes the rest.
-    let remaining = modelCount;
-    let counts = [];
-    const minTotal = compModels.reduce((s, m) => s + (m.min ?? 0), 0);
-    const mult = minTotal > 0 && modelCount % minTotal === 0 ? modelCount / minTotal : 0;
-    if (mult > 1 && compModels.every(m => (m.min ?? 0) * mult <= (m.max ?? m.min ?? 0))) {
-      counts = compModels.map(m => (m.min ?? 0) * mult);
-    } else {
-      for (let k = 0; k < compModels.length; k++) {
-        const m = compModels[k];
-        const isLast = k === compModels.length - 1;
-        const take = isLast ? remaining : Math.min(m.min, remaining);
-        counts.push(Math.max(0, take));
-        remaining -= take;
-      }
-    }
+    const counts = compositionCounts(compModels, modelCount);
     for (let k = 0; k < compModels.length; k++) {
       const m = compModels[k];
       const p = profileFor(m.name, m.profile_name);
