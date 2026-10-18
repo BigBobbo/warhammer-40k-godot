@@ -280,34 +280,6 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Big an' Stompy"
  ],
  [
-  "follow me ladz",
-  "Follow Me Ladz"
- ],
- [
-  "headwoppas killchoppa",
-  "Headwoppa's Killchoppa"
- ],
- [
-  "kunnin but brutal",
-  "Kunnin' But Brutal"
- ],
- [
-  "supa cybork body",
-  "Supa-Cybork Body"
- ],
- [
-  "skwad leader",
-  "Skwad Leader"
- ],
- [
-  "mek kaptin",
-  "Mek Kaptin"
- ],
- [
-  "gob boomer",
-  "Gob Boomer"
- ],
- [
   "da gobshot thunderbuss",
   "Da Gobshot Thunderbuss"
  ],
@@ -322,86 +294,6 @@ export const GAME_NAME_CANON_ENTRIES = [
  [
   "zog off and eat dakka",
   "Zog Off and Eat Dakka!"
- ],
- [
-  "raucous warcaller",
-  "Raucous Warcaller"
- ],
- [
-  "bloodthirsty belligerence",
-  "Bloodthirsty Belligerence"
- ],
- [
-  "ferocious show off",
-  "Ferocious Show Off"
- ],
- [
-  "brutal but kunnin",
-  "Brutal But Kunnin'"
- ],
- [
-  "glory hog",
-  "Glory Hog"
- ],
- [
-  "proper killy",
-  "Proper Killy"
- ],
- [
-  "skrag every stash",
-  "Skrag Every Stash!"
- ],
- [
-  "surly as a squiggoth",
-  "Surly as a Squiggoth"
- ],
- [
-  "fasta than yooz",
-  "Fasta Than Yooz"
- ],
- [
-  "speed makes right",
-  "Speed Makes Right"
- ],
- [
-  "squig hide tyres",
-  "Squig-hide Tyres"
- ],
- [
-  "wazblasta",
-  "Wazblasta"
- ],
- [
-  "gitfinder googlez",
-  "Gitfinder Googlez"
- ],
- [
-  "smoky gubbinz",
-  "Smoky Gubbinz"
- ],
- [
-  "supa glowy fing",
-  "Supa-glowy Fing"
- ],
- [
-  "press it fasta",
-  "Press It Fasta!"
- ],
- [
-  "runnin boots",
-  "Runnin' Boots"
- ],
- [
-  "blitzkaptin",
-  "Blitzkaptin"
- ],
- [
-  "supercharged squig oil",
-  "Supercharged Squig Oil"
- ],
- [
-  "tuff git",
-  "Tuff Git"
  ],
  [
   "boarding ramps",
@@ -630,10 +522,6 @@ export const GAME_NAME_CANON_ENTRIES = [
  [
   "datasheet",
   "Datasheet"
- ],
- [
-  "da biggest boss",
-  "Da Biggest Boss"
  ],
  [
   "master meknologist",
