@@ -772,6 +772,11 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	# Boarding Ramps (Rollin' Deff): +1 to Charge rolls for a unit that
 	# disembarked this turn from the WAGON bearing the enhancement.
 	charge_bonus += FactionAbilityManager.boarding_ramps_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))
+	# Codex: Adeptus Custodes (11e) Auric Eagle (Solar Watch): +1 to charge rolls (WP-C46).
+	var cus11e_cb: int = int(_cus11e_det().charge_roll_bonus(unit_for_charge_bonus))
+	if cus11e_cb > 0:
+		log_phase_message("Auric Eagle — +%d to the charge roll" % cus11e_cb)
+	charge_bonus += cus11e_cb
 	# WP-O6: Codex: Orks (11e) datasheet abilities — Trophy Hunters, Waaagh!
 	# Banner (+1 to charge rolls), Thundering Stampede aura (+1, BEAST SNAGGA).
 	if GameConstants.edition >= 11:
@@ -3306,6 +3311,10 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 	var ork11e_um: String = load("res://scripts/codex/orks/OrkDetachments11e.gd").charge_reroll_source(unit_data)
 	if ork11e_um != "":
 		return ork11e_um
+	# Codex: Adeptus Custodes (11e) Dread Host / Combat Deployment (WP-C46).
+	var cus11e_src: String = str(_cus11e_det().charge_reroll_source(unit_data))
+	if cus11e_src != "":
+		return cus11e_src
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:

@@ -13,6 +13,14 @@
 // bundle so the fix survives a re-bundle (scripts/40kdc/bundle-browser.mjs
 // re-pulls the still-incomplete upstream package).
 //
+// Codex: Adeptus Custodes (11e) — WP-C46: the bundle predates the codex. It
+// lists the pre-codex Custodes detachments (Shield Host, Talons of the
+// Emperor, ...) and none of the 13 codex detachments / 29 enhancements, so
+// the builder offered stale enhancements. The codex records (generated from
+// the game's own 40k/data/40kdc dataset into custodes-codex-11e-data.mjs) are
+// upserted by id, and the superseded detachments are flagged
+// superseded_by_codex (kept for importing old lists, hidden from the picker).
+//
 // Environment-free (no fs / DOM). applyDataPatches() mutates the RAW_DATA
 // arrays in place and is idempotent — the converter (createConverter) and the
 // package importer (tryImportRoster) both read these arrays/objects by
@@ -78,6 +86,20 @@ export const SPEEDWAAAGH_ENHANCEMENTS = [
 ];
 
 // detachment id -> enhancement records that upstream is missing.
+import {
+  CUSTODES_CODEX_DETACHMENTS,
+  CUSTODES_CODEX_ENHANCEMENTS,
+  CUSTODES_SUPERSEDED_DETACHMENT_IDS,
+  CUSTODES_CODEX_UNIT_KEYWORDS,
+} from './custodes-codex-11e-data.mjs';
+
+export {
+  CUSTODES_CODEX_DETACHMENTS,
+  CUSTODES_CODEX_ENHANCEMENTS,
+  CUSTODES_SUPERSEDED_DETACHMENT_IDS,
+  CUSTODES_CODEX_UNIT_KEYWORDS,
+};
+
 const ENHANCEMENT_PATCHES = [
   { detachmentId: 'speedwaaagh', enhancements: SPEEDWAAAGH_ENHANCEMENTS },
 ];
@@ -101,5 +123,42 @@ export function applyDataPatches(rawData) {
       if (!det.enhancement_ids.includes(e.id)) det.enhancement_ids.push(e.id);
     }
   }
+  applyCustodesCodex(rawData);
   return rawData;
+}
+
+/** Replace-or-append `rec` in `arr` by id (in place: consumers hold `arr`). */
+function upsertById(arr, rec) {
+  const i = arr.findIndex(x => x.id === rec.id);
+  const copy = JSON.parse(JSON.stringify(rec));
+  if (i >= 0) arr[i] = copy;
+  else arr.push(copy);
+}
+
+/**
+ * Codex: Adeptus Custodes (11e): upsert the 13 codex detachments and their 29
+ * enhancements; flag the superseded pre-codex detachments. Idempotent.
+ */
+export function applyCustodesCodex(rawData) {
+  if (!rawData) return rawData;
+  const enhancements = rawData.enhancements ?? (rawData.enhancements = []);
+  const detachments = rawData.detachments ?? (rawData.detachments = []);
+  for (const e of CUSTODES_CODEX_ENHANCEMENTS) upsertById(enhancements, e);
+  for (const d of CUSTODES_CODEX_DETACHMENTS) upsertById(detachments, d);
+  for (const d of detachments) {
+    if (d.faction_id === 'adeptus-custodes' && CUSTODES_SUPERSEDED_DETACHMENT_IDS.includes(d.id)) {
+      d.superseded_by_codex = 'Codex: Adeptus Custodes (11th edition)';
+    }
+  }
+  return rawData;
+}
+
+/** Keywords for the enhancement bearer filter: the bundle's datasheet
+ * keywords + faction keywords, plus the codex keywords the bundle predates. */
+export function bearerKeywords(rawUnit) {
+  const out = [...(rawUnit?.keywords ?? []), ...(rawUnit?.faction_keywords ?? [])];
+  for (const k of CUSTODES_CODEX_UNIT_KEYWORDS[rawUnit?.id] ?? []) {
+    if (!out.some(x => String(x).toLowerCase() === String(k).toLowerCase())) out.push(k);
+  }
+  return out;
 }

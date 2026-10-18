@@ -8261,10 +8261,14 @@ func _refresh_unit_list_inner() -> void:
 				else:
 					independent_reserves.append(reserve_id)
 
-			# WP-O5 Impulsive Recon: in battle round 1 those ORKS AIRCRAFT may arrive.
+			# Battle round 1: only units that may make an ingress move in their first
+			# Movement phase — WP-O5 Impulsive Recon (ORKS AIRCRAFT) and WP-C46
+			# Lightning Descent (Custodes).
 			if battle_round < 2:
-				independent_reserves = load("res://scripts/codex/orks/OrkEnhancements11e.gd").first_round_ingress_units(independent_reserves)
-			if independent_reserves.size() > 0:  # (round 1: only the filtered Impulsive Recon units)
+				var o5_round1: Array = load("res://scripts/codex/orks/OrkEnhancements11e.gd").first_round_ingress_units(independent_reserves)
+				var cus11e_det_script = load("res://scripts/codex/custodes/CustodesDetachments.gd")
+				independent_reserves = independent_reserves.filter(func(rid): return rid in o5_round1 or cus11e_det_script.can_ingress_first_round(GameState.get_unit(str(rid))))
+			if independent_reserves.size() > 0:  # (round 1: only the filtered first-round units)
 				unit_list.add_item("--- REINFORCEMENTS (Reserves) ---")
 				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 				for reserve_id in independent_reserves:
@@ -9103,39 +9107,9 @@ func _build_status_marker_hover_text(unit: Dictionary, unit_id: String = "") -> 
 		lines.append("[color=%s][b]Marked for Death (%s)[/b][/color] [color=#AAAAAA]— the marking player scores VP if this unit is destroyed[/color]" % [mfd_color, mfd.capitalize()])
 	if flags.get("beacon", false):
 		lines.append("[color=#39D6FF][b]Beacon[/b][/color] [color=#AAAAAA]— designated unit for the Beacon secondary mission[/color]")
-	# AGAINST ALL ODDS (Lions of the Emperor): the sparkle on the token says the
-	# unit is earning +1 Hit / +1 Wound; this says so in words, and — when it is
-	# NOT earning it — names the friendly unit standing too close. Only units
-	# that could ever earn it get an entry (see evaluate_against_all_odds).
-	lines.append_array(_build_against_all_odds_hover_lines(unit, unit_id))
 	if lines.is_empty():
 		return ""
 	return "\n" + "\n".join(lines)
-
-func _build_against_all_odds_hover_lines(unit: Dictionary, unit_id: String = "") -> Array:
-	var fam = get_node_or_null("/root/FactionAbilityManager")
-	if fam == null or not fam.has_method("get_against_all_odds_status"):
-		return []
-	var uid := unit_id if unit_id != "" else str(unit.get("id", ""))
-	var status: Dictionary = fam.get_against_all_odds_status(uid)
-	if status.is_empty() or not status.get("applicable", false):
-		return []
-	var out: Array = []
-	var near_name = str(status.get("nearest_name", ""))
-	var near_in = float(status.get("nearest_inches", INF))
-	if status.get("active", false):
-		out.append("[color=#FFD86A][b]✦ Against All Odds[/b][/color] [color=#888888](sparkle)[/color] [color=#9FE09F]— +1 to Hit and +1 to Wound[/color]")
-		if near_name != "" and near_in < INF:
-			out.append("[color=#CCB877]No other friendly unit within 6\" — nearest is %s at %.1f\".[/color]" % [near_name, near_in])
-		else:
-			out.append("[color=#CCB877]No other friendly unit within 6\".[/color]")
-	else:
-		out.append("[color=#8A8A92][b]✦ Against All Odds — inactive[/b][/color] [color=#888888](no sparkle)[/color]")
-		if near_name != "" and near_in < INF:
-			out.append("[color=#8A8A92]%s is %.1f\" away; needs more than 6\" from every other friendly unit for +1 Hit / +1 Wound.[/color]" % [near_name, near_in])
-		else:
-			out.append("[color=#8A8A92]Needs more than 6\" from every other friendly unit for +1 Hit / +1 Wound.[/color]")
-	return out
 
 func _position_token_hover(screen_pos: Vector2) -> void:
 	if not _token_hover_tooltip:

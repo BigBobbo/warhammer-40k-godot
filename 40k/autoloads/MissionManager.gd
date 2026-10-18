@@ -553,6 +553,14 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 		# statline/override value (a base OC of 0 still controls nothing).
 		if oc_value > 0:
 			oc_value += int(unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_OC, 0))
+			# Codex: Adeptus Custodes (11e) Moritoi Ancients (Might of the
+			# Moritoi): an ADEPTUS CUSTODES DREADNOUGHT at starting strength
+			# has +2 OC (WP-C46).
+			if GameConstants.edition >= 11:
+				var cus11e_oc: int = int(load("res://scripts/codex/custodes/CustodesDetachments.gd").oc_bonus(unit))
+				if cus11e_oc != 0:
+					oc_value += cus11e_oc
+					print("  Moritoi Ancients: %s OC +%d" % [unit_id, cus11e_oc])
 		if oc_value <= 0:
 			print("  Skipping %s - no OC value (OC: %d)" % [unit_id, oc_value])
 			continue

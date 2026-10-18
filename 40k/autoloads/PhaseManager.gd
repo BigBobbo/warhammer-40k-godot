@@ -128,16 +128,17 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 		current_phase_instance.queue_free()
 		current_phase_instance = null
 
-		# SUPERIOR CREATION (Lions of the Emperor enhancement): bearers destroyed
-		# during the outgoing phase roll their 2+ revival now — "at the end of
-		# the phase" — before the next phase begins.
+		# Codex: Adeptus Custodes (11e) SUPERIOR CREATION (Auric Champions
+		# enhancement, CustodesEnhancements.gd, WP-C46): a bearer destroyed during
+		# the outgoing phase rolls its 2+ now — "at the end of a phase in which
+		# this model is destroyed" — before the next phase begins.
 		# Multiplayer: HOST-only. transition_to_phase runs on both peers, and
 		# each rolled its own unseeded d6 here (client make_rng falls back to
 		# randomize()) — divergent revival results that were never broadcast.
 		# The host now rolls once and ships the diffs to the client.
 		var sc_networked = NetworkManager.is_networked()
 		if not sc_networked or NetworkManager.is_host():
-			var sc_result = RulesEngine.resolve_superior_creation_revivals(GameState.state)
+			var sc_result: Dictionary = load("res://scripts/codex/custodes/CustodesEnhancements.gd").resolve_superior_creation()
 			if not sc_result.get("diffs", []).is_empty():
 				apply_state_changes(sc_result.diffs)
 				if sc_networked:

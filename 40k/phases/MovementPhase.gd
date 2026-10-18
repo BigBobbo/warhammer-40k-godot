@@ -219,6 +219,12 @@ func get_unit_movement(unit: Dictionary) -> float:
 		movement += float(ffi_move)
 		DebugLogger.info(str("MovementPhase: FUNGUS-FUEL INJECTION — movement %d → %d (+%d\") for %s" % [int(movement - ffi_move), int(movement), ffi_move, unit.get("meta", {}).get("name", "?")]))
 
+	# Codex: Adeptus Custodes (11e) Solar Watch — Favoured Ka'tah Calistus:
+	# "+2\" M" while the unit uses Calistus (WP-C46).
+	var cus11e_mv: float = float(_cus11e_det().move_bonus_inches(unit))
+	if cus11e_mv > 0.0:
+		movement += cus11e_mv
+		DebugLogger.info(str("MovementPhase: Calistus (Solar Watch) — movement +%.0f\" for %s" % [cus11e_mv, unit.get("meta", {}).get("name", "?")]))
 	# WP-O6: Codex: Orks (11e) datasheet abilities — Runnin' wiv da Herd (+4"),
 	# Madcap Artillery 'smashed' (-2").
 	if GameConstants.edition >= 11:
@@ -356,8 +362,8 @@ func _initialize_movement() -> void:
 	# battle_round lives under meta in snapshots — the old top-level read
 	# always returned 1, so an all-in-reserves army had its movement phase
 	# auto-completed even in rounds where reinforcements could arrive.
-	if not can_move and GameState.get_battle_round() >= 2:
-		var reserves = GameState.get_reserves_for_player(current_player)
+	if not can_move and (GameState.get_battle_round() >= 2 or not _cus11e_lightning_descent_reserves(current_player).is_empty()):
+		var reserves = GameState.get_reserves_for_player(current_player) if GameState.get_battle_round() >= 2 else _cus11e_lightning_descent_reserves(current_player)
 		if reserves.size() > 0:
 			can_move = true
 			log_phase_message("No deployed units can move, but %d reserve units available for reinforcement" % reserves.size())
@@ -1394,6 +1400,15 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int, is_roll: bool = t
 		log_phase_message("'ERE WE GO: %s advance roll %d %+d = %d" % [unit_id, ewg_raw, ewg_bonus, advance_roll])
 		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
 			"type": "'ERE WE GO", "roll": ewg_raw, "result": "Advance roll %d %+d = %d" % [ewg_raw, ewg_bonus, advance_roll]})
+	# Codex: Adeptus Custodes (11e) Auric Eagle (Solar Watch): +1 to advance
+	# rolls — a modifier, after any re-roll, only on a real roll (WP-C46).
+	var cus11e_ab: int = int(_cus11e_det().advance_roll_bonus(unit))
+	if cus11e_ab != 0 and is_roll:
+		var ae_raw := advance_roll
+		advance_roll += cus11e_ab
+		log_phase_message("Auric Eagle: %s advance roll %d %+d = %d" % [unit_id, ae_raw, cus11e_ab, advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": "Auric Eagle", "roll": ae_raw, "result": "Advance roll %d %+d = %d" % [ae_raw, cus11e_ab, advance_roll]})
 	# WP-O6 FUEL-MIXA GROT (Codex: Orks 11e, Deffkilla Wartrike): "+1 to advance rolls".
 	var o6_adv := OrkAbilities11eScript.advance_roll_bonus(unit_id) if (is_roll and GameConstants.edition >= 11) else 0
 	if o6_adv != 0:
@@ -3391,13 +3406,21 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			# advance / fall-back 16.01 action lock (ActionsManager also ignores
 			# the advanced / fell_back flags for this unit).
 			# (WP-O34: also Runt Swarm's Sneaky Little Gitz for a GRETCHIN unit.)
+			# Codex: Adeptus Custodes (11e) Emissaries Imperatus — Favoured Conservai
+			# rider: the same "does not prevent ... eligible to start an action" (WP-C46).
+			var cus11e_conservai: bool = _cus11e_det().move_keeps_action_eligibility(get_unit(unit_id))
 			if move_data.mode in ["ADVANCE", "FALL_BACK"] \
 					and (get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_MIND_ON_MISSION, false)
-						or Ork11eDetachments.move_keeps_action_eligibility(get_unit(unit_id))):
+						or Ork11eDetachments.move_keeps_action_eligibility(get_unit(unit_id))
+						or cus11e_conservai):
 				mt_fx = mt_fx.filter(func(fx): return not str(fx.get("path", "")).ends_with(".cannot_start_action"))
+				var keep_src: String = "MIND MOSTLY ON THE MISSION"
+				if Ork11eDetachments.move_keeps_action_eligibility(get_unit(unit_id)):
+					keep_src = "Sneaky Little Gitz (Runt Swarm)"
+				elif cus11e_conservai:
+					keep_src = "Conservai (Heralds of the Throne)"
 				log_phase_message("[11e] %s — %s's %s move leaves it eligible to start an action" % [
-					"Sneaky Little Gitz (Runt Swarm)" if Ork11eDetachments.move_keeps_action_eligibility(get_unit(unit_id)) else "MIND MOSTLY ON THE MISSION",
-					unit_id, move_data.mode])
+					keep_src, unit_id, move_data.mode])
 			changes.append_array(mt_fx)
 			log_phase_message("[11e] Applied %s template AFTER effects for %s (%d ops)" % [mt_map_11e[move_data.mode], unit_id, mt_fx.size()])
 			# 09.07 AFTER MOVING (desperate escape): "If your unit is not
@@ -4060,10 +4083,11 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": errors}
 
 	# Check battle round - reserves can only arrive from Turn 2 onwards
-	# (WP-O5 Impulsive Recon: that ORKS AIRCRAFT can make an ingress move in
-	# its owner's first Movement phase).
+	# (Codex: Adeptus Custodes (11e) Lightning Descent: "In your first Movement
+	# phase, this unit can make an ingress move" — WP-C46; WP-O5 Impulsive Recon:
+	# that ORKS AIRCRAFT can make an ingress move in its owner's first Movement phase.)
 	var battle_round = GameState.get_battle_round()
-	if battle_round < 2 and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit):
+	if battle_round < 2 and not _cus11e_det().can_ingress_first_round(unit) and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit):
 		errors.append("Reserves cannot arrive until Battle Round 2 (currently Round %d)" % battle_round)
 		return {"valid": false, "errors": errors}
 
@@ -7121,6 +7145,17 @@ func _clear_unit_move_state(unit_id: String) -> void:
 	if active_moves.has(unit_id):
 		active_moves.erase(unit_id)
 
+## Codex: Adeptus Custodes (11e) Lightning Descent: the reserve units of
+## `player` that may arrive in battle round 1 (WP-C46).
+func _cus11e_lightning_descent_reserves(player: int) -> Array:
+	var out: Array = []
+	if GameConstants.edition < 11:
+		return out
+	for rid in GameState.get_reserves_for_player(player):
+		if _cus11e_det().can_ingress_first_round(get_unit(str(rid))):
+			out.append(rid)
+	return out
+
 func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
@@ -7129,10 +7164,16 @@ func get_available_actions() -> Array:
 	# Add reinforcement actions for units in reserves (from Turn 2 onwards)
 	var battle_round = GameState.get_battle_round()
 	print("MovementPhase: get_available_actions — battle_round=%d, current_player=%d" % [battle_round, current_player])
-	# WP-O5 Impulsive Recon: in battle round 1 only those ORKS AIRCRAFT may arrive.
-	var o5_round1: Array = load("res://scripts/codex/orks/OrkEnhancements11e.gd").first_round_ingress_units(GameState.get_reserves_for_player(current_player)) if battle_round < 2 else []
-	if battle_round >= 2 or not o5_round1.is_empty():
-		var reserves = GameState.get_reserves_for_player(current_player) if battle_round >= 2 else o5_round1
+	# Codex: Adeptus Custodes (11e) Lightning Descent (WP-C46): the bearer's
+	# unit can make an ingress move in its player's FIRST Movement phase.
+	# WP-O5 Impulsive Recon: so can those ORKS AIRCRAFT.
+	var cus11e_ld_reserves: Array = _cus11e_lightning_descent_reserves(current_player) if battle_round < 2 else []
+	if battle_round < 2:
+		for o5_uid in load("res://scripts/codex/orks/OrkEnhancements11e.gd").first_round_ingress_units(GameState.get_reserves_for_player(current_player)):
+			if not o5_uid in cus11e_ld_reserves:
+				cus11e_ld_reserves.append(o5_uid)
+	if battle_round >= 2 or not cus11e_ld_reserves.is_empty():
+		var reserves = GameState.get_reserves_for_player(current_player) if battle_round >= 2 else cus11e_ld_reserves
 		print("MovementPhase: Found %d reserve units for player %d: %s" % [reserves.size(), current_player, str(reserves)])
 		for reserve_unit_id in reserves:
 			var reserve_unit = get_unit(reserve_unit_id)

@@ -620,8 +620,26 @@ func _section_madcap_meks() -> void:
 	var entry: Dictionary = Det.hop_splat_window_entry("U_MEK_GUNZ_A", "U_CUSTODIAN_GUARD_C", opts)
 	var offers: Array = SM.get_window_offers(1, Det.WINDOW_HOP_SPLAT, entry.ctx)
 	_check("Hop Splat window offers each candidate", offers.size() == 1 and offers[0].targets.size() == opts.size())
+	var gel_hs = root.get_node_or_null("GameEventLog")
+	var hs_entries_before: int = gel_hs.entries.size() if gel_hs and "entries" in gel_hs else 0
 	var dec: Array = Det.hop_splat_after_window(entry.ctx, {"used": false})
-	_check("a declined Hop Splat hits the closest candidate", not dec.is_empty())
+	# The resolution's diffs are empty when the victim's Aegis of the Emperor
+	# (FNP 5+ vs mortal wounds) stops every mortal wound — which dice this
+	# section gets depends on how many RNGs earlier sections created (the
+	# RulesEngine test-seed counter). So the hit itself is read from the Game
+	# Log: "Hop Splat — <closest unit> suffers N mortal wound(s)" (WP-C46).
+	var closest_line := ""
+	var closest_hit := false
+	if gel_hs and "entries" in gel_hs:
+		for i in range(hs_entries_before, gel_hs.entries.size()):
+			var t := str(gel_hs.entries[i].get("text", gel_hs.entries[i]))
+			var a := t.find("the closest, ")
+			var b := t.find(", is hit")
+			if a >= 0 and b > a and str(_u(str(opts[0])).get("meta", {}).get("name", "?")) in t:
+				closest_line = "Hop Splat — %s suffers" % t.substr(a + 13, b - a - 13)
+			elif closest_line != "" and closest_line in t:
+				closest_hit = true
+	_check("a declined Hop Splat hits the closest candidate", not dec.is_empty() or closest_hit, closest_line)
 	var hs_use: Dictionary = SM.use_stratagem(1, Det.RULE_HOP_SPLAT, "U_CUSTODIAN_GUARD_D", entry.ctx)
 	_check("a Hop Splat pick succeeds and its rule-only window is NOT re-offered (one Hop Splat per roll)",
 		hs_use.get("success", false) and not bool(hs_use.get("reopen_window", true)), str(hs_use))

@@ -910,7 +910,9 @@ func _section_anathema_psykana() -> void:
 	army.units.U_KC.meta.keywords = ["ADEPTUS CUSTODES", "CHARACTER", "INFANTRY"]
 	v = alm.validate_army_construction_11e(army)
 	_check("a non-Anathema warlord: no such warning", str(v.warnings).find("ANATHEMA PSYKANA") < 0)
-	_check("hook: Null Maiden Vigil allowance is a stub (false) until WP-C46", not K.anathema_psykana_warlord_allowed("Null Maiden Vigil"))
+	# WP-C46 filled the hook in (CustodesDetachments.allows_anathema_psykana_warlord).
+	_check("hook: Null Maiden Vigil allows an ANATHEMA PSYKANA WARLORD (WP-C46), other detachments do not",
+		K.anathema_psykana_warlord_allowed("Null Maiden Vigil") and not K.anathema_psykana_warlord_allowed("Guardians of the Throne"))
 	# FormationsPhase refuses the designation and never auto-picks one.
 	GS.state.units["U_TEST_KC"] = {"id": "U_TEST_KC", "owner": 1, "status": GS.UnitStatus.DEPLOYED, "flags": {},
 		"meta": {"name": "Knight-Centura", "keywords": ["ADEPTUS CUSTODES", "ANATHEMA PSYKANA", "CHARACTER", "INFANTRY"], "abilities": [], "stats": {}},
@@ -976,9 +978,11 @@ func _section_ai() -> void:
 # ---------------------------------------------------------------------------
 func _section_api_and_cleanup() -> void:
 	print("\n-- L. Favoured Ka'tah API + 10e stance system removed --")
-	_check("favoured_katah(player) stub returns \"\" (no CustodesDetachments.gd yet)", K.favoured_katah(1) == "" and K.favoured_katah(2) == "")
-	_check("favoured_katah_extra_effect stub returns []", K.favoured_katah_extra_effect(1, "calistus", WS_C, {}).is_empty())
-	_check("favoured_katah_secondary stub returns {}", K.favoured_katah_secondary(1, "kaptaris", CG, {}).is_empty())
+	# WP-C46 (CustodesDetachments.gd) defines the Favoured Ka'tah; the fixture's
+	# detachment is not a Unique: Shield Host one, so nothing is favoured here.
+	_check("favoured_katah(player): \"\" for a detachment without a Favoured Ka'tah", K.favoured_katah(1) == "" and K.favoured_katah(2) == "")
+	_check("favoured_katah_extra_effect: [] when the ka'tah is not favoured", K.favoured_katah_extra_effect(1, "calistus", WS_C, {}).is_empty())
+	_check("favoured_katah_secondary: {} when the ka'tah is not favoured", K.favoured_katah_secondary(1, "kaptaris", CG, {}).is_empty())
 	_check("ready_diffs (SUPERHUMAN FOCUS API) readies the unit", str(K.ready_diffs(CG)).find(K.FLAG_READIED) >= 0)
 	_check("KatahStanceDialog is gone", not ResourceLoader.exists("res://dialogs/KatahStanceDialog.gd"))
 	var fam = root.get_node("FactionAbilityManager")

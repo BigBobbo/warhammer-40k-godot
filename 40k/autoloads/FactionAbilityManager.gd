@@ -32,10 +32,10 @@ const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd
 #   Assault: charge after Advancing.
 # - Get Stuck In (Orks / War Horde):
 #   Passive: Melee weapons equipped by ORKS models have Sustained Hits 1.
-# - Martial Mastery (Adeptus Custodes / Shield Host):
-#   At the start of the battle round, select one option:
-#   (1) Crit on 5+ for melee attacks by models with Martial Ka'tah.
-#   (2) Improve AP of melee weapons by 1 for models with Martial Ka'tah.
+# - Codex: Adeptus Custodes (11e) detachments + enhancements live in
+#   scripts/codex/custodes/CustodesDetachments.gd / CustodesEnhancements.gd
+#   (WP-C46); the 10e Shield Host / Lions of the Emperor / Silent Hunters /
+#   Talons / Tharanatoi / Solar Spearhead code that lived here is gone.
 
 # ============================================================================
 # CONSTANTS
@@ -81,38 +81,6 @@ const DETACHMENT_ABILITIES = {
 		"effect": "sustained_hits_near_loot",
 		"description": "At the start of each battle round, select one objective marker as the Loot Objective. While an ORKS INFANTRY, MOUNTED, or WALKER unit from your army is within range of the Loot Objective, each time a model in that unit makes an attack, that attack has the [SUSTAINED HITS 1] ability. In addition, while an enemy unit is within range of the Loot Objective, each time a model from your army makes an attack against that unit, that attack has the [SUSTAINED HITS 1] ability."
 	},
-	"Shield Host": {
-		"faction_keyword": "ADEPTUS CUSTODES",
-		"ability_name": "Martial Mastery",
-		"trigger": "battle_round_start",
-		"requires_katah": true,
-		"options": {
-			"crit_on_5": {
-				"display": "Martial Mastery — Critical Hit on 5+",
-				"description": "Each time an ADEPTUS CUSTODES model with Martial Ka'tah makes a melee attack, a successful unmodified hit roll of 5+ scores a Critical Hit.",
-				"effect": "crit_hit_on_5_melee"
-			},
-			"improve_ap": {
-				"display": "Martial Mastery — Improve AP by 1",
-				"description": "Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models with Martial Ka'tah by 1.",
-				"effect": "improve_ap_1_melee"
-			}
-		}
-	},
-	"Lions of the Emperor": {
-		"faction_keyword": "ADEPTUS CUSTODES",
-		"ability_name": "Against All Odds",
-		"trigger": "passive",
-		"effect": "plus_one_hit_wound_when_isolated",
-		"description": "Each time a model in a non-VEHICLE unit makes an attack, if no other friendly units within 6\", add 1 to the Hit roll and add 1 to the Wound roll."
-	},
-	"Silent Hunters": {
-		"faction_keyword": "ADEPTUS CUSTODES",
-		"ability_name": "Skin-Crawling Disorientation",
-		"trigger": "passive",
-		"effect": "actions_after_advance_anathema",
-		"description": "ANATHEMA PSYKANA units from your army can perform Actions (mission actions such as rituals and terraforming) in a turn in which they Advanced."
-	}
 }
 
 # ============================================================================
@@ -222,12 +190,6 @@ var _doctrines_used: Dictionary = {"1": [], "2": []}
 # Per-player: currently active doctrine (empty string if none)
 var _active_doctrine: Dictionary = {"1": "", "2": ""}
 
-# Martial Mastery tracking (Custodes)
-# Per-player: currently active mastery option ("crit_on_5" or "improve_ap", empty if none)
-var _active_mastery: Dictionary = {"1": "", "2": ""}
-# Per-player: battle round in which mastery was last selected (to detect new round)
-var _mastery_selected_round: Dictionary = {"1": 0, "2": 0}
-
 # Loot Objective tracking (Orks — Freebooter Krew) (OA-1)
 # Per-player: which objective is the current loot objective (objective_id string)
 var _loot_objective: Dictionary = {"1": "", "2": ""}
@@ -255,85 +217,8 @@ var _razgit_redeploys_used: Dictionary = {"1": 0, "2": 0}
 var _razgit_resolved: bool = false
 
 
-# ── AGAINST ALL ODDS live board tracker ─────────────────────────────────────
-# The board marker needs "is this unit earning +1/+1 RIGHT NOW", but the 6"
-# check is O(friendly models²) per unit — far too costly to run inside
-# TokenVisual._draw() at 60fps. So it is evaluated on a slow poll here and
-# cached; tokens read the cache in O(1) and only redraw when the set changes.
-# Entirely skipped unless a player actually runs Lions of the Emperor.
-signal against_all_odds_changed()
-
-const _AAO_POLL_INTERVAL := 0.25
-var _aao_status: Dictionary = {}      # unit_id -> {applicable, active, nearest_name, nearest_inches}
-var _aao_poll_accum: float = 0.0
-
 func _ready():
 	print("FactionAbilityManager: Ready")
-	set_process(true)
-
-func _process(delta: float) -> void:
-	_aao_poll_accum += delta
-	if _aao_poll_accum < _AAO_POLL_INTERVAL:
-		return
-	_aao_poll_accum = 0.0
-	_refresh_against_all_odds()
-
-## Recompute the Against All Odds status of every unit on the board. Emits
-## against_all_odds_changed only when a unit's ACTIVE state actually flips, so
-## idle boards cost one cheap scan per poll and no redraws at all.
-func _refresh_against_all_odds() -> void:
-	var board = GameState.state if GameState else {}
-	var units = board.get("units", {})
-	if units.is_empty():
-		if not _aao_status.is_empty():
-			_aao_status.clear()
-			emit_signal("against_all_odds_changed")
-		return
-	# Cheap gate: no Lions of the Emperor army → nothing to track.
-	var any_lions := false
-	for pk in board.get("factions", {}):
-		var det = str(board["factions"][pk].get("detachment", ""))
-		if FactionStratagemLoaderData._normalise_detachment_name(det) == "lions of the emperor":
-			any_lions = true
-			break
-	if not any_lions:
-		if not _aao_status.is_empty():
-			_aao_status.clear()
-			emit_signal("against_all_odds_changed")
-		return
-
-	var next: Dictionary = {}
-	var changed := false
-	for unit_id in units:
-		var u = units[unit_id]
-		# The evaluator excludes the unit from its own 6" scan by matching on
-		# unit.id. A unit dict without one would measure zero distance to itself
-		# and never light up — so stamp the dictionary key in when it is absent.
-		if not u.has("id"):
-			u = u.duplicate()
-			u["id"] = str(unit_id)
-		var st = evaluate_against_all_odds(u, board, true)
-		if not st.get("applicable", false):
-			continue
-		next[unit_id] = st
-		var prev = _aao_status.get(unit_id, {})
-		if prev.get("active", null) != st.get("active", false):
-			changed = true
-	if next.size() != _aao_status.size():
-		changed = true
-	_aao_status = next
-	if changed:
-		emit_signal("against_all_odds_changed")
-
-## Cached Against All Odds status for one unit — {} when the unit can never earn
-## it (wrong faction/detachment, or a VEHICLE), so callers can treat an empty
-## dict as "draw nothing".
-func get_against_all_odds_status(unit_id: String) -> Dictionary:
-	return _aao_status.get(unit_id, {})
-
-## Is this unit currently earning the +1 Hit / +1 Wound?
-func is_against_all_odds_active(unit_id: String) -> bool:
-	return _aao_status.get(unit_id, {}).get("active", false)
 
 # ============================================================================
 # ABILITY DETECTION
@@ -1218,8 +1103,10 @@ func unit_has_detachment_charge_reroll(unit: Dictionary) -> bool:
 	(ORKS units that disembarked this turn) and Rollin' Deff's Thundering
 	Wagons (Battlewagon / Kill Rig / Hunta Rig units)."""
 	# 11e Blitz Brigade — Unstoppable Momentum: WAGON units re-roll charges (WP-O34).
+	# Codex: Adeptus Custodes (11e) Dread Host / Combat Deployment (CustodesDetachments.gd, WP-C46).
 	if GameConstants.edition >= 11:
-		return Ork11eDetachments.charge_reroll_source(unit) != ""
+		return Ork11eDetachments.charge_reroll_source(unit) != "" \
+			or load("res://scripts/codex/custodes/CustodesDetachments.gd").charge_reroll_source(unit) != ""
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
@@ -1550,126 +1437,6 @@ func _clear_taktik_effects(player: int) -> void:
 		flags.erase("taktik_active")
 		flags.erase("taktik_from_player")
 		print("FactionAbilityManager: Taktik on %s expired (Player %d's Command phase)" % [uid, player])
-
-# ---- MARTIAL MASTERY (Adeptus Custodes — Shield Host) ----
-
-func get_active_mastery(player: int) -> String:
-	"""Get the currently active Martial Mastery option for a player."""
-	return _active_mastery.get(str(player), "")
-
-func is_martial_mastery_available(player: int) -> bool:
-	"""Check if Martial Mastery selection is needed (new battle round, Custodes player)."""
-	var detachment = get_player_detachment(player)
-	if detachment != "Shield Host":
-		return false
-
-	# Only Player 1 triggers the selection at battle round start
-	# (Martial Mastery affects both players' Custodes units, but the choice belongs to the army owner)
-	var current_round = GameState.get_battle_round()
-	var last_selected = _mastery_selected_round.get(str(player), 0)
-	return current_round > last_selected
-
-func get_mastery_options() -> Array:
-	"""Get the Martial Mastery options for display."""
-	var options = DETACHMENT_ABILITIES["Shield Host"]["options"]
-	var result = []
-	for key in options:
-		result.append({
-			"key": key,
-			"display": options[key]["display"],
-			"description": options[key]["description"]
-		})
-	return result
-
-func select_martial_mastery(player: int, mastery_key: String) -> Dictionary:
-	"""Select a Martial Mastery option for this battle round."""
-	var player_key = str(player)
-	var detachment = get_player_detachment(player)
-
-	if detachment != "Shield Host":
-		return {"success": false, "error": "Player %d is not using Shield Host detachment" % player}
-
-	var options = DETACHMENT_ABILITIES["Shield Host"]["options"]
-	if mastery_key not in options:
-		return {"success": false, "error": "Unknown mastery option: %s" % mastery_key}
-
-	# Clear previous mastery effects
-	_clear_mastery_effects(player)
-
-	# Set active mastery
-	_active_mastery[player_key] = mastery_key
-	_mastery_selected_round[player_key] = GameState.get_battle_round()
-
-	# Apply mastery effects to all ADEPTUS CUSTODES units with Martial Ka'tah
-	_apply_mastery_effects(player, mastery_key)
-
-	var display = options[mastery_key]["display"]
-	print("FactionAbilityManager: Player %d selected %s — active until next battle round" % [player, display])
-
-	return {
-		"success": true,
-		"mastery": mastery_key,
-		"mastery_display": display,
-		"message": "%s active" % display
-	}
-
-func _apply_mastery_effects(player: int, mastery_key: String) -> void:
-	"""Apply Martial Mastery flags to all Custodes units with Martial Ka'tah."""
-	var units = GameState.state.get("units", {})
-
-	for unit_id in units:
-		var unit = units[unit_id]
-		if unit.get("owner", 0) != player:
-			continue
-
-		var has_alive = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-
-		# Must have Martial Ka'tah ability
-		if not unit_has_katah(unit_id):
-			continue
-
-		if not unit.has("flags"):
-			unit["flags"] = {}
-
-		match mastery_key:
-			"crit_on_5":
-				unit["flags"]["martial_mastery_crit_5"] = true
-			"improve_ap":
-				unit["flags"]["martial_mastery_improve_ap"] = true
-
-		unit["flags"]["martial_mastery_active"] = mastery_key
-
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		print("FactionAbilityManager: Martial Mastery (%s) applied to %s (%s)" % [mastery_key, unit_name, unit_id])
-
-func _clear_mastery_effects(player: int) -> void:
-	"""Clear Martial Mastery flags from all units."""
-	var units = GameState.state.get("units", {})
-	var player_key = str(player)
-	var old_mastery = _active_mastery.get(player_key, "")
-
-	if old_mastery == "":
-		return
-
-	for unit_id in units:
-		var unit = units[unit_id]
-		if unit.get("owner", 0) != player:
-			continue
-
-		var flags = unit.get("flags", {})
-		if flags.get("martial_mastery_active", "") != "":
-			flags.erase("martial_mastery_crit_5")
-			flags.erase("martial_mastery_improve_ap")
-			flags.erase("martial_mastery_active")
-
-	_active_mastery[player_key] = ""
-	print("FactionAbilityManager: Cleared Martial Mastery effects for player %d (was: %s)" % [player, old_mastery])
 
 # ---- HERE BE LOOT (Orks — Freebooter Krew) (OA-1) ----
 
@@ -2319,15 +2086,17 @@ func get_bionik_workshop_bonus_for_unit(unit_id: String) -> String:
 # Razgit's Magik Map (25pts, ORKS model): after deployment, select up to 3
 # friendly Orks INFANTRY units and redeploy them; any can be placed into
 # Strategic Reserves.
-# Encircling Hunter (15pts, Anathema Psykana model — Silent Hunters): the same
-# mechanic for up to 3 friendly ANATHEMA PSYKANA INFANTRY units.
-# Both share the helpers below (historically named after Razgit — the callers
-# in GameState/RedeploymentPhase predate Encircling Hunter) and the same
+# Castellan's Mark (Codex: Adeptus Custodes 11e, Guardians of the Throne,
+# WP-C46): "When both players have deployed their armies, you can redeploy up
+# to three friendly ADEPTUS CUSTODES units. When doing so, you can set those
+# units up in strategic reserves, regardless of how many units are already in
+# strategic reserves." (The 10e Silent Hunters Encircling Hunter is gone.)
+# Both share the helpers below (historically named after Razgit) and the same
 # per-player 3-slot counter; a player can never own both (different factions).
 
 const REDEPLOY_ENHANCEMENTS = [
-	{"name": "Razgit's Magik Map", "keywords": ["ORKS", "INFANTRY"]},
-	{"name": "Encircling Hunter", "keywords": ["ANATHEMA PSYKANA", "INFANTRY"]},
+	{"name": "Razgit's Magik Map", "keywords": ["ORKS", "INFANTRY"], "exclude_bearer": true},
+	{"name": "Castellan's Mark", "keywords": ["ADEPTUS CUSTODES"]},
 ]
 
 func get_redeploy_enhancement(player: int) -> Dictionary:
@@ -2369,8 +2138,10 @@ func get_razgit_eligible_units(player: int) -> Array:
 		var unit = units[unit_id]
 		if unit.get("owner", 0) != player:
 			continue
-		# Skip the bearer's own unit (bearer doesn't redeploy themselves)
-		if unit_id == bearer_info.bearer_id:
+		# Skip the bearer's own unit (bearer doesn't redeploy themselves) —
+		# Razgit's Magik Map only; Castellan's Mark's "up to three friendly
+		# ADEPTUS CUSTODES units" includes the bearer's (WP-C46 ruling).
+		if unit_id == bearer_info.bearer_id and entry.get("exclude_bearer", false):
 			continue
 		# Must be deployed. status may be an int enum (live game) or a String
 		# (freshly applied army JSON) — comparing int to String is a runtime
@@ -2731,182 +2502,6 @@ static func _status_is_deployed(status) -> bool:
 	return int(status) == GameStateData.UnitStatus.DEPLOYED
 
 # ============================================================================
-# AGAINST ALL ODDS — LIONS OF THE EMPEROR
-# ============================================================================
-
-static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary) -> bool:
-	"""Thin wrapper over evaluate_against_all_odds for the resolution hot path —
-	the engine only needs the yes/no, and skips measuring the nearest friendly."""
-	return evaluate_against_all_odds(attacker_unit, board, false).get("active", false)
-
-
-static func evaluate_against_all_odds(attacker_unit: Dictionary, board: Dictionary, want_nearest: bool = false) -> Dictionary:
-	"""Full Against All Odds status — the SINGLE source of truth shared by the
-	resolution engine (via check_against_all_odds) and the board's sparkle /
-	hover readout, so what the player sees can never drift from what the dice do.
-
-	Returns:
-	  applicable      — this unit could earn the bonus at all (Lions detachment,
-	                    non-VEHICLE ADEPTUS CUSTODES). Non-applicable units get
-	                    no marker whatsoever.
-	  active          — it currently DOES earn +1 Hit / +1 Wound.
-	  nearest_name    — closest other friendly unit (only when want_nearest).
-	  nearest_inches  — edge-to-edge distance to it, INF when nothing else is on
-	                    the battlefield (only when want_nearest).
-
-	want_nearest=false keeps the original early-exit: the first friendly found
-	within 6\" ends the scan. The visual path passes true and measures every
-	friendly so the tooltip can name the unit that is (or nearly is) spoiling it.
-	Condition: the unit's army runs the Lions of the Emperor detachment, and the
-	unit is a non-VEHICLE ADEPTUS CUSTODES unit with no other friendly units
-	within 6\". Leader rules: an attached CHARACTER and its bodyguard count as
-	ONE unit — they never block each other, and the 6\" bubble is measured from
-	every model in the combined unit. Friendly units that are not on the
-	battlefield (embarked in a Transport, or in Reserves — whose models keep
-	stale coordinates) never block."""
-	var result := {"applicable": false, "active": false, "nearest_name": "", "nearest_inches": INF}
-	var owner = attacker_unit.get("owner", -1)
-	if owner < 0:
-		return result
-	# Detachment gate — Against All Odds is the Lions of the Emperor rule; a
-	# Shield Host (or any other Custodes) army must not receive it. Normalise
-	# NBSP/space/case the same way FactionStratagemLoader does (issue #366:
-	# hand-edited rosters carry U+00A0 in the detachment name).
-	var detachment = str(board.get("factions", {}).get(str(owner), {}).get("detachment", ""))
-	if FactionStratagemLoaderData._normalise_detachment_name(detachment) != "lions of the emperor":
-		return result
-	var keywords = attacker_unit.get("meta", {}).get("keywords", [])
-	var is_custodes = false
-	var is_vehicle = false
-	for kw in keywords:
-		var upper = kw.to_upper()
-		if upper == "ADEPTUS CUSTODES":
-			is_custodes = true
-		if upper == "VEHICLE":
-			is_vehicle = true
-	if not is_custodes or is_vehicle:
-		return result
-	# Past every gate: the unit CAN earn the bonus, so it always gets a marker —
-	# lit when isolated, dim when a friendly is spoiling it.
-	result["applicable"] = true
-	result["active"] = true
-	var attacker_id = str(attacker_unit.get("id", ""))
-	var units = board.get("units", {})
-	# Build the attacking unit's attached group (self + attached leaders, or —
-	# when the attacker IS an attached leader — its bodyguard and that
-	# bodyguard's other leaders). Group members are the SAME unit per the
-	# Leader rules, so they are excluded from the "other friendly units" scan
-	# and their models are included in the measuring set.
-	var group_ids := {attacker_id: true}
-	for char_id in attacker_unit.get("attachment_data", {}).get("attached_characters", []):
-		group_ids[str(char_id)] = true
-	var bodyguard_id = attacker_unit.get("attached_to", null)
-	if bodyguard_id != null and str(bodyguard_id) != "":
-		group_ids[str(bodyguard_id)] = true
-		var bodyguard = units.get(str(bodyguard_id), {})
-		for char_id in bodyguard.get("attachment_data", {}).get("attached_characters", []):
-			group_ids[str(char_id)] = true
-	var group_models: Array = []
-	for m in attacker_unit.get("models", []):
-		group_models.append(m)
-	for gid in group_ids:
-		if gid == attacker_id:
-			continue
-		for m in units.get(gid, {}).get("models", []):
-			group_models.append(m)
-	for other_id in units:
-		if group_ids.has(str(other_id)):
-			continue
-		var other_unit = units[other_id]
-		if other_unit.get("owner", -1) != owner:
-			continue
-		# Units that are not on the battlefield cannot be within 6": embarked
-		# units and units in Reserves keep their last battlefield coordinates.
-		if other_unit.get("embarked_in", null) != null:
-			continue
-		var status_v = other_unit.get("status", -1)
-		if typeof(status_v) == TYPE_STRING:
-			if str(status_v) in ["UNDEPLOYED", "IN_RESERVES"]:
-				continue
-		elif int(status_v) == GameStateData.UnitStatus.UNDEPLOYED or int(status_v) == GameStateData.UnitStatus.IN_RESERVES:
-			continue
-		var other_alive = false
-		for m in other_unit.get("models", []):
-			if m.get("alive", true):
-				other_alive = true
-				break
-		if not other_alive:
-			continue
-		var min_dist = INF
-		for a_model in group_models:
-			if not a_model.get("alive", true):
-				continue
-			var a_pos = a_model.get("position", null)
-			if a_pos == null:
-				continue
-			var ax = 0.0
-			var ay = 0.0
-			if a_pos is Vector2:
-				ax = a_pos.x
-				ay = a_pos.y
-			elif a_pos is Dictionary:
-				ax = float(a_pos.get("x", 0))
-				ay = float(a_pos.get("y", 0))
-			for o_model in other_unit.get("models", []):
-				if not o_model.get("alive", true):
-					continue
-				var o_pos = o_model.get("position", null)
-				if o_pos == null:
-					continue
-				var ox = 0.0
-				var oy = 0.0
-				if o_pos is Vector2:
-					ox = o_pos.x
-					oy = o_pos.y
-				elif o_pos is Dictionary:
-					ox = float(o_pos.get("x", 0))
-					oy = float(o_pos.get("y", 0))
-				var dx = ax - ox
-				var dy = ay - oy
-				# Model dicts carry base_mm (base_size_mm in some older test
-				# fixtures) — honour both, radius in px at 40 px/inch.
-				var a_base = float(a_model.get("base_size_mm", a_model.get("base_mm", 32))) / 2.0 * 40.0 / 25.4
-				var o_base = float(o_model.get("base_size_mm", o_model.get("base_mm", 32))) / 2.0 * 40.0 / 25.4
-				var edge_dist = (sqrt(dx * dx + dy * dy) - a_base - o_base) / 40.0
-				if edge_dist < min_dist:
-					min_dist = edge_dist
-		if min_dist < result["nearest_inches"]:
-			result["nearest_inches"] = min_dist
-			result["nearest_name"] = str(other_unit.get("meta", {}).get("name", other_id))
-		if min_dist <= 6.0:
-			result["active"] = false
-			# The engine's fast path has its answer; only the visual readout
-			# keeps scanning, to name the CLOSEST friendly.
-			if not want_nearest:
-				return result
-	return result
-
-# ============================================================================
-# SKIN-CRAWLING DISORIENTATION — SILENT HUNTERS
-# ============================================================================
-
-static func check_skin_crawling_disorientation(unit: Dictionary, board: Dictionary) -> bool:
-	"""Silent Hunters detachment rule: ANATHEMA PSYKANA units can perform
-	Actions (mission actions) in a turn in which they Advanced. True when the
-	unit's army runs the Silent Hunters detachment and the unit has the
-	ANATHEMA PSYKANA keyword."""
-	var owner = unit.get("owner", -1)
-	if owner < 0:
-		return false
-	var detachment = str(board.get("factions", {}).get(str(owner), {}).get("detachment", ""))
-	if FactionStratagemLoaderData._normalise_detachment_name(detachment) != "silent hunters":
-		return false
-	for kw in unit.get("meta", {}).get("keywords", []):
-		if str(kw).to_upper() == "ANATHEMA PSYKANA":
-			return true
-	return false
-
-# ============================================================================
 # PHASE LIFECYCLE
 # ============================================================================
 
@@ -3032,8 +2627,6 @@ func get_state_for_save() -> Dictionary:
 		"player_detachment": _player_detachment.duplicate(true),
 		"doctrines_used": _doctrines_used.duplicate(true),
 		"active_doctrine": _active_doctrine.duplicate(true),
-		"active_mastery": _active_mastery.duplicate(true),
-		"mastery_selected_round": _mastery_selected_round.duplicate(true),
 		# Loot objective state (OA-1)
 		"loot_objective": _loot_objective.duplicate(true),
 		"loot_objective_round": _loot_objective_round.duplicate(true),
@@ -3060,8 +2653,6 @@ func load_state(data: Dictionary) -> void:
 	_player_detachment = data.get("player_detachment", {"1": "", "2": ""})
 	_doctrines_used = data.get("doctrines_used", {"1": [], "2": []})
 	_active_doctrine = data.get("active_doctrine", {"1": "", "2": ""})
-	_active_mastery = data.get("active_mastery", {"1": "", "2": ""})
-	_mastery_selected_round = data.get("mastery_selected_round", {"1": 0, "2": 0})
 	# Loot objective state (OA-1)
 	_loot_objective = data.get("loot_objective", {"1": "", "2": ""})
 	_loot_objective_round = data.get("loot_objective_round", {"1": 0, "2": 0})

@@ -88,6 +88,14 @@ func validate_setup(_unit_id: String, board: Dictionary, model_positions: Array,
 					errors.append("model at %s is within 8\" of an enemy model" % str(pos))
 					break
 
+		# Codex: Adeptus Custodes (11e) Arae-Shrike (Honoured Companions):
+		# "Enemy units that are selected to make an ingress move cannot be set
+		# up within 12\" of this unit" (WP-C46).
+		if GameConstants.edition >= 11:
+			var arae: String = str(load("res://scripts/codex/custodes/CustodesDetachments.gd").arae_shrike_violation(_unit_id, pos, self_radius_px))
+			if arae != "":
+				errors.append("model at %s is %s" % [str(pos), arae])
+
 		# Before the third battle round: not within the opponent's
 		# deployment zone (applies to ingress; Deep Strike 24.09 lifts it
 		# explicitly — "even if that is within your opponent's deployment

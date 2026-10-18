@@ -342,7 +342,16 @@ func _section_fall_back_pair() -> void:
 		var use = _use(phase, 1, "unit_selected_to_move", sid, "U_CUSTODIAN_GUARD_A")
 		_check("%s: USE succeeds, CP -1" % spec[1], use.get("success", false) and _cp(1) == cp0 - 1, str(use.get("error", "")))
 		_check("%s: fall back does not prevent shooting" % spec[1], EP.has_effect_fall_back_and_shoot(_unit("U_CUSTODIAN_GUARD_A")))
-		_check("%s: fall back and charge = %s" % [spec[1], str(spec[2])], EP.has_effect_fall_back_and_charge(_unit("U_CUSTODIAN_GUARD_A")) == bool(spec[2]))
+		# The stratagem's own grant (WP-C46: in a Solar Watch army the detachment
+		# rule TALON SORTIE lets every Custodes unit charge after falling back,
+		# so the combined EffectPrimitives answer is true there regardless).
+		var own_fbc: bool = bool(load("res://scripts/codex/custodes/CustodesCodex11e.gd").grants(_unit("U_CUSTODIAN_GUARD_A"), "fall_back_and_charge"))
+		_check("%s: fall back and charge (the stratagem's own grant) = %s" % [spec[1], str(spec[2])], own_fbc == bool(spec[2]))
+		if str(spec[0]) == "Solar Watch":
+			_check("%s: TALON SORTIE (Solar Watch detachment rule, WP-C46) still lets the unit charge after falling back" % spec[1],
+				EP.has_effect_fall_back_and_charge(_unit("U_CUSTODIAN_GUARD_A")))
+		else:
+			_check("%s: fall back and charge = %s" % [spec[1], str(spec[2])], EP.has_effect_fall_back_and_charge(_unit("U_CUSTODIAN_GUARD_A")) == bool(spec[2]))
 		SM.on_phase_end(PHASE_MOVEMENT)
 		_check("%s: lasts past the Movement phase (shoot in the Shooting phase)" % spec[1], EP.has_effect_fall_back_and_shoot(_unit("U_CUSTODIAN_GUARD_A")))
 		SM.on_turn_start(2)

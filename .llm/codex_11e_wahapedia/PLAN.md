@@ -22,9 +22,11 @@ C and O both depend on W0–W2 and are otherwise independent.
 | W0–W2 pipeline + data tests | ✅ `e704330`: wahapedia-import / curate-from-wahapedia / verify-wahapedia-import, `npm run codex11e`, `test_wahapedia_11e_import_data.gd` |
 | C1 / O1 data | ✅ 29 Custodes + 55 Ork codex datasheets; AC stratagem/detachment rows; Ork curated stratagems re-verified (no errata) |
 | C2 / O2 army files | ✅ all 16 lists regenerated (codex sizes/points, Legends kept); legacy 1.0.19 Custodes kits frozen (D1). Save fixtures / AI-lab baselines NOT regenerated (they stay as pre-codex saves; re-baseline at the end) |
-| Rules phase | contract: `IMPLEMENTATION.md`; briefs in `briefs/`. Merged: WP-C3, WP-O34, WP-O6. Running: WP-C5, WP-C46, WP-O5. Queued: WP-C7 |
+| Rules phase | contract: `IMPLEMENTATION.md`; briefs in `briefs/`. Merged: WP-C3, WP-O34, WP-O6, WP-C5, WP-C46. Running: WP-O5, WP-C7, WP-W3 (web builder data) |
 | C3 army rules | ✅ merged (Ka'tah rework, Aegis, Aquila Commander without the 10e bonus-CP cap, Daughters) |
 | O3/O4 army + detachments | ✅ merged (WP-O34) |
+| C5 stratagems | ✅ merged `dc5f3aa1`: all 41 Custodes codex stratagems in their windows, 41 `cus11e_<slug>` scenarios (agent: all PASS, gate 6160/0); integrator re-ran 9 headless tests (0 failures) + 10 scenarios incl. Ork regressions (all PASS). Gaps: phase_end windows not opened in networked games; NO ESCAPE / RAPID REACTIONS / SELFLESS SERVICE moves auto-resolved (no interactive UI) |
+| C4/C6 detachments + enhancements | ✅ merged `f4f4530b` (WP-C46): 13 detachment rules (13 `cus11e_det_*` scenarios), 29 enhancements (7 windowed, 22 headless), data-driven enhancement validation, builder offers codex detachments/enhancements; 10e Custodes detachment code deleted. Integrator re-ran 13 headless tests (0 failures) + 11 scenarios (all PASS). Gaps: Castellan's Mark redeploy has no player controls (no Redeployment UI); Creeping Dread log line shows the unmodified total |
 | O6 datasheet abilities | ✅ merged `eddec58c`: 99 of 107 audited abilities implemented/re-implemented (`ork_abilities_audit.md`), 31 10e-only abilities deleted, 37 `ork11e_ab_*` scenarios; integrator re-ran 9 headless tests (0 failures) + 8 scenarios (all PASS). Not implemented: Deff from the Shadows, Pilin' Out, Pulse Jet, Big'ed Bossbunka's three, Runnin' wiv da Herd keyword swap, Get Out da Way! |
 
 Known follow-ups:

@@ -49,8 +49,36 @@ func mode_ids() -> Array:
 
 
 ## 12.08 BEFORE — modes are mandatory-if-applicable, assessed in order.
+##
+## Codex: Adeptus Custodes (11e) Unstoppable Destroyer (WP-C46): "You can
+## select any consolidation mode for that consolidation move, regardless of
+## that consolidation move's Before Moving restrictions" — the mandatory ORDER
+## is lifted: every mode whose own condition holds (engaged / an enemy within
+## 3" / an objective within 3") is available, `context.chosen_mode` picks one
+## (default: the mandatory one). `context.any_mode` lets other free-choice
+## rules reuse this. Ruling (RULINGS.md WP-C46): each mode's own selection
+## condition still applies, as EMPEROR'S DOMAIN spells out for its objective
+## mode ("provided it meets the conditions of the objective consolidation mode").
 func select_mode(unit_id: String, board: Dictionary, _context: Dictionary = {}) -> Dictionary:
 	var rules = _rules()
+	var free_source := ""
+	if bool(_context.get("any_mode", false)):
+		free_source = str(_context.get("any_mode_source", "rule"))
+	elif GameConstants.edition >= 11 and load("res://scripts/codex/custodes/CustodesDetachments.gd").any_consolidation_mode(unit_id):
+		free_source = "Unstoppable Destroyer"
+	if free_source != "":
+		var applicable: Array = []
+		if rules.is_unit_engaged(unit_id, board):
+			applicable.append("ongoing")
+		if not _enemies_within(unit_id, board, ENGAGING_RANGE_INCHES).is_empty():
+			applicable.append("engaging")
+		if not _objectives_within(unit_id, board, OBJECTIVE_WITHIN_INCHES).is_empty():
+			applicable.append("objective")
+		if applicable.is_empty():
+			return {"mode": "", "mandatory": false, "available": []}
+		var chosen := str(_context.get("chosen_mode", ""))
+		var pick: String = chosen if chosen in applicable else str(applicable[0])
+		return {"mode": pick, "mandatory": applicable.size() == 1, "available": applicable, "free_choice_source": free_source}
 	# Codex: Adeptus Custodes EMPEROR'S DOMAIN (CustodesCodex11e.gd): the objective mode regardless of the BEFORE restrictions.
 	if load("res://scripts/codex/custodes/CustodesCodex11e.gd").consolidation_objective_override(unit_id) \
 			and not _objectives_within(unit_id, board, OBJECTIVE_WITHIN_INCHES).is_empty():

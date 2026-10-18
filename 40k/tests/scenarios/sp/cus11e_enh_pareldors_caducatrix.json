@@ -1,0 +1,36 @@
+{
+  "id": "cus11e_enh_pareldors_caducatrix",
+  "covers": [
+    "codex.custodes.enhancement.pareldors_caducatrix",
+    "stratagem.window.cus11e_phase_start",
+    "dialogs.StratagemDialog.rule_offer_targets"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) enhancement PARELDOR'S CADUCATRIX (Aquilan Shield, WP-C46): (once per battle, per army) at the start of any phase, this model heals D3+3 wounds. Fixture cus11e_c3_custodes_active (P1 Custodes active, Command phase); setup privileges: P1 detachment Aquilan Shield, the Shield-Captain given Pareldor's Caducatrix and left on 2 of its 8 wounds, CP 0 for both. The Movement phase starts (setup privilege: PhaseManager.transition_to_phase(7)): the start-of-phase window opens for the Custodes player with the free PARELDOR'S CADUCATRIX card; a real click on 'Use on Shield-Captain' heals 4-6 wounds (D3+3) without CP and spends the enhancement for the battle.",
+  "fixture": "cus11e_c3_custodes_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_phase", "equals": 6 },
+    { "act": "click_if_visible", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true, "comment": "setup privileges (see description)", "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Aquilan Shield\"\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nvar u = GameState.state.units[\"U_SHIELD_CAPTAIN_A\"]\nu.meta[\"enhancements\"] = [\"Pareldor's Caducatrix\"]\nu.models[0][\"current_wounds\"] = 2\nPhaseManager.transition_to_phase(7)\nreturn int(u.models[0].wounds)", "equals": 8 },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 4.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")", "equals": "cus11e_phase_start" },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_rule_enh_caducatrix/Buttons/Use_cus11e_rule_enh_caducatrix_U_SHIELD_CAPTAIN_A", "property": "disabled", "equals": false },
+    { "act": "screenshot", "label": "01_caducatrix_card_phase_start" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_rule_enh_caducatrix/Buttons/Use_cus11e_rule_enh_caducatrix_U_SHIELD_CAPTAIN_A" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_cp", "player": 1, "equals": 0 },
+    { "act": "expect_state", "path": "units.U_SHIELD_CAPTAIN_A.flags.cus11e_caducatrix_used", "equals": true },
+    { "act": "execute_script", "multiline": true, "comment": "D3+3 = 4..6 wounds healed (2 -> 6..8)", "script": "var w := int(GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].current_wounds)\nprint(\"[cus11e caducatrix] wounds after heal: \", w)\nreturn w >= 6 and w <= 8", "equals": true },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"PARELDOR'S CADUCATRIX\")", "expect_min": 1 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()", "equals": false },
+    { "act": "screenshot", "label": "02_shield_captain_healed" }
+  ]
+}
