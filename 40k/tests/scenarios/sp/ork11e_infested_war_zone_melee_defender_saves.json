@@ -17,6 +17,7 @@
   "steps": [
     {"act": "wait_seconds", "seconds": 0.8},
     {"act": "expect_phase", "equals": 9},
+    { "act": "execute_script", "multiline": true, "comment": "Codex: Adeptus Custodes 11e (WP-C3): loading this Command-phase fixture readied the Custodes (Martial Ka'tah), which would open ka'tah windows (fight_phase_start / unit_selected_to_fight). Not under test here (the cus11e_* scenarios cover them): un-ready the Custodes - replaces the old 'click the Dacatarai stance' step.", "script": "for uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif u.get(\"flags\", null) is Dictionary:\n\t\tu.flags.erase(\"cus11e_readied\")\nreturn true", "equals": true },
     {"act": "execute_script", "multiline": true, "comment": "setup privileges (see description)", "script": "GameState.state[\"factions\"][\"2\"][\"detachment\"] = \"Runt Swarm\"\nStratagemManager.load_faction_stratagems_for_player(2)\nSettingsService.auto_allocate_wounds = false\nvar cg = GameState.get_unit(\"U_CUSTODIAN_GUARD_F\")\ncg[\"flags\"].merge({\"fights_first\": true, \"charged_this_turn\": true}, true)\nvar p0 = cg[\"models\"][0][\"position\"]\nvar g = GameState.state[\"units\"][\"U_GRETCHIN_C\"]\nfor i in range(g[\"models\"].size()):\n\tif i < 2:\n\t\tg[\"models\"][i][\"position\"] = {\"x\": float(p0.x) - 60.0 - i * 45.0, \"y\": float(p0.y)}\n\telse:\n\t\tg[\"models\"][i][\"alive\"] = false\n\t\tg[\"models\"][i][\"current_wounds\"] = 0\nGameState.state[\"players\"][\"1\"][\"cp\"] = 4\nGameState.state[\"players\"][\"2\"][\"cp\"] = 4\nSceneRefs.main()._recreate_unit_visuals()\nreturn [RulesEngine.check_units_in_engagement_range(cg, g, GameState.state), StratagemManager.find_faction_stratagem_by_name(2, \"INFESTED WAR ZONE\")]", "equals": [true, "faction_ork_runt_swarm_infested_war_zone"]},
     {"act": "execute_script", "script": "SettingsService.get_auto_allocate_wounds()", "equals": false},
     {"act": "dispatch_action", "action": {"type": "END_CHARGE", "player": 1}},
@@ -33,7 +34,6 @@
     {"act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_F", "timeout_s": 5.0},
     {"act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_F"},
     {"act": "wait_seconds", "seconds": 0.5},
-    {"act": "click_if_visible", "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton"},
     {"act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0},
     {"act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton"},
     {"act": "wait_seconds", "seconds": 0.3},

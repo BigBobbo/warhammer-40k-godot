@@ -98,11 +98,27 @@ func _cp(p: int) -> int:
 
 func _shooting_phase():
 	PM.transition_to_phase(PHASE_COMMAND)
+	_cus11e_unready()
 	PM.transition_to_phase(PHASE_SHOOTING)
 	var phase = PM.get_current_phase_instance()
 	if phase and not phase.stratagem_window_opened.is_connected(_on_window_opened):
 		phase.stratagem_window_opened.connect(_on_window_opened)
 	return phase
+
+
+## Codex: Adeptus Custodes (11e, WP-C3): the Custodes Command phase readies
+## every Martial Ka'tah unit, so a Custodes unit selected to shoot would first
+## open a SALVUS ka'tah window for the human P1. The ka'tahs are not under test
+## here (test_custodes_army_rules_11e.gd covers them): un-ready the Custodes
+## and spend Master of Ka'tahs for the round.
+func _cus11e_unready() -> void:
+	var rnd: int = int(GS.get_battle_round())
+	for uid in GS.state.units:
+		var u: Dictionary = GS.state.units[uid]
+		if not (u.get("flags", null) is Dictionary):
+			u["flags"] = {}
+		u.flags.erase("cus11e_readied")
+		u.flags["cus11e_master_of_katahs_round"] = rnd
 
 
 func _move_unit(uid: String, dx_in: float, dy_in: float) -> void:

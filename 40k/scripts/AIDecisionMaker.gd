@@ -22060,6 +22060,11 @@ static func _ork_abilities():
 		_ork_abilities_module = load("res://scripts/codex/orks/OrkAbilities11e.gd")
 	return _ork_abilities_module
 
+## Codex: Adeptus Custodes army rules (CustodesKatah.gd) — loaded on first use,
+## like _ork_codex (a const preload extends the `godot -s` compile cascade).
+static func _custodes_katah():
+	return load("res://scripts/codex/custodes/CustodesKatah.gd")
+
 static func _stratagem_manager():
 	"""Access the StratagemManager autoload from static context (may be null headless)."""
 	var main_loop = Engine.get_main_loop()
@@ -22802,48 +22807,6 @@ static func evaluate_epic_challenge(player: int, unit_id: String, snapshot: Dict
 			best_value, best_dmg, cp_cost])
 	return {}
 
-static func evaluate_katah_stance(player: int, unit_id: String, snapshot: Dictionary, master_available: bool) -> Dictionary:
-	"""Martial Ka'tah (Custodes): pick a stance when this unit is selected to
-	fight. Dacatarai = Sustained Hits 1 (volume, best into hordes / poor saves);
-	Rendax = Lethal Hits (auto-wound on crits, best into high Toughness).
-	'both' needs Master of the Stances (once per battle) — save it for a
-	valuable engagement."""
-	var unit = snapshot.get("units", {}).get(unit_id, {})
-	var unit_name = _dn(unit, unit_id)
-	var enemies = _get_enemy_units(snapshot, player)
-	var engaging = _get_engaging_enemy_units(unit, unit_id, enemies)
-
-	# Assess the toughest engaged target to pick the stance
-	var max_t = 0
-	var max_pts = 0.0
-	var target_name = ""
-	for enemy in engaging:
-		var t = int(enemy.get("meta", {}).get("stats", {}).get("toughness", 4))
-		var pts = float(enemy.get("meta", {}).get("points", 0))
-		if t > max_t:
-			max_t = t
-			target_name = _dn(enemy, "")
-		max_pts = maxf(max_pts, pts)
-
-	var stance = "dacatarai"
-	var reason = "Sustained Hits for attack volume"
-	# Our melee strength vs their toughness: when wounding on 5+/6+, Lethal
-	# Hits (auto-wound on crit) is worth more than extra hits.
-	if max_t >= 7:
-		stance = "rendax"
-		reason = "Lethal Hits into T%d (%s)" % [max_t, target_name]
-	if master_available and max_pts >= 150.0:
-		stance = "both"
-		reason = "Master of the Stances on a %d-pt engagement" % int(max_pts)
-
-	_add_thinking_step("Ka'tah stance for %s: %s — %s" % [unit_name, stance, reason])
-	return {
-		"type": "SELECT_KATAH_STANCE",
-		"unit_id": unit_id,
-		"stance": stance,
-		"_ai_description": "%s assumes %s stance (%s)" % [unit_name, stance, reason]
-	}
-
 static func evaluate_reactive_stratagem(defending_player: int, available_stratagems: Array, target_unit_ids: Array, snapshot: Dictionary) -> Dictionary:
 	"""
 	Evaluate whether the AI should use a defensive reactive stratagem when its
@@ -22936,6 +22899,15 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	Non-codex window stratagems fall back to the defensive effects scorer.
 	"""
 	var decline := {"use": false}
+	# Codex: Adeptus Custodes ka'tah abilities ride in the same windows
+	# (CustodesKatah.gd): free (they cost the unit's readied state), so the AI
+	# picks one first at every difficulty; the window stays open afterwards and
+	# BasePhase asks again. Then only the stratagems are weighed.
+	var katah_pick: Dictionary = _custodes_katah().ai_pick(player, window_id, offers, ctx)
+	if katah_pick.get("use", false):
+		_add_thinking_step("Ka'tah in %s: %s" % [window_id, str(katah_pick.get("reason", ""))])
+		return katah_pick
+	offers = _custodes_katah().strip_katah_offers(offers)
 	var sm = _stratagem_manager()
 	if sm == null or offers.is_empty():
 		return decline

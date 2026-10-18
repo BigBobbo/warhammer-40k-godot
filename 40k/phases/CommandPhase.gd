@@ -77,6 +77,9 @@ func _on_phase_enter() -> void:
 		var strat_manager_round = get_node_or_null("/root/StratagemManager")
 		if strat_manager_round:
 			strat_manager_round.on_battle_round_start(battle_round)
+		# Codex: Adeptus Custodes AQUILA COMMANDER — start of the battle round,
+		# +1CP if your WARLORD has it (bonus-CP cap respected; CustodesKatah.gd).
+		_cus11e_katah().on_battle_round_start(battle_round)
 
 	# Step 0b: Initialize secondary mission decks on first command phase
 	# Both players' decks are set up on the very first command phase entry,
@@ -152,6 +155,10 @@ func _on_phase_enter() -> void:
 	if faction_mgr:
 		faction_mgr.on_command_phase_start(current_player)
 
+	# Codex: Adeptus Custodes MARTIAL KA'TAH — readied step: the active
+	# player's units with the ability are readied (CustodesKatah.gd).
+	_cus11e_katah().on_command_phase_start(current_player)
+
 	# P3-106: Clear turn-scoped stratagem effects at start of new turn
 	# Per Core Rules, effects with "until the start of your next turn" duration expire here
 	var strat_manager = get_node_or_null("/root/StratagemManager")
@@ -195,7 +202,13 @@ func _start_battle_shock_step(deferred: Dictionary) -> Dictionary:
 			queued.append(unit_id)
 	var bss_ctx := {"phase": "command", "units_needing_test": queued}
 	_bss_deferred_action = deferred.duplicate(true)
-	if open_stratagem_window(player, "battle_shock_step_start", bss_ctx, "_resume_after_battle_shock_step_window"):
+	# command_phase_main (WP-C3): "your Command phase", after the readied step
+	# and the Command step's prompts — the Codex: Adeptus Custodes CONSERVAI
+	# ka'tah (CustodesKatah.gd) — opens just before battle_shock_step_start.
+	var bss_entries: Array = [
+		{"player": player, "window_id": "command_phase_main", "ctx": {"phase": "command"}},
+		{"player": player, "window_id": "battle_shock_step_start", "ctx": bss_ctx}]
+	if open_stratagem_windows(bss_entries, "_resume_after_battle_shock_step_window", bss_ctx):
 		DebugLogger.info("CommandPhase: Battle-shock step starts — waiting for Player %d's battle_shock_step_start stratagem decision (then %s)" % [
 			player, str(deferred.get("type", "the roll call"))])
 		var paused = create_result(true, consume_window_diffs())

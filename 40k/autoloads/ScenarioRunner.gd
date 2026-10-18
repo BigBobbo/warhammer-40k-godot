@@ -280,6 +280,9 @@ func _run_scenario() -> void:
 	var scenario_id: String = _scenario.get("id", "unnamed")
 	print("[ScenarioRunner] === scenario id=%s ===" % scenario_id)
 
+	# 1b) Codex: Adeptus Custodes MARTIAL KA'TAH policy (see _katah_policy_*).
+	_katah_policy_arm()
+
 	# 2) Load fixture (optional)
 	var fixture: String = _scenario.get("fixture", "")
 	if fixture != "":
@@ -1854,6 +1857,39 @@ func min_edge_distance_between_units(unit_a_id: String, unit_b_id: String) -> fl
 				continue
 			best = min(best, Measurement.model_to_model_distance_inches(ma, mb))
 	return best
+
+# Codex: Adeptus Custodes (11e) MARTIAL KA'TAH (WP-C3) — scenario policy.
+# Every Custodes Command phase readies the Custodes units, and a readied unit
+# opens a ka'tah window (a 0-CP card in the StratagemDialog) whenever it is
+# selected to move / shoot / fight, at the start of each Fight phase and when
+# the Command phase ends. The scenarios written before the codex never answer
+# those windows (most of them load a Custodes Command-phase fixture), so
+# unless a scenario opts in with top-level  "martial_katah": true  the runner
+# clears flags.cus11e_readied right after every Command phase entry — before
+# any step or transition_to_phase runs — and logs it. Nothing else of the army
+# rules is touched. The cus11e_* scenarios opt in and drive the windows.
+func _katah_policy_arm() -> void:
+	if bool(_scenario.get("martial_katah", false)):
+		print("[ScenarioRunner] martial_katah: true — Custodes readied state kept (ka'tah windows will open)")
+		return
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm != null and pm.has_signal("phase_changed") and not pm.phase_changed.is_connected(_katah_policy_on_phase_changed):
+		pm.phase_changed.connect(_katah_policy_on_phase_changed)
+
+func _katah_policy_on_phase_changed(new_phase) -> void:
+	if int(new_phase) != int(GameStateData.Phase.COMMAND):
+		return
+	var gs = get_node_or_null("/root/GameState")
+	if gs == null:
+		return
+	var cleared: Array = []
+	for uid in gs.state.get("units", {}):
+		var flags = gs.state.units[uid].get("flags", null)
+		if flags is Dictionary and flags.has("cus11e_readied"):
+			flags.erase("cus11e_readied")
+			cleared.append(str(uid))
+	if not cleared.is_empty():
+		print("[ScenarioRunner] martial_katah policy: cleared the Custodes readied state on %d unit(s) %s — this scenario does not opt in (\"martial_katah\": true)" % [cleared.size(), str(cleared)])
 
 # Count GameEventLog entries whose text contains `needle`. Callable from
 # `execute_script` steps, e.g. `event_log_count_containing("charge move failed")`

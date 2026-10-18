@@ -16,6 +16,7 @@
 
     { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
     { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)", "comment": "WP-C3: without the 10e Ka'tah stance (which gave the Custodian Guard SUSTAINED HITS) the seeded dice land differently and the Stompa's swing now wounds the Custodian Guard; auto-allocate resolves those saves at once so the activation completes (saves are not under test)" },
     { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
     { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
 
@@ -46,7 +47,6 @@
 
     { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_CUSTODIAN_GUARD_B", "player": 1 } },
     { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "dispatch_action", "action": { "type": "SELECT_KATAH_STANCE", "unit_id": "U_CUSTODIAN_GUARD_B", "stance": "dacatarai", "player": 1 } },
     { "act": "dispatch_action", "action": { "type": "ASSIGN_ATTACKS", "unit_id": "U_CUSTODIAN_GUARD_B", "target_id": "U_STOMPA_A", "weapon_id": "guardian_spear_melee", "player": 1 } },
     { "act": "dispatch_action", "action": { "type": "CONFIRM_AND_RESOLVE_ATTACKS", "player": 1 } },
     { "act": "dispatch_action", "action": { "type": "ROLL_DICE", "player": 1, "payload": { "fast_roll": true } } },

@@ -62,8 +62,6 @@
 
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 8.0 },
     { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B", "emit_pressed": true },
-    { "act": "expect_node_visible", "node": "/root/KatahStanceDialog", "timeout_s": 5.0 },
-    { "act": "click_node", "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton", "emit_pressed": true },
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
 
     { "act": "dispatch_action", "action": { "type": "ASSIGN_ATTACKS", "unit_id": "U_CUSTODIAN_GUARD_B", "target_id": "U_WARBOSS_B", "weapon_id": "misericordia_melee", "player": 1 } },

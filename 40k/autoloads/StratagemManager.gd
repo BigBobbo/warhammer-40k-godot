@@ -48,6 +48,10 @@ const WINDOW_WHEN_TEXT: Dictionary = {
 	"fight_phase_end": "the Fight phase ends",
 	"unit_destroyed": "one of your units is destroyed",
 	"enemy_unit_has_attacked": "an enemy unit has made its attacks",
+	# Codex: Adeptus Custodes (WP-C3, CustodesKatah.gd): Dacatarai / Kaptaris /
+	# SHIELD OF HONOUR, and Conservai.
+	"fight_phase_start": "the Fight phase starts",
+	"command_phase_main": "your Command phase is under way",
 }
 
 # Follow-up returned by the last codex apply() (design §3.2); use_stratagem

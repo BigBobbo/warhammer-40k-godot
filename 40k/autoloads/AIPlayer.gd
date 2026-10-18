@@ -1022,13 +1022,6 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "epic_challenge_opportunity", "callable": callable_ec})
 		print("AIPlayer: Connected to FightPhase.epic_challenge_opportunity")
 
-	# Martial Ka'tah stance selection (Custodes) — AI must respond or the fight stalls
-	if phase.has_signal("katah_stance_required"):
-		var callable_ks = Callable(self, "_on_katah_stance_required")
-		phase.katah_stance_required.connect(callable_ks)
-		_connected_phase_signals.append({"signal_name": "katah_stance_required", "callable": callable_ks})
-		print("AIPlayer: Connected to FightPhase.katah_stance_required")
-
 func _disconnect_phase_stratagem_signals() -> void:
 	"""Disconnect all previously connected phase stratagem signals."""
 	if _current_phase_ref and is_instance_valid(_current_phase_ref):
@@ -1406,24 +1399,6 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 			"_ai_description": "AI declines %s reroll (charge already sufficient)" % ability_name
 		}
 
-	_submit_reactive_action(player, decision)
-
-func _on_katah_stance_required(unit_id: String, player: int) -> void:
-	"""Martial Ka'tah (Custodes): the FightPhase pauses until a stance is
-	selected for the active fighter. Without this handler an AI Custodes
-	fight activation would stall forever."""
-	if not is_ai_player(player):
-		return
-
-	var master_available = false
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr and ability_mgr.has_method("has_master_of_the_stances"):
-		master_available = ability_mgr.has_master_of_the_stances(unit_id)
-
-	var snapshot = GameState.create_snapshot(false)
-	var decision = AIDecisionMaker.evaluate_katah_stance(player, unit_id, snapshot, master_available)
-	_flush_reactive_thinking(player, "Ka'tah stance (%s activating)" % _get_unit_name(unit_id))
-	decision["player"] = player
 	_submit_reactive_action(player, decision)
 
 func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:

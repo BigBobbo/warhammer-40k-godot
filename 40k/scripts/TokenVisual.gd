@@ -420,10 +420,16 @@ func _process(delta: float) -> void:
 
 	var style = SettingsService.unit_visual_style if SettingsService else "classic"
 
+	# Codex: Adeptus Custodes readied badge — redraw once whenever the unit's
+	# readied state flips (readied step / ka'tah use), so it never goes stale.
+	var katah_flip := _katah_readied_flipped()
+
 	# Letter mode doesn't need continuous redraw (no animations)
 	if style == "letter" and not debug_mode:
 		if is_selected or is_hovered:
 			_pulse_time += delta
+			queue_redraw()
+		elif katah_flip:
 			queue_redraw()
 		return
 
@@ -463,7 +469,7 @@ func _process(delta: float) -> void:
 	if needs_redraw:
 		_pulse_time += delta
 		queue_redraw()
-	elif _anim_needs_redraw:
+	elif _anim_needs_redraw or katah_flip:
 		queue_redraw()
 
 func _draw() -> void:
@@ -500,6 +506,7 @@ func _draw() -> void:
 	if style == "letter" and not debug_mode:
 		_draw_letter_mode()
 		_draw_battle_shock_indicator()  # T-096: also show in letter mode
+		_draw_katah_readied_indicator()  # Codex: Adeptus Custodes readied marker
 		_draw_colorblind_shape_badge()  # T-097: colorblind-friendly shape badge
 		var lm_bounds = base_shape.get_bounds()
 		_draw_special_weapon_indicator(min(lm_bounds.size.x, lm_bounds.size.y) / 2.0)
@@ -552,6 +559,10 @@ func _draw() -> void:
 
 	# T-096: Battle-shock indicator (red ring + "!" if unit is battle-shocked)
 	_draw_battle_shock_indicator()
+
+	# Codex: Adeptus Custodes MARTIAL KA'TAH — "We recommend placing a token
+	# next to each readied unit": gold diamond badge on readied units.
+	_draw_katah_readied_indicator()
 
 	# T-095: Edge color border for preview tokens (deployment selection)
 	_draw_preview_edge_border()
@@ -2043,6 +2054,44 @@ func _draw_battle_shock_indicator() -> void:
 	var font := ThemeDB.fallback_font
 	if font:
 		draw_string(font, badge_pos + Vector2(-7.0, 12.0), "!", HORIZONTAL_ALIGNMENT_CENTER, -1, 36, Color.WHITE)
+
+
+# Codex: Adeptus Custodes MARTIAL KA'TAH (WP-C3, CustodesKatah.gd): the
+# readied token — a gold diamond with a "K" on the upper-left of every model
+# of a readied unit. katah_readied_marker mirrors what was last drawn, so a
+# windowed scenario can assert the marker through get_node_info.
+var katah_readied_marker: bool = false
+var _katah_readied_seen: bool = false
+
+## True once each time the unit's flags.cus11e_readied changes value.
+func _katah_readied_flipped() -> bool:
+	if not has_meta("unit_id") or GameState == null:
+		return false
+	var u = GameState.get_unit(str(get_meta("unit_id")))
+	var now := bool(u.get("flags", {}).get("cus11e_readied", false)) if u is Dictionary else false
+	if now == _katah_readied_seen:
+		return false
+	_katah_readied_seen = now
+	return true
+
+func _draw_katah_readied_indicator() -> void:
+	katah_readied_marker = false
+	if not has_meta("unit_id") or not base_shape:
+		return
+	var unit_local = GameState.get_unit(str(get_meta("unit_id"))) if GameState else {}
+	if unit_local.is_empty() or not bool(unit_local.get("flags", {}).get("cus11e_readied", false)):
+		return
+	katah_readied_marker = true
+	var bounds = base_shape.get_bounds()
+	var radius_local: float = min(bounds.size.x, bounds.size.y) / 2.0
+	var c := Vector2(-radius_local - 14.0, -radius_local + 4.0)
+	var s := 18.0
+	var diamond := PackedVector2Array([c + Vector2(0, -s), c + Vector2(s, 0), c + Vector2(0, s), c + Vector2(-s, 0)])
+	draw_colored_polygon(diamond, Color(0.86, 0.68, 0.22, 1.0))
+	draw_polyline(PackedVector2Array([diamond[0], diamond[1], diamond[2], diamond[3], diamond[0]]), Color(0.1, 0.07, 0.02, 1.0), 3.0)
+	var font := ThemeDB.fallback_font
+	if font:
+		draw_string(font, c + Vector2(-8.0, 9.0), "K", HORIZONTAL_ALIGNMENT_CENTER, -1, 24, Color(0.1, 0.07, 0.02, 1.0))
 
 
 # T-101: Damaged-model art overlay.
