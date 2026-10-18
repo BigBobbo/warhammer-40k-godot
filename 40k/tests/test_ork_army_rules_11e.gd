@@ -220,11 +220,25 @@ func _section_war_cry_expiry() -> void:
 	_check("legacy (no expiry key): ends at its owner's next Command phase", not FAM.is_waaagh_active(1))
 
 
+## WP-C3: the Custodes' Command phase readies their units (flags.cus11e_readied),
+## which opens their 0-CP ka'tah windows (command_phase_main first). Clear it so
+## this file sees only the Orks' War Cry window (same helper as test_ork_codex_other.gd).
+func _cus11e_unready() -> void:
+	var rnd: int = int(GS.get_battle_round())
+	for uid in GS.state.units:
+		var u: Dictionary = GS.state.units[uid]
+		if not (u.get("flags", null) is Dictionary):
+			u["flags"] = {}
+		u.flags.erase("cus11e_readied")
+		u.flags["cus11e_master_of_katahs_round"] = rnd
+
+
 func _section_war_cry_opponent_phase() -> void:
 	print("\n-- C. War Cry in the opponent's Command phase (rule window) --")
 	_reload()
 	GS.state.meta["active_player"] = 2
 	PM.transition_to_phase(PHASE_COMMAND)
+	_cus11e_unready()
 	var phase = PM.get_current_phase_instance()
 	_check("Command phase of Player 2 (Custodes)", int(GS.get_active_player()) == 2 and phase != null)
 	var entries: Array = ArmyRules.war_cry_window_entries(2)
@@ -257,6 +271,7 @@ func _section_war_cry_opponent_phase() -> void:
 	_reload()
 	GS.state.meta["active_player"] = 2
 	PM.transition_to_phase(PHASE_COMMAND)
+	_cus11e_unready()
 	phase = PM.get_current_phase_instance()
 	phase.execute_action({"type": "END_COMMAND", "player": 2})
 	_check("window open again (fresh game)", phase.has_pending_stratagem_window())
@@ -270,6 +285,7 @@ func _section_war_cry_opponent_phase() -> void:
 	ai.ai_players = {1: true, 2: false}
 	GS.state.meta["active_player"] = 2
 	PM.transition_to_phase(PHASE_COMMAND)
+	_cus11e_unready()
 	phase = PM.get_current_phase_instance()
 	res = phase.execute_action({"type": "END_COMMAND", "player": 2})
 	ai.enabled = false

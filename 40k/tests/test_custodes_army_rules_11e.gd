@@ -401,6 +401,10 @@ func _section_offers() -> void:
 	_check("BEGIN_BATTLE_SHOCK_STEP opens command_phase_main (P1 human)", r.get("success", false) and _pending_window(phase) == "command_phase_main", _pending_window(phase))
 	_check("the pending window carries the CONSERVAI card", ids.conservai in _offer_ids(_pending_offers(phase)))
 	_decline(phase, 1, "command_phase_main")
+	# WP-O34: the Orks (P2) are then offered WAR CRY ("at the start of the Command
+	# phase" — either player's; after the active player's window). Not under test here.
+	if phase.has_pending_stratagem_window() and _pending_window(phase) == "ork11e_war_cry":
+		_decline(phase, 2, "ork11e_war_cry")
 	_check("declined: no window left (no battle_shock_step_start offers)", not phase.has_pending_stratagem_window())
 
 	# Movement phase

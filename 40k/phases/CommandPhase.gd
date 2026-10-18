@@ -212,13 +212,14 @@ func _start_battle_shock_step(deferred: Dictionary) -> Dictionary:
 			queued.append(unit_id)
 	var bss_ctx := {"phase": "command", "units_needing_test": queued}
 	_bss_deferred_action = deferred.duplicate(true)
-	# Codex: Orks (11e) War Cry "at the start of the Command phase" — not "your"
-	# (WP-O34): the opponent's War Cry window comes first.
-	var bss_entries: Array = Ork11eArmyRules.war_cry_window_entries(player)
 	# command_phase_main (WP-C3): "your Command phase", after the readied step
 	# and the Command step's prompts — the Codex: Adeptus Custodes CONSERVAI
 	# ka'tah (CustodesKatah.gd) — opens just before battle_shock_step_start.
-	bss_entries.append({"player": player, "window_id": "command_phase_main", "ctx": {"phase": "command"}})
+	var bss_entries: Array = [{"player": player, "window_id": "command_phase_main", "ctx": {"phase": "command"}}]
+	# Codex: Orks (11e) War Cry "at the start of the Command phase" — not "your"
+	# (WP-O34): the opponent's War Cry window, after the active player's window
+	# (active player first — 11e sequencing), before the Battle-shock step.
+	bss_entries.append_array(Ork11eArmyRules.war_cry_window_entries(player))
 	bss_entries.append({"player": player, "window_id": "battle_shock_step_start", "ctx": bss_ctx})
 	if open_stratagem_windows(bss_entries, "_resume_after_battle_shock_step_window", bss_ctx):
 		DebugLogger.info("CommandPhase: Battle-shock step starts — waiting for Player %d's battle_shock_step_start stratagem decision (then %s)" % [
