@@ -1696,9 +1696,12 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 
 	# --- Enhancements (WP-C46: data-driven against data/40kdc/enhancements.json):
 	# detachment membership, the printed bearer restriction, CHARACTER vs
-	# Upgrade (non-CHARACTER, up to three units, "(one per army)" one), once
-	# per army, and the 2-per-1000-points cap (an Upgrade counts once). ---
-	var enh_check: Dictionary = load("res://scripts/codex/EnhancementRules11e.gd").validate_army(army_data)
+	# Upgrade (Upgrades may ALSO go on non-CHARACTER units, up to three units,
+	# "(one per army)" one), one enhancement per unit, once per army, and the
+	# 2-per-1000-points cap (an Upgrade counts once). Skipped for an army whose
+	# faction module owns its enhancement validation (WP-O5). ---
+	var enh_check: Dictionary = {} if _enhancement_validation_owned_elsewhere(army_data) \
+		else load("res://scripts/codex/EnhancementRules11e.gd").validate_army(army_data)
 	for w in enh_check.get("warnings", []):
 		result.warnings.append(w)
 	for e in enh_check.get("errors", []):
@@ -1717,6 +1720,30 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 
 	result.valid = result.errors.is_empty()
 	return result
+
+## WP-C46 x WP-O5: faction modules that own their army's enhancement
+## validation (e.g. OrkEnhancements11e.owns_army_validation(army) for codex Ork
+## armies). The generic data-driven checks (EnhancementRules11e) skip an army
+## one of them claims, so it never gets the same warning twice. A module that
+## is not present (yet) claims nothing.
+const _ENH_VALIDATION_OWNERS := ["res://scripts/codex/orks/OrkEnhancements11e.gd"]
+
+func _enhancement_validation_owned_elsewhere(army_data: Dictionary) -> bool:
+	for path in _ENH_VALIDATION_OWNERS:
+		if not ResourceLoader.exists(path):
+			continue
+		var m = load(path)
+		if m == null:
+			continue
+		var has_hook := false
+		for md in m.get_script_method_list():
+			if str(md.get("name", "")) == "owns_army_validation":
+				has_hook = true
+				break
+		if has_hook and bool(m.owns_army_validation(army_data)):
+			print("ArmyListManager: enhancement validation owned by %s — generic 11e enhancement checks skipped" % path.get_file())
+			return true
+	return false
 
 func validate_army_construction_points(army_data: Dictionary) -> Dictionary:
 	"""Validate army construction points and detachment rules.
@@ -1789,7 +1816,7 @@ func validate_army_construction_points(army_data: Dictionary) -> Dictionary:
 	# units, once per army, the per-1000-points cap (EnhancementRules11e).
 	# 10e: 1 of each per army; 1 per CHARACTER; bearer must be CHARACTER.
 	var enhancement_bearers: Dictionary = {}  # enhancement_name -> [bearer_unit_name, ...]
-	if GameConstants.edition >= 11:
+	if GameConstants.edition >= 11 and not _enhancement_validation_owned_elsewhere(army_data):
 		var enh_check: Dictionary = load("res://scripts/codex/EnhancementRules11e.gd").validate_army(army_data)
 		for w in enh_check.get("warnings", []):
 			result.warnings.append(w)

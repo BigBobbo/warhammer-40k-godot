@@ -8,9 +8,11 @@
 //   - the phrase must be fully consumed by the unit's keywords + datasheet
 //     name (longest match first, case-insensitive); "a/b" words are
 //     alternatives ("Adeptus Custodes Infantry/Mounted");
-//   - a normal enhancement needs a non-EPIC HERO CHARACTER, an Upgrade
-//     (upgrade_tag) a non-CHARACTER unit, on up to three units ("(one per
-//     army)" Upgrades: one).
+//   - a normal enhancement needs a non-EPIC HERO CHARACTER; an Upgrade
+//     (upgrade_tag) "can be given to non-CHARACTER units" (core rules, Select
+//     Enhancements) — it is NOT limited to them: any non-EPIC HERO unit its
+//     printed restriction allows (e.g. the Ork "Big Mek with Shokk Attack Gun
+//     model only" Upgrades), on up to three units ("(one per army)": one).
 // Records without rules_text (the dataset's superseded entries) carry no
 // printed restriction.
 //
@@ -91,11 +93,11 @@ export function canBear(rec, unit) {
   const kw = (unit?.keywords ?? []).map(k => fold(k).toUpperCase());
   const isChar = kw.includes('CHARACTER');
   const isEpic = kw.includes('EPIC HERO');
-  if (isUpgrade(rec)) {
-    if (isChar) return { ok: false, reason: 'Upgrades are for non-CHARACTER units' };
-  } else if (!isChar || isEpic) {
-    return { ok: false, reason: isEpic ? 'not on an EPIC HERO' : 'CHARACTER models only' };
-  }
+  // EPIC HEROes take no enhancement (Upgrades included); a normal enhancement
+  // needs a CHARACTER; an Upgrade may go on a CHARACTER or a non-CHARACTER
+  // unit — its printed restriction (below) decides (WP-C46 ruling).
+  if (isEpic) return { ok: false, reason: 'not on an EPIC HERO' };
+  if (!isUpgrade(rec) && !isChar) return { ok: false, reason: 'CHARACTER models only' };
   const why = bearerViolation(rec, unit);
   return why ? { ok: false, reason: why } : { ok: true, reason: '' };
 }

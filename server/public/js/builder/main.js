@@ -353,9 +353,10 @@ function renderWarlordRow(i, ru, raw) {
 }
 
 function renderEnhancementRow(i, ru, raw) {
-  // 11e (WP-C46): CHARACTERs (not EPIC HEROes) take normal enhancements,
-  // other units Upgrades; each is offered only to the units its printed
-  // restriction allows ("Anathema Psykana model only", ...).
+  // 11e (WP-C46): CHARACTERs (not EPIC HEROes) take normal enhancements;
+  // Upgrades may go on any non-EPIC HERO unit, CHARACTER or not; each is
+  // offered only to the units its printed restriction allows ("Anathema
+  // Psykana model only", ...). One enhancement per unit.
   const current = ru.enhancement?.id ?? '';
   const choices = S.enhancementChoices(i).filter(c => c.eligible || c.id === current);
   if (!choices.length) return null;

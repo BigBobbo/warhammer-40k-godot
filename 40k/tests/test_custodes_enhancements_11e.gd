@@ -905,8 +905,22 @@ func _section_army_construction() -> void:
 	_check("one of each per army", _warned(twice, "once per army"), str(twice.warnings))
 	var upg: Dictionary = R.validate_army(_army("Solar Watch", {"A": _u("Custodian Guard", cg_kw, ["Auric Eagle"])}))
 	_check("an Upgrade on a non-CHARACTER unit is legal", upg.warnings.is_empty(), str(upg.warnings))
+	# Core rules (Select Enhancements): Upgrades "can be given to non-CHARACTER
+	# units" — they are not LIMITED to them; the printed restriction decides.
 	var upg_char: Dictionary = R.validate_army(_army("Solar Watch", {"A": _u("Shield-Captain", sc_kw, ["Auric Eagle"])}))
-	_check("an Upgrade on a CHARACTER is flagged", _warned(upg_char, "non-CHARACTER only"), str(upg_char.warnings))
+	_check("an Upgrade on a CHARACTER that meets its restriction is legal (Auric Eagle on a foot Shield-Captain)", upg_char.warnings.is_empty(), str(upg_char.warnings))
+	# A CHARACTER-restricted Upgrade (the Ork codex "Big Mek with Shokk Attack
+	# Gun model only" Upgrades — Temperamental Shokka, Enhanced Runt-maw).
+	var shokka := {"name": "Temperamental Shokka (Upgrade)", "upgrade_tag": true,
+		"rules_text": "Big Mek with Shokk Attack Gun model only. This model's Shokk Attack Gun has +1 S."}
+	var big_mek := _u("Big Mek with Shokk Attack Gun", ["CHARACTER", "INFANTRY", "ORKS", "BIG MEK WITH SHOKK ATTACK GUN"], [])
+	var boyz := _u("Boyz", ["BATTLELINE", "BOYZ", "INFANTRY", "MOB", "ORKS"], [])
+	_check("CHARACTER-restricted Upgrade: legal on its CHARACTER bearer", R.bearer_problem(shokka, big_mek, true) == "", R.bearer_problem(shokka, big_mek, true))
+	_check("…refused on another unit by its printed restriction", R.bearer_problem(shokka, boyz, true).find("bearer restriction") >= 0, R.bearer_problem(shokka, boyz, true))
+	_check("a normal enhancement still needs a CHARACTER", R.bearer_problem({}, boyz, false).find("CHARACTER") >= 0)
+	_check("no Upgrade on an EPIC HERO either", R.bearer_problem({}, _u("Ghazghkull Thraka", ["CHARACTER", "EPIC HERO", "ORKS"], []), true).find("EPIC HERO") >= 0)
+	var two_on_one: Dictionary = R.validate_army(_army("Solar Watch", {"A": _u("Shield-Captain", sc_kw, ["Auric Eagle", "Sally Forth"])}))
+	_check("one enhancement per unit (an Upgrade and a normal one on the same unit are flagged)", _warned(two_on_one, "different unit"), str(two_on_one.warnings))
 	var upg_term: Dictionary = R.validate_army(_army("Solar Watch", {"A": _u("Allarus Custodians", ["ADEPTUS CUSTODES", "INFANTRY", "TERMINATOR"], ["Auric Eagle"])}))
 	_check("Auric Eagle 'excluding Terminator units' is enforced", _warned(upg_term, "excluding"), str(upg_term.warnings))
 	var three: Dictionary = R.validate_army(_army("Solar Watch", {"A": _u("Custodian Guard", cg_kw, ["Auric Eagle"]), "B": _u("Custodian Guard", cg_kw, ["Auric Eagle"]), "C": _u("Custodian Guard", cg_kw, ["Auric Eagle"])}))

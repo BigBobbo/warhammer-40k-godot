@@ -74,7 +74,7 @@ test('Null Maiden Vigil: Anathema Psykana model only', () => {
   assert.deepEqual(choiceNames(1), []);
 });
 
-test('Upgrades go on non-CHARACTER units (Solar Watch Auric Eagle), up to three', () => {
+test('Upgrades can also go on non-CHARACTER units (Solar Watch Auric Eagle), up to three', () => {
   freshRoster('solar-watch');
   S.addUnit('custodian-guard');
   S.addUnit('shield-captain');
@@ -83,7 +83,10 @@ test('Upgrades go on non-CHARACTER units (Solar Watch Auric Eagle), up to three'
   S.addUnit('custodian-guard');
   S.addUnit('custodian-guard');
   assert.deepEqual(choiceNames(0), ['Auric Eagle'], 'Custodian Guard: the Upgrade only');
-  assert.deepEqual(choiceNames(1), ['Sally Forth'], 'Shield-Captain: the normal enhancement only');
+  // Core rules: Upgrades "can be given to non-CHARACTER units" — not limited
+  // to them, so the foot Shield-Captain (Adeptus Custodes Infantry) may take
+  // Auric Eagle as well as Sally Forth (one of them: one enhancement per unit).
+  assert.deepEqual([...choiceNames(1)].sort(), ['Auric Eagle', 'Sally Forth'], 'Shield-Captain: the normal enhancement and the Upgrade');
   assert.deepEqual(choiceNames(2), [], 'Allarus: excluded (Terminator)');
   const eagle = S.enhancementChoices(0).find(c => c.name === 'Auric Eagle').id;
   S.setEnhancement(0, eagle);
@@ -92,6 +95,20 @@ test('Upgrades go on non-CHARACTER units (Solar Watch Auric Eagle), up to three'
   const fourth = S.enhancementChoices(5).find(c => c.name === 'Auric Eagle');
   assert.notEqual(fourth.takenBy, null, 'a fourth Auric Eagle is blocked');
   assert.equal(S.enhancementChoices(4).find(c => c.name === 'Auric Eagle').takenBy, null, 'the holder keeps its own');
+});
+
+test('a CHARACTER-restricted Upgrade is offered to its CHARACTER bearer (Ork Big Mek with Shokk Attack Gun)', () => {
+  const shokka = { name: 'Temperamental Shokka (Upgrade)', upgrade_tag: true,
+    rules_text: 'Big Mek with Shokk Attack Gun model only. This model’s Shokk Attack Gun has +1 S.' };
+  const bigMek = { name: 'Big Mek with Shokk Attack Gun', keywords: ['Character', 'Infantry', 'Orks', 'Big Mek with Shokk Attack Gun'] };
+  const boyz = { name: 'Boyz', keywords: ['Battleline', 'Infantry', 'Mob', 'Orks'] };
+  assert.equal(R.isUpgrade(shokka), true);
+  assert.deepEqual(R.canBear(shokka, bigMek), { ok: true, reason: '' }, 'the CHARACTER bearer is not refused for being a CHARACTER');
+  assert.equal(R.canBear(shokka, boyz).ok, false, 'another unit is refused by the printed restriction');
+  assert.match(R.canBear(shokka, boyz).reason, /Big Mek with Shokk Attack Gun model only/);
+  assert.equal(R.canBear(shokka, { name: 'Ghazghkull Thraka', keywords: ['Character', 'Epic Hero', 'Orks'] }).ok, false, 'no enhancement on an EPIC HERO');
+  const normal = { name: 'Test Normal', rules_text: 'Orks model only. Test.' };
+  assert.equal(R.canBear(normal, boyz).ok, false, 'a normal enhancement still needs a CHARACTER');
 });
 
 test('codex keywords fill the bundle gaps (TRUSTED SENTINEL, GRAV-ASSAULT)', () => {

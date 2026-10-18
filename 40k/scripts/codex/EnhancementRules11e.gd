@@ -7,9 +7,13 @@ extends RefCounted
 ##   - the bearer meets the printed restriction — the first sentence of
 ##     `rules_text`, "<keywords / datasheet name> model only." or
 ##     "... unit only (excluding <X> units).";
-##   - a normal enhancement sits on a CHARACTER (not an EPIC HERO), an
-##     Upgrade (`upgrade_tag`) on a non-CHARACTER unit, on at most three units
-##     ("(one per army)" Upgrades: one unit);
+##   - a normal enhancement sits on a CHARACTER (not an EPIC HERO); an
+##     Upgrade (`upgrade_tag`) "can be given to non-CHARACTER units" (core
+##     rules, Select Enhancements) — it is NOT limited to them: any unit that
+##     is not an EPIC HERO, subject to its printed restriction (e.g. the Ork
+##     "Big Mek with Shokk Attack Gun model only" Upgrades), on at most three
+##     units ("(one per army)" Upgrades: one unit);
+##   - each enhancement goes to a different unit (one per unit);
 ##   - each enhancement is taken once per army;
 ##   - the 2-per-1000-points cap (an Upgrade counts as one choice).
 ##
@@ -194,6 +198,23 @@ static func bearer_violation(rec: Dictionary, unit: Dictionary) -> String:
 	return ""
 
 
+## "" when `unit` may be given the enhancement `rec` at all (ignoring who else
+## holds it), else the reason: the printed restriction always applies; a normal
+## enhancement needs a CHARACTER; no enhancement (Upgrades included) on an EPIC
+## HERO. An Upgrade is never refused for being on a CHARACTER — the core rule
+## lets Upgrades ALSO go on non-CHARACTER units (WP-C46 ruling).
+static func bearer_problem(rec: Dictionary, unit: Dictionary, upgrade: bool) -> String:
+	if _has_kw(unit, "EPIC HERO"):
+		return "EPIC HERO models cannot be given enhancements"
+	if not upgrade and not _has_kw(unit, "CHARACTER"):
+		return "only CHARACTER units can be given (non-Upgrade) enhancements"
+	if not rec.is_empty():
+		var why := bearer_violation(rec, unit)
+		if why != "":
+			return "bearer restriction: %s" % why
+	return ""
+
+
 static func is_upgrade(rec: Dictionary) -> bool:
 	return bool(rec.get("upgrade_tag", false))
 
@@ -239,37 +260,25 @@ static func validate_army(army_data: Dictionary) -> Dictionary:
 		var enh_list = unit.get("meta", {}).get("enhancements", [])
 		if not enh_list is Array or enh_list.is_empty():
 			continue
-		var is_char := _has_kw(unit, "CHARACTER")
-		var is_epic := _has_kw(unit, "EPIC HERO")
-		var normal_count := 0
+		var enh_count := 0
 		for enh in enh_list:
 			var name := _enh_name(enh)
 			if name == "":
 				continue
 			var rec := find_enhancement(detachment, name)
 			var upgrade: bool = is_upgrade(rec) if not rec.is_empty() else (enh is Dictionary and bool(enh.get("upgrade", false)))
-			if rec.is_empty():
-				if detachment != "" and not find_detachment(detachment).is_empty() and enhancement_exists(name):
-					out.warnings.append("11e: enhancement '%s' on %s is not a %s enhancement" % [name, unit_id, detachment])
-			else:
-				var why := bearer_violation(rec, unit)
-				if why != "":
-					out.warnings.append("11e: enhancement '%s' on %s — bearer restriction: %s" % [name, unit_id, why])
-			if upgrade:
-				if is_char:
-					out.warnings.append("11e: Upgrade enhancement '%s' on CHARACTER unit %s (Upgrades are non-CHARACTER only)" % [name, unit_id])
-			else:
-				normal_count += 1
-				if not is_char:
-					out.warnings.append("11e: enhancement '%s' on %s, which is not a CHARACTER" % [name, unit_id])
-				elif is_epic:
-					out.warnings.append("11e: enhancement '%s' on EPIC HERO %s" % [name, unit_id])
+			if rec.is_empty() and detachment != "" and not find_detachment(detachment).is_empty() and enhancement_exists(name):
+				out.warnings.append("11e: enhancement '%s' on %s is not a %s enhancement" % [name, unit_id, detachment])
+			var problem := bearer_problem(rec, unit, upgrade)
+			if problem != "":
+				out.warnings.append("11e: %senhancement '%s' on %s — %s" % ["Upgrade " if upgrade else "", name, unit_id, problem])
+			enh_count += 1
 			var key := norm(name)
 			if not holders.has(key):
 				holders[key] = {"name": name, "units": [], "upgrade": upgrade, "one_per_army": one_per_army(rec) if not rec.is_empty() else false}
 			holders[key].units.append(str(unit_id))
-		if normal_count > 1:
-			out.warnings.append("11e: %s carries %d enhancements (one per CHARACTER)" % [unit_id, normal_count])
+		if enh_count > 1:
+			out.warnings.append("11e: %s carries %d enhancements (each enhancement goes to a different unit)" % [unit_id, enh_count])
 	for key in holders:
 		var h: Dictionary = holders[key]
 		var n: int = h.units.size()
