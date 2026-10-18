@@ -646,7 +646,11 @@ static func wound_roll_effects(out: Dictionary, attacker_unit: Dictionary, targe
 		out["ignore_minus"] = true
 		out.sources.append("Bearers of His Light")
 	if bool(aflags.get(FLAG_SLAYERS, false)):
+		# "this unit's T": the Attached unit's bodyguard T (its head), else the
+		# attacking unit's own statline.
 		var my_t := _toughness(str(attacker_unit.get("id", "")))
+		if my_t <= 0:
+			my_t = int(attacker_unit.get("meta", {}).get("stats", {}).get("toughness", 0))
 		var their_t := toughness if toughness > 0 else _toughness(str(target_unit.get("id", "")))
 		if their_t > my_t:
 			out["plus"] = true

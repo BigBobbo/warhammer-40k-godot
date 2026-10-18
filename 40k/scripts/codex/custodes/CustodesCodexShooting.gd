@@ -512,9 +512,11 @@ static func single_reroll_spend_diffs(attacker_unit_id: String, stage: String) -
 
 ## PRIME TARGET, automatic use (auto-resolved attacks — the AI, Fast Roll,
 ## the defender-rolled save path): take the single re-roll of `stage` if it is
-## still unused. Marks it spent on the board dict the engine resolves on AND on
-## the live unit (the board is usually the live state; a copy must not keep a
-## second use). Returns true when the re-roll may be made.
+## still unused. Marks it spent on the unit dict the engine resolves on; when
+## that is the LIVE unit (the phases resolve on GameState.state), every
+## component of the Attached unit is marked too (one re-roll per UNIT). A
+## board copy (Mathhammer trials, A/B tests) never touches the live state.
+## Returns true when the re-roll may be made.
 static func take_single_reroll(attacker_unit: Dictionary, stage: String) -> bool:
 	if not single_reroll_available(attacker_unit, stage, false):
 		return false
@@ -522,13 +524,14 @@ static func take_single_reroll(attacker_unit: Dictionary, stage: String) -> bool
 	var pt: Dictionary = attacker_unit.get("flags", {}).get(FLAG_PRIME_TARGET, {}).duplicate()
 	pt[stage] = false
 	attacker_unit["flags"][FLAG_PRIME_TARGET] = pt
-	for gid in Common.attached_group_ids(uid):
-		var live := Common.unit(str(gid))
-		var lpt = live.get("flags", {}).get(FLAG_PRIME_TARGET, null)
-		if typeof(lpt) == TYPE_DICTIONARY:
-			var nd: Dictionary = lpt.duplicate()
-			nd[stage] = false
-			live["flags"][FLAG_PRIME_TARGET] = nd
+	if is_same(Common.unit(uid), attacker_unit):
+		for gid in Common.attached_group_ids(uid):
+			var live := Common.unit(str(gid))
+			var lpt = live.get("flags", {}).get(FLAG_PRIME_TARGET, null)
+			if typeof(lpt) == TYPE_DICTIONARY:
+				var nd: Dictionary = lpt.duplicate()
+				nd[stage] = false
+				live["flags"][FLAG_PRIME_TARGET] = nd
 	Common.log_info("[CustodesCodexShooting] PRIME TARGET: %s uses its single %s re-roll" % [uid, stage])
 	return true
 

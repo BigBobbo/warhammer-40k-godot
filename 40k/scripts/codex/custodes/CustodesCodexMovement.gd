@@ -261,6 +261,10 @@ static func ai_score(strat: Dictionary, player: int, target_unit_id: String, win
 		"impenetrable-bastion-emperors-chosen":
 			return 2.1 if not controlled_objectives(uid, player).is_empty() else 0.0
 		"golden-light-of-the-moiraides-dread-host":
+			# Selected to make an ingress move: the unit is still in reserves (no
+			# position yet) and arrives where the enemy can shoot it next turn.
+			if nearest == INF:
+				return 2.4
 			return 3.2 if nearest <= 18.0 else 0.0
 		"unstoppable-momentum-might-of-the-moritoi", "inexorable-solar-watch":
 			return 0.0

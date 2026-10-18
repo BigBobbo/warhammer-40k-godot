@@ -334,7 +334,7 @@ static func _check(csv: String, player: int, target_unit_id: String, window_id: 
 		"gilded-champion-auric-champions":
 			if not (Common.has_keyword(u, KW_CUSTODES) and Common.has_keyword(u, "CHARACTER")):
 				return _no("%s can only target an ADEPTUS CUSTODES CHARACTER model" % name)
-			if bool(u.get("flags", {}).get(FLAG_GILDED, false)):
+			if u.get("flags", {}).has(FLAG_GILDED):
 				return _no("%s has already been used on %s this battle" % [name, Common.unit_name(uid)])
 			if _spent_ability(uid) == "":
 				return _no("%s: %s has not used a (Once per battle, per unit) datasheet ability" % [name, Common.unit_name(uid)])
@@ -452,7 +452,16 @@ static func _vbd_apply(unit_id: String, player: int, ctx: Dictionary) -> Array:
 # attached character are tracked under its bodyguard's id).
 # ---------------------------------------------------------------------------
 
+## (Once per battle) datasheet abilities the engine tracks with a unit flag
+## instead of UnitAbilityManager's once-per-battle ledger: ability -> flag.
+## Moment Shackle (Trajann Valoris) is offered by FightPhase at the start of
+## each Fight phase unless flags.moment_shackle_used is set.
+const FLAG_TRACKED_ONCE_PER_BATTLE := {"Moment Shackle": "moment_shackle_used"}
+
 static func _spent_ability(unit_id: String) -> String:
+	for ab in FLAG_TRACKED_ONCE_PER_BATTLE:
+		if bool(Common.unit(unit_id).get("flags", {}).get(FLAG_TRACKED_ONCE_PER_BATTLE[ab], false)):
+			return str(ab)
 	var uam = Common.autoload("UnitAbilityManager")
 	if uam == null or not uam.has_method("get_used_once_per_battle_abilities"):
 		return ""
@@ -466,6 +475,13 @@ static func _spent_ability(unit_id: String) -> String:
 static func _gilded_apply(unit_id: String, player: int) -> Array:
 	var uam = Common.autoload("UnitAbilityManager")
 	var ability := _spent_ability(unit_id)
+	if FLAG_TRACKED_ONCE_PER_BATTLE.has(ability):
+		# The ability is offered again from the next phase that offers it
+		# (Moment Shackle: the start of the next Fight phase) — never this one.
+		_log(player, "GILDED CHAMPION: %s can use %s one additional time (not in this phase)" % [Common.unit_name(unit_id), ability])
+		var fd: Array = [{"op": "remove", "path": "units.%s.flags.%s" % [unit_id, FLAG_TRACKED_ONCE_PER_BATTLE[ability]]}]
+		fd.append_array(Common.set_flag_diffs([unit_id], FLAG_GILDED, ability))
+		return fd
 	if uam == null or ability == "":
 		Common.log_error("CustodesCodexOther: GILDED CHAMPION — %s has no spent once-per-battle ability" % unit_id)
 		return []
