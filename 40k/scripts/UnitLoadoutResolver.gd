@@ -121,7 +121,16 @@ static func datasheet_key(unit: Dictionary) -> String:
 		return name
 	if _kit_fits_menu(unit_slug, menu):
 		return name
-	if _kit_fits_menu(legacy_slug, menu):
+	# Neither kit fits by slug when 40kdc names a default weapon unlike its id
+	# ("rokkit-launcha-tankbustas" is the "Busta Rokkit Launcha"): then, and
+	# only then, decide with name-tolerant matching (WP-O1b: a pre-codex
+	# Tankbustas roster without wargear lines kept its 40kdc kit before the
+	# codex re-kit and must keep it after). A decision the strict match already
+	# makes is never changed.
+	var legacy_fits := _kit_fits_menu(legacy_slug, menu)
+	if not legacy_fits and not _kit_fits_menu(unit_slug, menu, true):
+		legacy_fits = _kit_fits_menu(legacy_slug, menu, true)
+	if legacy_fits:
 		var legacy_kit := {}
 		for id in _defaults_by_unit.get(legacy_slug, []):
 			legacy_kit[_strip_unit_suffix(str(id), legacy_slug)] = true
@@ -484,14 +493,27 @@ static func _menu_slugs(weapons) -> Dictionary:
 
 
 # True when every default weapon of the datasheet kit stored under `uid_slug`
-# (all roles) is on the weapon menu.
-static func _kit_fits_menu(uid_slug: String, menu: Dictionary) -> bool:
+# (all roles) is on the weapon menu. `tolerant` also accepts a menu weapon
+# whose name ends with the id's words ("rokkit-launcha" -> "Busta Rokkit
+# Launcha") or is its plural ("choppa" -> "Choppas") — only datasheet_key's
+# last-resort decision uses it.
+static func _kit_fits_menu(uid_slug: String, menu: Dictionary, tolerant: bool = false) -> bool:
 	var raw = _defaults_by_unit.get(uid_slug, null)
 	if typeof(raw) != TYPE_ARRAY or raw.is_empty():
 		return false
 	for id in raw:
 		var s := _strip_unit_suffix(str(id), uid_slug)
-		if s != "" and not menu.has(s):
+		if s == "" or menu.has(s):
+			continue
+		if not tolerant:
+			return false
+		var found := menu.has(s + "s")
+		if not found:
+			for m in menu:
+				if str(m).ends_with("-" + s):
+					found = true
+					break
+		if not found:
 			return false
 	return true
 

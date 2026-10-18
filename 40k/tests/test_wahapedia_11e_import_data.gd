@@ -407,6 +407,35 @@ func _check_wp_o1b_kits() -> void:
 		if old_melee[mid] == ["Close combat weapon"]:
 			ccw += 1
 	_check("D1/WP-O1b: pre-codex Warbikers keep a Close combat weapon each", ccw == 6, str(old_melee))
+	# D1: a pre-codex Tankbustas roster with NO wargear lines (the generated
+	# ork11e_o34_* fixtures). The 40kdc id "rokkit-launcha-tankbustas" is named
+	# "Busta Rokkit Launcha", so neither kit fits the menu by slug; the
+	# name-tolerant last resort picks the frozen kit (Tankbusta: Close combat
+	# weapon), as the 40kdc kit resolved it before the re-kit.
+	var old_tbu := {
+		"id": "U_OLD_TANKBUSTAS", "owner": 1,
+		"meta": {"name": "Tankbustas", "wargear": [], "weapons": [
+			{"name": "Busta Rokkit Launcha – Hunter", "type": "Ranged"},
+			{"name": "Busta Rokkit Launcha – Standard", "type": "Ranged"},
+			{"name": "Rokkit Pistol", "type": "Ranged"},
+			{"name": "Choppa", "type": "Melee"},
+			{"name": "Close combat weapon", "type": "Melee"},
+			{"name": "Smash Hammer – Hunter", "type": "Melee"},
+			{"name": "Smash Hammer – Standard", "type": "Melee"},
+		]},
+		"models": [],
+	}
+	for i in range(6):
+		old_tbu["models"].append({"id": "m%d" % (i + 1), "wounds": 2, "current_wounds": 2, "alive": true})
+	var tkey := UnitLoadoutResolver.datasheet_key(old_tbu)
+	_check("D1/WP-O1b: wargear-less pre-codex Tankbustas resolve via the frozen kit", tkey == "Tankbustas" + UnitLoadoutResolver.LEGACY_NAME_SUFFIX, tkey)
+	var otm = RE.get_unit_melee_weapons("U_OLD_TANKBUSTAS", {"units": {"U_OLD_TANKBUSTAS": old_tbu}})
+	var tccw := 0
+	for i in range(1, 6):
+		if otm.get("m%d" % i, []) == ["Close combat weapon"]:
+			tccw += 1
+	_check("D1/WP-O1b: ... Nob Choppa, every Tankbusta its Close combat weapon (not the whole menu)",
+		otm.get("m0", []) == ["Choppa"] and tccw == 5, str(otm))
 	# The shipped rosters resolve the codex kit per model (Biker Nob first).
 	var wb := _unit_by_name("Orks_2000", "Warbikers")
 	_check("WP-O1b: shipped Warbikers resolve against the codex kit", UnitLoadoutResolver.datasheet_key(wb) == "Warbikers", UnitLoadoutResolver.datasheet_key(wb))
