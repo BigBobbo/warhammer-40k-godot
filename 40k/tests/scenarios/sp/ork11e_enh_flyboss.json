@@ -1,0 +1,130 @@
+{
+ "id": "ork11e_enh_flyboss",
+ "covers": [
+  "codex.orks.enhancements.flyboss",
+  "scripts.codex.orks.OrkEnhancements11e",
+  "phases.MovementPhase.reinforcements"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) FLYBOSS (Flyboyz Upgrade, ORKS AIRCRAFT unit; this unit is a CHARACTER; when it ends an ingress move, each friendly ORKS AIRCRAFT/DEFFKOPTAS unit within 6\" of it is riled up until the start of your next turn) — automatic. Fixture ork11e_enh_flyboyz_r2: battle round 2; the Wazbom Blastajet (Flyboss) is in Strategic Reserves, the Dakkajet and the Deffkoptas stand near P1's edge, Boyz C further away. A real click on the Wazbom's reinforcement row, a real click on the board between the two aircraft units and a real click on Confirm: the Dakkajet and the Deffkoptas are riled up, the Boyz and the Wazbom itself are not.",
+ "fixture": "ork11e_enh_flyboyz_r2",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "expect_phase",
+   "equals": 7
+  },
+  {
+   "act": "expect_state",
+   "path": "factions.1.detachment",
+   "equals": "Flyboyz"
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_WAZBOM_BLASTAJET_A.status",
+   "equals": 7
+  },
+  {
+   "act": "execute_script",
+   "script": "\"%s %s %s\" % [str(GameState.get_unit(\"U_DAKKAJET_A\").flags.get(\"ork11e_riled_up\", false)), str(GameState.get_unit(\"U_DEFFKOPTAS_A\").flags.get(\"ork11e_riled_up\", false)), str(GameState.get_unit(\"U_BOYZ_C\").flags.get(\"ork11e_riled_up\", false))]",
+   "equals": "false false false",
+   "comment": "before: nobody is riled up"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.current_scene.movement_controller._refresh_unit_list()\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.3
+  },
+  {
+   "act": "execute_script",
+   "script": "var list = tree.current_scene.movement_controller.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_WAZBOM_BLASTAJET_A\":\n\t\treturn i\nreturn -1",
+   "multiline": true,
+   "equals": 1
+  },
+  {
+   "act": "click_item_list",
+   "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
+   "index": 1
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "main.deployment_controller.is_reinforcement_mode",
+   "equals": true
+  },
+  {
+   "act": "click_board_at",
+   "x": 150.0,
+   "y": 640.0
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "main.deployment_controller.get_placed_count()",
+   "equals": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "01_flyboss_placed_near_aircraft"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_WAZBOM_BLASTAJET_A.status",
+   "equals": 2
+  },
+  {
+   "act": "execute_script",
+   "script": "\"%s %s %s\" % [str(GameState.get_unit(\"U_DAKKAJET_A\").flags.get(\"ork11e_riled_up\", false)), str(GameState.get_unit(\"U_DEFFKOPTAS_A\").flags.get(\"ork11e_riled_up\", false)), str(GameState.get_unit(\"U_BOYZ_C\").flags.get(\"ork11e_riled_up\", false))]",
+   "equals": "true true false",
+   "comment": "the Dakkajet (AIRCRAFT) and the Deffkoptas within 6\" of the arrived Wazbom are riled up; the Boyz are not (not AIRCRAFT/DEFFKOPTAS, and too far)"
+  },
+  {
+   "act": "execute_script",
+   "script": "str(GameState.get_unit(\"U_WAZBOM_BLASTAJET_A\").flags.get(\"ork11e_riled_up\", false))",
+   "equals": "false",
+   "comment": "the Flyboss itself is not riled up by its own enhancement"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Flyboss\")",
+   "expect_min": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "02_flyboss_riled_up"
+  }
+ ]
+}

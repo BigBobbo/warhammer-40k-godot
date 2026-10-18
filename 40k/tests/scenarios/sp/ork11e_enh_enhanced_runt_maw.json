@@ -1,0 +1,541 @@
+{
+ "id": "ork11e_enh_enhanced_runt_maw",
+ "covers": [
+  "codex.orks.enhancements.enhanced_runt_maw",
+  "scripts.codex.orks.OrkEnhancements11e",
+  "stratagem.window.unit_has_shot",
+  "dialogs.StratagemTargetDialog"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) ENHANCED RUNT-MAW (Madcap Meks Upgrade, Big Mek with Shokk Attack Gun; each time this unit has shot, select one enemy unit hit by one or more of those attacks: until the start of your next turn, worsen that unit's Leadership by 1). Fixture ork11e_enh_madcap_runtmaw: the Big Mek with SAG leads Tankbustas; split fire — the SAG at Witchseekers C, the rokkits at Witchseekers D (assignments dispatched; a real click on Confirm). Once the unit has shot, the unit_has_shot window shows the 0-CP Upgrade card on the Attached unit; with two units hit nothing is applied automatically; a real click on Use opens the picker with both hit units, a real click on Witchseekers D infests it (leadership penalty 1). With a single unit hit the effect is applied automatically (headless). Setup privilege: auto wound allocation.",
+ "fixture": "ork11e_enh_madcap_runtmaw",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 8,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 8
+  },
+  {
+   "act": "expect_state",
+   "path": "factions.1.detachment",
+   "equals": "Madcap Meks"
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A.attached_to",
+   "equals": "U_TANKBUSTAS_A"
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege: auto wound allocation"
+  },
+  {
+   "act": "execute_script",
+   "script": "var oa = load(\"res://scripts/codex/orks/OrkAbilities11e.gd\")\nreturn \"%d %d\" % [oa.leadership_penalty(\"U_WITCHSEEKERS_C\"), oa.leadership_penalty(\"U_WITCHSEEKERS_D\")]",
+   "multiline": true,
+   "equals": "0 0",
+   "comment": "before: no leadership penalty on either unit"
+  },
+  {
+   "act": "click_unit",
+   "unit_id": "U_TANKBUSTAS_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+   "equals": "U_TANKBUSTAS_A",
+   "comment": "the Attached unit (Tankbustas + Big Mek with SAG) is the shooter"
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "CLEAR_ALL_ASSIGNMENTS",
+    "player": 1
+   }
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "ASSIGN_TARGET",
+    "player": 1,
+    "payload": {
+     "weapon_id": "shokk_attack_gun_ranged",
+     "target_unit_id": "U_WITCHSEEKERS_C",
+     "model_ids": [
+      "U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A:m1"
+     ]
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "ASSIGN_TARGET",
+    "player": 1,
+    "payload": {
+     "weapon_id": "busta_rokkit_launcha___standard_ranged",
+     "target_unit_id": "U_WITCHSEEKERS_D",
+     "model_ids": [
+      "m1",
+      "m2"
+     ]
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "screenshot",
+   "label": "01_split_fire_assigned"
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "CONFIRM_TARGETS",
+    "player": 1
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and d.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\") == null:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline every other window (the defender's reactive ones); stop at the Enhanced Runt-maw card"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible:\n\treturn true\nvar sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and d.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\") == null:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline every other window (the defender's reactive ones); stop at the Enhanced Runt-maw card"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible:\n\treturn true\nvar sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and d.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\") == null:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline every other window (the defender's reactive ones); stop at the Enhanced Runt-maw card"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible:\n\treturn true\nvar sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and d.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\") == null:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline every other window (the defender's reactive ones); stop at the Enhanced Runt-maw card"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible:\n\treturn true\nvar sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and d.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\") == null:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline every other window (the defender's reactive ones); stop at the Enhanced Runt-maw card"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible:\n\treturn true\nvar sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and d.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\") == null:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline every other window (the defender's reactive ones); stop at the Enhanced Runt-maw card"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible:\n\treturn true\nvar sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and d.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\") == null:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline every other window (the defender's reactive ones); stop at the Enhanced Runt-maw card"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible:\n\treturn true\nvar sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and d.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\") == null:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline every other window (the defender's reactive ones); stop at the Enhanced Runt-maw card"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible:\n\treturn true\nvar sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and d.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\") == null:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline every other window (the defender's reactive ones); stop at the Enhanced Runt-maw card"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible:\n\treturn true\nvar sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and d.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\") == null:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline every other window (the defender's reactive ones); stop at the Enhanced Runt-maw card"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible:\n\treturn true\nvar sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var p = PhaseManager.get_current_phase_instance()\nvar out := []\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"to_hit\":\n\t\tif int(d.get(\"successes\", 0)) > 0 and not str(d.get(\"target_unit_id\", \"\")) in out:\n\t\t\tout.append(str(d.get(\"target_unit_id\", \"\")))\nout.sort()\nreturn out",
+   "multiline": true,
+   "equals": [
+    "U_WITCHSEEKERS_C",
+    "U_WITCHSEEKERS_D"
+   ],
+   "comment": "split fire: both Witchseeker units were hit (and both survive)"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "unit_has_shot"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\").find_child(\"Cost\", true, false).text",
+   "equals": "Enhancement"
+  },
+  {
+   "act": "execute_script",
+   "script": "var oa = load(\"res://scripts/codex/orks/OrkAbilities11e.gd\")\nreturn \"%d %d\" % [oa.leadership_penalty(\"U_WITCHSEEKERS_C\"), oa.leadership_penalty(\"U_WITCHSEEKERS_D\")]",
+   "multiline": true,
+   "equals": "0 0",
+   "comment": "two units were hit: nothing is resolved automatically — the player picks"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_enhanced_runt_maw_card"
+  },
+  {
+   "act": "execute_script",
+   "script": "var c = tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw\")\nfor b in c.find_children(\"Use_*\", \"Button\", true, false):\n\treturn str(b.name)\nreturn \"\"",
+   "multiline": true,
+   "equals": "Use_ork11e_ab_enh_enhanced_runt_maw_U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A",
+   "comment": "the offer is on the bearer (the Big Mek with SAG, part of the Attached unit)"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_enh_enhanced_runt_maw/Buttons/Use_ork11e_ab_enh_enhanced_runt_maw_U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemTargetDialog",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_WITCHSEEKERS_C",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_WITCHSEEKERS_D",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "screenshot",
+   "label": "03_enhanced_runt_maw_pick"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_WITCHSEEKERS_D"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0
+  },
+  {
+   "act": "execute_script",
+   "script": "var oa = load(\"res://scripts/codex/orks/OrkAbilities11e.gd\")\nreturn \"%d %d\" % [oa.leadership_penalty(\"U_WITCHSEEKERS_C\"), oa.leadership_penalty(\"U_WITCHSEEKERS_D\")]",
+   "multiline": true,
+   "equals": "0 1",
+   "comment": "the picked unit is infested: -1 to its Leadership (worsened by 1) until the start of P1's next turn"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Enhanced Runt-maw\")",
+   "expect_min": 1
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "screenshot",
+   "label": "04_enhanced_runt_maw_infested"
+  }
+ ]
+}

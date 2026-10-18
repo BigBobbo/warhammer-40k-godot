@@ -18,6 +18,37 @@
 // package importer (tryImportRoster) both read these arrays/objects by
 // reference, so an in-place patch reaches every consumer.
 
+// Codex: Orks (11e) — WP-O5: the bundle's Ork detachments are the pre-codex
+// provisional ones (Kult of Speed with Wazblasta, Taktikal Brigade with Skwad
+// Leader / Mek Kaptin / Mork's Kunnin', ...) and 7 of the 15 codex detachments
+// are missing (Brute Bosses, Flyboyz, Madcap Meks, Runt Swarm, Shoota Boyz,
+// Wreckas, Wurrband). The 15 codex detachments and their 38 enhancements
+// (generated from the game's own 40k/data/40kdc dataset into
+// orks-codex-11e-data.mjs) are upserted by id, so each detachment's
+// enhancement_ids lists exactly its codex enhancements.
+import { ORKS_CODEX_DETACHMENTS, ORKS_CODEX_ENHANCEMENTS } from './orks-codex-11e-data.mjs';
+
+export { ORKS_CODEX_DETACHMENTS, ORKS_CODEX_ENHANCEMENTS };
+
+/**
+ * Codex: Orks (11e): upsert the 15 codex detachments and their 38
+ * enhancements by id (in place: consumers hold the arrays). Idempotent.
+ */
+export function applyOrksCodex(rawData) {
+  if (!rawData) return rawData;
+  const upsert = (arr, rec) => {
+    const i = arr.findIndex(x => x.id === rec.id);
+    const copy = JSON.parse(JSON.stringify(rec));
+    if (i >= 0) arr[i] = copy;
+    else arr.push(copy);
+  };
+  const enhancements = rawData.enhancements ?? (rawData.enhancements = []);
+  const detachments = rawData.detachments ?? (rawData.detachments = []);
+  for (const e of ORKS_CODEX_ENHANCEMENTS) upsert(enhancements, e);
+  for (const d of ORKS_CODEX_DETACHMENTS) upsert(detachments, d);
+  return rawData;
+}
+
 // Enhancement records use the same shape the dataset emits (see any
 // *-war-horde entry in the bundle): id, name, detachment_id, cost,
 // keyword_restrictions, ability_id, is_unique, game_version, points_provisional,
@@ -57,6 +88,7 @@ const ENHANCEMENT_PATCHES = [
  */
 export function applyDataPatches(rawData) {
   if (!rawData) return rawData;
+  applyOrksCodex(rawData);
   const enhancements = rawData.enhancements ?? (rawData.enhancements = []);
   const detachments = rawData.detachments ?? [];
 

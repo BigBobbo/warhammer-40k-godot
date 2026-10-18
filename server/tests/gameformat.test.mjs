@@ -127,7 +127,9 @@ test('fresh Ork roster builds a valid schema-2 army', () => {
 
   const bb = army.units.U_BEASTBOSS_A;
   assert.equal(bb.meta.is_warlord, true);
-  assert.equal(bb.meta.points, 100, 'beastboss 80 + 20 enhancement');
+  // Codex: Orks (11e) Headwoppa's Killchoppa is 15 pts (the bundle's pre-codex
+  // record said 20; data-patches.mjs upserts the codex records — WP-O5).
+  assert.equal(bb.meta.points, 95, 'beastboss 80 + 15 enhancement (codex)');
   assert.deepEqual(bb.meta.enhancements, ["Headwoppa's Killchoppa"], 'canonical enhancement name');
   assert.ok(bb.meta.abilities.some(a => a.name === 'Waaagh!' && a.type === 'Faction'), 'army rule present');
 

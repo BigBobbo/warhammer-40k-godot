@@ -399,6 +399,25 @@ func _section_validation() -> void:
 	_check("two enhancements on one unit: each on a different unit", _warns(two).any(func(x): return str(x).contains("different unit")), str(_warns(two)))
 	var sag := _army("Madcap Meks", 2000, {"SAG": ["Big Mek with Shokk Attack Gun", ["BIG MEK", "CHARACTER", "INFANTRY", "ORKS"], ["Temperamental Shokka"]]})
 	_check("an Upgrade restricted to a CHARACTER datasheet (Temperamental Shokka) is legal on it", _warns(sag).is_empty(), str(_warns(sag)))
+	# Merge guard (WP-C46 generic rules): the two Madcap Meks Upgrades printed
+	# "Big Mek with Shokk Attack Gun model only" are accepted on that CHARACTER
+	# datasheet and rejected on anything else — through this module AND the
+	# ArmyListManager entry points the game / builder imports call.
+	var alm0 = root.get_node("ArmyListManager")
+	var sag_kw := ["BIG MEK", "CHARACTER", "INFANTRY", "ORKS"]
+	for enh_name in ["Temperamental Shokka", "Enhanced Runt-maw"]:
+		var on_sag := _army("Madcap Meks", 2000, {"SAG": ["Big Mek with Shokk Attack Gun", sag_kw, [enh_name]]})
+		on_sag.units.SAG.meta["is_warlord"] = true
+		var r11: Array = alm0.validate_army_construction_11e(on_sag).warnings.filter(func(x): return str(x).to_lower().contains("enhancement") or str(x).contains(enh_name))
+		var rpts: Array = alm0.validate_army_construction_points(on_sag).warnings.filter(func(x): return str(x).to_lower().contains("enhancement") or str(x).contains(enh_name))
+		_check("%s on a Big Mek with Shokk Attack Gun: accepted (module, ALM 11e, ALM points)" % enh_name,
+			_warns(on_sag).is_empty() and r11.is_empty() and rpts.is_empty(), "%s | %s | %s" % [str(_warns(on_sag)), str(r11), str(rpts)])
+		for other in [["Big Mek", sag_kw], ["Warboss", ["CHARACTER", "INFANTRY", "ORKS", "WARBOSS"]], ["Boyz", ["INFANTRY", "ORKS", "BOYZ", "BATTLELINE"]]]:
+			var off := _army("Madcap Meks", 2000, {"X": [other[0], other[1], [enh_name]]})
+			off.units.X.meta["is_warlord"] = true
+			var w11: Array = alm0.validate_army_construction_11e(off).warnings
+			_check("%s on a %s: rejected (module + ALM 11e)" % [enh_name, other[0]],
+				_warns(off).any(func(x): return str(x).to_upper().contains("BIG MEK WITH SHOKK ATTACK GUN only".to_upper())) and w11.any(func(x): return str(x).contains(enh_name)), "%s | %s" % [str(_warns(off)), str(w11)])
 	_check("non-codex detachment (Freebooter Krew) is not owned", not E.owns_army_validation(_army("Freebooter Krew", 2000, {})))
 	_check("a Custodes army is not owned", not E.owns_army_validation({"faction": {"name": "Adeptus Custodes", "detachment": "Shield Host", "points": 2000}, "units": {}}))
 	# ArmyListManager integration: the codex checks replace the generic loop.
