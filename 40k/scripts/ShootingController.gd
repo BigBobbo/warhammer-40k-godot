@@ -126,6 +126,11 @@ var grenade_button: Button  # GRENADE stratagem button
 var shoot_all_remaining_button: Button  # T5-UX3: "Shoot All Remaining" button
 var perform_action_button: Button  # Secondary mission action button
 var start_action_button: Button  # B1 (11e): start a generic 11e action
+# Units that cannot be selected to shoot can still start an action (16.01):
+# advanced Gretchin under Runt Swarm's Sneaky Little Gitz, a MIND MOSTLY ON THE
+# MISSION target, ... They never appear in the shooter list, so this button
+# lists them (unit -> action) and dispatches START_ACTION for the picked one.
+var action_only_button: Button = null
 var burn_objective_button: Button  # Scorched Earth burn objective button
 var _auto_shoot_queue: Array = []  # T5-UX3: Queue of SHOOT actions to dispatch sequentially
 var _auto_shoot_in_progress: bool = false  # T5-UX3: Whether auto-shoot sequence is active
@@ -860,6 +865,16 @@ func _setup_right_panel() -> void:
 	declaration_box.add_child(start_action_button)
 	start_action_button.visible = false  # Shown only for FLY/edition>=11 eligible units
 
+	action_only_button = Button.new()
+	action_only_button.name = "ActionOnlyButton"
+	action_only_button.text = "Start Action (units not shooting)"
+	action_only_button.custom_minimum_size = Vector2(230, 35)
+	action_only_button.pressed.connect(_on_action_only_pressed)
+	action_only_button.tooltip_text = "11e Action (16.01) for a unit that cannot be selected to shoot (e.g. it advanced): it starts the action instead. It cannot charge this turn; the action completes at the end of your turn."
+	WhiteDwarfTheme.apply_to_button(action_only_button)
+	declaration_box.add_child(action_only_button)
+	action_only_button.visible = false  # Shown only when such a unit can start an action
+
 	# Scorched Earth burn objective button
 	burn_objective_button = Button.new()
 	burn_objective_button.name = "BurnObjectiveButton"
@@ -1092,6 +1107,7 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 	
 	if not current_phase:
 		return
+	_update_action_only_button()
 	
 	var units = current_phase.get_units_for_player(current_phase.get_current_player())
 	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
@@ -4691,6 +4707,7 @@ func _update_perform_action_button() -> void:
 func _update_start_action_button() -> void:
 	"""B1 (16.01): show 'Start Action' for the active shooter when it is eligible
 	to start a registered 11e action (edition >= 11)."""
+	_update_action_only_button()
 	if not start_action_button:
 		return
 	if not current_phase or not current_phase is ShootingPhase or active_shooter_id == "" or GameConstants.edition < 11:
@@ -4722,6 +4739,48 @@ func _update_start_action_button() -> void:
 		start_action_button.visible = true
 		start_action_button.disabled = false
 
+## Own units that cannot be selected to shoot this phase but can start an 11e
+## action: [{unit_id, unit_name, actions: [...]}].
+func _action_only_candidates() -> Array:
+	var out: Array = []
+	if not current_phase or not current_phase is ShootingPhase or GameConstants.edition < 11:
+		return out
+	if not current_phase.has_method("get_startable_11e_actions"):
+		return out
+	var units = current_phase.get_units_for_player(current_phase.get_current_player())
+	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit_id in units_shot or current_phase._can_unit_shoot(unit):
+			continue  # shooters use the per-shooter Start Action button
+		var actions: Array = current_phase.get_startable_11e_actions(unit_id)
+		if actions.is_empty():
+			continue
+		var meta = unit.get("meta", {})
+		out.append({"unit_id": unit_id, "unit_name": meta.get("display_name", meta.get("name", unit_id)), "actions": actions})
+	return out
+
+func _update_action_only_button() -> void:
+	if not action_only_button:
+		return
+	var cands := _action_only_candidates()
+	action_only_button.visible = not cands.is_empty()
+	action_only_button.disabled = cands.is_empty()
+	if not cands.is_empty():
+		action_only_button.text = "Start Action (units not shooting: %d)" % cands.size()
+
+func _on_action_only_pressed() -> void:
+	var cands := _action_only_candidates()
+	if cands.is_empty():
+		return
+	var options: Array = []
+	for c in cands:
+		for a in c.actions:
+			options.append({"id": str(a.get("id", "")), "unit_id": c.unit_id,
+				"name": "%s — %s" % [c.unit_name, a.get("name", a.get("id", "Action"))],
+				"description": a.get("description", "")})
+	_show_action_choice_dialog(options)
+
 func _on_start_action_pressed() -> void:
 	"""B1: the active shooter gives up shooting to start a generic 11e action."""
 	if active_shooter_id == "" or not start_action_button:
@@ -4734,8 +4793,10 @@ func _on_start_action_pressed() -> void:
 		return
 	_dispatch_start_action(action_id)
 
-func _dispatch_start_action(action_id: String) -> void:
-	var unit_id = active_shooter_id
+func _dispatch_start_action(action_id: String, unit_id: String = "") -> void:
+	var for_active_shooter := unit_id == ""
+	if for_active_shooter:
+		unit_id = active_shooter_id
 	if unit_id == "":
 		return
 	print("ShootingController: Start Action pressed — %s starts '%s'" % [unit_id, action_id])
@@ -4744,6 +4805,12 @@ func _dispatch_start_action(action_id: String) -> void:
 		"actor_unit_id": unit_id,
 		"payload": {"action_id": action_id}
 	})
+	if not for_active_shooter:
+		# a non-shooting unit started its action: the selected shooter (if any)
+		# is untouched
+		_update_action_only_button()
+		_refresh_unit_list(false)
+		return
 	active_shooter_id = ""
 	weapon_assignments.clear()
 	assignment_history.clear()
@@ -4787,8 +4854,9 @@ func _show_action_choice_dialog(options: Array) -> void:
 	var resolved = [false]
 	for option in options:
 		var oid: String = str(option.get("id", ""))
+		var ouid: String = str(option.get("unit_id", ""))
 		var btn = Button.new()
-		btn.name = "Pick_%s" % oid
+		btn.name = "Pick_%s" % oid if ouid == "" else "Pick_%s_%s" % [ouid, oid]
 		btn.text = str(option.get("name", oid))
 		if option.get("description", "") != "":
 			btn.tooltip_text = str(option.get("description", ""))
@@ -4797,7 +4865,7 @@ func _show_action_choice_dialog(options: Array) -> void:
 				return
 			resolved[0] = true
 			dialog.queue_free()
-			_dispatch_start_action(oid))
+			_dispatch_start_action(oid, ouid))
 		content.add_child(btn)
 
 	content.add_child(HSeparator.new())
