@@ -375,6 +375,10 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     for (const ex of tc.exclusion_keywords ?? []) {
       desc += ` This model cannot transport models that are ${ex.toUpperCase()} models.`;
     }
+    // ArmyListManager parses "Each <KEYWORD> model takes up the space of <N> models".
+    for (const m of tc.multipliers ?? []) {
+      desc += ` Each ${String(m.keyword).toUpperCase()} model takes up the space of ${m.spaces} models.`;
+    }
     return { name: 'TRANSPORT', type: 'Core', description: desc };
   }
 
@@ -492,15 +496,26 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     const modelsOut = [];
     let mi = 1;
     const compModels = comp?.models ?? [{ name: dcUnit.name, min: modelCount, max: modelCount }];
-    // scale composition to the roster's model count using tiers when possible
+    // scale composition to the roster's model count. 11e codex units come in
+    // fixed sizes that are whole multiples of the minimum ("1-2 Nob + 9-18 Boy"
+    // is 10 or 20 models): when every row scales by that multiple within its
+    // range, use it (20 Boyz = 2 Nobs + 18 Boyz — the same split
+    // RulesEngine._positional_roles infers). Otherwise every row but the last
+    // takes its minimum and the last takes the rest.
     let remaining = modelCount;
-    const counts = [];
-    for (let k = 0; k < compModels.length; k++) {
-      const m = compModels[k];
-      const isLast = k === compModels.length - 1;
-      const take = isLast ? remaining : Math.min(m.min, remaining);
-      counts.push(Math.max(0, take));
-      remaining -= take;
+    let counts = [];
+    const minTotal = compModels.reduce((s, m) => s + (m.min ?? 0), 0);
+    const mult = minTotal > 0 && modelCount % minTotal === 0 ? modelCount / minTotal : 0;
+    if (mult > 1 && compModels.every(m => (m.min ?? 0) * mult <= (m.max ?? m.min ?? 0))) {
+      counts = compModels.map(m => (m.min ?? 0) * mult);
+    } else {
+      for (let k = 0; k < compModels.length; k++) {
+        const m = compModels[k];
+        const isLast = k === compModels.length - 1;
+        const take = isLast ? remaining : Math.min(m.min, remaining);
+        counts.push(Math.max(0, take));
+        remaining -= take;
+      }
     }
     for (let k = 0; k < compModels.length; k++) {
       const m = compModels[k];

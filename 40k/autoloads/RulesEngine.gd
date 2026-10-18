@@ -7842,7 +7842,11 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 #
 # Deliberately narrow — it bails (returns []) unless the split is FORCED:
 #   * at most ONE role may be open-ended (max > min); two open-ended roles (a
-#     Lootas mob of 1-2 Spanners + 4-8 Lootas) can be filled several ways
+#     Lootas mob of 1-2 Spanners + 4-8 Lootas) can be filled several ways —
+#     EXCEPT when the model count is a whole multiple of the minimum unit size
+#     and every role scales by that multiple within its range: 11e codex units
+#     come in fixed sizes ("1-2 Nob + 9-18 Boy" is sold as 10 or 20 models), so
+#     a 20-model mob is 2 Nobs + 18 Boyz
 #   * the fixed roles' counts plus the open-ended role's allowed range must add
 #     up to exactly this unit's model count
 # Anything else is ambiguous and the caller falls back to the datasheet menu.
@@ -7854,13 +7858,34 @@ static func _positional_roles(unit_name: String, model_count: int) -> Array:
 	var flexible := -1
 	var fixed_total := 0
 	var counts: Array = []
+	var open_ended := 0
+	var min_total := 0
+	for i in range(roles.size()):
+		var mn := int(roles[i].get("min", 0))
+		var mx := int(roles[i].get("max", mn))
+		min_total += mn
+		if mx > mn:
+			open_ended += 1
+	if open_ended > 1:
+		# Codex fixed sizes: every role scales by the same whole multiple.
+		if min_total <= 0 or model_count % min_total != 0:
+			return []
+		var mult := model_count / min_total
+		var out_scaled: Array = []
+		for i in range(roles.size()):
+			var mn := int(roles[i].get("min", 0))
+			var mx := int(roles[i].get("max", mn))
+			if mn * mult > mx:
+				return []  # this role cannot scale that far — undecidable
+			for _j in range(mn * mult):
+				out_scaled.append(str(roles[i].get("name", "")))
+		return out_scaled if out_scaled.size() == model_count else []
+
 	for i in range(roles.size()):
 		var mn := int(roles[i].get("min", 0))
 		var mx := int(roles[i].get("max", mn))
 		counts.append(mn)
 		if mx > mn:
-			if flexible >= 0:
-				return []  # more than one open-ended role — undecidable
 			flexible = i
 		else:
 			fixed_total += mn

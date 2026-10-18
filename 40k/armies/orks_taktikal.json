@@ -656,8 +656,8 @@
     },
     {
      "id": "m2",
-     "wounds": 1,
-     "current_wounds": 1,
+     "wounds": 3,
+     "current_wounds": 3,
      "base_mm": 32,
      "position": null,
      "alive": true,
@@ -1078,8 +1078,8 @@
     },
     {
      "id": "m2",
-     "wounds": 1,
-     "current_wounds": 1,
+     "wounds": 3,
+     "current_wounds": 3,
      "base_mm": 32,
      "position": null,
      "alive": true,
@@ -1384,7 +1384,7 @@
      {
       "name": "TRANSPORT",
       "type": "Core",
-      "description": "This model has a transport capacity of 22 ORKS INFANTRY models."
+      "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. Each JUMP PACK model takes up the space of 2 models. Each GHAZGHKULL THRAKA model takes up the space of 4 models."
      }
     ],
     "unit_composition": [
