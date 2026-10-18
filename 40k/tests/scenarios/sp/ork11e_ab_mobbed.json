@@ -1,0 +1,111 @@
+{
+ "id": "ork11e_ab_mobbed",
+ "covers": [
+  "codex.orks.datasheet_abilities.mobbed",
+  "scripts.codex.orks.OrkAbilities11e",
+  "phases.ChargePhase.charge_move_end"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) MOBBED (Beast Snagga Boyz, passive): when the unit ends a charge move, each enemy MONSTER/VEHICLE unit engaged with it makes a battle-shock roll at -1 (-2 with 13+ models). Fixture ork11e_ab_charge: the Beast Snagga Boyz charge the Contemptor-Achillus (declared, rolled and moved with the engine's charge tools): the Contemptor's battle-shock roll with the -1 is logged.",
+ "fixture": "ork11e_ab_charge",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 9,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 9
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "DECLARE_CHARGE",
+    "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_B",
+    "player": 1,
+    "payload": {
+     "target_unit_ids": [
+      "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+     ]
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "CHARGE_ROLL",
+    "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_B",
+    "player": 1,
+    "payload": {
+     "rng_seed": 11
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.get(\"awaiting_ability_reroll\"):\n\tph.execute_action({\"type\": \"DECLINE_ABILITY_REROLL\", \"actor_unit_id\": \"U_BEAST_SNAGGA_BOYZ_B\", \"player\": 1})\nif ph.get(\"awaiting_reroll_decision\"):\n\tph.execute_action({\"type\": \"DECLINE_COMMAND_REROLL\", \"actor_unit_id\": \"U_BEAST_SNAGGA_BOYZ_B\", \"player\": 1})\nfor c in tree.root.get_children():\n\tif c is Window and c != tree.root and str(c.name) != \"StratagemDialog\":\n\t\tc.hide()\n\t\tc.queue_free()\nvar dist = int(ph.pending_charges[\"U_BEAST_SNAGGA_BOYZ_B\"][\"distance\"])\nprint(\"[wp-o6] charge roll \", dist)\nreturn dist >= 4",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline re-rolls (not under test); the 2D6 is enough for the 3.5\" gap"
+  },
+  {
+   "act": "execute_script",
+   "script": "var ph = PhaseManager.get_current_phase_instance()\nvar dist = int(ph.pending_charges[\"U_BEAST_SNAGGA_BOYZ_B\"][\"distance\"])\nvar mv = AIDecisionMaker._compute_charge_move(GameState.create_snapshot(), \"U_BEAST_SNAGGA_BOYZ_B\", dist, [\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"], 1)\nif str(mv.get(\"type\", \"\")) != \"APPLY_CHARGE_MOVE\":\n\treturn \"NO_MOVE\"\nmv[\"player\"] = 1\nvar r = NetworkIntegration.route_action(mv)\nreturn r.get(\"success\", false)",
+   "multiline": true,
+   "equals": true,
+   "comment": "the APPLY_CHARGE_MOVE the charge tools send (engine charge-move solver)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "RulesEngine.check_units_in_engagement_range(GameState.get_unit(\"U_BEAST_SNAGGA_BOYZ_B\"), GameState.get_unit(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"), GameState.state)",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Mobbed: Contemptor\")",
+   "expect_min": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"-1 =\")",
+   "expect_min": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "01_mobbed_battle_shock_roll"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  }
+ ]
+}

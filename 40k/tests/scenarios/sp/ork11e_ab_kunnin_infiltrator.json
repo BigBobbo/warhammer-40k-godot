@@ -1,0 +1,192 @@
+{
+ "id": "ork11e_ab_kunnin_infiltrator",
+ "covers": [
+  "codex.orks.datasheet_abilities.kunnin_infiltrator",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.fight_phase_end"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) KUNNIN' INFILTRATOR (Boss Snikrot) through the real fight_phase_end window in the OPPONENT's Fight phase. Fixture ork11e_ab_fight_end (official layout take_and_hold_mirror_1): Snikrot stands hidden in a dense terrain area, unengaged. P2 ends its Fight phase through the real panel; P1's fight_phase_end window offers the 0-CP card; 'Use on Boss Snikrot' places him in strategic reserves. The window re-opens with the other abilities (declined).",
+ "fixture": "ork11e_ab_fight_end",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 10
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.active_player",
+   "equals": 2
+  },
+  {
+   "act": "execute_script",
+   "script": "for c in tree.root.get_children():\n\tif c is Window and c != tree.root and c.visible and str(c.name) == \"StratagemDialog\" and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\t\tc.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "P2's fight_phase_start window (if any): declined"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/PhaseActionButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "fight_phase_end"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_kunnin_infiltrator/Buttons/Use_ork11e_ab_kunnin_infiltrator_U_BOSS_SNIKROT_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_kunnin_infiltrator\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_kunnin_infiltrator_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_kunnin_infiltrator/Buttons/Use_ork11e_ab_kunnin_infiltrator_U_BOSS_SNIKROT_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_BOSS_SNIKROT_A.status",
+   "equals": 7
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Kunnin' Infiltrator\")",
+   "expect_min": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "02_kunnin_infiltrator_reserves"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "fight_phase_end"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_kunnin_infiltrator\") == null",
+   "equals": true,
+   "comment": "used"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  }
+ ]
+}

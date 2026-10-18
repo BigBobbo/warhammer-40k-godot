@@ -1553,7 +1553,7 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 			return [_entry(h, {"secondary": _unit_options(cands, "CLEVER KNOW-WOTZ: select one friendly ORKS VEHICLE model within 3\"")})]
 		"shokk_boosta":
 			var h := _ctx_holder(slug, player, ctx)
-			if h == "" or not own_turn or str(ctx.get("move_type", "")) != "advance":
+			if h == "" or not own_turn or str(ctx.get("move_type", "")) != "advance" or shokk_boosta_active(h):
 				return []
 			return [_entry(h)]
 		"found_em":
@@ -1865,11 +1865,28 @@ static func _post_shot_candidates(slug: String, holder_id: String, ctx: Dictiona
 ## Madcap Artillery: the effect named by the Mek Gunz' (identical) weapon, or
 ## "" when the unit's guns differ.
 static func _madcap_effect(unit_id: String) -> String:
+	# "if all ranged weapons EQUIPPED by each Mek Gunz model are the same": the
+	# per-model loadout the engine resolves from the roster's wargear (a
+	# generated datasheet lists every option in meta.weapons — MA-LOADOUT), so
+	# the names are the guns each model actually carries.
+	var u := Common.unit(unit_id)
+	var names: Array = []
+	var re = Common.rules()
+	if re and re.has_method("_get_model_weapon_ids"):
+		if re.has_method("_ensure_loadout_resolved"):
+			re._ensure_loadout_resolved(u)
+		for m in u.get("models", []):
+			if not m.get("alive", true):
+				continue
+			for wid in re._get_model_weapon_ids(u, m, "Ranged"):
+				names.append(str(wid).replace("_", " "))
+	else:
+		for w in u.get("meta", {}).get("weapons", []):
+			if str(w.get("type", "")).to_lower() != "melee":
+				names.append(str(w.get("name", "")))
 	var found := ""
-	for w in Common.unit(unit_id).get("meta", {}).get("weapons", []):
-		if str(w.get("type", "")).to_lower() == "melee":
-			continue
-		var n := str(w.get("name", "")).to_lower()
+	for nm in names:
+		var n := str(nm).to_lower()
 		var e := ""
 		if n.contains("bubblechukka"):
 			e = "wobbled"
@@ -1890,6 +1907,10 @@ static func _madcap_effect(unit_id: String) -> String:
 ## window re-opens with what is still on offer (BasePhase generic follow-up
 ## "ork11e_reoffer").
 const REOFFER_WINDOWS := ["battle_shock_step_start", "movement_phase_start", "movement_phase_end", "fight_phase_end"]
+## Windows re-opened only while another ABILITY is still on offer there (e.g.
+## Boss' Ammo Runt then Ammo Runts on a Warboss-led Boyz mob — both apply to
+## the same selection; the held action resumes once the queue is empty).
+const REOFFER_IF_ABILITY_LEFT := ["unit_selected_to_shoot", "unit_selected_to_move", "unit_ended_normal_move", "unit_has_shot"]
 
 ## USE_WINDOW_STRATAGEM on an ability (routed by StratagemManager.use_stratagem).
 ## Returns the use_stratagem result shape: {success, diffs (already applied),
@@ -1931,11 +1952,12 @@ static func use(player: int, sid: String, target_unit_id: String, context: Dicti
 		_event_log(player, log_text)
 	var out := {"success": true, "diffs": diffs, "stratagem_name": display(slug), "cp_cost": 0}
 	var followup: Dictionary = res.get("followup", {})
-	if followup.is_empty() and window_id in REOFFER_WINDOWS:
+	if followup.is_empty() and (window_id in REOFFER_WINDOWS or window_id in REOFFER_IF_ABILITY_LEFT):
 		var wctx: Dictionary = context.duplicate(true)
 		for k in ["secondary_id", "variant_id", "variant_label"]:
 			wctx.erase(k)
-		followup = {"type": "ork11e_reoffer", "player": player, "window_id": window_id, "ctx": wctx}
+		if window_id in REOFFER_WINDOWS or not window_offers(player, window_id, wctx).is_empty():
+			followup = {"type": "ork11e_reoffer", "player": player, "window_id": window_id, "ctx": wctx}
 	if not followup.is_empty():
 		out["followup"] = followup
 	return out

@@ -1,0 +1,177 @@
+{
+ "id": "ork11e_ab_krushin_impetus",
+ "covers": [
+  "codex.orks.datasheet_abilities.krushin_impetus",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.unit_ended_charge_move"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) KRUSHIN' IMPETUS (Warboss in Mega Armour) through the real unit_ended_charge_move window. Fixture ork11e_ab_charge: Custodian Guard B is 3.5\" away. The charge is declared, rolled (seeded) and moved with the engine's charge tools (dispatched); the unit_ended_charge_move window opens; 'Use on Warboss in Mega Armour' + a real click on Custodian Guard B rolls one D6 per engaged model (3+: 1 mortal wound) — event log. Setup privilege: Custodes wounds inflated.",
+ "fixture": "ork11e_ab_charge",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 9,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 9
+  },
+  {
+   "act": "execute_script",
+   "script": "for uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 2:\n\t\tfor m in u.models:\n\t\t\tm[\"wounds\"] = 99\n\t\t\tm[\"current_wounds\"] = 99\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege (see description)"
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "DECLARE_CHARGE",
+    "actor_unit_id": "U_WARBOSS_IN_MEGA_ARMOUR_A",
+    "player": 1,
+    "payload": {
+     "target_unit_ids": [
+      "U_CUSTODIAN_GUARD_B"
+     ]
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "CHARGE_ROLL",
+    "actor_unit_id": "U_WARBOSS_IN_MEGA_ARMOUR_A",
+    "player": 1,
+    "payload": {
+     "rng_seed": 11
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.get(\"awaiting_ability_reroll\"):\n\tph.execute_action({\"type\": \"DECLINE_ABILITY_REROLL\", \"actor_unit_id\": \"U_WARBOSS_IN_MEGA_ARMOUR_A\", \"player\": 1})\nif ph.get(\"awaiting_reroll_decision\"):\n\tph.execute_action({\"type\": \"DECLINE_COMMAND_REROLL\", \"actor_unit_id\": \"U_WARBOSS_IN_MEGA_ARMOUR_A\", \"player\": 1})\nfor c in tree.root.get_children():\n\tif c is Window and c != tree.root and str(c.name) != \"StratagemDialog\":\n\t\tc.hide()\n\t\tc.queue_free()\nvar dist = int(ph.pending_charges[\"U_WARBOSS_IN_MEGA_ARMOUR_A\"][\"distance\"])\nprint(\"[wp-o6] charge roll \", dist)\nreturn dist >= 4",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline re-rolls (not under test); the 2D6 is enough for the 3.5\" gap"
+  },
+  {
+   "act": "execute_script",
+   "script": "var ph = PhaseManager.get_current_phase_instance()\nvar dist = int(ph.pending_charges[\"U_WARBOSS_IN_MEGA_ARMOUR_A\"][\"distance\"])\nvar mv = AIDecisionMaker._compute_charge_move(GameState.create_snapshot(), \"U_WARBOSS_IN_MEGA_ARMOUR_A\", dist, [\"U_CUSTODIAN_GUARD_B\"], 1)\nif str(mv.get(\"type\", \"\")) != \"APPLY_CHARGE_MOVE\":\n\treturn \"NO_MOVE\"\nmv[\"player\"] = 1\nvar r = NetworkIntegration.route_action(mv)\nreturn r.get(\"success\", false)",
+   "multiline": true,
+   "equals": true,
+   "comment": "the APPLY_CHARGE_MOVE the charge tools send (engine charge-move solver)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "RulesEngine.check_units_in_engagement_range(GameState.get_unit(\"U_WARBOSS_IN_MEGA_ARMOUR_A\"), GameState.get_unit(\"U_CUSTODIAN_GUARD_B\"), GameState.state)",
+   "equals": true
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "unit_ended_charge_move"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_krushin_impetus/Buttons/Use_ork11e_ab_krushin_impetus_U_WARBOSS_IN_MEGA_ARMOUR_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_krushin_impetus\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_krushin_impetus_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_krushin_impetus/Buttons/Use_ork11e_ab_krushin_impetus_U_WARBOSS_IN_MEGA_ARMOUR_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemTargetDialog",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_B",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_B"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Krushin' Impetus\")",
+   "expect_min": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "02_krushin_impetus_resolved"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  }
+ ]
+}

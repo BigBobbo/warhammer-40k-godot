@@ -42,9 +42,7 @@
     { "act": "expect_action_result", "path": "success", "equals": true },
     { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
     { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "expect_node_visible", "node": "/root/DistractionGrotDialog", "timeout_s": 3.0, "comment": "the Kommandos' own Distraction Grot prompt comes first — not under test, declined" },
-    { "act": "click_node", "button_text": "Decline" },
-    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "wait_seconds", "seconds": 0.8, "comment": "WP-O6: the 10e Distraction Grot prompt that came first is gone (the Codex: Orks Kommandos have no Distraction Grot)" },
 
     { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
     { "act": "execute_script", "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text.contains(\"being targeted by \")", "equals": true },

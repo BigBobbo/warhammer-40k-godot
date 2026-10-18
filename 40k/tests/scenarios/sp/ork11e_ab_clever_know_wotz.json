@@ -1,0 +1,139 @@
+{
+ "id": "ork11e_ab_clever_know_wotz",
+ "covers": [
+  "codex.orks.datasheet_abilities.clever_know_wotz",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.unit_selected_to_move"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) CLEVER KNOW-WOTZ (Mek) through the real unit_selected_to_move window. Fixture ork11e_ab_move: the Gunwagon (ORKS VEHICLE, 4 wounds lost) is within 3\" of the Mek. A real click on the Mek opens the window; 'Use on Mek' + a real click on the Gunwagon: it heals D3 wounds and its attacks have +1 to hit until the start of P1's next Movement phase (live attack hook).",
+ "fixture": "ork11e_ab_move",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 7
+  },
+  {
+   "act": "click_unit",
+   "unit_id": "U_MEK_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "var m = GameState.get_unit(\"U_GUNWAGON_A\").models[0]\nreturn int(m.wounds) - int(m.current_wounds)",
+   "multiline": true,
+   "equals": 4,
+   "comment": "the Gunwagon starts 4 wounds down"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "unit_selected_to_move"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_clever_know_wotz/Buttons/Use_ork11e_ab_clever_know_wotz_U_MEK_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_clever_know_wotz\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_clever_know_wotz_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_clever_know_wotz/Buttons/Use_ork11e_ab_clever_know_wotz_U_MEK_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemTargetDialog",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_GUNWAGON_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_GUNWAGON_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "var m = GameState.get_unit(\"U_GUNWAGON_A\").models[0]\nvar lost = int(m.wounds) - int(m.current_wounds)\nprint(\"[wp-o6] Gunwagon wounds lost after Clever Know-wotz: \", lost)\nreturn lost >= 1 and lost <= 3",
+   "multiline": true,
+   "equals": true,
+   "comment": "healed D3 (1-3) wounds"
+  },
+  {
+   "act": "execute_script",
+   "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_GUNWAGON_A\"), GameState.get_unit(\"U_WITCHSEEKERS_C\"), {\"name\": \"x\", \"type\": \"Ranged\"}, false, GameState.state, [])\nreturn bool(m.hit_plus)",
+   "multiline": true,
+   "equals": true,
+   "comment": "its attacks have +1 to hit"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Clever Know-wotz\")",
+   "expect_min": 1
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+   "equals": false
+  },
+  {
+   "act": "screenshot",
+   "label": "02_clever_know_wotz_healed"
+  }
+ ]
+}

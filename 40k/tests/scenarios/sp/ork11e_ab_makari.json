@@ -1,0 +1,236 @@
+{
+ "id": "ork11e_ab_makari",
+ "covers": [
+  "codex.orks.datasheet_abilities.makari",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.movement_phase_start"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) MAKARI, HOIST DAT BANNER! (Ghazghkull, once per battle) through the real movement_phase_start window. Fixture ork11e_ab_move_start (battle round 2). Entering the Movement phase opens the window with the 0-CP cards; 'Use on Ghazghkull' + a real click on Boyz C riles them up; the window re-opens (battle round 2 = two units) and a second use + click on Boyz D riles them up too; the third re-open offers only Da Jump (declined).",
+ "fixture": "ork11e_ab_move_start",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 7
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.battle_round",
+   "equals": 2
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "movement_phase_start"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_makari/Buttons/Use_ork11e_ab_makari_U_GHAZGHKULL_THRAKA_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_makari\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_da_jump/Buttons/Use_ork11e_ab_da_jump_U_WEIRDBOY_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_da_jump\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_makari_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_makari/Buttons/Use_ork11e_ab_makari_U_GHAZGHKULL_THRAKA_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemTargetDialog",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_C",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_C"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BOYZ_C\").flags.get(\"ork11e_riled_up\", false)",
+   "equals": true,
+   "comment": "U_BOYZ_C is riled up"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "movement_phase_start"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_makari/Buttons/Use_ork11e_ab_makari_U_GHAZGHKULL_THRAKA_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_makari\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_makari/Buttons/Use_ork11e_ab_makari_U_GHAZGHKULL_THRAKA_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemTargetDialog",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_D",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_BOYZ_C\") == null",
+   "equals": true,
+   "comment": "the first pick is no option"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_makari_second_pick"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_D"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BOYZ_D\").flags.get(\"ork11e_riled_up\", false)",
+   "equals": true,
+   "comment": "U_BOYZ_D is riled up"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "movement_phase_start"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_makari\") == null",
+   "equals": true,
+   "comment": "battle round 2: no third pick"
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_da_jump/Buttons/Use_ork11e_ab_da_jump_U_WEIRDBOY_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_da_jump\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Makari\")",
+   "expect_min": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "03_makari_two_units_riled"
+  }
+ ]
+}

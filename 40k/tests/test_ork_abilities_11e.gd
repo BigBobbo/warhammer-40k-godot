@@ -920,6 +920,16 @@ func _section_post_shot() -> void:
 	mg.meta["weapons"] = only_traktor
 	OA.after_unit_shot("U_MEK_GUNZ_A", ["U_CUSTODIAN_GUARD_A"])
 	_check("Madcap Artillery (Traktor Kannon): the hit unit is grounded — cannot take to the skies", OA.cannot_take_to_skies("U_CUSTODIAN_GUARD_A"), str(_flags("U_CUSTODIAN_GUARD_A").get(OA.F_MADCAP, null)))
+	# The equipped gun comes from the roster's wargear (MA-LOADOUT), not the
+	# datasheet's full option list.
+	_fresh(P_SHOOT)
+	_place("U_MEK_GUNZ_A", 10, 30)
+	_check("Madcap Artillery: every option listed, no wargear — no single weapon, no effect", OA._madcap_effect("U_MEK_GUNZ_A") == "")
+	_u("U_MEK_GUNZ_A").meta["wargear"] = ["1x Smasha Gun"]
+	_u("U_MEK_GUNZ_A").erase("_loadout_version")
+	for m in _u("U_MEK_GUNZ_A").models:
+		m.erase("ranged_loadout")
+	_check("Madcap Artillery: wargear '1x Smasha Gun' — smashed", OA._madcap_effect("U_MEK_GUNZ_A") == "smashed", OA._madcap_effect("U_MEK_GUNZ_A"))
 	_flags("U_CUSTODIAN_GUARD_B")[OA.F_MADCAP] = {"player": 1, "effect": "smashed"}
 	_check("Madcap 'smashed': -2\" M", OA.move_modifier(_u("U_CUSTODIAN_GUARD_B")) == -2.0)
 	_flags("U_CUSTODIAN_GUARD_C")[OA.F_MADCAP] = {"player": 1, "effect": "zapped"}
