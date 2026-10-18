@@ -596,11 +596,17 @@ func _section_gilded() -> void:
 	_check("not usable again in the same phase", uam.is_once_per_battle_used("U_BLADE_CHAMPION_A", "Martial Inspiration"))
 	PM.transition_to_phase(PHASE_CHARGE)
 	_check("usable again from the next phase", not uam.is_once_per_battle_used("U_BLADE_CHAMPION_A", "Martial Inspiration"))
-	# Moment Shackle is offered again at the start of the next Custodes Fight phase.
+	# Moment Shackle is offered again at the start of the next Fight phase —
+	# since WP-C7 a card in the phase_start window (CustodesAbilities.gd).
 	_flags("U_TRAJANN_A").erase("moment_shackle_used")
 	PM.transition_to_phase(PHASE_FIGHT)
 	var fp = _phase()
-	_check("the next Fight phase offers Moment Shackle again", "U_TRAJANN_A" in fp._moment_shackle_pending_units, str(fp._moment_shackle_pending_units))
+	var ms_pend: Dictionary = fp.get_pending_stratagem_window()
+	var ms_offered := false
+	for o in ms_pend.get("offers", []):
+		if str(o.get("stratagem_id", "")) == "cus11e_ab_moment_shackle":
+			ms_offered = true
+	_check("the next Fight phase offers Moment Shackle again (phase_start window)", ms_offered, "%s %s" % [str(ms_pend.get("window_id", "")), str(ms_pend.get("offers", []).map(func(x): return x.get("name", "")))])
 
 
 # ---------------------------------------------------------------------------
