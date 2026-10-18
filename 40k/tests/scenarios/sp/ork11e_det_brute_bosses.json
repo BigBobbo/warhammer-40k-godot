@@ -9,7 +9,7 @@
   "rng_seed": 42,
   "transition_to_phase": 9,
   "disable_ai": true,
-  "description": "Codex: Orks (11e) Brute Bosses — 'ARD AS NAILS (WP-O34): when a friendly WARBOSS model is destroyed, if its unit has not been selected to fight this phase, roll one D6 (+1 if riled up): on a 3+ it is not removed until its unit has fought (or the phase ends). Setup: detachment Brute Bosses; the Warboss detached and standing alone in front of Custodian Guard Alpha with 1 wound left (the Boyz stepped back), riled up (+1); Custodian Guard Alpha has Fights First so the Custodes pick first — all set in the Charge phase, which then ends. Fight phase: Pile In passed, the Custodes click Custodian Guard Alpha, pick a Ka'tah stance, attack the Warboss and resolve: the Warboss is destroyed, 'Ard as Nails rolls (dice log), and on the pass it stays on the battlefield; the Orks then select it to fight and it is removed once it has fought.",
+  "description": "Codex: Orks (11e) Brute Bosses — 'ARD AS NAILS (WP-O34): when a friendly WARBOSS model is destroyed, if its unit has not been selected to fight this phase, roll one D6 (+1 if riled up): on a 3+ it is not removed until its unit has fought (or the phase ends). Setup: detachment Brute Bosses; the Warboss detached and standing alone in front of Custodian Guard Alpha with 1 wound left (the Boyz stepped back), riled up (+1); Custodian Guard Alpha has Fights First so the Custodes pick first — all set in the Charge phase, which then ends. Fight phase: Pile In passed, the Custodes click Custodian Guard Alpha, pick a Ka'tah stance, attack the Warboss and resolve: the Warboss is destroyed, 'Ard as Nails rolls (dice log), and on the pass it stays on the battlefield; the Orks then select it to fight and it is removed once it has fought. Setup privilege (WP-FIX1): the dice are re-seeded (RulesEngine.set_test_seed) right before the Custodes confirm their attacks, so the 'Ard as Nails roll does not depend on how many RNG instances the phase transitions made.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -131,6 +131,13 @@
       "act": "click_node",
       "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
       "emit_pressed": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "RulesEngine.set_test_seed(5)\nreturn RulesEngine.get_test_seed()",
+      "equals": 5,
+      "comment": "WP-FIX1 setup privilege: re-seed the dice right before the Custodes' attacks are confirmed. The seed set in the Charge phase counted every RNG instance made since then (instance k is seeded hash([seed, k])); WP-C46's Superior Creation hook no longer makes one on the Charge->Fight transition, so at that seed the 'Ard as Nails D6 came up 1 (fail). Seed chosen so the D6 passes (the riled-up +1 makes it a 2+)."
     },
     {
       "act": "click_node",

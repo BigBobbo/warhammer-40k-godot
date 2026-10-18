@@ -7,7 +7,7 @@
     "phases.MovementPhase.path_crosses_monster_vehicle_bases.calistus",
     "dialogs.StratagemDialog.katah_card"
   ],
-  "description": "Codex: Adeptus Custodes (11e) CALISTUS ka'tah through the real unit_selected_to_move window (WP-C3). Fixture cus11e_c3_custodes_active (P1 Custodes, round 2): loading the Command-phase save runs the Martial Ka'tah readied step, then the scenario moves to the Movement phase. Witchseekers C stand right behind the friendly Telemon Heavy Dreadnought (a VEHICLE: models cannot normally move across it). (1) A real click on the Witchseekers selects them to move: the stratagem window opens with a 0-CP KA'TAH card CALISTUS whose 'Use on Witchseeker Squad' button is enabled. (2) A real click on Use spends no CP, un-readies the unit (gold K badge gone) and sets the Calistus effect. (3) Ctrl+A group-drags the squad 5.75\" north STRAIGHT THROUGH the Telemon; the drop is accepted (it would be refused without Calistus — the B case is pinned headless in test_custodes_army_rules_11e.gd D1) and End This Unit's Move locks it in. (4) Ending the Movement phase clears Calistus (phase-scoped).",
+  "description": "Codex: Adeptus Custodes (11e) CALISTUS ka'tah through the real unit_selected_to_move window (WP-C3). Fixture cus11e_c3_custodes_active (P1 Custodes, round 2): loading the Command-phase save runs the Martial Ka'tah readied step, then the scenario moves to the Movement phase. Witchseekers C stand right behind the friendly Telemon Heavy Dreadnought (a VEHICLE: models cannot normally move across it). (1) A real click on the Witchseekers selects them to move: the stratagem window opens with a 0-CP KA'TAH card CALISTUS whose 'Use on Witchseeker Squad' button is enabled. (2) A real click on Use spends no CP, un-readies the unit (gold K badge gone) and sets the Calistus effect. (3) Ctrl+A group-drags the squad 5.75\" north STRAIGHT THROUGH the Telemon; the drop is accepted (it would be refused without Calistus — the B case is pinned headless in test_custodes_army_rules_11e.gd D1) and End This Unit's Move locks it in. (4) Ending the Movement phase offers SUPERHUMAN FOCUS (Guardians of the Throne phase_end card — the Witchseekers are no longer readied, WP-C5), which a real click declines; the phase ends and Calistus is cleared (phase-scoped).",
   "fixture": "cus11e_c3_custodes_active",
   "edition": 11,
   "rng_seed": 42,
@@ -56,6 +56,11 @@
     { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "click_node", "button_text": "End Movement Phase" },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 4.0, "comment": "WP-FIX1: the Witchseekers spent their readied state on CALISTUS, so the WP-C5 SUPERHUMAN FOCUS (Guardians of the Throne, END OF ANY PHASE, target a NOT readied unit) phase_end card is correctly offered — not under test" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id", "equals": "phase_end" },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_guardians_of_the_throne_superhuman_focus/Buttons/Use_faction_ac_guardians_of_the_throne_superhuman_focus_U_WITCHSEEKERS_C", "timeout_s": 2.0, "comment": "offered for the unit that is no longer readied" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "real click: decline SUPERHUMAN FOCUS (not under test)" },
     { "act": "wait_seconds", "seconds": 1.2 },
     { "act": "expect_phase", "equals": 8 },
     { "act": "execute_script", "script": "GameState.get_unit(\"U_WITCHSEEKERS_C\").flags.has(\"cus11e_katah_calistus\")", "equals": false, "comment": "Calistus lasts for the phase it was used in" }

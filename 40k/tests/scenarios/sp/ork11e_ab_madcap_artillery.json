@@ -5,7 +5,7 @@
   "scripts.codex.orks.OrkAbilities11e",
   "stratagem.window.unit_has_shot"
  ],
- "description": "WP-O6 Codex: Orks (11e) MADCAP ARTILLERY (Mek Gunz) through the real unit_has_shot window. Fixture ork11e_ab_shoot: a two-gun Mek Gunz battery whose roster wargear is '2x Traktor Kannon' (every Mek Gun the same gun — the engine's resolved loadout). One traktor kannon fires at the Telemon, the other at the Contemptor (dispatched); the window opens; 'Use on Mek Gunz' + a real click on the Telemon: it is GROUNDED until the start of P1's next turn (cannot take to the skies).",
+ "description": "WP-O6 Codex: Orks (11e) MADCAP ARTILLERY (Mek Gunz) through the real unit_has_shot window. Fixture ork11e_ab_shoot: a two-gun Mek Gunz battery whose roster wargear is '2x Traktor Kannon' (every Mek Gun the same gun — the engine's resolved loadout). One traktor kannon fires at the Telemon, the other at the Contemptor (dispatched); the window opens; 'Use on Mek Gunz' + a real click on the Telemon: it is GROUNDED until the start of P1's next turn (cannot take to the skies). Setup privilege (WP-FIX1): the dice are re-seeded (RulesEngine.set_test_seed) right before CONFIRM_TARGETS, so both guns hit regardless of how many RNG instances the engine made since load.",
  "fixture": "ork11e_ab_shoot",
  "edition": 11,
  "rng_seed": 42,
@@ -97,6 +97,13 @@
    "act": "expect_action_result",
    "path": "success",
    "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "RulesEngine.set_test_seed(5)\nreturn RulesEngine.get_test_seed()",
+   "multiline": true,
+   "equals": 5,
+   "comment": "WP-FIX1 setup privilege: re-seed the dice right before the shot. The fixture-level rng_seed counts every RNG instance the engine makes from load onwards (RNGService test mode: instance k is seeded hash([seed, k])), so any package that adds or removes an RNG instance before the shot (WP-C46 made the Superior Creation phase-transition hook stop instantiating one when no bearer is pending) changes these dice; a seed set here only depends on the shot itself. Seed chosen so every gun hits its target (the window needs two units hit)."
   },
   {
    "act": "dispatch_action",
