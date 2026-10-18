@@ -184,14 +184,8 @@ func _bully_boyz(SM, GS, FAM, rules):
 	print("  hazard: plain failures=%d, -1 failures=%d" % [int(hz_plain.failures), int(hz_mod.failures)])
 	_check("-1 hazard modifier never reduces failures", int(hz_mod.failures) >= int(hz_plain.failures))
 
-	# 'Eadstompa — wound reroll scope vs under-strength targets
-	var ead = {"meta": {"enhancements": ["'Eadstompa"], "keywords": ["ORKS"]}, "flags": {}, "models": []}
-	var full_tgt = {"models": [{"alive": true}, {"alive": true}], "meta": {}, "flags": {}}
-	var dented_tgt = {"models": [{"alive": true}, {"alive": true}, {"alive": false}], "meta": {}, "flags": {}}
-	var halved_tgt = {"models": [{"alive": true}, {"alive": false}, {"alive": false}, {"alive": false}], "meta": {}, "flags": {}}
-	_check("'Eadstompa: no reroll vs full-strength", rules.get_eadstompa_reroll_scope(ead, full_tgt) == "")
-	_check("'Eadstompa: reroll 1s vs under-strength", rules.get_eadstompa_reroll_scope(ead, dented_tgt) == "ones")
-	_check("'Eadstompa: full reroll vs below-half", rules.get_eadstompa_reroll_scope(ead, halved_tgt) == "failed")
+	# (Retired, WP-O5: the 10e Bully Boyz 'Eadstompa is not a codex enhancement — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: no 10e 'Eadstompa wound re-roll helper", not rules.has_method("get_eadstompa_reroll_scope"))
 
 	# Tellyporta — Deep Strike grant through attachment
 	GS.state["units"] = {
@@ -203,26 +197,12 @@ func _bully_boyz(SM, GS, FAM, rules):
 			"flags": {}, "attachment_data": {"attached_characters": ["U_WBMA"]},
 			"models": [{"id": "m0", "alive": true}]},
 	}
-	_check("Tellyporta grants Deep Strike to the led unit", GS.unit_has_deep_strike("U_MEGA2"))
-	_check("Tellyporta grants Deep Strike to the bearer", GS.unit_has_deep_strike("U_WBMA"))
+	# (Retired, WP-O5: the 10e 'Tellyporta' (any detachment); the codex Tellyporta Boss (Bully Boyz) grants Deep Strike — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: the 10e 'Tellyporta' name grants no Deep Strike (led unit)", not GS.unit_has_deep_strike("U_MEGA2"))
+	_check("WP-O5: the 10e 'Tellyporta' name grants no Deep Strike (bearer)", not GS.unit_has_deep_strike("U_WBMA"))
 
-	# Big Gob — nearest engaged enemy takes a battle-shock test at -1
-	var bg_models = [{"id": "m0", "position": {"x": 10.0, "y": 10.0}, "base_mm": 40, "base_type": "circular", "alive": true, "wounds": 6, "current_wounds": 6}]
-	var bg_enemy_models = [{"id": "e0", "position": {"x": 55.0, "y": 10.0}, "base_mm": 32, "base_type": "circular", "alive": true, "wounds": 1, "current_wounds": 1}]
-	GS.state["units"] = {
-		"U_BIGGOB": {"id": "U_BIGGOB", "owner": 1, "status": 2, "attached_to": null,
-			"meta": {"name": "Warboss", "keywords": ["CHARACTER", "INFANTRY", "ORKS", "WARBOSS"],
-				"enhancements": ["Big Gob"], "abilities": [], "stats": {"leadership": 6}},
-			"flags": {}, "models": bg_models},
-		"U_BG_TGT": {"id": "U_BG_TGT", "owner": 2, "status": 2,
-			"meta": {"name": "Guardsmen", "keywords": ["INFANTRY"], "abilities": [], "enhancements": [],
-				"stats": {"leadership": 12}},
-			"flags": {}, "models": bg_enemy_models},
-	}
-	rules.set_test_seed(5)
-	FAM.process_big_gob(1)
-	_check("Big Gob battle-shocks the engaged enemy (Ld 12 unreachable)",
-		GS.get_unit("U_BG_TGT")["flags"].get("battle_shocked", false))
+	# (Retired, WP-O5: Big Gob is not a codex enhancement — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: no 10e Big Gob handler", not FAM.has_method("process_big_gob"))
 
 
 # ==========================================================================
@@ -290,10 +270,9 @@ func _da_big_hunt(SM, GS, FAM, rules):
 			"flags": {}, "attachment_data": {"attached_characters": ["U_BB_SQ"]},
 			"models": [{"id": "m0", "alive": true}]},
 	}
-	_check("Glory Hog: led unit has Scouts", GS.unit_has_scout("U_SQUIGHOGS"))
-	_check("Glory Hog: led unit Scout distance is 9\"", GS.get_scout_distance("U_SQUIGHOGS") == 9.0)
-	_check("Glory Hog: bearer has Scouts 9\"",
-		GS.unit_has_scout("U_BB_SQ") and GS.get_scout_distance("U_BB_SQ") == 9.0)
+	# (Retired, WP-O5: the 10e Glory Hog Scouts 9\"; the codex Glory Hog is fall back and charge — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: the 10e Glory Hog Scouts are gone (led unit)", not GS.unit_has_scout("U_SQUIGHOGS"))
+	_check("WP-O5: the 10e Glory Hog Scouts are gone (bearer)", not GS.unit_has_scout("U_BB_SQ"))
 
 	# Surly as a Squiggoth — -1 to incoming wounds while S > T (and the generic flag)
 	var surly_board = {"units": {
@@ -304,8 +283,9 @@ func _da_big_hunt(SM, GS, FAM, rules):
 			"attachment_data": {"attached_characters": ["U_SURLY_CHAR"]}, "models": [{"alive": true}]},
 	}}
 	var surly_unit = surly_board["units"]["U_SURLY_UNIT"]
-	_check("Surly as a Squiggoth: -1 wound when S > T",
-		rules.get_s_gt_t_wound_penalty(surly_unit, surly_board, 6, 5) == rules.WoundModifier.MINUS_ONE)
+	# (Retired, WP-O5: the 10e Surly as a Squiggoth S>T -1 to wound; the codex Surly sets the Warboss back up — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: the 10e Surly as a Squiggoth gives no S>T penalty",
+		rules.get_s_gt_t_wound_penalty(surly_unit, surly_board, 6, 5) == rules.WoundModifier.NONE)
 	_check("Surly as a Squiggoth: no penalty when S <= T",
 		rules.get_s_gt_t_wound_penalty(surly_unit, surly_board, 5, 5) == rules.WoundModifier.NONE)
 	var flag_unit = {"owner": 2, "meta": {"enhancements": []}, "flags": {"effect_minus_wound_s_gt_t": true}, "models": []}
@@ -322,26 +302,12 @@ func _da_big_hunt(SM, GS, FAM, rules):
 	GS.get_unit("U_PK")["meta"]["enhancements"] = ["Proper Killy"]
 	UAM_DBH._applied_this_phase = {}
 	UAM_DBH._apply_enhancement_abilities(10)  # melee entries apply in the FIGHT phase
-	_check("Proper Killy sets effect_plus_damage in the Fight phase",
-		int(GS.get_unit("U_PK")["flags"].get("effect_plus_damage", 0)) == 1)
+	# (Retired, WP-O5: the 10e Proper Killy +1 D row; the codex Proper Killy (Brute Bosses) re-rolls hit rolls of 1 — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: the 10e Proper Killy row sets no effect_plus_damage",
+		int(GS.get_unit("U_PK")["flags"].get("effect_plus_damage", 0)) == 0)
 
-	# Skrag Every Stash! — end-of-Command-phase sticky objective lock
-	var MM = root.get_node("MissionManager")
-	var skrag_models = [{"id": "m0", "position": {"x": 100.0, "y": 100.0}, "base_mm": 40, "base_type": "circular", "alive": true, "wounds": 6, "current_wounds": 6}]
-	GS.state["units"] = {"U_SKRAG": {"id": "U_SKRAG", "owner": 1, "status": 2,
-		"meta": {"name": "Beastboss", "keywords": ["CHARACTER", "ORKS", "BEAST SNAGGA"],
-			"enhancements": ["Skrag Every Stash!"], "abilities": []},
-		"flags": {}, "models": skrag_models}}
-	if not GS.state.has("board"):
-		GS.state["board"] = {}
-	GS.state["board"]["objectives"] = [{"id": "obj_skrag", "position": {"x": 120.0, "y": 100.0}}]
-	MM.objective_control_state["obj_skrag"] = 1
-	MM._sticky_objectives.erase("obj_skrag")
-	FAM.process_skrag_every_stash(1)
-	_check("Skrag Every Stash! locks the bearer's objective (sticky)",
-		MM._sticky_objectives.has("obj_skrag")
-		and GS.get_unit("U_SKRAG")["flags"].get("effect_sticky_objective_control", "") == "obj_skrag")
-
+	# (Retired, WP-O5: Skrag Every Stash! is not a codex enhancement — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: no 10e Skrag Every Stash! handler", not FAM.has_method("process_skrag_every_stash"))
 
 # ==========================================================================
 # KULT OF SPEED
@@ -370,8 +336,9 @@ func _kult_of_speed(SM, GS, FAM, rules):
 	}
 	TM.disembark_unit("U_FTY", [Vector2(80, 50)])
 	TM.disembark_unit("U_PLAINDIS", [Vector2(120, 50)])
-	_check("Fasta Than Yooz: still eligible to charge after transport moved",
-		GS.get_unit("U_FTY")["flags"].get("cannot_charge", true) == false)
+	# (Retired, WP-O5: Fasta Than Yooz is not a codex enhancement — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: the 10e Fasta Than Yooz no longer keeps the unit charge-eligible",
+		GS.get_unit("U_FTY")["flags"].get("cannot_charge", false) == true)
 	_check("Without Fasta Than Yooz: cannot charge after transport moved",
 		GS.get_unit("U_PLAINDIS")["flags"].get("cannot_charge", false) == true)
 
@@ -382,62 +349,18 @@ func _kult_of_speed(SM, GS, FAM, rules):
 		"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 400.0, "y": 50.0}, "base_mm": 60}]}
 	var FP = load("res://phases/FightPhase.gd").new()
 	FP.game_state_snapshot = GS.state
-	_check("Squig-hide Tyres: 6\" consolidation", FP._get_consolidation_distance("U_SHT") == 6.0)
+	# (Retired, WP-O5: Squig-hide Tyres is not a codex enhancement — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: the 10e Squig-hide Tyres 6\" consolidation is gone", FP._get_consolidation_distance("U_SHT") == 3.0)
 	_check("Plain unit consolidates 3\"", FP._get_consolidation_distance("U_PLAINDIS") == 3.0)
 	FP.free()
 
-	# Wazblasta — post-shooting 6" move offer for the unengaged bearer
-	GS.state["units"]["U_WAZ"] = {"id": "U_WAZ", "owner": 1, "status": 2,
-		"meta": {"name": "Deffkilla Wartrike", "keywords": ["ORKS", "SPEED FREEKS", "VEHICLE", "CHARACTER"],
-			"enhancements": ["Wazblasta"], "abilities": [], "stats": {}},
-		"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 600.0, "y": 50.0}, "base_mm": 60}]}
-	GS.state["meta"]["active_player"] = 1
+	# (Retired, WP-O5: Wazblasta is not a codex enhancement — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
 	var SP = load("res://phases/ShootingPhase.gd").new()
-	SP.game_state_snapshot = GS.state
-	_check("Wazblasta offered for the unengaged bearer", SP._check_wazblasta("U_WAZ"))
-	_check("Wazblasta not offered without the enhancement", not SP._check_wazblasta("U_SHT"))
-	# Simulate the pending state, then use it
-	SP.awaiting_wazblasta = true
-	SP.wazblasta_pending_unit = "U_WAZ"
-	var waz_use = SP._process_use_wazblasta({})
-	var waz_diffs = waz_use.get("changes", [])
-	var waz_paths := []
-	for d in waz_diffs:
-		waz_paths.append(str(d.get("path", "")))
-	_check("Wazblasta use grants the 6\" post-shoot move and blocks charging",
-		("units.U_WAZ.flags.swift_eagle_move_remaining" in waz_paths)
-		and ("units.U_WAZ.flags.cannot_charge" in waz_paths))
+	_check("WP-O5: no 10e Wazblasta flow in ShootingPhase", not SP.has_method("_check_wazblasta") and not SP.has_method("_process_use_wazblasta"))
 	SP.free()
 
-	# Speed Makes Right — Command-phase D6 (3+) while within 9" of an enemy
-	var smr_grants := 0
-	for s in range(1, 9):
-		GS.state["units"] = {
-			"U_SMR": {"id": "U_SMR", "owner": 1, "status": 2,
-				"meta": {"name": "Deffkilla Wartrike", "keywords": ["ORKS", "SPEED FREEKS", "VEHICLE", "CHARACTER"],
-					"enhancements": ["Speed Makes Right"], "abilities": [], "stats": {}},
-				"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 100.0, "y": 100.0}, "base_mm": 60}]},
-			"U_SMR_ENEMY": {"id": "U_SMR_ENEMY", "owner": 2, "status": 2,
-				"meta": {"name": "Marines", "keywords": ["INFANTRY"], "enhancements": [], "abilities": [], "stats": {}},
-				"flags": {}, "models": [{"id": "e0", "alive": true, "position": {"x": 300.0, "y": 100.0}, "base_mm": 32}]},
-		}
-		GS.state["players"] = {"1": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0},
-			"2": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}}
-		rules.set_test_seed(s)
-		FAM.process_command_phase_cp_enhancements(1)
-		if int(GS.state["players"]["1"]["cp"]) == 4:
-			smr_grants += 1
-	print("  Speed Makes Right: %d/8 seeds granted CP" % smr_grants)
-	_check("Speed Makes Right grants CP on 3+ (some seeds)", smr_grants >= 1)
-	var smr_far_grants := 0
-	for s in range(1, 9):
-		GS.state["units"]["U_SMR_ENEMY"]["models"][0]["position"] = {"x": 2000.0, "y": 100.0}
-		GS.state["players"]["1"] = {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}
-		rules.set_test_seed(s)
-		FAM.process_command_phase_cp_enhancements(1)
-		if int(GS.state["players"]["1"]["cp"]) == 4:
-			smr_far_grants += 1
-	_check("Speed Makes Right needs an enemy within 9\"", smr_far_grants == 0)
+	# (Retired, WP-O5: Speed Makes Right is not a codex enhancement (its Command-phase CP roll lived in process_command_phase_cp_enhancements) — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: no 10e Speed Makes Right CP roll", not FAM.has_method("process_command_phase_cp_enhancements"))
 
 
 # ==========================================================================
@@ -458,41 +381,14 @@ func _dread_mob(SM, GS, FAM, rules):
 	UAM_DM._applied_this_phase = {}
 	UAM_DM._apply_enhancement_abilities(8)
 	var dm_flags = GS.get_unit("U_MEKGUNZ")["flags"]
-	_check("Gitfinder Googlez sets effect_ignores_cover", dm_flags.get("effect_ignores_cover", false))
-	_check("Smoky Gubbinz sets effect_stealth", dm_flags.get("effect_stealth", false))
-	_check("Press It Fasta! is implemented (extra Try Dat Button! die)",
-		UAM_DM.ABILITY_EFFECTS.get("Press It Fasta!", {}).get("implemented", false) == true)
+	# (Retired, WP-O5: the 10e Dread Mob rows Gitfinder Googlez / Smoky Gubbinz / Press It Fasta!; the codex Smoky Gubbinz (Kult of Speed) gives cover in OrkEnhancements11e, and Press It Fasta! still runs in the edition-10 Try Dat Button! flow (FactionAbilityManager) — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: no 10e Gitfinder Googlez row", not dm_flags.get("effect_ignores_cover", false))
+	_check("WP-O5: no 10e Smoky Gubbinz stealth row", not dm_flags.get("effect_stealth", false))
+	_check("WP-O5: no 10e Press It Fasta! row (its edition-10 Try Dat Button! die is FactionAbilityManager's)",
+		not UAM_DM.ABILITY_EFFECTS.has("Press It Fasta!"))
 
-	# Supa-glowy Fing — D6 table vs the nearest visible enemy within 18"
-	var sgf_seen := {"shock": false, "mw": false, "debuff": false}
-	for s in range(1, 13):
-		GS.state["units"] = {
-			"U_SGF": {"id": "U_SGF", "owner": 1, "status": 2,
-				"meta": {"name": "Big Mek", "keywords": ["ORKS", "INFANTRY", "CHARACTER", "MEK"],
-					"enhancements": ["Supa-glowy Fing"], "abilities": [], "stats": {"leadership": 6}},
-				"flags": {}, "models": [{"id": "m0", "position": {"x": 100.0, "y": 100.0}, "base_mm": 32, "base_type": "circular", "alive": true, "wounds": 4, "current_wounds": 4}]},
-			"U_SGF_TGT": {"id": "U_SGF_TGT", "owner": 2, "status": 2,
-				"meta": {"name": "Guardsmen", "keywords": ["INFANTRY"], "abilities": [], "enhancements": [], "stats": {"leadership": 12, "wounds": 2}},
-				"flags": {}, "models": [{"id": "e0", "position": {"x": 300.0, "y": 100.0}, "base_mm": 32, "base_type": "circular", "alive": true, "wounds": 2, "current_wounds": 2}]},
-		}
-		rules.set_test_seed(s)
-		FAM.process_supa_glowy_fing(1)
-		var tgt = GS.get_unit("U_SGF_TGT")
-		if tgt["flags"].get("battle_shocked", false):
-			sgf_seen["shock"] = true
-		elif tgt["flags"].get("effect_minus_one_hit", false):
-			sgf_seen["debuff"] = true
-			_check("Supa-glowy debuff records its owner for expiry",
-				int(tgt["flags"].get("supa_glowy_debuff_from", 0)) == 1)
-			FAM._clear_supa_glowy_debuffs(1)
-			_check("Supa-glowy debuff expires at the owner's next Command phase",
-				not GS.get_unit("U_SGF_TGT")["flags"].has("effect_minus_one_hit"))
-		elif int(tgt["models"][0].get("current_wounds", 2)) < 2 or not tgt["models"][0].get("alive", true):
-			sgf_seen["mw"] = true
-	print("  Supa-glowy Fing outcomes seen: %s" % str(sgf_seen))
-	_check("Supa-glowy Fing produced battle-shock, MW and debuff outcomes across seeds",
-		sgf_seen["shock"] and sgf_seen["mw"] and sgf_seen["debuff"])
-
+	# (Retired, WP-O5: the 10e Supa-glowy Fing D6 table; the codex Supa-glowy Fing (Shoota Boyz) is [DEVASTATING WOUNDS] + [ANTI-INFANTRY 4+] + [SUPA-HAZARDOUS] — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: no 10e Supa-glowy Fing table", not FAM.has_method("process_supa_glowy_fing") and not FAM.has_method("_clear_supa_glowy_debuffs"))
 
 # ==========================================================================
 # BLITZ BRIGADE
@@ -517,40 +413,14 @@ func _blitz_brigade(SM, GS, FAM, rules):
 			"flags": {"battle_shocked": true}, "models": [{"id": "m0", "alive": true, "position": null, "base_mm": 32}]},
 	}
 	TM_BB.disembark_unit("U_BOYZ_TG", [Vector2(180, 100)])
-	_check("Tuff Git: Battle-shock cleared on disembark",
-		GS.get_unit("U_BOYZ_TG")["flags"].get("battle_shocked", true) == false)
+	# (Retired, WP-O5: Tuff Git is not a codex enhancement — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: the 10e Tuff Git no longer clears Battle-shock on disembark",
+		GS.get_unit("U_BOYZ_TG")["flags"].get("battle_shocked", false) == true)
 
 	# ---- Enhancements ---------------------------------------------------------------
-	# Runnin' Boots — +1 charge after disembarking this turn
-	var rb_unit = {"disembarked_this_phase": true, "meta": {"enhancements": ["Runnin' Boots"], "keywords": ["ORKS", "INFANTRY"]}, "flags": {}, "models": []}
-	var rb_stay = {"meta": {"enhancements": ["Runnin' Boots"], "keywords": ["ORKS", "INFANTRY"]}, "flags": {}, "models": []}
-	var rb_plain = {"disembarked_this_phase": true, "meta": {"enhancements": [], "keywords": ["ORKS", "INFANTRY"]}, "flags": {}, "models": []}
-	_check("Runnin' Boots: +1 charge after disembarking", FAM.runnin_boots_charge_bonus(rb_unit, {}) == 1)
-	_check("Runnin' Boots: no bonus without disembark", FAM.runnin_boots_charge_bonus(rb_stay, {}) == 0)
-	_check("Runnin' Boots: no bonus without the enhancement", FAM.runnin_boots_charge_bonus(rb_plain, {}) == 0)
-
-	# Blitzkaptin — 3 VEHICLE redeploys via the Mork's Kunnin' machinery
-	GS.state["units"] = {
-		"U_BK": {"id": "U_BK", "owner": 1, "status": 2,
-			"meta": {"name": "Warboss", "keywords": ["ORKS", "CHARACTER", "INFANTRY"], "enhancements": ["Blitzkaptin"], "abilities": []},
-			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 50.0, "y": 50.0}, "base_mm": 40}]},
-		"U_BK_VEH": {"id": "U_BK_VEH", "owner": 1, "status": 2,
-			"meta": {"name": "Battlewagon", "keywords": ["ORKS", "VEHICLE", "BATTLEWAGON"], "enhancements": [], "abilities": []},
-			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 90.0, "y": 50.0}, "base_mm": 100}]},
-		"U_BK_INF": {"id": "U_BK_INF", "owner": 1, "status": 2,
-			"meta": {"name": "Boyz", "keywords": ["ORKS", "INFANTRY"], "enhancements": [], "abilities": []},
-			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 130.0, "y": 50.0}, "base_mm": 32}]},
-	}
-	_check("Blitzkaptin detected", FAM.has_blitzkaptin(1))
-	var bk_eligible = FAM.get_morks_kunnin_eligible_units(1)
-	var bk_ids: Array = []
-	for e in bk_eligible:
-		bk_ids.append(e.get("unit_id", ""))
-	_check("Blitzkaptin: VEHICLE eligible, INFANTRY not",
-		"U_BK_VEH" in bk_ids and not "U_BK_INF" in bk_ids)
-	_check("Blitzkaptin: redeploy available", FAM.is_morks_kunnin_redeploy_available(1))
-	_check("Blitzkaptin: vehicle appears in the redeploy list",
-		"U_BK_VEH" in GS.get_redeploy_units_for_player(1))
+	# (Retired, WP-O5: Runnin' Boots and Blitzkaptin (Mork's Kunnin' machinery) are not codex enhancements — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: no 10e Runnin' Boots charge bonus", not FAM.has_method("runnin_boots_charge_bonus"))
+	_check("WP-O5: no 10e Blitzkaptin / Mork's Kunnin' redeploys", not FAM.has_method("has_blitzkaptin") and not FAM.has_method("has_morks_kunnin"))
 
 	# (Retired, WP-O6: the Supercharged Squig Oil check rode on the 10e Mekaniak
 	# ability, which no Codex: Orks (11e) datasheet has — the enhancement's codex
@@ -843,8 +713,8 @@ func _detachment_rules(_SM, GS, FAM, rules):
 		not FAM.can_issue_taktik("U_TK_BOSS", "Get On Wiv It", "U_TK_WAGON").can)
 	tk_boss["meta"]["enhancements"] = []
 	var UAM_TK = root.get_node("UnitAbilityManager")
-	_check("Gob Boomer is implemented in UnitAbilityManager",
-		UAM_TK.ABILITY_EFFECTS.get("Gob Boomer", {}).get("implemented", false) == true)
+	# (Retired, WP-O5: the 10e Gob Boomer UnitAbilityManager row; the edition-10 Taktiks reach above still runs — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: no 10e Gob Boomer row in UnitAbilityManager", not UAM_TK.ABILITY_EFFECTS.has("Gob Boomer"))
 
 	# Leadership test outcomes across seeds: pass = no damage, fail = exactly
 	# 1 mortal wound on the receiving unit (the Taktik lands either way)
@@ -1120,35 +990,9 @@ func _green_tide(SM, GS, FAM, rules):
 	_check("unit_counts_as_10 true via the effect_counts_as_10 flag (Raucous Warcaller)",
 		FAM.unit_counts_as_10(small))
 
-	# Ferocious Show Off — melee strength live bonus
-	var fso_unit = _boyz_unit("U_FSO", 12)
-	fso_unit["meta"]["enhancements"] = ["Ferocious Show Off"]
-	_check("Ferocious Show Off: +3 S while 10+ models", FAM.ferocious_show_off_strength_bonus(fso_unit) == 3)
-	var fso_small = _boyz_unit("U_FSO2", 5)
-	fso_small["meta"]["enhancements"] = ["Ferocious Show Off"]
-	_check("Ferocious Show Off: +1 S under 10 models", FAM.ferocious_show_off_strength_bonus(fso_small) == 1)
-	_check("Ferocious Show Off: 0 without the enhancement", FAM.ferocious_show_off_strength_bonus(_boyz_unit("U_FSO3", 12)) == 0)
+	# (Retired, WP-O5: the 10e Ferocious Show Off +S and Bloodthirsty Belligerence charge re-roll; the codex Ferocious Show-off is +1/+2 A — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: no 10e Ferocious Show Off strength bonus", not FAM.has_method("ferocious_show_off_strength_bonus"))
+	_check("WP-O5: no 10e Bloodthirsty Belligerence charge re-roll", not FAM.has_method("unit_has_green_tide_charge_reroll"))
 
-	# Bloodthirsty Belligerence — charge re-roll only while 10+
-	var bb_unit = _boyz_unit("U_BLOOD", 12)
-	bb_unit["meta"]["enhancements"] = ["Bloodthirsty Belligerence"]
-	_check("Bloodthirsty: charge re-roll while 10+", FAM.unit_has_green_tide_charge_reroll(bb_unit, {}))
-	var bb_small = _boyz_unit("U_BLOOD2", 5)
-	bb_small["meta"]["enhancements"] = ["Bloodthirsty Belligerence"]
-	_check("Bloodthirsty: no charge re-roll under 10", not FAM.unit_has_green_tide_charge_reroll(bb_small, {}))
-
-	# Brutal But Kunnin' — command-phase CP roll respects the bonus-CP cap
-	GS.state["units"] = {"U_BBK": _boyz_unit("U_BBK", 12)}
-	GS.state["units"]["U_BBK"]["meta"]["keywords"].append("CHARACTER")
-	GS.state["units"]["U_BBK"]["meta"]["enhancements"] = ["Brutal But Kunnin'"]
-	GS.state["players"] = {"1": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0},
-		"2": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}}
-	rules.set_test_seed(7)
-	FAM.process_command_phase_cp_enhancements(1)
-	var cp_now = int(GS.state["players"]["1"]["cp"])
-	print("  Brutal But Kunnin': CP now %d (12-model unit rolls D6+2, 5+ = +1 CP)" % cp_now)
-	_check("Brutal But Kunnin' CP stays 3 or becomes 4", cp_now == 3 or cp_now == 4)
-	if cp_now == 4:
-		_check("bonus CP recorded against the round cap", GS.get_bonus_cp_gained_this_round(1) == 1)
-		FAM.process_command_phase_cp_enhancements(1)
-		_check("second roll blocked by the bonus-CP cap", int(GS.state["players"]["1"]["cp"]) == 4)
+	# (Retired, WP-O5: the 10e Brutal But Kunnin' Command-phase CP roll; the codex Brutal But Kunnin' (Brute Bosses) is +1 melee D — .llm/codex_11e_wahapedia/RETIRED_TESTS.md; the codex enhancements are tested in tests/test_ork_enhancements_11e.gd)
+	_check("WP-O5: no 10e Command-phase CP enhancements", not FAM.has_method("process_command_phase_cp_enhancements"))

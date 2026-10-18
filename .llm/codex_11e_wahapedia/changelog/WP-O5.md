@@ -1,0 +1,50 @@
+# WP-O5 — Codex: Orks enhancements (player-facing bullets)
+
+- All 38 enhancements of the 15 Codex: Orks (11th edition) detachments are in the game. Each does what its card says, but only in the detachment that lists it. The old 10th-edition Ork enhancements those detachments no longer have are gone: Supa-Cybork Body, Skwad Leader, Mek Kaptin, Mork's Kunnin', Wazblasta, Fasta Than Yooz, Squig-hide Tyres, Big Gob, 'Eadstompa, Da Biggest Boss, Skrag Every Stash!, Runnin' Boots, Tuff Git and the rest.
+- Points and names now match the codex. For example: Dreadherder 30, Targetin' Gizmos 25, Supa-snazz Dakka 25, Kill Kommanda 20, Morgog's Finkin' Cap 50; Kunnin' But Brutal, Throat-slittas and 'Ardboyz are spelled as printed. Bearer restrictions come from the printed text (for example "Big Mek/Warboss Infantry model only").
+- Enhancements you choose to use appear as free "Enhancement" cards in the stratagem pop-up when the rule allows:
+  - Da Boss is Watchin': at the start of your Movement phase, or when the unit is selected to move.
+  - Dreadherder: when a walker near the Big Mek is selected to shoot.
+  - Temperamental Shokka: roll when the Big Mek with Shokk Attack Gun is selected to shoot.
+  - Enhanced Runt-maw: after the unit has shot, pick which unit it hit (automatic when it hit only one).
+  - Morgog's Finkin' Cap: a normal move at the end of your opponent's Movement phase; keep or re-roll the dice when riled up.
+- Automatic effects:
+  - Surly as a Squiggoth sets the Warboss back up on a 2+ at the end of the phase it died in.
+  - Flyboss riles up nearby Flyboyz aircraft and Deffkoptas when it arrives.
+  - Mekwaaagh! Mastermind keeps its unit riled up.
+  - Supa-glowy Fing makes [SUPA-HAZARDOUS] rolls after shooting.
+  - Impulsive Recon lets an aircraft arrive from Strategic Reserves in battle round 1.
+- Passive effects in combat and movement, all shown in the dice log by name:
+  - Headwoppa's Killchoppa: +1 AP after charging.
+  - Ferocious Show-off: +1/+2 A.
+  - Brutal But Kunnin': +1 D.
+  - Proper Killy: re-roll 1s to hit.
+  - Throat-slittas and Da Gobshot Thunderbuss: [LETHAL HITS] against non-Monster/Vehicle units.
+  - Targetin' Gizmos: [IGNORES COVER] with a Big Mek aboard, plus [SUSTAINED HITS 1] when riled up.
+  - Targetin' Squigs: +3" range.
+  - Supa-snazz Dakka: [RAPID FIRE 1].
+  - Follow Me Ladz, Cybork Boosta and Blitzboss: +2" Move. Blitzboss also gives the transport a 5+ invulnerable save.
+  - Smoky Gubbinz: cover for units seen past the Speed Freeks.
+  - Kunnin' But Brutal: fall back and still shoot and charge.
+  - Glory Hog: fall back and still charge.
+  - Competitive Streak: charge re-rolls.
+  - Tellyporta Boss: Deep Strike.
+  - Minefield Detail: Scouts 6".
+  - Extra Sneaky: harder to spot.
+  - Wimp-kickaz: enemies fleeing the Nobz must make a desperate escape.
+  - Kill Kommanda: lead Kommandos; Infiltrators and Stealth.
+  - Kaptin's Hat: lead Flash Gitz; up to three redeploys.
+- Applied when the army loads:
+  - 'Ardboyz: Save 4+.
+  - It Came from da Drops: +1 Toughness.
+  - Flyboss: the aircraft becomes a Character.
+  - Warphead: psyker level 2, Deadly Demise D6, re-roll psychic 1s.
+  - Da Krunch, 'Eadbanger and Da Gobshot Thunderbuss add their weapons.
+- Army building: when an army loads, each enhancement is checked against its printed bearer restriction, its detachment, one of each per army, and the 2-per-1000-points cap. Upgrades can go on up to three units, Characters included when the card allows (Temperamental Shokka on the Big Mek with Shokk Attack Gun). Problems appear as warnings.
+- Browser Army Builder:
+  - It now lists all 15 Codex: Orks detachments; Brute Bosses, Flyboyz, Madcap Meks, Runt Swarm, Shoota Boyz, Wreckas and Wurrband were missing.
+  - Each detachment offers its codex enhancements at codex points.
+  - A Warboss or Big Mek can now take enhancements restricted to "Big Mek/Warboss Infantry".
+  - Armies saved from the builder keep their enhancements in the game.
+- AI: the computer uses Da Boss is Watchin', Dreadherder and Enhanced Runt-maw when they help. It never rolls Temperamental Shokka, and it does not use Morgog's move. No pop-up is ever left waiting.
+- Not yet clickable: the Kaptin's Hat redeploys. The engine offers them in the Redeployment step, but that step has no player controls yet; Razgit's Magik Map and Castellan's Mark have the same gap.
