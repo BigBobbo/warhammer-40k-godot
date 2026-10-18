@@ -11174,12 +11174,8 @@
   "faction_id": "orks",
   "detachment_rule_id": "try-dat-button-dread-mob",
   "enhancement_ids": [
-   "smoky-gubbinz-dread-mob",
-   "supa-glowy-fing-dread-mob",
-   "press-it-fasta-dread-mob",
-   "gitfinder-gogglez-dread-mob",
-   "dreadherder-dread-mob",
-   "cybork-boosta-dread-mob"
+   "cybork-boosta-dread-mob",
+   "dreadherder-dread-mob"
   ],
   "stratagem_ids": [
    "klankin-klaws-dread-mob",
@@ -11213,12 +11209,8 @@
   "faction_id": "orks",
   "detachment_rule_id": "eager-for-the-fight",
   "enhancement_ids": [
-   "runnin-boots-blitz-brigade",
-   "blitzkaptin-blitz-brigade",
-   "supercharged-squig-oil-blitz-brigade",
-   "tuff-git-blitz-brigade",
-   "boss-boomer-upgrade-blitz-brigade",
-   "targetin-gizmos-upgrade-blitz-brigade"
+   "targetin-gizmos-upgrade-blitz-brigade",
+   "boss-boomer-upgrade-blitz-brigade"
   ],
   "stratagem_ids": [
    "mount-up-ladz-blitz-brigade",
@@ -11253,12 +11245,8 @@
   "faction_id": "orks",
   "detachment_rule_id": "adrenaline-junkies-kult-of-speed",
   "enhancement_ids": [
-   "competitive-streak-kult-of-speed",
    "smoky-gubbinz-upgrade-kult-of-speed",
-   "speed-makes-right-kult-of-speed",
-   "squig-hide-tyres-kult-of-speed",
-   "wazblasta-kult-of-speed",
-   "fasta-than-yooz-kult-of-speed"
+   "competitive-streak-kult-of-speed"
   ],
   "stratagem_ids": [
    "dakkastorm-kult-of-speed",
@@ -11290,10 +11278,7 @@
   "detachment_rule_id": "da-hunt-is-on-da-big-hunt",
   "enhancement_ids": [
    "glory-hog-da-big-hunt",
-   "it-came-from-da-drops-da-big-hunt",
-   "surly-as-a-squiggoth-da-big-hunt",
-   "proper-killy-da-big-hunt",
-   "skrag-every-stash-da-big-hunt"
+   "it-came-from-da-drops-da-big-hunt"
   ],
   "stratagem_ids": [
    "gooped-into-action-da-big-hunt",
@@ -11324,11 +11309,10 @@
   "faction_id": "orks",
   "detachment_rule_id": "get-stuck-in-war-horde",
   "enhancement_ids": [
-   "da-boss-is-watchin-war-horde",
-   "follow-me-ladz-war-horde",
    "headwoppas-killchoppa-war-horde",
+   "da-boss-is-watchin-war-horde",
    "kunnin-but-brutal-war-horde",
-   "supa-cybork-body-war-horde"
+   "follow-me-ladz-war-horde"
   ],
   "stratagem_ids": [
    "breakin-heads-war-horde",
@@ -11362,12 +11346,8 @@
   "faction_id": "orks",
   "detachment_rule_id": "displays-of-savagery-bully-boyz",
   "enhancement_ids": [
-   "tellyporta-boss-bully-boyz",
    "wimp-kickaz-upgrade-bully-boyz",
-   "tellyporta-bully-boyz",
-   "big-gob-bully-boyz",
-   "eadstompa-bully-boyz",
-   "da-biggest-boss-bully-boyz"
+   "tellyporta-boss-bully-boyz"
   ],
   "stratagem_ids": [
    "armed-to-da-teef-bully-boyz",
@@ -11398,11 +11378,7 @@
   "faction_id": "orks",
   "detachment_rule_id": "mob-handed-brutality-green-tide",
   "enhancement_ids": [
-   "ard-boyz-green-tide",
    "ferocious-show-off-green-tide",
-   "brutal-but-kunnin-green-tide",
-   "raucous-warcaller-green-tide",
-   "bloodthirsty-belligerence-green-tide",
    "ardboyz-upgrade-green-tide"
   ],
   "stratagem_ids": [
@@ -11434,11 +11410,8 @@
   "faction_id": "orks",
   "detachment_rule_id": "suspiciously-well-organised-taktikal-brigade",
   "enhancement_ids": [
-   "kill-kommando-taktikal-brigade",
-   "throat-slittas-upgrade-taktikal-brigade",
-   "slippery-git-taktikal-brigade",
-   "morks-kunnin-taktikal-brigade",
-   "kill-kommanda-taktikal-brigade"
+   "kill-kommanda-taktikal-brigade",
+   "throat-slittas-upgrade-taktikal-brigade"
   ],
   "stratagem_ids": [
    "dubious-restraint-taktikal-brigade",
@@ -11469,12 +11442,12 @@
   "faction_id": "orks",
   "detachment_rule_id": "ard-as-nails-brute-bosses",
   "enhancement_ids": [
-   "blitzboss-brute-bosses",
+   "surly-as-a-squiggoth-brute-bosses",
    "brutal-but-kunnin-brute-bosses",
-   "da-gobshot-thunderbuss-brute-bosses",
-   "morgogs-finkin-cap-brute-bosses",
+   "blitzboss-brute-bosses",
    "proper-killy-brute-bosses",
-   "surly-as-a-squiggoth-brute-bosses"
+   "morgogs-finkin-cap-brute-bosses",
+   "da-gobshot-thunderbuss-brute-bosses"
   ],
   "stratagem_ids": [],
   "game_version": {
@@ -11521,9 +11494,9 @@
   "faction_id": "orks",
   "detachment_rule_id": "try-dat-button-madcap-meks",
   "enhancement_ids": [
-   "enhanced-runt-maw-upgrade-madcap-meks",
    "mekwaaagh-mastermind-madcap-meks",
-   "temperamental-shokka-upgrade-madcap-meks"
+   "temperamental-shokka-upgrade-madcap-meks",
+   "enhanced-runt-maw-upgrade-madcap-meks"
   ],
   "stratagem_ids": [
    "vindictive-artillerists-madcap-meks"
