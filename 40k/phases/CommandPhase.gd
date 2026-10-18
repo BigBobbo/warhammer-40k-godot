@@ -2428,6 +2428,10 @@ func get_battle_shock_queue(include_tested: bool = false) -> Array:
 			"owner": int(unit.get("owner", 0)),
 			"leadership": _get_effective_leadership(unit_id),
 			"battle_shock_bonus": (ability_mgr.get_battle_shock_bonus(unit_id) if ability_mgr else 0) + cus11e_cd_mod,
+			# The negative part of battle_shock_bonus and its source, so the roll
+			# card can name it (Codex: Adeptus Custodes 11e Creeping Dread, WP-C46).
+			"battle_shock_malus": cus11e_cd_mod,
+			"battle_shock_malus_source": "Creeping Dread" if cus11e_cd_mod != 0 else "",
 			"alive": alive,
 			"total": total,
 			"strength_text": strength_text,
