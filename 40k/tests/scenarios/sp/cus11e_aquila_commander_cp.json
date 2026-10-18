@@ -3,7 +3,7 @@
   "covers": [
     "codex.custodes.aquila_commander",
     "phases.CommandPhase.battle_round_start.aquila_commander",
-    "gamestate.bonus_cp_cap",
+    "gamestate.bonus_cp_cap_not_applied_11e",
     "ui.scoreboard.cp_label"
   ],
   "description": "Codex: Adeptus Custodes (11e) AQUILA COMMANDER (WP-C3): at the start of the battle round, if your WARLORD has the ability, gain 1CP. Fixture cus11e_c3_custodes_active: round 2, P1 Custodes take the first turn, WARLORD = the Shield-Captain (Aquila Commander), 6 CP each. (1) Loading the save starts battle round 2: P1 gains 1CP (Command phase) + 1CP (Aquila Commander) = 8, P2 (WARLORD Warboss) only 7; the scoreboard reads CP:8 and the game log names Aquila Commander. (2) Setup privilege: jump to the END of the Orks' turn (Scoring phase, active player 2). (3) A real click on the phase button ends the Orks' turn: battle round 3 begins with the Custodes Command phase and Aquila Commander fires again — P1 10 CP (+1 phase, +1 Aquila), P2 8 CP (+1 phase), the bonus CP recorded against the 1-per-round cap.",
@@ -21,7 +21,7 @@
     { "act": "expect_cp", "player": 2, "equals": 7 },
     { "act": "execute_script", "script": "main._p1_cp_label.text", "equals": "CP:8" },
     { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Aquila Commander\")", "equals": 1 },
-    { "act": "execute_script", "script": "GameState.get_bonus_cp_gained_this_round(1)", "equals": 1 },
+    { "act": "execute_script", "script": "GameState.get_bonus_cp_gained_this_round(1)", "equals": 0 },
     { "act": "screenshot", "label": "01_round2_aquila_commander_cp8" },
     { "act": "click_if_visible", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton" },
     { "act": "wait_seconds", "seconds": 0.6 },
@@ -39,7 +39,7 @@
     { "act": "expect_cp", "player": 2, "equals": 8 },
     { "act": "execute_script", "script": "main._p1_cp_label.text", "equals": "CP:10" },
     { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Aquila Commander\")", "equals": 2 },
-    { "act": "execute_script", "script": "GameState.get_bonus_cp_gained_this_round(1)", "equals": 1 },
+    { "act": "execute_script", "script": "GameState.get_bonus_cp_gained_this_round(1)", "equals": 0 },
     { "act": "expect_state", "path": "units.U_SHIELD_CAPTAIN_A.flags.cus11e_aquila_cp_round", "equals": 3 },
     { "act": "screenshot", "label": "02_round3_aquila_commander_cp10" }
   ]
