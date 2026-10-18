@@ -748,6 +748,14 @@ func _section_null_maiden() -> void:
 	cmd._units_needing_test = []
 	cmd._identify_units_needing_tests()
 	_check("the Command phase lists the Gretchin for a battle-shock test", GRETS in cmd._units_needing_test, str(cmd._units_needing_test))
+	var q_entry := {}
+	for e in cmd.get_battle_shock_queue():
+		if str(e.get("unit_id", "")) == GRETS:
+			q_entry = e
+	_check("roll-card entry: reason Creeping Dread, -1 named for the card",
+		str(q_entry.get("reason", "")) == "creeping_dread" and int(q_entry.get("battle_shock_malus", 0)) == -1
+			and str(q_entry.get("battle_shock_malus_source", "")) == "Creeping Dread" and int(q_entry.get("battle_shock_bonus", 0)) == -1,
+		str(q_entry))
 	_check("not during the Custodes' own Command phase", D.creeping_dread_units(1).is_empty())
 	_set_det("Guardians of the Throne")
 	_check("no Creeping Dread under another detachment", D.creeping_dread_units(2).is_empty())
