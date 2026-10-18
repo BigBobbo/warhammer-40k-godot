@@ -118,7 +118,9 @@ func _run_tests():
 		not gs.state["units"]["U_EC"].get("flags", {}).get("effect_precision_melee", false))
 
 	print("\n-- RAPID INGRESS (15.07): not during the first battle round --")
-	gs.state["meta"]["phase"] = 8  # 11e RI window: opponent's shooting phase
+	# 15.07 WHEN: "End of your opponent's Movement phase." (This used to set the
+	# Shooting phase — the old, wrong rapid_ingress_11e timing.)
+	gs.state["meta"]["phase"] = 7  # 11e RI window: end of the opponent's Movement phase
 	gs.state["meta"]["battle_round"] = 1
 	var ri1 = sm.can_use_stratagem(1, "rapid_ingress")
 	_check("rapid ingress blocked in battle round 1", not ri1.can_use, str(ri1))

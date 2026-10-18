@@ -41,6 +41,12 @@ func _run():
 	_check("model in b2b is valid", r.valid, str(r.errors))
 
 	# 2. model could close within 1" but stopped 1.5" out — invalid
+	# Edition-neutral: 11e 11.04 WHILE MOVING keeps the 1" obligation
+	# ("Each model that can end its move within 1" of one or more charge
+	# targets must do so.") alongside the engaged one. At 11e the engine only
+	# enforces the 2" engaged band (close_inches = engagement_range_inches()),
+	# so a model engaged at 1.5" is wrongly accepted — known 11e engine bug,
+	# assertion intentionally left strict.
 	r = RE.validate_base_to_base_possible_rules("charger_unit",
 		{"marine_1": [[0, 0], [60.0, 0]]}, ["target_unit"],
 		{"units": {"charger_unit": _make_unit(0, [_make_model("marine_1", 0, 0)]),
@@ -117,7 +123,36 @@ func _run():
 		{"marine_1": [[0, 0], [100.0, 0]]}, ["target_unit"],
 		{"units": {"charger_unit": _make_unit(0, [_make_model("marine_1", 0, 0)]),
 			"target_unit": _make_unit(1, [_make_model("ork_1", 250.0, 0)])}}, 4)
-	_check("band spot on a wall is not demanded", r.valid, str(r.errors))
+	if GameConstants.edition >= 11:
+		# MIGRATED to 11e: this geometry only walls off the 1" spot. 11e 11.04
+		# WHILE MOVING adds "Each model that can end its move engaged with one
+		# or more charge targets must do so." and engagement range is 2"
+		# (03.04 "within 2" horizontally"). The engaged spot (centre x≈119.6,
+		# base 94.4..144.8) is reachable with roll 4 (2.99") and clear of the
+		# wall at x=170, so the marine stopped 2.49" out (not engaged) must be
+		# flagged. The wall-awareness intent is kept by case 10b below.
+		_check("11e: engaged spot clear of the wall is demanded (11.04)", not r.valid, str(r.errors))
+	else:
+		_check("band spot on a wall is not demanded", r.valid, str(r.errors))
+	tmgr.terrain_features.clear()
+
+	# 10b. Wall-awareness at both editions: wall moved to x=140 so it crosses
+	# BOTH the 1" spot (base 134.4..184.8) and the 11e engaged/2" spot (base
+	# 94.4..144.8); the marine stopped at x=100 (base 74.8..125.2) is clear of
+	# it. Neither endpoint is legal (_validate_no_wall_overlaps), so neither
+	# can be demanded and the stop is valid.
+	tmgr.terrain_features.append({
+		"id": "wall_ruin_near", "type": "ruins",
+		"polygon": PackedVector2Array([Vector2(200, -100), Vector2(400, -100), Vector2(400, 100), Vector2(200, 100)]),
+		"height_category": "tall",
+		"walls": [{"start": Vector2(140, -100), "end": Vector2(140, 100)}],
+		"can_move_through": {"INFANTRY": true, "VEHICLE": false, "MONSTER": false},
+	})
+	r = RE.validate_base_to_base_possible_rules("charger_unit",
+		{"marine_1": [[0, 0], [100.0, 0]]}, ["target_unit"],
+		{"units": {"charger_unit": _make_unit(0, [_make_model("marine_1", 0, 0)]),
+			"target_unit": _make_unit(1, [_make_model("ork_1", 250.0, 0)])}}, 4)
+	_check("band spot on a wall is not demanded (1\" and 2\" spots both walled)", r.valid, str(r.errors))
 	tmgr.terrain_features.clear()
 
 	print("\n=== %d passed, %d failed ===" % [passed, failed])

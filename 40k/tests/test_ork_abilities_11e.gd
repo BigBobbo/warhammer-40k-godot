@@ -762,8 +762,17 @@ func _section_found_em_skorchin() -> void:
 	_check("Drive-by Skorchin': non-MONSTER/VEHICLE enemy within 6\" offered", "U_CUSTODIAN_GUARD_A" in _secondary_ids(o, "U_WARBUGGIES_A"), str(_secondary_ids(o, "U_WARBUGGIES_A")))
 	r = _use(1, "drive_by_skorchin", "U_WARBUGGIES_A", "unit_ended_normal_move", c2, "U_CUSTODIAN_GUARD_A")
 	_check("the enemy cannot be targeted with Fire Overwatch", r.get("success", false) and OA.blocks_fire_overwatch("U_CUSTODIAN_GUARD_A"))
-	var ow: Array = SM.get_fire_overwatch_eligible_units(2, "U_WARBUGGIES_A", GS.state).map(func(e): return str(e.get("unit_id", "")))
-	_check("StratagemManager's Fire Overwatch eligibility skips it (other Custodians still eligible)", not "U_CUSTODIAN_GUARD_A" in ow and "U_CUSTODIAN_GUARD_B" in ow, str(ow))
+	# 11e FIRE OVERWATCH (15.08) is offered at the end of the opponent's
+	# Movement phase; its TARGET check (fire_overwatch_shooter_reason_11e, also
+	# behind can_use_stratagem and the window rows) refuses the unit. (The 10e
+	# per-move get_fire_overwatch_eligible_units path is 10e-only since main's
+	# 15.08 change, so it no longer answers this at 11e.)
+	var ow_a: String = SM.fire_overwatch_shooter_reason_11e(2, "U_CUSTODIAN_GUARD_A")
+	var ow_b: String = SM.fire_overwatch_shooter_reason_11e(2, "U_CUSTODIAN_GUARD_B")
+	_check("StratagemManager's 11e Fire Overwatch target check refuses it (other Custodians still eligible)",
+		ow_a.begins_with("Drive-by Skorchin'") and ow_b == "", "A: '%s' / B: '%s'" % [ow_a, ow_b])
+	var ow_rows: Array = SM.get_fire_overwatch_offer_targets_11e(2).map(func(e): return str(e.get("unit_id", "")))
+	_check("…and the end-of-Movement FIRE OVERWATCH window offers it no row", not "U_CUSTODIAN_GUARD_A" in ow_rows, str(ow_rows))
 
 
 # ---------------------------------------------------------------------------

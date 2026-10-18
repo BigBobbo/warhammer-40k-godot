@@ -84,12 +84,22 @@ func _run_tests():
 
 	# --- Test 6: Melee hit resolution — boss_nob attacks use WS3+ threshold ---
 	print("\n--- Test 6: Melee resolution — boss_nob-only uses WS 3+ ---")
+	# Each trial resolves against a FRESH board: _resolve_melee_assignment
+	# applies casualties to the board it is given, so one board shared across
+	# 200 trials (and across Tests 6/7/9) lost its target models within a few
+	# trials — every later trial early-exited ("0/10 alive models eligible")
+	# and the hit rates below were computed from 3-27 dice, i.e. RNG luck that
+	# passed at 10e and failed at 11e. Per-model WS is edition-neutral (11e
+	# core rules: "Weapon Skill (WS): ... the bearer's skill in wielding the
+	# relevant melee weapon"; hit roll "Equal to or greater than that attack's
+	# BS/WS characteristic" = HIT), so the thresholds are unchanged.
 	var melee_board = _make_melee_board()
 	var nob_hits_total = 0
 	var nob_attacks_total = 0
 	var num_trials = 200
 	for trial in range(num_trials):
 		var rng = _re.RNGService.new(trial)
+		melee_board = _make_melee_board()  # fresh board per trial (see note above)
 		var assignment = {
 			"attacker": "U_BOYZ",
 			"target": "U_TARGET",
@@ -116,6 +126,7 @@ func _run_tests():
 	var boy_attacks_total = 0
 	for trial in range(num_trials):
 		var rng = _re.RNGService.new(trial)
+		melee_board = _make_melee_board()  # fresh board per trial (see Test 6 note)
 		var assignment = {
 			"attacker": "U_BOYZ",
 			"target": "U_TARGET",
@@ -151,6 +162,7 @@ func _run_tests():
 	var mixed_attacks_total = 0
 	for trial in range(num_trials):
 		var rng = _re.RNGService.new(trial)
+		melee_board = _make_melee_board()  # fresh board per trial (see Test 6 note)
 		var assignment = {
 			"attacker": "U_BOYZ",
 			"target": "U_TARGET",
@@ -180,6 +192,7 @@ func _run_tests():
 	var compat_attacks_total = 0
 	for trial in range(num_trials):
 		var rng = _re.RNGService.new(trial)
+		compat_board = _make_compat_board()  # fresh board per trial (see Test 6 note)
 		var assignment = {
 			"attacker": "U_PLAIN",
 			"target": "U_TARGET",

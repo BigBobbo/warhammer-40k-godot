@@ -90,6 +90,22 @@ func _flags(uid: String) -> Dictionary:
 	return u.flags
 
 
+## Units of `player` whose 11e snap-shooting targets (RulesEngine.
+## snap_shooting_targets_11e — the FIRE OVERWATCH offer's target list) include
+## `target_id`.
+func _snap_shooters_at(player: int, target_id: String) -> Array:
+	var re = root.get_node("RulesEngine")
+	var board: Dictionary = GS.create_snapshot()
+	var out: Array = []
+	for uid in board.units:
+		if int(board.units[uid].get("owner", 0)) != player:
+			continue
+		for t in re.snap_shooting_targets_11e(str(uid), board):
+			if str(t.get("unit_id", "")) == target_id:
+				out.append(str(uid))
+	return out
+
+
 func _remember() -> void:
 	for uid in GS.state.units:
 		var u = GS.state.units[uid]
@@ -823,6 +839,15 @@ func _section_anti_grav_and_combat_deployment() -> void:
 	_check("…the charge phase sees the re-roll", root.get_node("FactionAbilityManager").unit_has_detachment_charge_reroll(_unit(CG)))
 	_check("…and cannot be targeted by snap shooting", D.blocks_snap_shooting(_unit(CG)))
 	_check("Fire Overwatch offers the Orks nothing against it", SM.get_fire_overwatch_eligible_units(2, CG, GS.state).is_empty())
+	# 11e FIRE OVERWATCH (15.08, end of the opponent's Movement phase): its
+	# rows' snap targets (RulesEngine.snap_shooting_targets_11e) leave it out.
+	var cd_shooters := _snap_shooters_at(2, CG)
+	_check("11e FIRE OVERWATCH: no Ork unit may snap-shoot it", cd_shooters.is_empty(), str(cd_shooters))
+	var cd_stamp = _flags(CG).get(E.F_COMBAT_DEPLOYMENT, "")
+	_flags(CG).erase(E.F_COMBAT_DEPLOYMENT)
+	var cd_control := _snap_shooters_at(2, CG)
+	_flags(CG)[E.F_COMBAT_DEPLOYMENT] = cd_stamp
+	_check("(control) without the Combat Deployment mark an Ork unit could snap-shoot it", not cd_control.is_empty(), str(cd_control))
 	GS.state.meta["active_player"] = 2
 	_check("the mark is for this turn only", not D.blocks_snap_shooting(_unit(CG)))
 	GS.state.meta["active_player"] = 1

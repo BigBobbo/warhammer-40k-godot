@@ -30,6 +30,7 @@
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_node_visible", "node": "/root/HeroicInterventionDialog", "timeout_s": 3.0 },
     { "act": "screenshot", "label": "02_hi_dialog_end_of_phase" },
+    { "act": "execute_script", "script": "RulesEngine.set_test_seed(42)", "comment": "pin the HI charge roll: the next unseeded 2D6 is [6,6] (Into the Fray caps it at 6). Unpinned, a roll of 2 (1 in 36) fails 15.11's within-the-maximum-distance rule against the 2.5\" target and made this scenario flaky" },
     { "act": "click_node",
       "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WARBOSS_C/Fray_U_WARBOSS_C",
       "emit_pressed": true },
@@ -45,6 +46,9 @@
     { "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().heroic_intervention_pending_charge[\"distance\"]",
       "expect_min": 2, "expect_max": 6 },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().heroic_intervention_pending_charge[\"distance\"]",
+      "equals": 6, "comment": "the pinned roll (12) capped by Into the Fray" },
     { "act": "screenshot", "label": "03_hi_movement_enabled" },
 
     { "act": "drag_board", "from_x": 933, "from_y": 1344, "to_x": 933, "to_y": 1246 },

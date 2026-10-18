@@ -1,0 +1,392 @@
+{
+  "id": "charge_target_within_roll_11e",
+  "covers": [
+    "charge.11e.target_within_roll",
+    "movetypes.ChargeMove11e",
+    "phases.ChargePhase.11e_charge_flow",
+    "charge.ux.beyond_roll_cue",
+    "charge.ux.declaration_reachability_hint"
+  ],
+  "fixture": "test_charge_two_targets",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Core 11.04 BEFORE MOVING: a charge target must be within 12\" AND within the charge roll, measured base to base — engagement range does NOT extend it (pg-37 example B). Before the fix the 11e ceiling was min(12, roll + ER), so a 7\" roll could select a target up to 9\" away. Driven with REAL clicks on the charge panel (unit row, target rows, Declare, Roll, Snap to Contact, Confirm). (a) CP 0 for both players (no re-roll dialog); Shield-Captain is placed 7.1\" from Boyz 0's nearest model; Boyz 1 sits 7.0\" from Shield-Captain B and 9.0\" from Shield-Captain; Boyz 2 is parked out of range. (b) Boyz 0 declares Shield-Captain: the pre-roll hint asks for 2D6 >= 7.1 (11e need = the distance, not distance - 2\"); the UI roll is pinned to 7; the charge FAILS at the roll (7.1\" is beyond it) and the failure entry names the 11.04 rule. (c) Boyz 1 declares BOTH Shield-Captain B (7.0\") and Shield-Captain (9.0\"); the roll is pinned to 7 again: B stays selectable (inclusive 'within'), Shield-Captain is dropped and its locked row is tagged 'beyond roll'; Snap to Contact snaps only toward B (the dropped target is not a charge target any more) and Confirm completes an engaged charge.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return GameConstants.edition",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Geometry (40px = 1\"; 32mm radius 25.197px, 40mm radius 31.496px, sum 56.693px). SC 7.1\" west of Boyz 0's middle model; Boyz 1 a column 9.0\" north of SC; SC2 7.0\" east of Boyz 1's middle model; Boyz 2 parked far away. All paths stay clear of the fixture's ruins.",
+      "script": "var u = GameState.state.units\nu[\"U_TARGET_SC\"].models[0][\"position\"] = {\"x\": 630.507, \"y\": 800.0}\nvar c1 = u[\"U_CHARGER_1\"].models\nc1[0][\"position\"] = {\"x\": 630.507, \"y\": 323.307}\nc1[1][\"position\"] = {\"x\": 630.507, \"y\": 353.307}\nc1[2][\"position\"] = {\"x\": 630.507, \"y\": 383.307}\nu[\"U_TARGET_SC2\"].models[0][\"position\"] = {\"x\": 967.2, \"y\": 353.307}\nvar c2 = u[\"U_CHARGER_2\"].models\nc2[0][\"position\"] = {\"x\": 100.0, \"y\": 2300.0}\nc2[1][\"position\"] = {\"x\": 130.0, \"y\": 2300.0}\nc2[2][\"position\"] = {\"x\": 160.0, \"y\": 2300.0}\nfor m in c1:\n\tm[\"rotation\"] = 0.0\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._sync_all_token_positions()"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller._refresh_ui()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "frame both charge set-ups (zoom 1.5 on board px (800, 575)) so the screenshots show the models, not a thumbnail of the whole board",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar focus := Vector2(800.0, 575.0)\nvar z := 1.5\nvar vp: Vector2 = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(z, z)\nm.view_zoom = z\nm.view_offset = focus - vp / (2.0 * z)\nm.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(min_edge_distance_between_units(\"U_CHARGER_0\", \"U_TARGET_SC\") - 7.1) < 0.005",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(min_edge_distance_between_units(\"U_CHARGER_1\", \"U_TARGET_SC2\") - 7.0) < 0.005",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(min_edge_distance_between_units(\"U_CHARGER_1\", \"U_TARGET_SC\") - 9.0) < 0.005",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.unit_selector.get_item_count()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.unit_selector.get_item_metadata(0)",
+      "equals": "U_CHARGER_0"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_CHARGER_0"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_metadata(0)",
+      "equals": "U_TARGET_SC"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeTargetList",
+      "index": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.selected_targets == [\"U_TARGET_SC\"]",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.charge_requirement_label.text.find(\"≥ 7.1\") != -1",
+      "equals": true,
+      "comment": "11e: the roll needed IS the distance (7.1), not distance - 2\" ER (5.1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.charge_requirement_label.text.find(\"≥ 5.1\") == -1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.charge_requirement_label.text.find(\"within the roll itself\") != -1",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_hint_needs_7_1"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_charge(\"U_CHARGER_0\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(2)",
+      "comment": "the next unseeded 2D6 (the UI charge roll) is 7"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_charge(\"U_CHARGER_0\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_failed_charge_attempts()[-1].roll",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_failed_charge_attempts()[-1].primary_category",
+      "equals": "INSUFFICIENT_ROLL"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().get_failed_charge_attempts()[-1].errors[0]).find(\"7.1\\\" away — a charge target must be within the charge roll (11.04)\") != -1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the failure entry rendered in the panel's FAILED CHARGES list names the 11.04 rule",
+      "script": "var cc = tree.current_scene.charge_controller\nvar stack = [cc.failed_charges_container]\nwhile not stack.is_empty():\n\tvar n = stack.pop_back()\n\tif n is RichTextLabel and n.is_visible_in_tree() and n.text.find(\"within the charge roll\") != -1 and n.text.find(\"7.1\") != -1:\n\t\treturn true\n\tstack.append_array(n.get_children())\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_CHARGER_0\"].models[1].position.x",
+      "equals": 971.2,
+      "comment": "a failed charge does not move"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_7_1_beyond_roll_failed"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.unit_selector.get_item_metadata(0)",
+      "equals": "U_CHARGER_1"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_CHARGER_1"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_count()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_metadata(0)",
+      "equals": "U_TARGET_SC"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_metadata(1)",
+      "equals": "U_TARGET_SC2"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeTargetList",
+      "index": 1
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeTargetList",
+      "index": 0,
+      "ctrl": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.selected_targets.size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.charge_requirement_label.text.find(\"≥ 9.0\") != -1",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_declaring_7_0_and_9_0_targets"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_charges[\"U_CHARGER_1\"].targets.size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(2)",
+      "comment": "pin the second UI roll to 7 as well"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_charge(\"U_CHARGER_1\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_charges[\"U_CHARGER_1\"].distance",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().pending_charges[\"U_CHARGER_1\"].selectable_targets)",
+      "equals": "[\"U_TARGET_SC2\"]",
+      "comment": "7.0\" is within a 7 (inclusive); 9.0\" is not — it would have been under the old roll + ER ceiling"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().pending_charges[\"U_CHARGER_1\"].targets)",
+      "equals": "[\"U_TARGET_SC2\"]"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_text(0).ends_with(\"beyond roll\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_text(1).ends_with(\"beyond roll\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the dropped target's charge arrow reads FAILED; the kept target's reads SUCCESS",
+      "script": "var cc = tree.current_scene.charge_controller\nvar res = {}\nfor v in cc.charge_arrow_visuals:\n\tif is_instance_valid(v) and v.has_meta(\"charge_target_id\"):\n\t\tres[str(v.get_meta(\"charge_target_id\"))] = v.charge_success\nreturn res.get(\"U_TARGET_SC\", true) == false and res.get(\"U_TARGET_SC2\", false) == true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "event_log_count_containing(\"beyond the 7\\\" roll: Shield-Captain (needs 9.0\")",
+      "equals": 1,
+      "comment": "the partial-charge drop is announced in the game log with the roll it needed"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_rolled_7_sc_dropped_beyond_roll"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/SnapToContactButton"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/SnapToContactButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "min_edge_distance_between_units(\"U_CHARGER_1\", \"U_TARGET_SC2\")",
+      "expect_max": 1.0,
+      "comment": "11.04 WHILE MOVING: a model that can end within 1\" of a charge target must — the 7.0\" model ends within 1\" (Snap to Contact falls back to its 0.25\" gap when contact needs exactly the full roll)"
+    },
+    {
+      "act": "execute_script",
+      "script": "min_edge_distance_between_units(\"U_CHARGER_1\", \"U_TARGET_SC\")",
+      "expect_min": 2.5,
+      "comment": "nothing snapped toward the dropped 9.0\" target"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/ConfirmChargeButton",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/ConfirmChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CHARGER_1.flags.charged_this_turn",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_CHARGER_1\" in PhaseManager.get_current_phase_instance().get_completed_charges()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "min_edge_distance_between_units(\"U_CHARGER_1\", \"U_TARGET_SC2\")",
+      "expect_max": 1.0,
+      "comment": "11.04 WHILE MOVING: a model that can end within 1\" of a charge target must — the 7.0\" model ends within 1\" (Snap to Contact falls back to its 0.25\" gap when contact needs exactly the full roll)"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_7_0_charge_engaged"
+    }
+  ]
+}

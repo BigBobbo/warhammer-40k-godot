@@ -4,6 +4,12 @@ extends SceneTree
 # Loads fixture, dispatches END_MOVEMENT, asserts on natural RI trigger emission
 # from MovementPhase._continue_end_movement_after_grot_oiler.
 #
+# 11e (migrated): RAPID INGRESS 15.07 — "WHEN: End of your opponent's Movement
+# phase." The suite runs at edition 11 (set after the first frame, asserted).
+# It used to fail 7 checks at 11e because rapid_ingress_11e was timed for the
+# Shooting phase. The decline path then hands over to the movement_phase_end
+# stratagem window (FIRE OVERWATCH 15.08) for the same non-active player.
+#
 # Usage: godot --headless --path . -s tests/test_ri_pretrigger.gd
 
 const FIXTURE := "ri_pretrigger"
@@ -34,6 +40,10 @@ func _run_tests():
 
 	_check("Fixture load", save_mgr.load_game(FIXTURE))
 	game_state.state["meta"]["from_save"] = true
+	# Written AFTER the first frame + the load (SettingsService / the load
+	# re-apply the boot edition).
+	GameConstants.edition = 11
+	_check("suite runs at edition 11", GameConstants.edition == 11, str(GameConstants.edition))
 
 	_check("Phase = MOVEMENT (7)",
 		game_state.state["meta"].get("phase") == 7)
@@ -56,10 +66,17 @@ func _run_tests():
 	if phase == null:
 		_finish()
 		return
+	_decline_movement_start_windows(phase)
 
 	var cp_before = game_state.state["players"]["1"]["cp"]
 
 	# Dispatch END_MOVEMENT — should fire RI trigger for P1 (defender)
+	# Edition-neutral: both editions offer RAPID INGRESS here — 10e "End of your
+	# opponent's Movement phase." and 11e 15.07 "WHEN: End of your opponent's
+	# Movement phase." (docs/rules/40k_11th_edition_core_rules.txt). Round 2, so
+	# the 11e restriction "cannot use this stratagem during the first battle
+	# round" does not apply, and the Caladius (VEHICLE, not AIRCRAFT) is in
+	# strategic reserves (11e TARGET: "in strategic reserves (excluding AIRCRAFT)").
 	var end_result = phase.execute_action({"type": "END_MOVEMENT"})
 
 	_check("END_MOVEMENT returned trigger_rapid_ingress",
@@ -100,8 +117,48 @@ func _run_tests():
 		phase._rapid_ingress_unit_id == "U_CALADIUS_GRAV-TANK_E")
 	_check("_awaiting_rapid_ingress cleared",
 		phase._awaiting_rapid_ingress == false)
+	_check("the phase still holds for the placement (no force-complete online)",
+		phase.has_pending_end_of_phase_prompt() and game_state.get_current_phase() == 7)
+
+	# Decline path: the end-of-Movement stratagem window follows.
+	_check("Fixture reload (decline path)", save_mgr.load_game(FIXTURE))
+	GameConstants.edition = 11
+	phase_mgr.transition_to_phase(7)
+	phase = phase_mgr.get_current_phase_instance()
+	_decline_movement_start_windows(phase)
+	var end2 = phase.execute_action({"type": "END_MOVEMENT"})
+	_check("decline path: RAPID INGRESS offered again", end2.get("trigger_rapid_ingress") == true)
+	var dec = phase.execute_action({"type": "DECLINE_RAPID_INGRESS", "player": 1})
+	_check("DECLINE_RAPID_INGRESS succeeded", dec.get("success") == true, str(dec.get("error", "")))
+	_check("no CP spent on the decline", game_state.state["players"]["1"]["cp"] == cp_before,
+		"before=%d after=%d" % [cp_before, game_state.state["players"]["1"]["cp"]])
+	_check("the prompt is closed", not phase.has_pending_end_of_phase_prompt())
+	var still_movement: bool = game_state.get_current_phase() == 7
+	var window_open: bool = phase.has_pending_stratagem_window()
+	_check("…the phase then either waits on a movement_phase_end window or has ended",
+		(still_movement and window_open) or game_state.get_current_phase() == 8,
+		"phase=%d window=%s" % [game_state.get_current_phase(), str(window_open)])
 
 	_finish()
+
+## Codex: Orks (11e): the fixture's Weirdboy offers Da Jump in the Orks'
+## movement_phase_start window (WP-O34/WP-O6), which holds the phase until
+## answered — the same window the windowed scenarios on this fixture decline
+## (RETIRED_TESTS.md, WP-O6). Decline only start-of-Movement windows, so the
+## end-of-phase RAPID INGRESS flow under test is untouched.
+func _decline_movement_start_windows(phase) -> void:
+	var declined: Array = []
+	for _i in range(4):
+		if phase == null or not phase.has_pending_stratagem_window():
+			break
+		var w: Dictionary = phase.get_pending_stratagem_window()
+		if str(w.get("window_id", "")) != "movement_phase_start":
+			break
+		declined.append("P%d %s" % [int(w.get("player", 0)), str(w.get("window_id", ""))])
+		phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": int(w.get("player", 1)), "window_id": str(w.get("window_id", ""))})
+	print("test_ri_pretrigger: declined start-of-Movement window(s): %s" % str(declined))
+	_check("no stratagem window pending before END_MOVEMENT", phase != null and not phase.has_pending_stratagem_window(),
+		str(phase.get_pending_stratagem_window() if phase != null and phase.has_pending_stratagem_window() else {}))
 
 func _finish():
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])

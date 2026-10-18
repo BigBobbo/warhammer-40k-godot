@@ -11,9 +11,28 @@ extends SceneTree
 # reproduce these outputs byte-for-byte. Any unintended change to either
 # resolution path fails this test.
 #
-# Fixture: tests/fixtures/attack_goldens.json (committed).
+# Fixture: tests/fixtures/attack_goldens.json (committed) — the 10e corpus.
 # To regenerate after an INTENTIONAL rules change, delete the fixture and
 # re-run this test once (it will rewrite it and report REGENERATED).
+#
+# Legacy 10e regression: the corpus pins the 10e save/damage stage — one
+# ranged "save" record per wound allocated (cover: "none") / one melee
+# "save_roll_melee" record with 10e devastating-wound mortal wounds folded in,
+# and the 10e auto-resolve allocation (torrent seeds 11/22 put every failed save
+# on mt0, so only one model dies). 11e 05.03-05.04 replaced it ("Make Save
+# Rolls: The opposing player makes one save roll for each attack that wounded
+# the target", then "working from lowest result(s) to highest result(s) ...
+# Select one model in the current allocation group ... If this reduces that
+# model's remaining wounds to 0 or fewer, it is destroyed"), 24.10 moved
+# devastating wounds after normal damage ("These are inflicted after resolving
+# any normal damage inflicted by those attacks ... a maximum of one model for
+# each critical wound"), and 13.08 took cover off the save ("worsen the BS
+# characteristic of that attack by 1"); so the corpus is compared at edition 10
+# only. 11e coverage: tests/test_iss041b_resolution_11e.gd (05.03-05.04 groups,
+# 24.10 crit cap). An 11e golden corpus is deliberately NOT recorded from engine
+# output: every entry must first be checked against 05.03/05.04/24.10/24.28
+# (2026-10-17 triage found entries the 11e text does not support — e.g. the
+# multi-model CHARACTER allocation grouping), or it would freeze wrong results.
 #
 # Usage: godot --headless --path . -s tests/test_iss012_attack_goldens.gd
 
@@ -69,22 +88,39 @@ func _run_tests():
 		_check("RulesEngine autoload reachable", false)
 		_finish()
 		return
+	var harness_edition: int = GameConstants.edition
 
+	# Legacy 10e regression — see the header comment (10e save/damage stage;
+	# 11e 05.03-05.04 / 24.10 / 13.08 replaced it; 11e coverage:
+	# tests/test_iss041b_resolution_11e.gd).
+	# Set here, after the re-entry guard — SettingsService applies the harness
+	# edition in _ready, so a write in _init would be overwritten.
+	GameConstants.edition = 10
+	_check("Legacy 10e pin: GameConstants.edition == 10",
+		GameConstants.edition == 10, "got %d" % GameConstants.edition)
+	_compare_corpus(rules, FIXTURE_PATH, "")
+	GameConstants.edition = harness_edition
+
+	_finish()
+
+## Capture the full matrix at the CURRENT GameConstants.edition and compare it
+## with the fixture at `path` (or write the fixture when it is missing).
+## `prefix` is prepended to the check labels ("" keeps the original labels).
+func _compare_corpus(rules, path: String, prefix: String) -> void:
 	var current := _capture_all(rules)
 
-	if not FileAccess.file_exists(FIXTURE_PATH):
-		var f = FileAccess.open(FIXTURE_PATH, FileAccess.WRITE)
+	if not FileAccess.file_exists(path):
+		var f = FileAccess.open(path, FileAccess.WRITE)
 		f.store_string(JSON.stringify(current, "  "))
 		f.close()
-		print("  REGENERATED: fixture written with %d entries" % current.size())
-		_check("fixture regenerated (first run)", true)
-		_finish()
+		print("  REGENERATED: %sfixture written with %d entries (%s)" % [prefix, current.size(), path])
+		_check("%sfixture regenerated (first run)" % prefix, true)
 		return
 
-	var f = FileAccess.open(FIXTURE_PATH, FileAccess.READ)
+	var f = FileAccess.open(path, FileAccess.READ)
 	var golden = JSON.parse_string(f.get_as_text())
 	f.close()
-	_check("fixture loaded (%d entries)" % golden.size(), golden is Dictionary and golden.size() > 0)
+	_check("%sfixture loaded (%d entries)" % [prefix, golden.size()], golden is Dictionary and golden.size() > 0)
 
 	var mismatches := []
 	for key in golden:
@@ -95,9 +131,8 @@ func _run_tests():
 	for key in current:
 		if not golden.has(key):
 			mismatches.append(key + " (new)")
-	_check("all %d golden entries match current resolution output" % golden.size(),
+	_check("%sall %d golden entries match current resolution output" % [prefix, golden.size()],
 		mismatches.is_empty(), str(mismatches.slice(0, 5)))
-	_finish()
 
 func _finish():
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])

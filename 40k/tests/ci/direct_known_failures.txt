@@ -1,0 +1,47 @@
+# Direct-script (godot -s) known failures — the ONLY failing test files the
+# audit runner (tests/run_pretrigger_tests.sh, gated list or --all) tolerates.
+# A listed file that fails is XFAIL; a listed file that PASSES fails the run
+# until it is delisted. One test path per line, '# reason' after it.
+#
+# Baseline 2026-10-17 (d1d24a9 + df98ded, isolated user dir with tests/saves
+# staged): every entry below failed under BOTH the 11e harness default and
+# WH40K_TEST_EDITION=10, so it is not an edition artefact. Listed for triage,
+# not accepted as correct behaviour.
+
+# --- tests/ (ungated) ---
+tests/test_ai_combat_math_property.gd  # >240 s under this runner (timeout); ai-lab.yml D1 runs it with its own budget — the 61 "new" 11e divergences were harness artefacts (live-terrain cover + engaged ranged placement), fixed; it passes there at 11e (213 agree / 37 catalogued)
+tests/test_audit_already_done_pin.gd  # 257/3 at 10e and 11e (path-sum prior_total; ungated print() counts in ChargePhase / MovementPhase)
+tests/test_charge_attached_character.gd  # 11/2 at 10e and 11e (attached character moved with bodyguard; own pile-in offered)
+tests/test_enhancements_374.gd  # exit 1 at 10e and 11e
+tests/test_inline_dice_log.gd  # exit 1 at 10e and 11e
+tests/test_leader_pairings_378.gd  # exit 1 at 10e and 11e
+tests/test_p0_stratagems_375.gd  # exit 1 at 10e and 11e (PLUS_ATTACKS validation)
+tests/test_repro_ai_charge_congestion.gd  # exit 1 at 10e and 11e (AI charge self-skips / BASE_CONTACT rejections)
+tests/test_save_load_ai.gd  # hangs (>240 s) at 10e and 11e
+tests/test_save_load_audit_roundtrip.gd  # 117/3 at 10e and 11e
+tests/test_staged_fight_phase_flow.gd  # 20/3 at 10e and 11e
+tests/test_t015_leader_pairings_loader_pin.gd  # 11/2 at 10e and 11e
+tests/test_t023_stratagem_panel_pin.gd  # 17/2 at 10e and 11e
+tests/test_t082_path_summed_distance.gd  # 5/1 at 10e and 11e
+tests/test_secondary_missions.gd  # 374/0 printed, but test_new_orders_stratagem_definition aborts: load("res://autoloads/StratagemManager.gd").new() compiles before the autoloads under -s ("Nonexistent function 'new'"), so that check never runs (both editions)
+
+# --- tests/unit + tests/integration SceneTree scripts (ungated) ---
+tests/unit/test_ai_ability_awareness.gd  # 81/1 at 10e and 11e
+tests/unit/test_ai_cover_scoring.gd  # 21/3 at 10e and 11e
+tests/unit/test_ai_deployment_collision.gd  # 11/1 at 10e and 11e (exits 0 despite the failure)
+tests/unit/test_ai_deployment_visuals.gd  # 25/1 at 10e and 11e (exits 0 despite the failure)
+tests/unit/test_ai_stratagem_evaluation.gd  # 38/1 at 10e and 11e (reroll battle-shock at Ld 7+)
+tests/unit/test_ai_terrain_deployment.gd  # 19/1 at 10e and 11e (exits 0 despite the failure)
+tests/unit/test_ai_threat_range_awareness.gd  # 34/3 at 10e and 11e
+tests/unit/test_battlewagon_base_shape.gd  # 27/2 at 10e and 11e (exits 0 despite the failure)
+tests/unit/test_reroll_support.gd  # hangs (>240 s) at 10e and 11e
+tests/integration/test_escape_main_menu.gd  # 4/1 at 10e and 11e
+
+# --- fail at 11e only: tracked 11e ENGINE bugs (2026-10-17 triage; the test
+# --- asserts the 11e rule and stays unweakened until the engine is fixed) ---
+tests/test_374_enhancement_resolution_398.gd  # BUG-11: 11e melee allocation path drops attacker +Damage modifiers (Hall of Armouries etc.; RulesEngine 11e branch of _resolve_melee_assignment)
+tests/test_custodes_lions_silent_hunters.gd  # BUG-11: legacy WEAPON_PROFILES store AP as a positive magnitude and the 11e allocation path adds it to the save (test-fixture weapons only; army data uses signed AP)
+tests/test_b2b_rules_standalone_check.gd  # BUG-11: 11.04 "within 1\"" charge obligation not enforced at 11e (validate_base_to_base_possible_rules uses the 2\" ER)
+
+# --- fail at both editions, stale expectations (triage: needs sign-off to change) ---
+tests/test_ma14_rapid_fire_per_weapon.gd  # Tests 2/3: the resolve-time bearer filter correctly cuts a 10-model bolt-rifle assignment to its 5 bearers (04.01)

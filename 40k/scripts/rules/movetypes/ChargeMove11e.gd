@@ -69,8 +69,8 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	return {"eligible": true, "reasons": []}
 
 ## BEFORE MOVING (11.02 step 2): the 2D6 charge roll IS the maximum
-## distance; targets are then selected from enemies within 12" AND reachable
-## by the roll (selectable_targets — see selectable_distance_ceiling).
+## distance; targets are then selected from enemies within 12" AND within
+## the roll (selectable_targets — see selectable_distance_ceiling).
 func before_moving(unit_id: String, board: Dictionary, rng, _context: Dictionary) -> Dictionary:
 	var dice = rng.roll_d6(2)
 	var roll: int = dice[0] + dice[1]
@@ -79,17 +79,32 @@ func before_moving(unit_id: String, board: Dictionary, rng, _context: Dictionary
 		"selectable_targets": _targets_within(unit_id, board, selectable_distance_ceiling(float(roll))),
 	}
 
+## Float tolerance (inches) for "within" in _targets_within — the same value
+## as ChargePhase.MOVEMENT_CAP_EPSILON, which caps the charge move itself at
+## roll + 0.02". Shape-aware edge distances come back a hair either side of an
+## exact value (7.0002", 8.899998"), so a target sitting exactly at the roll
+## must not be lost to float drift. Pinned by test_charge_target_within_roll_11e.
+const WITHIN_TOLERANCE_INCHES: float = 0.02
+
 ## Raw base-to-base distance ceiling (inches) for a target to be selectable after
-## a charge roll. A charging model does NOT have to travel the full base-to-base
-## gap — it stops as soon as it reaches ENGAGEMENT RANGE (ER) of the target. So a
-## target is reachable when its raw gap minus ER fits the roll, i.e.
-##   raw_gap - ER <= roll   ⟺   raw_gap <= roll + ER.
-## Combined with the 12" declaration range, the raw-distance ceiling handed to
-## _targets_within is min(12, roll + ER). Using the bare roll here (the old bug)
-## dropped makeable charges — e.g. a 9" roll against a target 9.6" away, which
-## only needs to close 7.6" to reach a 2" ER.
+## a charge roll: min(12, roll).
+##   ▪ Core 11.04 BEFORE MOVING: "Select one or more enemy units that are within
+##     12" of your unit and within the maximum distance of your unit" — and the
+##     maximum distance IS the charge roll (11.02 step 2 / 11.04 MAXIMUM DISTANCE).
+##   ▪ pg-37 MAKING A CHARGE MOVE example B: a unit "more than 7" from the
+##     charging unit ... cannot be selected as a charge target, even though the
+##     charging unit could end its charge move within 2" of this unit".
+##   ▪ FAILED CHARGES sidebar (11.02): an unmodified roll of 2 "is never
+##     sufficient for a unit to complete a charge move" — a unit cannot be within
+##     ER (2") when it declares, so no target is ever within a 2" roll.
+## Engagement range does NOT extend the ceiling. This deliberately REVERTS the
+## earlier "Deffkopta 9\" roll vs a target 9.6\" away" change (PR #859, which set
+## the ceiling to min(12, roll + ER) on the reading that a charger only has to
+## close to ER): under 11.04 that target is beyond the roll and cannot be
+## selected, so the charge fails. Whether a selected target can then actually
+## be reached (ER, terrain) is the separate move check.
 static func selectable_distance_ceiling(roll: float) -> float:
-	return min(12.0, roll + GameConstants.engagement_range_inches())
+	return min(12.0, roll)
 
 func max_distance_inches(_unit: Dictionary, context: Dictionary) -> float:
 	return float(context.get("charge_roll", 0))
@@ -127,16 +142,29 @@ func after_moving_effects(unit_id: String, _context: Dictionary) -> Array:
 
 # ── helpers ─────────────────────────────────────────────────────────
 
+## Every model of the Attached unit headed by unit_id: its own models plus its
+## attached CHARACTER(s)'. 19.01: "An attached unit is a single unit for all
+## rules purposes", so "within 12" of your unit" (11.02) and "within the maximum
+## distance of your unit" (11.04) measure from the leader's models too — and
+## the charge move already carries them (<char_unit>:<model> path keys).
+## A unit that leads nobody yields just its own models.
+func _unit_group_models(unit_id: String, board: Dictionary) -> Array:
+	var out: Array = []
+	for gid in _rules().attached_unit_component_ids(unit_id, board):
+		out.append_array(_unit(board, str(gid)).get("models", []))
+	return out
+
 func _closest_enemy_inches(unit_id: String, board: Dictionary) -> float:
 	var m = _measurement()
 	var unit = _unit(board, unit_id)
 	var owner = int(unit.get("owner", 0))
+	var group_models := _unit_group_models(unit_id, board)
 	var best := INF
 	for other_id in board.get("units", {}):
 		var other = board.units[other_id]
 		if int(other.get("owner", 0)) == owner:
 			continue
-		for um in unit.get("models", []):
+		for um in group_models:
 			if not um.get("alive", true) or um.get("position") == null:
 				continue
 			for em in other.get("models", []):
@@ -149,22 +177,25 @@ func _targets_within(unit_id: String, board: Dictionary, max_inches: float) -> A
 	var m = _measurement()
 	var unit = _unit(board, unit_id)
 	var owner = int(unit.get("owner", 0))
+	var group_models := _unit_group_models(unit_id, board)
 	var out: Array = []
 	for other_id in board.get("units", {}):
 		var other = board.units[other_id]
 		if int(other.get("owner", 0)) == owner:
 			continue
 		var found := false
-		for um in unit.get("models", []):
+		for um in group_models:
 			if found or not um.get("alive", true) or um.get("position") == null:
 				continue
 			for em in other.get("models", []):
 				if not em.get("alive", true) or em.get("position") == null:
 					continue
-				if m.px_to_inches(m.model_to_model_distance_px(um, em)) <= max_inches:
+				# Inclusive "within", with the float tolerance documented
+				# on WITHIN_TOLERANCE_INCHES.
+				if m.px_to_inches(m.model_to_model_distance_px(um, em)) <= max_inches + WITHIN_TOLERANCE_INCHES:
 					out.append(other_id)
 					found = true
 					break
-		# (a unit must be within 12" AND within the roll; max_inches is
-		# already min(12, roll))
+		# (11.04: a unit must be within 12" AND within the roll; callers pass
+		# selectable_distance_ceiling(roll) == min(12, roll))
 	return out

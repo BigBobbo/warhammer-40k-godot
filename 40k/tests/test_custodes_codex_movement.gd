@@ -133,6 +133,22 @@ func _flags(uid: String) -> Dictionary:
 	return u.flags
 
 
+## Units of `player` whose 11e snap-shooting targets (RulesEngine.
+## snap_shooting_targets_11e — the FIRE OVERWATCH offer's target list) include
+## `target_id`.
+func _snap_shooters_at(player: int, target_id: String) -> Array:
+	var re = root.get_node("RulesEngine")
+	var board: Dictionary = GS.create_snapshot()
+	var out: Array = []
+	for uid in board.units:
+		if int(board.units[uid].get("owner", 0)) != player:
+			continue
+		for t in re.snap_shooting_targets_11e(str(uid), board):
+			if str(t.get("unit_id", "")) == target_id:
+				out.append(str(uid))
+	return out
+
+
 func _offer_ids(offers: Array) -> Array:
 	return offers.map(func(o): return str(o.get("stratagem_id", "")))
 
@@ -450,6 +466,29 @@ func _section_golden_light() -> void:
 	_check("no Fire Overwatch (snap shooting) at it", SM.get_fire_overwatch_eligible_units(2, "U_ALLARUS_CUSTODIANS_A", GS.state).is_empty())
 	var snap = load("res://scripts/rules/shootingtypes/ShootingTypes.gd").get_type("snap")
 	_check("snap shooting type refuses it as a target", not snap.target_allowed("U_NOBZ_A", "U_ALLARUS_CUSTODIANS_A", {}, GS.state).allowed)
+	# 11e FIRE OVERWATCH (15.08) is offered at the end of the opponent's
+	# Movement phase; its rows' snap targets come from
+	# RulesEngine.snap_shooting_targets_11e — the unit must not be one. The
+	# (unengaged) Gretchin stand ~6" from it for these checks, so the control
+	# below has a snap shooter in range (grot blastas are 12"; clear of the
+	# Witchseekers / Prosecutors / Trajann, so the Gretchin stay unengaged).
+	var grot := _unit("U_GRETCHIN_C")
+	var grot_saved: Array = []
+	var gi := 0
+	for m in grot.get("models", []):
+		grot_saved.append(m.get("position"))
+		m["position"] = {"x": (2.0 + (gi % 5) * 1.5) * PX, "y": (50.0 + int(gi / 5) * 1.5) * PX}
+		gi += 1
+	var gl_shooters := _snap_shooters_at(2, "U_ALLARUS_CUSTODIANS_A")
+	_check("11e FIRE OVERWATCH: no Ork unit may snap-shoot it", gl_shooters.is_empty(), str(gl_shooters))
+	_flags("U_ALLARUS_CUSTODIANS_A").erase("cus11e_golden_light")
+	var gl_control := _snap_shooters_at(2, "U_ALLARUS_CUSTODIANS_A")
+	_flags("U_ALLARUS_CUSTODIANS_A")["cus11e_golden_light"] = true
+	_check("(control) without GOLDEN LIGHT the Gretchin could snap-shoot it", "U_GRETCHIN_C" in gl_control, str(gl_control))
+	gi = 0
+	for m in grot.get("models", []):
+		m["position"] = grot_saved[gi]
+		gi += 1
 	SM.on_phase_end(PHASE_MOVEMENT)
 	SM.on_turn_start(2)
 	_check("lasts through the opponent's turn", bool(_flags("U_ALLARUS_CUSTODIANS_A").get("cus11e_golden_light", false)))

@@ -131,10 +131,21 @@ func _run_tests():
 	print("\n--- Test 5: Auto-resolve path uses per-assignment model_ids for RF ---")
 	var auto_bolter_attacks = 0
 	for trial in range(num_trials):
+		# Fresh board per trial. _resolve_assignment runs the whole sequence
+		# including saves, and the 11e defender-allocation path (05.03-05.04,
+		# RulesEngine._materialize_allocation_11e) writes casualties into the
+		# board it is given. Reusing one board wiped the 5-model target out after
+		# ~4 trials, so every later trial had no target and gathered no attack
+		# dice (avg 1.2 at 11e; the 10e allocation path only emits diffs).
+		# A fresh board keeps this check on RAPID FIRE dice-gathering — 11e 24.30:
+		# "Each time you gather attack dice for a [RAPID FIRE] weapon, add X
+		# additional attack dice if the target unit was within half range of that
+		# weapon" → 5 bolt rifles x (A2 + RAPID FIRE 1) = 15, same as 10e.
+		var trial_board = _make_mixed_weapon_board()
 		var rng = _re.RNGService.new(trial + 1000)
 		var result = _re._resolve_assignment(
 			{"weapon_id": "bolt_rifle_ranged", "target_unit_id": "U_TARGET", "model_ids": bolter_model_ids},
-			"U_MIXED", board, rng
+			"U_MIXED", trial_board, rng
 		)
 		for dice_entry in result.get("dice", []):
 			if dice_entry.get("context", "") == "to_hit":

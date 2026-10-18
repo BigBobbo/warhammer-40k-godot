@@ -6,7 +6,7 @@
     "stratagem.window.unit_selected_to_move",
     "rules.effects.fall_back_and_shoot"
   ],
-  "description": "Codex: Adeptus Custodes (11e) AT SPEAR'S LENGTH (Solar Watch, 1 CP) — WP-C5. Fixture cus11e_c5_active (P1 Custodes active, round 2; layout in tests/helpers/gen_cus11e_c5_fixtures.gd). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (Movement phase); P2 has 0 CP (no Fire Overwatch). Custodian Guard A (engaged with the Boyz) begins a fall-back move (the panel's Fall Back): unit_selected_to_move opens; a real click on Use spends 1 CP: that fall-back move does not prevent the Guard shooting (it still cannot charge) this turn; the fall-back move is then made.",
+  "description": "Codex: Adeptus Custodes (11e) AT SPEAR'S LENGTH (Solar Watch, 1 CP) — WP-C5. Fixture cus11e_c5_active (P1 Custodes active, round 2; layout in tests/helpers/gen_cus11e_c5_fixtures.gd). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (Movement phase); P2 has 0 CP (no Fire Overwatch). Custodian Guard A (engaged with the Boyz) begins a fall-back move (the panel's Fall Back): unit_selected_to_move opens; a real click on Use spends 1 CP: that fall-back move does not prevent the Guard shooting this turn (the stratagem grants no charge; in this Solar Watch army the detachment rule TALON SORTIE does); the fall-back move is then made.",
   "fixture": "cus11e_c5_active",
   "edition": 11,
   "rng_seed": 42,
@@ -137,8 +137,16 @@
     {
       "act": "execute_script",
       "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn bool(load(\"res://scripts/codex/custodes/CustodesCodex11e.gd\").grants(H.unit(\"U_CUSTODIAN_GUARD_A\"), \"fall_back_and_charge\"))",
+      "equals": false,
+      "comment": "AT SPEAR'S LENGTH's own grant: fall back and shoot, not charge. (The combined EffectPrimitives answer is true in a Solar Watch army since WP-C46: the detachment rule TALON SORTIE lets every Custodes unit charge after falling back — next step; same adjustment as test_custodes_codex_movement D.)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
       "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn load(\"res://autoloads/EffectPrimitives.gd\").has_effect_fall_back_and_charge(H.unit(\"U_CUSTODIAN_GUARD_A\"))",
-      "equals": false
+      "equals": true,
+      "comment": "TALON SORTIE (Solar Watch detachment rule, WP-C46): the fall-back move does not prevent the unit charging either"
     },
     {
       "act": "execute_script",

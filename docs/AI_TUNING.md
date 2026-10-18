@@ -108,7 +108,7 @@ full machine-readable decision log to `user://ai_decision_log.json`.
 |---|---|---|
 | `WEIGHT_UNCONTROLLED_OBJ` | 10.0 | Priority of objectives nobody controls |
 | `WEIGHT_CONTESTED_OBJ` | 8.0 | Priority of objectives both sides sit on |
-| `WEIGHT_ENEMY_WEAK_OBJ` | 7.0 | Priority of enemy objectives held with OC ≤ 4 (flippable) |
+| `WEIGHT_ENEMY_WEAK_OBJ` | 7.0 | Priority of enemy objectives we can flip: their per-model OC (14.02) is ≤ 4 or below the OC we can bring within two moves |
 | `WEIGHT_ENEMY_STRONG_OBJ` | -5.0 | Priority of strongly-held enemy objectives (avoid) |
 | `WEIGHT_ALREADY_HELD_OBJ` | -3.0 | Priority of objectives we already safely hold |
 | `WEIGHT_HOME_UNDEFENDED` | 9.0 | Extra priority when our home objective has no defender |

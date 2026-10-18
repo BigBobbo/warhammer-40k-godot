@@ -8,6 +8,27 @@ extends "res://addons/gut/test.gd"
 # - Tall terrain (>5") is implicitly Obscuring
 # - The "obscuring" trait can be explicitly added to any terrain height
 # - Models inside Obscuring terrain can still see out and be seen
+#
+# EDITION: the 10e Obscuring trait is a 10e-only rule. At 11e obscuring is
+# derived from the terrain category (13.10), so the EnhancedLineOfSight
+# trait case below is pinned to edition 10 via _pin_legacy_10e(); the
+# TerrainManager / LineOfSightCalculator checks run at the harness edition.
+
+var _prev_edition: int = 11
+
+func before_each():
+	# Save the harness edition so a testcase's _pin_legacy_10e() never leaks.
+	_prev_edition = GameConstants.edition
+
+func after_each():
+	GameConstants.edition = _prev_edition
+
+func _pin_legacy_10e() -> void:
+	# Set inside the test body (GUT runs it after before_each), never in _init —
+	# SettingsService applies the harness edition after the first frame and
+	# would overwrite an earlier write. after_each restores _prev_edition.
+	GameConstants.edition = 10
+	assert_eq(GameConstants.edition, 10, "Legacy 10e pin: GameConstants.edition == 10")
 
 # ==========================================
 # Helpers
@@ -185,6 +206,18 @@ func test_obscuring_terrain_no_intersection_does_not_block():
 
 func test_enhanced_los_obscuring_medium_blocks_all():
 	"""EnhancedLineOfSight should block LoS through Obscuring medium terrain"""
+	# Legacy 10e regression: the 10e Obscuring terrain trait (TER-4: an "obscuring" trait
+	# makes medium terrain block LoS even for MONSTERs) — 11e 13.10 replaced it ("Terrain
+	# areas containing one or more light or dense terrain features are obscuring terrain
+	# areas. If every line of sight drawn between two models crosses one or more obscuring
+	# terrain areas (excluding obscuring terrain areas that one or both of those models are
+	# within), those two models are not visible to each other."): obscuring follows the
+	# terrain category (13.02-13.05), not a trait, and this untyped "obstacle" piece is
+	# EXPOSED at 11e (TerrainManager.category_of default); 11e coverage:
+	# tests/test_iss052_hidden_11e.gd ("full wall: not visible at all (13.10 every line)",
+	# "observer INSIDE the area sees out (13.10 exclusion)"),
+	# tests/test_terrain_area_visibility_11e.gd ("EnhancedLineOfSight agrees at 11e ...").
+	_pin_legacy_10e()
 	var polygon = _make_rect_polygon(500, 400, 80, 80)
 	var board = {
 		"terrain_features": [_make_terrain("medium", polygon, ["obscuring"])]

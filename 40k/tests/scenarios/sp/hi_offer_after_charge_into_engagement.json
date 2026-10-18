@@ -2,9 +2,10 @@
   "id": "hi_offer_after_charge_into_engagement",
   "covers": ["charge.stratagem.heroic_intervention"],
   "fixture": "hi_pretrigger",
+  "edition": 10,
   "rng_seed": 42,
   "transition_to_phase": 9,
-  "description": "HEROIC INTERVENTION end-to-end: post-charge fixture loaded; drive DECLARE_CHARGE → CHARGE_ROLL(seed=0) → APPLY_CHARGE_MOVE on Warboss B onto Custodian Guard B. Trigger should surface with U_TELEMON_HEAVY_DREADNOUGHT_I as eligible defender. Dispatch USE_HEROIC_INTERVENTION (seed=0 → 2D6=10), assert CP delta and HI unit captured. Mirrors test_hi_pretrigger.gd in windowed mode.",
+  "description": "HEROIC INTERVENTION end-to-end: post-charge fixture loaded; drive DECLARE_CHARGE → CHARGE_ROLL(seed=0) → APPLY_CHARGE_MOVE on Warboss B onto Custodian Guard B. Trigger should surface with U_TELEMON_HEAVY_DREADNOUGHT_I as eligible defender. Dispatch USE_HEROIC_INTERVENTION (seed=0 → 2D6=10), assert CP delta and HI unit captured. Mirrors test_hi_pretrigger.gd in windowed mode. Legacy 10e regression: Heroic Intervention offered just after an enemy unit ends a charge move (APPLY_CHARGE_MOVE -> trigger_heroic_intervention) — 11e 15.11 replaced it (\"WHEN: End of your opponent's Charge phase.\"); the fixture geometry is 10e too: Warboss B starts 1.18\" from Custodian Guard B, engaged at the 11e 2\" range (03.04), so 11.02 (\"It is engaged.\") rejects the DECLARE_CHARGE; 11e coverage: sp/iss15_heroic_intervention_fray_11e.json + sp/iss15_heroic_intervention_decline_11e.json (end-of-phase window; the Leap to Defend mode has no windowed scenario — gap).",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.3 },
 

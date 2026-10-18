@@ -14,6 +14,11 @@
 
     { "act": "execute_script", "script": "is_instance_valid(main.charge_controller)", "equals": true },
 
+    { "act": "execute_script", "multiline": true,
+      "comment": "Fixture repair: the fixture leaves Boyz K's attached Weirdboy (U_WEIRDBOY_J) ~11\" from its own bodyguard and within 12\" of an enemy. 11e charge eligibility measures the whole Attached unit (19.01; 1.45.4), so that stray leader made Boyz K charge-eligible. Put the Weirdboy back in coherency with Boyz K (0.58\" edge gap to Boyz K model 0; 16.0\" from the nearest enemy) so the out-of-range case this scenario tests stays out of range.",
+      "script": "var wb = GameState.state.units[\"U_WEIRDBOY_J\"].models[0]\nwb[\"position\"] = {\"x\": 1578.69, \"y\": 1598.38}\ntree.root.get_node(\"Main\")._sync_all_token_positions()\nreturn true",
+      "equals": true },
+
     { "act": "execute_script", "script": "RulesEngine.eligible_to_charge(\"U_BOYZ_K\", GameState.create_snapshot())", "equals": true },
     { "act": "execute_script", "script": "RulesEngine.eligible_to_charge(\"U_STRIKE_FORCE_A\", GameState.create_snapshot())", "equals": true },
 

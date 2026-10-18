@@ -11,6 +11,7 @@
     "controller.reinforcement.attached_character"
   ],
   "fixture": "attached_char_advance_overlap",
+  "edition": 11,
   "rng_seed": 42,
   "transition_to_phase": 7,
   "disable_ai": true,
@@ -208,8 +209,9 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "# ...and it now appears under DEPLOYED UNITS as one Attached unit.\nvar texts = tree.current_scene.movement_controller.get_unit_list_texts()\nfor t in texts:\n\tif str(t).begins_with(\"Custodian Guard\"):\n\t\treturn str(t)\nreturn \"NOT_LISTED\"",
-      "equals": "Custodian Guard + Blade Champion [YET TO MOVE]"
+      "comment": "11e 20.04 INGRESS MOVE, AFTER MOVING: 'Unless otherwise stated, until the start of the next Charge phase, your unit is not eligible to make any other type of move.' With 09.02 ('Select one friendly unit that has not been selected to move this phase'), the ingress move WAS this Attached unit's move. The old expectation 'Custodian Guard + Blade Champion [YET TO MOVE]' encoded the 10e flow, where the arrived unit was still offered normal/advance/remain-stationary.",
+      "script": "# ...and, having made its ingress move, the Attached unit is offered NO further\n# move this phase: no move action for either half, and no '[YET TO MOVE]' row\n# for either half (10e listed it as 'Custodian Guard + Blade Champion [YET TO MOVE]').\nvar offered = []\nfor a in PhaseManager.get_current_phase_instance().get_available_actions():\n\tvar uid = str(a.get(\"actor_unit_id\", a.get(\"unit_id\", \"\")))\n\tif uid == \"U_CUSTODIAN_GUARD_B\" or uid == \"U_BLADE_CHAMPION_A\":\n\t\toffered.append(str(a.get(\"type\", \"\")))\nvar rows = []\nfor t in tree.current_scene.movement_controller.get_unit_list_texts():\n\tvar s = str(t)\n\tif (s.find(\"Custodian Guard\") != -1 or s.find(\"Blade Champion\") != -1) and s.find(\"YET TO MOVE\") != -1:\n\t\trows.append(s)\nreturn \"offered=%s yet_to_move=%s\" % [\",\".join(offered), \"|\".join(rows)]",
+      "equals": "offered= yet_to_move="
     },
     {
       "act": "execute_script",

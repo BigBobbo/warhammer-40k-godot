@@ -6,6 +6,14 @@ extends "res://addons/gut/test.gd"
 # Per Warhammer 40k 10e rules:
 # After attacking with a Hazardous weapon, roll D6 per weapon fired.
 # On a 1: CHARACTER/VEHICLE/MONSTER takes 3 mortal wounds, other models are slain.
+#
+# 11e (the player edition) — 24.15 [HAZARDOUS]: "...after that unit has resolved
+# all of its attacks, make a number of hazard rolls (06.03) for that unit equal to
+# the number of [HAZARDOUS] weapons you selected..." and 06.03 HAZARD ROLLS: "roll
+# one D6: on a 1-2, that roll fails and that unit suffers 1 mortal wound (see
+# above), or 3 mortal wounds instead if each model in that unit is a
+# MONSTER/VEHICLE model." The mortal-wound counts below follow 06.03 at edition
+# >= 11 and keep the 10e/Balance Dataslate v3.3 flat 3 MW as the legacy baseline.
 
 const GameStateData = preload("res://autoloads/GameState.gd")
 
@@ -170,7 +178,12 @@ func test_hazardous_character_takes_3_mortal_wounds():
 	for dice in result.dice:
 		if dice.get("context", "") == "hazardous_damage":
 			assert_eq(dice.get("damage_type", ""), "mortal_wounds", "Damage type should be mortal_wounds for CHARACTER")
-			assert_eq(dice.get("mortal_wounds", 0), 3, "Should be 3 mortal wounds per 1")
+			# 11e 06.03: "that unit suffers 1 mortal wound ... or 3 mortal wounds instead
+			# if each model in that unit is a MONSTER/VEHICLE model" — a CHARACTER
+			# INFANTRY unit takes 1 per failed roll (CHARACTER is not special-cased).
+			# 10e/Balance Dataslate v3.3: flat 3 per 1 rolled (legacy baseline).
+			var expected_mw: int = 1 if GameConstants.edition >= 11 else 3
+			assert_eq(dice.get("mortal_wounds", 0), expected_mw, "Should be %d mortal wounds per 1 (edition %d)" % [expected_mw, GameConstants.edition])
 			found_mw_dice = true
 	assert_true(found_mw_dice, "Should have hazardous_damage dice entry")
 
@@ -218,7 +231,11 @@ func test_hazardous_non_character_takes_3_mortal_wounds():
 	for dice in result.dice:
 		if dice.get("context", "") == "hazardous_damage":
 			assert_eq(dice.get("damage_type", ""), "mortal_wounds", "Damage type should be mortal_wounds for ALL units per Balance Dataslate v3.3")
-			assert_eq(dice.get("mortal_wounds", 0), 3, "Should be 3 mortal wounds per 1 rolled")
+			# 11e 06.03: "on a 1-2, that roll fails and that unit suffers 1 mortal wound"
+			# (3 only if each model is MONSTER/VEHICLE) — this INFANTRY unit takes 1.
+			# 10e/Balance Dataslate v3.3: 3 per 1 rolled (legacy baseline).
+			var expected_mw: int = 1 if GameConstants.edition >= 11 else 3
+			assert_eq(dice.get("mortal_wounds", 0), expected_mw, "Should be %d mortal wounds per 1 rolled (edition %d)" % [expected_mw, GameConstants.edition])
 			found_mw_dice = true
 	assert_true(found_mw_dice, "Should have hazardous_damage dice entry")
 
