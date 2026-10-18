@@ -25,6 +25,13 @@
     },
     {
       "act": "execute_script",
+      "multiline": true,
+      "script": "# Latch on the deployment -> next-phase transition too, not only on the\n# 5s polls below: when the seat that moves first deploys last, its movement phase\n# can start (and move the unit) between two polls. The hook latches every\n# deployed unit and stands the AI down the moment deployment ends. `self` is\n# parked on GameState so the lambda's owner outlives this snippet.\nif not GameState.has_meta(\"pm2a_hook_owner\"):\n\tGameState.set_meta(\"pm2a_hook_owner\", self)\n\tPhaseManager.phase_changed.connect(func(new_phase):\n\t\tif int(new_phase) == int(GameStateData.Phase.DEPLOYMENT):\n\t\t\treturn\n\t\tvar hl = GameState.get_meta(\"pm2a_latch\", {})\n\t\tfor huid in GameState.state[\"units\"]:\n\t\t\tvar hu = GameState.state[\"units\"][huid]\n\t\t\tif int(hu.get(\"status\", 0)) == 0 or hl.has(huid):\n\t\t\t\tcontinue\n\t\t\tvar hpts = []\n\t\t\tfor hm in hu.get(\"models\", []):\n\t\t\t\tvar hp = hm.get(\"position\", null)\n\t\t\t\tif hp == null:\n\t\t\t\t\thpts.append(null)\n\t\t\t\telif hp is Vector2:\n\t\t\t\t\thpts.append([hp.x, hp.y])\n\t\t\t\telse:\n\t\t\t\t\thpts.append([float(hp.get(\"x\", 0.0)), float(hp.get(\"y\", 0.0))])\n\t\t\thl[huid] = hpts\n\t\tGameState.set_meta(\"pm2a_latch\", hl)\n\t\tif hl.size() >= 22 and AIPlayer.enabled:\n\t\t\tAIPlayer.enabled = false\n\t\t\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched, on phase change)\" % hl.size())\n\t)\nreturn GameState.has_meta(\"pm2a_hook_owner\")",
+      "equals": true,
+      "comment": "Connected while still in DEPLOYMENT, before the AI is switched on, so the deployment -> redeployment transition is caught."
+    },
+    {
+      "act": "execute_script",
       "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"}, {1: 1, 2: 1})"
     },
     {

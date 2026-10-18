@@ -135,9 +135,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "script": "var bar = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar\")\nif bar == null:\n\treturn true\nvar b = bar.get_node_or_null(\"ContinueButton\")\nif b == null or not b.is_visible_in_tree():\n\tb = bar.get_node_or_null(\"DeployFirstButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
       "multiline": true,
-      "equals": true
+      "equals": true,
+      "comment": "The roll-off winner depends on the dice: when the AI wins it deploys second and the human clicks Continue; when the human wins they pick 'Deploy first (Defender)'. Either way the human deploys first, which is the order the rest of the lesson drives."
     },
     {
       "act": "wait_seconds",
