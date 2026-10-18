@@ -438,6 +438,16 @@ func _validate_place_in_reserves(action: Dictionary) -> Dictionary:
 	if action.get("auto_timeout", false):
 		log_phase_message("Auto-timeout reserves placement for %s — bypassing caps" % unit_id)
 		return {"valid": true, "errors": []}
+	# Same rule for a unit with no legal position anywhere on the board whose
+	# reserves placement the caps refused (AIPlayer._fallback_to_reserves):
+	# left UNDEPLOYED it blocks SWITCH_PLAYER / END_DEPLOYMENT for good. Caps
+	# only — the unit must still be the active player's, and that player an AI
+	# (a human picks their own reserves; a client cannot claim the bypass).
+	var _ai_node = Engine.get_main_loop().root.get_node_or_null("AIPlayer") if Engine.get_main_loop() else null
+	var _owner_is_ai: bool = _ai_node != null and _ai_node.has_method("is_ai_player") and _ai_node.is_ai_player(int(unit.get("owner", 0)))
+	if action.get("stuck_unit_fallback", false) and _owner_is_ai and int(unit.get("owner", 0)) == get_current_player():
+		log_phase_message("No legal position for %s and reserves caps full — placing in reserves past the caps" % unit_id)
+		return {"valid": true, "errors": []}
 
 	# Check if unit belongs to active player
 	var active_player = get_current_player()

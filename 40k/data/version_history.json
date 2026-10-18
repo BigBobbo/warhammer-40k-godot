@@ -22,6 +22,7 @@
         "Shipped army lists updated to the codex: the default Custodes army (Lions of the Emperor) drops two Custodian Guard units to stay at 2000 points; Shield Host lists now use Guardians of the Throne; Ork 2000-point lists drop a unit where codex costs pushed them over, and pre-codex enhancements (e.g. Mork's Kunnin') are removed.",
         "Saved games and lists built before the codex keep working: their units keep the weapons they were built with.",
         "Fire Overwatch at its 11th-edition timing (end of the opponent's Movement phase) now respects the codex rules that block it: Golden Light of the Moiraides and Combat Deployment (Custodes units cannot be snap-shot) and Drive-by Skorchin' (the Orks' target cannot Fire Overwatch). Moritoi Ancients' +2 OC is added per model under the new per-model Objective Control.",
+        "Fixed: an AI army whose unit fit nowhere in its deployment zone while the reserves limits were full froze the Deployment phase; the unit now goes to Strategic Reserves past the limits (the same rule as the deployment timer running out) and deployment finishes.",
         "Fixed: the AI sometimes lost its option to replace a newly drawn secondary mission (1 CP) depending on screen timing; it now always has it, once per Command phase like a human player."
       ]
     },

@@ -241,3 +241,18 @@ Known, not fixed here:
 ## WP-FIX2 (codex branch CI fixes)
 - 24.35 SUPER-HEAVY WALKER is a core ABILITY in 11e. Codex datasheets print it as the ability "Super-heavy Walker" (Codex: Orks Stompa / Gorkanaut / Morkanaut, core ability 000010844, which replaced their 10e Stompin' / Clankin' Forward). The engine's 24.35 / 13.06 code read only a SUPER-HEAVY WALKER keyword, so after WP-O6 removed Stompin' / Clankin' Forward those walkers had no 24.35 at all. UnitAbilities.is_super_heavy_walker accepts either form. It drives the 4" step-over (MovementPhase._terrain_rule_keywords), the MOBILE gamble, and "move through models (including MONSTER/VEHICLE, excluding TITANIC)" on normal, advance and fall-back moves: only TITANIC models block the enemy-base and MONSTER/VEHICLE crossing checks. Charge moves are not covered, because 24.35 names only normal, advance and fall-back moves. The AI's terrain screening still reads plain keywords, so the AI treats features of 4" or less as blockers for these walkers. That is conservative, and the same as main with Stompin' Forward.
 - Pre-codex saves whose Stompa still carries the 10e "Stompin' Forward" (stompa_fight_11e) get no 24.35 from it. The 10e ability was removed (WP-O6), and its replacement is the datasheet's "Super-heavy Walker" line, which those saves do not have.
+
+## Integrator — deployment deadlock (pm10_shipped_plan_from_menu)
+
+- With the codex rosters the formula AI seat attaches a Deffkilla Wartrike to
+  6 Warbikers and no longer reserves that unit in Formations (codex points and
+  Gretchin sizes changed its choice). Its formula placer finds no legal spot,
+  the 50% reserves unit cap refuses the fallback, and the unit was skipped
+  while still UNDEPLOYED — DeploymentPhase never offers SWITCH_PLAYER /
+  END_DEPLOYMENT with an undeployed unit left, so deployment hung and the
+  plan seat never finished (pm10 24/4; 28/0 at 276eb36).
+- Ruling: the same rule as the deployment-timer timeout (P2-42, "units MUST be
+  placed somewhere"): an AI unit with no legal position whose reserves
+  placement the caps refuse is placed in Strategic Reserves past the caps
+  (`stuck_unit_fallback`, accepted only for the active AI player's own unit).
+  It is logged in the Game Log. The AI placer itself is unchanged.

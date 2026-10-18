@@ -3811,7 +3811,29 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 		})
 	else:
 		var error_msg = "" if result == null else result.get("error", result.get("errors", ""))
-		push_error("AIPlayer: Failed to place %s in reserves: %s — marking as failed to prevent infinite loop" % [unit_name, error_msg])
+		# The unit fits nowhere on the board and the reserves caps refuse it.
+		# Skipping it left it UNDEPLOYED, so DeploymentPhase never let this
+		# player SWITCH_PLAYER / END_DEPLOYMENT and the whole deployment hung
+		# (pm10: the formula seat's Warbikers + attached Deffkilla Wartrike).
+		# Same rule as the deployment-timer timeout (P2-42): a unit MUST be
+		# placed somewhere, so it goes to Strategic Reserves past the caps.
+		print("AIPlayer: Reserves rejected %s (%s) — placing it past the reserves caps so deployment can finish" % [unit_name, error_msg])
+		var stuck_action = reserves_action.duplicate()
+		stuck_action["stuck_unit_fallback"] = true
+		stuck_action["_ai_description"] = "%s placed in reserves past the caps (no legal position)" % unit_name
+		_current_phase_actions += 1
+		var stuck_result = NetworkIntegration.route_action(stuck_action)
+		if stuck_result != null and stuck_result.get("success", false):
+			_log_ai_event(player, "%s could not be set up anywhere and the reserves limits were full — placed in Strategic Reserves past the limits so deployment can finish" % unit_name)
+			_append_action_log({
+				"phase": GameState.get_current_phase(),
+				"action_type": "PLACE_IN_RESERVES",
+				"description": "%s placed in reserves past the caps (no legal position)" % unit_name,
+				"player": player
+			})
+			return
+		var stuck_err = "" if stuck_result == null else stuck_result.get("error", stuck_result.get("errors", ""))
+		push_error("AIPlayer: Failed to place %s in reserves: %s / %s — marking as failed to prevent infinite loop" % [unit_name, error_msg, stuck_err])
 		_failed_deploy_unit_ids.append(unit_id)
 		_log_ai_event(player, "%s deployment permanently failed (reserves also rejected: %s) — skipping unit" % [unit_name, error_msg])
 
