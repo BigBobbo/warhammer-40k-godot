@@ -46,11 +46,15 @@ func _run_tests():
 	_finish()
 
 func _test_load_in_scope_detachments() -> void:
-	print("\n-- A: Custodes Shield Host + Orks War Horde stratagems load --")
+	print("\n-- A: Custodes Guardians of the Throne + Orks War Horde stratagems load --")
 	var loader = FactionStratagemLoaderClass.new()
 	loader.load_faction_codes()
-	var custodes = loader.load_faction_stratagems("Adeptus Custodes", "Shield Host")
-	_check("Shield Host stratagems load (>= 6)",
+	# Shield Host is not a Codex: Adeptus Custodes (11e) detachment (C2/O2,
+	# WP-C46); Guardians of the Throne is the codex set that replaced it.
+	_check("Shield Host (not a codex detachment) loads nothing",
+		loader.load_faction_stratagems("Adeptus Custodes", "Shield Host").is_empty())
+	var custodes = loader.load_faction_stratagems("Adeptus Custodes", "Guardians of the Throne")
+	_check("Guardians of the Throne stratagems load (>= 6)",
 		custodes.size() >= 6,
 		"got %d" % custodes.size())
 	var orks = loader.load_faction_stratagems("Orks", "War Horde")

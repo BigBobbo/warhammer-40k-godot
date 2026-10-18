@@ -61,9 +61,11 @@ func _run_tests():
 	var beastboss = army_data.units.get("U_BEASTBOSS_A", {})
 	_assert(beastboss.get("models", []).size() == 1, "U_BEASTBOSS_A has 1 model (got %d)" % beastboss.get("models", []).size())
 
-	# Gretchin should have 22 models (2 Runtherds + 20 Gretchin)
+	# Gretchin: Codex: Orks (11e) unit composition "10-20 Gretchin" (no Runtherd
+	# in the unit — C2/O2 snapped the pre-codex 22-model mob, 2 Runtherds + 20
+	# Gretchin, to a codex size): the shipped list carries 10.
 	var gretchin = army_data.units.get("U_GRETCHIN_A", {})
-	_assert(gretchin.get("models", []).size() == 22, "U_GRETCHIN_A has 22 models (got %d)" % gretchin.get("models", []).size())
+	_assert(gretchin.get("models", []).size() == 10, "U_GRETCHIN_A has 10 models (got %d)" % gretchin.get("models", []).size())
 
 	# Verify model data integrity
 	print("\n--- Test: Model data integrity ---")
@@ -88,9 +90,10 @@ func _run_tests():
 	_assert(not custodes_data.is_empty(), "adeptus_custodes army loaded successfully")
 
 	if not custodes_data.is_empty():
-		# Custodian Guard should have 4 models (minimum from unit_composition)
+		# Custodian Guard: the Codex: Adeptus Custodes (11e) Custodian Guard
+		# Sodality is "3 Custodian Guard" (was 4-10 pre-codex, C2/O2)
 		var cg = custodes_data.units.get("U_CUSTODIAN_GUARD_B", {})
-		_assert(cg.get("models", []).size() >= 4, "U_CUSTODIAN_GUARD_B has >= 4 models (got %d)" % cg.get("models", []).size())
+		_assert(cg.get("models", []).size() == 3, "U_CUSTODIAN_GUARD_B has 3 models (got %d)" % cg.get("models", []).size())
 
 		# Witchseekers should have 4 models (1 Superior + 3 Witchseekers)
 		var ws = custodes_data.units.get("U_WITCHSEEKERS_C", {})

@@ -327,6 +327,10 @@ func _section_mob_mentality() -> void:
 	# Already battle-shocked units must test too — and recover if they pass.
 	GS.state.units.U_BEAST_SNAGGA_BOYZ_A.flags["battle_shocked"] = true
 	var cp0 := _cp(1)
+	# Second entry into the SAME turn's Command phase (setup re-entry above).
+	# The start-of-Command steps run once per player turn, so drop the
+	# once-per-turn marker to make this a fresh turn's Command phase start.
+	GS.state.meta.erase(GS.COMMAND_START_RESOLVED_KEY)
 	PM.transition_to_phase(PHASE_COMMAND)
 	phase = _phase()
 	var cp_start := _cp(1)

@@ -174,7 +174,7 @@ func _categorize_action(action_type: String) -> String:
 			return "units_fought"
 		"USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH", "USE_COUNTER_OFFENSIVE", \
 		"USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK", "USE_GRENADE_STRATAGEM", \
-		"USE_COMMAND_REROLL":
+		"USE_COMMAND_REROLL", "USE_RAPID_INGRESS", "USE_WINDOW_STRATAGEM":
 			return "stratagems_used"
 		"SKIP_UNIT", "SKIP_CHARGE":
 			return "units_skipped"
@@ -222,7 +222,10 @@ func _get_notable_actions(actions: Array) -> Array:
 	var notable_types = [
 		"DECLARE_CHARGE", "USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH",
 		"USE_COUNTER_OFFENSIVE", "USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK",
-		"USE_GRENADE_STRATAGEM", "USE_COMMAND_REROLL", "PLACE_REINFORCEMENT"
+		"USE_GRENADE_STRATAGEM", "USE_COMMAND_REROLL", "PLACE_REINFORCEMENT",
+		# Stratagems the AI used in a stratagem window (e.g. 11e FIRE OVERWATCH
+		# at the end of the opponent's Movement phase) and RAPID INGRESS.
+		"USE_WINDOW_STRATAGEM", "USE_RAPID_INGRESS"
 	]
 	var max_notable = 4
 

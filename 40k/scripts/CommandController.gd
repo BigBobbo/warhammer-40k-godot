@@ -1724,12 +1724,16 @@ func _show_drawn_missions_review_dialog() -> void:
 
 	var current_player = GameState.get_active_player()
 
-	# Skip dialog for AI players — they don't need a review panel
+	# Skip dialog for AI players — they don't need a review panel. The newly
+	# drawn list is NOT cleared here: it is what offers the AI its "replace a
+	# newly drawn mission (1 CP)" action (CommandPhase.get_available_actions),
+	# the same choice the human's review dialog offers. Clearing it here made
+	# the AI's options depend on whether this controller set-up ran before or
+	# after the AI's first Command-phase decision — a frame-timing race that
+	# made same-seed AI games diverge (tests/test_plan_simulator.gd).
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(current_player):
-		print("CommandController: Skipping drawn missions review dialog for AI player %d" % current_player)
-		if current_phase and current_phase.has_method("clear_newly_drawn_missions"):
-			current_phase.clear_newly_drawn_missions()
+		print("CommandController: Skipping drawn missions review dialog for AI player %d (its replace option stays offered)" % current_player)
 		return
 	var player_cp = GameState.state.get("players", {}).get(str(current_player), {}).get("cp", 0)
 

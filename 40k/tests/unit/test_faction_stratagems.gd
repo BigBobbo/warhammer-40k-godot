@@ -409,20 +409,23 @@ func test_stratagem_id_no_detachment():
 # Section 9: Full CSV Loading Integration
 # ==========================================
 
-func test_load_faction_stratagems_ac_shield_host():
-	"""Should load Shield Host stratagems for Adeptus Custodes."""
+func test_load_faction_stratagems_ac_guardians_of_the_throne():
+	"""Should load the Codex: Adeptus Custodes (11e) Guardians of the Throne
+	stratagems. (Was Shield Host / ARCANE GENETIC ALCHEMY: Shield Host is not a
+	codex detachment — RETIRED_TESTS.md, C2/O2 + WP-C46 — so it loads nothing.)"""
 	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Adeptus Custodes", "Shield Host")
+	assert_eq(_loader.load_faction_stratagems("Adeptus Custodes", "Shield Host").size(), 0,
+		"Shield Host is not a Codex: Adeptus Custodes detachment — no stratagems")
+	var strats = _loader.load_faction_stratagems("Adeptus Custodes", "Guardians of the Throne")
 	assert_true(strats.size() > 0, "Should load at least one stratagem")
-	# Should find specific known stratagems
-	var found_alchemy = false
+	var found_focus = false
 	for s in strats:
-		if "ARCANE GENETIC ALCHEMY" in s.name:
-			found_alchemy = true
+		if "SUPERHUMAN FOCUS" in s.name:
+			found_focus = true
 			assert_eq(s.cp_cost, 1)
 			assert_eq(s.faction_id, "AC")
-			assert_eq(s.detachment, "Shield Host")
-	assert_true(found_alchemy, "Should find ARCANE GENETIC ALCHEMY")
+			assert_eq(s.detachment, "Guardians of the Throne")
+	assert_true(found_focus, "Should find SUPERHUMAN FOCUS")
 
 func test_load_faction_stratagems_sm_gladius():
 	"""Should load Gladius Task Force stratagems for Space Marines."""
@@ -447,7 +450,10 @@ func test_load_faction_stratagems_skips_boarding_actions():
 func test_loaded_stratagem_has_required_fields():
 	"""Each loaded stratagem should have all required fields."""
 	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Adeptus Custodes", "Shield Host")
+	# (Was Shield Host, which Codex: Adeptus Custodes removed — the loop ran
+	# over nothing. Guardians of the Throne is the codex set.)
+	var strats = _loader.load_faction_stratagems("Adeptus Custodes", "Guardians of the Throne")
+	assert_true(strats.size() > 0, "Guardians of the Throne should load stratagems to check")
 	for s in strats:
 		assert_true(s.has("id"), "Should have id")
 		assert_true(s.has("name"), "Should have name")
@@ -561,44 +567,29 @@ func test_p0_rows_display_only_without_curated_effects():
 			assert_false(s.implemented, "%s should be display-only (not implemented)" % pair[1])
 
 func test_shipped_detachment_stratagems_fully_implemented():
-	"""Shield Host carries curated effects_json — every stratagem must load
-	mechanically implemented with the expected primitive. War Horde is now the
-	Codex: Orks (11e) set: six rows carrying the custom:ork11e marker, whose
-	implementation is owned by the Ork codex registry (not effects_json), so they
-	load NOT implemented at parse time."""
+	"""The shipped default detachments are the codex sets: War Horde (Codex:
+	Orks, 11e) and Guardians of the Throne (Codex: Adeptus Custodes, 11e — it
+	replaced the 10e Shield Host, whose curated effects_json rows this used to
+	pin; RETIRED_TESTS.md). Each has six rows carrying its codex marker
+	(custom:ork11e / custom:custodes11e), whose implementation is owned by the
+	codex registry (StratagemManager), not effects_json — so they load NOT
+	implemented at parse time."""
 	_loader.load_faction_codes()
 	var war_horde = _loader.load_faction_stratagems("Orks", "War Horde")
-	var shield_host = _loader.load_faction_stratagems("Adeptus Custodes", "Shield Host")
+	var guardians = _loader.load_faction_stratagems("Adeptus Custodes", "Guardians of the Throne")
 	assert_eq(war_horde.size(), 6, "War Horde should have 6 stratagems")
-	assert_eq(shield_host.size(), 6, "Shield Host should have 6 stratagems")
-	for s in shield_host:
-		assert_true(s.get("implemented", false), "%s should be implemented" % s.get("name", "?"))
-	for s in war_horde:
-		var effs: Array = s.get("effects", [])
-		assert_true(effs.size() == 1 and str(effs[0].get("type", "")) == "custom:ork11e",
-			"%s should carry the custom:ork11e marker (got %s)" % [s.get("name", "?"), str(effs)])
-		assert_false(s.get("implemented", false), "%s is implemented by the Ork codex registry, not at parse time" % s.get("name", "?"))
+	assert_eq(guardians.size(), 6, "Guardians of the Throne should have 6 stratagems")
+	for pair in [[war_horde, "custom:ork11e"], [guardians, "custom:custodes11e"]]:
+		for s in pair[0]:
+			var effs: Array = s.get("effects", [])
+			assert_true(effs.size() == 1 and str(effs[0].get("type", "")) == pair[1],
+				"%s should carry the %s marker (got %s)" % [s.get("name", "?"), pair[1], str(effs)])
+			assert_false(s.get("implemented", false), "%s is implemented by its codex registry, not at parse time" % s.get("name", "?"))
 	for name in ["BREAKIN' HEADS", "HIT 'EM HARDER", "ORKS IS NEVER BEATEN", "MOW 'EM DOWN",
 			"FUNGUS-FUEL INJECTION", "CLOSE-RANGE DAKKA"]:
 		assert_not_null(_find_strat(war_horde, name), "War Horde should contain %s" % name)
-
-	var expected_effects = {
-		"ARCANE GENETIC ALCHEMY": "grant_fnp_psychic_mortal",
-		"AVENGE THE FALLEN": "plus_attacks",
-		"UNWAVERING SENTINELS": "minus_one_hit_defense_melee",
-		"MULTIPOTENTIALITY": "fall_back_and_shoot",
-		"VIGILANCE ETERNAL": "sticky_objective_control",
-		"ARCHEOTECH MUNITIONS": "grant_lethal_hits",
-	}
-	for name in expected_effects:
-		var s = _find_strat(shield_host, name)
-		assert_not_null(s, "Should find %s" % name)
-		if s:
-			var types := []
-			for e in s.get("effects", []):
-				types.append(str(e.get("type", "")))
-			assert_true(expected_effects[name] in types,
-				"%s should carry effect %s (got %s)" % [name, expected_effects[name], str(types)])
+	for name in ["SUPERHUMAN FOCUS", "SHIELD OF HONOUR", "UNLIMITED ENDURANCE"]:
+		assert_not_null(_find_strat(guardians, name), "Guardians of the Throne should contain %s" % name)
 
 func test_epic_deed_timing_column_overrides_once_per_battle_default():
 	"""An Epic Deed Stratagem whose 11e timing column says once-per-phase: the

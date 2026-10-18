@@ -89,6 +89,15 @@ func launch() -> bool:
 	# Add instance identifier for logging
 	args.append("--instance-name=%s" % instance_name)
 
+	# Own engine log per peer. Host and client share the user dir, so both
+	# otherwise write (and rotate) the same user://logs/godot.log and their
+	# lines clobber each other — a peer's side of a failure was unreadable.
+	var log_path = ProjectSettings.globalize_path("user://logs/") + "mp_%s_%d_%d.log" % [
+		instance_name.to_lower(), port if is_host else host_port, Time.get_ticks_msec()]
+	args.append("--log-file")
+	args.append(log_path)
+	print("[GameInstance] %s log file: %s" % [instance_name, log_path])
+
 	# Add save file if specified
 	if save_file != "":
 		args.append("--auto-load-save=%s" % save_file)

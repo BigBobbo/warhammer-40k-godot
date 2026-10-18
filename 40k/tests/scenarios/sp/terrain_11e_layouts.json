@@ -7,7 +7,7 @@
   ],
   "fixture": "audit_383_battleshock_shoot",
   "edition": 11,
-  "description": "Official 11e terrain layouts (40kdc conversion, docs/40KDC_TERRAIN_MIGRATION_SPEC.md): loads the converted disruption_vs_purge_the_foe_1 layout into a live shooting-phase game, asserts all 44 polygon pieces reach the runtime with exact transposed geometry, and drives two real terrain interactions. (1) LoS: the Contemptor-Achillus Dreadnought's eligible-target list (the same RulesEngine query the shooting UI uses) keeps the clear-lane Kommandos but loses Boyz E, and model_visible_11e confirms the converted obscuring area blocks that sight line. (2) 14.01 terrain-as-objective: the fixture stores no terrain, so the boot-default layout (take_and_hold_mirror_1, whose centre area covers 880,1200) is live and the Shield-Captain (OC 2, unshocked, 1.42\" from the marker) controls obj_center via the classic radius (control=1); after the swap a Center-linked terrain area covers the objective, so only models on the area count \u2014 the Telemon and Caladius are first parked far away (being 'within' an area is any part of the base overlapping it, and both big bases graze trapezoid-1's edges from outside), leaving the battle-shocked Dreadnought as sole occupant of the save-restored single area_at area (no source_pieces), and control flips to 0. (3) Linked-pair union: re-deriving objectives from the loaded layout gives obj_center its two source_pieces (both centre trapezoids count as ONE objective), and control flips to 1 \u2014 the Shield-Captain stands in the OTHER trapezoid (area-trapezoid-2) and now counts.",
+  "description": "Official 11e terrain layouts (40kdc conversion, docs/40KDC_TERRAIN_MIGRATION_SPEC.md): loads the converted disruption_vs_purge_the_foe_1 layout into a live shooting-phase game, asserts all 44 polygon pieces reach the runtime with exact transposed geometry, and drives two real terrain interactions. (1) LoS: the Contemptor-Achillus Dreadnought's eligible-target list (the same RulesEngine query the shooting UI uses) keeps the clear-lane Kommandos but loses Boyz E, and model_visible_11e confirms the converted obscuring area blocks that sight line. (2) 14.01 terrain-as-objective: the fixture stores no terrain, so the boot-default layout (take_and_hold_mirror_1, whose centre area covers 880,1200) is live and the Shield-Captain (OC 2, unshocked, 1.42\" from the marker) controls obj_center via the classic radius (control=1); after the swap a Center-linked terrain area covers the objective, so only models on the area count \u2014 the Telemon and Caladius are first parked far away (being 'within' an area is any part of the base overlapping it, and both big bases graze trapezoid-1's edges from outside), leaving the battle-shocked Dreadnought as sole occupant of the save-restored single area_at area (no source_pieces), and control flips to 0. (3) Linked-pair union: re-deriving objectives from the loaded layout gives obj_center its two source_pieces (both centre trapezoids count as ONE objective), and control flips to 1 \u2014 the Shield-Captain stands in the OTHER trapezoid (area-trapezoid-2) and now counts. Kommandos H models m2/m3 (OC1 each) also stand in the linked pair, so they are parked first (as objective_contested_vs_uncontrolled does): under the 14.02 per-model sum they would add 1+1 = 2 and tie the Shield-Captain's 2 (CONTESTED, covered by objective_oc_per_model_sum_11e) \u2014 this scenario pins the linked-pair union, not the tie.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -129,6 +129,18 @@
       "act": "execute_script",
       "script": "MissionManager.objective_control_state.get(\"obj_center\", -1)",
       "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_KOMMANDOS_H\"][\"models\"][1].merge({\"position\": Vector2(940.0, 2260.0)}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_KOMMANDOS_H\"][\"models\"][2].merge({\"position\": Vector2(1000.0, 2260.0)}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._sync_all_token_positions()"
     },
     {
       "act": "execute_script",

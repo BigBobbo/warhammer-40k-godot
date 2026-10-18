@@ -1859,6 +1859,7 @@
 		}
 	],
 	"meta": {
+		"command_start_resolved": "R1P1",
 		"active_player": 1,
 		"battle_round": 1,
 		"created_at": 1777894246.48332,

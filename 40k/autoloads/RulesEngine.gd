@@ -1371,6 +1371,315 @@ static func _build_overwatch_weapon_assignments(shooter_unit: Dictionary, shoote
 
 	return assignments
 
+# ==========================================
+# 11e 15.09 SNAP SHOOTING — targets + weapon assignments (FIRE OVERWATCH 15.08)
+# ==========================================
+# 15.09 WHILE SHOOTING: "You can only target one visible enemy unit within 24"
+# of your unit (and only if it is an eligible target)." 15.08 only targets an
+# UNENGAGED unit, and 19.01 makes a bodyguard + its attached CHARACTER(s) ONE
+# unit — so everything below is measured from every model of the shooter's
+# Attached unit (a leader's model counts for the 24" and for visibility, and
+# the leader's guns shoot) against every model of the target's Attached unit.
+
+## Copy of `board` whose `component_ids` units read as unengaged:
+## flags.in_engagement is a cache refreshed at the start of the Shooting
+## phase and is stale in the Movement phase. The snap shooter has been checked
+## unengaged LIVE (RulesEngine.is_attached_unit_engaged) before it is offered,
+## and a stale `true` would make get_eligible_targets apply the engaged
+## [PISTOL] / Big Guns rules to it. Shallow copies — terrain keeps its
+## identity, so the LoS memo epoch is unaffected.
+static func _snap_board_unengaged(board: Dictionary, component_ids: Array) -> Dictionary:
+	var b: Dictionary = board.duplicate(false)
+	var units: Dictionary = board.get("units", {}).duplicate(false)
+	for cid in component_ids:
+		if not units.has(cid):
+			continue
+		var u: Dictionary = units[cid].duplicate(false)
+		var f: Dictionary = u.get("flags", {}).duplicate(false)
+		f["in_engagement"] = false
+		u["flags"] = f
+		units[cid] = u
+	b["units"] = units
+	return b
+
+## The alive, positioned models of `component_ids` with their centre (px) and
+## circumscribed base radius (px, Measurement.base_extent_px) — the input of
+## _snap_min_distance_pts. Models without a position (reserves, embarked) are
+## left out (_get_min_distance_to_target_rules would read them as (0, 0)).
+static func _snap_model_points(component_ids: Array, board: Dictionary) -> Array:
+	var pts: Array = []
+	var units: Dictionary = board.get("units", {})
+	for cid in component_ids:
+		for m in units.get(cid, {}).get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			var pos = m.get("position")
+			var c: Vector2 = pos if pos is Vector2 else Vector2(float(pos.get("x", 0.0)), float(pos.get("y", 0.0)))
+			pts.append({"m": m, "c": c, "r": Measurement.base_extent_px(m)})
+	return pts
+
+## Closest edge-to-edge distance (inches) between two model sets from
+## _snap_model_points, or INF when it is more than `cutoff_inches` (or either
+## set is empty). PERF: a pair whose bounding circles are already farther apart
+## than the cutoff / the best pair so far skips the shape-aware measurement.
+static func _snap_min_distance_pts(a_pts: Array, b_pts: Array, cutoff_inches: float = INF) -> float:
+	var best := INF
+	for a in a_pts:
+		for t in b_pts:
+			var lower_in: float = (a.c.distance_to(t.c) - float(a.r) - float(t.r)) / Measurement.PX_PER_INCH
+			if lower_in > cutoff_inches or lower_in >= best:
+				continue
+			best = minf(best, Measurement.model_to_model_distance_inches(a.m, t.m))
+	return best if best <= cutoff_inches else INF
+
+## Closest edge-to-edge distance (inches) between any alive, positioned model
+## of the shooter's Attached unit and any of the target's Attached unit (INF
+## when either side has none on the battlefield).
+static func _snap_min_distance_inches(shooter_components: Array, target_components: Array, board: Dictionary) -> float:
+	return _snap_min_distance_pts(_snap_model_points(shooter_components, board), _snap_model_points(target_components, board))
+
+## 15.09 "visible": at least one model of the shooter's Attached unit can see
+## at least one model of the target's Attached unit (the same 11e visibility
+## predicate target eligibility uses — unit_sight_line).
+static func _snap_unit_visible(shooter_components: Array, target_components: Array, board: Dictionary) -> bool:
+	for sid in shooter_components:
+		for tid in target_components:
+			if unit_sight_line(sid, tid, board, false).get("has_los", false):
+				return true
+	return false
+
+## The legal SNAP-shooting targets of `shooter_unit_id`'s (Attached) unit:
+## enemy units within 24" of it (measured first — it is the cheapest test, and
+## only those units go through the LoS-heavy eligibility scan), that are an
+## eligible target (RulesEngine.get_eligible_targets — Lone Operative X",
+## Psychic Veil, Hunter profiles, >= 1 weapon in range and visible — asked of
+## every component of the Attached unit), UNENGAGED, and visible to the unit.
+## 04.02: "Unless otherwise stated, each target must be: ... Unengaged."
+## 17.03 lifts that for MONSTER/VEHICLE targets only "In your Shooting phase";
+## snap shooting happens in the opponent's Movement phase, so an engaged
+## MONSTER/VEHICLE (which get_eligible_targets lets through for the Shooting
+## phase) is dropped here — and so is a target whose attached CHARACTER is
+## engaged (19.01: one unit). Sneaky Surprise units cannot be targeted by Fire
+## Overwatch (datasheet ability). Returns [{unit_id, label, distance_inches}],
+## nearest first. `pts_cache` (optional, PERF): unit id -> _snap_model_points
+## of its Attached unit, shared by a caller that asks about many shooters on the
+## same board (the FIRE OVERWATCH offer) so each enemy unit is measured once.
+static func snap_shooting_targets_11e(shooter_unit_id: String, board: Dictionary, pts_cache: Dictionary = {}) -> Array:
+	var out: Array = []
+	var units: Dictionary = board.get("units", {})
+	var shooter: Dictionary = units.get(shooter_unit_id, {})
+	if shooter.is_empty():
+		return out
+	var owner := int(shooter.get("owner", 0))
+	var head := attached_unit_target_id(shooter_unit_id, board)
+	var components: Array = attached_unit_component_ids(head, board)
+	# 15.09 "within 24" of your unit": enemy units (a bodyguard heads its
+	# Attached unit — an attached CHARACTER is targeted through it, and
+	# embarked units are not on the battlefield).
+	var near: Dictionary = {}  # target id -> closest distance (inches)
+	var shooter_pts: Array = _snap_model_points(components, board)
+	if shooter_pts.is_empty():
+		return out
+	for tid in units:
+		var target_u: Dictionary = units[tid]
+		if int(target_u.get("owner", 0)) == owner:
+			continue
+		if target_u.get("attached_to", null) != null or target_u.get("embarked_in", null) != null:
+			continue
+		if not pts_cache.has(tid):
+			pts_cache[tid] = _snap_model_points(attached_unit_component_ids(tid, board), board)
+		var dist := _snap_min_distance_pts(shooter_pts, pts_cache[tid], 24.0)
+		if dist <= 24.0:
+			near[tid] = dist
+	if near.is_empty():
+		return out
+	# 15.08 TARGET "One friendly unengaged unit": an engaged unit has no snap
+	# shot at all. Engagement range is at most 2" horizontally (barricades,
+	# T3-9), so only a unit with an enemy model that close needs the (live,
+	# whole-Attached-unit) engagement check — not the stale flags.in_engagement.
+	var nearest := INF
+	for tid in near:
+		nearest = minf(nearest, float(near[tid]))
+	if nearest <= maxf(GameConstants.engagement_range_inches(), GameConstants.barricade_engagement_range_inches()) + 1.0 \
+			and is_attached_unit_engaged(head, board):
+		print("RulesEngine: [15.08] SNAP — %s is engaged: no snap shooting" % head)
+		return out
+	var b := _snap_board_unengaged(board, components)
+	var candidate_ids: Dictionary = {}
+	for cid in components:
+		var et: Dictionary = get_eligible_targets(cid, b, false, near)
+		for tid in et:
+			candidate_ids[tid] = true
+	var ability_mgr = Engine.get_main_loop().root.get_node_or_null("UnitAbilityManager")
+	for tid in candidate_ids:
+		var target: Dictionary = units.get(tid, {})
+		if target.is_empty() or int(target.get("owner", 0)) == owner:
+			continue
+		if ability_mgr != null and ability_mgr.has_method("has_sneaky_surprise") and ability_mgr.has_sneaky_surprise(tid):
+			print("RulesEngine: [15.09] SNAP — %s has Sneaky Surprise (cannot be targeted by Fire Overwatch)" % tid)
+			continue
+		var cus11e_block := _cus11e_snap_block_reason(target)
+		if cus11e_block != "":
+			print("RulesEngine: [15.09] SNAP — %s cannot be targeted with snap shooting (%s)" % [tid, cus11e_block])
+			continue
+		if is_attached_unit_engaged(tid, board):
+			print("RulesEngine: [15.09/04.02] SNAP — %s is engaged: not an eligible target outside your Shooting phase (17.03)" % tid)
+			continue
+		var target_components: Array = attached_unit_component_ids(tid, board)
+		if not _snap_unit_visible(components, target_components, board):
+			continue
+		var meta: Dictionary = target.get("meta", {})
+		out.append({"unit_id": tid, "label": str(meta.get("display_name", meta.get("name", tid))), "distance_inches": float(near.get(tid, INF))})
+	out.sort_custom(func(a, c): return float(a.distance_inches) < float(c.distance_inches))
+	return out
+
+## Codex: Adeptus Custodes (11e) rules that make a unit an illegal SNAP-shooting
+## target: GOLDEN LIGHT OF THE MOIRAIDES (stratagem, WP-C5) and COMBAT
+## DEPLOYMENT (enhancement, WP-C46) — "enemy units cannot target that unit with
+## snap shooting attacks". Both read the whole Attached unit. "" = no block.
+## (They used to be checked only on the 10e per-move Fire Overwatch path,
+## StratagemManager.get_fire_overwatch_eligible_units.)
+static func _cus11e_snap_block_reason(target_unit: Dictionary) -> String:
+	if target_unit.is_empty() or GameConstants.edition < 11:
+		return ""
+	if load("res://scripts/codex/custodes/CustodesCodex11e.gd").blocks_snap_shooting_at(target_unit):
+		return "GOLDEN LIGHT OF THE MOIRAIDES"
+	if load("res://scripts/codex/custodes/CustodesDetachments.gd").blocks_snap_shooting(target_unit):
+		return "Combat Deployment"
+	return ""
+
+## Expected damage of one profile against the target (used to pick one
+## profile per weapon, 04.01.03, and the [CLOSE-QUARTERS] / other-weapons set
+## of a model, 24.07). Same heuristic as ShootingPhase's forced-shoot picker.
+static func _snap_profile_value(weapon_id: String, target_unit: Dictionary, board: Dictionary) -> float:
+	var prof = get_weapon_profile(weapon_id, board)
+	var t := float(str(target_unit.get("meta", {}).get("stats", {}).get("toughness", 4))) if str(target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)).is_valid_float() else 4.0
+	var s := float(str(prof.get("strength", 4))) if str(prof.get("strength", 4)).is_valid_float() else 4.0
+	var p_wound := 3.0 / 6.0
+	if s >= 2.0 * t:
+		p_wound = 5.0 / 6.0
+	elif s > t:
+		p_wound = 4.0 / 6.0
+	elif s * 2.0 <= t:
+		p_wound = 1.0 / 6.0
+	elif s < t:
+		p_wound = 2.0 / 6.0
+	var ap := absf(float(str(prof.get("ap", 0)))) if str(prof.get("ap", 0)).is_valid_float() else 0.0
+	return _snap_avg_value(prof.get("attacks_raw", prof.get("attacks", 1))) * p_wound \
+		* _snap_avg_value(prof.get("damage_raw", prof.get("damage", 1))) * (1.0 + 0.15 * ap)
+
+static func _snap_avg_value(v) -> float:
+	var s := str(v).to_upper().replace(" ", "")
+	if s.is_valid_float():
+		return float(s)
+	var plus := 0.0
+	if "+" in s:
+		var p := s.split("+")
+		s = p[0]
+		plus = float(p[1]) if p.size() > 1 and p[1].is_valid_float() else 0.0
+	var d := s.find("D")
+	if d < 0:
+		return plus
+	var n := float(s.substr(0, d)) if d > 0 and s.substr(0, d).is_valid_float() else 1.0
+	var sides := float(s.substr(d + 1)) if s.substr(d + 1).is_valid_float() else 6.0
+	return n * (sides + 1.0) / 2.0 + plus
+
+static func _snap_weapon_base_name(weapon_id: String, board: Dictionary) -> String:
+	var wname := str(get_weapon_profile(weapon_id, board).get("name", weapon_id))
+	for sep in [" – ", " — ", " - "]:
+		var idx := wname.find(sep)
+		if idx > 0:
+			return wname.substr(0, idx)
+	return wname
+
+## [CLOSE-QUARTERS] weapon (24.07; [PISTOL] is identical, 24.27).
+static func _snap_is_close_quarters_weapon(weapon_id: String, board: Dictionary) -> bool:
+	if is_pistol_weapon(weapon_id, board):
+		return true
+	var abilities: Array = AbilityRegistry.from_weapon(get_weapon_profile(weapon_id, board))
+	return AbilityRegistry.has_ability(abilities, "close_quarters") or AbilityRegistry.has_ability(abilities, "pistol")
+
+## The weapon assignments a SNAP shot (15.09) at `target_unit_id` makes —
+## "Your unit shoots as described in Making Attacks (04)":
+##  - 04.01: every ranged weapon of every model of the Attached unit (the
+##    leader's composite "<char>:<model>" bearers included), one profile per
+##    weapon (04.01.03 — the best one vs this target), and for a model that is
+##    not a MONSTER/VEHICLE either its [CLOSE-QUARTERS] weapons or its other
+##    ranged weapons (24.07 — whichever set is worth more);
+##  - 04.02: per weapon, only the models that can see the target and have it
+##    in range fire (get_eligible_shooter_models); Hunter profiles that cannot
+##    target it are dropped (04.01.03); a standalone Lone Operative is not
+##    visible to models beyond its X" (24.24); spent [ONE SHOT] weapons stay
+##    silent (24.26).
+## Every assignment carries overwatch:true (BS 7 → only unmodified 6s hit, no
+## hit re-rolls at 11e) and shooting_type "snap".
+static func build_snap_assignments_11e(shooter_unit_id: String, target_unit_id: String, board: Dictionary) -> Array:
+	var head := attached_unit_target_id(shooter_unit_id, board)
+	var components: Array = attached_unit_component_ids(head, board)
+	var b := _snap_board_unengaged(board, components)
+	var units: Dictionary = b.get("units", {})
+	var head_unit: Dictionary = units.get(head, {})
+	var target: Dictionary = units.get(target_unit_id, {})
+	if head_unit.is_empty() or target.is_empty():
+		return []
+	var lone_op_range := -1.0
+	if has_lone_operative(target) and target.get("attached_to", null) == null \
+			and target.get("attachment_data", {}).get("attached_characters", []).is_empty():
+		lone_op_range = get_lone_operative_range(target)
+	var unit_weapons: Dictionary = get_unit_weapons(head, b)
+	var eligible_cache: Dictionary = {}  # weapon_id -> eligible bearer ids
+	var models_for: Dictionary = {}  # weapon_id -> [bearer ids]
+	for bearer_id in unit_weapons:
+		var bearer_model: Dictionary = resolve_bearer_model(head_unit, str(bearer_id), b)
+		if bearer_model.is_empty() or not bearer_model.get("alive", true) or bearer_model.get("position") == null:
+			continue
+		if lone_op_range > 0.0:
+			var lo_best := INF
+			for tm in target.get("models", []):
+				if tm.get("alive", true) and tm.get("position") != null:
+					lo_best = minf(lo_best, Measurement.model_to_model_distance_inches(bearer_model, tm))
+			if lo_best > lone_op_range:
+				continue
+		var best_cq := {}     # base name -> weapon id
+		var best_other := {}  # base name -> weapon id
+		for wid in unit_weapons[bearer_id]:
+			var prof: Dictionary = get_weapon_profile(wid, b)
+			if prof.is_empty() or str(prof.get("type", "")).to_lower() == "melee":
+				continue
+			if not weapon_profile_can_target(wid, target, b):
+				continue
+			if is_one_shot_weapon(wid, b) and has_fired_one_shot(head_unit, str(bearer_id), wid):
+				continue
+			if not eligible_cache.has(wid):
+				eligible_cache[wid] = get_eligible_shooter_models(head, wid, target_unit_id, b).get("eligible", [])
+			if not (str(bearer_id) in eligible_cache[wid]):
+				continue
+			var base := _snap_weapon_base_name(wid, b)
+			var bucket: Dictionary = best_cq if _snap_is_close_quarters_weapon(wid, b) else best_other
+			if not bucket.has(base) or _snap_profile_value(wid, target, b) > _snap_profile_value(bucket[base], target, b):
+				bucket[base] = wid
+		var bearer_unit: Dictionary = resolve_bearer_unit(head_unit, str(bearer_id), b)
+		var chosen: Array = []
+		if is_monster_or_vehicle(bearer_unit if not bearer_unit.is_empty() else head_unit):
+			chosen = best_cq.values() + best_other.values()
+		else:
+			var cq_value := 0.0
+			for w in best_cq.values():
+				cq_value += _snap_profile_value(w, target, b)
+			var other_value := 0.0
+			for w in best_other.values():
+				other_value += _snap_profile_value(w, target, b)
+			chosen = best_other.values() if other_value >= cq_value and not best_other.is_empty() else best_cq.values()
+		for wid in chosen:
+			if not models_for.has(wid):
+				models_for[wid] = []
+			models_for[wid].append(str(bearer_id))
+	var assignments: Array = []
+	for wid in models_for:
+		assignments.append({"weapon_id": wid, "target_unit_id": target_unit_id, "model_ids": models_for[wid],
+			"overwatch": true, "shooting_type": "snap"})
+	return assignments
+
 static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService, hit_on_six: bool = true) -> Dictionary:
 	"""Resolve a single weapon assignment during overwatch.
 	Key difference: only unmodified 6s count as hits (hit_on_six=false uses the
@@ -2145,6 +2454,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		for i in range(bs_per_attack.size()):
 			bs_per_attack[i] = 7
 		print("RulesEngine: [OVERWATCH] Forcing BS=7 — only unmodified 6s will hit")
+		critical_hit_threshold = _snap_critical_hit_threshold_11e(critical_hit_threshold)
 
 	var cover_worsened_attacks = 0  # 13.08 — attacks whose BS the benefit of cover worsened
 	var hit_threshold_display = str(bs) + "+"  # rebuilt from the effective per-attack BS before display
@@ -2506,6 +2816,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
 				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed")
+		# 11e 15.09 SNAP SHOOTING (FIRE OVERWATCH 15.08): "You cannot re-roll
+		# hit rolls." Oath of Moment, re-roll-hits abilities and stratagem
+		# flags are all stripped for every snap attack.
+		if is_overwatch and GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
+			hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
+			print("RulesEngine: [11e 15.09] SNAP — hit re-rolls suppressed")
 		# DRIVE-BY BUSTIN': a batch mixing Firing Deck and the transport's own
 		# weapons gets the +1 only on its Firing Deck attacks.
 		var ork11e_fd_mixed: bool = ork11e_drive_by_bustin_active(actor_unit) and ork11e_fd_attack.has(true) and ork11e_fd_attack.has(false)
@@ -2691,7 +3007,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		"is_torrent": is_torrent,
 		# 11e 10.07: indirect shooting — "You cannot re-roll hit rolls" (also
 		# blocks the staged Command Re-roll of a hit die).
-		"no_hit_rerolls": indirect_consequences and GameConstants.edition >= 11,
+		# 11e 15.09: snap shooting (FIRE OVERWATCH) cannot re-roll hit rolls either.
+		"no_hit_rerolls": (indirect_consequences or is_overwatch) and GameConstants.edition >= 11,
 		"hit_rolls": hit_rolls,
 		"modified_rolls": modified_rolls,
 		"hit_evals": hit_evals,
@@ -4301,6 +4618,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		for i in range(bs_per_attack.size()):
 			bs_per_attack[i] = 7
 		print("RulesEngine: [OVERWATCH][auto-resolve] Forcing BS=7 — only unmodified 6s will hit")
+		critical_hit_threshold = _snap_critical_hit_threshold_11e(critical_hit_threshold)
 
 	var cover_worsened_attacks = 0  # 13.08 — attacks whose BS the benefit of cover worsened
 	var hit_threshold_display = str(bs) + "+"  # rebuilt from the effective per-attack BS before display
@@ -4647,6 +4965,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
 				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed")
+		# 11e 15.09 SNAP SHOOTING (FIRE OVERWATCH 15.08): "You cannot re-roll
+		# hit rolls." Oath of Moment, re-roll-hits abilities and stratagem
+		# flags are all stripped for every snap attack.
+		if is_overwatch and GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
+			hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
+			print("RulesEngine: [11e 15.09] SNAP — hit re-rolls suppressed")
 		# DRIVE-BY BUSTIN': a batch mixing Firing Deck and the transport's own
 		# weapons gets the +1 only on its Firing Deck attacks.
 		var ork11e_fd_mixed: bool = ork11e_drive_by_bustin_active(actor_unit) and ork11e_fd_attack.has(true) and ork11e_fd_attack.has(false)
@@ -6121,6 +6445,19 @@ static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, inv
 		"cap_applied": improvement > 1
 	}
 
+## 11e 15.09 SNAP SHOOTING: "Each attack only hits on an unmodified hit roll
+## of 6 (irrespective of the attacking weapon's BS characteristic or any
+## modifiers)". Overwatch forces BS 7, which stops BS/hit modifiers — but a
+## rule that LOWERS the critical-hit threshold (Conversion X+, BLITZA FIRE,
+## effect_crit_hit_on) would still make a 5 hit through AttackSequence's
+## "unmodified >= crit threshold always hits" branch. Clamp it back to 6 at
+## edition >= 11 (an unmodified 6 is still a critical hit). 10e unchanged.
+static func _snap_critical_hit_threshold_11e(critical_hit_threshold: int) -> int:
+	if GameConstants.edition >= 11 and critical_hit_threshold < 6:
+		print("RulesEngine: [11e 15.09] SNAP — critical hit threshold %d+ clamped to 6+ (only unmodified 6s hit)" % critical_hit_threshold)
+		return 6
+	return critical_hit_threshold
+
 ## 11e (10.07): do an [INDIRECT FIRE] weapon's indirect-shooting WHILE
 ## SHOOTING consequences apply to this attack? At 11e they follow the shooting
 ## type the player SELECTED for the unit (assignment.shooting_type, stamped by
@@ -6699,7 +7036,11 @@ static func _get_model_position(model: Dictionary) -> Vector2:
 # list filter only needs a yes/no, so it passes true and skips the rest of the
 # (expensive, LoS-heavy) enemy scan. The default false path builds the full map
 # the target-selection UI needs.
-static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first_match_only: bool = false) -> Dictionary:
+# only_target_ids (PERF, 15.09 snap shooting): when non-empty, only the enemy
+# units whose ids are keys of it are considered — a caller that has already
+# ruled the rest out on a cheaper test (snap shooting: "within 24"") skips
+# their LoS / engagement scans. Every check on a considered unit is unchanged.
+static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first_match_only: bool = false, only_target_ids: Dictionary = {}) -> Dictionary:
 	var eligible = {}
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
@@ -6721,6 +7062,8 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first
 
 	# Check each potential target unit
 	for target_unit_id in units:
+		if not only_target_ids.is_empty() and not only_target_ids.has(target_unit_id):
+			continue
 		var target_unit = units[target_unit_id]
 
 		# Skip friendly units
@@ -11325,7 +11668,8 @@ static func charge_targets_within_12(unit_id: String, board: Dictionary) -> Dict
 		if _is_target_within_charge_range_rules(unit_id, target_id, board):
 			eligible[target_id] = {
 				"name": target_unit.get("meta", {}).get("name", target_id),
-				"distance": _get_min_distance_to_target_rules(unit_id, target_id, board)
+				# 11e: from the whole Attached unit (19.01) — see charge_unit_models
+				"distance": _charge_min_distance_to_target_rules(unit_id, target_id, board)
 			}
 	
 	return eligible
@@ -11364,7 +11708,7 @@ static func charge_target_ineligibility_reason(unit_id: String, target_unit_id: 
 		return "%s is an AIRCRAFT — only units with FLY can charge it" % target_name
 
 	if not _is_target_within_charge_range_rules(unit_id, target_unit_id, board):
-		var dist = _get_min_distance_to_target_rules(unit_id, target_unit_id, board)
+		var dist = _charge_min_distance_to_target_rules(unit_id, target_unit_id, board)
 		if dist == INF:
 			return "%s is not on the battlefield" % target_name
 		return "%s is %.1f\" away — charge targets must be within 12\"" % [target_name, dist]
@@ -11465,6 +11809,23 @@ static func _is_unit_in_engagement_range_charge(unit: Dictionary, board: Diction
 
 	return false
 
+# The models a charge measures "your unit" from. 11e: every model of the
+# Attached unit headed by unit_id (its own models plus its attached
+# CHARACTER(s)') — 19.01 "An attached unit is a single unit for all rules
+# purposes", so 11.04 BEFORE MOVING's "within 12" of your unit and within the
+# maximum distance of your unit" and AFTER MOVING's "Your unit must be engaged
+# with all of the charge targets" are satisfied by the leader's models too (the
+# charge move already carries them as <char_unit>:<model> paths). Same model set
+# as ChargeMove11e._unit_group_models. 10e: the unit's own models (unchanged).
+static func charge_unit_models(unit_id: String, board: Dictionary) -> Array:
+	var units = board.get("units", {})
+	if GameConstants.edition < 11:
+		return units.get(unit_id, {}).get("models", [])
+	var out: Array = []
+	for gid in attached_unit_component_ids(unit_id, board):
+		out.append_array(units.get(str(gid), {}).get("models", []))
+	return out
+
 # Check if target is within 12" charge range
 static func _is_target_within_charge_range_rules(unit_id: String, target_id: String, board: Dictionary) -> bool:
 	const CHARGE_RANGE_INCHES = 12.0
@@ -11478,7 +11839,8 @@ static func _is_target_within_charge_range_rules(unit_id: String, target_id: Str
 	# Find closest edge-to-edge distance between any models using shape-aware calculations
 	var min_distance = INF
 
-	for model in unit.get("models", []):
+	# 11e: from every model of the Attached unit (19.01) — see charge_unit_models
+	for model in charge_unit_models(unit_id, board):
 		if not model.get("alive", true):
 			continue
 
@@ -11498,6 +11860,31 @@ static func _is_target_within_charge_range_rules(unit_id: String, target_id: Str
 			min_distance = min(min_distance, distance_inches)
 
 	return min_distance <= CHARGE_RANGE_INCHES
+
+# Charge-only minimum edge-to-edge distance (inches) from the charging unit
+# to target_id, measured from charge_unit_models — every model of the Attached
+# unit at 11e (19.01), the unit's own models at 10e. The ELIGIBLE TARGETS row
+# distance and the ineligibility message use it, so they agree with
+# _is_target_within_charge_range_rules. Deliberately NOT folded into
+# _get_min_distance_to_target_rules, which shooting (Lone Operative, Psychic
+# Veil, closest target) also reads.
+static func _charge_min_distance_to_target_rules(unit_id: String, target_id: String, board: Dictionary) -> float:
+	var target = board.get("units", {}).get(target_id, {})
+	var min_distance = INF
+	for model in charge_unit_models(unit_id, board):
+		if not model.get("alive", true):
+			continue
+		var model_pos = _get_model_position_rules(model)
+		if model_pos == null:
+			continue
+		for target_model in target.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+			var target_pos = _get_model_position_rules(target_model)
+			if target_pos == null:
+				continue
+			min_distance = min(min_distance, Measurement.model_to_model_distance_inches(model, target_model))
+	return min_distance
 
 # Get minimum distance to target
 static func _get_min_distance_to_target_rules(unit_id: String, target_id: String, board: Dictionary) -> float:

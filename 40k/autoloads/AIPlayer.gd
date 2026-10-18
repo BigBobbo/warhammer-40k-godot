@@ -750,6 +750,38 @@ func request_evaluation_after_load() -> void:
 	else:
 		print("AIPlayer: Skipping evaluation after load (AI not enabled)")
 
+## A stratagem the AI used inside a stratagem WINDOW. BasePhase decides AI
+## windows synchronously (AIDecisionMaker.decide_window_stratagem — e.g. the
+## 11e FIRE OVERWATCH at the end of the opponent's Movement phase), so no AI
+## action is ever submitted for it: log it here as USE_WINDOW_STRATAGEM so the
+## turn summary / action log count it like any other stratagem. `cp_spent` is
+## what StratagemManager.use_stratagem actually deducted (after Strategic
+## Mastery / Lord of Deceit) — recorded in the AI's CP stats (T7-57) like the
+## reactive and RAPID INGRESS paths do.
+func record_window_stratagem_use(player: int, window_id: String, stratagem_id: String, stratagem_name: String, target_unit_id: String, secondary_id: String = "", cp_spent: int = 0) -> void:
+	var target_name := GameState.get_unit_display_name(target_unit_id) if target_unit_id != "" else ""
+	var desc := "AI uses %s" % stratagem_name
+	if target_name != "":
+		desc += " with %s" % target_name
+	if secondary_id != "":
+		desc += " at %s" % GameState.get_unit_display_name(secondary_id)
+	var phase := int(GameState.get_current_phase())
+	_append_action_log({
+		"phase": phase,
+		"action_type": "USE_WINDOW_STRATAGEM",
+		"description": desc,
+		"player": player,
+		"stratagem_id": stratagem_id,
+		"window_id": window_id,
+	})
+	if _spectator_mode:
+		_track_action_for_summary(player, "USE_WINDOW_STRATAGEM", phase)
+	_log_ai_event(player, desc)
+	record_ai_key_moment(player, desc)
+	if cp_spent > 0:
+		record_ai_cp_spent(player, cp_spent)
+	print("AIPlayer: recorded window stratagem use — P%d %s (%s, %d CP)" % [player, desc, window_id, cp_spent])
+
 func get_action_log() -> Array:
 	return _action_log.duplicate()
 
@@ -1373,8 +1405,13 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 
 	var total = roll_context.get("total", 0)
 	var min_distance = roll_context.get("min_distance", 99.0)
-	# A charge succeeds when the roll reaches engagement range (2" at 11e, 1" at 10e)
-	var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
+	# 10e: a charge succeeds when the roll reaches engagement range (1").
+	# 11e 11.04: the target must be within the roll itself (base to base) —
+	# ER does not extend it — so the roll needed IS the nearest distance (less
+	# the phase's 0.02" "within" tolerance, so a target exactly at the roll
+	# is not re-rolled over float drift).
+	var needed = max(0.0, min_distance - ChargeMove11e.WITHIN_TOLERANCE_INCHES) if GameConstants.edition >= 11 \
+		else max(0.0, min_distance - GameConstants.engagement_range_inches())
 	var ability_name = roll_context.get("ability_name", "ability")
 
 	# Since it's free, always reroll if the roll is insufficient
@@ -1442,7 +1479,11 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		"charge_roll":
 			var total = roll_context.get("total", 0)
 			var min_distance = roll_context.get("min_distance", 99.0)
-			var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
+			# 11e 11.04: the target must be within the roll itself, so the roll
+			# needed is the nearest distance, less the 0.02" "within"
+			# tolerance (10e: distance minus ER).
+			var needed = max(0.0, min_distance - ChargeMove11e.WITHIN_TOLERANCE_INCHES) if GameConstants.edition >= 11 \
+				else max(0.0, min_distance - GameConstants.engagement_range_inches())
 			should_reroll = AIDecisionMaker.evaluate_command_reroll_charge(
 				player, total, int(ceil(needed)), snapshot
 			)
@@ -2994,7 +3035,7 @@ func _categorize_action(action_type: String) -> String:
 			return "units_fought"
 		"USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH", "USE_COUNTER_OFFENSIVE", \
 		"USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK", "USE_GRENADE_STRATAGEM", \
-		"USE_COMMAND_REROLL", "USE_RAPID_INGRESS":
+		"USE_COMMAND_REROLL", "USE_RAPID_INGRESS", "USE_WINDOW_STRATAGEM":
 			return "stratagems_used"
 		"PLACE_RAPID_INGRESS_REINFORCEMENT":
 			return "reinforcements"

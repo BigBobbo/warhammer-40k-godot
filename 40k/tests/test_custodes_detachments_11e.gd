@@ -680,7 +680,9 @@ func _section_moritoi() -> void:
 	cont.models[0]["current_wounds"] = int(cont.models[0].wounds)
 	_check("other detachments: no OC bonus", D.oc_bonus(cont) == 0)
 	# Objective control end to end (MissionManager): Contemptor vs an Ork unit
-	# with one more OC than its statline.
+	# with one more OC than its statline. 14.02 adds the OC of EVERY model in
+	# range, so only one Meganob stands in range (the others well away) —
+	# the Orks' level of control is one model's OC, c_oc + 1.
 	_set_det("Might of the Moritoi")
 	var mm = root.get_node("MissionManager")
 	var obj := {"id": "obj_test", "position": Vector2(880, 1200)}
@@ -690,7 +692,9 @@ func _section_moritoi() -> void:
 	var o_unit: Dictionary = _unit(MEGA).duplicate(true)
 	o_unit.meta.stats["objective_control"] = c_oc + 1
 	for i in range(o_unit.models.size()):
-		o_unit.models[i]["position"] = {"x": 860.0 + i * 20.0, "y": 1240.0}
+		o_unit.models[i]["position"] = {"x": 860.0 + i * 20.0, "y": 1240.0 if i == 0 else 2200.0}
+	_check("(setup) the Orks' level of control is one model's OC (14.02)", int(mm.get_level_of_control(obj, {MEGA: o_unit}).get(2, -1)) == c_oc + 1,
+		str(mm.get_level_of_control(obj, {MEGA: o_unit})))
 	var units := {CONT: c_unit, MEGA: o_unit}
 	_check("Moritoi Ancients: OC %d + 2 beats the Orks' %d" % [c_oc, c_oc + 1], mm._check_objective_control(obj, units) == 1)
 	_set_det("Guardians of the Throne")

@@ -6,6 +6,7 @@
     "autoloads.CharacterAttachmentManager.bodyguard_role_cap"
   ],
   "fixture": "fullauto_formations",
+  "edition": 11,
   "rng_seed": 42,
   "disable_ai": true,
   "description": "Formations rules from the 11e rosters: Supreme Commander forces Ghazghkull to be the Warlord (designating a plain Warboss is rejected, Ghazghkull is accepted), and the Boyz Bodyguard ability allows a SECOND leader to attach (third is rejected by the role cap).",

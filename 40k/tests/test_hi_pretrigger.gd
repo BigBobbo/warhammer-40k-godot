@@ -28,6 +28,23 @@ func _run_tests():
 		return
 	print("\n=== test_hi_pretrigger ===\n")
 
+	# Legacy 10e regression: Heroic Intervention offered "just after an enemy unit
+	# ends a Charge move" (APPLY_CHARGE_MOVE → trigger_heroic_intervention) — 11e
+	# 15.11 replaced it ("WHEN: End of your opponent's Charge phase."); 11e coverage:
+	# tests/test_core_stratagems_11e.gd (HEROIC INTERVENTION 15.11 section),
+	# tests/test_hi_attached_char_gate_11e.gd, scenarios
+	# sp/iss15_heroic_intervention_fray_11e.json + sp/iss15_heroic_intervention_decline_11e.json.
+	# The fixture geometry is 10e as well: Warboss B starts 1.18" (base edge) from
+	# Custodian Guard B m4 — outside the 10e 1" Engagement Range, inside the 11e one
+	# (03.04: "within 2" horizontally and 5" vertically"), and 11e 11.02 makes an
+	# engaged unit ineligible to declare a charge ("It is engaged."), so at 11e the
+	# DECLARE_CHARGE below is (correctly) rejected before any HI logic runs.
+	# Set here, after the re-entry guard — SettingsService applies the harness
+	# edition in _ready, so a write in _init would be overwritten.
+	GameConstants.edition = 10
+	_check("Legacy 10e pin: GameConstants.edition == 10",
+		GameConstants.edition == 10, "got %d" % GameConstants.edition)
+
 	var save_mgr = root.get_node("SaveLoadManager")
 	var game_state = root.get_node("GameState")
 	var phase_mgr = root.get_node("PhaseManager")

@@ -1636,6 +1636,14 @@ func _restore_terrain_types(terrain_features: Array) -> Array:
 		restored.append(f)
 	return restored
 
+## meta key recording which player turn's start-of-Command steps have been
+## applied ("R<round>P<player>"), so re-entering that Command phase (a restored
+## save, a reconnect, a scripted re-entry) does not apply them twice.
+const COMMAND_START_RESOLVED_KEY := "command_start_resolved"
+
+static func command_start_key(battle_round: int, player: int) -> String:
+	return "R%dP%d" % [battle_round, player]
+
 # Load state from a snapshot
 func load_from_snapshot(snapshot: Dictionary) -> void:
 	state = _deep_copy_dict(snapshot)
@@ -1658,6 +1666,17 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 			if a is Dictionary:
 				for k in _PHASE_LOG_STRIP_KEYS:
 					a.erase(k)
+
+	# No command_start_resolved marker is inferred here. A Command-phase save
+	# written by this build carries it (set during enter_phase), so restoring
+	# it does not re-run the start steps. An unmarked Command-phase save is
+	# either AUTHORED at the start of the phase, before those steps (tutorial
+	# saves, hand-built fixtures — they rely on the draw/CP happening on
+	# load), or came from an older build; the two cannot be told apart, so it
+	# keeps the old behaviour and runs the start steps once on load.
+	if state.has("meta") and int(state["meta"].get("phase", -1)) == Phase.COMMAND \
+			and not state["meta"].has(COMMAND_START_RESOLVED_KEY):
+		print("[GameState] Restored Command-phase state has no %s — its start-of-Command steps will run on entry" % COMMAND_START_RESOLVED_KEY)
 
 	# SAVE/LOAD FIX: Ensure formation metadata exists for backwards compatibility with old saves.
 	# If the saved phase is past FORMATIONS and formation flags are missing, infer they were completed.

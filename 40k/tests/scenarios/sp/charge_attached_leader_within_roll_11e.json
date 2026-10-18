@@ -1,0 +1,354 @@
+{
+  "id": "charge_attached_leader_within_roll_11e",
+  "covers": [
+    "charge.11e.target_within_roll",
+    "charge.11e.attached_unit_measurement",
+    "phases.ChargePhase.11e_charge_flow"
+  ],
+  "fixture": "attached_char_charge_overlap",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Core 11.04 BEFORE MOVING: charge targets are enemy units \"within 12\\\" of your unit and within the maximum distance of your unit\"; AFTER MOVING: \"Your unit must be engaged with all of the charge targets\". 19.01: \"An attached unit is a single unit for all rules purposes\", so the leader's models count. Review fix for the 11e within-the-roll change: the selectable list measured from the whole Attached unit, but the post-roll success check (_is_charge_roll_sufficient / _per_target_charge_requirements) and the pre-roll 12\" checks (RulesEngine.charge_targets_within_12 -> the UNITS THAT CAN CHARGE filter and ELIGIBLE TARGETS rows, ChargePhase._is_target_within_charge_range -> DECLARE_CHARGE) measured only the bodyguard. Real clicks on the charge panel. (A) Blade Champion 10.0\" from the Boyz, his Custodian Guard 12.5\"+ away: the Attached unit is listed, its target row reads 10.0\", and the dashed 12\" envelope contains the Boyz. (B) Blade Champion 6.5\" away, Custodian Guard 9.4\"+ away: the player selects the target and declares BEFORE the roll (the only way the UI declares), the hint asks for 6.5\" and 'Min roll' is 7; the UI roll is pinned to 7 — before the fix the charge FAILED here with a false 'terrain' explanation; now it continues, Snap to Contact puts the leader in contact, and Confirm completes an engaged charge.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "return GameConstants.edition",
+      "multiline": true,
+      "equals": 11
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CUSTODIAN_GUARD_B.attachment_data.attached_characters.0",
+      "equals": "U_BLADE_CHAMPION_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].merge({\"attached_to\": \"U_CUSTODIAN_GUARD_B\"}, true)",
+      "comment": "19.01 linkage in both directions, as formations write it (CharacterAttachmentManager); the stock fixture carries only the bodyguard's forward list, which leaves the leader listed as a separate charger"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.state.units\nu[\"U_BLADE_CHAMPION_A\"].models[0][\"position\"] = {\"x\": 600.0, \"y\": 1048.693}\nu[\"U_CUSTODIAN_GUARD_B\"].models[0][\"position\"] = {\"x\": 540.0, \"y\": 1180.0}\nu[\"U_CUSTODIAN_GUARD_B\"].models[1][\"position\"] = {\"x\": 660.0, \"y\": 1180.0}\nu[\"U_CUSTODIAN_GUARD_B\"].models[2][\"position\"] = {\"x\": 600.0, \"y\": 1148.693}\nfor uid in [\"U_BLADE_CHAMPION_A\", \"U_CUSTODIAN_GUARD_B\"]:\n\tfor m in u[uid].models:\n\t\tm[\"rotation\"] = 0.0\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "Layout A (40px = 1\"; 40mm radius 31.496px, 32mm radius 25.197px): the Blade Champion 10.0\" south of the Boyz model at (600, 592); his Custodian Guard behind him, 12.5\"-13.4\" away (beyond 12\"). 19.01: the Attached unit is one unit, so it is within 12\" of the Boyz through its leader."
+    },
+    {
+      "act": "execute_script",
+      "script": "main._sync_all_token_positions()"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller._refresh_ui()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar focus := Vector2(600.0, 860.0)\nvar z := 1.2\nvar vp: Vector2 = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(z, z)\nm.view_zoom = z\nm.view_offset = focus - vp / (2.0 * z)\nm.update_view_transform()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "frame the leader, his bodyguard and the Boyz"
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(min_edge_distance_between_units(\"U_BLADE_CHAMPION_A\", \"U_ENEMY_BOYZ_X\") - 10.0) < 0.005",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "min_edge_distance_between_units(\"U_CUSTODIAN_GUARD_B\", \"U_ENEMY_BOYZ_X\")",
+      "expect_min": 12.4
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.current_scene.charge_controller\nvar ids = []\nfor i in range(cc.unit_selector.get_item_count()):\n\tids.append(str(cc.unit_selector.get_item_metadata(i)))\nreturn str(ids)",
+      "multiline": true,
+      "equals": "[\"U_CUSTODIAN_GUARD_B\"]",
+      "comment": "UNITS THAT CAN CHARGE lists the Attached unit (RulesEngine.charge_targets_within_12 now measures from the leader too; before the fix it was filtered out)"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_CUSTODIAN_GUARD_B"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_count()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_metadata(0)",
+      "equals": "U_ENEMY_BOYZ_X"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_text(0).find(\"(10.0\\\")\") != -1",
+      "equals": true,
+      "comment": "the row's distance is measured from the leader"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.current_scene.charge_controller\nfor outline in cc.charge_threat_outlines:\n\tif Geometry2D.is_point_in_polygon(Vector2(600.0, 592.0), PackedVector2Array(outline)):\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the dashed 12\" charge envelope is drawn around the leader too, so it contains the Boyz"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_leader_10in_bodyguard_12_5in_target_listed"
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.state.units\nu[\"U_BLADE_CHAMPION_A\"].models[0][\"position\"] = {\"x\": 600.0, \"y\": 908.693}\nu[\"U_CUSTODIAN_GUARD_B\"].models[0][\"position\"] = {\"x\": 540.0, \"y\": 1056.0}\nu[\"U_CUSTODIAN_GUARD_B\"].models[1][\"position\"] = {\"x\": 660.0, \"y\": 1056.0}\nu[\"U_CUSTODIAN_GUARD_B\"].models[2][\"position\"] = {\"x\": 600.0, \"y\": 1024.693}\nfor uid in [\"U_BLADE_CHAMPION_A\", \"U_CUSTODIAN_GUARD_B\"]:\n\tfor m in u[uid].models:\n\t\tm[\"rotation\"] = 0.0\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "Layout B: the Blade Champion 6.5\" from the Boyz; the Custodian Guard 9.4\"-10.3\" away — beyond even roll + 2\" ER on a 7, so only the leader can end the charge engaged."
+    },
+    {
+      "act": "execute_script",
+      "script": "main._sync_all_token_positions()"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller._refresh_ui()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(min_edge_distance_between_units(\"U_BLADE_CHAMPION_A\", \"U_ENEMY_BOYZ_X\") - 6.5) < 0.005",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "min_edge_distance_between_units(\"U_CUSTODIAN_GUARD_B\", \"U_ENEMY_BOYZ_X\")",
+      "expect_min": 9.35
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.unit_selector.get_item_metadata(0)",
+      "equals": "U_CUSTODIAN_GUARD_B"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_CUSTODIAN_GUARD_B"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_text(0).find(\"(6.5\\\")\") != -1",
+      "equals": true
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeTargetList",
+      "index": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.selected_targets == [\"U_ENEMY_BOYZ_X\"]",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.charge_requirement_label.text.find(\"≥ 6.5\") != -1",
+      "equals": true,
+      "comment": "pre-roll hint: the roll needed is the leader's 6.5\" (11.04: within the roll)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.charge_trajectory_preview.min_roll_needed()",
+      "equals": 7,
+      "comment": "trajectory 'Min roll' also measures from the leader"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_leader_6_5in_declaring"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_charge(\"U_CUSTODIAN_GUARD_B\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().pending_charges[\"U_CUSTODIAN_GUARD_B\"].targets)",
+      "equals": "[\"U_ENEMY_BOYZ_X\"]",
+      "comment": "the UI declares the target BEFORE the roll — the path whose post-roll check used to ignore the leader"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(2)",
+      "comment": "the next unseeded 2D6 (the UI charge roll) is 7"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.find_children(\"KeepRollButton\", \"\", true, false)\nif b.size() > 0 and b[0].is_visible_in_tree():\n\tb[0].emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "keep the 7 if a re-roll prompt is offered"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_charge(\"U_CUSTODIAN_GUARD_B\")",
+      "equals": true,
+      "comment": "11.04 / 19.01: the leader can end engaged, so the 7 does NOT fail (before the fix: FAILED with a false terrain message)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_charges[\"U_CUSTODIAN_GUARD_B\"].distance",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().pending_charges[\"U_CUSTODIAN_GUARD_B\"].selectable_targets)",
+      "equals": "[\"U_ENEMY_BOYZ_X\"]"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().pending_charges[\"U_CUSTODIAN_GUARD_B\"].targets)",
+      "equals": "[\"U_ENEMY_BOYZ_X\"]"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_failed_charge_attempts().size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.target_list.get_item_text(0).ends_with(\"beyond roll\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "event_log_count_containing(\"= 7\\\" vs 6.5\\\" needed - SUCCESS\")",
+      "equals": 1,
+      "comment": "the game log records the roll as a SUCCESS against the leader's 6.5\""
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.awaiting_movement",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_rolled_7_led_charge_continues"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/SnapToContactButton"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/SnapToContactButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "min_edge_distance_between_units(\"U_BLADE_CHAMPION_A\", \"U_ENEMY_BOYZ_X\")",
+      "expect_max": 1.0,
+      "comment": "Snap to Contact puts the leader (6.5\" away) into contact"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/ConfirmChargeButton",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/ConfirmChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CUSTODIAN_GUARD_B.flags.charged_this_turn",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BLADE_CHAMPION_A.flags.charged_this_turn",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_CUSTODIAN_GUARD_B\" in PhaseManager.get_current_phase_instance().get_completed_charges()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "min_edge_distance_between_units(\"U_BLADE_CHAMPION_A\", \"U_ENEMY_BOYZ_X\")",
+      "expect_max": 1.0,
+      "comment": "11.04 AFTER MOVING: the Attached unit is engaged with its charge target through its leader"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_led_charge_confirmed"
+    }
+  ]
+}

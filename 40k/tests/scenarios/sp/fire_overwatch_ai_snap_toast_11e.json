@@ -1,0 +1,120 @@
+{
+  "id": "fire_overwatch_ai_snap_toast_11e",
+  "covers": [
+    "stratagem.core.fire_overwatch_11e",
+    "ai.window_stratagem.fire_overwatch_11e",
+    "scripts.Main._on_phase_action_pressed.fire_overwatch_summary",
+    "scripts.Main._show_fire_overwatch_summary"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "11e FIRE OVERWATCH (15.08) used by the AI at the end of the HUMAN's Movement phase: the result toast. Fixture ork11e_orks_reactive (P1 Custodes active, round 2, 6 CP each). Set-up (scripted): the Orks (P2) are handed to the AI, the human lets the computer allocate wounds (auto-allocate ON, so the snap shot resolves at once), and Custodian Guard Gamma is made a soft target (T3, no save) so the AI's expected-damage rule fires. The human ends the Movement phase with the phase button (real click): the AI answers its movement_phase_end window synchronously INSIDE that END_MOVEMENT \u2014 FIRE OVERWATCH, 1 CP \u2014 the snap shot resolves, and the 'FIRE OVERWATCH: \u2026 snap-shot \u2026' result toast is shown to the human. Before this fix the toast was only raised by the window-dialog / movement-action / network paths, never by the phase button's END_MOVEMENT, so the human saw nothing.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "return GameConstants.edition",
+      "equals": 11,
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn InputDeviceManager.is_pad_active()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.auto_allocate_wounds = true\nvar cg = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"]\ncg.meta.stats[\"toughness\"] = 3\ncg.meta.stats[\"save\"] = 7\ncg.meta.stats[\"invuln\"] = 0\nfor m in cg.models:\n\tm[\"invuln\"] = 0\nAIPlayer.enabled = true\nAIPlayer.ai_players = {1: false, 2: true}\nreturn AIPlayer.is_ai_player(2) and not AIPlayer.is_ai_player(1)",
+      "equals": true,
+      "comment": "set-up: P2 = AI, auto-allocate ON, soft target"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "comment": "(informational) AI action log size before"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm.get_ok_button().pressed.emit()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var out = []\nfor t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tfor c in t.find_children(\"*\", \"Label\", true, false):\n\t\t\tout.append(c.text)\nvar all = \" | \".join(out)\nreturn all.contains(\"FIRE OVERWATCH:\") and all.contains(\"snap-shot\")",
+      "equals": true,
+      "comment": "the human is shown the AI's snap-shot result"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_ai_fire_overwatch_result_toast"
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1,
+      "comment": "the AI paid 1 CP for FIRE OVERWATCH"
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for e in AIPlayer.get_action_log():\n\tif str(e.get(\"action_type\", \"\")) == \"USE_WINDOW_STRATAGEM\" and str(e.get(\"stratagem_id\", \"\")) == \"fire_overwatch_11e\":\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "the AI's use is in its action log / turn summary"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\">>> FIRE OVERWATCH <<<\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8,
+      "comment": "the Movement phase ended"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIPlayer.enabled = false\nAIPlayer.ai_players = {1: false, 2: false}\nreturn true",
+      "equals": true
+    }
+  ]
+}

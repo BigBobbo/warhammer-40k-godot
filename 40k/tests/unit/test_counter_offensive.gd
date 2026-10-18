@@ -9,6 +9,17 @@ extends "res://addons/gut/test.gd"
 # - EFFECT: Your unit fights next.
 # - RESTRICTION: Once per phase.
 #
+# 11e COUNTEROFFENSIVE 15.12 (the default edition; docs/rules/40k_11th_edition_core_rules.txt):
+# - WHEN: Fight step of your opponent's Fight phase, just after an enemy unit has
+#         resolved its attacks.
+# - TARGET: One friendly unit that is eligible to fight.
+# - EFFECT: Until the end of the phase, your unit has the Fights First ability and
+#           it must be the next unit you select to fight (12.04).
+# - Once per phase comes from 15.01 ("Each player cannot use the same stratagem
+#   more than once in the same phase").
+# The tests below therefore put the stratagem user in the NON-active seat; see
+# _setup_fight_scenario.
+#
 # These tests verify:
 # 1. StratagemManager definition and validation for Counter-Offensive
 # 2. CP deduction when used (2 CP)
@@ -60,10 +71,21 @@ func _create_unit(id: String, model_count: int, owner: int = 1, keywords: Array 
 		"flags": {}
 	}
 
-func _setup_fight_scenario() -> void:
-	"""Set up a basic fight scenario with units from both players in engagement range."""
+func _setup_fight_scenario(active_player: int = 2) -> void:
+	"""Set up a basic fight scenario with units from both players in engagement range.
+
+	`active_player` is whose Fight phase it is. It defaults to 2 because almost
+	every test below has PLAYER 1 use COUNTEROFFENSIVE, and 11e 15.12 only allows
+	that in the opponent's phase: "WHEN: Fight step of your opponent's Fight
+	phase, just after an enemy unit has resolved its attacks." The old setup made
+	player 1 the active player, which only worked under the 10e WHEN ("Fight
+	phase, just after an enemy unit has fought" — either player's turn); at 11e
+	the engine correctly refused with "COUNTEROFFENSIVE can only be used on your
+	opponent's turn" and every CP / eligibility check below failed or passed
+	vacuously. Player 2 being active is legal under BOTH editions (10e timing is
+	"either"), so the assertions are unchanged."""
 	GameState.state.meta.phase = GameStateData.Phase.FIGHT
-	GameState.state.meta.active_player = 1
+	GameState.state.meta.active_player = active_player
 	GameState.state.meta.battle_round = 2
 
 	# Player 1 units (attacker)
@@ -105,9 +127,18 @@ func _setup_fight_scenario() -> void:
 
 	StratagemManager.reset_for_new_game()
 
+# Edition the harness started this test with. Individual tests below pin
+# GameConstants.edition (10 for a legacy-only rule, 11 for an 11e-only rule);
+# after_each puts it back so the pin never leaks into the next test.
+var _prev_edition := 11
+
 func before_each():
+	_prev_edition = GameConstants.edition
 	GameState.state.units.clear()
 	StratagemManager.reset_for_new_game()
+
+func after_each():
+	GameConstants.edition = _prev_edition
 
 
 # ==========================================
@@ -434,6 +465,9 @@ func test_counter_offensive_tracked_in_usage_history():
 
 func test_counter_offensive_both_players_can_use_separately():
 	"""Both players can use Counter-Offensive in the same phase (each once)."""
+	# Legacy 10e regression: COUNTER-OFFENSIVE usable by EITHER player in the same Fight phase ("WHEN: Fight phase, just after an enemy unit has fought") — 11e 15.12 replaced it ("WHEN: Fight step of your opponent's Fight phase, just after an enemy unit has resolved its attacks"), so only the non-active player can ever use it in a given phase; 11e coverage: test_counter_offensive_not_available_on_own_turn_11e
+	GameConstants.edition = 10
+	assert_eq(GameConstants.edition, 10, "Legacy 10e regression must run at edition 10")
 	_setup_fight_scenario()
 
 	# Player 1 uses it
@@ -443,6 +477,25 @@ func test_counter_offensive_both_players_can_use_separately():
 	# Player 2 should still be able to use it
 	var result2 = StratagemManager.is_counter_offensive_available(2)
 	assert_true(result2.available, "Player 2 should still be able to use Counter-Offensive")
+
+func test_counter_offensive_not_available_on_own_turn_11e():
+	"""11e 15.12: only the NON-active player can use COUNTEROFFENSIVE."""
+	# 11e-only rule: "WHEN: Fight step of your opponent's Fight phase, just after
+	# an enemy unit has resolved its attacks." (15.12). Pinned to 11 so the
+	# WH40K_TEST_EDITION=10 legacy run (10e WHEN = either player's turn) does
+	# not report this as a failure.
+	GameConstants.edition = 11
+	assert_eq(GameConstants.edition, 11, "11e rule must run at edition 11")
+	_setup_fight_scenario(2)  # Player 2's Fight phase
+
+	var own_turn = StratagemManager.is_counter_offensive_available(2)
+	assert_false(own_turn.available, "Active player cannot COUNTEROFFENSIVE in their own Fight phase (15.12)")
+	assert_string_contains(own_turn.reason, "opponent's turn")
+	assert_eq(StratagemManager.get_counter_offensive_eligible_units(2, [], GameState.create_snapshot()).size(), 0,
+		"No eligible units offered to the active player (15.12)")
+
+	var opponent = StratagemManager.is_counter_offensive_available(1)
+	assert_true(opponent.available, "Non-active player can COUNTEROFFENSIVE: %s" % opponent.get("reason", ""))
 
 
 # ==========================================
@@ -489,7 +542,9 @@ func test_fight_phase_validate_use_counter_offensive_requires_unit_id():
 
 func test_counter_offensive_full_flow_definition_to_deduction():
 	"""Full flow: check available -> use -> CP deducted -> tracked."""
-	_setup_fight_scenario()
+	# Player 2 reacts here, so it must be PLAYER 1's Fight phase (11e 15.12
+	# "your opponent's Fight phase") — the scenario this test always had.
+	_setup_fight_scenario(1)
 
 	# Step 1: Check availability
 	var check = StratagemManager.is_counter_offensive_available(2)
@@ -539,6 +594,9 @@ func test_counter_offensive_does_not_set_unit_flags():
 	assert_true(result.success, "Use should succeed")
 
 	# No stratagem flags should be set on the unit
+	# (11e note: 15.12 grants Fights First "until the end of the phase", which
+	# the engine models as the phase-scoped flags.fights_first — cleared by
+	# StratagemManager at phase end; it is not a stratagem_counter_offensive flag.)
 	var unit = GameState.get_unit("U_P1_A")
 	var flags = unit.get("flags", {})
 	assert_false(flags.has("stratagem_counter_offensive"), "Should not have counter_offensive flag")
@@ -552,7 +610,14 @@ func test_counter_offensive_active_effect_tracked():
 
 	assert_eq(StratagemManager.active_effects.size(), initial_effects + 1, "Should add active effect")
 	var last_effect = StratagemManager.active_effects[-1]
-	assert_eq(last_effect.stratagem_id, "counter_offensive")
+	# At edition 11 the live definition is the 15.12 COUNTEROFFENSIVE entry
+	# (StratagemManager._resolve_core_id maps the retired 10e id
+	# "counter_offensive" to "counteroffensive_11e"), so that is the id the
+	# usage/effect is recorded under. 15.12 EFFECT: "Until the end of the phase,
+	# your unit has the Fights First ability ..." — so end_of_phase below holds
+	# for both editions.
+	var expected_id = "counteroffensive_11e" if GameConstants.edition >= 11 else "counter_offensive"
+	assert_eq(last_effect.stratagem_id, expected_id)
 	assert_eq(last_effect.player, 1)
 	assert_eq(last_effect.target_unit_id, "U_P1_A")
 	assert_eq(last_effect.expires, "end_of_phase")

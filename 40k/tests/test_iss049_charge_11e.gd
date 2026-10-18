@@ -24,7 +24,10 @@ func _init():
 	create_timer(0.1).timeout.connect(_run_tests)
 
 func _board() -> Dictionary:
-	# Charger at x=400; enemy A at 5", enemy B at 10", enemy C at 20".
+	# Charger at x=400; enemy A at ~5", enemy B at ~8", enemy C at ~20"
+	# (edge to edge). B sits between the roll (7) and roll + ER (9), so the
+	# pg-37 check below separates the 11.04 ceiling min(12, roll) from the
+	# old, wrong min(12, roll + ER) — at ~10" it passed under both.
 	return {"units": {
 		"U_CHG": {"id": "U_CHG", "owner": 1, "flags": {},
 			"meta": {"keywords": ["INFANTRY"], "stats": {"move": 6}},
@@ -37,7 +40,7 @@ func _board() -> Dictionary:
 		"U_B": {"id": "U_B", "owner": 2, "flags": {},
 			"meta": {"keywords": ["INFANTRY"], "stats": {}},
 			"models": [{"id": "b0", "alive": true, "base_mm": 32, "base_type": "circular",
-				"position": {"x": 400, "y": 400 + 10 * 40 + 50}}]},
+				"position": {"x": 400, "y": 400 + 8 * 40 + 50}}]},
 		"U_C": {"id": "U_C", "owner": 2, "flags": {},
 			"meta": {"keywords": ["INFANTRY"], "stats": {}},
 			"models": [{"id": "c0", "alive": true, "base_mm": 32, "base_type": "circular",
@@ -70,7 +73,7 @@ func _run_tests():
 
 	print("\n-- roll-then-target selection (11.02) --")
 	b = _board()
-	# Find a seed producing a 2D6 of 7 so A (5\") is in range, B (10\") is not.
+	# Find a seed producing a 2D6 of 7 so A (5\") is in range, B (8\") is not.
 	var seed := -1
 	for i in range(200):
 		var d = rules.RNGService.new(i).roll_d6(2)
@@ -80,8 +83,10 @@ func _run_tests():
 	var ctx = chg.before_moving("U_CHG", b, rules.RNGService.new(seed), {})
 	_check("charge roll is 2D6 and IS the maximum distance",
 		ctx.charge_roll == 7 and chg.max_distance_inches(b.units["U_CHG"], ctx) == 7.0)
-	_check("pg-37 semantics: A (within roll) selectable, B (10\" > 7) and C (>12\") not",
+	_check("pg-37 semantics: A (within roll) selectable, B (~8\" > 7, though within roll + ER) and C (>12\") not",
 		ctx.selectable_targets == ["U_A"], str(ctx.selectable_targets))
+	_check("ceiling is min(12, roll) — ER does not extend it (11.04 example B)",
+		ChargeMove11e.selectable_distance_ceiling(7.0) == 7.0 and ChargeMove11e.selectable_distance_ceiling(14.0) == 12.0)
 
 	print("\n-- after conditions (11.04) --")
 	ctx["charge_targets"] = ["U_A"]

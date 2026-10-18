@@ -111,5 +111,9 @@ func _test_compiled_execute() -> void:
 	})
 	_check("compiled execute: tree param usable", tree_res.get("status", "") == "ok" and tree_res.get("result", false) == true)
 
+	# Deliberately invalid code: Godot prints "SCRIPT ERROR: Parse Error" for
+	# it, which tests/run_pretrigger_tests.sh would otherwise read as a broken
+	# test — hence the runner opt-out marker below (one parse error expected).
+	# audit-runner: expects-parse-error
 	var bad = th.execute_script({"code": "this is not valid gdscript ::", "multiline": true})
 	_check("compiled execute: parse error surfaced", bad.get("status", "") == "error" and bad.get("error_type", "") == "parse")

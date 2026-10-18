@@ -202,9 +202,12 @@ func _run():
 		_setup_state(units)
 		phase.game_state_snapshot = root.get_node("GameState").state
 
-		# Roll: smallest success is ceil(gap - ER); the report had gap 6.8, roll 7.
+		# Roll: smallest success is ceil(gap) at 11e — 11.04 BEFORE MOVING, a
+		# charge target must be within the roll itself (base to base), ER does
+		# not extend it — and ceil(gap - ER) at 10e. The report had gap 6.8,
+		# roll 7.
 		var er = GameConstants.engagement_range_inches()
-		var min_roll = int(ceil(cur_gap - er))
+		var min_roll = int(ceil(cur_gap)) if GameConstants.edition >= 11 else int(ceil(cur_gap - er))
 		var roll = clamp(min_roll + rng.randi_range(0, 3), 2, 12)
 		if variant_deep:
 			roll = clamp(min_roll + rng.randi_range(3, 6), 2, 12)
@@ -215,7 +218,8 @@ func _run():
 		if variant_multi:
 			# declare both kopta units when Beta is genuinely reachable
 			var beta_gap = _min_unit_gap(cust, beta)
-			if beta_gap <= roll + er - 0.2:
+			var beta_ceiling = float(roll) if GameConstants.edition >= 11 else float(roll) + er
+			if beta_gap <= beta_ceiling - 0.2:
 				targets = ["U_DEFFKOPTAS_A", "U_DEFFKOPTAS_B"]
 
 		total += 1

@@ -177,11 +177,33 @@ func _last_record_context() -> Dictionary:
 # ---------------------------------------------------------------------------
 
 func _run_tests() -> void:
+	# The fabricated snapshots declare NO terrain (`"terrain_features": []`), but
+	# the AI's placement legality (_plan_positions_legal ->
+	# Measurement.model_overlaps_any_wall -> TerrainManager.
+	# solid_terrain_endpoint_blocker_11e) reads the LIVE TerrainManager, which
+	# boots with DEFAULT_LAYOUT (take_and_hold_mirror_1). At 10e that leak was
+	# invisible: the Solid/dense endpoint blocker is gated to edition >= 11 and
+	# the 11e layout pieces carry no 10e `walls`. At 11e the 5" dense ruin
+	# `corner-ruin-right-6` clips the (MOUNTED, non-INFANTRY) Wartrike's authored
+	# spot — correctly, per 11e 13.06 ("Other models can move horizontally
+	# through dense terrain features provided that all sections ... are 2" or
+	# less in height") and the Solid rule — so it fell back to the formula and
+	# the fallback position cascaded into later plan placements. Make the live
+	# board match the snapshots for the fabricated tests, and restore it for the
+	# real-fixture test so that one is exercised exactly as before.
+	var tm = root.get_node_or_null("TerrainManager")
+	var saved_terrain: Array = tm.terrain_features.duplicate() if tm else []
+	if tm:
+		tm.terrain_features.clear()
+		print("[test_ai_plan_deployment] live terrain cleared for fabricated no-terrain snapshots (%d piece(s) saved)" % saved_terrain.size())
 	test_plan_order_and_placement()
 	test_uncovered_unit_falls_back()
 	test_seat_two_mirror()
 	test_plans_disabled_restores_formula()
 	test_snapshot_contract_protects_live_plans()
+	if tm:
+		tm.terrain_features.append_array(saved_terrain)
+		print("[test_ai_plan_deployment] live terrain restored (%d piece(s))" % tm.terrain_features.size())
 	test_real_predeploy_fixture_both_seats()
 
 func test_plan_order_and_placement() -> void:

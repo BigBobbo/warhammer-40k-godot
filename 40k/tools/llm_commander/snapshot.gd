@@ -29,32 +29,12 @@ for obj in S.get("board", {}).get("objectives", []):
 	var opos = obj.get("position", Vector2.ZERO)
 	if opos is Dictionary:
 		opos = Vector2(float(opos.get("x", 0)), float(opos.get("y", 0)))
-	var oc1 = 0
-	var oc2 = 0
-	for uid in units:
-		var u = units[uid]
-		var st = int(u.get("status", 0))
-		if st == UNDEP or st == IN_RES:
-			continue
-		if u.get("flags", {}).get("battle_shocked", false):
-			continue
-		# same OC maths as MissionManager._check_objective_control
-		var ocv = int(u.get("flags", {}).get("effect_oc_override", 0))
-		if ocv == 0:
-			ocv = int(u.get("meta", {}).get("stats", {}).get("objective_control", 0))
-		if ocv > 0:
-			ocv += int(u.get("flags", {}).get("effect_plus_oc", 0))
-		if ocv <= 0:
-			continue
-		for m in u.get("models", []):
-			if not m.get("alive", true) or m.get("position") == null:
-				continue
-			if MissionManager.model_in_objective_range(m, obj):
-				if int(u.get("owner", 0)) == 1:
-					oc1 += ocv
-				elif int(u.get("owner", 0)) == 2:
-					oc2 += ocv
-				break
+	# same OC maths as MissionManager._check_objective_control: the 14.02
+	# level of control — every in-range model's own OC (MissionManager.model_oc),
+	# battle-shocked attached units zeroed group-wide
+	var loc = MissionManager.get_level_of_control(obj, units)
+	var oc1 = int(loc.get(1, 0))
+	var oc2 = int(loc.get(2, 0))
 	snap["objectives"].append({
 		"id": oid,
 		"pos_inches": [snappedf(Measurement.px_to_inches(opos.x), 0.1), snappedf(Measurement.px_to_inches(opos.y), 0.1)],
