@@ -297,7 +297,6 @@ VP when the marker matches. Secondary hints add their VP for matching zones (188
 | threat_delta | **−(increase × survival-mult)**, extra −0.5× for charge-threat increase | Only the *increase* in threat vs standing still is charged (threat model in table 5) | 9007-9017 |
 | overwatch_risk | **OFF** (OVERWATCH_EXPOSURE_PENALTY 0.0) | Would tax newly entering 24" overwatch bands by shot volume ÷ 20; halved R4-5; ×0.05 for pure melee | 1910-1912, 9025-9033, 23858-23885 |
 | hidden_gain | **OFF** (WEIGHT_HIDDEN_GAINED 0.0) | Would reward ending in dense terrain (11e Hidden rule); corpus-suggested 4.0, measured inconclusive | 1881, 9041-9043, 23776-23785 |
-| aao_isolation | **+2.5 / −2.5** | Lions of the Emperor only: keep/break the 6" no-friendlies bubble (WEIGHT_AAO_ISOLATION / AAO_CLUMP_PENALTY; radius 6", buffer 1") | 2446-2451, 9049-9054 |
 | charge_lane | **+3.0 × alignment / −1.5** | PHASE_PLAN_CHARGE_LANE_BONUS — marker in the same direction as this unit's planned charge target (dot > 0.5), penalty if opposite (dot < −0.3). Hard+ only | 1937, 9059-9074 |
 | shooting_lane | **+1.0 per lane** | 0.5 × PHASE_PLAN_SHOOTING_LANE_BONUS 2.0 when the marker keeps a planned shooting lane in range. Hard+ only | 1938, 9078-9089 |
 | primary_awareness | **up to +3.0 pressure; + enemy-home/centre bonuses; +3.0 hold-home; +4.2 quarters** | The primary card's own geometry (0.5 × pressure capped at 6; SECONDARY_SPREAD_BONUS 6.0 × 0.7 for uncovered quarters) | 9094-9111 |

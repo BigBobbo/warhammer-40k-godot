@@ -80,7 +80,7 @@ Deployment alternates with the opponent (the phase engine handles turn switching
    - depth bonus: melee up to +1.5 for being near the front, characters/fragile shooters up to +1.0 for being near the back (`5362-5371`);
    - drift penalty: −1.0 per 200 px (5") away from the baseline, and any candidate more than 40% of the zone's width from baseline is rejected outright (`5347-5353`).
    - The winning terrain spot is only used if it scores **≥ 1.0**; otherwise the counter-deployed baseline stands (`5385-5388`).
-6. **Physical placement**: models are laid out in a grid up to 5 wide, spaced one base-diameter + 10 px apart (`20321-20347`), collisions with already-placed models are resolved (`4918-4920`), and wall overlaps trigger a search for a wall-free centre (`4922-4942`). A faction special case: Lions "Against All Odds" armies spread 6"+ apart to keep their buff live (`4860-4862`).
+6. **Physical placement**: models are laid out in a grid up to 5 wide, spaced one base-diameter + 10 px apart (`20321-20347`), collisions with already-placed models are resolved (`4918-4920`), and wall overlaps trigger a search for a wall-free centre (`4922-4942`).
 7. For the record/telemetry, the chosen spot is compared against a ring of five alternates 6" away, scored on objective proximity (up to 24) and a crowding penalty for stacking within 6" of a deployed friend (`4864-4900`).
 
 ### C. Reinforcement arrival — reserves coming back on (`AIDecisionMaker.gd:7429-7618`)
@@ -92,7 +92,7 @@ From Round 2, when reserves may arrive:
    - *Strategic Reserves*: sample points 3" in from all four board edges, every 4" (`7695-7757`).
    - *Deep Strike*: rings around every objective at 10", 12" and 15" out, every 30°, plus a full-board 4" grid (`7759-7794`). A unit sitting in Strategic Reserves that also has Deep Strike tries Deep Strike placement first (`7480-7496`).
    - Candidates must be > the ingress stand-off from all enemy models (read live from `GameConstants.reinforcement_min_enemy_distance_inches()` — 8" under 11e rules, `7968-7981`), outside 12" of enemy Omni-scrambler models (`8007-8015`), within 6" of a board edge for Strategic Reserves (`7983-7991`), and — Round 2 only — outside the opponent's deployment zone (`7993-8005`).
-3. **Spot scoring** (`7826-7884`): objective proximity dominates (see table); distance-to-enemy adds a bonus in the 9-15" band; "Against All Odds" armies add ±4/−3 for landing clear of / inside friendly bubbles.
+3. **Spot scoring** (`7826-7884`): objective proximity dominates (see table); distance-to-enemy adds a bonus in the 9-15" band.
 4. The best-scoring centroid gets a model formation generated around it, re-validated for the distance rule, coherency, and true base overlap; failures fall through to the next candidate, next placement type, then the next unit (`7509-7595`).
 
 ---
@@ -179,7 +179,6 @@ All values verified as the effective in-game defaults (nothing in `ai_config.jso
 | `REINFORCE_OBJ_FAR_BASE` | max(0, 8.0 − 0.3·distance) | Further out: diminishing value, zero beyond ~27" |
 | `REINFORCE_CHARGE_RANGE` | +3.0 | 10-15" from the nearest enemy — can shoot, hard to be charged |
 | `REINFORCE_NEAR_CHARGE_RANGE` | +2.0 | 9-10" from enemies — just outside charge range |
-| `REINFORCE_AAO_CLEAR` / `REINFORCE_AAO_BROKEN` | +4.0 / −3.0 | Lions "Against All Odds" only: lands with the 6" solo-bubble intact / broken |
 
 ### Reinforcement arrival — which unit lands first (`AIDecisionMaker.gd:7620-7660`, consts `1339-1346`)
 

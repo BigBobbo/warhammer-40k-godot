@@ -81,7 +81,6 @@ Executed in strict priority order each time the AI is asked for an action:
 | `CHARGE_LIKELY_KILL_BONUS` (1303, 15632) | +5.0 | Our damage alone likely kills the target outright |
 | Deadly Demise doomed bonus (15640-15643) | ×1.5 (D3) / ×2.0 (D6) | Doomed exploding vehicle should die in their lines |
 | Round/archetype aggression (15649-15653) | ×1.3 rounds 1-2 / ×1.0 R3 / ×0.7 R4-5, × archetype 0.8-1.25 | Early game favours kills, late game favours objectives |
-| `AAO_CLUMP_PENALTY` (2451, 15533) | −2.5 | Lions' "Against All Odds" armies only: charging into an occupied combat loses the solo buff |
 
 Result is clamped at ≥ 0 (15655).
 
