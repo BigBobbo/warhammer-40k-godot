@@ -192,6 +192,15 @@ const F_FOD_SOURCE := "ork11e_fod_source"
 
 const SID_PREFIX := "ork11e_ab_"
 
+## WP-O5: Codex: Orks (11e) ENHANCEMENTS (OrkEnhancements11e.gd) — loaded on
+## first use (it preloads this script; no preload cycle). Its activated
+## enhancements ride this module's ability-offer path ("ork11e_ab_enh_*").
+static var _enh_script = null
+static func _enh():
+	if _enh_script == null:
+		_enh_script = load("res://scripts/codex/orks/OrkEnhancements11e.gd")
+	return _enh_script
+
 # ===========================================================================
 # Names
 # ===========================================================================
@@ -237,6 +246,10 @@ static func has(u: Dictionary, slug: String) -> bool:
 	for ab in u.get("meta", {}).get("abilities", []):
 		if fold(_ability_name(ab)) == want:
 			return true
+	# WP-O5 Boss Boomer: a WAGON carrying an embarked WARBOSS has its
+	# Intimidating Motivation / Keep Huntin'.
+	if slug == "intimidating_motivation" or slug == "keep_huntin":
+		return _enh().boss_boomer_grants(u, slug)
 	return false
 
 static func has_id(unit_id: String, slug: String) -> bool:
@@ -804,7 +817,8 @@ static func attack_mods(actor_unit: Dictionary, target_unit: Dictionary, weapon_
 		m.wound_plus = true
 		_src(m, "Prophet of da Great Waaagh!", "hit", "plus_one", "within 6\" of Ghazghkull")
 		_src(m, "Prophet of da Great Waaagh!", "wound", "plus_one", "within 6\" of Ghazghkull")
-	return m
+	# WP-O5: Codex: Orks (11e) enhancements of the attacker.
+	return _enh().merge_attack_mods(m, actor_unit, target_unit, weapon_profile, is_melee, _board, bearer_ids)
 
 static func _flag_holder(actor_id: String, flag: String) -> String:
 	for gid in group(actor_id):
@@ -859,7 +873,7 @@ static func defence_mods(target_unit: Dictionary, is_melee: bool) -> Dictionary:
 	elif not is_melee and group_has(tid, "mobile_fortress"):
 		d.damage_minus = 1
 		d.sources.append("Mobile Fortress")
-	return d
+	return _enh().merge_defence_mods(d, target_unit, is_melee)  # WP-O5 Blitzboss (transport 5+ InSv)
 
 ## Phase-proxy variant for the EffectPrimitives getters (no attack context):
 ## the Fight phase resolves melee attacks, every other phase ranged ones.
@@ -952,6 +966,7 @@ static func move_modifier(unit: Dictionary) -> float:
 		var bg = unit.get("attached_to", null)
 		if bg != null and str(bg) != "" and Common.has_keyword(Common.unit(str(bg)), "MOUNTED"):
 			mod += 4.0
+	mod += float(_enh().move_modifier(unit))  # WP-O5 Follow Me Ladz / Cybork Boosta / Blitzboss
 	return mod
 
 ## Madcap Artillery "grounded": the unit cannot take to the skies.
@@ -962,7 +977,8 @@ static func cannot_take_to_skies(unit_id: String) -> bool:
 ## Madcap Artillery "zapped": -1 Ld (a worse Ld — the roll needs 1 more).
 static func leadership_penalty(unit_id: String) -> int:
 	var madcap = group_flag(unit_id, F_MADCAP)
-	return 1 if typeof(madcap) == TYPE_DICTIONARY and str(madcap.get("effect", "")) == "zapped" else 0
+	var zapped := 1 if typeof(madcap) == TYPE_DICTIONARY and str(madcap.get("effect", "")) == "zapped" else 0
+	return zapped + int(_enh().leadership_penalty(unit_id))  # WP-O5 Enhanced Runt-maw (infested: -1 to leadership rolls)
 
 ## Conditional Lone Operative (24.24) of a standalone unit: Da Grand Warlord's
 ## Ladz, Support Shokka, Boss of da Hunt, Beast Snagga Following, Speednob
@@ -971,6 +987,8 @@ static func conditional_lone_operative(unit: Dictionary) -> bool:
 	var uid := _uid(unit)
 	if uid == "" or not Common.is_on_battlefield(Common.unit(uid)):
 		return false
+	if _enh().conditional_lone_operative(unit):  # WP-O5 Dreadherder (within 3" of an ORKS WALKER)
+		return true
 	var owner := int(unit.get("owner", 0))
 	if has(unit, "grand_warlords_ladz") or has(unit, "support_shokka"):
 		var excl_bmsag := has(unit, "support_shokka")
@@ -1006,7 +1024,8 @@ static func detection_range_bonus(unit: Dictionary) -> float:
 	var uid := _uid(unit)
 	if uid == "":
 		return 0.0
-	return 3.0 if group_flag(uid, F_FOUND_EM) != null else 0.0
+	# WP-O5 Extra Sneaky (Gretchin): -3" detection range.
+	return (3.0 if group_flag(uid, F_FOUND_EM) != null else 0.0) + float(_enh().detection_range_bonus(unit))
 
 ## Burna Bomb: "That enemy unit cannot be hidden until the end of your next turn."
 static func cannot_be_hidden(unit: Dictionary) -> bool:
@@ -1319,6 +1338,7 @@ static func on_phase_transition(old_phase: int, new_phase: int) -> void:
 	if not cleared.is_empty():
 		Common.log_info("OrkAbilities11e: phase %d -> %d expired %s" % [old_phase, new_phase, str(cleared)])
 	_apply_permanent_states(new_phase)
+	_enh().on_phase_transition(old_phase, new_phase)  # WP-O5 enhancement expiry / Mekwaaagh! / Surly as a Squiggoth
 
 ## Waaagh! Effigy / Super Runts ("This unit is riled up") and One Last Kill
 ## (Fight On Death for Mozrog) — re-asserted at every phase start.
@@ -1457,6 +1477,7 @@ static func window_offers(player: int, window_id: String, ctx: Dictionary) -> Ar
 		})
 	if not offers.is_empty():
 		Common.log_info("OrkAbilities11e: window %s P%d — ability offers %s" % [window_id, player, str(offers.map(func(o): return o.name))])
+	offers.append_array(_enh().window_offers(player, window_id, ctx))  # WP-O5 activated enhancements
 	return offers
 
 static func _entry(unit_id: String, extra: Dictionary = {}) -> Dictionary:
@@ -1920,6 +1941,8 @@ const REOFFER_IF_ABILITY_LEFT := ["unit_selected_to_shoot", "unit_selected_to_mo
 ## Returns the use_stratagem result shape: {success, diffs (already applied),
 ## stratagem_name, followup?, error?}.
 static func use(player: int, sid: String, target_unit_id: String, context: Dictionary) -> Dictionary:
+	if _enh().handles_id(sid):  # WP-O5: an activated enhancement ("ork11e_ab_enh_*")
+		return _enh().use(player, sid, target_unit_id, context)
 	var slug := slug_of(sid)
 	var window_id := str(context.get("window_id", ""))
 	var targets := _targets(slug, player, window_id, context)
@@ -2010,6 +2033,7 @@ static func _apply(slug: String, player: int, uid: String, secondary: String, va
 			return {"diffs": d, "log": "%s uses Rokkit Charge: melee attacks have +1 A and S and [HAZARDOUS]" % name}
 		"warpath":
 			var roll := _d6(rng)
+			roll = _enh().psychic_reroll(uid, roll, rng)  # WP-O5 Warphead
 			var mode := "kill_rig" if has_id(uid, "wurrboy") or group_has_keyword(uid, "KILL RIG") else "weirdboy"
 			var d: Array = _flag_diffs_group(uid, F_WARPATH, mode)
 			d.append_array(_psychic_spend_diffs(uid, PSY_WARPATH))
@@ -2085,6 +2109,7 @@ static func _apply(slug: String, player: int, uid: String, secondary: String, va
 			return res
 		"da_jump":
 			var roll := _d6(rng)
+			roll = _enh().psychic_reroll(uid, roll, rng)  # WP-O5 Warphead
 			var d: Array = [army_use_diff(player, slug)]
 			d.append_array(_psychic_spend_diffs(uid, PSY_DA_JUMP))
 			var text := "%s manifests Da Jump (psychic roll %d)" % [name, roll]
@@ -2262,6 +2287,8 @@ static func after_unit_shot(shooter_id: String, hit_unit_ids: Array) -> Array:
 		if str(res.get("log", "")) != "":
 			Common.log_info("OrkAbilities11e: %s" % res.log)
 			_event_log(player, str(res.log))
+	# WP-O5: Enhanced Runt-maw / Temperamental Shokka / Supa-glowy Fing.
+	all.append_array(_enh().after_unit_shot(shooter_id, hit_unit_ids))
 	return all
 
 # ===========================================================================
@@ -2271,6 +2298,8 @@ static func after_unit_shot(shooter_id: String, hit_unit_ids: Array) -> Array:
 ## Score for an ability offer (AIDecisionMaker.decide_window_stratagem uses it
 ## with a 1.0 threshold — abilities cost no CP).
 static func ai_score(player: int, sid: String, target_unit_id: String, window_id: String, ctx: Dictionary) -> float:
+	if _enh().handles_id(sid):  # WP-O5 activated enhancements
+		return float(_enh().ai_score(player, sid, target_unit_id, window_id, ctx))
 	var slug := slug_of(sid)
 	match slug:
 		"boss_ammo_runt", "ammo_runts":
@@ -2394,6 +2423,7 @@ static func on_disembark(unit_id: String, transport_id: String) -> Array:
 	if has(t, "beastscent") and not Common.is_battle_shocked(t) and _psychic_budget_ok(transport_id, PSY_BEASTSCENT):
 		var rng = _rng()
 		var roll := _d6(rng)
+		roll = _enh().psychic_reroll(transport_id, roll, rng)  # WP-O5 Warphead
 		all.append_array(_psychic_spend_diffs(transport_id, PSY_BEASTSCENT))
 		if roll == 1:
 			all.append({"op": "set", "path": "units.%s.flags.battle_shocked" % transport_id, "value": true})

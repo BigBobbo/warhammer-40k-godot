@@ -1191,9 +1191,27 @@ export function parseEnhancementRestriction(text, knownKeywords) {
     }
     return out;
   };
+  // "/" binds tighter than the keyword sequence: "Big Mek/Warboss Infantry"
+  // is (BIG MEK or WARBOSS) and INFANTRY — the slots' cartesian product, so
+  // keywords shared by every alternative apply to each group.
+  const slots = [];
+  let joinNext = false;
+  for (const part of m[1].split(/(\/)/)) {
+    if (part === '/') { joinNext = true; continue; }
+    const kws = split(part);
+    if (!kws.length) continue;
+    if (joinNext && slots.length) {
+      slots[slots.length - 1].push(kws[0]);
+      for (const k of kws.slice(1)) slots.push([k]);
+    } else {
+      for (const k of kws) slots.push([k]);
+    }
+    joinNext = false;
+  }
+  const groups = slots.reduce((acc, slot) => acc.flatMap(g => slot.map(k => [...g, k])), [[]]);
   return {
     scope: m[2].toLowerCase(),
-    groups: m[1].split('/').map(split),
+    groups,
     exclusions: m[3] ? m[3].split('/').flatMap(split) : [],
   };
 }

@@ -34204,11 +34204,12 @@
   },
   "keyword_restriction_groups": [
    [
-    "Big Mek"
+    "Big Mek",
+    "Infantry"
    ],
    [
-    "Infantry",
-    "Warboss"
+    "Warboss",
+    "Infantry"
    ]
   ],
   "attachment_bodyguard_ids": [
@@ -35208,11 +35209,12 @@
   "max_targets": 1,
   "keyword_restriction_groups": [
    [
-    "Big Mek"
+    "Big Mek",
+    "Infantry"
    ],
    [
-    "Infantry",
-    "Warboss"
+    "Warboss",
+    "Infantry"
    ]
   ],
   "attachment_bodyguard_ids": [

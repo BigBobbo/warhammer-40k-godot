@@ -343,7 +343,6 @@ func _reset_faction_abilities(root: Node) -> void:
 	fam._bionik_workshop_resolved = false
 	fam._razgit_redeploys_used = {"1": 0, "2": 0}
 	fam._razgit_resolved = false
-	fam._morks_kunnin_redeploys_used = {"1": 0, "2": 0}
 	fam._aao_status = {}
 
 

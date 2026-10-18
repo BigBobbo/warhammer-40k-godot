@@ -431,7 +431,7 @@ func get_eligible_bodyguards_for_character(character_id: String) -> Array:
 		return []
 	var leader_data = character.get("meta", {}).get("leader_data", {})
 	var can_lead = leader_data.get("can_lead", []).duplicate()
-	# Taktikal Brigade enhancements (Skwad Leader / Mek Kaptin) extend which
+	# Enhancement LEADER lines (Codex: Orks Kill Kommanda / Kaptin's Hat) extend which
 	# units the bearer can lead — mirror CharacterAttachmentManager.can_attach.
 	for extra_kw in _get_enhancement_can_lead_extras(character):
 		if not extra_kw in can_lead:
@@ -544,8 +544,6 @@ func unit_has_ability(unit_id: String, ability_name: String) -> bool:
 func unit_has_deep_strike(unit_id: String) -> bool:
 	if unit_has_ability(unit_id, "Deep Strike"):
 		return true
-	# Tellyporta (Bully Boyz): models in the bearer's unit have Deep Strike —
-	# the bearer's own unit, and the bodyguard unit while attached.
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return false
@@ -553,39 +551,23 @@ func unit_has_deep_strike(unit_id: String) -> bool:
 	# strategic reserves "has Deep Strike" (OrkAbilities11e.F_DA_JUMP_DS).
 	if unit.get("flags", {}).get("ork11e_ab_da_jump_ds", false):
 		return true
-	if _unit_meta_has_enhancement(unit, "Tellyporta"):
+	# WP-O5 Tellyporta Boss (Bully Boyz): "This unit (excluding VEHICLE units)
+	# has Deep Strike" — the bearer's Attached unit.
+	if GameConstants.edition >= 11 and _ork11e_enh().grants_deep_strike(unit):
 		return true
-	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
-		if _unit_meta_has_enhancement(get_unit(str(char_id)), "Tellyporta"):
-			return true
 	return false
 
 func unit_has_infiltrators(unit_id: String) -> bool:
 	if unit_has_ability(unit_id, "Infiltrators"):
 		return true
-	# Skwad Leader (Taktikal Brigade): "While leading a Kommandos unit, it has
-	# the Infiltrators and Stealth abilities." Both halves of the attached
-	# unit deploy with Infiltrators.
-	return _unit_has_skwad_leader_infiltrators(unit_id)
+	# WP-O5 Kill Kommanda (Taktikal Brigade): "While this model is part of an
+	# attached unit, this model has Infiltrators."
+	return GameConstants.edition >= 11 and _ork11e_enh().grants_infiltrators(get_unit(unit_id))
 
-func _unit_has_skwad_leader_infiltrators(unit_id: String) -> bool:
-	var unit = get_unit(unit_id)
-	if unit.is_empty():
-		return false
-	var keywords = unit.get("meta", {}).get("keywords", [])
-	# Case 1: a KOMMANDOS bodyguard with a Skwad Leader bearer attached
-	if "KOMMANDOS" in keywords:
-		for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
-			if _unit_meta_has_enhancement(get_unit(str(char_id)), "Skwad Leader"):
-				return true
-		return false
-	# Case 2: the Skwad Leader bearer itself, attached to a KOMMANDOS unit
-	if _unit_meta_has_enhancement(unit, "Skwad Leader"):
-		var bg_id = unit.get("attached_to", null)
-		if bg_id != null:
-			var bg = get_unit(str(bg_id))
-			return "KOMMANDOS" in bg.get("meta", {}).get("keywords", [])
-	return false
+## WP-O5: Codex: Orks (11e) enhancements, loaded at call time (GameState is
+## compiled before the autoloads the module reaches).
+func _ork11e_enh():
+	return load("res://scripts/codex/orks/OrkEnhancements11e.gd")
 
 func _unit_meta_has_enhancement(unit: Dictionary, enh_name: String) -> bool:
 	for enh in unit.get("meta", {}).get("enhancements", []):
@@ -728,13 +710,10 @@ func _unit_has_scout_own(unit_id: String) -> bool:
 		# contains, so this fallback never actually fired.
 		if description != "" and _get_scout_description_regex().search(description):
 			return true
-	# Glory Hog (Da Big Hunt): models in the bearer's unit have Scouts 9" —
-	# the bearer's own unit, and the bodyguard unit while attached.
-	if _unit_meta_has_enhancement(unit, "Glory Hog"):
+	# WP-O5 Minefield Detail (Runt Swarm): "While this unit is not embarked,
+	# this unit has Scouts 6"."
+	if GameConstants.edition >= 11 and float(_ork11e_enh().scouts_distance(unit)) > 0.0:
 		return true
-	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
-		if _unit_meta_has_enhancement(get_unit(str(char_id)), "Glory Hog"):
-			return true
 	return false
 
 func _get_scout_distance_from_abilities(abilities: Array) -> float:
@@ -816,12 +795,11 @@ func get_scout_distance(unit_id: String) -> float:
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return 0.0
-	# Glory Hog (Da Big Hunt): Scouts 9" for the bearer's unit.
-	if _unit_meta_has_enhancement(unit, "Glory Hog"):
-		return 9.0
-	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
-		if _unit_meta_has_enhancement(get_unit(str(char_id)), "Glory Hog"):
-			return 9.0
+	# WP-O5 Minefield Detail (Runt Swarm): Scouts 6" while not embarked.
+	if GameConstants.edition >= 11:
+		var o5_scouts := float(_ork11e_enh().scouts_distance(unit))
+		if o5_scouts > 0.0:
+			return o5_scouts
 	# Check own abilities first
 	var own_abilities = unit.get("meta", {}).get("abilities", [])
 	var own_distance = _get_scout_distance_from_abilities(own_abilities)
@@ -985,15 +963,9 @@ func get_redeploy_units_for_player(player: int) -> Array:
 				redeploy_units.append(uid)
 				print("GameState: %s — %s eligible for redeployment" % [enh_name, ru.get("unit_name", uid)])
 
-	# Mork's Kunnin' (Taktikal Brigade): up to 3 ORKS units may redeploy
-	# (optionally into Strategic Reserves), mirroring Razgit's Magik Map.
-	if faction_mgr and faction_mgr.is_morks_kunnin_redeploy_available(player):
-		var morks_units = faction_mgr.get_morks_kunnin_eligible_units(player)
-		for mu in morks_units:
-			var muid = mu.get("unit_id", "")
-			if muid != "" and muid not in redeploy_units:
-				redeploy_units.append(muid)
-				print("GameState: Mork's Kunnin' — %s eligible for redeployment" % mu.get("unit_name", muid))
+	# (Codex: Orks Kaptin's Hat rides the redeploy-enhancement path above —
+	# FactionAbilityManager.get_redeploy_enhancement, WP-O5. The 10e Mork's
+	# Kunnin' / Blitzkaptin redeploys are gone.)
 
 	return redeploy_units
 

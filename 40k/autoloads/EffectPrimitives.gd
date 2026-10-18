@@ -772,7 +772,9 @@ static func get_effect_crit_hit_on(unit: Dictionary) -> int:
 
 static func has_effect_fall_back_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and shoot eligibility."""
-	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false)
+	# Codex: Orks (11e) Kunnin' But Brutal (WP-O5).
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false) \
+		or (GameConstants.edition >= 11 and load("res://scripts/codex/orks/OrkEnhancements11e.gd").fall_back_allows_shoot(unit))
 
 static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and charge eligibility."""

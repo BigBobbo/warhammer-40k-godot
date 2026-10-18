@@ -8224,7 +8224,10 @@ func _refresh_unit_list_inner() -> void:
 				else:
 					independent_reserves.append(reserve_id)
 
-			if independent_reserves.size() > 0 and battle_round >= 2:
+			# WP-O5 Impulsive Recon: in battle round 1 those ORKS AIRCRAFT may arrive.
+			if battle_round < 2:
+				independent_reserves = load("res://scripts/codex/orks/OrkEnhancements11e.gd").first_round_ingress_units(independent_reserves)
+			if independent_reserves.size() > 0:  # (round 1: only the filtered Impulsive Recon units)
 				unit_list.add_item("--- REINFORCEMENTS (Reserves) ---")
 				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 				for reserve_id in independent_reserves:

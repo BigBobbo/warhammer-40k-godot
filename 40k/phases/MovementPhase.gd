@@ -3979,8 +3979,10 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": errors}
 
 	# Check battle round - reserves can only arrive from Turn 2 onwards
+	# (WP-O5 Impulsive Recon: that ORKS AIRCRAFT can make an ingress move in
+	# its owner's first Movement phase).
 	var battle_round = GameState.get_battle_round()
-	if battle_round < 2:
+	if battle_round < 2 and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit):
 		errors.append("Reserves cannot arrive until Battle Round 2 (currently Round %d)" % battle_round)
 		return {"valid": false, "errors": errors}
 
@@ -4451,6 +4453,8 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	if GameConstants.edition >= 11:
 		changes.append_array(MoveTypes.get_type("ingress").after_moving_effects(unit_id, {}))
 		log_phase_message("[11e] %s arrived via ingress move (may charge; no further moves this phase)" % unit_id)
+		# WP-O5 Flyboss: friendly ORKS AIRCRAFT/DEFFKOPTAS within 6" are riled up.
+		changes.append_array(load("res://scripts/codex/orks/OrkEnhancements11e.gd").on_ingress_move_ended(unit_id, model_positions))
 
 	# Deploy attached characters that are also in reserves.
 	# 11e 24.10: the leader and its bodyguard are ONE Attached unit, so they are
@@ -6939,8 +6943,10 @@ func get_available_actions() -> Array:
 	# Add reinforcement actions for units in reserves (from Turn 2 onwards)
 	var battle_round = GameState.get_battle_round()
 	print("MovementPhase: get_available_actions — battle_round=%d, current_player=%d" % [battle_round, current_player])
-	if battle_round >= 2:
-		var reserves = GameState.get_reserves_for_player(current_player)
+	# WP-O5 Impulsive Recon: in battle round 1 only those ORKS AIRCRAFT may arrive.
+	var o5_round1: Array = load("res://scripts/codex/orks/OrkEnhancements11e.gd").first_round_ingress_units(GameState.get_reserves_for_player(current_player)) if battle_round < 2 else []
+	if battle_round >= 2 or not o5_round1.is_empty():
+		var reserves = GameState.get_reserves_for_player(current_player) if battle_round >= 2 else o5_round1
 		print("MovementPhase: Found %d reserve units for player %d: %s" % [reserves.size(), current_player, str(reserves)])
 		for reserve_unit_id in reserves:
 			var reserve_unit = get_unit(reserve_unit_id)

@@ -268,6 +268,10 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# +1 BS to ranged weapons; Supa-burny Fuel killa jet Attacks changes).
 			_apply_enhancement_weapon_bonuses(unit_id, unit)
 
+			# WP-O5: Codex: Orks (11e) enhancement list-build effects ('Ardboyz,
+			# It Came from da Drops, Flyboss, Warphead, enhancement weapons).
+			_ork11e_enh().apply_list_build(unit_id, unit, str(army_data.get("faction", {}).get("detachment", "")))
+
 			# MA-1: Log model_profiles if present
 			if unit.has("meta") and unit.meta.has("model_profiles"):
 				print("ArmyListManager: Unit %s (%s) loaded with model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(unit.meta.model_profiles.keys())])
@@ -670,6 +674,10 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 		# Apply wargear stat bonuses (e.g. Vexilla +1OC, 'Ard Case +2T)
 		_apply_wargear_stat_bonuses(unit_id, unit)
 
+		# WP-O5: Codex: Orks (11e) enhancement list-build effects (cloud /
+		# browser-builder armies take this path, not load_army_list).
+		_ork11e_enh().apply_list_build(unit_id, unit, str(army_data.get("faction", {}).get("detachment", "")))
+
 		# MA-1: Log model_profiles if present
 		if unit.has("meta") and unit.meta.has("model_profiles"):
 			print("ArmyListManager: Unit %s (%s) loaded with model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(unit.meta.model_profiles.keys())])
@@ -977,14 +985,15 @@ const ENHANCEMENT_STAT_BONUSES: Dictionary = {
 		"apply_to_models": true,
 		"description": "+2 Wounds to bearer (Shield-Captain or Blade Champion only)"
 	},
-	# Bully Boyz (Orks): Infantry Warboss only. Add 2 to the bearer's Wounds.
-	"Da Biggest Boss": {
-		"stat": "wounds",
-		"bonus": 2,
-		"apply_to_models": true,
-		"description": "+2 Wounds to bearer (Infantry Warboss only)"
-	}
+	# (WP-O5: the 10e Bully Boyz "Da Biggest Boss" +2 W is gone — Codex: Orks
+	# Bully Boyz has Wimp-kickaz / Tellyporta Boss; Ork list-build effects are
+	# OrkEnhancements11e.apply_list_build.)
 }
+
+## WP-O5: Codex: Orks (11e) enhancements module (scripts/codex/orks/
+## OrkEnhancements11e.gd), loaded at call time.
+func _ork11e_enh():
+	return load("res://scripts/codex/orks/OrkEnhancements11e.gd")
 
 func _apply_enhancement_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 	"""For each enhancement on this unit that has a list-build stat bonus,
@@ -1682,8 +1691,13 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 		result.warnings.append("11e: no Warlord designated")
 
 	# --- Enhancement cap: 2 per 1000 points; Upgrade-tag counts once ---
+	# (WP-O5: a Codex: Orks army in a codex detachment is validated by
+	# OrkEnhancements11e.validate_army instead — data-driven bearer lines.)
+	var o5_owns: bool = _ork11e_enh().owns_army_validation(army_data)
+	if o5_owns:
+		result.warnings.append_array(_ork11e_enh().validate_army(army_data).warnings)
 	var enhancement_choices = {}
-	for unit_id in units:
+	for unit_id in ({} if o5_owns else units):
 		var meta = units[unit_id].get("meta", {})
 		var upper_kw = []
 		for k in meta.get("keywords", []):
@@ -1787,8 +1801,13 @@ func validate_army_construction_points(army_data: Dictionary) -> Dictionary:
 		result.warnings.append("Units missing points cost: %s" % ", ".join(units_missing_points))
 
 	# --- Enhancement validation (10e: 1 of each per army; 1 per CHARACTER; bearer must be CHARACTER) ---
+	# (WP-O5: an 11e Codex: Orks army uses the codex checks — Upgrades may sit
+	# on non-CHARACTER units, up to three copies.)
+	var o5_owns_10e: bool = _ork11e_enh().owns_army_validation(army_data)
+	if o5_owns_10e:
+		result.warnings.append_array(_ork11e_enh().validate_army(army_data).warnings)
 	var enhancement_bearers: Dictionary = {}  # enhancement_name -> [bearer_unit_name, ...]
-	for unit_id in army_data.units:
+	for unit_id in ({} if o5_owns_10e else army_data.units):
 		var unit = army_data.units[unit_id]
 		if not unit is Dictionary:
 			continue
