@@ -1870,7 +1870,7 @@ func _staged_fight_continue_to_wounds() -> Dictionary:
 	var interactive_saves = staged_fight_state.get("interactive_saves", false)
 
 	var rng = RulesEngine.make_rng()
-	# Hold Still MW ride on the interactive save_data; the auto tail rolls its own.
+	# interactive_saves: the human defender allocates via the save overlay.
 	var wres = RulesEngine.resolve_melee_wounds(hc, game_state_snapshot, rng, interactive_saves)
 
 	for db in wres.get("dice", []):
@@ -1941,8 +1941,8 @@ func _staged_fight_continue_to_saves() -> Dictionary:
 			"save_data_list": save_data_list
 		})
 
-	# Auto-allocate: run the save/damage tail synchronously (rolls Hold Still
-	# itself, exactly like the one-shot monolith path).
+	# Auto-allocate: run the save/damage tail synchronously (exactly like the
+	# one-shot monolith path).
 	var rng = RulesEngine.make_rng()
 	var sres = RulesEngine.resolve_melee_saves_auto(hc, wound_result, game_state_snapshot, rng)
 	var changes = sres.get("diffs", [])
@@ -2095,11 +2095,6 @@ func _process_use_fight_reroll(action: Dictionary) -> Dictionary:
 		# Rebuild the pending save list (may now have more/fewer wounds).
 		if new_wounds > 0:
 			var sd = rr.get("save_data", {})
-			if staged_fight_state.get("interactive_saves", false):
-				var hs_mw = RulesEngine.roll_hold_still_mortal_wounds(
-					staged_fight_state.get("hit_context", {}), int(rr.get("all_critical_wounds", 0)), rng)
-				if hs_mw > 0:
-					sd["hold_still_mortal_wounds"] = hs_mw
 			staged_fight_state.save_data_list = [sd]
 		else:
 			staged_fight_state.save_data_list = []
@@ -2469,23 +2464,6 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 		GameEventLog.add_combat_result("  Result: %d %s destroyed" % [total_casualties, _cas_label])
 	else:
 		GameEventLog.add_combat_result("  Result: No models destroyed")
-
-	# OA-19: Apply Hold Still and Say 'Aargh!' mortal wounds after saves
-	for sd in pending_melee_save_data:
-		var hs_mw = sd.get("hold_still_mortal_wounds", 0)
-		if hs_mw > 0:
-			var hs_target_id = sd.get("target_unit_id", "")
-			var hs_target_name = sd.get("target_unit_name", "Unknown")
-			DebugLogger.info(str("[FightPhase] OA-19: HOLD STILL AND SAY 'AARGH!' — applying %d mortal wounds to %s" % [hs_mw, hs_target_name]))
-			# Issue #329: honor action.payload.rng_seed
-			var hs_seed: int = action.get("payload", {}).get("rng_seed", -1)
-			var hs_rng = RulesEngine.RNGService.new(hs_seed)
-			var hs_result = RulesEngine.apply_mortal_wounds(hs_target_id, hs_mw, game_state_snapshot, hs_rng)
-			all_diffs.append_array(hs_result.get("diffs", []))
-			var hs_casualties = hs_result.get("casualties", 0)
-			total_casualties += hs_casualties
-			GameEventLog.add_combat_result("  Hold Still and Say 'Aargh!': %d mortal wounds → %s (%d slain)" % [hs_mw, hs_target_name, hs_casualties])
-			log_phase_message("Hold Still and Say 'Aargh!': %d mortal wounds → %s (%d casualties)" % [hs_mw, hs_target_name, hs_casualties])
 
 	# STAGED FIGHT: these saves belong to ONE weapon of a staged sequence —
 	# advance to the next weapon (or finish the activation) instead of ending

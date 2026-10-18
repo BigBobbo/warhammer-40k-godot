@@ -403,6 +403,12 @@ func _section_blitz_brigade() -> void:
 	_check("the 10e disembark advance re-roll is off", not FAM.unit_has_detachment_advance_reroll(_u("U_BATTLEWAGON_A")))
 	PM.transition_to_phase(PHASE_MOVEMENT)
 	var phase = PM.get_current_phase_instance()
+	# WP-O6: the codex Da Jump (Weirdboy) is offered at the start of the
+	# Movement phase — decline that window before the advance.
+	for _i in range(3):
+		if phase.has_pending_stratagem_window():
+			var sw: Dictionary = phase.get_pending_stratagem_window()
+			phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": int(sw.get("player", 1)), "window_id": str(sw.get("window_id", ""))})
 	var seed_low := 1
 	for s in range(1, 300):
 		if int(RE.RNGService.new(s).roll_d6(1)[0]) <= 2:

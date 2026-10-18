@@ -1,0 +1,432 @@
+{
+ "id": "ork11e_ab_strafing_run",
+ "covers": [
+  "codex.orks.datasheet_abilities.strafing_run",
+  "scripts.codex.orks.OrkAbilities11e",
+  "rules.shooting.hit_modifiers"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) STRAFING RUN (Dakkajet, passive): in the Shooting phase the Dakkajet's ranged attacks against a non-FLY unit have +1 to hit. Fixture ork11e_ab_shoot: a real click selects the Dakkajet, its dual supa-shootas fire at Witchseekers C (dispatched) and the hit roll carries +1 with a 'Strafing Run' ledger entry; the live hook gives nothing against a FLY target (the Dakkajet itself as a stand-in).",
+ "fixture": "ork11e_ab_shoot",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 8,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 8
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 2:\n\t\tfor m in u.models:\n\t\t\tm[\"wounds\"] = 99\n\t\t\tm[\"current_wounds\"] = 99\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege (see description)"
+  },
+  {
+   "act": "click_unit",
+   "unit_id": "U_DAKKAJET_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "var u = GameState.get_unit(\"U_DAKKAJET_A\")\nvar t = GameState.get_unit(\"U_WITCHSEEKERS_C\")\nvar m = RulesEngine.ork11e_ab_mods(u, t, {\"name\": \"Dual Supa-shoota\", \"type\": \"Ranged\"}, false, GameState.state, [])\nprint(\"[wp-o6] mods \", \"U_DAKKAJET_A\", \" -> \", \"U_WITCHSEEKERS_C\", \": \", m)\nreturn bool(m.hit_plus)",
+   "multiline": true,
+   "equals": true,
+   "comment": "vs a non-FLY unit: +1 to hit"
+  },
+  {
+   "act": "execute_script",
+   "script": "var u = GameState.get_unit(\"U_DAKKAJET_A\")\nvar t = GameState.get_unit(\"U_DAKKAJET_A\")\nvar m = RulesEngine.ork11e_ab_mods(u, t, {\"name\": \"Dual Supa-shoota\", \"type\": \"Ranged\"}, false, GameState.state, [])\nprint(\"[wp-o6] mods \", \"U_DAKKAJET_A\", \" -> \", \"U_DAKKAJET_A\", \": \", m)\nreturn not bool(m.hit_plus)",
+   "multiline": true,
+   "equals": true,
+   "comment": "vs a FLY unit: nothing"
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "CLEAR_ALL_ASSIGNMENTS",
+    "player": 1
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "ASSIGN_TARGET",
+    "player": 1,
+    "payload": {
+     "weapon_id": "dual_supa_shoota_ranged",
+     "target_unit_id": "U_WITCHSEEKERS_C",
+     "model_ids": [
+      "m1"
+     ]
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "CONFIRM_TARGETS",
+    "player": 1
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "decline only the defender's (P2) reactive windows here"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var p = PhaseManager.get_current_phase_instance()\nvar seen := []\nfor d in p.dice_log:\n\tif typeof(d) != TYPE_DICTIONARY or str(d.get(\"context\", \"\")) != \"to_hit\":\n\t\tcontinue\n\tfor e in d.get(\"modifier_ledger\", []):\n\t\tif typeof(e) == TYPE_DICTIONARY and str(e.get(\"source\", \"\")) == \"Strafing Run\":\n\t\t\tseen.append(str(e.get(\"effect\", \"\")))\nprint(\"[wp-o6] Strafing Run ledger rows: \", seen)\nreturn seen.size() > 0",
+   "multiline": true,
+   "equals": true,
+   "comment": "the to_hit roll carried the Strafing Run modifier (modifier ledger)"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_strafing_run_hit_roll"
+  }
+ ]
+}

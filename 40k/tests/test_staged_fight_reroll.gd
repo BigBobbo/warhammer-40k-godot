@@ -211,54 +211,14 @@ func _run():
 			int(int_sd[0].get("wounds_to_save", -1)) == int(staged_sd[0].get("wounds_to_save", -2)),
 			"int=%d staged=%d" % [int(int_sd[0].get("wounds_to_save", -1)), int(staged_sd[0].get("wounds_to_save", -2))])
 
-	# --- F) Hold Still (OA-19) — the extracted helper matches the interactive
-	#        monolith with the same seed (Painboy 'Urty Syringe, crit wounds) ---
-	var hs_seed := 0
-	var hs_int = {}
-	var hs_found := false
-	for try_seed in range(1, 60):
-		hs_int = rules.resolve_melee_attacks_interactive(_hs_action(), _hs_board(), rules.RNGService.new(try_seed))
-		var sdl = hs_int.get("save_data_list", [])
-		if not sdl.is_empty() and int(sdl[0].get("hold_still_mortal_wounds", 0)) > 0:
-			hs_seed = try_seed
-			hs_found = true
-			break
-	if hs_found:
-		var f_rng = rules.RNGService.new(hs_seed)
-		var f_board = _hs_board()
-		var f_hits = rules.resolve_melee_hits(_hs_action(), f_board, f_rng)
-		var f_wounds = rules.resolve_melee_wounds(f_hits.get("hit_context", {}), f_board, f_rng)
-		var int_hs = int(hs_int.get("save_data_list", [])[0].get("hold_still_mortal_wounds", -1))
-		var staged_hs_sd = f_wounds.get("save_data_list", [])
-		var staged_hs = int(staged_hs_sd[0].get("hold_still_mortal_wounds", -2)) if not staged_hs_sd.is_empty() else -2
-		_check("F: Hold Still MW identical between interactive and staged (seed %d)" % hs_seed,
-			int_hs == staged_hs, "int=%d staged=%d" % [int_hs, staged_hs])
-	else:
-		_check("F: found a seed producing Hold Still mortal wounds", false, "no crit wounds in 60 seeds?")
+	# --- F) (retired, WP-O6) Hold Still and Say 'Aargh!' is not on any Codex:
+	#        Orks (11e) datasheet — its 10e mortal-wound rider was removed, so the
+	#        interactive/staged parity check for it went with it
+	#        (.llm/codex_11e_wahapedia/RETIRED_TESTS.md). ---
 
 	_finish()
 
-func _hs_board() -> Dictionary:
-	var b = _make_board()
-	b.units.U_FIGHTER.meta["abilities"] = [{"name": "Hold Still and Say 'Aargh!'", "description": "test"}]
-	b.units.U_FIGHTER.meta["weapons"] = [{
-		"name": "'Urty Syringe", "type": "Melee", "range": "Melee",
-		"attacks": "4", "weapon_skill": "3", "strength": "4",
-		"ap": "0", "damage": "1", "special_rules": ""
-	}]
-	return b
 
-func _hs_action() -> Dictionary:
-	return {
-		"type": "FIGHT",
-		"actor_unit_id": "U_FIGHTER",
-		"payload": {"assignments": [{
-			"attacker": "U_FIGHTER",
-			"target": "U_TARGET",
-			"weapon": "'Urty Syringe",
-			"models": ["0", "1", "2", "3", "4"]
-		}]}
-	}
 
 func _count_diff(a: Array, b: Array) -> int:
 	var n = 0

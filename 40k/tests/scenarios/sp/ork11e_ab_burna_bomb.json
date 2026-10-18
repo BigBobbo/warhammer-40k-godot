@@ -1,0 +1,213 @@
+{
+ "id": "ork11e_ab_burna_bomb",
+ "covers": [
+  "codex.orks.datasheet_abilities.burna_bomb",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.fight_phase_end"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) BURNA BOMB (Burna-bommer) through the real fight_phase_end window in the OPPONENT's Fight phase. Fixture ork11e_ab_fight_end: Custodian Guard B (INFANTRY, not a Lone Operative) is visible within 36\" (Witchseekers C stand hidden in a ruin, so they are no option). P2 ends its Fight phase; 'Use on Burna-bommer' + a real click on Custodian Guard B rolls the D6 (2+: D3 mortal wounds) and marks them: they cannot be hidden and ranged attacks against them have [IGNORES COVER] until the end of P1's next turn (event log + TerrainManager).",
+ "fixture": "ork11e_ab_fight_end",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 10
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.active_player",
+   "equals": 2
+  },
+  {
+   "act": "execute_script",
+   "script": "for c in tree.root.get_children():\n\tif c is Window and c != tree.root and c.visible and str(c.name) == \"StratagemDialog\" and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\t\tc.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "P2's fight_phase_start window (if any): declined"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/PhaseActionButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "fight_phase_end"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_burna_bomb/Buttons/Use_ork11e_ab_burna_bomb_U_BURNA_BOMMER_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_burna_bomb\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_burna_bomb_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_burna_bomb/Buttons/Use_ork11e_ab_burna_bomb_U_BURNA_BOMMER_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemTargetDialog",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_B",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_B"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Burna Bomb\")",
+   "expect_min": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "var f = GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").flags.get(\"ork11e_ab_burna_bombed\", null)\nprint(\"[wp-o6] burna mark: \", f)\nreturn f != null or ScenarioRunner.event_log_count_containing(\"no effect\") > 0",
+   "multiline": true,
+   "equals": true,
+   "comment": "2+: marked (cannot be hidden / [IGNORES COVER]); a 1 has no effect"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_burna_bomb_resolved"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "fight_phase_end"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_burna_bomb\") == null",
+   "equals": true,
+   "comment": "used"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  }
+ ]
+}

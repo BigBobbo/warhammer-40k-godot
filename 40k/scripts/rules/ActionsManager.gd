@@ -148,7 +148,10 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 
 	var titanic = "TITANIC" in keywords
 	var rules = Engine.get_main_loop().root.get_node("/root/RulesEngine")
-	if not titanic and not conservai and rules.is_unit_engaged(unit_id, board):
+	# WP-O6 NEVER TOO BUSY TO FIGHT (Codex: Orks 11e, Boyz): "Being engaged
+	# does not prevent this unit from being eligible to start an action."
+	var never_too_busy: bool = load("res://scripts/codex/orks/OrkAbilities11e.gd").engaged_can_start_action(unit_id)
+	if not titanic and not conservai and not never_too_busy and rules.is_unit_engaged(unit_id, board):
 		reasons.append("engaged units cannot start actions (unless TITANIC)")
 
 	# Codex: Orks (11e) MIND MOSTLY ON THE MISSION: "That move does not prevent

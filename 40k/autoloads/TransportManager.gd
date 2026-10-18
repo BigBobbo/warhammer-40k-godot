@@ -334,6 +334,16 @@ func _get_unit_capacity_cost(unit: Dictionary, transport: Dictionary) -> int:
 						break
 				cost += model_cost
 
+	# WP-O6 DOWNTRODDEN (Codex: Orks 11e, Gretchin): "each 2 Gretchin models
+	# (rounding up) take up the space of 1 model" (no multiplier applies to them).
+	if GameConstants.edition >= 11 and cost > 0:
+		var dt_uid := str(unit.get("id", ""))
+		if dt_uid != "":
+			var dt_space := int(load("res://scripts/codex/orks/OrkAbilities11e.gd").transport_space(dt_uid, cost))
+			if dt_space != cost:
+				print("TransportManager: Downtrodden — %s takes %d transport space(s) instead of %d" % [dt_uid, dt_space, cost])
+				cost = dt_space
+
 	return cost
 
 # Get total number of models currently embarked in a transport (capacity-weighted)

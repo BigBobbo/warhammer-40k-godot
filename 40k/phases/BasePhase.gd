@@ -487,7 +487,8 @@ func _cus11e_resume_after_phase_end(_ctx: Dictionary, _window_result: Dictionary
 ## (StratagemManager.get_window_offers) followed by the ka'tah cards.
 ## katah_only: the ka'tah cards alone (a window re-opened after a stratagem).
 func _window_offers_for(player: int, window_id: String, ctx: Dictionary, katah_only: bool = false) -> Array:
-	var offers: Array = [] if katah_only else StratagemManager.get_window_offers(player, window_id, ctx)
+	# WP-O6: get_all_window_offers = window stratagems + Codex: Orks (11e) datasheet abilities.
+	var offers: Array = [] if katah_only else StratagemManager.get_all_window_offers(player, window_id, ctx)
 	offers.append_array(_cus11e_katah().window_offers(player, window_id, ctx))
 	return offers
 
@@ -811,6 +812,13 @@ func _execute_generic_window_followup(player: int, window_id: String, followup: 
 				PhaseManager.apply_state_changes(diffs)
 			DebugLogger.info("[StratagemWindow] follow-up new_reserve_unit (%s, P%d) resolved: %d diff(s)" % [window_id, player, diffs.size()])
 			return {"handled": true, "diffs": diffs}
+		"ork11e_reoffer":
+			# WP-O6 (OrkAbilities11e): a datasheet ability was used in a window that
+			# can host several (Command phase heals, Makari's picks, ...) — open the
+			# same window again with whatever is still on offer.
+			_window_queue.push_front({"player": player, "window_id": window_id, "ctx": followup.get("ctx", {})})
+			DebugLogger.info("[StratagemWindow] follow-up ork11e_reoffer: %s re-queued for P%d" % [window_id, player])
+			return {"handled": true, "diffs": []}
 	return {"handled": false, "diffs": []}
 
 ## new_reserve_unit {source_unit_id} (INFESTED WAR ZONE): add a NEW unit to
@@ -1133,7 +1141,7 @@ func _window_hold_deadly_demise(unit_id: String) -> bool:
 	# Deadly Demise resolves exactly as before (same order, same dice).
 	var owner := int(GameState.get_unit(unit_id).get("owner", 0))
 	var dd_ctx := {"unit_id": unit_id, "phase": StratagemManager._phase_to_string(GameState.get_current_phase())}
-	if StratagemManager.get_window_offers(owner, "unit_destroyed", dd_ctx).is_empty():
+	if StratagemManager.get_all_window_offers(owner, "unit_destroyed", dd_ctx).is_empty():
 		return false
 	_ev_dd_held[unit_id] = true
 	DebugLogger.info("[StratagemWindow] Deadly Demise of %s held until its unit_destroyed window closes" % unit_id)

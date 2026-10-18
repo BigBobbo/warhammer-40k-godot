@@ -795,8 +795,9 @@ const WARGEAR_STAT_BONUSES: Dictionary = {
 # the name the rules dispatch on is also the name the player reads.
 
 const ABILITY_NAME_CANON: Dictionary = {
-	"Da Jump (Psychic)": "Da Jump",         # MovementPhase requires exactly "Da Jump"
-	"Ramshackle but Rugged": "Ramshackle",  # ABILITY_EFFECTS worsen-AP entry
+	"Da Jump (Psychic)": "Da Jump",         # Codex: Orks (11e) Weirdboy psychic ability (OrkAbilities11e)
+	# WP-O6: "Ramshackle but Rugged" -> "Ramshackle" removed — no Codex: Orks
+	# (11e) datasheet has either ability.
 }
 
 func _canonicalize_ability_names(unit_id: String, unit: Dictionary) -> void:

@@ -959,6 +959,10 @@ func is_obscured_between(p1: Vector2, p2: Vector2) -> bool:
 func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 	if GameConstants.edition < 11:
 		return false
+	# WP-O6 BURNA BOMB (Codex: Orks 11e, Burna-bommer): "That enemy unit cannot
+	# be hidden until the end of your next turn."
+	if _ork_abilities().cannot_be_hidden(unit):
+		return false
 	var keywords: Array = unit.get("meta", {}).get("keywords", [])
 	var qualifies := false
 	for kw in ["INFANTRY", "BEASTS", "SWARM"]:
@@ -1018,7 +1022,18 @@ func detection_range_inches_for(model: Dictionary, unit: Dictionary, observer_mo
 	var range_in := detection_range_base_inches(unit)
 	if _obscured_by_dense_11e(observer_model, model):
 		range_in -= GameConstants.gone_to_ground_penalty_inches()
+	# WP-O6 FOUND 'EM! (Codex: Orks 11e, Kommandos): the selected enemy unit
+	# has +3" detection range until the end of the turn.
+	range_in += _ork_abilities().detection_range_bonus(unit)
 	return maxf(range_in, GameConstants.detection_range_floor_inches())
+
+## WP-O6: Codex: Orks (11e) datasheet abilities, loaded lazily (no preload
+## cycle through the autoloads it reaches).
+var _ork_ab_script = null
+func _ork_abilities():
+	if _ork_ab_script == null:
+		_ork_ab_script = load("res://scripts/codex/orks/OrkAbilities11e.gd")
+	return _ork_ab_script
 
 ## "Detection Range X\"" datasheet ability — mirrors the Lone Operative X"
 ## parser (RulesEngine.get_lone_operative_range). Absent → 15" default.

@@ -1,0 +1,76 @@
+{
+	"created_at": 1792285181.05535,
+	"game_state": {
+		"active_player": 1,
+		"battle_round": 2,
+		"game_id": "c02b1ee3-2b22-48a0-b65b-3033f9c810e94c65",
+		"is_multiplayer": false,
+		"phase": 6,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 2,
+		"turn_number": 1
+	},
+	"preview": {
+		"battle_round": 2,
+		"players": {
+			"1": {
+				"alive_models": 56,
+				"alive_units": 15,
+				"cp": 6,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 0.0,
+				"primary_vp": 0.0,
+				"secondary_vp": 0.0,
+				"total_models": 56,
+				"total_units": 15,
+				"unit_names": [
+					"Boyz",
+					"Mek",
+					"Big Mek",
+					"Beastboss",
+					"Beast Snagga Boyz",
+					"Squighog Boyz",
+					"Deffkilla Wartrike",
+					"Warbuggies",
+					"Morkanaut",
+					"Gunwagon",
+					"Warboss",
+					"Nobz",
+					"Tankbustas",
+					"Kommandos",
+					"Warbikers"
+				],
+				"vp": 0.0
+			},
+			"2": {
+				"alive_models": 12,
+				"alive_units": 4,
+				"cp": 6,
+				"detachment": "Guardians of the Throne",
+				"faction": "Adeptus Custodes",
+				"points": 2000.0,
+				"primary_vp": 0.0,
+				"secondary_vp": 0.0,
+				"total_models": 12,
+				"total_units": 4,
+				"unit_names": [
+					"Shield-Captain",
+					"Custodian Guard Sodality",
+					"Witchseeker Squad",
+					"Witchseeker Squad"
+				],
+				"vp": 0.0
+			}
+		}
+	},
+	"save_info": {
+		"description": "",
+		"save_type": "manual",
+		"tags": []
+	},
+	"version": "1.3.0"
+}
