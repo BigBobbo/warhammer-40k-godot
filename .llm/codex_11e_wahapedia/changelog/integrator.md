@@ -1,0 +1,3 @@
+- Shooting phase: a new "Start Action (units not shooting)" button lets a unit that cannot be selected to shoot (for example Gretchin that advanced under Runt Swarm) start an action such as Hold Position. Before, only units in the shooter list could start one.
+- Aquila Commander and Da Boss each give their +1 CP at the start of every battle round, even if you have already gained other bonus CP that round (11th edition has no bonus-CP cap).
+- Custodian Guard Sodality and Prosecutor Squad tokens keep their unit artwork after the codex renames.
