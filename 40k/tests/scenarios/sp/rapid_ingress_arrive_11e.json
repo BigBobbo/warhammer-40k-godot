@@ -21,6 +21,17 @@
       "seconds": 1.0
     },
     {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tif str(w.get(\"window_id\", \"\")) != \"movement_phase_start\":\n\t\tbreak\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn p != null and not p.has_pending_stratagem_window()",
+      "equals": true,
+      "comment": "WP-O6: the Orks' Weirdboy is offered the codex Da Jump in the movement_phase_start window when the Movement phase starts (it holds the phase) \u2014 not under test, declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
       "act": "expect_phase",
       "equals": 7
     },
@@ -249,6 +260,24 @@
     {
       "act": "wait_seconds",
       "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nif p == null or not p.has_pending_stratagem_window():\n\treturn \"none\"\nvar w = p.get_pending_stratagem_window()\nvar ids := []\nfor o in w.get(\"offers\", []):\n\tids.append(str(o.get(\"stratagem_id\", \"\")))\nreturn \"P%d %s: %s\" % [int(w.get(\"player\", 0)), str(w.get(\"window_id\", \"\")), \",\".join(ids)]",
+      "equals": "P2 movement_phase_end: ork11e_ab_da_jump",
+      "comment": "WP-O6: the movement_phase_end window opens for the active Ork player first (11e sequencing) with only the Weirdboy's codex Da Jump \u2014 not under test"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nvar w = p.get_pending_stratagem_window()\nNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": 2, \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn true",
+      "equals": true,
+      "comment": "declined (the Ork player's own end-of-phase window)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
     },
     {
       "act": "expect_state",
