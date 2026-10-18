@@ -1696,6 +1696,11 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 				var pre_minus = dmg
 				dmg = max(1, dmg - ow_minus_dmg)
 				print("RulesEngine: Minus Damage (Overwatch) — damage %d → %d (-%d)" % [pre_minus, dmg, ow_minus_dmg])
+			# WP-C7: Codex: Adeptus Custodes (11e) Praesidium Shield — -1 D for the attack allocated to the Shield-Captain.
+			var ow_ps: Dictionary = CustodesAbilities11eScript.allocated_damage(dmg, target_unit, target_model, ow_minus_dmg)
+			if str(ow_ps.get("note", "")) != "":
+				dmg = int(ow_ps.damage)
+				result.dice.append({"context": "damage_modifier", "source": "Praesidium Shield", "message": str(ow_ps.note)})
 
 			# Apply damage
 			var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
@@ -2151,9 +2156,6 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		# Note: We still check if weapon HAS these keywords for UI display
 		# but they won't have any effect since there's no hit roll
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board, target_unit)
-		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
-		if not weapon_has_lethal_hits:
-			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
 
 		result.dice.append({
@@ -2372,13 +2374,6 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			ModifierLedger.note(hit_mod_ledger, "Against All Odds", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 			print("RulesEngine: AGAINST ALL ODDS — +1 to hit for %s (no friendlies within 6\")" % actor_unit_id)
 
-		# CAPTAIN-GENERAL: Ignore all numeric hit modifiers (Trajann while leading)
-		if has_captain_general(actor_unit):
-			hit_modifiers = hit_modifiers & ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
-			ModifierLedger.note(hit_mod_ledger, "Captain-General", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED, "Trajann Valoris is leading this unit")
-			ModifierLedger.mark_ignored(hit_mod_ledger, ModifierLedger.KIND_HIT, [ModifierLedger.PLUS_ONE, ModifierLedger.MINUS_ONE])
-			print("RulesEngine: CAPTAIN-GENERAL — ignoring all hit roll modifiers for %s" % actor_unit_id)
-
 		# ── ISS-016/053 (11e): hit-side modifier stack — cover/STEALTH worsen
 		# BS (13.08/24.33), plunging fire improves it (22.05), [HEAVY] is +1
 		# to the hit roll (24.16). The ±1 dice-roll cap lives in ModifierStack.
@@ -2528,9 +2523,6 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 
 		# Check for Lethal Hits keyword
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board, target_unit)
-		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
-		if not weapon_has_lethal_hits:
-			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 		# OA-10: Ammo Runt / unit effect flags — Lethal Hits from abilities or stratagems (ranged)
 		if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(actor_unit):
 			weapon_has_lethal_hits = true
@@ -2792,12 +2784,6 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		weapon_has_devastating_wounds = true
 		print("RulesEngine: Headwoppa's Killchoppa — unit-level effect_devastating_wounds applied (until-wounds path)")
 
-	# PURITY OF EXECUTION: Ranged attacks vs PSYKER gain [DEVASTATING WOUNDS]
-	var purity_of_execution_active = has_purity_of_execution_vs_target(actor_unit, target_unit)
-	if purity_of_execution_active:
-		weapon_has_devastating_wounds = true
-		print("RulesEngine: PURITY OF EXECUTION — Devastating Wounds vs PSYKER target %s" % target_unit_id)
-
 	# 24.10 (audit #17): [DEVASTATING WOUNDS] is a CHOICE — the attacker may
 	# decline the mortal-wound conversion for this batch; critical wounds
 	# then resolve through the normal save/damage sequence.
@@ -2916,7 +2902,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	# HARDY BIONIKS (WP-O6, Painboss): -1 to wound for S > T attacks that target the unit
 	if ork11e_ab_wound_penalty(target_unit, strength, toughness):
 		wound_modifiers |= WoundModifier.MINUS_ONE
-		ModifierLedger.note(wound_mod_ledger, "Hardy Bioniks", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
+		ModifierLedger.note(wound_mod_ledger, ork11e_ab_wound_penalty_name(target_unit, strength, toughness), ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: HARDY BIONIKS — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
 	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
 	var sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
@@ -2951,12 +2937,6 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		wound_modifiers |= WoundModifier.REROLL_ONES
 		ModifierLedger.note(wound_mod_ledger, "Pyromaniaks", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target within range of an objective marker")
 		print("RulesEngine: PYROMANIAKS — re-roll wound rolls of 1 for %s (Torrent weapon, target within 6\")" % actor_unit_id)
-
-	# SLAYERS OF TYRANTS: Re-roll Wound rolls vs CHARACTER/MONSTER/VEHICLE
-	if has_slayers_of_tyrants_vs_target(actor_unit, target_unit):
-		wound_modifiers |= WoundModifier.REROLL_FAILED
-		ModifierLedger.note(wound_mod_ledger, "Slayers of Tyrants", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target is a CHARACTER, MONSTER or VEHICLE")
-		print("RulesEngine: SLAYERS OF TYRANTS — re-roll wound rolls for %s (target is CHARACTER/MONSTER/VEHICLE)" % actor_unit_id)
 
 	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (Lions of the Emperor)
 	if FactionAbilityManager.check_against_all_odds(actor_unit, board):
@@ -3128,10 +3108,6 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	# PRECISION (T3-4): Check if weapon has Precision keyword
 	# Critical hits (unmodified 6 to hit) from Precision weapons allow wound allocation to CHARACTER models
 	var weapon_has_precision = has_precision(weapon_id, board)
-	# PURITY OF EXECUTION: Ranged attacks vs PSYKER gain [PRECISION]
-	if not weapon_has_precision and purity_of_execution_active:
-		weapon_has_precision = true
-		print("RulesEngine: PURITY OF EXECUTION — Precision vs PSYKER target %s" % target_unit_id)
 	var precision_data = {}
 	if weapon_has_precision:
 		# Number of precision wounds = min(critical_hits, wounds_caused)
@@ -3355,6 +3331,12 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			var minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
 			if minus_dmg > 0:
 				dmg = max(1, dmg - minus_dmg)
+			# WP-C7: Codex: Adeptus Custodes (11e) Praesidium Shield — attacks allocated to the Shield-Captain's model have -1 D (min 1).
+			if model_index >= 0 and model_index < models.size():
+				var ps_res: Dictionary = CustodesAbilities11eScript.allocated_damage(dmg, target_unit, models[model_index], minus_dmg)
+				if str(ps_res.get("note", "")) != "":
+					dmg = int(ps_res.damage)
+					result.dice.append({"context": "damage_modifier", "source": "Praesidium Shield", "message": str(ps_res.note)})
 			var fnp = unit_fnp_value
 			if model_index >= 0 and model_index < models.size():
 				# Per-model FNP + the conditional grants for this attack (a
@@ -4002,6 +3984,7 @@ static func _build_attached_allocation_unit_11e(target_unit_id: String, board: D
 				cm["save"] = char_stats.save
 			if not cm.has("invuln") and char_stats.has("invuln"):
 				cm["invuln"] = char_stats.invuln
+			CustodesAbilities11eScript.decorate_alloc_model(cm, char_unit)  # WP-C7: Praesidium Shield bearer tag, Moment Shackle 3+ InSv ("this model")
 			combined.models.append(cm)
 			sources.append({"unit_id": str(char_id), "model_index": ci})
 	return {"unit": combined, "sources": sources}
@@ -4310,9 +4293,6 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Note: We still check if weapon HAS these keywords for UI display
 		# but they won't have any effect since there's no hit roll
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board, target_unit)
-		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
-		if not weapon_has_lethal_hits:
-			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
 
 		result.dice.append({
@@ -4669,9 +4649,6 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# Check for Lethal Hits keyword
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board, target_unit)
-		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
-		if not weapon_has_lethal_hits:
-			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 		# OA-10: Ammo Runt / unit effect flags — Lethal Hits from abilities or stratagems (ranged)
 		if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(actor_unit):
 			weapon_has_lethal_hits = true
@@ -4962,7 +4939,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# HARDY BIONIKS (WP-O6, Painboss): -1 to wound for S > T attacks that target the unit (auto-resolve)
 	if ork11e_ab_wound_penalty(target_unit, strength, toughness):
 		ar_wound_modifiers |= WoundModifier.MINUS_ONE
-		ModifierLedger.note(ar_wound_mod_ledger, "Hardy Bioniks", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
+		ModifierLedger.note(ar_wound_mod_ledger, ork11e_ab_wound_penalty_name(target_unit, strength, toughness), ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: HARDY BIONIKS (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
 	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
 	var ar_sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
@@ -5951,7 +5928,6 @@ static func _unit_has_ded_glowy_ammo(unit: Dictionary) -> bool:
 		if ability_name == "Ded Glowy Ammo (Aura)":
 			return true
 	return false
-
 
 
 # OA-45: Ghazghkull's Waaagh! Banner (Aura) — Check if attacker gets Lethal Hits on melee.
@@ -8693,59 +8669,6 @@ static func has_lethal_hits(weapon_id: String, board: Dictionary = {}, target_un
 
 	return false
 
-# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits for Caladius Grav-tank
-# Twin iliastus accelerator cannon → Lethal Hits vs non-MONSTER/non-VEHICLE targets
-# Twin arachnus heavy blaze cannon → Lethal Hits vs MONSTER or VEHICLE targets
-static func check_advanced_firepower_lethal_hits(weapon_id: String, attacker_unit: Dictionary, target_unit: Dictionary, board: Dictionary = {}) -> bool:
-	# Check if the attacker has the "Advanced Firepower" ability
-	var abilities = attacker_unit.get("meta", {}).get("abilities", [])
-	var has_ability = false
-	for ability in abilities:
-		var ability_name = ""
-		if ability is String:
-			ability_name = ability
-		elif ability is Dictionary:
-			ability_name = ability.get("name", "")
-		if ability_name == "Advanced Firepower":
-			has_ability = true
-			break
-
-	if not has_ability:
-		return false
-
-	# Get weapon name from profile
-	var weapon_profile = get_weapon_profile(weapon_id, board)
-	if weapon_profile.is_empty():
-		return false
-	var weapon_name = weapon_profile.get("name", "").to_lower()
-
-	# Get target keywords
-	var target_keywords = target_unit.get("meta", {}).get("keywords", [])
-	var target_is_monster_or_vehicle = false
-	for kw in target_keywords:
-		if kw.to_upper() in ["MONSTER", "VEHICLE"]:
-			target_is_monster_or_vehicle = true
-			break
-
-	# Twin iliastus accelerator cannon: Lethal Hits vs non-MONSTER/non-VEHICLE
-	if "iliastus" in weapon_name:
-		if not target_is_monster_or_vehicle:
-			print("RulesEngine: ADVANCED FIREPOWER — Twin iliastus accelerator cannon gains LETHAL HITS (target is not MONSTER/VEHICLE)")
-			return true
-		else:
-			print("RulesEngine: ADVANCED FIREPOWER — Twin iliastus accelerator cannon does NOT gain LETHAL HITS (target is MONSTER/VEHICLE)")
-			return false
-
-	# Twin arachnus heavy blaze cannon: Lethal Hits vs MONSTER/VEHICLE
-	if "arachnus" in weapon_name:
-		if target_is_monster_or_vehicle:
-			print("RulesEngine: ADVANCED FIREPOWER — Twin arachnus heavy blaze cannon gains LETHAL HITS (target is MONSTER/VEHICLE)")
-			return true
-		else:
-			print("RulesEngine: ADVANCED FIREPOWER — Twin arachnus heavy blaze cannon does NOT gain LETHAL HITS (target is not MONSTER/VEHICLE)")
-			return false
-
-	return false
 
 # ==========================================
 # SUSTAINED HITS (PRP-011)
@@ -9259,34 +9182,6 @@ static func has_tank_hunters_vs_target(actor_unit: Dictionary, target_unit: Dict
 	return is_monster_or_vehicle(target_unit)
 
 
-static func has_slayers_of_tyrants_vs_target(actor_unit: Dictionary, target_unit: Dictionary) -> bool:
-	var abilities = actor_unit.get("meta", {}).get("abilities", [])
-	var has_ability = false
-	for ability in abilities:
-		var ability_name = ""
-		if ability is String:
-			ability_name = ability
-		elif ability is Dictionary:
-			ability_name = ability.get("name", "")
-		if ability_name == "Slayers of Tyrants":
-			has_ability = true
-			break
-	if not has_ability:
-		return false
-	return unit_has_keyword(target_unit, "CHARACTER") or unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE")
-
-static func has_captain_general(actor_unit: Dictionary) -> bool:
-	var abilities = actor_unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = ""
-		if ability is String:
-			ability_name = ability
-		elif ability is Dictionary:
-			ability_name = ability.get("name", "")
-		if ability_name == "Captain-General":
-			return true
-	return false
-
 static func has_xenos_hunter_vs_target(actor_unit: Dictionary, target_unit: Dictionary) -> bool:
 	var abilities = actor_unit.get("meta", {}).get("abilities", [])
 	var has_ability = false
@@ -9302,22 +9197,6 @@ static func has_xenos_hunter_vs_target(actor_unit: Dictionary, target_unit: Dict
 	if not has_ability:
 		return false
 	return not unit_has_keyword(target_unit, "IMPERIUM") and not unit_has_keyword(target_unit, "CHAOS")
-
-static func has_purity_of_execution_vs_target(actor_unit: Dictionary, target_unit: Dictionary) -> bool:
-	var abilities = actor_unit.get("meta", {}).get("abilities", [])
-	var has_ability = false
-	for ability in abilities:
-		var ability_name = ""
-		if ability is String:
-			ability_name = ability
-		elif ability is Dictionary:
-			ability_name = ability.get("name", "")
-		if ability_name == "Purity of Execution":
-			has_ability = true
-			break
-	if not has_ability:
-		return false
-	return unit_has_keyword(target_unit, "PSYKER")
 
 
 # BEASTLY RAGE: Beastboss on Squigosaur — after charging, this model's melee weapons
@@ -9449,11 +9328,6 @@ static func get_dats_our_loot_reroll_scope(actor_unit: Dictionary, target_unit: 
 	return "ones"
 
 
-
-
-
-
-
 # DRIVE-BY DAKKA (OA-13): Check if the closest distance between any alive model in the
 # attacker unit and any alive model in the target unit is within the given range (inches).
 # Used to determine if Drive-by Dakka AP improvement applies (target within 9").
@@ -9571,11 +9445,15 @@ static func ork11e_det_range_bonus(actor_unit: Dictionary, weapon_profile: Dicti
 # resolver path by the adapters below; target-only defences (invulnerable
 # save, -1 D, -1 AP) live in the EffectPrimitives getters.
 const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
+# WP-C7: Codex: Adeptus Custodes (11e) DATASHEET abilities (scripts/codex/custodes/CustodesAbilities.gd).
+const CustodesAbilities11eScript = preload("res://scripts/codex/custodes/CustodesAbilities.gd")
 
 static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weapon_profile: Dictionary, is_melee: bool, board: Dictionary, bearer_ids: Array = []) -> Dictionary:
 	if GameConstants.edition < 11:
 		return OrkAbilities11eScript._empty_mods()
-	return OrkAbilities11eScript.attack_mods(actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
+	var ab_mods: Dictionary = OrkAbilities11eScript.attack_mods(actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
+	CustodesAbilities11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-C7: Codex: Adeptus Custodes (11e) datasheet abilities ride the same aggregator
+	return ab_mods
 
 ## Fold the datasheet-ability hit modifiers into HitModifier bits (+ ledger).
 static func ork11e_ab_hit_bits(bits: int, ledger: Array, ab: Dictionary) -> int:
@@ -9614,7 +9492,14 @@ static func ork11e_ab_wound_bits(bits: int, ledger: Array, ab: Dictionary) -> in
 
 ## Hardy Bioniks (Painboss): S > T attacks that target the unit have -1 to wound.
 static func ork11e_ab_wound_penalty(target_unit: Dictionary, strength: int, toughness: int) -> bool:
-	return GameConstants.edition >= 11 and OrkAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness)
+	return GameConstants.edition >= 11 and (OrkAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness) \
+		or CustodesAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness))  # WP-C7: Unyielding Ancient / Praesidium Shield (Sentinel Guard)
+
+## The ledger name of the S > T -1 to wound above (Hardy Bioniks, or the
+## Custodes Unyielding Ancient / Praesidium Shield — WP-C7).
+static func ork11e_ab_wound_penalty_name(target_unit: Dictionary, strength: int, toughness: int) -> String:
+	var cus_src: String = CustodesAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)
+	return cus_src if cus_src != "" else "Hardy Bioniks"
 
 const ORK11E_FLAG_CLOSE_RANGE_DAKKA := "ork11e_close_range_dakka"
 const ORK11E_FLAG_VINDICTIVE_ARTILLERISTS := "ork11e_vindictive_artillerists"  # = chosen variant id
@@ -9957,8 +9842,6 @@ static func has_dakkastorm(unit: Dictionary) -> bool:
 		if ability_name == "Dakkastorm":
 			return true
 	return false
-
-
 
 
 # PYROMANIAKS (OA-14): Get the wound re-roll scope for Pyromaniaks.
@@ -12982,12 +12865,6 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
 		var model_attacks = attacks_result.value
 
-		# MOMENT SHACKLE: Watcher's Axe gets 12 Attacks
-		if attacker_unit.get("flags", {}).get("moment_shackle_attacks_12", false):
-			if "Watcher" in weapon_name and "Axe" in weapon_name:
-				model_attacks = 12
-				print("RulesEngine: MOMENT SHACKLE — Watcher's Axe overridden to 12 Attacks")
-
 		# WAAAGH! BONUS: +1 Attack to melee weapons
 		# BALANCE DATASLATE (P2-75): Skip for Extra Attacks weapons — Waaagh! doesn't name specific weapons
 		if waaagh_melee_bonus and not is_extra_attacks_weapon:
@@ -13326,6 +13203,10 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 	if not weapon_has_lethal_hits and bool(ork6.get("lethal", false)):
 		weapon_has_lethal_hits = true
 		print("RulesEngine:   LETHAL HITS granted by a Codex: Orks (11e) datasheet ability (melee)")
+	# WP-C7: Codex: Adeptus Custodes (11e) Quicksilver Execution / Impenetrable Defence: melee [SUSTAINED HITS 1] (the ranged paths read the same key).
+	if int(sustained_data.value) == 0 and int(ork6.get("sustained", 0)) > 0:
+		sustained_data = {"value": int(ork6.get("sustained", 0)), "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS %d granted by a codex (11e) datasheet ability (melee)" % int(ork6.get("sustained", 0)))
 
 	print("RulesEngine: Melee %s (%s) → %s: %d attacks (%d/%d models eligible), WS %d+, S%d, AP%d, D%d" % [
 		attacker_name, weapon_name, target_name, total_attacks, model_count, total_alive_models, ws, strength, ap, damage
@@ -13483,13 +13364,6 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			print("RulesEngine: KAPTARIS — melee attacks that target %s have -1 to hit" % target_name)
 		# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): SHIELD OF HONOUR / GOLDEN LIGHT (-1), HONOURED INTERRED (re-roll 1s), BEARERS OF HIS LIGHT (ignore -1).
 		melee_hit_modifiers = _cus11e_codex().apply_hit_bits(melee_hit_modifiers, attacker_unit, target_unit, true, board, melee_hit_mod_ledger)
-
-		# CAPTAIN-GENERAL: Ignore all numeric hit modifiers (melee)
-		if has_captain_general(attacker_unit):
-			melee_hit_modifiers = melee_hit_modifiers & ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
-			ModifierLedger.note(melee_hit_mod_ledger, "Captain-General", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED, "Trajann Valoris is leading this unit")
-			ModifierLedger.mark_ignored(melee_hit_mod_ledger, ModifierLedger.KIND_HIT, [ModifierLedger.PLUS_ONE, ModifierLedger.MINUS_ONE])
-			print("RulesEngine: CAPTAIN-GENERAL (melee) — ignoring all hit roll modifiers for %s" % attacker_id)
 
 		# A10 (24.29): [PSYCHIC] melee weapons ignore modifiers to the hit roll —
 		# strip the harmful -1 (the shooting paths do the same). 11e only.
@@ -13779,7 +13653,7 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 	# HARDY BIONIKS (WP-O6, Painboss): -1 to wound for S > T attacks that target the unit (melee)
 	if ork11e_ab_wound_penalty(target_unit, strength, toughness):
 		melee_wound_modifiers |= WoundModifier.MINUS_ONE
-		ModifierLedger.note(melee_wound_mod_ledger, "Hardy Bioniks", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
+		ModifierLedger.note(melee_wound_mod_ledger, ork11e_ab_wound_penalty_name(target_unit, strength, toughness), ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: HARDY BIONIKS (melee) — -1 to wound for attacks against %s (S %d > T %d)" % [target_id, strength, toughness])
 	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
 	var melee_sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
@@ -13788,11 +13662,6 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 		ModifierLedger.note(melee_wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty (melee) — -1 to wound for attacks against %s (S %d > T %d)" % [target_id, strength, toughness])
 
-	# SLAYERS OF TYRANTS: Re-roll Wound rolls vs CHARACTER/MONSTER/VEHICLE (melee)
-	if has_slayers_of_tyrants_vs_target(attacker_unit, target_unit):
-		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
-		ModifierLedger.note(melee_wound_mod_ledger, "Slayers of Tyrants", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target is a CHARACTER, MONSTER or VEHICLE")
-		print("RulesEngine: SLAYERS OF TYRANTS (melee) — re-roll wound rolls for %s (target is CHARACTER/MONSTER/VEHICLE)" % attacker_id)
 
 	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (melee, Lions of the Emperor)
 	if FactionAbilityManager.check_against_all_odds(attacker_unit, board):
@@ -16548,74 +16417,6 @@ static func _emergency_disembark_candidates(model: Dictionary, keywords: Array, 
 # DREAD FOE (P1-17)
 # ==========================================
 
-static func resolve_dread_foe(attacker_unit_id: String, target_unit_id: String, charged_this_turn: bool, board: Dictionary, rng: RNGService = null) -> Dictionary:
-	"""Resolve Dread Foe ability when the Contemptor-Achillus is selected to fight.
-	Rules: Select one enemy unit within Engagement Range. Roll 1D6, adding 2 if
-	this model made a Charge move this turn: on 4-5, D3 mortal wounds; on 6+, 3 mortal wounds.
-	Args:
-		attacker_unit_id: The unit with Dread Foe (Contemptor-Achillus)
-		target_unit_id: The selected enemy unit within Engagement Range
-		charged_this_turn: Whether the attacker charged this turn (+2 to roll)
-		board: The game state board dictionary
-		rng: Optional RNG service for dice rolls
-	Returns: { roll: int, modified_roll: int, mortal_wounds: int, diffs: Array, casualties: int }
-	"""
-	if rng == null:
-		rng = make_rng()
-
-	var units = board.get("units", {})
-	var attacker_unit = units.get(attacker_unit_id, {})
-	var attacker_name = attacker_unit.get("meta", {}).get("name", attacker_unit_id)
-	var target_unit = units.get(target_unit_id, {})
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P1-17: DREAD FOE — %s (%s)" % [attacker_name, attacker_unit_id])
-	print("║ Target: %s (%s)" % [target_name, target_unit_id])
-	print("║ Charged this turn: %s" % str(charged_this_turn))
-
-	# Step 1: Roll 1D6
-	var roll = rng.roll_d6(1)[0]
-	var modified_roll = roll + (2 if charged_this_turn else 0)
-	print("║ Roll: %d%s = %d" % [roll, " +2 (charged)" if charged_this_turn else "", modified_roll])
-
-	# Step 2: Determine mortal wounds based on modified roll
-	var mortal_wounds = 0
-	if modified_roll >= 6:
-		mortal_wounds = 3
-		print("║ Result: 6+ → 3 mortal wounds!")
-	elif modified_roll >= 4:
-		# D3 mortal wounds (D6 / 2, round up: 1-2=1, 3-4=2, 5-6=3)
-		var d3_roll = rng.roll_d6(1)[0]
-		mortal_wounds = ceili(float(d3_roll) / 2.0)
-		print("║ Result: 4-5 → D3 mortal wounds (rolled %d on D6 = %d)" % [d3_roll, mortal_wounds])
-	else:
-		print("║ Result: %d — no mortal wounds (needs 4+)" % modified_roll)
-		print("╚═══════════════════════════════════════════════════════════════")
-		return {
-			"roll": roll,
-			"modified_roll": modified_roll,
-			"mortal_wounds": 0,
-			"diffs": [],
-			"casualties": 0
-		}
-
-	# Step 3: Apply mortal wounds to target
-	var mw_result = apply_mortal_wounds(target_unit_id, mortal_wounds, board, rng)
-
-	print("║ DREAD FOE SUMMARY: %d mortal wound(s) dealt to %s, %d casualt(y/ies)" % [
-		mortal_wounds, target_name, mw_result.get("casualties", 0)
-	])
-	print("╚═══════════════════════════════════════════════════════════════")
-
-	return {
-		"roll": roll,
-		"modified_roll": modified_roll,
-		"mortal_wounds": mortal_wounds,
-		"diffs": mw_result.get("diffs", []),
-		"casualties": mw_result.get("casualties", 0),
-		"fnp_rolls": mw_result.get("fnp_rolls", [])
-	}
 
 # ==========================================
 # PISTON-DRIVEN BRUTALITY (OA-36)

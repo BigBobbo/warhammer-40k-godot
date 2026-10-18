@@ -520,15 +520,6 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 		"declared_at": Time.get_unix_time_from_system()
 	}
 
-	# Track once-per-battle ability usage when a unit charges after advancing
-	var declaring_unit = get_unit(unit_id)
-	var declaring_flags = declaring_unit.get("flags", {})
-	if declaring_flags.get("advanced", false) and EffectPrimitivesData.has_effect_advance_and_charge(declaring_unit):
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr:
-			ability_mgr.mark_once_per_battle_used(unit_id, "Martial Inspiration")
-			DebugLogger.info(str("ChargePhase: Marked Martial Inspiration as used for unit %s (charged after advancing)" % unit_id))
-
 	# Track the currently charging unit (may not have been set via SELECT_CHARGE_UNIT)
 	current_charging_unit = unit_id
 
@@ -1940,6 +1931,9 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	# end of the turn" — a hard lock, not overridable by advance-and-charge.
 	if flags.get("ork11e_grab_it_no_charge", false):
 		return false
+	# Codex: Adeptus Custodes MOBILE HUNTER (CustodesAbilities.gd): the same hard lock.
+	if _cus11e_abilities().blocks_charge(unit):
+		return false
 
 	# Check restriction flags
 	# cannot_charge is set by both Advance and Fall Back moves, but abilities like
@@ -3310,6 +3304,10 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 	var ork11e_um: String = load("res://scripts/codex/orks/OrkDetachments11e.gd").charge_reroll_source(unit_data)
 	if ork11e_um != "":
 		return ork11e_um
+	# Codex: Adeptus Custodes Swift Onslaught / Seeker's Instincts (WP-C7).
+	var cus11e_rr: String = _cus11e_abilities().charge_reroll_source(unit_data)
+	if cus11e_rr != "":
+		return cus11e_rr
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:

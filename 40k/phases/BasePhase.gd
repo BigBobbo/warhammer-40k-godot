@@ -67,7 +67,16 @@ var phase_type: GameStateData.Phase
 func enter_phase(state_snapshot: Dictionary) -> void:
 	game_state_snapshot = state_snapshot
 	_ev_baseline = _ev_snapshot()
+	# Codex: Adeptus Custodes (11e) "At the start of any phase" abilities
+	# (Moment Shackle, Neutronium Cascade Mine, Sword of the Throne —
+	# CustodesAbilities.gd, WP-C7): queued as event windows BEFORE the phase's
+	# own start rules, so the first window the phase opens resolves them first.
+	_ev_deferred.append_array(_cus11e_abilities().phase_start_entries(int(phase_type)))
 	_on_phase_enter()
+	# (A phase that ended inside its own entry does not carry them over.)
+	var pm_now = get_node_or_null("/root/PhaseManager")
+	if pm_now != null and pm_now.current_phase_instance != null and pm_now.current_phase_instance != self:
+		_ev_deferred = _ev_deferred.filter(func(e): return str(e.get("window_id", "")) != "phase_start")
 	# Units destroyed / battle-shocked by phase-start rules (e.g. Big Gob).
 	_window_events_flush({})
 
@@ -449,6 +458,11 @@ static func _cus11e_katah():
 ## windows' hooks and the effect consumers the phases call. Loaded lazily.
 static func _cus11e_codex():
 	return load("res://scripts/codex/custodes/CustodesCodex11e.gd")
+
+## Codex: Adeptus Custodes datasheet abilities (WP-C7, CustodesAbilities.gd):
+## the phase_start window and the phases' passive hooks. Loaded lazily.
+static func _cus11e_abilities():
+	return load("res://scripts/codex/custodes/CustodesAbilities.gd")
 
 ## Codex: Adeptus Custodes SUPERHUMAN FOCUS (WP-C5, CustodesCodex11e.gd): the
 ## phase_end window ("End of any phase", both players, active first). Called by

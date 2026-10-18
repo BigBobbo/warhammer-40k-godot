@@ -25,8 +25,6 @@ signal grenade_result(result: Dictionary)  # For grenade stratagem result displa
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)  # For Command Re-roll on save rolls (future expansion)
 signal shooting_damage_applied(shooter_id: String, diffs: Array)  # T7-53: For floating damage numbers after saves resolved
 signal ai_shooting_visual(shooter_id: String, target_data: Array, result_summary: Dictionary)  # T7-38: AI shooting targeting line + result text
-signal sentinel_storm_available(unit_id: String, player: int)  # P1-10: Sentinel Storm shoot-again prompt
-signal sanctified_flames_result(shooter_id: String, target_id: String, test_result: Dictionary)  # P1-11: Sanctified Flames battle-shock test result
 signal throat_slittas_available(unit_id: String, player: int, eligible_targets: Array)  # P1-12: Throat Slittas mortal wounds prompt
 signal throat_slittas_result(unit_id: String, results: Dictionary)  # P1-12: Throat Slittas resolution result
 
@@ -47,9 +45,8 @@ var pending_save_data: Array = []  # Save data awaiting resolution
 var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing post-save hazardous check
 var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-shot weapons as fired
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
-var sentinel_storm_pending_unit: String = ""  # P1-10: Unit awaiting Sentinel Storm decision
 var throat_slittas_pending_unit: String = ""  # P1-12: Unit awaiting Throat Slittas decision
-var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
+var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count } (post-shot "hit by those attacks")
 var _rng = RulesEngine.make_rng()  # P1-11: RNG for battle-shock tests (issue #329: routes through test_mode_seed)
 # Issue #386 Big Booms: queued struck-unit IDs from a supa-kannon target selection.
 # Resolved after the supa-kannon's attacks against the chosen target finish; D3 MW per struck unit.
@@ -213,7 +210,6 @@ func _on_phase_enter() -> void:
 	pending_hazardous_weapons.clear()
 	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
-	sentinel_storm_pending_unit = ""
 	throat_slittas_pending_unit = ""
 	swift_as_eagle_pending_unit = ""
 	swift_as_eagle_move_inches = 0
@@ -589,10 +585,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_grenade_stratagem(action)
 		"USE_STRATAGEM":  # Active player uses a proactive (non-grenade) stratagem with phase: "shooting"
 			return _validate_use_stratagem(action)
-		"USE_SENTINEL_STORM":  # P1-10: Player uses Sentinel Storm shoot-again
-			return _validate_use_sentinel_storm(action)
-		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
-			return _validate_decline_sentinel_storm(action)
 		"USE_THROAT_SLITTAS":  # P1-12: Player uses Throat Slittas mortal wounds
 			return _validate_use_throat_slittas(action)
 		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
@@ -738,12 +730,6 @@ func _process_action_dispatch(action: Dictionary) -> Dictionary:
 		"USE_STRATAGEM":  # Active player uses a proactive (non-grenade) stratagem with phase: "shooting"
 			DebugLogger.info("ShootingPhase: Matched USE_STRATAGEM")
 			return _process_use_stratagem(action)
-		"USE_SENTINEL_STORM":  # P1-10: Player uses Sentinel Storm
-			DebugLogger.info("ShootingPhase: Matched USE_SENTINEL_STORM")
-			return _process_use_sentinel_storm(action)
-		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
-			DebugLogger.info("ShootingPhase: Matched DECLINE_SENTINEL_STORM")
-			return _process_decline_sentinel_storm(action)
 		"USE_THROAT_SLITTAS":  # P1-12: Player uses Throat Slittas
 			DebugLogger.info("ShootingPhase: Matched USE_THROAT_SLITTAS")
 			return _process_use_throat_slittas(action)
@@ -2713,10 +2699,7 @@ static func _friendly_objective_name(obj_id: String) -> String:
 
 func _process_end_shooting(action: Dictionary) -> Dictionary:
 	var changes = []
-	# P1-11: Check Sanctified Flames for the last shooter before ending phase
 	if active_shooter_id != "":
-		var sanctified_changes = _check_sanctified_flames(active_shooter_id)
-		changes.append_array(sanctified_changes)
 		_targets_hit_by_shooter.clear()
 		active_shooter_id = ""
 	log_phase_message("Ending Shooting Phase")
@@ -3036,10 +3019,6 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 				# Use total_hits as a proxy — hits are distributed across targets
 				# For accuracy, we just need to know which units were hit at all
 				_targets_hit_by_shooter[ai_tid] = _targets_hit_by_shooter.get(ai_tid, 0) + 1
-
-	# P1-11: Check for Sanctified Flames and apply Battle-shock if triggered
-	var sanctified_diffs = _check_sanctified_flames(unit_id)
-	all_changes.append_array(sanctified_diffs)
 
 	# Step 6: Mark unit as done
 	all_changes.append({
@@ -4079,10 +4058,6 @@ func _finish_weapon_resolution(current_assignment: Dictionary, weapon_id: String
 			})
 			units_that_shot.append(active_shooter_id)
 
-			# P1-11: Check for Sanctified Flames before clearing state
-			var sanctified_changes = _check_sanctified_flames(active_shooter_id)
-			auto_changes.append_array(sanctified_changes)
-
 			# T5-UX9: capture before clearing
 			_record_completed_weapons_to_phase_log(shooter_id)
 
@@ -5082,10 +5057,9 @@ func _process_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
 #                   hit_unit_ids, wounded_unit_ids (lost >= 1 wound)}
 # Both open (active player's first — 01.03.02 rules sequencing) from
 # process_action() after ANY action that completed a shooter's activation
-# (single weapon / sequential / staged / atomic AI SHOOT / Sentinel Storm
-# decline …) — one hook instead of one per completion branch. They wait while
-# the Sentinel Storm shoot-again prompt, a reactive window or a save batch is
-# still open, and open once it resolves. They do NOT wait for the legacy
+# (single weapon / sequential / staged / atomic AI SHOOT …) — one hook
+# instead of one per completion branch. They wait while a reactive window or
+# a save batch is still open, and open once it resolves. They do NOT wait for the legacy
 # Swift as the Eagle / Go Get 'Em! / Wazblasta prompts (AI-only, no human UI):
 # the window opens first (01.03.02 — the active player's triggers resolve
 # first) and blocks every other action, and the legacy prompt stays pending
@@ -5177,8 +5151,7 @@ func _ork11e_queue_post_shot(a_type: String, shot_before: int, result: Dictionar
 
 func _ork11e_post_shot_blocked() -> bool:
 	return has_pending_stratagem_window() or _window_followup_pending or not _ork11e_followup.is_empty() \
-		or awaiting_reactive_stratagem or not pending_save_data.is_empty() \
-		or sentinel_storm_pending_unit != ""
+		or awaiting_reactive_stratagem or not pending_save_data.is_empty()
 
 ## Open the post-shot windows for every queued shooter (result = the result of
 ## the action that completed the activation; window/AI diffs are merged in).
@@ -5186,10 +5159,9 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 	if _ork11e_post_shot_queue.is_empty():
 		return result
 	if _ork11e_post_shot_blocked():
-		DebugLogger.info("ShootingPhase: [StratagemWindow] post-shot windows for %s deferred (window=%s followup=%s/%s reactive=%s saves=%d sentinel='%s')" % [
+		DebugLogger.info("ShootingPhase: [StratagemWindow] post-shot windows for %s deferred (window=%s followup=%s/%s reactive=%s saves=%d)" % [
 			str(_ork11e_post_shot_queue), str(has_pending_stratagem_window()), str(_window_followup_pending),
-			str(not _ork11e_followup.is_empty()), str(awaiting_reactive_stratagem), pending_save_data.size(),
-			sentinel_storm_pending_unit])
+			str(not _ork11e_followup.is_empty()), str(awaiting_reactive_stratagem), pending_save_data.size()])
 		return result
 	# Offers (wounds lost, unengaged, still on the battlefield …) are judged on
 	# the state AFTER this action: apply its changes now — idempotent 'set'
@@ -5294,8 +5266,8 @@ func _ork11e_start_reactive_move(player: int, kind: String, followup: Dictionary
 	if kind == "surge":
 		fu.surge_target = ReactiveMove11eLib.surge_target(unit_id, GameState.state)
 		fu.roll = _ork11e_roll_d6()
-		fu.max_inches = float(fu.roll)
-		var msg := "%s: %s rolls D6 = %d — surge move of up to %d\" toward %s" % [fu.source, unit_name, fu.roll, fu.roll,
+		fu.max_inches = float(fu.roll + int(followup.get("roll_bonus", 0)))  # WP-C7 Vengeful Surge: D6+2"
+		var msg := "%s: %s rolls D6 = %d — surge move of up to %d\" toward %s" % [fu.source, unit_name, fu.roll, int(fu.max_inches),
 			GameState.get_unit_display_name(fu.surge_target) if fu.surge_target != "" else "(no enemy unit)"]
 		log_phase_message(msg)
 		GameEventLog.add_player_entry(player, msg)
@@ -6051,27 +6023,6 @@ func get_available_actions() -> Array:
 		})
 		return actions
 
-	# P1-10: Sentinel Storm pending — offer use/decline
-	if sentinel_storm_pending_unit != "":
-		var ss_unit = get_unit(sentinel_storm_pending_unit)
-		var ss_name = ss_unit.get("meta", {}).get("name", sentinel_storm_pending_unit) if not ss_unit.is_empty() else sentinel_storm_pending_unit
-		actions.append({
-			"type": "USE_SENTINEL_STORM",
-			"actor_unit_id": sentinel_storm_pending_unit,
-			"description": "Activate Sentinel Storm — %s shoots again" % ss_name
-		})
-		actions.append({
-			"type": "DECLINE_SENTINEL_STORM",
-			"actor_unit_id": sentinel_storm_pending_unit,
-			"description": "Decline Sentinel Storm for %s" % ss_name
-		})
-		# When Sentinel Storm is pending, only these actions should be available
-		actions.append({
-			"type": "END_SHOOTING",
-			"description": "End Shooting Phase"
-		})
-		return actions
-
 	# (Pending saves are handled by the DEFENDER CONTROL LOCK at the top of this
 	# function — reaching here means pending_save_data is empty.)
 
@@ -6505,7 +6456,7 @@ func _validate_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
-	"""Mark shooter as done and clear state. Checks for Sentinel Storm shoot-again ability first."""
+	"""Mark shooter as done and clear state."""
 	var unit_id = action.get("actor_unit_id", "")
 
 	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
@@ -6513,42 +6464,6 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	DebugLogger.info(str("║ Unit ID: ", unit_id))
 	DebugLogger.info("║ This is triggered when user views final weapon results")
 	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# P1-10: Check for Sentinel Storm shoot-again ability before completing
-	# Skip this check if the unit is already in its shoot-again round (already used Sentinel Storm)
-	# P1-59: Also skip if out-of-phase action is active (e.g. Fire Overwatch) — cannot use
-	# phase-specific abilities during out-of-phase actions per core rules
-	var strat_mgr_for_oop = get_node_or_null("/root/StratagemManager")
-	var is_out_of_phase = strat_mgr_for_oop and strat_mgr_for_oop.is_out_of_phase_active()
-	if not action.get("payload", {}).get("skip_sentinel_storm_check", false) and not is_out_of_phase:
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr and ability_mgr.has_shoot_again_ability(unit_id):
-			DebugLogger.info(str("║ SENTINEL STORM: Unit %s has unused Sentinel Storm — prompting player" % unit_id))
-			sentinel_storm_pending_unit = unit_id
-
-			# Clear resolution state but keep active_shooter_id for the decision
-			confirmed_assignments.clear()
-			resolution_state.clear()
-			pending_save_data.clear()
-
-			# Emit signal for UI to show prompt
-			var current_player = get_current_player()
-			emit_signal("sentinel_storm_available", unit_id, current_player)
-
-			log_phase_message("Sentinel Storm available for unit %s — awaiting player decision" % unit_id)
-
-			return create_result(true, [], "Sentinel Storm available", {
-				"sentinel_storm_available": true,
-				"unit_id": unit_id
-			})
-	elif is_out_of_phase:
-		DebugLogger.info(str("║ SENTINEL STORM: Blocked for %s — out-of-phase action active (P1-59)" % unit_id))
-
-	# P1-11: Check for Sanctified Flames — force Battle-shock test on hit enemy
-	# P1-59: Also skip if out-of-phase action is active
-	var sanctified_changes = _check_sanctified_flames(unit_id) if not is_out_of_phase else []
-	if is_out_of_phase:
-		DebugLogger.info("ShootingPhase: Sanctified Flames check skipped — out-of-phase action active (P1-59)")
 
 	# 24.14: the firing-deck weapon loan lasts for this activation only.
 	_clear_firing_deck_loan(unit_id)
@@ -6564,7 +6479,6 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	# Hidden. The give-up-shooting action paths (16.01 etc.) correctly do
 	# NOT stamp.
 	changes.append(_hidden_shot_stamp(unit_id))
-	changes.append_array(sanctified_changes)
 
 	# Issue #386 Big Booms: apply D3 MW per struck unit after supa-kannon attacks finish.
 	if not _big_booms_pending.is_empty():
@@ -6606,7 +6520,6 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	confirmed_assignments.clear()
 	resolution_state.clear()
 	pending_save_data.clear()
-	sentinel_storm_pending_unit = ""
 	_targets_hit_by_shooter.clear()
 
 	log_phase_message("Shooting complete for unit %s" % unit_id)
@@ -6651,217 +6564,9 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 
 	return create_result(true, changes, "Shooting complete")
 
-# ============================================================================
-# P1-10: SENTINEL STORM — SHOOT AGAIN MECHANIC
-# ============================================================================
-
-func _validate_use_sentinel_storm(action: Dictionary) -> Dictionary:
-	"""Validate activating Sentinel Storm shoot-again ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if sentinel_storm_pending_unit == "" or sentinel_storm_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Sentinel Storm pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_sentinel_storm(action: Dictionary) -> Dictionary:
-	"""Validate declining Sentinel Storm shoot-again ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if sentinel_storm_pending_unit == "" or sentinel_storm_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Sentinel Storm pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_sentinel_storm(action: Dictionary) -> Dictionary:
-	"""Player activates Sentinel Storm — unit shoots again.
-	Mark the ability as used, then reset the unit's shooting state so it can shoot again."""
-	var unit_id = action.get("actor_unit_id", "")
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ SENTINEL STORM: ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("║ Unit will shoot again this phase")
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Mark Sentinel Storm as used (once per battle)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_once_per_battle_used(unit_id, "Sentinel Storm")
-
-	# Clear the pending state
-	sentinel_storm_pending_unit = ""
-
-	# Reset the unit's shooting state so it can be selected again
-	# The unit is NOT added to units_that_shot, and has_shot flag stays false
-	# active_shooter_id was already set to this unit
-	active_shooter_id = ""
-	pending_assignments.clear()
-	confirmed_assignments.clear()
-	resolution_state.clear()
-
-	log_phase_message("Sentinel Storm activated! %s will shoot again" % unit_id)
-
-	return create_result(true, [], "Sentinel Storm activated — unit shoots again")
-
-func _process_decline_sentinel_storm(action: Dictionary) -> Dictionary:
-	"""Player declines Sentinel Storm — complete shooting normally."""
-	var unit_id = action.get("actor_unit_id", "")
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ SENTINEL STORM: DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("║ Completing shooting normally")
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	sentinel_storm_pending_unit = ""
-
-	# P1-11: Check for Sanctified Flames — force Battle-shock test on hit enemy
-	var sanctified_changes = _check_sanctified_flames(unit_id)
-
-	# Now complete shooting normally — set has_shot flag and add to units_that_shot
-	var changes = [{
-		"op": "set",
-		"path": "units.%s.flags.has_shot" % unit_id,
-		"value": true
-	}]
-	changes.append_array(sanctified_changes)
-
-	units_that_shot.append(unit_id)
-
-	# Clear state
-	var shooter_id = active_shooter_id  # Store before clearing
-	active_shooter_id = ""
-	confirmed_assignments.clear()
-	resolution_state.clear()
-	pending_save_data.clear()
-	_targets_hit_by_shooter.clear()
-
-	log_phase_message("Sentinel Storm declined — shooting complete for unit %s" % unit_id)
-
-	# Emit signal to clear visuals
-	emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
-
-	return create_result(true, changes, "Shooting complete (Sentinel Storm declined)")
-
-# ============================================================================
-# P1-11: SANCTIFIED FLAMES — FORCED BATTLE-SHOCK TEST AFTER SHOOTING
-# ============================================================================
-
-func _check_sanctified_flames(shooter_unit_id: String) -> Array:
-	"""Check if the shooter has Sanctified Flames and trigger a Battle-shock test
-	on one enemy unit that was hit. Returns state-change diffs (empty if not applicable).
-
-	Sanctified Flames (Witchseekers): "In your Shooting phase, after this unit has shot,
-	select one enemy unit hit by one or more of those attacks. That enemy unit must take
-	a Battle-shock test."
-	"""
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr or not ability_mgr.has_sanctified_flames_ability(shooter_unit_id):
-		return []
-
-	# Get the list of enemy units that were hit
-	var hit_targets = _targets_hit_by_shooter.duplicate()
-	if hit_targets.is_empty():
-		DebugLogger.info("ShootingPhase: P1-11 Sanctified Flames: No enemy units were hit — no Battle-shock test triggered")
-		return []
-
-	# Filter out already-destroyed units
-	var valid_targets: Array = []
-	for target_id in hit_targets:
-		var target_unit = get_unit(target_id)
-		if target_unit.is_empty():
-			continue
-		var has_alive = false
-		for model in target_unit.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if has_alive:
-			valid_targets.append(target_id)
-
-	if valid_targets.is_empty():
-		DebugLogger.info("ShootingPhase: P1-11 Sanctified Flames: All hit targets destroyed — no Battle-shock test triggered")
-		return []
-
-	# Select target: if only one valid target, auto-select. Otherwise select the one
-	# most likely to fail (lowest Leadership) for AI benefit, or first one for player.
-	var selected_target_id = valid_targets[0]
-	if valid_targets.size() > 1:
-		# Select the target with the lowest Leadership (most likely to fail)
-		var lowest_ld = 99
-		for tid in valid_targets:
-			var t_unit = get_unit(tid)
-			var t_ld = t_unit.get("meta", {}).get("stats", {}).get("leadership", 7)
-			if t_ld < lowest_ld:
-				lowest_ld = t_ld
-				selected_target_id = tid
-		DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames: Multiple targets hit, selecting %s (Ld %d)" % [selected_target_id, lowest_ld]))
-
-	# Perform the Battle-shock test on the selected target
-	return _resolve_sanctified_flames_battle_shock(shooter_unit_id, selected_target_id)
-
-func _resolve_sanctified_flames_battle_shock(shooter_unit_id: String, target_unit_id: String) -> Array:
-	"""Roll a forced Battle-shock test for Sanctified Flames.
-	Returns state-change diffs to set battle_shocked flag if failed."""
-	var target_unit = get_unit(target_unit_id)
-	if target_unit.is_empty():
-		return []
-
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-	var leadership = target_unit.get("meta", {}).get("stats", {}).get("leadership", 7)
-	var shooter_unit = get_unit(shooter_unit_id)
-	var shooter_name = shooter_unit.get("meta", {}).get("name", shooter_unit_id)
-
-	# Check if already battle-shocked (no need to re-test)
-	var already_shocked = target_unit.get("flags", {}).get("battle_shocked", false)
-	if already_shocked:
-		DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames: %s is already Battle-shocked — skipping test" % target_name))
-		log_phase_message("Sanctified Flames: %s already Battle-shocked — no additional test" % target_name)
-		return []
-
-	# Roll 2D6 for Battle-shock test
-	var die1 = _rng.rng.randi_range(1, 6)
-	var die2 = _rng.rng.randi_range(1, 6)
-	var roll_total = die1 + die2
-	var test_passed = roll_total >= leadership
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ P1-11: SANCTIFIED FLAMES — Battle-shock Test")
-	DebugLogger.info(str("║ Shooter: %s" % shooter_name))
-	DebugLogger.info(str("║ Target: %s (Ld %d)" % [target_name, leadership]))
-	DebugLogger.info(str("║ Roll: 2D6 = %d + %d = %d (need %d+)" % [die1, die2, roll_total, leadership]))
-	DebugLogger.info(str("║ Result: %s" % ("PASSED" if test_passed else "FAILED — Battle-shocked!")))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	log_phase_message("Sanctified Flames (%s): %s takes Battle-shock test — 2D6 = %d (%d+%d) vs Ld %d — %s" % [
-		shooter_name, target_name, roll_total, die1, die2, leadership,
-		"PASSED" if test_passed else "FAILED (Battle-shocked!)"
-	])
-
-	# Emit signal for UI/log display
-	var test_result = {
-		"target_unit_id": target_unit_id,
-		"target_name": target_name,
-		"die1": die1,
-		"die2": die2,
-		"roll_total": roll_total,
-		"leadership": leadership,
-		"test_passed": test_passed,
-		"battle_shocked": not test_passed
-	}
-	emit_signal("sanctified_flames_result", shooter_unit_id, target_unit_id, test_result)
-
-	# If test failed, apply battle_shocked flag
-	if not test_passed:
-		return [{
-			"op": "set",
-			"path": "units.%s.flags.battle_shocked" % target_unit_id,
-			"value": true
-		}]
-
-	return []
+# (P1-10 Sentinel Storm and the 10e P1-11 automatic Sanctified Flames test
+# are gone: no Codex: Adeptus Custodes (11e) datasheet has Sentinel Storm, and
+# Sanctified Flames is a unit_has_shot ability card — CustodesAbilities.gd.)
 
 # ============================================================================
 # P1-12: THROAT SLITTAS — MORTAL WOUNDS INSTEAD OF SHOOTING (Kommandos)
@@ -7636,10 +7341,6 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				# every remaining target) — stamp the turn index.
 				all_diffs.append(_hidden_shot_stamp(active_shooter_id))
 				units_that_shot.append(active_shooter_id)
-
-				# P1-11: Check for Sanctified Flames before clearing state
-				var sanctified_changes = _check_sanctified_flames(active_shooter_id)
-				all_diffs.append_array(sanctified_changes)
 
 				# T5-UX9: capture before clearing
 				_record_completed_weapons_to_phase_log(shooter_id)

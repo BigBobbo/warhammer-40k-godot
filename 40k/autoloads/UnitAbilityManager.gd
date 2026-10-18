@@ -143,29 +143,305 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Led unit can charge after falling back"
 	},
 
-	# Custodes Blade Champion — re-roll Charge rolls
+	# Swift Onslaught — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Swift Onslaught": {
-		"condition": "while_leading",
-		"effects": [{"type": "reroll_charge"}],
-		"target": "led_unit",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Re-roll Charge rolls for led unit"
+		"description": "This unit can re-roll advance rolls and charge rolls (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# ======================================================================
 	# ALWAYS-ON UNIT ABILITIES
 	# ======================================================================
 
-	# Custodes Custodian Guard — re-roll Wound rolls of 1; re-roll all Wounds while on controlled objective
+	# Stand Vigil — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Stand Vigil": {
-		"condition": "always",
-		"effects": [{"type": "reroll_wounds", "scope": "ones"}],
-		"objective_upgrade_effects": [{"type": "reroll_wounds", "scope": "all"}],
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Re-roll Wound rolls of 1. While within range of controlled objective, re-roll all Wound rolls instead."
+		"description": "While this unit or its target is within range of an objective, its attacks have [LETHAL HITS: non-MONSTER/VEHICLE] (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Vengeful Surge — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Vengeful Surge": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle, in your opponent's Shooting phase, when an enemy unit has shot and a model in this unit lost a wound: a surge move of up to D6+2\" (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Praesidium Shield — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Praesidium Shield": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Shield-Captain: attacks allocated to this model have -1 D. Sentinel Guard Sodality: attacks that target this unit with S greater than its T have -1 to wound (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Archeotech Teleport-shunter — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Archeotech Teleport-shunter": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle, in your Movement phase, if unengaged and not selected to move: strategic reserves, and it must make an ingress move this phase (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Living Fortress — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Living Fortress": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target this unit have -1 AP (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Vexilla — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Vexilla": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit has +1 OC (army list) and can ignore modifiers to its Ld (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Slayer of Tyrants — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Slayer of Tyrants": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "This unit's melee attacks that target a unit with a higher T have +1 to wound (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Unyielding Ancient — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Unyielding Ancient": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target this unit with S greater than its T have -1 to wound (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Destructor Optics — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Destructor Optics": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "This unit's ranged attacks that target a non-MONSTER/VEHICLE unit have +1 AP (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Repulsor Suspensor Technology — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Repulsor Suspensor Technology": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per phase, in your opponent's Shooting phase, when an enemy unit has shot and this unit lost a wound: a normal move of up to D6\" (unengaged) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Assault Vehicle — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Assault Vehicle": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "In your Movement phase, when this unit ends an advance move, units embarked within it can make a shock disembark move (not implemented: the core rules in docs/ define no shock disembark move) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Mobile Hunter — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Mobile Hunter": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Shooting phase, when this unit has shot: a normal move of up to D6\"; not eligible to declare a charge until the end of the turn (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Assault Dropship — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Assault Dropship": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "A friendly ADEPTUS CUSTODES unit that tactical-disembarks from this unit can advance and still declare a charge (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Infernus Firebombs — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Infernus Firebombs": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "End of your opponent's Fight phase: one visible enemy unit within 24\" — ranged attacks vs it [IGNORES COVER] until the end of your next turn; D6 per model, 6 = 1 mortal wound (max 6) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Sword of the Throne — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Sword of the Throne": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "At the start of the first battle round (and each time it is destroyed) select one enemy unit as this model's mark: its attacks vs the mark have +1 to wound (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Seeker's Instincts — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Seeker's Instincts": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit has +2\" M and can re-roll advance rolls and charge rolls (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Corner the Quarry — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Corner the Quarry": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Enemy non-MONSTER/VEHICLE units engaged with this unit must use desperate escape to fall back (-1 to those hazard rolls while battle-shocked) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Impenetrable Defence — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Impenetrable Defence": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While this unit or its target is within range of an objective, its attacks have [SUSTAINED HITS 1: non-MONSTER/VEHICLE] (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Take Wing — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Take Wing": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "End of your opponent's Fight phase, if unengaged: place this unit in strategic reserves (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Neutronium Cascade Mine — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Neutronium Cascade Mine": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle, at the start of any phase: one enemy unit within 3\" — D6, on a 2+ D3 mortal wounds (2D3 vs VEHICLE/MONSTER) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Swift Ruin — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Swift Ruin": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per phase, per army: Rapid Ingress can target this unit regardless of other uses, at -1 CP, without blocking other uses (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Death Blow — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Death Blow": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "If this unit made a charge move this turn, its melee attacks have +1 AP (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Deft Parry — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Deft Parry": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Melee attacks that target this unit have -1 to hit (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Reap a Terrible Tally — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Reap a Terrible Tally": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit's attacks that target an INFANTRY unit can re-roll hit rolls of 1 and wound rolls of 1 (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Strike from the Skies — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Strike from the Skies": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "In your Shooting phase, if this unit made an ingress move this turn, its ranged attacks can re-roll hit rolls (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# SUPREME COMMANDER — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"SUPREME COMMANDER": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "If this model is in your army, it must be your WARLORD (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# Codex: Adeptus Custodes (11e) ARMY RULES — resolved by
@@ -223,17 +499,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "all",
 		"implemented": true,
 		"description": "Feel No Pain 5+ — each time this model would lose a wound, roll D6: on 5+ that wound is not lost"
-	},
-
-	# Custodes Blade Champion — once per battle advance and charge
-	"Martial Inspiration": {
-		"condition": "while_leading",
-		"effects": [{"type": "advance_and_charge"}],
-		"target": "led_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: charge after advancing"
 	},
 
 	# Vertus Praetors, Outrider Squad, etc. — skip advance roll, auto +6" to Move
@@ -332,25 +597,15 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per turn, when an enemy unit ends a Normal, Advance or Fall Back move within 9\" of this unit, if not within Engagement Range, can make a Normal move of up to 6\""
 	},
 
-	# Custodes Custodian Guard — once per battle shoot again after shooting
-	"Sentinel Storm": {
-		"condition": "always",
+	# Sanctified Flames — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Sanctified Flames": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "ranged",
 		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: shoot again after this unit has shot"
-	},
-
-	# Custodes Witchseekers — force Battle-shock test after shooting
-	"Sanctified Flames": {
-		"condition": "after_shooting",
-		"effects": [],
-		"target": "enemy_hit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "After shooting, one enemy unit hit must take a Battle-shock test"
+		"description": "Your Shooting phase, when this unit has shot: select one enemy unit hit — it makes a battle-shock roll (-1 if PSYKER) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# Deadly Demise — mortal wounds when destroyed (Battlewagon D6, Caladius D3, Telemon D3, Contemptor-Achillus 1)
@@ -408,15 +663,15 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per turn, twice per battle: after a normal move, one visible enemy unit within 12\" — D6, on a 3+ it suffers D3 mortal wounds (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
-	# Custodes Shield-captain On Dawneagle Jetbike — once per battle move at end of fight phase
+	# Sweeping Advance — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Sweeping Advance": {
-		"condition": "end_of_fight_phase",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: at end of Fight phase, if unit fought — Fall Back (if in engagement) or Normal Move (if not)"
+		"description": "Once per battle, at the end of the Fight phase, if this unit was eligible to fight: a normal move (unengaged) or a fall-back move (engaged) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# Damaged Profile — -1 to hit when at low wounds (Battlewagon, Caladius, Telemon)
@@ -432,84 +687,61 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "-1 to Hit rolls when at low wounds (checked directly in RulesEngine)"
 	},
 
-	# Custodes Caladius Grav-tank — conditional Lethal Hits by weapon/target type
+	# Advanced Firepower — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Advanced Firepower": {
-		"condition": "always",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "ranged",
 		"implemented": true,
-		"description": "Twin iliastus accelerator cannon: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus heavy blaze cannon: Lethal Hits vs MONSTER/VEHICLE. Checked directly in RulesEngine."
+		"description": "This unit's ranged attacks that target a MONSTER/VEHICLE unit can re-roll one hit roll, one wound roll and one damage roll (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
-	# Custodes Shield-Captain — once per battle round, reduce stratagem CP cost by 1
-	# Resolved in StratagemManager when a stratagem targets this unit.
-	# The CP discount is applied automatically when the Shield-Captain's unit is targeted.
-	"Strategic Mastery": {
-		"condition": "passive",
+	# Captain-General — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Captain-General": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"aura_range": 6.0,
+		"aura_target": "friendly",
+		"implemented": true,
+		"description": "Aura: friendly ADEPTUS CUSTODES units (excluding MONSTER/VEHICLE) within 6\" can re-roll hit rolls of 1 and wound rolls of 1 (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Moment Shackle — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Moment Shackle": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"once_per_battle_round": true,
-		"description": "Once per battle round: reduce CP cost of a Stratagem targeting this unit by 1"
+		"description": "Once per battle, per army, at the start of any phase: until the end of the phase the Watcher's Axe has +3 A, or this model has a 3+ invulnerable save (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
-	# Custodes Trajann Valoris — ignore hit/wound modifiers while leading
-	# Resolved directly in RulesEngine.has_captain_general() during hit modifier assembly.
-	"Captain-General": {
-		"condition": "while_leading",
+	# Purity of Execution — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Purity of Execution": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
-		"target": "led_unit",
-		"attack_type": "all",
+		"target": "unit",
+		"attack_type": "ranged",
 		"implemented": true,
-		"description": "While leading, ignore any/all modifiers to BS/WS and Hit roll"
+		"description": "Your Shooting phase: select one visible enemy unit within 18\" — it is detected (+3\" detection range) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
-	# Custodes Trajann Valoris — once per battle, 12 attacks OR 2+ invuln
-	# Resolved directly in FightPhase at start of Fight phase.
-	"Moment Shackle": {
-		"condition": "start_of_fight",
+	# Quicksilver Execution — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Quicksilver Execution": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "melee",
 		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle at start of Fight: Watcher's Axe gets 12 Attacks OR model gets 2+ invuln"
-	},
-
-	# Custodes Allarus — re-roll wounds vs CHARACTER/MONSTER/VEHICLE
-	# Resolved directly in RulesEngine.has_slayers_of_tyrants_vs_target().
-	"Slayers of Tyrants": {
-		"condition": "always",
-		"effects": [],
-		"target": "unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Re-roll Wound rolls when targeting CHARACTER, MONSTER or VEHICLE units"
-	},
-
-	# Custodes Prosecutors — Precision + Devastating Wounds vs PSYKER (ranged only)
-	# Resolved directly in RulesEngine.has_purity_of_execution_vs_target().
-	"Purity of Execution": {
-		"condition": "always",
-		"effects": [],
-		"target": "unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "Ranged attacks vs PSYKER have [PRECISION] and [DEVASTATING WOUNDS]"
-	},
-
-	# Custodes Vertus Praetors — once per battle, mortal wounds on fly-over
-	# Resolved directly in MovementPhase after Normal/Advance move.
-	"Quicksilver Execution": {
-		"condition": "after_normal_move",
-		"effects": [],
-		"target": "enemy_moved_over",
-		"attack_type": "all",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: after Normal/Advance move, select enemy unit moved over (excl. MONSTER/VEHICLE) — each model rolls D6, 2+ = 2 mortal wounds"
+		"description": "If this unit made a charge move this turn, its melee attacks have [SUSTAINED HITS 1] (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# Callidus Assassin — aura: +1 CP to enemy stratagems within 12"
@@ -559,39 +791,26 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "While leading, can embark in any TRANSPORT the bodyguard can. N/A: no transports in current list."
 	},
 
-	# Custodes Telemon Heavy Dreadnought — +2 Attacks in melee.
-	# 40kdc 11e models this as a "dual-melee" conditional (+2 A, attack_type
-	# melee); the dual-melee wargear keyword isn't modeled in rosters yet, so
-	# the melee bonus applies unconditionally (matches the shipped card text).
-	"Devoted to Destruction": {
-		"condition": "always",
-		"effects": [{"type": "plus_attacks", "value": 2}],
-		"target": "unit",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "Add 2 to the Attacks characteristic of this model's melee weapons"
-	},
-
-	# Custodes Contemptor-Achillus Dreadnought — mortal wounds on fight selection
-	# Resolved directly in FightPhase when unit is selected to fight.
-	# Roll 1D6 (+2 if charged): on 4-5, target suffers D3 mortal wounds; on 6+, 3 mortal wounds.
+	# Dread Foe — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Dread Foe": {
-		"condition": "on_fight_selection",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
-		"target": "enemy_in_engagement",
+		"target": "unit",
 		"attack_type": "melee",
 		"implemented": true,
-		"description": "When selected to fight, select one enemy in Engagement Range and roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW"
+		"description": "This unit's melee attacks that target a non-MONSTER/VEHICLE unit have +1 AP (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
-	# Custodes Telemon Heavy Dreadnought — -1 Damage to incoming attacks
+	# Guardian Eternal — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Guardian Eternal": {
-		"condition": "always",
-		"effects": [{"type": "minus_damage", "value": 1}],
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
 		"target": "unit",
-		"attack_type": "all",
+		"attack_type": "ranged",
 		"implemented": true,
-		"description": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack."
+		"description": "Ranged attacks that target this unit have -1 D (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# Space Marines Intercessor Squad — sticky objectives
@@ -1731,7 +1950,7 @@ var _once_per_battle_order: Array = []
 # Key: "unit_id:ability_name", Value: {"round": int, "phase": int, "player": int}
 var _gilded_champion_block: Dictionary = {}
 
-# Track once-per-battle-round ability usage (e.g., Strategic Mastery)
+# Track once-per-battle-round ability usage
 # Key: "player:ability_name", Value: battle_round_number (last used round)
 var _once_per_round_used: Dictionary = {}
 
@@ -2900,38 +3119,6 @@ func is_once_per_round_used(player: int, ability_name: String) -> bool:
 	var current_round = GameState.get_battle_round()
 	return last_used_round >= current_round
 
-func has_shoot_again_ability(unit_id: String) -> bool:
-	"""Check if a unit has an unused once-per-battle shoot-again ability (e.g. Sentinel Storm).
-	Used by ShootingPhase to offer the shoot-again option after a unit completes shooting."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Sentinel Storm":
-			if not is_once_per_battle_used(unit_id, "Sentinel Storm"):
-				print("UnitAbilityManager: Unit %s has unused Sentinel Storm — shoot-again available" % unit_id)
-				return true
-			else:
-				print("UnitAbilityManager: Unit %s has Sentinel Storm but already used this battle" % unit_id)
-	return false
-
-func has_sanctified_flames_ability(unit_id: String) -> bool:
-	"""Check if a unit has the Sanctified Flames ability (e.g. Witchseekers).
-	Used by ShootingPhase to trigger a forced Battle-shock test after shooting."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Sanctified Flames":
-			print("UnitAbilityManager: Unit %s has Sanctified Flames ability" % unit_id)
-			return true
-	return false
 
 func has_throat_slittas_ability(unit_id: String) -> bool:
 	"""Check if a unit has the Throat Slittas ability (e.g. Kommandos).
@@ -2948,56 +3135,6 @@ func has_throat_slittas_ability(unit_id: String) -> bool:
 			return true
 	return false
 
-
-func has_dread_foe(unit_id: String) -> bool:
-	"""Check if a unit has the Dread Foe ability (e.g. Contemptor-Achillus Dreadnought).
-	Used by FightPhase to trigger mortal wounds on fight selection."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Dread Foe":
-			print("UnitAbilityManager: Unit %s has Dread Foe ability" % unit_id)
-			return true
-	return false
-
-
-func has_strategic_mastery(unit_id: String) -> bool:
-	"""Check if a unit or its attached leaders have Strategic Mastery (Shield-Captain).
-	Used by StratagemManager to offer CP discount when targeting this unit."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	# Check the unit's own abilities
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Strategic Mastery":
-			return true
-
-	# Check attached leaders
-	var attachment_data = unit.get("attachment_data", {})
-	var attached_characters = attachment_data.get("attached_characters", [])
-	var units = GameState.state.get("units", {})
-
-	for char_id in attached_characters:
-		var char_unit = units.get(char_id, {})
-		if char_unit.is_empty():
-			continue
-		if not _has_alive_models(char_unit):
-			continue
-
-		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
-		for ability in char_abilities:
-			var ability_name = _get_ability_name(ability)
-			if ability_name == "Strategic Mastery":
-				return true
-
-	return false
 
 func has_sticky_objectives_ability(unit_id: String) -> bool:
 	"""Check if a unit has a sticky objectives ability (e.g. Get Da Good Bitz, Objective Secured).

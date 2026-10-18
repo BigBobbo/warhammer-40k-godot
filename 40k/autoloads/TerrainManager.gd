@@ -1025,6 +1025,8 @@ func detection_range_inches_for(model: Dictionary, unit: Dictionary, observer_mo
 	# WP-O6 FOUND 'EM! (Codex: Orks 11e, Kommandos): the selected enemy unit
 	# has +3" detection range until the end of the turn.
 	range_in += _ork_abilities().detection_range_bonus(unit)
+	# WP-C7 PURITY OF EXECUTION (Codex: Adeptus Custodes 11e, Prosecutors): a detected unit has +3" detection range.
+	range_in += load("res://scripts/codex/custodes/CustodesAbilities.gd").detection_range_bonus(unit)
 	return maxf(range_in, GameConstants.detection_range_floor_inches())
 
 ## WP-O6: Codex: Orks (11e) datasheet abilities, loaded lazily (no preload

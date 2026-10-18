@@ -933,8 +933,9 @@ static func _get_effective_leadership(unit_id: String) -> int:
 	# HUGE SHOW-OFFS (More Dakka!): 'improve the Leadership characteristic by
 	# 1' — the test passes on roll >= Ld, so improving lowers the requirement.
 	ld -= int(unit.get("flags", {}).get("effect_improve_leadership", 0))
-	# MADCAP ARTILLERY (Codex: Orks 11e, Mek Gunz) 'zapped': worsen Leadership by 1.
-	if GameConstants.edition >= 11:
+	# MADCAP ARTILLERY (Codex: Orks 11e, Mek Gunz) 'zapped': worsen Leadership by 1
+	# — ignored by a Vexilla (Codex: Adeptus Custodes, CustodesAbilities.gd).
+	if GameConstants.edition >= 11 and not _cus11e_abilities().ignores_ld_modifiers(unit_id):
 		ld += OrkAbilities11eScript.leadership_penalty(unit_id)
 	return ld
 
