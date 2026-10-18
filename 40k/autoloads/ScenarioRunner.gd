@@ -1858,9 +1858,6 @@ func min_edge_distance_between_units(unit_a_id: String, unit_b_id: String) -> fl
 			best = min(best, Measurement.model_to_model_distance_inches(ma, mb))
 	return best
 
-# Count GameEventLog entries whose text contains `needle`. Callable from
-# `execute_script` steps, e.g. `event_log_count_containing("charge move failed")`
-# with equals 0 to assert a failure message never reached the player-facing log.
 # Codex: Adeptus Custodes (11e) MARTIAL KA'TAH (WP-C3) — scenario policy.
 # Every Custodes Command phase readies the Custodes units, and a readied unit
 # opens a ka'tah window (a 0-CP card in the StratagemDialog) whenever it is
@@ -1894,6 +1891,9 @@ func _katah_policy_on_phase_changed(new_phase) -> void:
 	if not cleared.is_empty():
 		print("[ScenarioRunner] martial_katah policy: cleared the Custodes readied state on %d unit(s) %s — this scenario does not opt in (\"martial_katah\": true)" % [cleared.size(), str(cleared)])
 
+# Count GameEventLog entries whose text contains `needle`. Callable from
+# `execute_script` steps, e.g. `event_log_count_containing("charge move failed")`
+# with equals 0 to assert a failure message never reached the player-facing log.
 func event_log_count_containing(needle: String) -> int:
 	var log_node := get_tree().root.get_node_or_null("GameEventLog")
 	if log_node == null:
