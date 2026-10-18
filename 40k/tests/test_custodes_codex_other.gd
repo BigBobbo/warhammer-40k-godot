@@ -515,6 +515,9 @@ func _section_vbd() -> void:
 	_move_to("U_TRAJANN_A", Vector2(10.0, 52.0))
 	for m in _unit("U_CALADIUS_A").models:
 		m["current_wounds"] = 1
+	# Setup: no armour save left either, so the Gretchin bring it down within a
+	# few volleys whatever the (unseeded) save dice do.
+	_unit("U_CALADIUS_A").meta.stats["save"] = 7
 	MM.check_all_objectives()
 	_check("setup: P2 controls obj_home_2", int(load("res://scripts/codex/custodes/CustodesCommon.gd").objective_controller("obj_home_2")) == 2)
 	_check("setup: Caladius within range of obj_home_2", Other.vbd_objectives("U_CALADIUS_A", 2).has("obj_home_2"), str(Other.vbd_objectives("U_CALADIUS_A", 2)))
@@ -534,13 +537,17 @@ func _section_vbd() -> void:
 			mids.append(str(mid))
 	_window_events.clear()
 	var killed := false
-	for sd in [3, 5, 7, 11, 13, 17]:
+	for sd in [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]:
 		var res = phase.execute_action({"type": "SHOOT", "actor_unit_id": "U_GRETCHIN_C", "player": 1,
 			"payload": {"assignments": [{"weapon_id": wid, "target_unit_id": "U_CALADIUS_A", "model_ids": mids}], "rng_seed": sd}})
+		# A window that HOLDS the shot (the Orks' CLOSE-RANGE DAKKA in
+		# unit_selected_to_shoot) is declined first — that resumes the shot, which
+		# may destroy the Caladius and open unit_destroyed: stop there, never
+		# decline the window under test (_decline_all used to, at random).
+		_decline_until(phase, "unit_destroyed")
 		if _pending_id(phase) == "unit_destroyed" or not _unit("U_CALADIUS_A").models[0].get("alive", true):
 			killed = true
 			break
-		_decline_all(phase)
 		print("    (seed %d did not destroy the Caladius: %s)" % [sd, str(res.get("error", ""))])
 		# Fresh shooter next attempt.
 		phase.units_that_shot.erase("U_GRETCHIN_C")

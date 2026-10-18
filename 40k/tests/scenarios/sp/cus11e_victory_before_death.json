@@ -7,7 +7,7 @@
     "scripts.Main.window_secondary_pick.objective",
     "rules.objectives.secured"
   ],
-  "description": "Codex: Adeptus Custodes (11e) VICTORY BEFORE DEATH (Grav-Assault Force, 1 CP) — WP-C5. Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (the Orks' Shooting phase); the Caladius Grav-tank (1 wound left) stands on obj_home_2 (P2 controls it — objective control recomputed), the Gretchin 7\" away. The Ork Gretchin shoot the Caladius (seeded SHOOT actions until it is destroyed): unit_destroyed opens for P2; a real click on 'Use on Caladius...' asks which objective it was in range of; a real click on obj_home_2 spends 1 CP: the objective stays under P2's control.",
+  "description": "Codex: Adeptus Custodes (11e) VICTORY BEFORE DEATH (Grav-Assault Force, 1 CP) — WP-C5. Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (the Orks' Shooting phase); the Caladius Grav-tank (1 wound left, no armour save left) stands on obj_home_2 (P2 controls it — objective control recomputed), the Gretchin 7\" away. The Ork Gretchin shoot the Caladius (seeded SHOOT actions until it is destroyed): unit_destroyed opens for P2; a real click on 'Use on Caladius...' asks which objective it was in range of; a real click on obj_home_2 spends 1 CP: the objective stays under P2's control.",
   "fixture": "cus11e_c5_reactive",
   "edition": 11,
   "rng_seed": 42,
@@ -32,7 +32,7 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nH.move_to(\"U_CALADIUS_A\", 22.0, 56.0)\nH.move_to(\"U_GRETCHIN_C\", 31.0, 49.0)\nH.move_to(\"U_SHIELD_CAPTAIN_A\", 14.0, 52.0)\nH.move_to(\"U_TRAJANN_A\", 10.0, 52.0)\nfor m in GameState.state.units[\"U_CALADIUS_A\"].models:\n\tm[\"current_wounds\"] = 1\nMissionManager.check_all_objectives()\nreturn H.setup(2, \"Grav-Assault Force\", {})",
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nH.move_to(\"U_CALADIUS_A\", 22.0, 56.0)\nH.move_to(\"U_GRETCHIN_C\", 31.0, 49.0)\nH.move_to(\"U_SHIELD_CAPTAIN_A\", 14.0, 52.0)\nH.move_to(\"U_TRAJANN_A\", 10.0, 52.0)\nfor m in GameState.state.units[\"U_CALADIUS_A\"].models:\n\tm[\"current_wounds\"] = 1\nGameState.state.units[\"U_CALADIUS_A\"].meta.stats[\"save\"] = 7\nMissionManager.check_all_objectives()\nreturn H.setup(2, \"Grav-Assault Force\", {})",
       "comment": "setup privileges (see description)",
       "equals": "Grav-Assault Force"
     },
@@ -65,8 +65,8 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar killed := false\nfor sd in [3, 5, 7, 11, 13, 17, 19, 23]:\n\tH.shoot(1, \"U_GRETCHIN_C\", \"U_CALADIUS_A\", \"\", sd)\n\tif H.window_id() == \"unit_destroyed\" or not H.unit(\"U_CALADIUS_A\").models[0].get(\"alive\", true):\n\t\tkilled = true\n\t\tbreak\n\tvar g := 0\n\twhile H.window_id() != \"\" and H.window_id() != \"unit_destroyed\" and g < 6:\n\t\tvar w = H.phase().get_pending_stratagem_window()\n\t\tH.phase().execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.player), \"window_id\": str(w.window_id)})\n\t\tg += 1\n\tH.phase().units_that_shot.erase(\"U_GRETCHIN_C\")\n\tH.unit(\"U_GRETCHIN_C\").flags.erase(\"has_shot\")\n\tprint(\"[cus11e vbd] seed \", sd, \" did not destroy the Caladius\")\nreturn killed",
-      "comment": "the Gretchin shoot the Caladius (the panel's SHOOT; re-tried with fresh seeds until it dies — setup privilege)",
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar killed := false\nfor sd in [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41]:\n\tH.shoot(1, \"U_GRETCHIN_C\", \"U_CALADIUS_A\", \"\", sd)\n\tvar g := 0\n\twhile H.window_id() != \"\" and H.window_id() != \"unit_destroyed\" and g < 6:\n\t\tvar w = H.phase().get_pending_stratagem_window()\n\t\tH.phase().execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.player), \"window_id\": str(w.window_id)})\n\t\tg += 1\n\tif H.window_id() == \"unit_destroyed\" or not H.unit(\"U_CALADIUS_A\").models[0].get(\"alive\", true):\n\t\tkilled = true\n\t\tbreak\n\tH.phase().units_that_shot.erase(\"U_GRETCHIN_C\")\n\tH.unit(\"U_GRETCHIN_C\").flags.erase(\"has_shot\")\n\tprint(\"[cus11e vbd] seed \", sd, \" did not destroy the Caladius\")\nreturn killed",
+      "comment": "the Gretchin shoot the Caladius (the panel's SHOOT; an Ork window holding the shot, e.g. CLOSE-RANGE DAKKA, is declined first; re-tried with fresh seeds until it dies — setup privilege)",
       "equals": true
     },
     {
