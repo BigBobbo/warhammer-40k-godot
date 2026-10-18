@@ -8,7 +8,8 @@ extends SceneTree
 #
 # These tests verify:
 # 1. Ability is registered in UnitAbilityManager.ABILITY_EFFECTS
-# 2. Ability has both advance_and_charge and fall_back_and_charge effects
+# 2. The row is the Codex: Orks (11e) marker row (was: the 10e advance/fall-back
+#    and charge effects — removed by the codex, RETIRED_TESTS.md)
 # 3. Effect flags allow charging after advancing/falling back
 # 4. Units without the flags cannot charge after advancing/falling back
 # 5. Stormboyz army data has the Full Throttle ability
@@ -70,22 +71,16 @@ func _test_ability_registered():
 	_assert_true(effects["Full Throttle"].get("implemented", false), "Full Throttle is marked as implemented")
 
 func _test_ability_has_correct_effects():
-	print("\n--- Test 2: Full Throttle has advance_and_charge and fall_back_and_charge effects ---")
+	# Codex: Orks (11e) removed the 10e Stormboyz rider this used to pin (two
+	# self-applied effects, advance_and_charge + fall_back_and_charge). The
+	# codex Full Throttle is Wazdakka Gutsmek's Command-phase engine choice
+	# (Turbo Engine / Shokk Attack Engine / Pulse Jet), owned by
+	# OrkAbilities11e (WP-O6, test_ork_abilities_11e) — so the row is a codex
+	# marker row with no effects_json of its own (RETIRED_TESTS.md).
+	print("\n--- Test 2: Full Throttle is the Codex: Orks (11e) row (OrkAbilities11e owns the rule) ---")
 	var effect_def = UnitAbilityManagerData.ABILITY_EFFECTS.get("Full Throttle", {})
-	var effects = effect_def.get("effects", [])
-	_assert_eq(effects.size(), 2, "Full Throttle has exactly 2 effects")
-
-	var has_advance_charge = false
-	var has_fall_back_charge = false
-	for effect in effects:
-		if effect.get("type", "") == "advance_and_charge":
-			has_advance_charge = true
-		if effect.get("type", "") == "fall_back_and_charge":
-			has_fall_back_charge = true
-
-	_assert_true(has_advance_charge, "Full Throttle has advance_and_charge effect")
-	_assert_true(has_fall_back_charge, "Full Throttle has fall_back_and_charge effect")
-	_assert_eq(effect_def.get("condition", ""), "always", "Condition is 'always' (self-applied)")
+	_assert_eq(effect_def.get("condition", ""), "ork11e", "Condition is 'ork11e' (the codex module resolves it)")
+	_assert_eq(effect_def.get("effects", []).size(), 0, "no 10e self-applied effects left on the row")
 	_assert_eq(effect_def.get("target", ""), "unit", "Target is 'unit' (self-targeting)")
 
 func _test_advance_and_charge_flag():

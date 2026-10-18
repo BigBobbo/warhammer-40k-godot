@@ -2015,6 +2015,11 @@ func _handle_replace_secondary_mission(action: Dictionary) -> Dictionary:
 			"turn": GameState.get_battle_round()
 		}
 		GameState.add_action_to_phase_log(log_entry)
+		# One replacement per Command phase — the human review dialog clears
+		# the newly drawn list after its replacement (CommandController); the
+		# AI path, which keeps the list offered (no dialog), stops here too.
+		_newly_drawn_missions = []
+		DebugLogger.info("CommandPhase: newly drawn list cleared after the replacement (one per Command phase)")
 
 	return result
 
