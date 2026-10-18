@@ -86,7 +86,8 @@ static func attack_ignores_cover(attacker_unit: Dictionary, weapon_profile: Dict
 	var abilities: Array = AbilityRegistry.from_weapon(weapon_profile)
 	return bool(opts.get("ignores_cover", false)) \
 		or AbilityRegistry.has_ability(abilities, "ignores_cover") \
-		or attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_IGNORES_COVER, false)
+		or attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_IGNORES_COVER, false) \
+		or (GameConstants.edition >= 11 and int(attacker_unit.get("flags", {}).get("ork11e_ug", {}).get("result", 0)) == 5)  # Codex: Orks (11e) Unpredictable Genius — Lifted (WP-O34)
 
 static func collect_hit_context_11e(attacker_unit: Dictionary, target_unit: Dictionary, weapon_profile: Dictionary, board: Dictionary, opts: Dictionary = {}) -> ModifierStack:
 	var stack := ModifierStack.new()

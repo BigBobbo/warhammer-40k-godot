@@ -1,0 +1,112 @@
+{
+  "id": "ork11e_det_blitz_brigade",
+  "covers": [
+    "ork11e.detachment.blitz_brigade.unstoppable_momentum.advance"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Blitz Brigade — UNSTOPPABLE MOMENTUM, advance half (WP-O34): 'When a friendly WAGON unit is selected to make an advance move, that unit can change advance rolls to a 6.' Setup: detachment Blitz Brigade. Movement phase: the Battlewagon is clicked, Advance + Confirm Movement Mode: the advance roll is changed to a 6 (Game Log names Unstoppable Momentum), no re-roll is offered for a 6, the move cap is M + 6.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Blitz Brigade\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Blitz Brigade",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Blitz Brigade (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkDetachments11e.gd\").advance_roll_override(GameState.state.units[\"U_BATTLEWAGON_A\"])\n",
+      "multiline": true,
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(1)"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_BATTLEWAGON_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_BATTLEWAGON_A"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_node",
+      "button_text": "Advance"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_node",
+      "button_text": "Confirm Movement Mode"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"CommandRerollDialog\")\nreturn d == null or not d.visible",
+      "multiline": true,
+      "equals": true,
+      "comment": "a changed 6 is not re-rolled"
+    },
+    {
+      "act": "execute_script",
+      "script": "int(PhaseManager.get_current_phase_instance().active_moves[\"U_BATTLEWAGON_A\"].get(\"advance_roll\", -1))",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "var am = PhaseManager.get_current_phase_instance().active_moves[\"U_BATTLEWAGON_A\"]\nreturn absf(float(am.get(\"move_cap_inches\", 0.0)) - (float(GameState.get_unit(\"U_BATTLEWAGON_A\").meta.stats.move) + 6.0)) < 0.01",
+      "multiline": true,
+      "equals": true,
+      "comment": "cap = M + 6"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Unstoppable Momentum\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_battlewagon_advance_changed_to_6"
+    }
+  ]
+}

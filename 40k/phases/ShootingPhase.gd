@@ -4,6 +4,8 @@ class_name ShootingPhase
 const BasePhase = preload("res://phases/BasePhase.gd")
 # WP-O6: Codex: Orks (11e) datasheet abilities (post-shot effects).
 const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
+# Codex: Orks (11e) detachment rules (WP-O34): Unpredictable Genius, Try Dat Button! lifecycle.
+const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
 
 
 # ShootingPhase - Full implementation of the Shooting phase following 10e rules
@@ -241,6 +243,7 @@ func _on_phase_exit() -> void:
 	var fam_exit = get_node_or_null("/root/FactionAbilityManager")
 	if fam_exit:
 		fam_exit.clear_try_dat_flags("ranged")
+	Ork11eDetachments.on_phase_end("shooting")  # Codex: Orks (11e) leftover Try Dat Button! / Unpredictable Genius flags (WP-O34)
 
 	# CRITICAL: Clear all shooting visuals BEFORE controller is freed
 	# This ensures range circles and other visuals are removed immediately
@@ -1467,6 +1470,36 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 	log_phase_message("Confirmed targets, ready to resolve shooting")
 	var _perf_t2 := Time.get_ticks_usec()
 
+	# Codex: Orks (11e) Madcap Meks — Unpredictable Genius (WP-O34): rolled now
+	# that every target is known; a Hop Splat with several candidates pauses
+	# for the player's pick (resume: _ork11e_resume_after_hop_splat).
+	var ork11e_ug: Dictionary = Ork11eDetachments.ug_on_targets_confirmed(active_shooter_id, confirmed_assignments, int(action.get("payload", {}).get("rng_seed", -1)))
+	if not ork11e_ug.get("hop_splat_options", []).is_empty():
+		var hs_entry: Dictionary = Ork11eDetachments.hop_splat_window_entry(active_shooter_id, str(ork11e_ug.target), ork11e_ug.hop_splat_options)
+		if open_stratagem_windows([hs_entry], "_ork11e_resume_after_hop_splat", hs_entry.ctx):
+			return create_result(true, ork11e_ug.diffs + consume_window_diffs())
+		ork11e_ug.diffs.append_array(consume_window_diffs())
+	return _ork11e_merge_front(ork11e_ug.diffs, _confirm_targets_tail(_perf_t0, _perf_t1, _perf_t2))
+
+## Codex: Orks (11e) Hop Splat window answered (WP-O34): resolve it, then the
+## rest of CONFIRM_TARGETS.
+func _ork11e_resume_after_hop_splat(ctx: Dictionary, window_result: Dictionary) -> Dictionary:
+	var hs_diffs: Array = Ork11eDetachments.hop_splat_after_window(ctx, window_result)
+	var now := Time.get_ticks_usec()
+	return _ork11e_merge_front(hs_diffs, _confirm_targets_tail(now, now, now))
+
+func _ork11e_merge_front(diffs: Array, result: Dictionary) -> Dictionary:
+	if diffs.is_empty():
+		return result
+	var merged: Array = diffs.duplicate()
+	merged.append_array(result.get("changes", []))
+	result["changes"] = merged
+	return result
+
+## CONFIRM_TARGETS after the targets are merged (reactive stratagems, then
+## resolution) — split out for the Hop Splat pause. (WP-O6: the 10e Distraction
+## Grot check that came first is gone with the ability.)
+func _confirm_targets_tail(_perf_t0: int, _perf_t1: int, _perf_t2: int) -> Dictionary:
 	var _perf_t3 := Time.get_ticks_usec()
 	# Measured at ~3 ms total on a 26-unit board, so this normally stays quiet;
 	# it exists because the fight phase's equivalent confirm was the source of
@@ -2764,6 +2797,9 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	pending_assignments.clear()
 
 	log_phase_message("AI: Confirmed %d weapon assignments for %s" % [confirmed_assignments.size(), unit_id])
+	# Codex: Orks (11e) Madcap Meks — Unpredictable Genius (WP-O34): the atomic SHOOT
+	# (AI / Shoot All Remaining) rolls it here and picks a Hop Splat victim itself.
+	var ork11e_ug_ai: Dictionary = Ork11eDetachments.ug_on_targets_confirmed(unit_id, confirmed_assignments, ps_seed, true)
 
 	# DEFENDER CONTROL: a HUMAN defender gets their reactive stratagem window
 	# (Go to Ground / Smokescreen / faction reactives) when the AI declares
@@ -2784,14 +2820,14 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 			ai_reactive_check.defending_player,
 			ai_reactive_check.available_stratagems,
 			ai_reactive_check.target_unit_ids)
-		return create_result(true, [], "Awaiting defender stratagem decision", {
+		return create_result(true, ork11e_ug_ai.diffs, "Awaiting defender stratagem decision", {
 			"reactive_stratagem_opportunity": true,
 			"defending_player": ai_reactive_check.defending_player,
 			"available_stratagems": ai_reactive_check.available_stratagems,
 			"target_unit_ids": ai_reactive_check.target_unit_ids
 		})
 
-	return _resolve_ai_shoot(action)
+	return _ork11e_merge_front(ork11e_ug_ai.diffs, _resolve_ai_shoot(action))
 
 # True when `player` is controlled by a human (no AI enabled, or the AI does
 # not own that player). Defender windows only pause for humans.
@@ -5133,6 +5169,9 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 	var merged: Array = changes.duplicate()
 	while not _ork11e_post_shot_queue.is_empty():
 		var shooter_id := str(_ork11e_post_shot_queue.pop_front())
+		# Codex: Orks (11e) "when this unit has attacked" (WP-O34): Try Dat Button!'s
+		# two-dice hazard roll; its effects and Unpredictable Genius's end.
+		merged.append_array(Ork11eDetachments.on_unit_has_shot(shooter_id))
 		var shot := _ork11e_post_shot_ctx(shooter_id)
 		var active := get_current_player()
 		var other := 2 if active == 1 else 1

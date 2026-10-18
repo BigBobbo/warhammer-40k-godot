@@ -1,0 +1,184 @@
+{
+  "id": "ork11e_det_dread_mob",
+  "covers": [
+    "ork11e.detachment.dread_mob.try_dat_button"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Dread Mob — TRY DAT BUTTON! (WP-O34): when a friendly ORKS WALKER unit is selected to attack in your Shooting phase or the Fight phase, roll one D6 or two D6 (duplicates re-rolled): 1-2 +1 A, 3-4 +2 S, 5-6 +1 AP; two D6 -> one hazard roll when the unit has attacked. Setup: detachment Dread Mob. Fight phase: Pile In passed, the Deff Dread is clicked: the unit_selected_to_fight window offers TRY DAT BUTTON! (FREE) with 'Roll one D6' / 'Roll two D6'; a real click on two D6 rolls two different results (Game Log) and the window comes back for the detachment's stratagems (declined). The Deff Dread fights the Prosecutors; afterwards it makes one hazard roll and the result is cleared.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Dread Mob\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Dread Mob",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Dread Mob (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_DEFF_DREAD_A",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_DEFF_DREAD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")",
+      "equals": "unit_selected_to_fight"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_try_dat_button/Buttons/Use_ork11e_rule_try_dat_button_U_DEFF_DREAD_A_one",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_try_dat_button/Buttons/Use_ork11e_rule_try_dat_button_U_DEFF_DREAD_A_two",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_try_dat_button_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_try_dat_button/Buttons/Use_ork11e_rule_try_dat_button_U_DEFF_DREAD_A_two"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_DEFF_DREAD_A\").flags.get(\"ork11e_tdb\", {}).get(\"rows\", []).size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"TRY DAT BUTTON!\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_DEFF_DREAD_A\" in PhaseManager.get_current_phase_instance().units_that_fought",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_DEFF_DREAD_A\").flags.has(\"ork11e_tdb\")",
+      "equals": false,
+      "comment": "the effect ends when the unit has attacked"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"hazard roll\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_dread_fought_hazard_rolled"
+    }
+  ]
+}

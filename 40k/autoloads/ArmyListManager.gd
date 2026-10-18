@@ -364,6 +364,10 @@ func apply_army_to_game_state(army_data: Dictionary, player: int) -> void:
 	if stratagem_manager:
 		stratagem_manager.load_faction_stratagems_for_player(player)
 
+	# Codex: Orks (11e) detachment BATTLELINE grants (WP-O34): Kult of Speed
+	# Warbikers / Taktikal Brigade Stormboyz / Runt Swarm Gretchin.
+	load("res://scripts/codex/orks/OrkDetachments11e.gd").apply_keyword_grants(player)
+
 	print("Army applied successfully. Total units in game: ", all_units.size())
 
 func get_available_armies() -> Array:

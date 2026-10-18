@@ -1,0 +1,860 @@
+{
+  "id": "ork11e_unstable_energies_budget",
+  "covers": [
+    "ork11e.army_rules.unstable_energies",
+    "ork11e.detachment.wurrband.roar_of_mork",
+    "ork11e.detachment.wurrband.visions"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) army rule UNSTABLE ENERGIES (WP-O34): a PSYKER's psychic abilities in one battle round may not exceed its psyker level. Fixture ork11e_o34_active, detachment switched to Wurrband (setup) so the Weirdboy (psyker level 1) knows Roar of Mork and Visions of Violence (psychic level 1 each); setup moves the Weirdboy 41\",24\" (enemies within 12\"). Round 2, Movement phase: a real click on End Movement Phase opens the movement_phase_end window with ROAR OF MORK (FREE); Use -> the enemy pick (Blade Champion Alpha) -> the psychic roll + the enemy battle-shock roll; 1 of 1 psychic level is spent, no CP. A second use the same round is refused with the Unstable Energies reason. At the start of the Fight phase VISIONS OF VIOLENCE is not offered and the player is told why (Game Log + toast). The turn and the Custodes' turn are played out (War Cry window declined by a real click); at round 3 the budget is back: End Movement Phase offers ROAR OF MORK again.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Wurrband\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nvar _ms_U_WEIRDBOY_A = GameState.state.units[\"U_WEIRDBOY_A\"].models\nfor _i in range(_ms_U_WEIRDBOY_A.size()):\n\t_ms_U_WEIRDBOY_A[_i][\"position\"] = {\"x\": (41.000000 + (float(_i) - float(_ms_U_WEIRDBOY_A.size() - 1) / 2.0) * 1.600000) * 40.0, \"y\": 24.000000 * 40.0}\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Wurrband",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Wurrband (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkArmyRules11e.gd\").psyker_level(GameState.state.units[\"U_WEIRDBOY_A\"])\n",
+      "multiline": true,
+      "equals": 1,
+      "comment": "the Weirdboy's psyker level"
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkArmyRules11e.gd\").psychic_levels_used(GameState.state.units[\"U_WEIRDBOY_A\"])\n",
+      "multiline": true,
+      "equals": 0
+    },
+    {
+      "act": "click_node",
+      "button_text": "[Enter] End Movement Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_node",
+      "button_text": "End Movement Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")",
+      "equals": "movement_phase_end"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_roar_of_mork/Buttons/Use_ork11e_rule_roar_of_mork_U_WEIRDBOY_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_roar_of_mork\").find_child(\"Cost\", true, false).text\n",
+      "multiline": true,
+      "equals": "FREE"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_roar_of_mork_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_roar_of_mork/Buttons/Use_ork11e_rule_roar_of_mork_U_WEIRDBOY_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BLADE_CHAMPION_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkArmyRules11e.gd\").psychic_levels_used(GameState.state.units[\"U_WEIRDBOY_A\"])\n",
+      "multiline": true,
+      "equals": 1,
+      "comment": "1 of 1 psychic level spent this battle round"
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"ROAR OF MORK\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "var r = StratagemManager.use_stratagem(1, \"ork11e_rule_roar_of_mork\", \"U_WEIRDBOY_A\", {\"secondary_id\": \"U_BLADE_CHAMPION_A\"})\nreturn [r.get(\"success\", true), \"Unstable Energies\" in str(r.get(\"error\", \"\")) or \"already used\" in str(r.get(\"error\", \"\"))]",
+      "multiline": true,
+      "equals": [
+        false,
+        true
+      ],
+      "comment": "a second psychic use is refused"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "02_roar_used_budget_spent"
+    },
+    {
+      "act": "execute_script",
+      "script": "for _uid in GameState.state.units:\n\tvar _u = GameState.state.units[_uid]\n\tif int(_u.get(\"owner\", 0)) != 2:\n\t\tcontinue\n\tfor _m in _u.models:\n\t\tif _m.get(\"position\") != null:\n\t\t\t_m[\"position\"] = {\"x\": float(_m.position.x), \"y\": float(_m.position.y) + 12.000000 * 40.0}\ntree.current_scene._recreate_unit_visuals()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "setup privilege: Custodes pushed 12\" south (nothing engaged) so the turns can be ended phase by phase"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_CHARGE",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nreturn (not p.has_pending_stratagem_window()) or str(p.get_pending_stratagem_window().get(\"window_id\", \"\")) != \"ork11e_fight_phase_start\"\n",
+      "multiline": true,
+      "equals": true,
+      "comment": "no Visions of Violence window"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Unstable Energies: Weirdboy (psyker level 1) has used 1 psychic level this battle round — Visions of Violence\")",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "screenshot",
+      "label": "03_visions_blocked_unstable_energies"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 11
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_TURN",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_COMMAND",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_CHARGE",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 11
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_TURN",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 3
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_COMMAND",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkArmyRules11e.gd\").psychic_levels_used(GameState.state.units[\"U_WEIRDBOY_A\"])\n",
+      "multiline": true,
+      "equals": 0,
+      "comment": "new battle round: the budget is reset"
+    },
+    {
+      "act": "execute_script",
+      "script": "var _ms_U_BLADE_CHAMPION_A = GameState.state.units[\"U_BLADE_CHAMPION_A\"].models\nfor _i in range(_ms_U_BLADE_CHAMPION_A.size()):\n\t_ms_U_BLADE_CHAMPION_A[_i][\"position\"] = {\"x\": (41.000000 + (float(_i) - float(_ms_U_BLADE_CHAMPION_A.size() - 1) / 2.0) * 1.600000) * 40.0, \"y\": 33.000000 * 40.0}\ntree.current_scene._recreate_unit_visuals()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "setup privilege: Blade Champion Alpha brought back within 12\" of the Weirdboy (the Custodes were pushed back earlier)"
+    },
+    {
+      "act": "click_node",
+      "button_text": "[Enter] End Movement Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_node",
+      "button_text": "End Movement Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_roar_of_mork/Buttons/Use_ork11e_rule_roar_of_mork_U_WEIRDBOY_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "04_round3_roar_offered_again"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    }
+  ]
+}

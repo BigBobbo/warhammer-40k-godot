@@ -1,0 +1,148 @@
+{
+  "id": "ork11e_det_blitz_brigade_charge",
+  "covers": [
+    "ork11e.detachment.blitz_brigade.unstoppable_momentum.charge"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Blitz Brigade — UNSTOPPABLE MOMENTUM, charge half (WP-O34): 'Friendly WAGON units can re-roll charge rolls.' Setup: detachment Blitz Brigade; the Battlewagon moved to 42\",22\" with Custodian Guard Delta 6\" in front of it; Custodes CP 0. Charge phase: the Battlewagon is picked, Custodian Guard Delta targeted, Declare Charge, Roll Charge (seeded): the re-roll dialog offers a FREE re-roll branded Unstoppable Momentum; a real click on Re-roll re-rolls the 2D6 without spending CP.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Blitz Brigade\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nvar _ms_U_BATTLEWAGON_A = GameState.state.units[\"U_BATTLEWAGON_A\"].models\nfor _i in range(_ms_U_BATTLEWAGON_A.size()):\n\t_ms_U_BATTLEWAGON_A[_i][\"position\"] = {\"x\": (42.000000 + (float(_i) - float(_ms_U_BATTLEWAGON_A.size() - 1) / 2.0) * 1.600000) * 40.0, \"y\": 22.000000 * 40.0}\nvar _ms_U_CUSTODIAN_GUARD_D = GameState.state.units[\"U_CUSTODIAN_GUARD_D\"].models\nfor _i in range(_ms_U_CUSTODIAN_GUARD_D.size()):\n\t_ms_U_CUSTODIAN_GUARD_D[_i][\"position\"] = {\"x\": (42.000000 + (float(_i % 1) - float(1 - 1) / 2.0) * 1.800000) * 40.0, \"y\": (30.000000 + float(_i / 1) * 1.800000) * 40.0}\nGameState.state.players[\"2\"][\"cp\"] = 0\ntree.root.get_node(\"Main\").charge_controller._refresh_ui()\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Blitz Brigade",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Blitz Brigade (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkDetachments11e.gd\").charge_reroll_source(GameState.state.units[\"U_BATTLEWAGON_A\"])\n",
+      "multiline": true,
+      "equals": "Unstoppable Momentum"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in range(cc.unit_selector.get_item_count()):\n\tout.append(str(cc.unit_selector.get_item_metadata(i)))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "U_BATTLEWAGON_A,U_BREAKA_BOYZ_A,U_DEFFKOPTAS_A,U_FLASH_GITZ_A,U_GRETCHIN_C,U_GRETCHIN_D,U_KILLA_KANS_A,U_KOMMANDOS_A,U_MEK_GUNZ_A,U_STORMBOYZ_A,U_TANKBUSTAS_A,U_WARBIKERS_A",
+      "comment": "the charge list (the unit's row index is clicked below)"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_BATTLEWAGON_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in range(cc.target_list.get_item_count()):\n\tout.append(str(cc.target_list.get_item_metadata(i)))\nprint(\"[O34] charge targets for U_BATTLEWAGON_A: \", out)\nreturn out.find(\"U_CUSTODIAN_GUARD_D\") >= 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "the target is an eligible charge target"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_CUSTODIAN_GUARD_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in cc.target_list.get_selected_items():\n\tout.append(str(cc.target_list.get_item_metadata(i)))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "U_CUSTODIAN_GUARD_D"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(4)",
+      "comment": "deterministic dice for the charge roll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CommandRerollDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"CommandRerollDialog\").find_child(\"HeaderLabel\", true, false).text\n",
+      "multiline": true,
+      "equals": "UNSTOPPABLE MOMENTUM — FREE RE-ROLL"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_free_charge_reroll_unstoppable_momentum"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/UseRerollButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().ability_reroll_used",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_charge_rerolled_no_cp"
+    }
+  ]
+}

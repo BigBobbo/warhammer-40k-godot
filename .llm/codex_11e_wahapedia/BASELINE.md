@@ -21,5 +21,12 @@
   tut_t1_basics (1 fail, step 92), tut_full_course_chain_pad (7),
   tut_t1_lock_it_in_start_glyph (28), tut_t1_pad_ack_button (31),
   tut_t4_dakka_pad (31), tut_t4_dakka_reassign_pad (2), tut_t5_ere_we_go_pad (22),
-  tut_t6_krumpin_pad (6), tut_t6_wrong_fighter_backout (18).
+  tut_t6_krumpin_pad (6), tut_t6_wrong_fighter_backout (18),
+  iss064b_primary_disposition_11e (4), iss064d_triangulate_prompt_11e (1).
+- CAUSED BY THE DATA IMPORT, owned by WP-O5: taktikal_enhancements_load (passes
+  on 276eb36, 14/19 on the branch) — it tests the 10e Taktikal Brigade
+  enhancements (Skwad Leader / Mek Kaptin) that the codex replaced with Kill
+  Kommanda / Throat-slittas.
+- After WP-C3 + WP-O34 merges (c8fdec5): WP-O34 reported 5250/0 across 140
+  files after merging the C3 tip.
 - If you branched before a7d77c2, merge the branch tip before your final gate.

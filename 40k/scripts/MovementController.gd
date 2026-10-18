@@ -5349,7 +5349,9 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	if is_instance_valid(dice_log_display):
 		var roll_val = rolls[0] if rolls.size() > 0 else 0
 		DiceLogFormatter.advance_roll(dice_log_display, unit_name, roll_val)
-		DiceLogFormatter.note(dice_log_display, "Command Re-roll available! (1 CP)", "#E8C477")
+		# Codex: Orks (11e) Waaagh! free advance re-roll (WP-O34) — no CP.
+		var free_rr_name := str(roll_context.get("free_ability_name", ""))
+		DiceLogFormatter.note(dice_log_display, ("%s: free re-roll available!" % free_rr_name) if free_rr_name != "" else "Command Re-roll available! (1 CP)", "#E8C477")
 
 	# Skip dialog for AI players — AIPlayer handles the decision via signal
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
@@ -5378,7 +5380,8 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		player,
 		roll_context.get("roll_type", "advance_roll"),
 		roll_context.get("original_rolls", []),
-		roll_context.get("context_text", "")
+		roll_context.get("context_text", ""),
+		str(roll_context.get("free_ability_name", ""))  # Codex: Orks (11e) Waaagh! free re-roll (WP-O34)
 	)
 	dialog.command_reroll_used.connect(_on_command_reroll_used)
 	dialog.command_reroll_declined.connect(_on_command_reroll_declined)

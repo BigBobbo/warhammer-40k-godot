@@ -1032,7 +1032,7 @@ func get_reserves_points(player: int) -> int:
 		var unit = state["units"][unit_id]
 		if unit["owner"] == player and unit["status"] == UnitStatus.IN_RESERVES \
 				and not is_placeholder_unit(unit):
-			total += unit.get("meta", {}).get("points", 0)
+			total += load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 	return total
 
 func get_total_unit_count(player: int) -> int:

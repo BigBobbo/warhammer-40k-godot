@@ -474,7 +474,7 @@ func _validate_place_in_reserves(action: Dictionary) -> Dictionary:
 		riders.append(char_id)
 
 	# Strategic Reserves point limit: max 50% of total army points (Chapter Approved 2025-26)
-	var unit_points = unit.get("meta", {}).get("points", 0)
+	var unit_points = load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 	for char_id in riders:
 		unit_points += get_unit(char_id).get("meta", {}).get("points", 0)
 	var total_points = GameState.get_total_army_points(active_player)

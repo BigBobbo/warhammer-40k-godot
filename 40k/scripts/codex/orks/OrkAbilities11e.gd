@@ -1520,7 +1520,7 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 			var h := _ctx_holder(slug, player, ctx)
 			if h == "" or Common.is_battle_shocked(Common.unit(h)) or group_flag(h, F_WARPATH) != null:
 				return []
-			if not _psychic_budget_ok(h, 1):
+			if not _psychic_budget_ok(h, PSY_WARPATH):
 				return []
 			return [_entry(h)]
 		"krushin_impetus":
@@ -1613,7 +1613,7 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 				var u := Common.unit(str(uid))
 				if int(u.get("owner", 0)) != player or not has(u, "da_jump") or not Common.is_on_battlefield(u):
 					continue
-				if Common.is_battle_shocked(u) or _engaged(str(uid)) or not _psychic_budget_ok(str(uid), 1):
+				if Common.is_battle_shocked(u) or _engaged(str(uid)) or not _psychic_budget_ok(str(uid), PSY_DA_JUMP):
 					continue
 				out.append(_entry(str(uid)))
 			return out
@@ -1825,28 +1825,28 @@ static func _gretchin_alive(unit_id: String) -> Array:
 			out.append([gid, i])
 	return out
 
-## Psychic level budget fallback (Unstable Energies is WP-O34's rule): when
-## FactionAbilityManager exposes unstable_energies_allows(unit_id, level) it
-## decides; otherwise a psyker (psyker level 1 per its codex datasheet) may
-## use psychic abilities totalling 1 level per battle round.
-static func _psychic_budget_ok(unit_id: String, level: int) -> bool:
-	var fam = Common.autoload("FactionAbilityManager")
-	if fam and fam.has_method("unstable_energies_allows"):
-		return bool(fam.unstable_energies_allows(unit_id, level))
-	var u := uses(unit_id, "psychic")
-	var spent := int(u.get("levels", 0)) if int(u.get("round", -1)) == _round() else 0
-	return spent + level <= 1
+## Psychic level budget: Unstable Energies is WP-O34's army rule
+## (OrkArmyRules11e.can_use_psychic / record_psychic_use — psyker level per
+## battle round + 22.03.01 once per phase); this module only asks it. Units
+## outside that budget (no Unstable Energies / not a PSYKER) are not limited.
+const PSY_DA_JUMP := "Da Jump (psychic level 1)"
+const PSY_WARPATH := "Warpath (psychic level 1)"
+const PSY_BEASTSCENT := "Beastscent (psychic level 1)"
 
-static func _psychic_spend_diffs(unit_id: String, level: int) -> Array:
-	var fam = Common.autoload("FactionAbilityManager")
-	if fam and fam.has_method("unstable_energies_spend_diffs"):
-		return fam.unstable_energies_spend_diffs(unit_id, level)
-	var all = Common.unit(unit_id).get("flags", {}).get(F_USES, {})
-	var copy: Dictionary = all.duplicate(true) if typeof(all) == TYPE_DICTIONARY else {}
-	var u: Dictionary = copy.get("psychic", {}) if typeof(copy.get("psychic", {})) == TYPE_DICTIONARY else {}
-	var spent := int(u.get("levels", 0)) if int(u.get("round", -1)) == _round() else 0
-	copy["psychic"] = {"levels": spent + level, "round": _round()}
-	return [{"op": "set", "path": "units.%s.flags.%s" % [unit_id, F_USES], "value": copy}]
+static func _army_rules():
+	return load("res://scripts/codex/orks/OrkArmyRules11e.gd")
+
+static func _psychic_budget_ok(unit_id: String, ability_name: String) -> bool:
+	var ar = _army_rules()
+	if ar == null:
+		return true
+	return bool(ar.can_use_psychic(unit_id, ability_name).get("ok", true))
+
+static func _psychic_spend_diffs(unit_id: String, ability_name: String) -> Array:
+	var ar = _army_rules()
+	if ar == null:
+		return []
+	return ar.record_psychic_use(unit_id, ability_name)
 
 ## Enemy units hit by the shooter this activation (ShootingPhase post-shot
 ## ctx.hit_unit_ids), filtered per ability.
@@ -2012,7 +2012,7 @@ static func _apply(slug: String, player: int, uid: String, secondary: String, va
 			var roll := _d6(rng)
 			var mode := "kill_rig" if has_id(uid, "wurrboy") or group_has_keyword(uid, "KILL RIG") else "weirdboy"
 			var d: Array = _flag_diffs_group(uid, F_WARPATH, mode)
-			d.append_array(_psychic_spend_diffs(uid, 1))
+			d.append_array(_psychic_spend_diffs(uid, PSY_WARPATH))
 			var text := "%s manifests Warpath (psychic roll %d)" % [name, roll]
 			if roll == 1:
 				for gid in group(uid):
@@ -2086,7 +2086,7 @@ static func _apply(slug: String, player: int, uid: String, secondary: String, va
 		"da_jump":
 			var roll := _d6(rng)
 			var d: Array = [army_use_diff(player, slug)]
-			d.append_array(_psychic_spend_diffs(uid, 1))
+			d.append_array(_psychic_spend_diffs(uid, PSY_DA_JUMP))
 			var text := "%s manifests Da Jump (psychic roll %d)" % [name, roll]
 			if roll == 1:
 				for gid in group(uid):
@@ -2391,10 +2391,10 @@ static func on_disembark(unit_id: String, transport_id: String) -> Array:
 	if has(t, "idol_of_belligerence"):
 		all.append_array(rile_up_diffs(unit_id, player, "start_of_your_next_turn", "Idol of Belligerence"))
 		_event_log(player, "Idol of Belligerence: %s disembarks from %s riled up (until the start of your next turn)" % [Common.unit_name(unit_id), Common.unit_name(transport_id)])
-	if has(t, "beastscent") and not Common.is_battle_shocked(t) and _psychic_budget_ok(transport_id, 1):
+	if has(t, "beastscent") and not Common.is_battle_shocked(t) and _psychic_budget_ok(transport_id, PSY_BEASTSCENT):
 		var rng = _rng()
 		var roll := _d6(rng)
-		all.append_array(_psychic_spend_diffs(transport_id, 1))
+		all.append_array(_psychic_spend_diffs(transport_id, PSY_BEASTSCENT))
 		if roll == 1:
 			all.append({"op": "set", "path": "units.%s.flags.battle_shocked" % transport_id, "value": true})
 		all.append_array(_flag_diffs_group(unit_id, F_BEASTSCENT, {"player": player}))

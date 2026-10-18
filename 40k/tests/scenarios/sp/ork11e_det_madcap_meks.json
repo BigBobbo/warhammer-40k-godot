@@ -1,0 +1,208 @@
+{
+  "id": "ork11e_det_madcap_meks",
+  "covers": [
+    "ork11e.detachment.madcap_meks.unpredictable_genius"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Madcap Meks — UNPREDICTABLE GENIUS (WP-O34): when all of a Mek Gunz unit's ranged attacks target one enemy unit, roll one D6 (1 Dat's Weird, 2-3 Hop Splat, 4 Seekerz, 5 Lifted, 6 Runtified). Setup: detachment Madcap Meks; Blade Champion Beta and Custodian Guard Delta moved within 3\" of Custodian Guard Charlie; the dice are seeded (205: a 2-3). Shooting phase: the Mek Gunz are clicked, Quick-Assign at Custodian Guard Charlie, Confirm: the roll is a Hop Splat — the rule window lists both enemy units within 3\" (FREE); a real click picks Custodian Guard Delta, which suffers D3 mortal wounds; the shot then resolves and the result is cleared once the unit has shot.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Madcap Meks\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nvar _ms_U_BLADE_CHAMPION_B = GameState.state.units[\"U_BLADE_CHAMPION_B\"].models\nfor _i in range(_ms_U_BLADE_CHAMPION_B.size()):\n\t_ms_U_BLADE_CHAMPION_B[_i][\"position\"] = {\"x\": (12.000000 + (float(_i) - float(_ms_U_BLADE_CHAMPION_B.size() - 1) / 2.0) * 1.600000) * 40.0, \"y\": 38.800000 * 40.0}\nvar _ms_U_CUSTODIAN_GUARD_D = GameState.state.units[\"U_CUSTODIAN_GUARD_D\"].models\nfor _i in range(_ms_U_CUSTODIAN_GUARD_D.size()):\n\t_ms_U_CUSTODIAN_GUARD_D[_i][\"position\"] = {\"x\": (8.000000 + (float(_i) - float(_ms_U_CUSTODIAN_GUARD_D.size() - 1) / 2.0) * 1.800000) * 40.0, \"y\": 42.000000 * 40.0}\nfor _m in GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models:\n\t_m[\"wounds\"] = 99\n\t_m[\"current_wounds\"] = 99\nfor _m in GameState.state.units[\"U_CUSTODIAN_GUARD_D\"].models:\n\t_m[\"wounds\"] = 99\n\t_m[\"current_wounds\"] = 99\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Madcap Meks",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Madcap Meks (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(205)"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_MEK_GUNZ_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_MEK_GUNZ_A"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var pa = PhaseManager.get_current_phase_instance().pending_assignments\nif pa.is_empty():\n\treturn \"none\"\nfor a in pa:\n\tif str(a.get(\"target_unit_id\", \"\")) != \"U_CUSTODIAN_GUARD_C\":\n\t\treturn str(a.get(\"target_unit_id\", \"\"))\nreturn \"U_CUSTODIAN_GUARD_C\"",
+      "multiline": true,
+      "equals": "U_CUSTODIAN_GUARD_C",
+      "comment": "every declared weapon targets U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")",
+      "equals": "ork11e_hop_splat"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_hop_splat/Buttons/Use_ork11e_rule_hop_splat_U_CUSTODIAN_GUARD_D",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_hop_splat/Buttons/Use_ork11e_rule_hop_splat_U_BLADE_CHAMPION_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"UNPREDICTABLE GENIUS\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_hop_splat_choice"
+    },
+    {
+      "act": "execute_script",
+      "script": "var t = 0\nfor m in GameState.get_unit(\"U_CUSTODIAN_GUARD_D\").models:\n\tt += int(m.get(\"current_wounds\", 0))\nGameState.state.meta[\"_o34_cgd_w\"] = t\nreturn t",
+      "multiline": true,
+      "expect_min": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_hop_splat/Buttons/Use_ork11e_rule_hop_splat_U_CUSTODIAN_GUARD_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var t = 0\nfor m in GameState.get_unit(\"U_CUSTODIAN_GUARD_D\").models:\n\tif m.get(\"alive\", true):\n\t\tt += int(m.get(\"current_wounds\", 0))\nvar lost = int(GameState.state.meta[\"_o34_cgd_w\"]) - t\nreturn lost >= 1 and lost <= 3",
+      "multiline": true,
+      "equals": true,
+      "comment": "D3 mortal wounds"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Hop Splat\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false,
+      "comment": "one Hop Splat per roll: the window is not re-offered"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Hop Splat: no unit picked\")",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_MEK_GUNZ_A\" in PhaseManager.get_current_phase_instance().units_that_shot",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_MEK_GUNZ_A\").flags.has(\"ork11e_ug\")",
+      "equals": false,
+      "comment": "cleared once the unit has shot"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_hop_splat_resolved"
+    }
+  ]
+}

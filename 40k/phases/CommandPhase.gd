@@ -4,6 +4,8 @@ class_name CommandPhase
 const BasePhase = preload("res://phases/BasePhase.gd")
 # WP-O6: Codex: Orks (11e) datasheet abilities (Madcap Artillery 'zapped' Ld penalty).
 const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
+# Codex: Orks (11e) army rules (WP-O34): Da Boss, War Cry in the opponent's Command phase.
+const Ork11eArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
 
 
 # CommandPhase - Handles Command Phase including CP generation and Battle-shock tests
@@ -77,6 +79,9 @@ func _on_phase_enter() -> void:
 		var strat_manager_round = get_node_or_null("/root/StratagemManager")
 		if strat_manager_round:
 			strat_manager_round.on_battle_round_start(battle_round)
+		# Codex: Orks (11e) Da Boss — "At the start of the battle round, if a model
+		# with this ability is your WARLORD, gain 1CP" (WP-O34).
+		Ork11eArmyRules.on_battle_round_start(battle_round)
 		# Codex: Adeptus Custodes AQUILA COMMANDER — start of the battle round,
 		# +1CP if your WARLORD has it (bonus-CP cap respected; CustodesKatah.gd).
 		_cus11e_katah().on_battle_round_start(battle_round)
@@ -205,9 +210,12 @@ func _start_battle_shock_step(deferred: Dictionary) -> Dictionary:
 	# command_phase_main (WP-C3): "your Command phase", after the readied step
 	# and the Command step's prompts — the Codex: Adeptus Custodes CONSERVAI
 	# ka'tah (CustodesKatah.gd) — opens just before battle_shock_step_start.
-	var bss_entries: Array = [
-		{"player": player, "window_id": "command_phase_main", "ctx": {"phase": "command"}},
-		{"player": player, "window_id": "battle_shock_step_start", "ctx": bss_ctx}]
+	var bss_entries: Array = [{"player": player, "window_id": "command_phase_main", "ctx": {"phase": "command"}}]
+	# Codex: Orks (11e) War Cry "at the start of the Command phase" — not "your"
+	# (WP-O34): the opponent's War Cry window, after the active player's window
+	# (active player first — 11e sequencing), before the Battle-shock step.
+	bss_entries.append_array(Ork11eArmyRules.war_cry_window_entries(player))
+	bss_entries.append({"player": player, "window_id": "battle_shock_step_start", "ctx": bss_ctx})
 	if open_stratagem_windows(bss_entries, "_resume_after_battle_shock_step_window", bss_ctx):
 		DebugLogger.info("CommandPhase: Battle-shock step starts — waiting for Player %d's battle_shock_step_start stratagem decision (then %s)" % [
 			player, str(deferred.get("type", "the roll call"))])
