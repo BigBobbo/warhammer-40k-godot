@@ -1,0 +1,92 @@
+{
+ "id": "ork11e_enh_ai_temperamental_shokka",
+ "covers": [
+  "codex.orks.enhancements.temperamental_shokka.ai",
+  "ai.decide_window_stratagem"
+ ],
+ "description": "WP-O5 AI: Codex: Orks (11e) TEMPERAMENTAL SHOKKA with an AI decider. Fixture ork11e_enh_madcap_shoot. Both seats go to the AI and the Shooting phase is re-entered, so it begins as an AI Shooting phase and the AI shoots through its atomic SHOOT actions. The AI is offered the enhancement when the Big Mek with Shokk Attack Gun is selected to shoot and declines it (score 0: a 1 destroys the bearer). The SAG shoots normally and nothing stalls: no use line, no roll flag, the decline narrated in the AI's thinking, no dialog. Setup privileges: auto wound allocation, the phase re-entry.",
+ "fixture": "ork11e_enh_madcap_shoot",
+ "edition": 11,
+ "rng_seed": 7,
+ "transition_to_phase": 8,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 8
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup: auto wound allocation"
+  },
+  {
+   "act": "screenshot",
+   "label": "00_before_ai_shooting"
+  },
+  {
+   "act": "execute_script",
+   "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"})\nPhaseManager.transition_to_phase(8)\nreturn AIPlayer.enabled and int(GameState.state.meta.phase) == 8",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup: both seats to the AI, then re-enter the Shooting phase so it begins as an AI Shooting phase (no human auto-selection)"
+  },
+  {
+   "act": "wait_for_script",
+   "script": "return ScenarioRunner.event_log_count_containing(\"Big Mek with Shokk Attack Gun shoots at\") >= 1",
+   "equals": true,
+   "timeout_s": 180,
+   "poll_s": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "AIPlayer.enabled = false\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Big Mek with Shokk Attack Gun shoots at\")",
+   "expect_min": 1,
+   "comment": "the AI's SAG Big Mek shot (game log)"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Temperamental Shokka —\")",
+   "equals": 0,
+   "comment": "the AI declines Temperamental Shokka (a 1 destroys the Big Mek): no use line in the game log"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A\").get(\"flags\", {}).get(\"ork11e_ab_uses\", {}).has(\"enh_temperamental_shokka\")",
+   "equals": false,
+   "comment": "the persistent usage counter has no Temperamental Shokka use"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A\").models[0].get(\"alive\", true)",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nreturn d == null or not d.visible",
+   "multiline": true,
+   "equals": true,
+   "comment": "no dialog shown to the AI decider"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_ai_declined_temperamental_shokka_and_shot"
+  }
+ ]
+}

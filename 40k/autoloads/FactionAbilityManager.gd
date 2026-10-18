@@ -216,9 +216,6 @@ var _razgit_redeploys_used: Dictionary = {"1": 0, "2": 0}
 # Whether Razgit's Magik Map has been resolved this battle
 var _razgit_resolved: bool = false
 
-# Mork's Kunnin' (Taktikal Brigade): per-player tracking of redeployments used
-# Key: player string, Value: number of units redeployed via Mork's Kunnin'
-var _morks_kunnin_redeploys_used: Dictionary = {"1": 0, "2": 0}
 
 func _ready():
 	print("FactionAbilityManager: Ready")
@@ -2113,6 +2110,10 @@ const REDEPLOY_ENHANCEMENTS = [
 
 func get_redeploy_enhancement(player: int) -> Dictionary:
 	"""Return the redeploy enhancement entry the player owns ({} if none)."""
+	# WP-O5 Kaptin's Hat (Codex: Orks, Wreckas): up to three ORKS INFANTRY units.
+	var o5_hat: Dictionary = load("res://scripts/codex/orks/OrkEnhancements11e.gd").redeploy_enhancement(player)
+	if not o5_hat.is_empty():
+		return o5_hat
 	for entry in REDEPLOY_ENHANCEMENTS:
 		if has_enhancement(player, entry.name):
 			return entry
@@ -2229,25 +2230,6 @@ static func _unit_or_attached_has_enhancement(unit: Dictionary, enh_name: String
 				return true
 	return false
 
-static func ferocious_show_off_strength_bonus(attacker_unit: Dictionary) -> int:
-	"""Green Tide — Ferocious Show Off: +1 S on the bearer's melee attacks,
-	+3 while the bearer's unit counts as containing 10+ models."""
-	var has_it := false
-	for enh in attacker_unit.get("meta", {}).get("enhancements", []):
-		var n = enh if enh is String else (str(enh.get("name", "")) if enh is Dictionary else "")
-		if n == "Ferocious Show Off":
-			has_it = true
-			break
-	if not has_it:
-		return 0
-	return 3 if unit_counts_as_10(attacker_unit) else 1
-
-static func unit_has_green_tide_charge_reroll(unit: Dictionary, units: Dictionary) -> bool:
-	"""Green Tide — Bloodthirsty Belligerence: while the bearer leads a unit
-	that counts as 10+ models, Charge rolls for that unit can be re-rolled."""
-	if not _unit_or_attached_has_enhancement(unit, "Bloodthirsty Belligerence", units):
-		return false
-	return unit_counts_as_10(unit)
 
 # ============================================================================
 # DA BIG HUNT — PREY (detachment rule)
@@ -2372,15 +2354,6 @@ static func unit_has_prey_charge_reroll(unit: Dictionary, target_ids: Array, uni
 			return true
 	return false
 
-static func runnin_boots_charge_bonus(unit: Dictionary, units: Dictionary) -> int:
-	"""Runnin' Boots (Blitz Brigade): +1 to Charge rolls while the bearer's
-	unit disembarked from a Transport this turn."""
-	if not unit.get("disembarked_this_phase", false):
-		return 0
-	if not _unit_or_attached_has_enhancement(unit, "Runnin' Boots", units):
-		return 0
-	return 1
-
 static func boarding_ramps_charge_bonus(unit: Dictionary, units: Dictionary) -> int:
 	"""Boarding Ramps (Rollin' Deff): +1 to Charge rolls for a unit that
 	disembarked this turn from the WAGON bearing the enhancement."""
@@ -2401,37 +2374,25 @@ func targetin_gizmos_sustained(actor_unit: Dictionary) -> int:
 	gating is the 40kdc dataset's own documented approximation.)"""
 	if not _unit_or_attached_has_enhancement(actor_unit, "Targetin' Gizmos", GameState.state.get("units", {})):
 		return 0
+	# WP-O5: in a Codex: Orks Blitz Brigade army the codex Targetin' Gizmos
+	# applies instead (OrkEnhancements11e: Big Mek embarked; riled up).
+	if GameConstants.edition >= 11 and load("res://scripts/codex/orks/OrkEnhancements11e.gd").owns_name(actor_unit, "Targetin' Gizmos"):
+		return 0
 	return 1 if is_waaagh_active_for_unit(actor_unit) else 0
 
-static func unit_has_s_gt_t_wound_penalty(unit: Dictionary, units: Dictionary) -> bool:
-	"""Surly as a Squiggoth (Da Big Hunt enhancement) and the generic
-	effect_minus_wound_s_gt_t flag: -1 to incoming Wound rolls while the
-	attack's Strength exceeds the unit's Toughness. The S>T comparison itself
-	happens at the call site (RulesEngine.get_s_gt_t_wound_penalty)."""
-	if unit.get("flags", {}).get("effect_minus_wound_s_gt_t", false):
-		return true
-	return _unit_or_attached_has_enhancement(unit, "Surly as a Squiggoth", units)
+static func unit_has_s_gt_t_wound_penalty(unit: Dictionary, _units: Dictionary) -> bool:
+	"""The effect_minus_wound_s_gt_t flag (IMPERVIOUS): -1 to incoming Wound
+	rolls while the attack's Strength exceeds the unit's Toughness. The S>T
+	comparison itself happens at the call site
+	(RulesEngine.get_s_gt_t_wound_penalty). (WP-O5: the 10e Da Big Hunt
+	Surly as a Squiggoth is gone.)"""
+	return bool(unit.get("flags", {}).get("effect_minus_wound_s_gt_t", false))
 
-func process_skrag_every_stash(player: int) -> void:
-	"""Skrag Every Stash! (Da Big Hunt): at the end of your Command phase, if
-	the bearer is within range of an objective marker you control, that
-	objective sticks (stays yours until the opponent controls it) — reuses the
-	Vigilance Eternal sticky-objective mechanism in MissionManager."""
-	var bearer = _find_enhancement_bearer(player, "Skrag Every Stash!")
-	if bearer.is_empty():
-		return
-	var mm = get_node_or_null("/root/MissionManager")
-	if mm == null:
-		return
-	var obj_id: String = mm.find_nearest_controlled_objective(bearer.combined_unit_id)
-	if obj_id.is_empty():
-		print("FactionAbilityManager: Skrag Every Stash! — bearer %s is not in range of a controlled objective" % bearer.combined_unit_id)
-		return
-	if mm.lock_objective_via_stratagem(obj_id, player, bearer.combined_unit_id):
-		var unit = GameState.state.get("units", {}).get(bearer.combined_unit_id, {})
-		if unit.has("flags"):
-			unit["flags"]["effect_sticky_objective_control"] = obj_id
-		print("FactionAbilityManager: Skrag Every Stash! — %s locked %s for Player %d" % [bearer.combined_unit_id, obj_id, player])
+# (WP-O5: the 10e enhancements Skrag Every Stash! (Da Big Hunt), Supa-glowy
+# Fing's Command-phase roll (Dread Mob), Brutal But Kunnin' / Speed Makes
+# Right CP rolls (Green Tide / Kult of Speed), Big Gob (Bully Boyz) and
+# Mork's Kunnin' / Blitzkaptin redeploys are gone: no Codex: Orks detachment
+# has them. Same-named codex enhancements live in OrkEnhancements11e.gd.)
 
 func _nearest_visible_enemy_within(unit: Dictionary, player: int, inches: float) -> String:
 	"""Nearest enemy unit with an alive model within `inches` of (and visible
@@ -2459,87 +2420,6 @@ func _nearest_visible_enemy_within(unit: Dictionary, player: int, inches: float)
 				best_d = d
 				best_id = uid
 	return best_id
-
-func process_supa_glowy_fing(player: int) -> void:
-	"""Supa-glowy Fing (Dread Mob): in your Command phase, pick one enemy unit
-	within 18" of and visible to the bearer (auto-picked: the nearest such
-	enemy — documented simplification) and roll one D6:
-	 1-2: that unit takes a Battle-shock test;
-	 3-4: it suffers D3 mortal wounds;
-	 5-6: -1 to its Hit rolls until the start of your next Command phase."""
-	var bearer = _find_enhancement_bearer(player, "Supa-glowy Fing")
-	if bearer.is_empty():
-		return
-	var bearer_unit = GameState.state.get("units", {}).get(bearer.combined_unit_id, {})
-	var enemy_id = _nearest_visible_enemy_within(bearer_unit, player, 18.0)
-	if enemy_id == "":
-		print("FactionAbilityManager: Supa-glowy Fing — no visible enemy within 18\" of the bearer")
-		return
-	var rng = RulesEngine.make_rng()
-	var roll = rng.rng.randi_range(1, 6)
-	if roll <= 2:
-		print("FactionAbilityManager: Supa-glowy Fing — rolled %d: %s takes a Battle-shock test" % [roll, enemy_id])
-		force_battle_shock_test(enemy_id, 0, "Supa-glowy Fing")
-	elif roll <= 4:
-		var mw = rng.rng.randi_range(1, 3)
-		var applied = RulesEngine.apply_mortal_wounds_to_unit(enemy_id, mw, GameState.create_snapshot())
-		if not applied.get("diffs", []).is_empty():
-			GameState.apply_state_changes(applied.diffs)
-		print("FactionAbilityManager: Supa-glowy Fing — rolled %d: %d mortal wound(s) to %s (%d casualties)" % [
-			roll, mw, enemy_id, int(applied.get("casualties", 0))])
-	else:
-		var units = GameState.state.get("units", {})
-		if units.has(enemy_id):
-			if not units[enemy_id].has("flags"):
-				units[enemy_id]["flags"] = {}
-			units[enemy_id]["flags"][EffectPrimitivesData.FLAG_MINUS_ONE_HIT] = true
-			units[enemy_id]["flags"]["supa_glowy_debuff_from"] = player
-			print("FactionAbilityManager: Supa-glowy Fing — rolled %d: %s at -1 to hit until Player %d's next Command phase" % [roll, enemy_id, player])
-
-func _clear_supa_glowy_debuffs(player: int) -> void:
-	"""Clear -1-to-hit debuffs this player's Supa-glowy Fing applied (they
-	last until the start of this player's next Command phase)."""
-	for uid in GameState.state.get("units", {}):
-		var flags = GameState.state["units"][uid].get("flags", {})
-		if int(flags.get("supa_glowy_debuff_from", 0)) == player:
-			flags.erase("supa_glowy_debuff_from")
-			flags.erase(EffectPrimitivesData.FLAG_MINUS_ONE_HIT)
-			print("FactionAbilityManager: Supa-glowy Fing debuff on %s expired" % uid)
-
-func process_command_phase_cp_enhancements(player: int) -> void:
-	"""Command-phase CP-generating enhancements:
-	 - Brutal But Kunnin' (Green Tide): D6 (+2 if bearer's unit counts as 10+
-	   models); on a 5+ gain 1 CP.
-	 - Speed Makes Right (Kult of Speed): D6 if the bearer is within 9" of an
-	   enemy unit; on a 3+ gain 1 CP.
-	Both respect the 1-bonus-CP-per-round cap."""
-	if not GameState.can_gain_bonus_cp(player):
-		return
-	var rolls_done := false
-	# Brutal But Kunnin'
-	var bbk = _find_enhancement_bearer(player, "Brutal But Kunnin'")
-	if not bbk.is_empty():
-		var combined = GameState.state.get("units", {}).get(bbk.combined_unit_id, {})
-		var rng = RulesEngine.make_rng()
-		var roll = rng.rng.randi_range(1, 6)
-		var bonus = 2 if unit_counts_as_10(combined) else 0
-		if roll + bonus >= 5:
-			_grant_bonus_cp(player, "Brutal But Kunnin'", roll, bonus)
-			rolls_done = true
-		else:
-			print("FactionAbilityManager: Brutal But Kunnin' — rolled %d+%d, no CP" % [roll, bonus])
-	# Speed Makes Right
-	if not rolls_done and GameState.can_gain_bonus_cp(player):
-		var smr = _find_enhancement_bearer(player, "Speed Makes Right")
-		if not smr.is_empty():
-			var bearer_unit = GameState.state.get("units", {}).get(smr.combined_unit_id, {})
-			if _unit_within_inches_of_enemy(bearer_unit, player, 9.0):
-				var rng2 = RulesEngine.make_rng()
-				var roll2 = rng2.rng.randi_range(1, 6)
-				if roll2 >= 3:
-					_grant_bonus_cp(player, "Speed Makes Right", roll2, 0)
-				else:
-					print("FactionAbilityManager: Speed Makes Right — rolled %d, no CP" % roll2)
 
 func _grant_bonus_cp(player: int, source: String, roll: int, bonus: int) -> void:
 	var pk = str(player)
@@ -2622,40 +2502,6 @@ func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: St
 				source, unit_name, total, ld, "passed" if passed else "FAILED"])
 	return {"success": true, "passed": passed, "total": total, "leadership": ld, "dice": [d1, d2], "diffs": shock_diffs}
 
-func process_big_gob(player: int) -> void:
-	"""Big Gob (Bully Boyz): at the start of the Fight phase, one enemy unit
-	within Engagement Range of the bearer takes a Battle-shock test at -1.
-	Auto-picks the nearest engaged enemy (logged)."""
-	var bearer_info = _find_enhancement_bearer(player, "Big Gob")
-	if bearer_info.is_empty():
-		return
-	var units = GameState.state.get("units", {})
-	var bearer = units.get(bearer_info.combined_unit_id, units.get(bearer_info.bearer_id, {}))
-	if bearer.is_empty():
-		return
-	var best_id := ""
-	var best_dist := INF
-	for uid in units:
-		var enemy = units[uid]
-		if int(enemy.get("owner", 0)) == player:
-			continue
-		if not RulesEngine.check_units_in_engagement_range(bearer, enemy, GameState.state):
-			continue
-		for m in bearer.get("models", []):
-			if not m.get("alive", true) or m.get("position") == null:
-				continue
-			for em in enemy.get("models", []):
-				if not em.get("alive", true) or em.get("position") == null:
-					continue
-				var d = Measurement.model_to_model_distance_px(m, em)
-				if d < best_dist:
-					best_dist = d
-					best_id = uid
-	if best_id == "":
-		return
-	print("FactionAbilityManager: BIG GOB — nearest engaged enemy %s takes a Battle-shock test at -1" % best_id)
-	force_battle_shock_test(best_id, -1, "Big Gob")
-
 static func _status_is_deployed(status) -> bool:
 	"""Unit status can be an int enum (live game) or a String (army JSON that
 	has not been through a save round-trip). int != String is a runtime error
@@ -2663,85 +2509,6 @@ static func _status_is_deployed(status) -> bool:
 	if typeof(status) == TYPE_STRING:
 		return status == "DEPLOYED"
 	return int(status) == GameStateData.UnitStatus.DEPLOYED
-
-# ---- MORK'S KUNNIN' (20pts, ORKS model — Taktikal Brigade) ----
-# After both players have deployed, select up to three ORKS units from your
-# army and redeploy them. When doing so, they can be set up in Strategic
-# Reserves regardless of how many units are already in Strategic Reserves.
-# Mirrors Razgit's Magik Map (OA-2) but is not limited to INFANTRY.
-
-func has_morks_kunnin(player: int) -> bool:
-	"""Check if a player has the Mork's Kunnin' enhancement."""
-	return has_enhancement(player, "Mork's Kunnin'")
-
-func has_blitzkaptin(player: int) -> bool:
-	"""Check if a player has the Blitzkaptin enhancement (Blitz Brigade —
-	Mork's Kunnin' pattern, but limited to ORKS VEHICLE units)."""
-	return has_enhancement(player, "Blitzkaptin")
-
-func get_morks_kunnin_eligible_units(player: int) -> Array:
-	"""Get all units eligible for the 3-unit redeploy enhancements: any ORKS
-	unit for Mork's Kunnin' (Taktikal Brigade), ORKS VEHICLE units for
-	Blitzkaptin (Blitz Brigade). Detachments are exclusive per player, so at
-	most one of the two applies."""
-	var vehicles_only := false
-	if has_morks_kunnin(player):
-		vehicles_only = false
-	elif has_blitzkaptin(player):
-		vehicles_only = true
-	else:
-		return []
-
-	var eligible = []
-	var units = GameState.state.get("units", {})
-
-	for unit_id in units:
-		var unit = units[unit_id]
-		if unit.get("owner", 0) != player:
-			continue
-		# Must be deployed (type-aware: int enum in live games, String in
-		# freshly applied army JSON)
-		if not _status_is_deployed(unit.get("status", 0)):
-			continue
-		# Must be ORKS (any battlefield role — unlike Razgit's, not INFANTRY-only)
-		if not _unit_has_keyword(unit, "ORKS"):
-			continue
-		# Blitzkaptin: VEHICLE units only
-		if vehicles_only and not _unit_has_keyword(unit, "VEHICLE"):
-			continue
-		# Must have alive models
-		var has_alive = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-
-		eligible.append({
-			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
-		})
-
-	return eligible
-
-func get_morks_kunnin_redeploys_remaining(player: int) -> int:
-	"""Get how many Mork's Kunnin' redeployments remain (max 3)."""
-	return 3 - _morks_kunnin_redeploys_used.get(str(player), 0)
-
-func mark_morks_kunnin_redeploy_used(player: int) -> void:
-	"""Mark one Mork's Kunnin' redeployment as used."""
-	var pk = str(player)
-	_morks_kunnin_redeploys_used[pk] = _morks_kunnin_redeploys_used.get(pk, 0) + 1
-	print("FactionAbilityManager: Mork's Kunnin' — player %d used redeploy %d/3" % [
-		player, _morks_kunnin_redeploys_used[pk]])
-
-func is_morks_kunnin_redeploy_available(player: int) -> bool:
-	"""Check if Mork's Kunnin' / Blitzkaptin redeployment slots remain (the
-	two enhancements share the 3-redeploy counter; detachments are exclusive
-	so a player never has both)."""
-	return (has_morks_kunnin(player) or has_blitzkaptin(player)) \
-		and get_morks_kunnin_redeploys_remaining(player) > 0
 
 # ============================================================================
 # PHASE LIFECYCLE
@@ -2823,18 +2590,10 @@ func on_command_phase_start(player: int) -> void:
 	if detachment == "Da Big Hunt" and GameConstants.edition < 11:  # 10e Prey (WP-O34: 11e is Da Hunt is On)
 		_select_prey_for_player(player)
 
-	# Supa-glowy Fing (Dread Mob): expire last round's -1-to-hit debuff, then
-	# zap the nearest visible enemy within 18" of the bearer.
-	_clear_supa_glowy_debuffs(player)
-	process_supa_glowy_fing(player)
-
 	# Lissen 'Ere — Taktiks (Taktikal Brigade): effects last until the start of
 	# this player's next Command phase, so expire them now before new ones are
 	# issued this phase.
 	_clear_taktik_effects(player)
-
-	# CP-generating enhancements (Brutal But Kunnin' / Speed Makes Right)
-	process_command_phase_cp_enhancements(player)
 
 	# Bionik Workshop — resolve on first Command Phase (start of battle) (OA-2)
 	if detachment == "Freebooter Krew" and not _bionik_workshop_resolved:
@@ -2886,7 +2645,6 @@ func get_state_for_save() -> Dictionary:
 		"bionik_workshop_resolved": _bionik_workshop_resolved,
 		"razgit_redeploys_used": _razgit_redeploys_used.duplicate(true),
 		"razgit_resolved": _razgit_resolved,
-		"morks_kunnin_redeploys_used": _morks_kunnin_redeploys_used.duplicate(true),
 		# OA-46: Plant the Waaagh! Banner state
 		"plant_waaagh_banner_used": _plant_waaagh_banner_used.duplicate(true),
 		# Da Boss Is Watchin' (Bully Boyz): second-Waaagh! latch
@@ -2919,7 +2677,6 @@ func load_state(data: Dictionary) -> void:
 	_bionik_workshop_resolved = data.get("bionik_workshop_resolved", false)
 	_razgit_redeploys_used = data.get("razgit_redeploys_used", {"1": 0, "2": 0})
 	_razgit_resolved = data.get("razgit_resolved", false)
-	_morks_kunnin_redeploys_used = data.get("morks_kunnin_redeploys_used", {"1": 0, "2": 0})
 	# OA-46: Plant the Waaagh! Banner state
 	_plant_waaagh_banner_used = data.get("plant_waaagh_banner_used", {})
 	# Restore bionik workshop flags on units

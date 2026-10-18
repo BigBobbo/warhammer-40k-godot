@@ -1,0 +1,978 @@
+{
+ "id": "ork11e_enh_surly_as_a_squiggoth",
+ "covers": [
+  "codex.orks.enhancements.surly_as_a_squiggoth",
+  "scripts.codex.orks.OrkEnhancements11e",
+  "phases.FightPhase"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) SURLY AS A SQUIGGOTH (Brute Bosses enhancement, Infantry Warboss; once per battle, at the end of any phase, if this model was destroyed during that phase, roll one D6: on a 2+ set it back up as close as possible to where it was destroyed and not within Engagement Range of enemy units, with 3 wounds remaining) — automatic. Fixture ork11e_enh_brute_fight: the Warboss (1 wound left) is engaged with Custodian Guard B in P1's Fight phase. Real clicks: End Pile-in, Fight with the Warboss (all attacks at the Custodian Guard), then Fight with the Custodian Guard (P2, both seats human): the Warboss is destroyed. Real clicks on End Fight Phase, End Consolidation (Player 2) and the phase button: at the end of the phase the Surly roll (deterministic in this harness) sets the Warboss back up with 3 wounds, unengaged. The roll of 1 and the once-per-battle limit are headless. Setup privilege: auto wound allocation.",
+ "fixture": "ork11e_enh_brute_fight",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 10
+  },
+  {
+   "act": "expect_state",
+   "path": "factions.1.detachment",
+   "equals": "Brute Bosses"
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege: auto wound allocation"
+  },
+  {
+   "act": "execute_script",
+   "script": "\"%d %s\" % [int(GameState.get_unit(\"U_WARBOSS_A\").models[0].current_wounds), str(GameState.get_unit(\"U_WARBOSS_A\").flags.get(\"ork11e_enh_surly\", {}).get(\"alive\", false))]",
+   "equals": "1 true",
+   "comment": "the Warboss (1 wound left) is alive at the start of the Fight phase (recorded for Surly)"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "timeout_s": 6.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "screenshot",
+   "label": "01_fight_selection"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_A",
+   "timeout_s": 6.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_A",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out != \"error\"",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/AttackAssignmentDialog",
+   "timeout_s": 5.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "click_node",
+   "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B",
+   "timeout_s": 6.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out != \"error\"",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/AttackAssignmentDialog",
+   "timeout_s": 5.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "click_node",
+   "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/CounterOffensiveDialog/Content/Buttons/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "\"%s %d\" % [str(GameState.get_unit(\"U_WARBOSS_A\").models[0].get(\"alive\", true)), int(GameState.get_unit(\"U_WARBOSS_A\").models[0].current_wounds)]",
+   "equals": "false 0",
+   "comment": "the Custodian Guard's attacks destroyed the Warboss this phase"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_warboss_destroyed"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/PhaseActionButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "click_node",
+   "button_text": "End Fight Phase"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.5
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_node",
+   "button_text": "End Consolidation (Player 2)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var want := [\"End Consolidation (Player 1)\"]\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar c = q.pop_front()\n\tif c is Button and c.is_visible_in_tree() and not c.disabled and str(c.text) in want:\n\t\tc.pressed.emit()\n\t\treturn str(c.text)\n\tfor ch in c.get_children():\n\t\tq.append(ch)\nreturn \"none\"",
+   "multiline": true,
+   "comment": "press End Consolidation (Player 1) if shown (the player's next click in this step)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/PhaseActionButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "execute_script",
+   "script": "var want := [\"End Fight Phase\", \"Finish Consolidations\"]\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar c = q.pop_front()\n\tif c is Button and c.is_visible_in_tree() and not c.disabled and str(c.text) in want:\n\t\tc.pressed.emit()\n\t\treturn str(c.text)\n\tfor ch in c.get_children():\n\t\tq.append(ch)\nreturn \"none\"",
+   "multiline": true,
+   "comment": "press End Fight Phase/Finish Consolidations if shown (the player's next click in this step)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.5
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "int(GameState.state.meta.phase) != 10",
+   "equals": true,
+   "comment": "the Fight phase ended"
+  },
+  {
+   "act": "execute_script",
+   "script": "var m = GameState.get_unit(\"U_WARBOSS_A\").models[0]\nreturn \"%s %d\" % [str(m.get(\"alive\", false)), int(m.current_wounds)]",
+   "multiline": true,
+   "equals": "true 3",
+   "comment": "Surly as a Squiggoth: at the end of the phase it was destroyed in, the D6 roll (2+) sets the Warboss back up with 3 wounds remaining"
+  },
+  {
+   "act": "execute_script",
+   "script": "return not load(\"res://autoloads/RulesEngine.gd\").is_unit_engaged(\"U_WARBOSS_A\", GameState.state)",
+   "multiline": true,
+   "equals": true,
+   "comment": "set back up not within Engagement Range of an enemy unit"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Surly as a Squiggoth\")",
+   "expect_min": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "03_surly_set_back_up"
+  }
+ ]
+}

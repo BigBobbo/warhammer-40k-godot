@@ -1,0 +1,127 @@
+{
+ "id": "ork11e_enh_kaptins_hat",
+ "covers": [
+  "codex.orks.enhancements.kaptins_hat",
+  "scripts.codex.orks.OrkEnhancements11e",
+  "phases.RedeploymentPhase",
+  "autoloads.CharacterAttachmentManager.enhancement_can_lead"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) KAPTIN'S HAT (Wreckas enhancement, Big Mek/Warboss Infantry model; LEADER: FLASH GITZ; after both players have deployed, select up to three ORKS INFANTRY units: redeploy them, or place them into Strategic Reserves). Fixture ork11e_enh_wreckas_redeploy: the Warboss carries it and leads the Flash Gitz. The Redeployment phase is entered (not skipped) and offers the Kaptin's Hat moves for the ORKS INFANTRY units (Boyz, Flash Gitz) but not the Battlewagon; up to three. NOT CLICKABLE: the Redeployment step has no player controls for these choices (a pre-existing gap shared with Razgit's Magik Map and Castellan's Mark — only End Redeployment is a button), so the offered SEND_TO_STRATEGIC_RESERVES action is dispatched; the Boyz leave the battlefield and one of the three uses is spent.",
+ "fixture": "ork11e_enh_wreckas_redeploy",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 2,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "expect_phase",
+   "equals": 2
+  },
+  {
+   "act": "expect_state",
+   "path": "factions.1.detachment",
+   "equals": "Wreckas"
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_WARBOSS_A.attached_to",
+   "equals": "U_FLASH_GITZ_A"
+  },
+  {
+   "act": "execute_script",
+   "script": "return load(\"res://autoloads/CharacterAttachmentManager.gd\").get_enhancement_can_lead_extras(GameState.get_unit(\"U_WARBOSS_A\"))",
+   "multiline": true,
+   "equals": [
+    "FLASH GITZ"
+   ],
+   "comment": "Kaptin's Hat LEADER: FLASH GITZ (the Warboss leads the Flash Gitz in this fixture)"
+  },
+  {
+   "act": "execute_script",
+   "script": "str(FactionAbilityManager.get_redeploy_enhancement(1).get(\"name\", \"\"))",
+   "equals": "Kaptin's Hat"
+  },
+  {
+   "act": "execute_script",
+   "script": "FactionAbilityManager.get_razgit_redeploys_remaining(1)",
+   "equals": 3
+  },
+  {
+   "act": "execute_script",
+   "script": "var acts = PhaseManager.get_current_phase_instance().get_available_actions()\nvar out := []\nfor a in acts:\n\tout.append(str(a.get(\"description\", \"\")))\nprint(\"[wp-o5] redeploy actions: \", out)\nreturn [out.has(\"Kaptin's Hat: Send Boyz to Strategic Reserves\"), out.has(\"Redeploy Boyz\"), out.has(\"Redeploy Flash Gitz\"), out.any(func(s): return str(s).contains(\"Battlewagon\"))]",
+   "multiline": true,
+   "equals": [
+    true,
+    true,
+    true,
+    false
+   ],
+   "comment": "the phase offers Kaptin's Hat redeploys / strategic-reserves moves for ORKS INFANTRY units, not for the Battlewagon"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_kaptins_hat_redeployment_phase"
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "SEND_TO_STRATEGIC_RESERVES",
+    "unit_id": "U_BOYZ_C",
+    "player": 1
+   },
+   "comment": "no player controls exist for the Redeployment step's choices (pre-existing gap shared with Razgit's Magik Map / Castellan's Mark): the offered action is dispatched"
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BOYZ_C\").models[0].position == null",
+   "equals": true,
+   "comment": "the Boyz left the battlefield (Strategic Reserves)"
+  },
+  {
+   "act": "execute_script",
+   "script": "FactionAbilityManager.get_razgit_redeploys_remaining(1)",
+   "equals": 2,
+   "comment": "one of the three Kaptin's Hat redeploys used"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_kaptins_hat_boyz_to_reserves"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/PhaseActionButton",
+   "comment": "a real click on End Redeployment (the other two uses are declined)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "click_node",
+   "button_text": "End Redeployment"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "execute_script",
+   "script": "int(GameState.state.meta.phase) != 2",
+   "equals": true,
+   "comment": "the Redeployment phase ended"
+  },
+  {
+   "act": "screenshot",
+   "label": "03_kaptins_hat_redeployment_ended"
+  }
+ ]
+}

@@ -14,6 +14,8 @@
 //     with the printed range / A / BS|WS / S / AP / D
 //   - model_count min/max = the composition lines summed
 //   - every leader pairing in the snapshot is in leaderAttachments
+//   - every codex detachment's enhancement list (name, points, Upgrade tag,
+//     rules text present, nothing superseded listed) — both modes (WP-O5)
 // and, in full mode (Custodes): detachment / enhancement / stratagem counts.
 // Exits 1 on any mismatch.
 
@@ -26,7 +28,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SNAP = join(HERE, '..', '..', '.llm', 'codex_11e_wahapedia');
 const FACTIONS = {
   'adeptus-custodes': { dir: 'custodes', full: true, detachments: 13, stratagems: 41, enhancements: 29 },
-  'orks': { dir: 'orks', full: false },
+  'orks': { dir: 'orks', full: false, enhancements: 38 },
 };
 
 // Independent pipe-CSV reader (quotes: "" escapes; quoted fields may hold |).
@@ -149,6 +151,34 @@ function verify(factionId) {
     if (!la || !la.eligible_bodyguard_ids.includes(b.id)) err(a.name, `leader pairing -> ${b.name} missing`);
     pairs++;
   }
+  // enhancements (both modes, WP-O5): every codex detachment's enhancement
+  // list = the snapshot's — name, points, Upgrade tag, rules text — and no
+  // listed record is superseded.
+  {
+    const BOARDING = new Set(['voyagers in darkness', 'black ship guardians', 'ramship raiders', 'kaptin killers']);
+    const enhKey = n => normName(String(n).replace(/\s*\([^)]*\)\s*$/, '')).replace(/\s+upgrade$/, '').replace(/\s+/g, '');
+    const allEnh = new Map(J('enhancements').map(e => [e.id, e]));
+    const dataDets = J('detachments').filter(d => d.faction_id === factionId);
+    const snapEnh = R('Enhancements');
+    let n = 0;
+    for (const sd of R('Detachments').filter(d => !BOARDING.has(normName(d.name)))) {
+      const dd = dataDets.find(d => normName(d.name) === normName(text(sd.name)));
+      if (!dd) { errors.push(`${factionId}: detachment ${text(sd.name)} missing`); continue; }
+      const want = snapEnh.filter(e => e.detachment_id === sd.id)
+        .map(e => `${enhKey(text(e.name))}=${parseInt(e.cost, 10) || 0}${/true/i.test(e.upgrade) ? 'U' : ''}`).sort();
+      const recs = (dd.enhancement_ids ?? []).map(id => allEnh.get(id));
+      if (recs.some(r => !r)) { errors.push(`${factionId} / ${dd.id}: enhancement id with no record`); continue; }
+      const have = recs.map(r => `${enhKey(r.name)}=${r.cost}${r.upgrade_tag ? 'U' : ''}`).sort();
+      if (JSON.stringify(have) !== JSON.stringify(want)) errors.push(`${factionId} / ${dd.id}: enhancements ${JSON.stringify(have)} vs printed ${JSON.stringify(want)}`);
+      for (const r of recs) {
+        if (r.superseded_by_codex) errors.push(`${factionId} / ${dd.id}: ${r.id} listed but superseded`);
+        if (!String(r.rules_text ?? '').trim()) errors.push(`${factionId} / ${dd.id}: ${r.id} has no rules_text`);
+      }
+      n += want.length;
+    }
+    if (cfg.enhancements != null && n !== cfg.enhancements) errors.push(`${factionId}: ${n} codex enhancements checked, expected ${cfg.enhancements}`);
+    checked.enhancements = n;
+  }
   if (cfg.full) {
     const dets = J('detachments').filter(d => d.faction_id === factionId && !d.superseded_by_codex);
     if (dets.length !== cfg.detachments) errors.push(`${factionId}: ${dets.length} codex detachments, expected ${cfg.detachments}`);
@@ -157,7 +187,7 @@ function verify(factionId) {
     const st = dets.flatMap(d => d.stratagem_ids);
     if (st.length !== cfg.stratagems) errors.push(`${factionId}: ${st.length} stratagems, expected ${cfg.stratagems}`);
   }
-  console.log(`${factionId}: ${sheets.length} datasheets, ${checked.profiles} profiles, ${checked.tiers} points tiers, ${checked.weapons} weapon rows, ${pairs} leader pairings checked`);
+  console.log(`${factionId}: ${sheets.length} datasheets, ${checked.profiles} profiles, ${checked.tiers} points tiers, ${checked.weapons} weapon rows, ${pairs} leader pairings, ${checked.enhancements} enhancements checked`);
   return errors;
 }
 

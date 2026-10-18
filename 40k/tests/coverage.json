@@ -145,12 +145,10 @@
     },
     {
       "id": "autoloads.EffectPrimitives.effect_fnp",
-      "description": "EffectPrimitives: Feel No Pain (effect_fnp=N) flag triggers an FNP roll for each wound before damage applies. Validated by Supa-Cybork Body enhancement (#374).",
-      "scenarios": [
-        "374_supa_cybork_fnp"
-      ],
+      "description": "EffectPrimitives: Feel No Pain (effect_fnp=N) flag triggers an FNP roll for each wound before damage applies. (Its windowed scenario 374_supa_cybork_fnp tested the 10e Supa-Cybork Body enhancement, retired with WP-O5 — the primitive is still live; checked headless.)",
+      "scenarios": [],
       "last_verified_commit": "1f48cc6",
-      "status": "covered"
+      "status": "uncovered"
     },
     {
       "id": "autoloads.EffectPrimitives.fall_back_and_shoot",
@@ -178,15 +176,6 @@
         "blade_champion_in_zone_deploy"
       ],
       "last_verified_commit": "4c0f14f",
-      "status": "covered"
-    },
-    {
-      "id": "autoloads.RulesEngine.effect_devastating_wounds",
-      "description": "RulesEngine: weapons with effect_devastating_wounds=true convert critical wounds (unmodified 6 to wound) into mortal wounds that bypass saves. Validated by Headwoppa's Killchoppa (#374).",
-      "scenarios": [
-        "374_headwoppa_devastating_wounds"
-      ],
-      "last_verified_commit": "1f48cc6",
       "status": "covered"
     },
     {
@@ -418,15 +407,6 @@
       "description": "FIGHT phase: the Deadly Demise ability fires when a unit is destroyed during fight, rolling demise dice and dealing mortal wounds to nearby units. Validated by '386_deadly_demise_vehicle.",
       "scenarios": [
         "386_deadly_demise_vehicle"
-      ],
-      "last_verified_commit": "1f48cc6",
-      "status": "covered"
-    },
-    {
-      "id": "fight.enhancement.headwoppa_killchoppa",
-      "description": "FIGHT phase: the Headwoppa's Killchoppa enhancement grants devastating-wounds and charged_this_turn to the bearer. Validated by '374_headwoppa_devastating_wounds.",
-      "scenarios": [
-        "374_headwoppa_devastating_wounds"
       ],
       "last_verified_commit": "1f48cc6",
       "status": "covered"
@@ -798,15 +778,6 @@
       "description": "SHOOTING phase: Big Guns Never Tire allows monster/vehicle units to shoot ranged weapons while in engagement range (at -1 to hit). Validated by '370_bgnt_vehicle_shoots_in_engagement.",
       "scenarios": [
         "370_bgnt_vehicle_shoots_in_engagement"
-      ],
-      "last_verified_commit": "1f48cc6",
-      "status": "covered"
-    },
-    {
-      "id": "shooting.enhancement.supa_cybork_body",
-      "description": "SHOOTING phase: the Supa-Cybork Body enhancement grants effect_fnp=4 (Feel No Pain 4+) to the bearer. Validated by '374_supa_cybork_fnp.",
-      "scenarios": [
-        "374_supa_cybork_fnp"
       ],
       "last_verified_commit": "1f48cc6",
       "status": "covered"
@@ -2468,7 +2439,8 @@
       "description": "Main menu 'Refresh Cloud Armies' button re-fetches /api/armies without duplicate-signal errors and without duplicating army dropdown entries across repeated refreshes.",
       "scenarios": [
         "army_builder_menu_link",
-        "cus11e_enh_builder_cloud_army"
+        "cus11e_enh_builder_cloud_army",
+        "ork11e_enh_builder_cloud_army"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -3587,7 +3559,8 @@
       "id": "autoloads.CharacterAttachmentManager.enhancement_can_lead",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_enhancements_load.",
       "scenarios": [
-        "taktikal_enhancements_load"
+        "taktikal_enhancements_load",
+        "ork11e_enh_kaptins_hat"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -5643,26 +5616,6 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: auto_pile_in_closest_opponents.",
       "scenarios": [
         "auto_pile_in_closest_opponents"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "enhancements.taktikal_brigade.morks_kunnin",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_enhancements_load.",
-      "scenarios": [
-        "taktikal_enhancements_load"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "enhancements.taktikal_brigade.skwad_leader",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_enhancements_load.",
-      "scenarios": [
-        "taktikal_enhancements_load"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -9134,7 +9087,10 @@
       "id": "ai.decide_window_stratagem",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_ai_selected_to_shoot.",
       "scenarios": [
-        "ork11e_ai_selected_to_shoot"
+        "ork11e_ai_selected_to_shoot",
+        "ork11e_enh_ai_dreadherder",
+        "ork11e_enh_ai_temperamental_shokka",
+        "ork11e_enh_ai_morgogs_finkin_cap"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -10290,7 +10246,8 @@
       "id": "stratagem.window.movement_phase_start",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_dubious_restraint.",
       "scenarios": [
-        "ork11e_dubious_restraint"
+        "ork11e_dubious_restraint",
+        "ork11e_enh_da_boss_is_watchin"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -10367,7 +10324,8 @@
         "ork11e_auto_shoot_grab_it",
         "ork11e_grab_it",
         "ork11e_grab_it_last_shooter",
-        "cus11e_enh_auriferous_orb"
+        "cus11e_enh_auriferous_orb",
+        "ork11e_enh_enhanced_runt_maw"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -10408,7 +10366,9 @@
         "ork11e_kustom_dakka",
         "ork11e_long_uncontrolled_bursts",
         "ork11e_never_enough_dakka",
-        "ork11e_vindictive_artillerists"
+        "ork11e_vindictive_artillerists",
+        "ork11e_enh_dreadherder",
+        "ork11e_enh_temperamental_shokka"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -10418,7 +10378,8 @@
       "id": "stratagem.window.unit_selected_to_shoot.ai_decider",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_ai_selected_to_shoot.",
       "scenarios": [
-        "ork11e_ai_selected_to_shoot"
+        "ork11e_ai_selected_to_shoot",
+        "ork11e_enh_ai_dreadherder"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -10594,7 +10555,8 @@
       "id": "phases.MovementPhase.reactive_normal_move",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_scarper_drag_hint_cleared.",
       "scenarios": [
-        "ork11e_scarper_drag_hint_cleared"
+        "ork11e_scarper_drag_hint_cleared",
+        "ork11e_enh_morgogs_finkin_cap"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -10775,7 +10737,8 @@
       "id": "army_builder.codex_enhancements",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: cus11e_enh_builder_cloud_army.",
       "scenarios": [
-        "cus11e_enh_builder_cloud_army"
+        "cus11e_enh_builder_cloud_army",
+        "ork11e_enh_builder_cloud_army"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -10785,7 +10748,8 @@
       "id": "army_list.cloud_load.enhancements",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: cus11e_enh_builder_cloud_army.",
       "scenarios": [
-        "cus11e_enh_builder_cloud_army"
+        "cus11e_enh_builder_cloud_army",
+        "ork11e_enh_builder_cloud_army"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11308,7 +11272,9 @@
       "id": "stratagem.window.movement_phase_end",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: cus11e_enh_huntress_eye.",
       "scenarios": [
-        "cus11e_enh_huntress_eye"
+        "cus11e_enh_huntress_eye",
+        "ork11e_enh_morgogs_finkin_cap",
+        "ork11e_enh_ai_morgogs_finkin_cap"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11373,6 +11339,354 @@
       "description": "A cloud army saved by the browser Army Builder is listed by Refresh Cloud Armies, selected, downloaded on Start Game and applied to the game state with the exported stats and points.",
       "scenarios": [
         "w3_builder_codex_datasheets"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.ardboyz",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_ardboyz.",
+      "scenarios": [
+        "ork11e_enh_ardboyz"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "scripts.codex.orks.OrkEnhancements11e",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_ardboyz.",
+      "scenarios": [
+        "ork11e_enh_ardboyz",
+        "ork11e_enh_blitzboss",
+        "ork11e_enh_da_boss_is_watchin",
+        "ork11e_enh_da_krunch",
+        "ork11e_enh_dreadherder",
+        "ork11e_enh_enhanced_runt_maw",
+        "ork11e_enh_flyboss",
+        "ork11e_enh_follow_me_ladz",
+        "ork11e_enh_impulsive_recon",
+        "ork11e_enh_kaptins_hat",
+        "ork11e_enh_morgogs_finkin_cap",
+        "ork11e_enh_surly_as_a_squiggoth",
+        "ork11e_enh_targetin_squigs",
+        "ork11e_enh_temperamental_shokka"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "autoloads.ArmyListManager.list_build",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_ardboyz.",
+      "scenarios": [
+        "ork11e_enh_ardboyz",
+        "ork11e_enh_da_krunch"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.blitzboss",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_blitzboss.",
+      "scenarios": [
+        "ork11e_enh_blitzboss"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "scripts.MovementController.move_cap",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_blitzboss.",
+      "scenarios": [
+        "ork11e_enh_blitzboss",
+        "ork11e_enh_follow_me_ladz"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.kill_kommanda",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_builder_cloud_army.",
+      "scenarios": [
+        "ork11e_enh_builder_cloud_army",
+        "taktikal_enhancements_load"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.throat_slittas",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_builder_cloud_army.",
+      "scenarios": [
+        "ork11e_enh_builder_cloud_army"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ui.formations.leader_attachment",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_builder_cloud_army.",
+      "scenarios": [
+        "ork11e_enh_builder_cloud_army"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.da_boss_is_watchin",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_da_boss_is_watchin.",
+      "scenarios": [
+        "ork11e_enh_da_boss_is_watchin"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "dialogs.StratagemDialog",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_da_boss_is_watchin.",
+      "scenarios": [
+        "ork11e_enh_da_boss_is_watchin",
+        "ork11e_enh_dreadherder"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.da_krunch",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_da_krunch.",
+      "scenarios": [
+        "ork11e_enh_da_krunch"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.dreadherder",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_dreadherder.",
+      "scenarios": [
+        "ork11e_enh_dreadherder"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.enhanced_runt_maw",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_enhanced_runt_maw.",
+      "scenarios": [
+        "ork11e_enh_enhanced_runt_maw"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "dialogs.StratagemTargetDialog",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_enhanced_runt_maw.",
+      "scenarios": [
+        "ork11e_enh_enhanced_runt_maw"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.flyboss",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_flyboss.",
+      "scenarios": [
+        "ork11e_enh_flyboss"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.MovementPhase.reinforcements",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_flyboss.",
+      "scenarios": [
+        "ork11e_enh_flyboss",
+        "ork11e_enh_impulsive_recon"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.follow_me_ladz",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_follow_me_ladz.",
+      "scenarios": [
+        "ork11e_enh_follow_me_ladz"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.impulsive_recon",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_impulsive_recon.",
+      "scenarios": [
+        "ork11e_enh_impulsive_recon"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "scripts.MovementController.unit_list",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_impulsive_recon.",
+      "scenarios": [
+        "ork11e_enh_impulsive_recon"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.kaptins_hat",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_kaptins_hat.",
+      "scenarios": [
+        "ork11e_enh_kaptins_hat"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.RedeploymentPhase",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_kaptins_hat.",
+      "scenarios": [
+        "ork11e_enh_kaptins_hat"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.morgogs_finkin_cap",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_morgogs_finkin_cap.",
+      "scenarios": [
+        "ork11e_enh_morgogs_finkin_cap"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.surly_as_a_squiggoth",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_surly_as_a_squiggoth.",
+      "scenarios": [
+        "ork11e_enh_surly_as_a_squiggoth"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.FightPhase",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_surly_as_a_squiggoth.",
+      "scenarios": [
+        "ork11e_enh_surly_as_a_squiggoth"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.targetin_squigs",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_targetin_squigs.",
+      "scenarios": [
+        "ork11e_enh_targetin_squigs"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "autoloads.RulesEngine.range",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_targetin_squigs.",
+      "scenarios": [
+        "ork11e_enh_targetin_squigs"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.temperamental_shokka",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_temperamental_shokka.",
+      "scenarios": [
+        "ork11e_enh_temperamental_shokka"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.mekwaaagh_mastermind",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_temperamental_shokka.",
+      "scenarios": [
+        "ork11e_enh_temperamental_shokka"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "enhancements.taktikal_brigade.kill_kommanda",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_enhancements_load.",
+      "scenarios": [
+        "taktikal_enhancements_load"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "enhancements.taktikal_brigade.morks_kunnin_superseded",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_enhancements_load.",
+      "scenarios": [
+        "taktikal_enhancements_load"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.dreadherder.ai",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_ai_dreadherder.",
+      "scenarios": [
+        "ork11e_enh_ai_dreadherder"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.temperamental_shokka.ai",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_ai_temperamental_shokka.",
+      "scenarios": [
+        "ork11e_enh_ai_temperamental_shokka"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.morgogs_finkin_cap.ai",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_ai_morgogs_finkin_cap.",
+      "scenarios": [
+        "ork11e_enh_ai_morgogs_finkin_cap"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",

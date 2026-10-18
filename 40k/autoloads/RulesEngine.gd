@@ -1782,6 +1782,7 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+	critical_wound_threshold = mini(critical_wound_threshold, int(ork11e_enh().anti_threshold(ork6, target_unit)))  # WP-O5 Supa-glowy Fing [ANTI-INFANTRY 4+] (overwatch)
 
 	# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ from stratagem flag
 	if shooter_unit.get("flags", {}).get("effect_rolling_loot_heap", false):
@@ -1802,7 +1803,7 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if ork11e_ab_wound_penalty(target_unit, strength, toughness):
 		ow_wound_modifier = -1
 		print("RulesEngine: HARDY BIONIKS (overwatch) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
-	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	# IMPERVIOUS / effect_minus_wound_s_gt_t: -1 to wound while S > T
 	if ow_wound_modifier == 0 and get_s_gt_t_wound_penalty(target_unit, board, strength, toughness) == WoundModifier.MINUS_ONE:
 		ow_wound_modifier = -1
 		print("RulesEngine: S>T wound penalty (overwatch) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
@@ -2304,6 +2305,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			print("RulesEngine: BRUTAL BROADSIDE — %s has dice-valued Attacks (%s), rapid fire grant skipped" % [weapon_id, bb_attacks_raw])
 	# CLOSE-RANGE DAKKA (Codex: Orks 11e): [RAPID FIRE 1], or +1 to the value of
 	# an existing [RAPID FIRE] (applied after every other RAPID FIRE grant).
+	# WP-O5 Supa-snazz Dakka: Snazzguns have [RAPID FIRE 1] (not cumulative with their own).
+	rapid_fire_value = maxi(rapid_fire_value, int(ork11e_enh().rapid_fire_grant(actor_unit, weapon_profile)))
 	var ork11e_crd_bonus = ork11e_rapid_fire_bonus(actor_unit, weapon_profile)
 	if ork11e_crd_bonus > 0:
 		rapid_fire_value += ork11e_crd_bonus
@@ -2409,7 +2412,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		print("RulesEngine: NOT A SHELL WASTED — +%d attack per model on %s (%d models)" % [cus11e_nsw, weapon_name, model_ids.size()])
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
-	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
+	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false) or bool(ork6.get("torrent", false))  # WP-O5 Temperamental Shokka (1: [TORRENT])
 
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PURGATION SWEEP +1/+2 A on [TORRENT] weapons.
 	var cus11e_bonus_a: int = int(_cus11e_codex().bonus_attacks_per_model(actor_unit, target_unit, weapon_profile, is_torrent, false)) * model_ids.size()
@@ -2681,13 +2684,6 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			hit_modifiers |= HitModifier.REROLL_ONES
 			ModifierLedger.note(hit_mod_ledger, "Dat's Our Loot!", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES, "target within range of an objective marker")
 			print("RulesEngine: DAT'S OUR LOOT! — re-roll hit rolls of 1 for %s" % actor_unit_id)
-
-		# MEK KAPTIN (Taktikal Brigade enhancement): full Hit re-roll on the
-		# bearer's unit's ranged attacks.
-		if unit_has_mek_kaptin_reroll(actor_unit, board):
-			hit_modifiers |= HitModifier.REROLL_FAILED
-			ModifierLedger.note(hit_mod_ledger, "Mek Kaptin", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED)
-			print("RulesEngine: MEK KAPTIN — re-roll Hit rolls (ranged) for %s" % actor_unit_id)
 
 		# WP-O6: Codex: Orks (11e) datasheet abilities (Strafing Run, Dodge Dis!, Ammo Runts, ...)
 		hit_modifiers = ork11e_ab_hit_bits(hit_modifiers, hit_mod_ledger, ork6)
@@ -3136,6 +3132,9 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	if not weapon_has_devastating_wounds and actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_DEVASTATING_WOUNDS, false):
 		weapon_has_devastating_wounds = true
 		print("RulesEngine: Headwoppa's Killchoppa — unit-level effect_devastating_wounds applied (until-wounds path)")
+	if not weapon_has_devastating_wounds and bool(ork6.get("devastating", false)):  # WP-O5 Supa-glowy Fing
+		weapon_has_devastating_wounds = true
+		print("RulesEngine: [WP-O5] [DEVASTATING WOUNDS] granted by a Codex: Orks (11e) enhancement")
 
 	# PURITY OF EXECUTION: Ranged attacks vs PSYKER gain [DEVASTATING WOUNDS]
 	var purity_of_execution_active = has_purity_of_execution_vs_target(actor_unit, target_unit)
@@ -3153,6 +3152,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+	critical_wound_threshold = mini(critical_wound_threshold, int(ork11e_enh().anti_threshold(ork6, target_unit)))  # WP-O5 Supa-glowy Fing [ANTI-INFANTRY 4+]
 
 	# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ from stratagem flag
 	if actor_unit.get("flags", {}).get("effect_rolling_loot_heap", false):
@@ -3218,14 +3218,6 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		wound_modifiers |= WoundModifier.MINUS_ONE
 		ModifierLedger.note(wound_mod_ledger, "'Ard as Nails", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "defender's ability")
 		print("RulesEngine: Defender effect -1 to wound (attacks vs %s)" % target_unit_id)
-	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets
-	var eadstompa_scope = get_eadstompa_reroll_scope(actor_unit, target_unit)
-	if eadstompa_scope == "failed":
-		wound_modifiers |= WoundModifier.REROLL_FAILED
-		ModifierLedger.note(wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target is below its Starting Strength")
-	elif eadstompa_scope == "ones":
-		wound_modifiers |= WoundModifier.REROLL_ONES
-		ModifierLedger.note(wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target is below its Starting Strength")
 	var reroll_wounds_scope = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if reroll_wounds_scope == "ones":
 		wound_modifiers |= WoundModifier.REROLL_ONES
@@ -3263,11 +3255,11 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		wound_modifiers |= WoundModifier.MINUS_ONE
 		ModifierLedger.note(wound_mod_ledger, "Hardy Bioniks", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: HARDY BIONIKS — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
-	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	# IMPERVIOUS / effect_minus_wound_s_gt_t: -1 to wound while S > T
 	var sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
 	if sgt_mod != WoundModifier.NONE:
 		wound_modifiers |= sgt_mod
-		ModifierLedger.note(wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
+		ModifierLedger.note(wound_mod_ledger, "IMPERVIOUS", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
 	# HULKING BRUTES (Codex: Orks 11e): -1 to wound for ranged attacks that
 	# target the unit (S > T only, or every attack with the +1CP upgrade).
@@ -4500,6 +4492,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			print("RulesEngine: BRUTAL BROADSIDE — %s has dice-valued Attacks (%s), rapid fire grant skipped" % [weapon_id, bb_attacks_raw])
 	# CLOSE-RANGE DAKKA (Codex: Orks 11e): [RAPID FIRE 1], or +1 to the value of
 	# an existing [RAPID FIRE] (applied after every other RAPID FIRE grant).
+	# WP-O5 Supa-snazz Dakka: Snazzguns have [RAPID FIRE 1] (not cumulative with their own).
+	rapid_fire_value = maxi(rapid_fire_value, int(ork11e_enh().rapid_fire_grant(actor_unit, weapon_profile)))
 	var ork11e_crd_bonus = ork11e_rapid_fire_bonus(actor_unit, weapon_profile)
 	if ork11e_crd_bonus > 0:
 		rapid_fire_value += ork11e_crd_bonus
@@ -4606,7 +4600,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		print("RulesEngine: NOT A SHELL WASTED (auto-resolve) — +%d attack per model on %s (%d models)" % [cus11e_nsw_ar, ar_weapon_name, model_ids.size()])
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
-	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
+	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false) or bool(ork6.get("torrent", false))  # WP-O5 Temperamental Shokka (1: [TORRENT])
 
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PURGATION SWEEP +1/+2 A on [TORRENT] weapons.
 	var ar_cus11e_bonus_a: int = int(_cus11e_codex().bonus_attacks_per_model(actor_unit, target_unit, weapon_profile, is_torrent, false)) * model_ids.size()
@@ -4857,13 +4851,6 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.REROLL_ONES
 			ModifierLedger.note(hit_mod_ledger, "Dat's Our Loot!", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES, "target within range of an objective marker")
 			print("RulesEngine: DAT'S OUR LOOT! (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
-
-		# MEK KAPTIN (Taktikal Brigade enhancement): full Hit re-roll on the
-		# bearer's unit's ranged attacks (auto-resolve).
-		if unit_has_mek_kaptin_reroll(actor_unit, board):
-			hit_modifiers |= HitModifier.REROLL_FAILED
-			ModifierLedger.note(hit_mod_ledger, "Mek Kaptin", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED)
-			print("RulesEngine: MEK KAPTIN (auto-resolve) — re-roll Hit rolls (ranged) for %s" % actor_unit_id)
 
 		# WP-O6: Codex: Orks (11e) datasheet abilities (Strafing Run, Dodge Dis!, Ammo Runts, ...)
 		hit_modifiers = ork11e_ab_hit_bits(hit_modifiers, hit_mod_ledger, ork6)
@@ -5227,6 +5214,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if not ar_weapon_has_devastating_wounds and actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_DEVASTATING_WOUNDS, false):
 		ar_weapon_has_devastating_wounds = true
 		print("RulesEngine: Headwoppa's Killchoppa — unit-level effect_devastating_wounds applied (auto-resolve)")
+	if not ar_weapon_has_devastating_wounds and bool(ork6.get("devastating", false)):  # WP-O5 Supa-glowy Fing
+		ar_weapon_has_devastating_wounds = true
+		print("RulesEngine: [WP-O5] [DEVASTATING WOUNDS] granted by a Codex: Orks (11e) enhancement (auto-resolve)")
 	# 24.10 (audit #17): attacker may decline the mortal-wound conversion.
 	if GameConstants.edition >= 11 and ar_weapon_has_devastating_wounds \
 			and str(assignment.get("devastating_wounds_choice", "")) == "normal":
@@ -5235,6 +5225,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var ar_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+	ar_critical_wound_threshold = mini(ar_critical_wound_threshold, int(ork11e_enh().anti_threshold(ork6, target_unit)))  # WP-O5 Supa-glowy Fing [ANTI-INFANTRY 4+]
 
 	# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ from stratagem flag
 	if actor_unit.get("flags", {}).get("effect_rolling_loot_heap", false):
@@ -5300,14 +5291,6 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ar_wound_modifiers |= WoundModifier.MINUS_ONE
 		ModifierLedger.note(ar_wound_mod_ledger, "'Ard as Nails", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "defender's ability")
 		print("RulesEngine: Defender effect -1 to wound (auto-resolve, attacks vs %s)" % target_unit_id)
-	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets
-	var eadstompa_scope_ar = get_eadstompa_reroll_scope(actor_unit, target_unit)
-	if eadstompa_scope_ar == "failed":
-		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
-		ModifierLedger.note(ar_wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target is below its Starting Strength")
-	elif eadstompa_scope_ar == "ones":
-		ar_wound_modifiers |= WoundModifier.REROLL_ONES
-		ModifierLedger.note(ar_wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target is below its Starting Strength")
 	var reroll_wounds_scope_ar = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if reroll_wounds_scope_ar == "ones":
 		ar_wound_modifiers |= WoundModifier.REROLL_ONES
@@ -5341,11 +5324,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ar_wound_modifiers |= WoundModifier.MINUS_ONE
 		ModifierLedger.note(ar_wound_mod_ledger, "Hardy Bioniks", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: HARDY BIONIKS (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
-	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	# IMPERVIOUS / effect_minus_wound_s_gt_t: -1 to wound while S > T
 	var ar_sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
 	if ar_sgt_mod != WoundModifier.NONE:
 		ar_wound_modifiers |= ar_sgt_mod
-		ModifierLedger.note(ar_wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
+		ModifierLedger.note(ar_wound_mod_ledger, "IMPERVIOUS", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
 	# HULKING BRUTES (Codex: Orks 11e): -1 to wound for ranged attacks that target the unit.
 	if ork11e_ranged_wound_penalty(target_unit, strength, toughness):
@@ -9818,20 +9801,6 @@ static func is_unit_near_any_objective(unit: Dictionary, board: Dictionary) -> b
 
 	return false
 
-# MEK KAPTIN (Taktikal Brigade enhancement): "Each time a model in the
-# bearer's unit makes a ranged attack, you can re-roll the Hit roll."
-# True when the shooting unit carries the enhancement itself (standalone
-# bearer, or the bearer attached to it) or has the bearer among its
-# attached characters. Read ONLY in the shooting hit-modifier paths.
-static func unit_has_mek_kaptin_reroll(actor_unit: Dictionary, board: Dictionary) -> bool:
-	if _meta_has_enhancement(actor_unit, "Mek Kaptin"):
-		return true
-	var units = board.get("units", {})
-	for char_id in actor_unit.get("attachment_data", {}).get("attached_characters", []):
-		if _meta_has_enhancement(units.get(str(char_id), {}), "Mek Kaptin"):
-			return true
-	return false
-
 static func _meta_has_enhancement(unit: Dictionary, enh_name: String) -> bool:
 	for enh in unit.get("meta", {}).get("enhancements", []):
 		if enh is String and enh == enh_name:
@@ -9840,24 +9809,6 @@ static func _meta_has_enhancement(unit: Dictionary, enh_name: String) -> bool:
 			return true
 	return false
 
-
-# 'EADSTOMPA (Bully Boyz enhancement): the bearer re-rolls Wound rolls of 1
-# against units below their Starting Strength; full Wound re-roll while the
-# target is Below Half-strength. Unit-wide approximation (bearer-only scope
-# needs per-model attack state — same caveat as Hall of Armouries).
-static func get_eadstompa_reroll_scope(attacker_unit: Dictionary, target_unit: Dictionary) -> String:
-	if not (_meta_has_enhancement(attacker_unit, "'Eadstompa") or _meta_has_enhancement(attacker_unit, "\u2019Eadstompa")):
-		return ""
-	var total: int = target_unit.get("models", []).size()
-	var alive := 0
-	for m in target_unit.get("models", []):
-		if m.get("alive", true):
-			alive += 1
-	if total <= 0 or alive >= total:
-		return ""
-	if alive * 2 < total:
-		return "failed"
-	return "ones"
 
 # DAT'S OUR LOOT! (OA-12): Get the re-roll scope for a Lootas unit's ranged attacks.
 # Returns "failed" if target is within range of any objective marker (full re-roll),
@@ -9931,6 +9882,16 @@ static func ork11e_det():
 		_ork11e_det_script = load("res://scripts/codex/orks/OrkDetachments11e.gd")
 	return _ork11e_det_script
 
+## WP-O5: Codex: Orks (11e) enhancements (scripts/codex/orks/OrkEnhancements11e.gd).
+## Attack modifiers arrive through ork11e_ab_mods (OrkAbilities11e merges
+## them); the resolver paths read the keys "devastating", "anti" and
+## "torrent" next to the weapon's own keywords.
+static var _ork11e_enh_script = null
+static func ork11e_enh():
+	if _ork11e_enh_script == null:
+		_ork11e_enh_script = load("res://scripts/codex/orks/OrkEnhancements11e.gd")
+	return _ork11e_enh_script
+
 ## +1 to hit source ("" = none): Skyborne Loons, Unpredictable Genius (Seekerz).
 static func ork11e_det_hit_plus_one(actor_unit: Dictionary, target_unit: Dictionary, is_melee: bool, board: Dictionary = {}) -> String:
 	if GameConstants.edition < 11:
@@ -9975,7 +9936,9 @@ static func ork11e_det_invuln(actor_unit: Dictionary, target_unit: Dictionary, i
 static func ork11e_det_range_bonus(actor_unit: Dictionary, weapon_profile: Dictionary = {}) -> float:
 	if GameConstants.edition < 11:
 		return 0.0
-	return ork11e_det().range_bonus_inches(actor_unit, weapon_profile) + cus11e_det().range_bonus_inches(actor_unit, weapon_profile)
+	# + WP-O5 Targetin' Squigs (+3" R, excluding [TORRENT]) — different rules stack.
+	return ork11e_det().range_bonus_inches(actor_unit, weapon_profile) + cus11e_det().range_bonus_inches(actor_unit, weapon_profile) \
+		+ float(ork11e_enh().range_bonus(actor_unit, weapon_profile))
 
 # ---------------------------------------------------------------------------
 # Codex: Adeptus Custodes (11e) detachment rules + enhancements (WP-C46) — the
@@ -10373,9 +10336,10 @@ static func get_prey_ap_bonus(actor_unit: Dictionary, target_unit: Dictionary) -
 		return 0
 	return 1
 
-# SURLY AS A SQUIGGOTH (Da Big Hunt enhancement) + the generic
-# effect_minus_wound_s_gt_t defender flag: -1 to incoming Wound rolls when the
-# attack's Strength is greater than the target unit's Toughness.
+# The effect_minus_wound_s_gt_t defender flag (IMPERVIOUS): -1 to incoming
+# Wound rolls when the attack's Strength is greater than the target unit's
+# Toughness. (WP-O5: the 10e Da Big Hunt Surly as a Squiggoth no longer feeds
+# it — the codex enhancement is Brute Bosses' set-back-up rule.)
 static func get_s_gt_t_wound_penalty(target_unit: Dictionary, board: Dictionary, strength: int, toughness: int) -> int:
 	if strength <= toughness:
 		return WoundModifier.NONE
@@ -10559,7 +10523,8 @@ static func get_pyromaniaks_reroll_scope(actor_unit: Dictionary, target_unit: Di
 static func has_stealth_ability(unit: Dictionary) -> bool:
 	# ISS-019: unified query — covers datasheet abilities AND the
 	# effect_stealth flag (dynamically granted, e.g. Smokescreen-likes).
-	return UnitAbilities.unit_has(unit, "stealth")
+	return UnitAbilities.unit_has(unit, "stealth") \
+		or (GameConstants.edition >= 11 and ork11e_enh().grants_stealth(unit))  # WP-O5 Kill Kommanda (while attached)
 
 # DAMAGED PROFILE (P1-14): Check if a unit's Damaged profile is active
 # Per 10e rules: When a model with a Damaged profile has wounds remaining at or below
@@ -13784,13 +13749,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		strength += plus_s_melee
 		print("RulesEngine: Hall of Armouries — melee strength %d → %d (+%d)" % [pre_s_hoa, strength, plus_s_melee])
 
-	# FEROCIOUS SHOW OFF (Green Tide enhancement): +1 S on the bearer's melee
-	# attacks, +3 while the bearer's unit counts as containing 10+ models.
-	# Same unit-wide approximation as Hall of Armouries above.
-	var fso_bonus = FactionAbilityManager.ferocious_show_off_strength_bonus(attacker_unit)
-	if fso_bonus > 0:
-		strength += fso_bonus
-		print("RulesEngine: Ferocious Show Off — melee strength +%d (now %d)" % [fso_bonus, strength])
+	# (WP-O5: the 10e Green Tide Ferocious Show Off +S is gone — the codex
+	# Ferocious Show-off is +1/+2 A, OrkEnhancements11e.merge_attack_mods.)
 
 	# KLANKIN' KLAWS (Dread Mob): +2 S on melee weapons for the phase
 	var kk_strength_bonus = int(attacker_unit.get("flags", {}).get("effect_klankin_klaws", 0))
@@ -13875,7 +13835,7 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			and str(assignment.get("devastating_wounds_choice", "")) == "normal":
 		weapon_has_devastating_wounds = false
 		print("RulesEngine: [24.10] DEVASTATING WOUNDS — attacker declined the mortal-wound conversion (melee)")
-	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
+	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false) or bool(ork6.get("torrent", false))  # WP-O5 Temperamental Shokka (1: [TORRENT])
 	# PRECISION: Check both weapon keyword and stratagem flag on attacker
 	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
 
@@ -14346,14 +14306,6 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 		melee_wound_modifiers |= WoundModifier.MINUS_ONE
 		ModifierLedger.note(melee_wound_mod_ledger, "'Ard as Nails", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "defender's ability")
 		print("RulesEngine: Defender effect -1 to wound (melee attacks vs %s)" % target_name)
-	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets (melee)
-	var eadstompa_scope_m = get_eadstompa_reroll_scope(attacker_unit, target_unit)
-	if eadstompa_scope_m == "failed":
-		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
-		ModifierLedger.note(melee_wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target is below its Starting Strength")
-	elif eadstompa_scope_m == "ones":
-		melee_wound_modifiers |= WoundModifier.REROLL_ONES
-		ModifierLedger.note(melee_wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target is below its Starting Strength")
 	var melee_reroll_wounds_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if melee_reroll_wounds_scope == "ones":
 		melee_wound_modifiers |= WoundModifier.REROLL_ONES
@@ -14412,11 +14364,11 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 		melee_wound_modifiers |= WoundModifier.MINUS_ONE
 		ModifierLedger.note(melee_wound_mod_ledger, "Hardy Bioniks", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: HARDY BIONIKS (melee) — -1 to wound for attacks against %s (S %d > T %d)" % [target_id, strength, toughness])
-	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
+	# IMPERVIOUS / effect_minus_wound_s_gt_t: -1 to wound while S > T
 	var melee_sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
 	if melee_sgt_mod != WoundModifier.NONE:
 		melee_wound_modifiers |= melee_sgt_mod
-		ModifierLedger.note(melee_wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
+		ModifierLedger.note(melee_wound_mod_ledger, "IMPERVIOUS", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty (melee) — -1 to wound for attacks against %s (S %d > T %d)" % [target_id, strength, toughness])
 
 	# SLAYERS OF TYRANTS: Re-roll Wound rolls vs CHARACTER/MONSTER/VEHICLE (melee)

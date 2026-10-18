@@ -31,7 +31,11 @@
 //                       ingested in 1.4.5 and the stratagem work depends on
 //                       them); only NUMBERS are refreshed — profiles, points,
 //                       weapon stats, model counts — plus weapon profiles 40kdc
-//                       lacks. Every change is listed in the report.
+//                       lacks, and each codex detachment's enhancement list
+//                       (overlayEnhancements: ids kept, points / bearer /
+//                       Upgrade tag corrected, rules_text added, pre-codex
+//                       records marked superseded). Every change is listed in
+//                       the report.
 //
 // Rules for both modes:
 //   - Legends datasheets and Boarding Actions detachments are skipped
@@ -866,6 +870,10 @@ function main() {
 
   // --------------------------------------------- detachments + enhancements
   if (mode === 'full') importDetachments(snap, data, factionId, SOURCE, unitIdByWahaId, log);
+  // overlay: the 40kdc detachments stay; only their enhancement lists are
+  // refreshed from the codex (WP-O5) — ids kept, points / restrictions /
+  // Upgrade tag corrected, rules_text added, stale records retired.
+  if (mode === 'overlay') overlayEnhancements(snap, data, factionId, SOURCE, log);
 
   // ------------------------------------------------- write collections back
   // Write back: a record that came from an existing one replaces THAT object
@@ -1118,6 +1126,179 @@ function importDetachments(snap, data, factionId, SOURCE, unitIdByWahaId, log) {
     replaceOrInsert(data.detachments, d => d.faction_id === factionId && d.id === rec.id,
       d => d.faction_id === factionId, rec);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Enhancements, overlay mode (WP-O5, Codex: Orks).
+//
+// 40kdc 1.4.5 lists pre-codex enhancements under the codex detachment names
+// (Mork's Kunnin', Press It Fasta!, Da Biggest Boss, ...), with stale points
+// (Targetin' Gizmos 10 -> 25) and missing bearer restrictions. For every codex
+// detachment (Boarding Actions skipped, D3) this rewrites the detachment's
+// enhancement_ids to exactly the codex list:
+//   - an existing record of that detachment with the same name (case,
+//     punctuation, spacing and an "(Upgrade)" / "Upgrade" suffix ignored) is
+//     updated IN PLACE (id kept): name, cost, upgrade_tag, bearer
+//     restriction, rules_text, source;
+//   - a codex enhancement with no record gets a new one (slug id);
+//   - the detachment's other records are left in the file (old rosters name
+//     them) but marked superseded_by_codex and dropped from enhancement_ids.
+// Text the CSV export does not carry (the faction page prints it) comes from
+// PAGE_ONLY_ENHANCEMENTS below.
+
+// Page-only enhancement text (https://wahapedia.ru/wh40k11ed/factions/orks/,
+// read 2026-10-18): the "LEADER: <unit>" line and the weapon profile of the
+// "This model has the following weapon" enhancements.
+const PAGE_ONLY_ENHANCEMENTS = {
+  'orks': {
+    'kill kommanda': { leader: ['Kommandos'] },
+    'kaptins hat': { leader: ['Flash Gitz'] },
+    'da gobshot thunderbuss': { weapon: { name: 'Da Gobshot Thunderbuss', type: 'Ranged', range: '24"', A: '6', BS_WS: '4+', S: '7', AP: '-2', D: '2', keywords: ['Lethal Hits: non-Monster/Vehicle', 'Rapid Fire 6'] } },
+    'da krunch': { weapon: { name: 'Da Krunch', type: 'Ranged', range: '24"', A: '3', BS_WS: '4+', S: '5', AP: '-1', D: '1', keywords: ['Blast 3', 'Hazardous', 'Lethal Hits', 'Psychic'] } },
+    'eadbanger': { weapon: { name: "'Eadbanger", type: 'Ranged', range: '24"', A: '2', BS_WS: '4+', S: '6', AP: '-3', D: '3', keywords: ['Hazardous', 'Precision', 'Psychic'] } },
+  },
+};
+
+// Comparable enhancement name: "'Ardboyz (Upgrade)" / "'Ard Boyz" /
+// "Throat-Slittas Upgrade" -> "ardboyz" / "ardboyz" / "throatslittas".
+export function enhancementKey(name) {
+  return normName(String(name).replace(/\s*\([^)]*\)\s*$/, ''))
+    .replace(/\s+upgrade$/, '').replace(/\s+/g, '');
+}
+
+// "Big Mek/Warboss Infantry model only (excluding X models)." ->
+// {groups: [["Big Mek"], ["Warboss", "Infantry"]], exclusions: ["X"], scope}
+// Each "/" alternative is split into keywords by the longest known keyword
+// (the snapshot's keyword list plus its datasheet names — Wahapedia's keyword
+// rows omit a datasheet's own-name keyword, which 40kdc and the game carry).
+export function parseEnhancementRestriction(text, knownKeywords) {
+  const m = String(text).match(/^\s*(.+?)\s+(model|unit)s?\s+only(?:\s*\(excluding\s+(.+?)\s+(?:models?|units?)\))?\s*\./i);
+  if (!m) return null;
+  const known = [...knownKeywords].sort((a, b) => b.split(' ').length - a.split(' ').length || b.length - a.length);
+  const split = alt => {
+    const words = alt.trim().split(/\s+/);
+    const out = [];
+    let i = 0;
+    while (i < words.length) {
+      let hit = null;
+      for (const k of known) {
+        const kw = k.split(' ');
+        if (i + kw.length <= words.length && normName(words.slice(i, i + kw.length).join(' ')) === normName(k)) { hit = k; break; }
+      }
+      if (!hit) { hit = words.slice(i).join(' '); out.push(titleCase(hit)); break; }
+      out.push(hit);
+      i += hit.split(' ').length;
+    }
+    return out;
+  };
+  // "/" binds tighter than the keyword sequence: "Big Mek/Warboss Infantry"
+  // is (BIG MEK or WARBOSS) and INFANTRY — the slots' cartesian product, so
+  // keywords shared by every alternative apply to each group.
+  const slots = [];
+  let joinNext = false;
+  for (const part of m[1].split(/(\/)/)) {
+    if (part === '/') { joinNext = true; continue; }
+    const kws = split(part);
+    if (!kws.length) continue;
+    if (joinNext && slots.length) {
+      slots[slots.length - 1].push(kws[0]);
+      for (const k of kws.slice(1)) slots.push([k]);
+    } else {
+      for (const k of kws) slots.push([k]);
+    }
+    joinNext = false;
+  }
+  const groups = slots.reduce((acc, slot) => acc.flatMap(g => slot.map(k => [...g, k])), [[]]);
+  return {
+    scope: m[2].toLowerCase(),
+    groups,
+    exclusions: m[3] ? m[3].split('/').flatMap(split) : [],
+  };
+}
+
+function overlayEnhancements(snap, data, factionId, SOURCE, log) {
+  const pageOnly = PAGE_ONLY_ENHANCEMENTS[factionId] ?? {};
+  const known = new Set(snap.keywords.map(k => stripHtml(k.keyword).trim()).filter(Boolean));
+  for (const ds of snap.datasheets) known.add(stripHtml(ds.name).trim());
+  const unitIdByName = new Map(data.units.filter(u => u.faction_id === factionId).map(u => [normName(u.name), u.id]));
+  const dets = snap.detachments.filter(d => !BOARDING_ACTIONS_DETACHMENTS.has(normName(d.name)));
+  let total = 0;
+  log(`\nenhancements (overlay): ${dets.length} codex detachments`);
+  for (const d of dets) {
+    const det = data.detachments.find(x => x.faction_id === factionId && normName(x.name) === normName(d.name));
+    if (!det) { log(`- detachment ${d.name}: not in 40kdc — enhancements not written`); continue; }
+    const owned = data.enhancements.filter(x => x.detachment_id === det.id || (det.enhancement_ids ?? []).includes(x.id));
+    const codex = snap.enhancements.filter(e => e.detachment_id === d.id);
+    const ids = [];
+    const used = new Set();
+    for (const e of codex) {
+      const name = stripHtml(e.name).trim();
+      const upgrade = /true/i.test(e.upgrade ?? '');
+      const cost = parseInt(e.cost, 10) || 0;
+      const key = enhancementKey(name);
+      const cands = owned.filter(x => !used.has(x) && enhancementKey(x.name) === key);
+      cands.sort((a, b) => (Number(!!b.upgrade_tag === upgrade) - Number(!!a.upgrade_tag === upgrade))
+        || (Number(b.cost === cost) - Number(a.cost === cost))
+        || (Number(b.game_version?.dataslate === 'launch') - Number(a.game_version?.dataslate === 'launch')));
+      let rec = cands[0] ?? null;
+      const changes = [];
+      if (!rec) {
+        rec = { id: `${slug(name)}-${det.id}`, detachment_id: det.id, ability_id: null, is_unique: true,
+          game_version: { edition: '11th', dataslate: 'codex' }, points_provisional: false, max_targets: 1 };
+        data.enhancements.splice(lastIndex(data.enhancements, x => x.detachment_id === det.id) + 1 || data.enhancements.length, 0, rec);
+        changes.push('NEW');
+      }
+      used.add(rec);
+      const rulesText = stripHtml(e.description).replace(/\n•\s*/g, ' • ').replace(/\s+/g, ' ').trim();
+      const restr = parseEnhancementRestriction(rulesText, known);
+      if (rec.name !== name) changes.push(`name "${rec.name}" -> "${name}"`);
+      if (rec.cost !== cost) changes.push(`cost ${rec.cost} -> ${cost}`);
+      if (!!rec.upgrade_tag !== upgrade) changes.push(`upgrade_tag ${rec.upgrade_tag} -> ${upgrade}`);
+      rec.name = name;
+      rec.cost = cost;
+      rec.upgrade_tag = upgrade;
+      if (restr) {
+        // Same keyword sets (order / case aside) keep 40kdc's spelling.
+        const setKey = gs => JSON.stringify((gs ?? []).map(g => g.map(normName).sort().join('+')).sort());
+        const old = rec.keyword_restriction_groups ?? (rec.keyword_restrictions ? [rec.keyword_restrictions] : null);
+        const groups = setKey(old) === setKey(restr.groups) ? old : restr.groups;
+        if (groups !== old) changes.push(`bearer ${JSON.stringify(old)} -> ${JSON.stringify(groups)}`);
+        rec.keyword_restrictions = groups.length === 1 ? groups[0] : null;
+        rec.keyword_restriction_groups = groups;
+        rec.bearer_scope = restr.scope;
+        const oldEx = rec.exclusion_keywords ?? [];
+        const ex = setKey([oldEx]) === setKey([restr.exclusions]) ? oldEx : restr.exclusions;
+        if (ex !== oldEx) changes.push(`excluding ${JSON.stringify(oldEx)} -> ${JSON.stringify(ex)}`);
+        if (ex.length) rec.exclusion_keywords = ex;
+        else delete rec.exclusion_keywords;
+      } else {
+        changes.push('no bearer restriction printed');
+      }
+      const extra = pageOnly[normName(name)] ?? {};
+      if (extra.leader) {
+        const bg = extra.leader.map(n => unitIdByName.get(normName(n))).filter(Boolean);
+        if (JSON.stringify(rec.attachment_bodyguard_ids ?? null) !== JSON.stringify(bg)) changes.push(`leader -> ${bg.join(', ')}`);
+        rec.attachment_bodyguard_ids = bg;
+      }
+      if (extra.weapon) rec.granted_weapon = extra.weapon;
+      rec.rules_text = rulesText;
+      rec.legend = stripHtml(e.legend).trim();
+      rec.source = SOURCE;
+      delete rec.superseded_by_codex;
+      ids.push(rec.id);
+      if (changes.length) log(`- ${det.id} / ${rec.id}: ${changes.join('; ')}`);
+    }
+    for (const x of owned) {
+      if (used.has(x)) continue;
+      if (x.superseded_by_codex !== SOURCE) log(`- ${det.id} / ${x.id} ("${x.name}"): not in the codex — kept, marked superseded`);
+      x.superseded_by_codex = SOURCE;
+    }
+    const before = JSON.stringify(det.enhancement_ids ?? []);
+    det.enhancement_ids = ids;
+    if (before !== JSON.stringify(ids)) log(`- detachment ${det.id}: enhancement_ids ${before} -> ${JSON.stringify(ids)}`);
+    total += ids.length;
+  }
+  log(`enhancements (overlay): ${total} codex enhancements written`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

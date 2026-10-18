@@ -171,11 +171,9 @@
      "objective_control": 1,
      "invuln": 5
     },
-    "points": 120,
+    "points": 100,
     "is_warlord": false,
-    "enhancements": [
-     "Mork's Kunnin'"
-    ],
+    "enhancements": [],
     "wargear": [
      "1x Kustom Choppa",
      "1x Kustom shoota"
