@@ -2749,12 +2749,21 @@ func get_battle_shock_queue(include_tested: bool = false) -> Array:
 		elif at_half:
 			reason = "at_half"
 			reason_text = "At Half-strength"
+		elif _cus11e_det().battle_shock_roll_modifier(unit_id) != 0:
+			# Codex: Adeptus Custodes (11e) Null Maiden Vigil — CREEPING DREAD:
+			# a PSYKER / below-starting-strength unit near ANATHEMA PSYKANA (WP-C46).
+			reason = "creeping_dread"
+			reason_text = "Creeping Dread (Null Maiden Vigil) — PSYKER / below starting strength within 12\" of Anathema Psykana"
 		else:
 			# Queued earlier this phase and has since been healed/reinforced. It
 			# still owes the test (it was taken at the start of the phase), but
 			# don't invent a reason that no longer holds.
 			reason = "queued"
 			reason_text = "Battle-shock test outstanding"
+		# Creeping Dread's -1 also applies to a unit testing for another reason.
+		var cus11e_cd_mod: int = _cus11e_det().battle_shock_roll_modifier(unit_id)
+		if cus11e_cd_mod != 0 and reason != "creeping_dread":
+			reason_text += " · Creeping Dread: %d to the roll" % cus11e_cd_mod
 
 		var insane_bravery_available := false
 		if strat_manager and not tested:
@@ -2766,7 +2775,7 @@ func get_battle_shock_queue(include_tested: bool = false) -> Array:
 			"unit_name": unit.get("meta", {}).get("name", unit_id),
 			"owner": int(unit.get("owner", 0)),
 			"leadership": _get_effective_leadership(unit_id),
-			"battle_shock_bonus": ability_mgr.get_battle_shock_bonus(unit_id) if ability_mgr else 0,
+			"battle_shock_bonus": (ability_mgr.get_battle_shock_bonus(unit_id) if ability_mgr else 0) + cus11e_cd_mod,
 			"alive": alive,
 			"total": total,
 			"strength_text": strength_text,

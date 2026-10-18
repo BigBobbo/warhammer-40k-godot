@@ -1,0 +1,43 @@
+{
+  "id": "cus11e_det_dread_host",
+  "covers": [
+    "codex.custodes.detachment.dread_host.instruments_of_the_emperors_wrath",
+    "rules.charge.ability_reroll.instruments_of_the_emperors_wrath",
+    "dialogs.CommandRerollDialog.free_ability_mode"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) Dread Host — INSTRUMENTS OF THE EMPEROR'S WRATH (WP-C46): friendly ADEPTUS CUSTODES units can re-roll charge rolls. Fixture cus11e_c3_custodes_active (P1 Custodes active, round 2); setup: P1 detachment Dread Host, CP 0 for both. Charge phase: Witchseeker Squad D (ADEPTUS CUSTODES, ~4\" from the Gretchin) is picked in the charge panel, the Gretchin targeted, Declare Charge, Roll Charge (seeded): the re-roll dialog offers a FREE re-roll branded Instruments of the Emperor's Wrath; a real click on Re-roll re-rolls the 2D6 without spending CP.",
+  "fixture": "cus11e_c3_custodes_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 9 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "execute_script", "multiline": true, "comment": "setup privileges (see description)", "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Dread Host\"\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn load(\"res://scripts/codex/custodes/CustodesDetachments.gd\").charge_reroll_source(GameState.state.units[\"U_WITCHSEEKERS_D\"])", "equals": "Instruments of the Emperor's Wrath (Dread Host)" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "comment": "the charge panel's unit list (index of Witchseeker Squad D)", "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in range(cc.unit_selector.get_item_count()):\n\tout.append(str(cc.unit_selector.get_item_metadata(i)))\nreturn \",\".join(out)", "equals": "U_CALADIUS_GRAV-TANK_E,U_TELEMON_HEAVY_DREADNOUGHT_I,U_WITCHSEEKERS_D" },
+    { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector", "index": 2 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main.charge_controller.active_unit_id", "equals": "U_WITCHSEEKERS_D" },
+    { "act": "click_unit", "unit_id": "U_GRETCHIN_C" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in cc.target_list.get_selected_items():\n\tout.append(str(cc.target_list.get_item_metadata(i)))\nreturn \",\".join(out)", "equals": "U_GRETCHIN_C" },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "RulesEngine.set_test_seed(4)", "comment": "deterministic dice for the charge roll" },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton" },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "expect_node_visible", "node": "/root/CommandRerollDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "multiline": true, "script": "var t: String = tree.root.get_node(\"CommandRerollDialog\").find_child(\"HeaderLabel\", true, false).text\nprint(\"[cus11e dread host] reroll header: \", t)\nreturn t.contains(\"INSTRUMENTS OF THE EMPEROR\") and t.contains(\"FREE RE-ROLL\")", "equals": true },
+    { "act": "screenshot", "label": "01_free_charge_reroll_instruments" },
+    { "act": "click_node", "node": "/root/CommandRerollDialog/Content/ButtonRow/UseRerollButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_cp", "player": 1, "equals": 0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().ability_reroll_used", "equals": true },
+    { "act": "screenshot", "label": "02_charge_rerolled_no_cp" }
+  ]
+}
