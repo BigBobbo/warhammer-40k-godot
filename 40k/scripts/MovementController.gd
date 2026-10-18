@@ -1707,7 +1707,9 @@ func _unit_is_super_heavy_walker(unit_id: String) -> bool:
 	var unit = GameState.get_unit(unit_id)
 	if unit == null or unit.is_empty():
 		return false
-	return "SUPER-HEAVY WALKER" in unit.get("meta", {}).get("keywords", [])
+	# The keyword, or the 24.35 core ability codex datasheets print
+	# (Codex: Orks 11e Stompa / Gorkanaut / Morkanaut).
+	return UnitAbilities.is_super_heavy_walker(unit)
 
 func _update_shw_gamble_visibility() -> void:
 	# ISS-073 (24.35): show the MOBILE-gamble toggle only for a SUPER-HEAVY

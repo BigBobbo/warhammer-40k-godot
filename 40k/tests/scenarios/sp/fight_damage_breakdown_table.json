@@ -40,6 +40,13 @@
       "comment": "SETUP-ONLY PRIVILEGE: make the Warboss a 1-wound model so PART B's defender overkills the way the reported Stormboyz did. The fixture has no 1-wound unit engaged with the Custodian Guard, and overkill — damage spilling past a model's last wound and being lost — is the whole reason expected DAMAGE and expected DEAD MODELS diverge. Only the defender's wounds stat is staged; every forecast, row and footnote below is computed by the real code from the real profiles. (The sibling fight_one_weapon_per_model_11e scenario stages the same field the other way, setting wounds to 99.)"
     },
     {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var wb = GameState.state.units[\"U_WARBOSS_B\"].models[0]\nvar g = GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[2]\nvar contact = (float(wb.get(\"base_mm\", 40)) + float(g.get(\"base_mm\", 40))) / 2.0 / 25.4 * 40.0\ng[\"position\"] = {\"x\": float(wb.position.x), \"y\": float(wb.position.y) + contact + 1.0}\ntree.current_scene._recreate_unit_visuals()\nvar gp = Vector2(g.position.x, g.position.y)\nvar wp = Vector2(wb.position.x, wb.position.y)\nreturn \"m3 in contact\" if absf(gp.distance_to(wp) - contact - 1.0) < 0.01 else \"m3 not placed\"",
+      "equals": "m3 in contact",
+      "comment": "SETUP-ONLY PRIVILEGE (Codex: Orks 11e): the fixture's Warboss charged this turn, so the codex Might Is Right now applies — 'If this unit made a charge move this turn, this model's melee attacks have +3 A, +2 S' (orks/wahapedia Datasheets_abilities.csv, datasheet 000000001 line 5). PART A's Power klaw swings 6 S11 attacks instead of 3 S10 and kills m4, the only Custodian Guard model engaged with the Warboss, so in PART B the Guard is unengaged and makes a 12.06 overrun pile-in instead of opening the attack dialog this scenario is about. Park Guard m3 in base contact with the Warboss as well (1 px clear), so the Guard is still engaged after it loses one model. Only m3's position is staged; PART A's dice, forecasts and the breakdown rows are unchanged."
+    },
+    {
       "act": "expect_node_visible",
       "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
       "timeout_s": 5.0

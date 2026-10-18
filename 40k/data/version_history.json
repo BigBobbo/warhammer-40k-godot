@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.46.1",
+      "date": "2026-10-18",
+      "summary": "Codex: Orks Stompa, Gorkanaut and Morkanaut move like Super-heavy Walkers again.",
+      "changes": [
+        "Fixed: the codex Stompa, Gorkanaut and Morkanaut lost their old Stompin' Forward / Clankin' Forward, and the Super-heavy Walker ability the codex gives them instead did nothing. On a normal, advance or fall-back move they can again step over terrain 4\" or less in height and move through other models, including Monsters and Vehicles but not Titanic models. They can also take the Super-heavy Walker MOBILE gamble."
+      ]
+    },
+    {
       "version": "1.46.0",
       "date": "2026-10-17",
       "summary": "Codex: Adeptus Custodes and Codex: Orks datasheets: every Custodes and Ork unit now uses its 11th-edition codex characteristics, points, unit sizes and weapons.",

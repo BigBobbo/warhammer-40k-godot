@@ -273,106 +273,41 @@ func test_dead_leader_does_not_grant_ability():
 # TEST: Always-on unit abilities
 # ==========================================
 
-func test_stand_vigil_applies_reroll_wounds():
-	"""Stand Vigil should grant re-roll Wound rolls of 1 to the unit itself."""
-	_create_bodyguard_unit("U_GUARD_A", 1, [
-		{"name": "Stand Vigil", "type": "Datasheet", "description": "..."}
-	])
+# Codex: Adeptus Custodes (11e): the 10e Stand Vigil (re-roll wound rolls of
+# 1, re-roll all while on a controlled objective) is gone — that wording is
+# now only on the Legends "Custodian Guard Sodality with Adrasite Spears"
+# (custodes/wahapedia/Datasheets_abilities.csv 000004250, not imported: owner
+# decision D2). The codex Stand Vigil on the Sentinel Guard Sodality
+# (000004255 line 4) is "[LETHAL HITS: non-MONSTER/VEHICLE] if this unit or
+# the target is within range of an objective", implemented in
+# CustodesAbilities.gd (WP-C7, tests/test_custodes_abilities_11e.gd section
+# 22). The five 10e re-roll tests that sampled the always-on framework here
+# are retired (.llm/codex_11e_wahapedia/RETIRED_TESTS.md WP-FIX2); these pin
+# that the row no longer hands out the 10e wound re-roll.
 
-	ability_mgr.on_phase_start(GameStateData.Phase.SHOOTING)
+func test_stand_vigil_row_is_codex_marker():
+	"""Stand Vigil is the Codex: Adeptus Custodes (11e) marker row: no UnitAbilityManager effects."""
+	var entry = ability_mgr.ABILITY_EFFECTS.get("Stand Vigil", {})
+	assert_eq(entry.get("condition", ""), "cus11e", "Stand Vigil's rule lives in CustodesAbilities.gd (WP-C7)")
+	assert_eq(entry.get("effects", ["missing"]).size(), 0, "no 10e re-roll effect on the row")
+	assert_false(entry.has("objective_upgrade_effects"), "no 10e objective re-roll-all upgrade on the row")
+	assert_true(str(entry.get("description", "")).contains("LETHAL HITS"), "the row describes the codex [LETHAL HITS] rule")
 
-	var unit = GameState.state["units"]["U_GUARD_A"]
-	var reroll_scope = unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
-	assert_eq(reroll_scope, "ones", "Stand Vigil should grant reroll 1s to wound")
-
-func test_stand_vigil_objective_upgrade_reroll_all():
-	"""Stand Vigil should grant re-roll ALL Wound rolls when within range of controlled objective."""
-	# Set up an objective near the unit
-	var obj_pos = Vector2(110, 100)  # Close to unit model positions (100+, 100)
+func test_stand_vigil_grants_no_10e_wound_reroll():
+	"""On (or off) a controlled objective, in the Shooting and Fight phases, Stand Vigil sets no wound re-roll flag."""
 	GameState.state.board["objectives"] = [
-		{"id": "obj_1", "position": obj_pos, "zone": "no_mans_land"}
-	]
-	# Mark objective as controlled by player 1
-	MissionManager.objective_control_state["obj_1"] = 1
-
-	# Create the unit owned by player 1, positioned near the objective
-	_create_bodyguard_unit("U_GUARD_A", 1, [
-		{"name": "Stand Vigil", "type": "Datasheet", "description": "..."}
-	])
-
-	ability_mgr.on_phase_start(GameStateData.Phase.SHOOTING)
-
-	var unit = GameState.state["units"]["U_GUARD_A"]
-	var reroll_scope = unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
-	assert_eq(reroll_scope, "all", "Stand Vigil should grant reroll ALL wounds when on controlled objective")
-
-	# Clean up
-	GameState.state.board["objectives"] = []
-	MissionManager.objective_control_state.clear()
-
-func test_stand_vigil_no_upgrade_on_enemy_objective():
-	"""Stand Vigil should NOT upgrade when near an objective controlled by the enemy."""
-	var obj_pos = Vector2(110, 100)
-	GameState.state.board["objectives"] = [
-		{"id": "obj_1", "position": obj_pos, "zone": "no_mans_land"}
-	]
-	# Mark objective as controlled by player 2 (enemy)
-	MissionManager.objective_control_state["obj_1"] = 2
-
-	_create_bodyguard_unit("U_GUARD_A", 1, [
-		{"name": "Stand Vigil", "type": "Datasheet", "description": "..."}
-	])
-
-	ability_mgr.on_phase_start(GameStateData.Phase.SHOOTING)
-
-	var unit = GameState.state["units"]["U_GUARD_A"]
-	var reroll_scope = unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
-	assert_eq(reroll_scope, "ones", "Stand Vigil should only grant reroll 1s when objective is enemy-controlled")
-
-	# Clean up
-	GameState.state.board["objectives"] = []
-	MissionManager.objective_control_state.clear()
-
-func test_stand_vigil_no_upgrade_when_far_from_objective():
-	"""Stand Vigil should NOT upgrade when unit is far from controlled objective."""
-	# Place objective far away from unit
-	var obj_pos = Vector2(9999, 9999)
-	GameState.state.board["objectives"] = [
-		{"id": "obj_1", "position": obj_pos, "zone": "no_mans_land"}
+		{"id": "obj_1", "position": Vector2(110, 100), "zone": "no_mans_land"}
 	]
 	MissionManager.objective_control_state["obj_1"] = 1
-
 	_create_bodyguard_unit("U_GUARD_A", 1, [
 		{"name": "Stand Vigil", "type": "Datasheet", "description": "..."}
 	])
-
-	ability_mgr.on_phase_start(GameStateData.Phase.SHOOTING)
-
-	var unit = GameState.state["units"]["U_GUARD_A"]
-	var reroll_scope = unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
-	assert_eq(reroll_scope, "ones", "Stand Vigil should only grant reroll 1s when far from objective")
-
-	# Clean up
-	GameState.state.board["objectives"] = []
-	MissionManager.objective_control_state.clear()
-
-func test_stand_vigil_upgrade_works_in_fight_phase():
-	"""Stand Vigil objective upgrade should also work in Fight phase."""
-	var obj_pos = Vector2(110, 100)
-	GameState.state.board["objectives"] = [
-		{"id": "obj_1", "position": obj_pos, "zone": "no_mans_land"}
-	]
-	MissionManager.objective_control_state["obj_1"] = 1
-
-	_create_bodyguard_unit("U_GUARD_A", 1, [
-		{"name": "Stand Vigil", "type": "Datasheet", "description": "..."}
-	])
-
-	ability_mgr.on_phase_start(GameStateData.Phase.FIGHT)
-
-	var unit = GameState.state["units"]["U_GUARD_A"]
-	var reroll_scope = unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
-	assert_eq(reroll_scope, "all", "Stand Vigil should grant reroll ALL wounds in Fight phase when on controlled objective")
+	for phase in [GameStateData.Phase.SHOOTING, GameStateData.Phase.FIGHT]:
+		ability_mgr._applied_this_phase.clear()
+		ability_mgr.on_phase_start(phase)
+		var unit = GameState.state["units"]["U_GUARD_A"]
+		var reroll_scope = unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
+		assert_eq(reroll_scope, "", "phase %d: the codex Stand Vigil grants no wound re-roll" % phase)
 
 	# Clean up
 	GameState.state.board["objectives"] = []

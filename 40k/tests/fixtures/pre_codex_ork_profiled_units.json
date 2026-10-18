@@ -1,0 +1,597 @@
+{
+ "_comment": "Frozen pre-codex units, copied verbatim from 40k/armies/orks.json as it was before the Wahapedia 11e codex import (git show e704330a^:40k/armies/orks.json, 40kdc-data 1.0.19). The codex import rebuilt those datasheets without the hand-authored meta.model_profiles (codex Boyz / Meganobz kits are resolved per composition role from unit_composition + wargear by UnitLoadoutResolver). Pre-codex saves still embed these profiles, so tests/test_model_profiles.gd keeps exercising the per-model profile mechanism (WS / Sv overrides, transport_slots, per-profile weapons) on them. Do not regenerate.",
+ "source": "git show e704330a^:40k/armies/orks.json",
+ "units": {
+  "U_BOYZ_F": {
+   "id": "U_BOYZ_F",
+   "squad_id": "U_BOYZ_F",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Boyz",
+    "keywords": [
+     "BATTLELINE",
+     "BOYZ",
+     "GRENADES",
+     "INFANTRY",
+     "MOB",
+     "ORKS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 5,
+     "save": 5,
+     "wounds": 1,
+     "leadership": 7,
+     "objective_control": 2
+    },
+    "points": 150,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "9x Slugga",
+     "1x Slugga"
+    ],
+    "weapons": [
+     {
+      "name": "Big shoota",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "3",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Kombi-weapon",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+      "abilities": [
+       {
+        "id": "anti",
+        "keyword": "INFANTRY",
+        "threshold": 4
+       },
+       {
+        "id": "devastating_wounds"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Rokkit launcha",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "D3",
+      "ballistic_skill": "5",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "blast",
+      "abilities": [
+       {
+        "id": "blast"
+       }
+      ]
+     },
+     {
+      "name": "Shoota",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 1",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Slugga",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol",
+      "abilities": [
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Big choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "7",
+      "ap": "-1",
+      "damage": "2"
+     },
+     {
+      "name": "Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1"
+     },
+     {
+      "name": "Power klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Bodyguard",
+      "type": "Datasheet",
+      "description": "This model gains the Extra Leader Attachment ability."
+     },
+     {
+      "name": "Get Da Good Bitz",
+      "type": "Datasheet",
+      "description": "The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives)."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Boss Nob",
+      "line": 1
+     },
+     {
+      "description": "9-19 Boy",
+      "line": 2
+     }
+    ],
+    "model_profiles": {
+     "boss_nob": {
+      "label": "Boss Nob",
+      "short_label": "N",
+      "weapons": [
+       "Big choppa",
+       "Choppa",
+       "Power klaw",
+       "Slugga",
+       "Kombi-weapon"
+      ],
+      "stats_override": {
+       "save": 4,
+       "weapon_skill": 3
+      },
+      "transport_slots": 1
+     },
+     "boy": {
+      "label": "Boy",
+      "short_label": "B",
+      "weapons": [
+       "Choppa",
+       "Close combat weapon",
+       "Shoota",
+       "Slugga",
+       "Big shoota",
+       "Rokkit launcha"
+      ],
+      "stats_override": {
+       "weapon_skill": 4
+      },
+      "transport_slots": 1
+     }
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boss_nob"
+    },
+    {
+     "id": "m2",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m3",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m4",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m5",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m6",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m7",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m8",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m9",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m10",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m11",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m12",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m13",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m14",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m15",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m16",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m17",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m18",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m19",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    },
+    {
+     "id": "m20",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "boy"
+    }
+   ]
+  },
+  "U_MEGANOBZ_L": {
+   "id": "U_MEGANOBZ_L",
+   "squad_id": "U_MEGANOBZ_L",
+   "owner": 2,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Meganobz",
+    "keywords": [
+     "GRENADES",
+     "INFANTRY",
+     "MEGA ARMOUR",
+     "MEGANOBZ",
+     "ORKS"
+    ],
+    "stats": {
+     "move": 5,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 3,
+     "leadership": 7,
+     "objective_control": 1
+    },
+    "points": 150,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Kustom shoota",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "4",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Killsaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "4",
+      "strength": "12",
+      "ap": "-3",
+      "damage": "2"
+     },
+     {
+      "name": "Power klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+     },
+     {
+      "name": "Krumpin' Time",
+      "type": "Datasheet",
+      "description": "The unit has the Feel No Pain 5+ ability."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Meganob with Mega-Shoota",
+      "line": 1
+     },
+     {
+      "description": "1-5 Meganob",
+      "line": 2
+     }
+    ],
+    "model_profiles": {
+     "meganob_klaw": {
+      "label": "Meganob (Power Klaw)",
+      "short_label": "PK",
+      "weapons": [
+       "Kustom shoota",
+       "Power klaw"
+      ],
+      "stats_override": {},
+      "transport_slots": 2
+     },
+     "meganob_saws": {
+      "label": "Meganob (Killsaws)",
+      "short_label": "KS",
+      "weapons": [
+       "Kustom shoota",
+       "Killsaw"
+      ],
+      "stats_override": {},
+      "transport_slots": 2
+     }
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "meganob_klaw"
+    },
+    {
+     "id": "m2",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "meganob_klaw"
+    },
+    {
+     "id": "m3",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "meganob_klaw"
+    },
+    {
+     "id": "m4",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "meganob_saws"
+    },
+    {
+     "id": "m5",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "model_type": "meganob_saws"
+    }
+   ]
+  }
+ }
+}

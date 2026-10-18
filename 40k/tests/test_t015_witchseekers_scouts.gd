@@ -36,7 +36,13 @@ func _run_tests():
 	_finish()
 
 func _test_json_ability_name() -> void:
-	print("\n-- T-015a: Witchseekers JSON ability is named 'Scouts 6\"' --")
+	# Codex: Adeptus Custodes (11e): the Witchseeker Squad datasheet prints
+	# Scouts 7" (custodes/wahapedia/Datasheets_abilities.csv, datasheet
+	# 000004256 line 1: core ability 000008344 Scouts, parameter 7"); the
+	# pre-codex Witchseekers had Scouts 6". The injected-unit checks below
+	# keep their 6" sample — they test the name match and the distance
+	# parser, not the datasheet.
+	print("\n-- T-015a: Witchseeker Squad JSON ability is named 'Scouts 7\"' (codex) --")
 	for path in ["res://armies/adeptus_custodes.json", "res://armies/A_C_test.json"]:
 		var f := FileAccess.open(path, FileAccess.READ)
 		_check("%s readable" % path, f != null)
@@ -50,12 +56,12 @@ func _test_json_ability_name() -> void:
 		var has_old_core_name = false
 		for ability in abilities:
 			var ability_name = ability.get("name", "")
-			if ability_name == "Scouts 6\"":
+			if ability_name == "Scouts 7\"":
 				has_scout_named = true
 			# Old buggy "Core" with no description and parameter "6\""
 			if ability_name == "Core" and ability.get("parameter", "") == "6\"" and ability.get("description", "") == "":
 				has_old_core_name = true
-		_check("%s U_WITCHSEEKERS_C abilities contain 'Scouts 6\"'" % path, has_scout_named)
+		_check("%s U_WITCHSEEKERS_C abilities contain 'Scouts 7\"'" % path, has_scout_named)
 		_check("%s no leftover 'Core' (parameter 6\") ability" % path, not has_old_core_name)
 
 func _test_scout_check_with_witchseekers_in_state() -> void:

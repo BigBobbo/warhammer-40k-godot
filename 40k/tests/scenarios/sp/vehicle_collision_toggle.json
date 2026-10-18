@@ -17,6 +17,13 @@
     },
     {
       "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tif str(w.get(\"window_id\", \"\")) != \"movement_phase_start\":\n\t\tbreak\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn p != null and not p.has_pending_stratagem_window()",
+      "equals": true,
+      "comment": "WP-O6: the Orks' Weirdboy is offered the codex Da Jump in the movement_phase_start window when the Movement phase starts (it holds the phase) \u2014 not under test, declined. Left open, its StratagemDialog sits over the Settings menu and swallows the real click on the 'Ignore collisions for VEHICLE models' checkbox (same step as vehicle_collision_drag_preview on this fixture)"
+    },
+    {
+      "act": "execute_script",
       "script": "SettingsService.disable_vehicle_collision",
       "equals": false
     },
