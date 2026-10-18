@@ -593,7 +593,9 @@ func _test_t085a_ability_entries() -> void:
 	# Each of these was on the audit's "BLOCKED (live)" list — the entries
 	# exist in ABILITY_EFFECTS, providing at minimum the data hook for the
 	# helper code paths the audit complained had not been driven.
-	for name in ["Sentinel Storm", "Sweeping Advance", "Master of the Stances",
+	# (Codex: Adeptus Custodes 11e, WP-C3: the 10e "Master of the Stances" row
+	# is gone; its codex successor is "Master of Ka'tahs".)
+	for name in ["Sentinel Storm", "Sweeping Advance", "Master of Ka'tahs",
 			"Strategic Mastery", "Daughters of the Abyss", "Sanctified Flames",
 			"Stand Vigil"]:
 		_check("ABILITY_EFFECTS['%s'] entry present" % name,

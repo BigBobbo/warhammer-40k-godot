@@ -133,12 +133,22 @@ func _test_ability_effects_entry_is_correct() -> void:
 	if dota_idx < 0:
 		return
 	var dota_block = src.substr(dota_idx, 400)
-	_check("DotA effect is grant_fnp_psychic_mortal value 3",
-		dota_block.find("grant_fnp_psychic_mortal") >= 0
-			and dota_block.find("\"value\": 3") >= 0)
+	# Codex: Adeptus Custodes (11e, WP-C3): Daughters of the Abyss is FNP 3+
+	# against Psychic Attacks only (mortal wounds are Aegis of the Emperor's
+	# 5+). The 10e "psychic + mortal" grant_fnp_psychic_mortal row was retired
+	# (RETIRED_TESTS.md); the row is passive and CustodesKatah.fnp_vs grants it.
+	_check("DotA row no longer grants the 10e psychic+mortal FNP (11e: psychic only, CustodesKatah.fnp_vs)",
+		dota_block.find("grant_fnp_psychic_mortal") < 0)
 	_check("DotA does NOT use unconditional grant_fnp",
 		dota_block.find("\"type\": \"grant_fnp\"") < 0,
 		"unconditional grant_fnp would mis-fire on regular damage too")
+	var katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
+	var ws := {"owner": 1, "meta": {"keywords": ["INFANTRY", "ANATHEMA PSYKANA", "WITCHSEEKERS"],
+		"abilities": [{"name": "Daughters of the Abyss"}]}, "models": []}
+	_check("11e DotA: FNP 3+ vs a psychic attack", int(katah.fnp_vs(ws, true, false)) == 3,
+		"got %d" % int(katah.fnp_vs(ws, true, false)))
+	_check("11e DotA: no FNP vs a non-psychic mortal wound", int(katah.fnp_vs(ws, false, true)) == 0,
+		"got %d" % int(katah.fnp_vs(ws, false, true)))
 
 func _finish():
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])

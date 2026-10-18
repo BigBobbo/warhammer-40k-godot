@@ -68,7 +68,6 @@
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_CUSTODIAN_GUARD_B", "player": 1 } },
     { "act": "dispatch_action", "action": { "type": "DECLINE_EPIC_CHALLENGE", "unit_id": "U_CUSTODIAN_GUARD_B", "player": 1 } },
-    { "act": "dispatch_action", "action": { "type": "SELECT_KATAH_STANCE", "unit_id": "U_CUSTODIAN_GUARD_B", "stance": "dacatarai", "player": 1 } },
     { "act": "wait_seconds", "seconds": 1.5 },
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog" },
     {
@@ -114,7 +113,6 @@
     },
     { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_CUSTODIAN_GUARD_B", "player": 1 } },
     { "act": "dispatch_action", "action": { "type": "DECLINE_EPIC_CHALLENGE", "unit_id": "U_CUSTODIAN_GUARD_B", "player": 1 } },
-    { "act": "dispatch_action", "action": { "type": "SELECT_KATAH_STANCE", "unit_id": "U_CUSTODIAN_GUARD_B", "stance": "dacatarai", "player": 1 } },
     { "act": "wait_seconds", "seconds": 1.5 },
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog" },
     {

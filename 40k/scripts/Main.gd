@@ -9134,6 +9134,13 @@ func _build_status_marker_hover_text(unit: Dictionary, unit_id: String = "") -> 
 		lines.append("[color=#CC9A93]Failed a Battle-shock test (Below Half-strength) or was shocked by an effect (e.g. emergency disembark).[/color]")
 		lines.append("[color=#CC9A93]OC 0 — cannot hold objectives; cannot use Stratagems; cannot start Actions; Desperate Escape tests fail on 1-3.[/color]")
 		lines.append("[color=#CC9A93]Tests again at the start of its next Command phase.[/color]")
+	# Codex: Adeptus Custodes MARTIAL KA'TAH (CustodesKatah.gd): the readied
+	# token and the ka'tah effects active on the unit.
+	var cus11e_katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
+	if cus11e_katah.unit_dict_readied(unit):
+		lines.append("[color=#DBAE38][b]◆ Readied[/b][/color] [color=#888888](gold K badge)[/color] [color=#AAAAAA]— Martial Ka'tah: can use one ka'tah ability[/color]")
+	for cus11e_kid in cus11e_katah.active_katahs(unit):
+		lines.append("[color=#DBAE38][b]%s[/b][/color] [color=#AAAAAA]— %s[/color]" % [cus11e_katah.katah_display_name(cus11e_kid), cus11e_katah.katah_short(cus11e_kid)])
 	# LV-3: a riled-up Ork unit (11e Waaagh! / DREAD POWER) — otherwise only the
 	# Game Log said so, and the player could not tell the stratagem took effect.
 	if flags.get("ork11e_riled_up", false) or flags.get("waaagh_active", false):

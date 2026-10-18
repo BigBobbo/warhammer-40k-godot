@@ -227,6 +227,14 @@ func _build_warlord_section() -> void:
 	CHARACTER to be is_warlord before CONFIRM_FORMATIONS will succeed. Auto-default
 	to the lone CHARACTER when only one exists."""
 	var characters = GameState.get_characters_for_player(declaring_player)
+	# Codex: Adeptus Custodes — Anathema Psykana: ANATHEMA PSYKANA models
+	# cannot be the Warlord unless the detachment allows it (CustodesKatah.gd).
+	var cus11e_katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
+	var cus11e_det: String = cus11e_katah.player_detachment(declaring_player)
+	characters = characters.filter(func(cid):
+		var cu: Dictionary = GameState.get_unit(str(cid)).duplicate()
+		cu["id"] = str(cid)
+		return str(cus11e_katah.warlord_block_reason(cu, cus11e_det)) == "")
 	if characters.is_empty():
 		return
 

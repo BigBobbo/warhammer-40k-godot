@@ -38,10 +38,6 @@
     { "act": "dispatch_action",
       "action": { "type": "DECLINE_EPIC_CHALLENGE", "unit_id": "U_BLADE_CHAMPION_A", "player": 1 } },
     { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "expect_action_result", "path": "trigger_katah_stance", "equals": true },
-    { "act": "dispatch_action",
-      "action": { "type": "SELECT_KATAH_STANCE", "unit_id": "U_BLADE_CHAMPION_A", "stance": "dacatarai", "player": 1 } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
     { "act": "expect_action_result", "path": "trigger_pile_in", "equals": true },
     { "act": "expect_phase_property", "property": "overrun_pile_in_unit_11e", "equals": "U_BLADE_CHAMPION_A" },
 

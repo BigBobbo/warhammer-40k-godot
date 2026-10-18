@@ -59,12 +59,6 @@
     },
     { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.8 },
-    {
-      "act": "click_node",
-      "node": "/root/KatahStanceDialog/Content/Buttons/RendaxButton",
-      "emit_pressed": true,
-      "comment": "the Custodian Guard's Martial Ka'tah prompt — a real dialog on this activation's path, answered with a real press"
-    },
 
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
     { "act": "wait_frames", "frames": 12 },

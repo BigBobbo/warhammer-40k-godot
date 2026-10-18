@@ -609,6 +609,9 @@ const KNOWN_WINDOWS = new Set([
   'unit_declares_charge', 'unit_ended_charge_move', 'unit_selected_to_fight',
   'enemy_targets_unit_fight', 'fight_phase_end', 'unit_destroyed',
   'enemy_unit_has_attacked',
+  // Codex: Adeptus Custodes (WP-C3): start of the Fight phase (both players,
+  // active first) and the active player's Command phase.
+  'fight_phase_start', 'command_phase_main',
 ]);
 const KNOWN_TURN_COLUMNS = new Set(['Your turn', "Opponent's turn", "Either player's turn"]);
 

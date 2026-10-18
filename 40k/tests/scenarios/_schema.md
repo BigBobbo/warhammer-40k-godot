@@ -35,6 +35,7 @@ bash 40k/tests/run_scenario.sh tests/scenarios/sp/<id>.json
 | `fixture` | no | string | Save fixture name (without `.w40ksave`). Loaded from `40k/saves/` or `40k/tests/saves/` via `SaveLoadManager.load_game()`. |
 | `rng_seed` | no | int | If present and ≥0, sets `RulesEngine.RNGService.test_mode_seed`. -1 disables. |
 | `transition_to_phase` | no | int | After fixture load + scene swap, drive `PhaseManager.transition_to_phase(N)`. See enum below. |
+| `martial_katah` | no | bool | Codex: Adeptus Custodes (11e) Martial Ka'tah. Default false: the runner clears `flags.cus11e_readied` right after every Command phase entry (logged `martial_katah policy: ...`), so no ka'tah window interrupts a scenario that is not about them. `true` keeps the readied state — the `cus11e_*` ka'tah scenarios set it. |
 | `steps` | yes | array | Ordered list of step objects. |
 | `multiplayer` | no | bool | If true, requires `peers: { host: { steps }, client: { steps } }` instead of top-level `steps`. |
 

@@ -135,7 +135,11 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 		reasons.append("AIRCRAFT/FORTIFICATION units cannot start actions")
 
 	var flags = unit.get("flags", {})
-	if flags.get("battle_shocked", false):
+	# Codex: Adeptus Custodes CONSERVAI ka'tah (CustodesKatah.gd): until the end
+	# of the turn, being engaged / battle-shocked does not prevent the unit
+	# from being eligible to start an action.
+	var conservai: bool = _cus11e_conservai(unit)
+	if flags.get("battle_shocked", false) and not conservai:
 		reasons.append("battle-shocked units are not eligible to start an action")
 
 	var oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
@@ -144,7 +148,7 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 
 	var titanic = "TITANIC" in keywords
 	var rules = Engine.get_main_loop().root.get_node("/root/RulesEngine")
-	if not titanic and rules.is_unit_engaged(unit_id, board):
+	if not titanic and not conservai and rules.is_unit_engaged(unit_id, board):
 		reasons.append("engaged units cannot start actions (unless TITANIC)")
 
 	# Codex: Orks (11e) MIND MOSTLY ON THE MISSION: "That move does not prevent
@@ -200,10 +204,16 @@ static func start_action(unit_id: String, action_id: String, board: Dictionary, 
 		# 16.01: until end of turn — not eligible to declare a charge…
 		{"op": "set", "path": StateSchema.path_unit_flag(unit_id, "cannot_charge"), "value": true},
 	]
-	if not titanic:
-		# …and not eligible to shoot (TITANIC units may still shoot).
+	if not titanic and not _cus11e_conservai(unit):
+		# …and not eligible to shoot (TITANIC units may still shoot; so may a
+		# Codex: Adeptus Custodes unit under CONSERVAI — CustodesKatah.gd).
 		changes.append({"op": "set", "path": StateSchema.path_unit_flag(unit_id, "cannot_shoot"), "value": true})
 	return {"success": true, "errors": [], "changes": changes}
+
+## Codex: Adeptus Custodes CONSERVAI ka'tah is active on the unit
+## (CustodesKatah.gd; loaded lazily).
+static func _cus11e_conservai(unit: Dictionary) -> bool:
+	return load("res://scripts/codex/custodes/CustodesKatah.gd").conservai_active(unit)
 
 
 ## Movement cancels an in-progress action (16.01 Completing), except
