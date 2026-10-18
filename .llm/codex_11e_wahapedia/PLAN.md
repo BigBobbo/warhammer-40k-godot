@@ -23,7 +23,7 @@ C and O both depend on W0–W2 and are otherwise independent.
 | C1 / O1 data | ✅ 29 Custodes + 55 Ork codex datasheets; AC stratagem/detachment rows; Ork curated stratagems re-verified (no errata) |
 | C2 / O2 army files | ✅ all 16 lists regenerated (codex sizes/points, Legends kept); legacy 1.0.19 Custodes kits frozen (D1). Save fixtures / AI-lab baselines NOT regenerated (they stay as pre-codex saves; re-baseline at the end) |
 | W3 web builder | ✅ merged `d07b52ae`: vendor bundle 1.0.19 → 1.4.5; generated codex overlay (`codex-11e-datasheets.mjs`, diffed from the game's 40kdc data — shrinks itself when 40kdc ships a codex); non-weapon wargear (Praesidium Shield, Vexilla…) priced/emitted only when taken; builder↔generate-armies parity test. Integrator re-ran server tests (34/34 + parser 99/99), 3 browser e2e suites (all pass), verify-wahapedia-import PASS, `npm run codex11e` no diff, builder→game scenarios `w3_builder_codex_datasheets` 20/0 and `cus11e_enh_builder_cloud_army` 19/0 (need the relay server — driver in WP-W3 changelog) |
-| Rules phase | contract: `IMPLEMENTATION.md`; briefs in `briefs/`. Merged: WP-C3, WP-O34, WP-O6, WP-C5, WP-C46, WP-W3, WP-O5, WP-C7. Merged: WP-O1b. Running: WP-FIX1 (cross-package scenario fixes), merge of origin/main (PR #918 11e-default harness) |
+| Rules phase | ✅ all packages merged (contract `IMPLEMENTATION.md`, briefs in `briefs/`): WP-C3, WP-O34, WP-O6, WP-C5, WP-C46, WP-W3, WP-O5, WP-C7, WP-O1b, then WP-FIX1 / WP-FIX2 and the origin/main merge |
 | C3 army rules | ✅ merged (Ka'tah rework, Aegis, Aquila Commander without the 10e bonus-CP cap, Daughters) |
 | O3/O4 army + detachments | ✅ merged (WP-O34) |
 | C5 stratagems | ✅ merged `dc5f3aa1`: all 41 Custodes codex stratagems in their windows, 41 `cus11e_<slug>` scenarios (agent: all PASS, gate 6160/0); integrator re-ran 9 headless tests (0 failures) + 10 scenarios incl. Ork regressions (all PASS). Gaps: phase_end windows not opened in networked games; NO ESCAPE / RAPID REACTIONS / SELFLESS SERVICE moves auto-resolved (no interactive UI) |
@@ -31,6 +31,8 @@ C and O both depend on W0–W2 and are otherwise independent.
 | C7 datasheet abilities | ✅ merged `aad43425`: 34/36 in-scope Custodes datasheet/wargear abilities (audit `custodes_abilities_audit.md`), 11 activated as free Ability cards (new start-of-phase window), Praesidium Shield -1 D on every damage path, 10e dispatch deleted; 16 `cus11e_ab_*` scenarios + 3 ported. Integrator re-ran 9 headless tests (0 failures) + 4 scenarios (all PASS). Not implemented: Assault Vehicle (no core shock-disembark move), Advanced Firepower; Swift Ruin headless-only (11e RAPID INGRESS has no human offer) |
 | O5 enhancements | ✅ merged `11e73649`: all 38 Ork enhancements (gated to the owner's codex detachment), validation ownership hook, builder overlay; data costs corrected (Dreadherder 30, Supa-snazz Dakka 25, Targetin' Gizmos 25); battlewagons trimmed to 1985 pts; Kaptin's Hat redeploy not clickable (no Redeployment UI) |
 | O1b Ork codex kits | ✅ merged `bc875bff`: overlay takes the printed kit where it differs in substance (Tankbustas, Warbikers, Runtherd, Nazdreg re-kitted; old kits frozen for old saves, D1); swapped weapon profiles fixed (Dual Kombi-rokkit, Kannon); Deffkoptas Rokkit Launcha restored; count-less roster lines counted; `test_loadout_resolution` (1471/0) + `test_transport_audit_2026_07` now in the gate (agent gate 8476/0). Integrator re-ran 4 headless tests (0 failures), verify PASS, server 41/41 + 99/99. Follow-ups: Tankbustas ranged still unresolved per model (id/name gap, 72 composition ids across factions); 20-model Boyz builder export still 1 Nob kit (40kdc allocator) |
+| origin/main merge | ✅ `07bfcc12`: 35 commits incl. PR #918 (11e-default harness, Fire Overwatch at end of Movement, per-model OC); codex Fire Overwatch blocks ported (Golden Light, Combat Deployment, Drive-by Skorchin'), Moritoi per-model OC, AI replace-secondary determinism fix |
+| FIX1 / FIX2 | ✅ `6e5530b9` / `d3f4333e`: 14 cross-package scenario fixes (no code: new windows, removed Sentinel Storm prompt, RNG-stream shifts); main's CI modes green (`--all` 12,673 passed, only the 29 known-list files fail; GUT unit/integration/network OK); Super-heavy Walker ability restored for the codex Stompa/Gorkanaut/Morkanaut; AI deployment deadlock fix (`7e14e21d`, pm10) |
 | Integrator fixes | `37b40131`/`e3fa7cfb`: printed transport multipliers (Battlewagon Mega Armour/Jump Pack x2, Ghazghkull x4) + four stale Ork transport capacities; codex fixed-size roles (20 Boyz = 2 Nobs + 18 Boyz); `-unit` weapon ids; legacy-kit detection counts legacy options |
 | O6 datasheet abilities | ✅ merged `eddec58c`: 99 of 107 audited abilities implemented/re-implemented (`ork_abilities_audit.md`), 31 10e-only abilities deleted, 37 `ork11e_ab_*` scenarios; integrator re-ran 9 headless tests (0 failures) + 8 scenarios (all PASS). Not implemented: Deff from the Shadows, Pilin' Out, Pulse Jet, Big'ed Bossbunka's three, Runnin' wiv da Herd keyword swap, Get Out da Way! |
 
@@ -39,9 +41,27 @@ Known follow-ups:
   pre-codex rosters. Lessons T4–T7 load frozen save fixtures built from them,
   and the lesson text names those units. Rebuild the tutorial fixtures and
   text for the codex rosters.
-- `recon_stomps.json` is 2270/2000 pts with codex Ork points; the shipped
+- `recon_stomps.json` is 2280/2000 pts with codex Ork points; the shipped
   Ork AI plans are authored against that roster, so it was kept whole.
   Re-author the plans for a legal list.
+- Not implemented: Custodes Assault Vehicle, Advanced Firepower; Ork Deff from
+  the Shadows, Pilin' Out, Pulse Jet, Big'ed Bossbunka's three abilities, the
+  Runnin' wiv da Herd keyword swap, Get Out da Way!. Swift Ruin is headless
+  only (11e RAPID INGRESS has no human offer).
+- No Redeployment-step UI: Castellan's Mark, Kaptin's Hat (and Razgit's Magik
+  Map) redeploys cannot be clicked by a human.
+- Engine: a model never carries two copies of the same weapon (Telemon's 2
+  Twin Neutronium Cascade Projectors, Stompa's 5 Big Shootas fire once).
+- Tankbustas ranged loadout still unresolved per model (id/name gap; 72
+  composition ids across factions); builder exports 20 Boyz as one Nob kit.
+- Possible engine bug (FIX1): ShootingPhase "fully destroyed by current saves"
+  auto-complete reads live alive-model counts.
+- ShootingPhase handover loop (WP-O5): a human-started one-weapon shooter
+  handed to the AI re-issues RESOLVE_SHOOTING (no COMPLETE offer).
+- Save fixtures / AI-lab baselines are still pre-codex saves; re-baseline the
+  AI lab against the codex rosters.
+- Phase-end stratagem windows are not opened in networked games; multiplayer
+  was not validated for the codex windows.
 
 ## Decisions (owner, 2026-10-17)
 
