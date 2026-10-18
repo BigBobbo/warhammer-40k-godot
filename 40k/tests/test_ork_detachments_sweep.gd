@@ -119,12 +119,28 @@ func _run():
 	_green_tide(SM, GS, FAM, rules)
 	_more_dakka(SM, GS, FAM, rules)
 	_bully_boyz(SM, GS, FAM, rules)
+	# Legacy 10e pins (the pattern of main's 0b9430b6): the harness defaults to
+	# 11e now. Da Big Hunt's Prey and the passive 10e detachment rules below
+	# (Dakka!x3, Adrenaline Junkies, Eager for the Fight, Thundering Wagons,
+	# Try Dat Button!, Lissen 'Ere Taktiks, Da Boss Is Watchin', ...) run only
+	# at edition 10 on this branch — Codex: Orks (11e) replaced them (WP-O34,
+	# FactionAbilityManager gates them on GameConstants.edition < 11; the 11e
+	# rules: tests/test_ork_detachments_11e.gd). These sections used to pass
+	# only because the harness ran 10e; they pin 10 and restore the edition.
+	var harness_edition: int = GameConstants.edition
+	GameConstants.edition = 10
+	_check("Legacy 10e pin: GameConstants.edition == 10 (Da Big Hunt — 10e Prey)", GameConstants.edition == 10)
 	_da_big_hunt(SM, GS, FAM, rules)
+	GameConstants.edition = harness_edition
 	_kult_of_speed(SM, GS, FAM, rules)
 	_dread_mob(SM, GS, FAM, rules)
 	_blitz_brigade(SM, GS, FAM, rules)
 	_rollin_deff(SM, GS, FAM, rules)
+	GameConstants.edition = 10
+	_check("Legacy 10e pin: GameConstants.edition == 10 (passive 10e detachment rules)", GameConstants.edition == 10)
 	_detachment_rules(SM, GS, FAM, rules)
+	GameConstants.edition = harness_edition
+	print("  legacy 10e pins released — edition back to %d" % GameConstants.edition)
 
 
 # ==========================================================================

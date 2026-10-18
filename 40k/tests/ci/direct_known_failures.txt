@@ -20,7 +20,6 @@ tests/test_repro_ai_charge_congestion.gd  # exit 1 at 10e and 11e (AI charge sel
 tests/test_save_load_ai.gd  # hangs (>240 s) at 10e and 11e
 tests/test_save_load_audit_roundtrip.gd  # 117/3 at 10e and 11e
 tests/test_staged_fight_phase_flow.gd  # 20/3 at 10e and 11e
-tests/test_t008_p0_enhancements_pin.gd  # 30/2 at 10e and 11e
 tests/test_t015_leader_pairings_loader_pin.gd  # 11/2 at 10e and 11e
 tests/test_t023_stratagem_panel_pin.gd  # 17/2 at 10e and 11e
 tests/test_t082_path_summed_distance.gd  # 5/1 at 10e and 11e
@@ -35,7 +34,6 @@ tests/unit/test_ai_stratagem_evaluation.gd  # 38/1 at 10e and 11e (reroll battle
 tests/unit/test_ai_terrain_deployment.gd  # 19/1 at 10e and 11e (exits 0 despite the failure)
 tests/unit/test_ai_threat_range_awareness.gd  # 34/3 at 10e and 11e
 tests/unit/test_battlewagon_base_shape.gd  # 27/2 at 10e and 11e (exits 0 despite the failure)
-tests/unit/test_deadly_demise.gd  # 26/2 at 10e and 11e
 tests/unit/test_reroll_support.gd  # hangs (>240 s) at 10e and 11e
 tests/integration/test_escape_main_menu.gd  # 4/1 at 10e and 11e
 
