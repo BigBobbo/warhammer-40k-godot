@@ -66,7 +66,7 @@
     { "act": "screenshot", "label": "02_hits_only_on_4_plus" },
     { "act": "click_node", "button_text": "Complete Shooting" },
     { "act": "wait_seconds", "seconds": 1.0 },
-    { "act": "click_node", "button_text": "Decline", "comment": "Custodian Guard's Sentinel Storm shoot-again prompt — not under test" },
+    { "act": "execute_script", "multiline": true, "script": "var found := false\nvar q: Array = [tree.root]\nwhile not q.is_empty():\n\tvar c = q.pop_front()\n\tif (c is Label or c is Button or c is RichTextLabel) and c.is_visible_in_tree() and str(c.text).to_upper().contains(\"SENTINEL STORM\"):\n\t\tfound = true\n\t\tbreak\n\tq.append_array(c.get_children())\nreturn found", "equals": false, "comment": "WP-FIX1: no Sentinel Storm shoot-again prompt any more (a 10e Custodian Guard rule no codex datasheet has; WP-C7 retired it) - this step used to click its Decline button" },
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_C.flags.has_shot", "equals": true },
     { "act": "expect_cp", "player": 2, "delta_from_start": -1 },
