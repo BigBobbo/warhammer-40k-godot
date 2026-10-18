@@ -168,14 +168,16 @@ const FIXTURES := {
 		"terrain": DENSE_LAYOUT,
 		"p1": [
 			["U_DEFFKOPTAS_A", 6.0, 8.0, 3],
-			["U_BURNA_BOMMER_A", 18.0, 8.0, 1],
-			["U_BLITZA_BOMMER_A", 30.0, 8.0, 1],
+			["U_BURNA_BOMMER_A", 34.5, 8.0, 1],  # (at x 18 a ruin blocked its view of Custodian Guard B)
+			["U_BLITZA_BOMMER_A", 28.0, 8.0, 1],
 		],
 		"p2": [
 			["U_WITCHSEEKERS_C", 18.0, 26.0, 4],
 			["U_CUSTODIAN_GUARD_B", 30.0, 28.0, 3],
 		],
 		"hidden": ["U_BOSS_SNIKROT_A"],
+		# Gate: every ability the scenarios use is on offer at the end of P2's Fight phase.
+		"offers": [[1, "fight_phase_end", 10, 2, ["kunnin_infiltrator", "aerial_manoover", "burna_bomb", "boom_bomb"]]],
 	},
 	# Command phase, Battle-shock step: Crude Surgery (+ Catch Dat Red Bit), Fix
 	# Dat Armour Up, Push Dat Bit Back In, Full Throttle + Shokk Attack Engine
@@ -491,4 +493,16 @@ func _gates(name: String, spec: Dictionary) -> bool:
 	for uid in spec.get("hidden", []):
 		if not OA.unit_is_hidden(str(uid)):
 			ok = _fail("%s: %s should be hidden" % [name, uid]) and ok
+	# Ability-offer gates: [player, window_id, phase, active_player, [slugs]].
+	for g in spec.get("offers", []):
+		var meta: Dictionary = GS.state.meta
+		var keep := [meta.get("phase"), meta.get("active_player")]
+		meta["phase"] = int(g[2])
+		meta["active_player"] = int(g[3])
+		var got: Array = OA.window_offers(int(g[0]), str(g[1]), {"window_id": str(g[1])}).map(func(o): return OA.slug_of(str(o.get("stratagem_id", ""))))
+		meta["phase"] = keep[0]
+		meta["active_player"] = keep[1]
+		for slug in g[4]:
+			if not slug in got:
+				ok = _fail("%s: %s not offered in %s (got %s)" % [name, slug, g[1], str(got)]) and ok
 	return ok

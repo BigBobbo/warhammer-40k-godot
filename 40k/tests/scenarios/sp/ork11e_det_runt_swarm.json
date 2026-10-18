@@ -21,6 +21,17 @@
     },
     {
       "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn true",
+      "equals": true,
+      "comment": "WP-O6: the Weirdboy's codex Da Jump is offered at the start of the Movement phase — not under test, declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
       "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Runt Swarm\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nvar _ms_U_CUSTODIAN_GUARD_C = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor _i in range(_ms_U_CUSTODIAN_GUARD_C.size()):\n\t_ms_U_CUSTODIAN_GUARD_C[_i][\"position\"] = {\"x\": (7.000000 + (float(_i) - float(_ms_U_CUSTODIAN_GUARD_C.size() - 1) / 2.0) * 1.800000) * 40.0, \"y\": 20.500000 * 40.0}\nfor _m in GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models:\n\t_m[\"wounds\"] = 99\n\t_m[\"current_wounds\"] = 99\nGameState.state.players[\"2\"][\"cp\"] = 0\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
       "multiline": true,
       "equals": "Runt Swarm",
