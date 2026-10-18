@@ -261,8 +261,8 @@
     },
     {
       "act": "execute_script",
-      "script": "RulesEngine.set_test_seed(21)",
-      "comment": "deterministic dice for the charge roll"
+      "script": "RulesEngine.set_test_seed(2)",
+      "comment": "deterministic dice for the charge roll: 2D6 = 7 (4+3). Was seed 21 (2+1 = 3), enough only while a charge target could be up to the roll + 2\" engagement range away; since main's 11.04 fix the target must be within 12\" AND within the roll itself, and the target here is 4.0\" away"
     },
     {
       "act": "click_node",
