@@ -443,7 +443,8 @@ static func _attachment_legality_notes(attached_chars: Dictionary, army: Diction
 			continue
 		var raw_can_lead = character.get("meta", {}).get("leader_data", {}).get("can_lead", [])
 		var can_lead: Array = raw_can_lead.duplicate() if raw_can_lead is Array else []
-		# Taktikal Brigade enhancement extras, INLINED from
+		# Enhancement LEADER lines (Codex: Orks — Kill Kommanda "LEADER:
+		# KOMMANDOS", Kaptin's Hat "LEADER: FLASH GITZ"; WP-O5), INLINED from
 		# CharacterAttachmentManager.get_enhancement_can_lead_extras rather than
 		# loaded from it. load()ing that script here fails in exactly the
 		# headless `-s` harness that tests this file (it references autoload
@@ -452,12 +453,12 @@ static func _attachment_legality_notes(attached_chars: Dictionary, army: Diction
 		# silently emptied every note this helper exists to produce. Measured,
 		# not theorised: the loop body below never ran until this was inlined.
 		for enh in character.get("meta", {}).get("enhancements", []):
-			var enh_name := str(enh.get("name", "")) if enh is Dictionary else str(enh)
+			var enh_name := (str(enh.get("name", "")) if enh is Dictionary else str(enh)).replace("’", "'")
 			match enh_name:
-				"Skwad Leader":
+				"Kill Kommanda":
 					if not "KOMMANDOS" in can_lead:
 						can_lead.append("KOMMANDOS")
-				"Mek Kaptin":
+				"Kaptin's Hat":
 					if not "FLASH GITZ" in can_lead:
 						can_lead.append("FLASH GITZ")
 		if can_lead.is_empty():

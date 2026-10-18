@@ -43,15 +43,26 @@ export function unitTerms({ name = '', keywords = [] } = {}) {
   return [...terms].sort((a, b) => b.length - a.length);
 }
 
+// "/" separates alternative KEYWORDS, and a keyword can be several words:
+// "Big Mek/Warboss Infantry" is (BIG MEK or WARBOSS) INFANTRY, "Big Mek/Mek"
+// is BIG MEK or MEK (Codex: Orks — WP-O5). The first alternative keeps the
+// words before the slash; each later one may also start fresh (drop any of
+// those preceding words), so a multi-word left keyword does not glue its
+// first words onto the right alternative ("Big Warboss").
 function expandAlternatives(phrase) {
-  let out = [''];
+  let out = [[]];
   for (const word of phrase.split(/\s+/).filter(Boolean)) {
     const alts = word.split('/').filter(Boolean);
     const next = [];
-    for (const prefix of out) for (const a of alts) next.push(`${prefix} ${a}`.trim());
+    for (const prefix of out) {
+      alts.forEach((a, ai) => {
+        next.push([...prefix, a]);
+        if (ai > 0) for (let d = 1; d <= prefix.length; d++) next.push([...prefix.slice(d), a]);
+      });
+    }
     out = next;
   }
-  return out;
+  return [...new Set(out.map(ws => ws.join(' ')))];
 }
 
 function phraseMatches(phrase, terms) {

@@ -153,12 +153,6 @@ func _init():
 func _on_phase_enter() -> void:
 	log_phase_message("Entering Fight Phase")
 	_cus11e_step_asked.clear()
-	# Big Gob (Bully Boyz enhancement): at the start of the Fight phase the
-	# bearer bellows at the nearest engaged enemy — Battle-shock test at -1.
-	var fam = get_node_or_null("/root/FactionAbilityManager")
-	if fam and fam.has_method("process_big_gob"):
-		fam.process_big_gob(1)
-		fam.process_big_gob(2)
 	# Clear previous state
 	active_fighter_id = ""
 	pending_attacks.clear()
@@ -2817,8 +2811,8 @@ func _show_mathhammer_predictions() -> void:
 func _get_consolidation_distance(unit_id: String) -> float:
 	"""OA-26: Returns the consolidation distance for a unit.
 	Normally 3\", but 6\" for units with 'Drive-by Krumpin'' ability, and the
-	numeric effect_consolidate_max flag (ALWAYS LOOKIN' FER A FIGHT,
-	Squig-hide Tyres) overrides with its own cap when larger."""
+	numeric effect_consolidate_max flag (ALWAYS LOOKIN' FER A FIGHT)
+	overrides with its own cap when larger."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return 3.0
@@ -2834,10 +2828,6 @@ func _get_consolidation_distance(unit_id: String) -> float:
 			log_phase_message("[OA-26] Drive-by Krumpin': Consolidation distance 6\" for %s" % unit_id)
 			dist = 6.0
 			break
-	# Squig-hide Tyres (Kult of Speed): 6" consolidation for the bearer's unit
-	if dist < 6.0 and FactionAbilityManager._unit_or_attached_has_enhancement(unit, "Squig-hide Tyres", GameState.state.get("units", {})):
-		log_phase_message("Squig-hide Tyres: Consolidation distance 6\" for %s" % unit_id)
-		dist = 6.0
 	var flag_max = float(unit.get("flags", {}).get("effect_consolidate_max", 0.0))
 	if flag_max > dist:
 		log_phase_message("Consolidation distance %.0f\" for %s (effect_consolidate_max)" % [flag_max, unit_id])

@@ -1,0 +1,568 @@
+{
+ "id": "ork11e_enh_targetin_squigs",
+ "covers": [
+  "codex.orks.enhancements.targetin_squigs",
+  "scripts.codex.orks.OrkEnhancements11e",
+  "autoloads.RulesEngine.range"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) TARGETIN' SQUIGS (Shoota Boyz enhancement; add 3\" to the Range characteristic of ranged weapons equipped by models in this unit, excluding [TORRENT]) — passive. Fixture ork11e_enh_shoota_boyz: the Warboss (Kustom shoota 18\") stands ~20.4\" from Custodian Guard B. The shooting panel assigns the 18\" guns to them (range rings drawn at +3\"), and only the [TORRENT] Skorcha is reported out of range; a real click on Confirm shoots: the four 18\" weapons resolve against the unit 20.4\" away (Game Log), the Skorcha does not. Setup privilege: auto wound allocation.",
+ "fixture": "ork11e_enh_shoota_boyz",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 8,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 8
+  },
+  {
+   "act": "expect_state",
+   "path": "factions.1.detachment",
+   "equals": "Shoota Boyz"
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege: auto wound allocation"
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = load(\"res://scripts/codex/orks/OrkAbilities11e.gd\").dist_in(\"U_WARBOSS_A\", \"U_CUSTODIAN_GUARD_B\")\nreturn d > 18.0 and d < 21.0",
+   "multiline": true,
+   "equals": true,
+   "comment": "Custodian Guard B are ~20.4\" from the Warboss — beyond its 18\" Kustom shoota, within 18 + 3"
+  },
+  {
+   "act": "execute_script",
+   "script": "return load(\"res://autoloads/RulesEngine.gd\").ork11e_det_range_bonus(GameState.get_unit(\"U_WARBOSS_A\"), {\"name\": \"Kustom shoota\", \"type\": \"Ranged\", \"range\": 18, \"special_rules\": \"\"})",
+   "multiline": true,
+   "equals": 3.0,
+   "comment": "Targetin' Squigs: +3\" Range for this unit's ranged (non-Torrent) weapons"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var q = [tree.root]\nvar out := []\nwhile not q.is_empty():\n\tvar c = q.pop_front()\n\tif c is ItemList and c.is_visible_in_tree():\n\t\tfor i in range(c.item_count):\n\t\t\tout.append(str(c.get_item_text(i)))\n\telif (c is Label or c is Button or c is RichTextLabel) and c.is_visible_in_tree():\n\t\tout.append(str(c.get_parsed_text()) if c is RichTextLabel else str(c.text))\n\tfor ch in c.get_children():\n\t\tq.append(ch)\nreturn out.any(func(t): return t.contains(\"Kustom shoota\") and t.contains(\"Custodian\"))",
+   "multiline": true,
+   "equals": true,
+   "comment": "the shooting panel lists the 18\" Kustom shoota against the unit 20.4\" away (Current Targets)"
+  },
+  {
+   "act": "execute_script",
+   "script": "var q = [tree.root]\nvar out := []\nwhile not q.is_empty():\n\tvar c = q.pop_front()\n\tif c is ItemList and c.is_visible_in_tree():\n\t\tfor i in range(c.item_count):\n\t\t\tout.append(str(c.get_item_text(i)))\n\telif (c is Label or c is Button or c is RichTextLabel) and c.is_visible_in_tree():\n\t\tout.append(str(c.get_parsed_text()) if c is RichTextLabel else str(c.text))\n\tfor ch in c.get_children():\n\t\tq.append(ch)\nreturn out.any(func(t): return t.contains(\"Skorcha\") and t.contains(\"only 0 of 1\"))",
+   "multiline": true,
+   "equals": true,
+   "comment": "the [TORRENT] Skorcha gets no bonus: 'only 0 of 1 will shoot — out of range'"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_targetin_squigs_in_range"
+  },
+  {
+   "act": "click_node",
+   "button_text": "Confirm (4 weapons)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Custodian Guard Sodality with Kustom shoota (weapon 4/4)\")",
+   "expect_min": 1,
+   "comment": "the 18\" Kustom shoota shot the unit 20.4\" away (Game Log: Warboss -> Custodian Guard Sodality with Kustom shoota, hit dice rolled)"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Kombi-skorcha - Skorcha\") + ScenarioRunner.event_log_count_containing(\"Kombi-skorcha – Skorcha\")",
+   "equals": 0,
+   "comment": "the [TORRENT] Skorcha did not shoot (out of range)"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_targetin_squigs_shot"
+  }
+ ]
+}

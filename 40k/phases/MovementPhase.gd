@@ -3985,9 +3985,10 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 
 	# Check battle round - reserves can only arrive from Turn 2 onwards
 	# (Codex: Adeptus Custodes (11e) Lightning Descent: "In your first Movement
-	# phase, this unit can make an ingress move" — WP-C46.)
+	# phase, this unit can make an ingress move" — WP-C46; WP-O5 Impulsive Recon:
+	# that ORKS AIRCRAFT can make an ingress move in its owner's first Movement phase.)
 	var battle_round = GameState.get_battle_round()
-	if battle_round < 2 and not _cus11e_det().can_ingress_first_round(unit):
+	if battle_round < 2 and not _cus11e_det().can_ingress_first_round(unit) and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit):
 		errors.append("Reserves cannot arrive until Battle Round 2 (currently Round %d)" % battle_round)
 		return {"valid": false, "errors": errors}
 
@@ -4464,6 +4465,8 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	if GameConstants.edition >= 11:
 		changes.append_array(MoveTypes.get_type("ingress").after_moving_effects(unit_id, {}))
 		log_phase_message("[11e] %s arrived via ingress move (may charge; no further moves this phase)" % unit_id)
+		# WP-O5 Flyboss: friendly ORKS AIRCRAFT/DEFFKOPTAS within 6" are riled up.
+		changes.append_array(load("res://scripts/codex/orks/OrkEnhancements11e.gd").on_ingress_move_ended(unit_id, model_positions))
 
 	# Deploy attached characters that are also in reserves.
 	# 11e 24.10: the leader and its bodyguard are ONE Attached unit, so they are
@@ -7064,7 +7067,12 @@ func get_available_actions() -> Array:
 	print("MovementPhase: get_available_actions — battle_round=%d, current_player=%d" % [battle_round, current_player])
 	# Codex: Adeptus Custodes (11e) Lightning Descent (WP-C46): the bearer's
 	# unit can make an ingress move in its player's FIRST Movement phase.
+	# WP-O5 Impulsive Recon: so can those ORKS AIRCRAFT.
 	var cus11e_ld_reserves: Array = _cus11e_lightning_descent_reserves(current_player) if battle_round < 2 else []
+	if battle_round < 2:
+		for o5_uid in load("res://scripts/codex/orks/OrkEnhancements11e.gd").first_round_ingress_units(GameState.get_reserves_for_player(current_player)):
+			if not o5_uid in cus11e_ld_reserves:
+				cus11e_ld_reserves.append(o5_uid)
 	if battle_round >= 2 or not cus11e_ld_reserves.is_empty():
 		var reserves = GameState.get_reserves_for_player(current_player) if battle_round >= 2 else cus11e_ld_reserves
 		print("MovementPhase: Found %d reserve units for player %d: %s" % [reserves.size(), current_player, str(reserves)])

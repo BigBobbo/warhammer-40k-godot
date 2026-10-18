@@ -94,11 +94,16 @@ export const ALLIED_FACTIONS = {
   'adeptus-astartes': ['agents-of-the-imperium'],
 };
 
-// Describes the dataset the browser builder converts from: the vendored bundle
-// server/public/js/vendor/40kdc-data.mjs, which is still 1.0.19 (bundle-browser
-// was not re-run for the Codex: Orks refresh — the Godot data and
-// scripts/40kdc/generate-armies.mjs are on 1.4.5 and pass their own string).
-export const DEFAULT_DATA_SOURCE = '40kdc-data 1.0.19 (11th edition, launch)';
+// Describes the dataset both converters read, stamped into every army's
+// faction.data_source: the browser builder's vendored bundle
+// (server/public/js/vendor/40kdc-data.mjs, 40kdc 1.4.5) patched with the
+// Wahapedia codex overlay (data-patches.mjs, codex-11e-datasheets.mjs — WP-W3),
+// and the game's 40k/data/40kdc extract that scripts/40kdc/generate-armies.mjs
+// reads (the same 1.4.5 release + the same import). generate-armies imports
+// this constant, so the two stamps cannot drift apart. Update it when the
+// bundle version or the Wahapedia snapshot changes
+// (server/tests/codex-builder-parity.test.mjs checks it against both).
+export const DEFAULT_DATA_SOURCE = '40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes)';
 
 // ---------------------------------------------------------------------------
 // Weapon conversion
@@ -166,6 +171,14 @@ export const CORE_PARAM_ABILITIES = [
 // Old weapon names may carry a profile suffix ("Kannon – frag").
 export function weaponBaseName(s) {
   return String(s).split(/\s+[–-]\s+/)[0];
+}
+
+// Enhancement names may carry a trailing qualifier in the dataset
+// ("Targetin' Gizmos (Upgrade)", "Fear Made Manifest (Aura)", "Memento
+// Moritoi (one per army)"); rosters and the game's enhancement tables use the
+// bare name. Shared by both converters (generate-armies.mjs, the builder).
+export function bareEnhancementName(n) {
+  return String(n).replace(/\s*\([^)]*\)\s*$/, '');
 }
 
 // The game's exact-name ability dispatch and weapon-id normalization use
@@ -362,7 +375,81 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     for (const ex of tc.exclusion_keywords ?? []) {
       desc += ` This model cannot transport models that are ${ex.toUpperCase()} models.`;
     }
+    // ArmyListManager parses "Each <KEYWORD> model takes up the space of <N> models".
+    for (const m of tc.multipliers ?? []) {
+      desc += ` Each ${String(m.keyword).toUpperCase()} model takes up the space of ${m.spaces} models.`;
+    }
     return { name: 'TRANSPORT', type: 'Core', description: desc };
+  }
+
+  // --- non-weapon wargear (Praesidium Shield, Vexilla, Kustom Force Field ...)
+  // A codex datasheet lists its wargear as `wargear` abilities; its
+  // composition names the default ones in `default_wargear` and its wargear
+  // options reference them by ability id (wahapedia-import.mjs). The builder
+  // counts them in the unit's loadout like weapons, so the export can say
+  // which models took one, gate the wargear ability on it (Vexilla's +1 OC is
+  // applied from meta.abilities) and price it (wargear_points).
+  function wargearItems(dcUnit, factionId) {
+    const out = new Map();
+    for (const aid of dcUnit?.ability_ids ?? []) {
+      const a = ares.resolve(factionId, aid);
+      if (a?.ability_type === 'wargear') out.set(aid, { id: aid, name: a.name });
+    }
+    return out;
+  }
+
+  // Composition rows for the package's loadout maths (baseLoadout /
+  // weaponBounds / validateLoadout): default_weapon_ids plus the row's
+  // default_wargear items, so a default Praesidium Shield is part of the base
+  // loadout and swapping it away is a counted swap. Rows are copied, never
+  // mutated; units without wargear items get the composition's own rows.
+  function loadoutModels(dcUnit, factionId, comp) {
+    const models = comp?.models;
+    const items = wargearItems(dcUnit, factionId);
+    if (!models || !items.size) return models;
+    const idByName = new Map([...items.values()].map(i => [looseName(i.name), i.id]));
+    return models.map(m => {
+      const extra = (m.default_wargear ?? []).map(n => idByName.get(looseName(n))).filter(Boolean);
+      return extra.length ? { ...m, default_weapon_ids: [...(m.default_weapon_ids ?? []), ...extra] } : m;
+    });
+  }
+
+  // Priced wargear: the codex "per Praesidium Shield 25" rows
+  // (unit.wargear_points [{name, cost}], wahapedia-import.mjs) cost `cost` for
+  // each copy of the item with exactly that name. (40kdc's own wargear_costs
+  // are not priced, as in generate-armies.mjs.)
+  function wargearPriceOf(dcUnit, itemName) {
+    const key = looseName(weaponBaseName(itemName).replace(/\s*\([^)]*\)\s*$/, ''));
+    let cost = 0;
+    for (const wp of dcUnit?.wargear_points ?? []) if (looseName(wp.name) === key) cost += wp.cost;
+    return cost;
+  }
+
+  /** Wargear points for a unit-wide loadout (Map<weapon or item id, count>). */
+  function wargearPointsFor(dcUnit, factionId, counts) {
+    if (!(dcUnit?.wargear_points ?? []).length) return 0;
+    const items = wargearItems(dcUnit, factionId);
+    let pts = 0;
+    for (const [id, n] of counts ?? []) {
+      if (!n || n <= 0) continue;
+      const name = items.get(id)?.name ?? wres.resolve(factionId, id)?.name;
+      if (name) pts += wargearPriceOf(dcUnit, name) * n;
+    }
+    return pts;
+  }
+
+  /** Wargear points for game-format wargear lines ("2x Killsaw"; a line
+   * without a count — "Shield-Captain (Shield), Praesidium Shield" — counts
+   * each comma part once). Used by generate-armies.mjs. */
+  function wargearPointsForLines(dcUnit, lines) {
+    if (!(dcUnit?.wargear_points ?? []).length) return 0;
+    let pts = 0;
+    for (const entry of lines ?? []) {
+      const m = String(entry).match(/^\s*(\d+)\s*x\s+(.+)$/i);
+      if (m) { pts += wargearPriceOf(dcUnit, m[2].trim()) * parseInt(m[1], 10); continue; }
+      for (const part of String(entry).split(',')) pts += wargearPriceOf(dcUnit, part.trim());
+    }
+    return pts;
   }
 
   // --- keywords: dataset keywords + faction keywords, uppercased
@@ -409,15 +496,26 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     const modelsOut = [];
     let mi = 1;
     const compModels = comp?.models ?? [{ name: dcUnit.name, min: modelCount, max: modelCount }];
-    // scale composition to the roster's model count using tiers when possible
+    // scale composition to the roster's model count. 11e codex units come in
+    // fixed sizes that are whole multiples of the minimum ("1-2 Nob + 9-18 Boy"
+    // is 10 or 20 models): when every row scales by that multiple within its
+    // range, use it (20 Boyz = 2 Nobs + 18 Boyz — the same split
+    // RulesEngine._positional_roles infers). Otherwise every row but the last
+    // takes its minimum and the last takes the rest.
     let remaining = modelCount;
-    const counts = [];
-    for (let k = 0; k < compModels.length; k++) {
-      const m = compModels[k];
-      const isLast = k === compModels.length - 1;
-      const take = isLast ? remaining : Math.min(m.min, remaining);
-      counts.push(Math.max(0, take));
-      remaining -= take;
+    let counts = [];
+    const minTotal = compModels.reduce((s, m) => s + (m.min ?? 0), 0);
+    const mult = minTotal > 0 && modelCount % minTotal === 0 ? modelCount / minTotal : 0;
+    if (mult > 1 && compModels.every(m => (m.min ?? 0) * mult <= (m.max ?? m.min ?? 0))) {
+      counts = compModels.map(m => (m.min ?? 0) * mult);
+    } else {
+      for (let k = 0; k < compModels.length; k++) {
+        const m = compModels[k];
+        const isLast = k === compModels.length - 1;
+        const take = isLast ? remaining : Math.min(m.min, remaining);
+        counts.push(Math.max(0, take));
+        remaining -= take;
+      }
     }
     for (let k = 0; k < compModels.length; k++) {
       const m = compModels[k];
@@ -515,7 +613,13 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     const out = new Map();
     for (const eid of detachment?.enhancement_ids ?? []) {
       const e = enhancementsAll.find(x => x.id === eid);
-      if (e) { out.set(normName(e.name), e); out.set(e.id, e); }
+      if (e) {
+        out.set(normName(e.name), e);
+        // also by the bare name ("Targetin' Gizmos" for "... (Upgrade)")
+        const bare = normName(bareEnhancementName(e.name));
+        if (!out.has(bare)) out.set(bare, e);
+        out.set(e.id, e);
+      }
     }
     return out;
   }
@@ -589,8 +693,18 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     // points at (e.g. the Telemon's arachnus guns) — allowed like the Node
     // generator allows them.
     for (const wid of Object.values(WEAPON_ALIASES_SRC[unitFactionId] ?? {})) validIds.add(wid);
+    // Non-weapon wargear the loadout holds (Praesidium Shield, Vexilla):
+    // listed as a wargear line ("1x Vexilla"), never as a weapon profile.
+    const items = wargearItems(dcUnit, unitFactionId);
+    const held = new Set();
     for (const [wid, count] of counts) {
       if (!count || count <= 0) continue;
+      const item = items.get(wid);
+      if (item) {
+        held.add(looseName(item.name));
+        wargearStrings.push(`${count}x ${item.name}`);
+        continue;
+      }
       if (!validIds.has(wid)) {
         warnings.push(`${id}: weapon "${wid}" not on ${dcUnit.name} datasheet — dropped`);
         continue;
@@ -607,10 +721,14 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     wargearStrings.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
     // Allied units carry their own faction's army rule (mirrors generate-armies).
-    const abilitiesOut = unitAbilities(dcUnit, unitFactionId, factionName, warnings);
+    // A wargear ability (Vexilla, Praesidium Shield) only when the loadout
+    // holds that wargear — the game applies e.g. Vexilla's +1 OC from it.
+    const hasWargear = items.size ? (n => held.has(looseName(n))) : null;
+    const abilitiesOut = unitAbilities(dcUnit, unitFactionId, factionName, warnings, hasWargear);
 
     const enhancementPoints = enhancements.reduce((s, e) => s + (e.cost ?? 0), 0);
-    const points = pointsFor(dcUnit, modelCount, ordinal) + enhancementPoints;
+    const points = pointsFor(dcUnit, modelCount, ordinal) +
+      wargearPointsFor(dcUnit, unitFactionId, counts) + enhancementPoints;
 
     const meta = {
       name: dcUnit.name,
@@ -618,7 +736,8 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
       stats: unitStats(dcUnit),
       points,
       is_warlord: !!isWarlord,
-      enhancements: enhancements.map(e => canonicalName(e.name)),
+      // the bare name the game keys on, as generate-armies.mjs writes it
+      enhancements: enhancements.map(e => canonicalName(bareEnhancementName(e.name))),
       wargear: wargearStrings,
       weapons: weaponsOut,
       abilities: abilitiesOut,
@@ -825,7 +944,10 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         aliasMap[looseName(k2)] = v2;
         aliasTargets.add(v2);
       }
-      const acceptableId = (wid) => (dcUnit.weapon_ids ?? []).includes(wid) || aliasTargets.has(wid);
+      // Non-weapon wargear (Praesidium Shield, Vexilla) is counted too.
+      const items = wargearItems(dcUnit, unitFactionId);
+      for (const [iid, item] of items) nameToId.set(looseName(item.name), iid);
+      const acceptableId = (wid) => (dcUnit.weapon_ids ?? []).includes(wid) || aliasTargets.has(wid) || items.has(wid);
       function weaponIdFor(rawName) {
         const base = weaponBaseName(rawName).replace(/^\d+\s*x\s*/i, '');
         return nameToId.get(looseName(base)) ?? aliasMap[looseName(base)] ?? null;
@@ -838,7 +960,15 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
       let approximate = false;
       for (const line of meta.wargear ?? []) {
         const m = String(line).match(/^\s*(\d+)\s*x\s+(.+)$/i);
-        if (!m) continue;
+        if (!m) {
+          // A descriptive line ("Shield-Captain (Shield), Praesidium Shield"):
+          // each comma part naming a wargear item holds one.
+          for (const part of String(line).split(',')) {
+            const iid = nameToId.get(looseName(part.trim()));
+            if (iid && items.has(iid) && !counts.has(iid)) counts.set(iid, 1);
+          }
+          continue;
+        }
         const rawName = m[2].trim();
         const wid = weaponIdFor(rawName);
         if (wid && acceptableId(wid)) {
@@ -863,7 +993,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
       }
       for (const [wid, count] of counts) {
         const w = wres.resolve(unitFactionId, wid);
-        wargearEntries.unshift({ ref: { id: wid, raw_name: w?.name ?? wid, resolved: true, candidates: [] }, count });
+        wargearEntries.unshift({ ref: { id: wid, raw_name: w?.name ?? items.get(wid)?.name ?? wid, resolved: true, candidates: [] }, count });
       }
 
       // Enhancement: names like "Follow Me Ladz" or "X (+25 pts)".
@@ -874,7 +1004,8 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         ename = ename.replace(/\s*\(\+?\d+\s*pts?\)\s*$/i, '');
         if (!ename) continue;
         const match = detEnh.get(normName(ename)) ??
-          enhancementsAll.find(x => normName(x.name) === normName(ename) &&
+          detEnh.get(normName(bareEnhancementName(ename))) ??
+          enhancementsAll.find(x => normName(bareEnhancementName(x.name)) === normName(bareEnhancementName(ename)) &&
             (!detachment || (detachment.enhancement_ids ?? []).includes(x.id)));
         if (match) {
           enhancement = { id: match.id, raw_name: match.name, resolved: true, candidates: [] };
@@ -886,7 +1017,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         break; // one enhancement per unit
       }
 
-      const basePoints = pointsFor(dcUnit, modelCount);
+      const basePoints = pointsFor(dcUnit, modelCount) + wargearPointsFor(dcUnit, unitFactionId, counts);
       computed += basePoints + (enhancementPoints ?? 0);
 
       rosterUnits.push({
@@ -945,6 +1076,10 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     factionRuleAbilities,
     unitKeywords,
     unitStats,
+    wargearItems,
+    loadoutModels,
+    wargearPointsFor,
+    wargearPointsForLines,
     compositionLines,
     buildModelsArray,
     leaderData,

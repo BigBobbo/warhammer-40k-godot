@@ -23,7 +23,8 @@
 // many Ork kits (Battlewagon "Tracks and wheels" -> "Crushin' bulk", Boyz "Boss
 // Nob" -> "Nob" with new weapons, Mek Gunz "Grot crew" -> "Scavenged shivs",
 // Lootas/Burna Boyz removed). Army files, save fixtures, players' saves and
-// web-builder exports (the browser bundle is still 1.0.19) carry the OLD weapon
+// web-builder exports made before WP-W3 (the browser bundle was 1.0.19 until
+// then; it is now 1.4.5 + the codex overlay) carry the OLD weapon
 // names, so against the new kits they silently lost per-model resolution (a Boy
 // "carrying" every melee option). UnitLoadoutResolver.datasheet_key() picks the
 // legacy kit for a unit only when the unit's own weapon menu matches the legacy

@@ -1,0 +1,149 @@
+{
+ "id": "ork11e_enh_impulsive_recon",
+ "covers": [
+  "codex.orks.enhancements.impulsive_recon",
+  "scripts.codex.orks.OrkEnhancements11e",
+  "phases.MovementPhase.reinforcements",
+  "scripts.MovementController.unit_list"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) IMPULSIVE RECON (Flyboyz Upgrade, ORKS AIRCRAFT unit: this unit can arrive from Strategic Reserves in the first battle round). Fixture ork11e_enh_flyboyz_r1: battle round 1, P1's Movement phase; the Dakkajet (Impulsive Recon) and the Burna-bommer are in Strategic Reserves. The movement panel lists a reinforcement row for the Dakkajet only; a real click on it starts the placement, a real click on the board places it near P1's edge and a real click on Confirm brings it in (round 1). The Burna-bommer stays in reserves (it may arrive from battle round 2).",
+ "fixture": "ork11e_enh_flyboyz_r1",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "expect_phase",
+   "equals": 7
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.battle_round",
+   "equals": 1
+  },
+  {
+   "act": "expect_state",
+   "path": "factions.1.detachment",
+   "equals": "Flyboyz"
+  },
+  {
+   "act": "execute_script",
+   "script": "\"%d %d\" % [int(GameState.get_unit(\"U_DAKKAJET_A\").status), int(GameState.get_unit(\"U_BURNA_BOMMER_A\").status)]",
+   "equals": "7 7",
+   "comment": "both aircraft in Strategic Reserves"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.current_scene.movement_controller._refresh_unit_list()\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.3
+  },
+  {
+   "act": "execute_script",
+   "script": "var list = tree.current_scene.movement_controller.unit_list\nvar out := []\nfor i in range(list.item_count):\n\tout.append(\"%d:%s:%s\" % [i, str(list.get_item_metadata(i)), list.get_item_text(i)])\nprint(\"[wp-o5] movement list: \", out)\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "var list = tree.current_scene.movement_controller.unit_list\nvar ids := []\nfor i in range(list.item_count):\n\tids.append(str(list.get_item_metadata(i)))\nreturn [ids.has(\"U_DAKKAJET_A\"), ids.has(\"U_BURNA_BOMMER_A\")]",
+   "multiline": true,
+   "equals": [
+    true,
+    false
+   ],
+   "comment": "battle round 1: only the Impulsive Recon aircraft is offered a reinforcement row"
+  },
+  {
+   "act": "execute_script",
+   "script": "var list = tree.current_scene.movement_controller.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_DAKKAJET_A\":\n\t\treturn i\nreturn -1",
+   "multiline": true,
+   "equals": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "01_impulsive_recon_row"
+  },
+  {
+   "act": "click_item_list",
+   "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
+   "index": 1
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "main.deployment_controller.is_placing()",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "main.deployment_controller.is_reinforcement_mode",
+   "equals": true
+  },
+  {
+   "act": "click_board_at",
+   "x": 880.0,
+   "y": 112.0
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "main.deployment_controller.get_placed_count()",
+   "equals": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "02_impulsive_recon_placed"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_DAKKAJET_A.status",
+   "equals": 2
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_BURNA_BOMMER_A.status",
+   "equals": 7
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"arrived from Reserves\")",
+   "expect_min": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "03_impulsive_recon_arrived_round_1"
+  }
+ ]
+}

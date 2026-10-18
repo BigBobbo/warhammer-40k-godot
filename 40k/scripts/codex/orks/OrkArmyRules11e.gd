@@ -376,6 +376,8 @@ static func psyker_level(u: Dictionary) -> int:
 		if PSYKER_LEVEL_ABILITIES.has(base):
 			level = maxi(level, int(PSYKER_LEVEL_ABILITIES[base]))
 	level = maxi(level, int(u.get("flags", {}).get(F_PSYKER_LEVEL_OVERRIDE, 0)))
+	# WP-O5 Warphead: "This model has psyker level 2."
+	level = maxi(level, int(load("res://scripts/codex/orks/OrkEnhancements11e.gd").psyker_level(u)))
 	if level == 0 and is_budgeted_psyker(u):
 		level = 1  # "a psyker level of 1 or higher"
 	return level

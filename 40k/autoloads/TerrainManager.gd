@@ -1332,6 +1332,12 @@ func unit_has_cover_11e(unit: Dictionary, attacker_model: Dictionary = {}) -> bo
 		return false
 	if UnitAbilities.unit_has(unit, "stealth"):
 		return true
+	# WP-O5: Kill Kommanda (Stealth while attached); Smoky Gubbinz (the target
+	# is not fully visible to the attacking model because of a model in that
+	# SPEED FREEKS unit).
+	var o5 = load("res://scripts/codex/orks/OrkEnhancements11e.gd")
+	if o5.grants_stealth(unit) or o5.smoky_gubbinz_cover(unit, attacker_model):
+		return true
 	var keywords: Array = unit.get("meta", {}).get("keywords", [])
 	var qualifies_kw := false
 	for kw in ["INFANTRY", "BEASTS", "SWARM"]:

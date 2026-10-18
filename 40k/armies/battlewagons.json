@@ -579,7 +579,7 @@
      "objective_control": 5,
      "invuln": 6
     },
-    "points": 170,
+    "points": 185,
     "is_warlord": false,
     "enhancements": [
      "Targetin' Gizmos"
@@ -694,7 +694,7 @@
      {
       "name": "TRANSPORT",
       "type": "Core",
-      "description": "This model has a transport capacity of 22 ORKS INFANTRY models."
+      "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. Each JUMP PACK model takes up the space of 2 models. Each GHAZGHKULL THRAKA model takes up the space of 4 models."
      }
     ],
     "unit_composition": [
@@ -739,7 +739,7 @@
      "objective_control": 5,
      "invuln": 6
     },
-    "points": 170,
+    "points": 185,
     "is_warlord": false,
     "enhancements": [
      "Targetin' Gizmos"
@@ -854,7 +854,7 @@
      {
       "name": "TRANSPORT",
       "type": "Core",
-      "description": "This model has a transport capacity of 22 ORKS INFANTRY models."
+      "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. Each JUMP PACK model takes up the space of 2 models. Each GHAZGHKULL THRAKA model takes up the space of 4 models."
      }
     ],
     "unit_composition": [
@@ -1012,7 +1012,7 @@
      {
       "name": "TRANSPORT",
       "type": "Core",
-      "description": "This model has a transport capacity of 22 ORKS INFANTRY models."
+      "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. Each JUMP PACK model takes up the space of 2 models. Each GHAZGHKULL THRAKA model takes up the space of 4 models."
      }
     ],
     "unit_composition": [
@@ -1910,179 +1910,6 @@
   "U_GRETCHIN_B": {
    "id": "U_GRETCHIN_B",
    "squad_id": "U_GRETCHIN_B",
-   "owner": 1,
-   "status": "UNDEPLOYED",
-   "meta": {
-    "name": "Gretchin",
-    "keywords": [
-     "GRETCHIN",
-     "GROTS",
-     "INFANTRY",
-     "ORKS"
-    ],
-    "stats": {
-     "move": 6,
-     "toughness": 2,
-     "save": 6,
-     "wounds": 1,
-     "leadership": 8,
-     "objective_control": 1
-    },
-    "points": 45,
-    "is_warlord": false,
-    "enhancements": [],
-    "wargear": [
-     "10x Grot Blasta",
-     "10x Scavenged Shivs"
-    ],
-    "weapons": [
-     {
-      "name": "Grot Blasta",
-      "type": "Ranged",
-      "range": "12",
-      "attacks": "1",
-      "ballistic_skill": "4",
-      "strength": "3",
-      "ap": "0",
-      "damage": "1",
-      "special_rules": "close quarters",
-      "abilities": [
-       {
-        "id": "close_quarters"
-       }
-      ]
-     },
-     {
-      "name": "Scavenged Shivs",
-      "type": "Melee",
-      "range": "Melee",
-      "attacks": "1",
-      "weapon_skill": "5",
-      "strength": "2",
-      "ap": "0",
-      "damage": "1"
-     }
-    ],
-    "abilities": [
-     {
-      "name": "Waaagh!",
-      "type": "Faction",
-      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
-     },
-     {
-      "name": "Downtrodden",
-      "type": "Datasheet",
-      "description": "For the purposes of transport capacity, each 2 Gretchin models (rounding up) take up the space of 1 model."
-     },
-     {
-      "name": "Thievin' Scavengers",
-      "type": "Datasheet",
-      "description": "At the end of your Movement phase, if this unit is controlling an objective, that objective is secured."
-     }
-    ],
-    "unit_composition": [
-     {
-      "description": "10-20 Gretchin",
-      "line": 1
-     }
-    ]
-   },
-   "models": [
-    {
-     "id": "m1",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m2",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m3",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m4",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m5",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m6",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m7",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m8",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m9",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m10",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    }
-   ]
-  },
-  "U_GRETCHIN_C": {
-   "id": "U_GRETCHIN_C",
-   "squad_id": "U_GRETCHIN_C",
    "owner": 1,
    "status": "UNDEPLOYED",
    "meta": {

@@ -17,15 +17,18 @@ import { readFileSync, writeFileSync, readdirSync } from 'fs';
 import { dirname, join, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { loadCollection, normName, looseName, pointsFor, buildCanonEntries, DATA_DIR as DATA_DIR_FOR_LEGACY } from './lib.mjs';
-import { describeAbility } from '@alpaca-software/40kdc-data';
+import { describeAbility, weaponBounds } from '@alpaca-software/40kdc-data';
 import {
   createConverter, normalizeQuotes, weaponBaseName,
-  FACTION_IDS, UNIT_ALIASES, WEAPON_ALIASES_SRC, ALLIED_FACTIONS,
+  FACTION_IDS, UNIT_ALIASES, WEAPON_ALIASES_SRC, ALLIED_FACTIONS, DEFAULT_DATA_SOURCE,
+  bareEnhancementName,
 } from '../../server/public/js/lib/gameformat.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-// Stamped into every regenerated file's faction block.
-const DATA_SOURCE = '40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes)';
+// Stamped into every regenerated file's faction block. Shared with the
+// browser army builder's exports (gameformat.mjs), which convert from the same
+// data (WP-W3: the bundle + the codex overlay).
+const DATA_SOURCE = DEFAULT_DATA_SOURCE;
 const ARMIES_DIR = join(here, '..', '..', '40k', 'armies');
 
 // ---------------------------------------------------------------------------
@@ -154,14 +157,10 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
   // --- points for this model count; `ordinal` = which copy of the datasheet
   // this is in the file (11e prices later copies higher), plus priced wargear
   // (wargear_points, e.g. "per Praesidium Shield 25") the roster lists.
-  let wargearPoints = 0;
-  for (const wp of dcUnit.wargear_points ?? []) {
-    for (const entry of oldMeta.wargear ?? []) {
-      if (!normName(entry).includes(normName(wp.name))) continue;
-      const n = String(entry).match(/^(\d+)\s*x/i);
-      wargearPoints += wp.cost * (n ? parseInt(n[1], 10) : 1);
-    }
-  }
+  // Same rule as the browser builder (gameformat.mjs wargearPointsForLines):
+  // each line's item is matched to a priced item by exact name, so "2x Twin
+  // Killsaws" pays "per Twin Killsaws" only, not "per Killsaw" as well.
+  const wargearPoints = conv.wargearPointsForLines(dcUnit, oldMeta.wargear ?? []);
   const points = pointsFor(dcUnit, modelsOut.length, ordinal) + enhancementPoints + wargearPoints;
 
   // --- leader data
@@ -174,7 +173,7 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
     enhancements: enhancementsOut,
     wargear: preCodexRoster
       ? rebuildCodexWargear(existing.id, oldMeta.wargear ?? [], dcUnit, factionId, comp, modelsOut.length, warnings)
-      : syncWargearCounts(oldMeta.wargear ?? [], comp, modelsOut.length),
+      : syncWargearCounts(oldMeta.wargear ?? [], comp, modelsOut.length, dcUnit, factionId),
     weapons: weaponsOut,
     abilities: abilitiesOut,
     unit_composition: conv.compositionLines(comp),
@@ -245,16 +244,21 @@ function rebuildCodexWargear(unitKey, wargear, dcUnit, factionId, comp, modelCou
 // Enhancement names may carry a trailing qualifier in the dataset
 // ("Smoky Gubbinz (Upgrade)", "Fear Made Manifest (Aura)"); rosters and the
 // game's enhancement tables use the bare name.
-function bareEnhName(n) { return String(n).replace(/\s*\([^)]*\)\s*$/, ''); }
+const bareEnhName = bareEnhancementName; // shared with the browser builder (gameformat.mjs)
 function enhKey(n) { return normName(bareEnhName(n)); }
 
 // "Nx <model>" wargear lines are model counts: ArmyListManager re-derives a
 // unit's size from them (_get_expected_model_count) and re-adds models. When a
 // codex resizes a unit (Gretchin 11 -> 10), rewrite those lines to the
-// composition's per-row counts and cap any other "Nx" line at the unit size.
+// composition's per-row counts and cap any other "Nx" line at the unit size —
+// or, for a weapon / wargear item of the datasheet, at the most copies a unit
+// of that size can legally carry (the package's loadout bounds over the
+// datasheet's options), never lower than the unit size: a Battlewagon's one
+// model carries up to 4 big shootas, and a builder export says "2x Big
+// shoota" (WP-W3 parity with the browser builder).
 // Rows are counted the way gameformat.buildModelsArray fills them (each row
 // its minimum, the last row the remainder).
-function syncWargearCounts(wargear, comp, modelCount) {
+function syncWargearCounts(wargear, comp, modelCount, dcUnit = null, factionId = null) {
   const rows = comp?.models ?? [];
   const counts = new Map();
   let remaining = modelCount;
@@ -263,13 +267,24 @@ function syncWargearCounts(wargear, comp, modelCount) {
     counts.set(roleKey(m.name), Math.max(0, take));
     remaining -= take;
   });
+  const gearMax = new Map(); // looseName(weapon / item) -> legal maximum
+  if (dcUnit && comp) {
+    const options = wargearOptionsAll.filter(o => o.faction_id === factionId && o.unit_id === dcUnit.id);
+    const items = conv.wargearItems(dcUnit, factionId);
+    const bounds = weaponBounds(dcUnit, modelCount, options, conv.loadoutModels(dcUnit, factionId, comp));
+    for (const [id, b] of bounds) {
+      const name = conv.wres.resolve(factionId, id)?.name ?? items.get(id)?.name;
+      if (name) gearMax.set(looseName(name), Math.max(gearMax.get(looseName(name)) ?? 0, b.max));
+    }
+  }
   return wargear.map(entry => {
     const m = String(entry).match(/^(\d+)x\s+(.+)$/);
     if (!m) return entry;
     const n = parseInt(m[1], 10);
     const want = counts.get(roleKey(m[2]));
     if (want != null && want !== n) return `${want}x ${m[2]}`;
-    if (want == null && n > modelCount) return `${modelCount}x ${m[2]}`;
+    const cap = Math.max(modelCount, gearMax.get(looseName(weaponBaseName(m[2]))) ?? 0);
+    if (want == null && n > cap) return `${cap}x ${m[2]}`;
     return entry;
   });
 }

@@ -547,6 +547,10 @@ static func _strip_unit_suffix(id: String, unit_slug: String) -> String:
 	var base_slug := unit_slug.trim_suffix(LEGACY_SLUG_SUFFIX)
 	if base_slug != "" and id.ends_with("-" + base_slug):
 		return id.substr(0, id.length() - base_slug.length() - 1)
+	# When "<weapon>-<unit>" is itself taken (40kdc's "shoota-boyz" would read
+	# as the Shoota Boyz datasheet), 40kdc appends "-unit": "shoota-boyz-unit".
+	if base_slug != "" and id.ends_with("-" + base_slug + "-unit"):
+		return id.substr(0, id.length() - base_slug.length() - 6)
 	return id
 
 

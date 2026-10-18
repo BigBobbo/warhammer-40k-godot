@@ -12,14 +12,14 @@ const ROOT = join(here, '..', '..');
 const ARMIES = join(ROOT, '40k', 'armies');
 
 const V = await import(new URL('../public/js/vendor/40kdc-data.mjs', import.meta.url).href);
-const { createConverter } = await import(new URL('../public/js/lib/gameformat.mjs', import.meta.url).href);
+const { createConverter, DEFAULT_DATA_SOURCE } = await import(new URL('../public/js/lib/gameformat.mjs', import.meta.url).href);
 const { GAME_NAME_CANON_ENTRIES } = await import(new URL('../public/js/lib/canon.mjs', import.meta.url).href);
 const { applyDataPatches } = await import(new URL('../public/js/lib/data-patches.mjs', import.meta.url).href);
 const { pointsFor } = await import(new URL('../public/js/lib/dckit.mjs', import.meta.url).href);
 
 // The browser builder patches the vendored dataset before use (store.js) —
-// e.g. upstream ships Speedwaaagh! with no enhancements. Test against the
-// same effective dataset the real consumers see.
+// the Wahapedia codex overlay (WP-W3), codex detachments/enhancements. Test
+// against the same effective dataset the real consumers see.
 applyDataPatches(V.RAW_DATA);
 
 const conv = createConverter({
@@ -40,6 +40,8 @@ function armyFiles() {
 // ---------------------------------------------------------------------------
 
 test('every bundled army round-trips through gameToRoster -> rosterToGame', () => {
+  let strict = 0;
+  const stale = [];
   for (const { file, army } of armyFiles()) {
     const { roster } = conv.gameToRoster(army, { name: file });
     const { army: out } = conv.rosterToGame(roster, { createdDate: army.faction.created_date });
@@ -49,6 +51,17 @@ test('every bundled army round-trips through gameToRoster -> rosterToGame', () =
       u => !(u.meta?.keywords ?? []).includes('UNKNOWN'));
     const outUnits = Object.values(out.units);
     assert.equal(outUnits.length, origUnits.length, `${file}: unit count`);
+
+    // Datasheet facts can only round-trip for a file built from the data the
+    // converter reads (faction.data_source). Files stamped with an older
+    // dataset (space_marines.json and the tutorial rosters are still 1.0.19
+    // snapshots — the tutorials stay pre-codex on purpose, PLAN follow-ups)
+    // re-derive today's stats on conversion: structure only for those.
+    if (army.faction?.data_source !== DEFAULT_DATA_SOURCE) {
+      stale.push(`${file} (${army.faction?.data_source})`);
+      continue;
+    }
+    strict++;
 
     // rosterToGame prices the Nth copy of a datasheet with the dataset's 11e
     // repeat pricing. Legacy files predate that and store first-copy prices
@@ -64,14 +77,26 @@ test('every bundled army round-trips through gameToRoster -> rosterToGame', () =
       assert.equal(b.models.length, a.models.length, `${label}: model count`);
       assert.deepEqual(b.meta.stats, a.meta.stats, `${label}: stats`);
       let ordinalDelta = 0;
+      let wargearDelta = 0;
       const found = fid ? conv.findUnitByName(fid, a.meta.name, [], file) : null;
       if (found) {
         const o = (ords.get(found.unit.id) ?? 0) + 1;
         ords.set(found.unit.id, o);
         ordinalDelta = pointsFor(found.unit, b.models.length, o) - pointsFor(found.unit, b.models.length);
+        // Priced codex wargear (wargear_points, e.g. "per Killsaw 5"):
+        // gameToRoster reconstructs a weapon that a file lists in meta.weapons
+        // but not in a counted wargear line at 1x (it warns "reconstructed at
+        // 1x"), and that guessed copy is priced. The stored file paid only for
+        // its counted lines. Accept exactly that surcharge.
+        const ru = roster.units[i];
+        const counts = new Map((ru?.wargear ?? []).filter(w => w.ref.id).map(w => [w.ref.id, w.count]));
+        wargearDelta = conv.wargearPointsFor(found.unit, found.factionId, counts) -
+          conv.wargearPointsForLines(found.unit, a.meta.wargear ?? []);
       }
-      assert.ok(b.meta.points === a.meta.points || b.meta.points === a.meta.points + ordinalDelta,
-        `${label}: points (stored ${a.meta.points}, out ${b.meta.points}, ordinal surcharge ${ordinalDelta})`);
+      const ok = [0, ordinalDelta, wargearDelta, ordinalDelta + wargearDelta]
+        .some(d => b.meta.points === a.meta.points + d);
+      assert.ok(ok, `${label}: points (stored ${a.meta.points}, out ${b.meta.points}, ` +
+        `ordinal surcharge ${ordinalDelta}, 1x-reconstructed wargear ${wargearDelta})`);
       assert.equal(b.meta.is_warlord, a.meta.is_warlord, `${label}: warlord`);
       const an = new Set(a.meta.weapons.map(w => w.name));
       const bn = new Set(b.meta.weapons.map(w => w.name));
@@ -80,6 +105,8 @@ test('every bundled army round-trips through gameToRoster -> rosterToGame', () =
     assert.equal(out.faction.detachment, army.faction.detachment, `${file}: detachment`);
     assert.equal(out.faction.schema, 2, `${file}: schema`);
   }
+  assert.ok(strict >= 10, `strict round-trips: ${strict}`);
+  console.log(`# round-trip: ${strict} files strict; structure only (older data_source): ${stale.join(', ') || 'none'}`);
 });
 
 test('fresh Ork roster builds a valid schema-2 army', () => {
@@ -125,18 +152,22 @@ test('fresh Ork roster builds a valid schema-2 army', () => {
   const keys = Object.keys(army.units);
   assert.deepEqual(keys, ['U_BEASTBOSS_A', 'U_BOYZ_A'], 'unit key convention');
 
+  // Codex: Orks (11e) values (the builder's data is the game's since WP-W3).
   const bb = army.units.U_BEASTBOSS_A;
   assert.equal(bb.meta.is_warlord, true);
-  assert.equal(bb.meta.points, 100, 'beastboss 80 + 20 enhancement');
+  // Headwoppa's Killchoppa is 15 pts in the codex (the 1.0.19 bundle said 20;
+  // data-patches.mjs upserts the codex records — WP-O5); Beastboss is 85 (WP-W3).
+  assert.equal(bb.meta.points, 100, 'beastboss 85 + 15 enhancement (codex)');
   assert.deepEqual(bb.meta.enhancements, ["Headwoppa's Killchoppa"], 'canonical enhancement name');
   assert.ok(bb.meta.abilities.some(a => a.name === 'Waaagh!' && a.type === 'Faction'), 'army rule present');
 
   const bz = army.units.U_BOYZ_A;
-  assert.equal(bz.meta.points, 75);
+  assert.equal(bz.meta.points, 85, 'codex Boyz x10');
   assert.equal(bz.models.length, 10);
-  assert.equal(bz.models[0].wounds, 2, 'boss nob first with W2');
+  assert.equal(bz.models[0].wounds, 3, 'the Nob first with W3');
   assert.ok(bz.models.slice(1).every(m => m.wounds === 1), 'boys W1');
-  assert.deepEqual(bz.meta.wargear, ['10x Slugga', '1x Big choppa', '9x Choppa'], 'wargear strings');
+  assert.deepEqual(bz.meta.wargear,
+    ['1x Kombi-skorcha', '1x Kustom Choppa', '9x Choppa', '9x Shoota', '9x Slugga'], 'wargear strings');
   const slugga = bz.meta.weapons.find(w => w.name === 'Slugga');
   assert.ok(slugga && slugga.type === 'Ranged', 'slugga profile emitted');
 
@@ -192,26 +223,29 @@ Incursion (1000 Points)
 
 CHARACTERS
 
-Beastboss (80 Points)
-  • 1x Beast Snagga klaw
-  • 1x Beastchoppa
+Beastboss (85 Points)
+  • 1x Beast Snagga klaw and beastchoppa
   • 1x Shoota
 
 BATTLELINE
 
-Boyz (150 Points)
+Boyz (170 Points)
   • 19x Boy
-  • 1x Boss Nob
+  • 1x Nob
 `;
   const { roster, report } = I.importText(text);
   assert.equal(roster.faction_id, 'orks', 'faction resolved');
   assert.equal(roster.units.length, 2);
   assert.ok(roster.units.every(u => u.ref.resolved), 'all units matched');
   const boyz = roster.units[1];
-  assert.equal(boyz.model_count, 20, `boyz snapped to 20 via 150pts (${report.warnings.join('; ')})`);
+  // Codex: Orks Boyz are sold as 10 (85) or 20 (170): the 170 pts snap to 20.
+  assert.equal(boyz.model_count, 20, `boyz snapped to 20 via 170pts (${report.warnings.join('; ')})`);
   const counts = S.countsOf(boyz);
-  assert.equal(counts.get('slugga'), 20, 'slugga at full squad count');
-  assert.equal(counts.get('choppa'), 19, 'choppa on every boy');
+  // The package's loadout allocator seats the Nob row at its minimum (1) and
+  // fills the Boy row to its codex maximum (18).
+  assert.equal(counts.get('slugga'), 18, 'slugga on every Boy');
+  assert.equal(counts.get('choppa-boyz'), 18, 'choppa on every Boy');
+  assert.equal(counts.get('kustom-choppa-boyz'), 1, "the Nob's kustom choppa");
   const violations = V.validateLoadout(
     V.RAW_DATA.units.find(u => u.faction_id === 'orks' && u.id === 'boyz'),
     20,

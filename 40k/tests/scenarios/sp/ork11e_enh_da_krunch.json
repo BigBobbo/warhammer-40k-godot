@@ -1,0 +1,346 @@
+{
+ "id": "ork11e_enh_da_krunch",
+ "covers": [
+  "codex.orks.enhancements.da_krunch",
+  "scripts.codex.orks.OrkEnhancements11e",
+  "autoloads.ArmyListManager.list_build"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) DA KRUNCH (Wurrband enhancement, Orks Psyker model; this model is equipped with Da Krunch: 24\" A3 BS4+ S5 AP-1 D1 [BLAST 3] [HAZARDOUS] [LETHAL HITS] [PSYCHIC]) — passive, added by the list-build pass. Fixture ork11e_enh_wurrband: the Weirdboy carries it, Custodian Guard B ~17\" away. The shooting panel lists Da Krunch; a real click on Confirm shoots it: the Game Log shows the Da Krunch attack and its hazardous roll. Setup privilege: auto wound allocation.",
+ "fixture": "ork11e_enh_wurrband",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 8,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 8
+  },
+  {
+   "act": "expect_state",
+   "path": "factions.1.detachment",
+   "equals": "Wurrband"
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege: auto wound allocation"
+  },
+  {
+   "act": "execute_script",
+   "script": "var w = GameState.get_unit(\"U_WEIRDBOY_A\").meta.weapons.filter(func(x): return str(x.get(\"name\", \"\")) == \"Da Krunch\")\nif w.size() != 1:\n\treturn \"missing\"\nreturn \"%d %s %s %s\" % [w.size(), str(w[0].range), str(w[0].attacks), str(w[0].ap)]",
+   "multiline": true,
+   "equals": "1 24 3 -1",
+   "comment": "Da Krunch (list-build): the Weirdboy has the 24\" A3 AP-1 psychic weapon"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var q = [tree.root]\nvar out := []\nwhile not q.is_empty():\n\tvar c = q.pop_front()\n\tif c is ItemList and c.is_visible_in_tree():\n\t\tfor i in range(c.item_count):\n\t\t\tout.append(str(c.get_item_text(i)))\n\telif (c is Label or c is Button or c is RichTextLabel) and c.is_visible_in_tree():\n\t\tout.append(str(c.get_parsed_text()) if c is RichTextLabel else str(c.text))\n\tfor ch in c.get_children():\n\t\tq.append(ch)\nreturn out.any(func(t): return t.contains(\"Da Krunch\"))",
+   "multiline": true,
+   "equals": true,
+   "comment": "the shooting panel lists Da Krunch for the Weirdboy"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_da_krunch_weapon_listed"
+  },
+  {
+   "act": "click_node",
+   "button_text": "Confirm (1 weapons)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"with Da Krunch\")",
+   "expect_min": 1,
+   "comment": "Da Krunch shot Custodian Guard B (Game Log)"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Hazardous: Weirdboy (Da Krunch)\")",
+   "expect_min": 1,
+   "comment": "[HAZARDOUS]: the hazard roll was made after the attack"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_da_krunch_shot"
+  }
+ ]
+}
