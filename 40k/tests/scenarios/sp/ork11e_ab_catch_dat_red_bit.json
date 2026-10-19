@@ -1,0 +1,147 @@
+{
+ "id": "ork11e_ab_catch_dat_red_bit",
+ "covers": [
+  "codex.orks.datasheet_abilities.catch_dat_red_bit",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.battle_shock_step_start"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) CATCH DAT RED BIT (Painboy, once per battle: Crude Surgery heals 3 + D3) through the real battle_shock_step_start window. Fixture ork11e_ab_command (two Boyz destroyed). A real click on the 'Heal 3 + D3' option: both Boyz return and the once-per-battle use is spent (next time only 'Heal 3').",
+ "fixture": "ork11e_ab_command",
+ "edition": 11,
+ "rng_seed": 42,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 6
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.active_player",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "for c in tree.root.get_children():\n\tif c is Window and c != tree.root:\n\t\tc.hide()\n\t\tc.queue_free()\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege (see description)"
+  },
+  {
+   "act": "execute_script",
+   "script": "var cc = tree.current_scene.get_node_or_null(\"CommandController\")\nif cc == null:\n\treturn \"NO_CONTROLLER\"\ncc._refresh_ui()\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/BattleShockSection/BattleShockRollCallButton",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/BattleShockSection/BattleShockRollCallButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "battle_shock_step_start"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_crude_surgery/Buttons/Use_ork11e_ab_crude_surgery_U_PAINBOY_A_heal3_d3",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_crude_surgery\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_catch_dat_red_bit_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_crude_surgery/Buttons/Use_ork11e_ab_crude_surgery_U_PAINBOY_A_heal3_d3"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "var n := 0\nfor m in GameState.get_unit(\"U_BOYZ_C\").models:\n\tif m.get(\"alive\", true):\n\t\tn += 1\nreturn n",
+   "multiline": true,
+   "equals": 10
+  },
+  {
+   "act": "execute_script",
+   "script": "return int(load(\"res://scripts/codex/orks/OrkAbilities11e.gd\").used_in_battle(\"U_PAINBOY_A\", \"catch_dat_red_bit\"))",
+   "multiline": true,
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Catch Dat Red Bit\")",
+   "expect_min": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "02_catch_dat_red_bit_healed"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "battle_shock_step_start"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  }
+ ]
+}

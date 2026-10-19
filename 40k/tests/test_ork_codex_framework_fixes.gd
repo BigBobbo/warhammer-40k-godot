@@ -159,6 +159,21 @@ func _decline_pending(phase) -> void:
 		guard += 1
 
 
+## Codex: Adeptus Custodes (11e, WP-C3): the Custodes Command phase readies
+## every Martial Ka'tah unit, so selecting Custodian Guard F to shoot / fight
+## would first open a ka'tah window (Salvus / Dacatarai ...) for the human P1.
+## The ka'tahs are not under test here (test_custodes_army_rules_11e.gd covers
+## them): un-ready the Custodes and spend Master of Ka'tahs for the round.
+func _cus11e_unready() -> void:
+	var rnd: int = int(GS.get_battle_round())
+	for uid in GS.state.units:
+		var u: Dictionary = GS.state.units[uid]
+		if not (u.get("flags", null) is Dictionary):
+			u["flags"] = {}
+		u.flags.erase("cus11e_readied")
+		u.flags["cus11e_master_of_katahs_round"] = rnd
+
+
 ## NetworkIntegration.route_action, loaded at run time (a parse-time reference
 ## pulls autoload identifiers into the `godot -s` compile — SCRIPT ERROR cascade).
 func _route(action: Dictionary) -> Dictionary:
@@ -462,6 +477,7 @@ func _section_p_phase_completion() -> void:
 	jet.meta.stats["save"] = 7
 	PM.transition_to_phase(PHASE_COMMAND)
 	_decline_pending(_phase())
+	_cus11e_unready()
 	PM.transition_to_phase(PHASE_SHOOTING)
 	ph = _phase()
 	_decline_pending(ph)
@@ -541,6 +557,10 @@ func _section_o_event_order() -> void:
 	_decline_pending(ph)
 	var res = ph.execute_action({"type": "SHOOT", "actor_unit_id": "U_TANKBUSTAS_A", "player": 1,
 		"payload": {"assignments": _ranged_assignments("U_TANKBUSTAS_A", "U_DAKKAJET_A"), "rng_seed": 3}})
+	# WP-O6: the Tankbustas' Pulsa Rokkit (a Codex: Orks datasheet ability) is
+	# offered when they are selected to shoot — decline it; the SHOOT resumes.
+	if _pending_id(ph) == "unit_selected_to_shoot":
+		res = ph.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_selected_to_shoot"})
 	_check("Tankbustas SHOOT ok + Dakkajet destroyed", res.get("success", false) and _alive("U_DAKKAJET_A") == 0, str(res.get("error", "")))
 	_check("FIRST window: unit_destroyed for P2 (FLYIN' HEADBUTT), not unit_has_shot", _pending_id(ph) == "unit_destroyed" and ph.get_pending_stratagem_window_decider() == 2,
 		"pending=%s P%d" % [_pending_id(ph), ph.get_pending_stratagem_window_decider()])

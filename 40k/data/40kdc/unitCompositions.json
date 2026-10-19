@@ -11116,33 +11116,24 @@
     "min": 1,
     "max": 1,
     "is_leader_model": false,
+    "profile_name": "Telemon Dreadnought",
     "base_size_mm": {
      "shape": "round",
      "diameter": 100
     },
     "default_weapon_ids": [
-     "iliastus-accelerator-culverin",
-     "iliastus-accelerator-culverin",
-     "armoured-feet",
-     "spiculus-bolt-launcher"
-    ]
+     "dual-caestus-fists",
+     "spiculus-bolt-launcher",
+     "twin-neutronium-cascade-projectors"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Telemon Heavy Dreadnought",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "contemptor-achillus-dreadnought",
@@ -11158,27 +11149,17 @@
      "diameter": 60
     },
     "default_weapon_ids": [
-     "achillus-dreadspear",
-     "lastrum-storm-bolter",
+     "dreadspear",
      "lastrum-storm-bolter"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Contemptor-Achillus Dreadnought",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "contemptor-galatus-dreadnought",
@@ -11194,25 +11175,16 @@
      "diameter": 60
     },
     "default_weapon_ids": [
-     "galatus-warblade"
-    ]
+     "warblade"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Contemptor-Galatus Dreadnought",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "venerable-contemptor-dreadnought",
@@ -11265,24 +11237,15 @@
     },
     "default_weapon_ids": [
      "vaultswords"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Blade Champion",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "caladius-grav-tank",
@@ -11295,31 +11258,22 @@
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "oval",
-     "width": 170,
-     "length": 109
+     "width": 150,
+     "length": 95
     },
     "default_weapon_ids": [
      "armoured-hull",
-     "twin-lastrum-bolt-cannon",
-     "twin-iliastus-accelerator-cannon"
-    ]
+     "iliastus-accelerator-cannon",
+     "twin-lastrum-bolt-cannon"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Caladius Grav-tank",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "allarus-custodians",
@@ -11328,8 +11282,9 @@
    {
     "name": "Allarus Custodian",
     "min": 2,
-    "max": 6,
+    "max": 3,
     "is_leader_model": false,
+    "profile_name": "Allarus Custodians",
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
@@ -11337,51 +11292,15 @@
     "default_weapon_ids": [
      "balistus-grenade-launcher",
      "guardian-spear"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Allarus Custodian",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Allarus Custodian",
-      "min": 3,
-      "max": 3
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Allarus Custodian",
-      "min": 4,
-      "max": 5
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Allarus Custodian",
-      "min": 6,
-      "max": 6
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "shield-captain-on-dawneagle-jetbike",
@@ -11400,24 +11319,15 @@
     "default_weapon_ids": [
      "interceptor-lance",
      "salvo-launcher"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Shield-Captain on Dawneagle Jetbike",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "vigilators",
@@ -11658,28 +11568,18 @@
      "diameter": 160
     },
     "default_weapon_ids": [
+     "arachnus-heavy-blaze-cannon",
      "arachnus-magna-blaze-cannon",
-     "arachnus-heavy-blaze-cannon",
-     "arachnus-heavy-blaze-cannon",
      "armoured-hull-ares-gunship"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Ares Gunship",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "custodian-guard",
@@ -11738,31 +11638,19 @@
      "diameter": 160
     },
     "default_weapon_ids": [
+     "arachnus-heavy-blaze-cannon",
      "armoured-hull-orion-assault-dropship",
      "spiculus-heavy-bolt-launcher",
-     "spiculus-heavy-bolt-launcher",
-     "arachnus-heavy-blaze-cannon",
-     "arachnus-heavy-blaze-cannon",
-     "twin-lastrum-bolt-cannon",
      "twin-lastrum-bolt-cannon"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Orion Assault Dropship",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "knight-centura",
@@ -11779,24 +11667,15 @@
     },
     "default_weapon_ids": [
      "executioner-greatblade-knight-centura"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Knight-Centura",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "anathema-psykana-rhino",
@@ -11812,26 +11691,17 @@
      "draft": true
     },
     "default_weapon_ids": [
-     "storm-bolter",
-     "armoured-tracks"
-    ]
+     "armoured-tracks",
+     "storm-bolter"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Anathema Psykana Rhino",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "aleya",
@@ -11955,42 +11825,25 @@
   "models": [
    {
     "name": "Custodian Warden",
-    "min": 4,
-    "max": 5,
+    "min": 2,
+    "max": 3,
     "is_leader_model": false,
+    "profile_name": "Custodian Wardens",
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
     },
     "default_weapon_ids": [
      "guardian-spear"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Custodian Warden",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Custodian Warden",
-      "min": 5,
-      "max": 5
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "pallas-grav-attack",
@@ -12007,26 +11860,17 @@
      "length": 70
     },
     "default_weapon_ids": [
-     "twin-arachnus-blaze-cannon",
-     "armoured-hull-pallas-grav-attack"
-    ]
+     "armoured-hull-pallas-grav-attack",
+     "twin-arachnus-blaze-cannon"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Pallas Grav-attack",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "vertus-praetors",
@@ -12037,6 +11881,7 @@
     "min": 2,
     "max": 3,
     "is_leader_model": false,
+    "profile_name": "Vertus Praetors",
     "base_size_mm": {
      "shape": "oval",
      "width": 75,
@@ -12045,33 +11890,15 @@
     "default_weapon_ids": [
      "interceptor-lance-vertus-praetors",
      "salvo-launcher"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Vertus Praetor",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Vertus Praetor",
-      "min": 3,
-      "max": 3
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "valerian",
@@ -12164,26 +11991,17 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "guardian-spear-shield-captain-in-allarus-terminator-armour",
-     "balistus-grenade-launcher"
-    ]
+     "balistus-grenade-launcher",
+     "guardian-spear-shield-captain-in-allarus-terminator-armour"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Shield-Captain in Allarus Terminator Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "aquilon-custodians",
@@ -12274,31 +12092,22 @@
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "oval",
-     "width": 170,
-     "length": 109
+     "width": 150,
+     "length": 95
     },
     "default_weapon_ids": [
-     "twin-lastrum-bolt-cannon",
      "armoured-hull-coronus-grav-carrier",
-     "twin-arachnus-blaze-cannon"
-    ]
+     "twin-arachnus-blaze-cannon",
+     "twin-lastrum-bolt-cannon"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Coronus Grav-carrier",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "prosecutors",
@@ -12410,25 +12219,18 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "guardian-spear-shield-captain"
+     "pyrithite-spear-shield-captain"
+    ],
+    "default_wargear": [
+     "Praesidium Shield"
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Shield-Captain",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "trajann-valoris",
@@ -12444,26 +12246,17 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "watchers-axe",
-     "eagles-scream"
-    ]
+     "eagles-scream",
+     "watchers-axe"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Trajann Valoris",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "gilded-blades-allarus-custodians",
@@ -12619,6 +12412,300 @@
     ]
    }
   ]
+ },
+ {
+  "unit_id": "custodian-guard-sodality",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Custodian Guard",
+    "min": 3,
+    "max": 3,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "guardian-spear"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "prosecutor-squad",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Prosecutor",
+    "min": 4,
+    "max": 10,
+    "is_leader_model": false,
+    "profile_name": "Prosecutors",
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 32
+    },
+    "default_weapon_ids": [
+     "boltgun",
+     "gun-stock-prosecutor-squad"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "venatari-with-verutum-lances",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Venatari",
+    "min": 3,
+    "max": 3,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "verutum-lance"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "aquilon-terminators-with-solarite-power-gauntlets",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Aquilon Terminator",
+    "min": 3,
+    "max": 3,
+    "is_leader_model": false,
+    "profile_name": "Aquilon Custodians",
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "adrathic-combi-destructor",
+     "solarite-power-gauntlet"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "sentinel-guard-sodality",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Sentinel Guard",
+    "min": 3,
+    "max": 3,
+    "is_leader_model": false,
+    "profile_name": "Custodian Guard",
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "sentinel-blade"
+    ],
+    "default_wargear": [
+     "Praesidium Shield"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "witchseeker-squad",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Witchseeker",
+    "min": 4,
+    "max": 10,
+    "is_leader_model": false,
+    "profile_name": "Witchseekers",
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 32
+    },
+    "default_weapon_ids": [
+     "flamer",
+     "gun-stock-witchseeker-squad"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "gyrfalcon-jetbike-sodality",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Gyrfalcon Jetbiker",
+    "min": 2,
+    "max": 2,
+    "is_leader_model": false,
+    "profile_name": "Agamatus Custodians",
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 75,
+     "length": 42
+    },
+    "default_weapon_ids": [
+     "lastrum-bolt-cannon",
+     "solarite-power-lance"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "vigilator-squad",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Vigilator",
+    "min": 4,
+    "max": 10,
+    "is_leader_model": false,
+    "profile_name": "Vigilators",
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 32
+    },
+    "default_weapon_ids": [
+     "executioner-greatblade"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "aquilon-terminators-with-solarite-power-talons",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Aquilon Terminator",
+    "min": 3,
+    "max": 3,
+    "is_leader_model": false,
+    "profile_name": "Aquilon Custodians",
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "lastrum-storm-bolter",
+     "solarite-power-talon"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "caladius-annihilator-grav-tank",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Caladius Annihilator Grav-tank",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 150,
+     "length": 95
+    },
+    "default_weapon_ids": [
+     "arachnus-blaze-carronade",
+     "armoured-hull",
+     "twin-lastrum-bolt-cannon"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "venatari-with-kinetic-destroyers",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Venatari",
+    "min": 3,
+    "max": 3,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "kinetic-destroyer",
+     "tarsus-buckler"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "archaeopter-stratoraptor",
@@ -43996,70 +44083,43 @@
   "faction_id": "orks",
   "models": [
    {
-    "name": "Boss Nob on Warbike",
+    "name": "Biker Nob",
     "min": 1,
     "max": 1,
-    "default_weapon_ids": [
-     "close-combat-weapon",
-     "twin-dakkagun"
-    ],
-    "is_leader_model": true,
-    "base_size_mm": {
-     "shape": "oval",
-     "width": 75,
-     "length": 42
-    }
-   },
-   {
-    "name": "Warbiker",
-    "min": 2,
-    "max": 5,
-    "default_weapon_ids": [
-     "twin-dakkagun",
-     "close-combat-weapon"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "oval",
      "width": 75,
      "length": 42
-    }
+    },
+    "default_weapon_ids": [
+     "kustom-choppa-warbikers",
+     "dual-kombi-rokkit"
+    ],
+    "default_wargear": []
+   },
+   {
+    "name": "Warbiker",
+    "min": 2,
+    "max": 5,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 75,
+     "length": 42
+    },
+    "default_weapon_ids": [
+     "choppa",
+     "dual-dakkagun"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "codex-orks"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Boss Nob on Warbike",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Warbiker",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Boss Nob on Warbike",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Warbiker",
-      "min": 3,
-      "max": 5
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "deffkoptas",
@@ -44076,8 +44136,8 @@
      "length": 42
     },
     "default_weapon_ids": [
-     "choppa",
-     "rokkit-launcha",
+     "choppa-deffkoptas",
+     "rokkit-launcha-deffkoptas",
      "slugga",
      "spinnin-blades"
     ]
@@ -44450,8 +44510,8 @@
      "length": 109
     },
     "default_weapon_ids": [
-     "dual-big-shoota",
-     "dual-big-shoota",
+     "dual-big-shoota-morkanaut",
+     "dual-big-shoota-morkanaut",
      "klaw-of-mork",
      "kustom-mega-blasta",
      "kustom-mega-zappa",
@@ -44575,7 +44635,7 @@
     },
     "default_weapon_ids": [
      "choppa-breaka-boyz",
-     "rokkit-pistol",
+     "rokkit-pistol-breaka-boyz",
      "smash-hammer"
     ]
    }
@@ -44622,7 +44682,7 @@
      "big-shoota",
      "deffkannon-and-supa-rokkits",
      "mega-choppa",
-     "skorcha",
+     "skorcha-stompa",
      "supa-gatler"
     ]
    }
@@ -44683,55 +44743,42 @@
   "faction_id": "orks",
   "models": [
    {
-    "name": "Boss Nob",
+    "name": "Nob",
     "min": 1,
     "max": 1,
-    "default_weapon_ids": [
-     "rokkit-pistol",
-     "rokkit-pistol",
-     "choppa-tankbustas"
-    ],
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
-    }
+    },
+    "default_weapon_ids": [
+     "choppa-tankbustas",
+     "rokkit-pistol",
+     "rokkit-pistol"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Tankbusta",
     "min": 5,
     "max": 5,
-    "default_weapon_ids": [
-     "rokkit-launcha-tankbustas",
-     "close-combat-weapon-tankbustas"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
-    }
+    },
+    "default_weapon_ids": [
+     "rokkit-launcha-tankbustas",
+     "gitstikka"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "codex-orks"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Boss Nob",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Tankbusta",
-      "min": 5,
-      "max": 5
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "kommandos",
@@ -44972,7 +45019,7 @@
      "draft": true
     },
     "default_weapon_ids": [
-     "scavenged-shivs",
+     "scavenged-shivs-mek-gunz",
      "smasha-gun-mek-gunz"
     ]
    }
@@ -45039,7 +45086,7 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "kustom-choppa",
+     "kustom-choppa-stormboyz",
      "slugga"
     ]
    }
@@ -45307,7 +45354,7 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "kustom-shoota",
+     "kustom-shoota-big-mek-in-mega-armour",
      "power-klaw-big-mek-in-mega-armour"
     ]
    }
@@ -45886,7 +45933,7 @@
     "default_weapon_ids": [
      "armoured-impact",
      "dual-big-shoota",
-     "dual-supa-shoota"
+     "dual-supa-shoota-burna-bommer"
     ]
    }
   ],
@@ -45925,7 +45972,7 @@
      "stikka-kannon",
      "saw-blades-hunta-rig",
      "eavy-lobba",
-     "butcha-boyz"
+     "butcha-boyz-hunta-rig"
     ]
    }
   ],
@@ -45990,7 +46037,7 @@
     "max": 1,
     "default_weapon_ids": [
      "shoota",
-     "kustom-choppa"
+     "kustom-choppa-bannernob"
     ]
    }
   ],
@@ -46111,29 +46158,23 @@
     "name": "Nazdreg",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 60
+    },
     "default_weapon_ids": [
      "kustom-blasta-x",
-     "kustom-blasta-x-melee",
      "moonchewa"
     ],
-    "is_leader_model": true
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "codex-orks"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Nazdreg",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "runtherd",
@@ -46143,17 +46184,23 @@
     "name": "Runtherd",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 32
+    },
     "default_weapon_ids": [
-     "slugga",
-     "runtherd-tools"
+     "runtherds-toolz",
+     "slugga"
     ],
-    "is_leader_model": true
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "codex-orks"
-  }
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "ardmob-boyz",
@@ -46370,9 +46417,9 @@
     "min": 1,
     "max": 2,
     "default_weapon_ids": [
-     "kustom-choppa",
+     "kustom-choppa-wartrakks",
      "kustom-shoota",
-     "multi-busta-launcha"
+     "multi-busta-launcha-wartrakks"
     ],
     "is_leader_model": false
    }
@@ -46392,6 +46439,56 @@
     ]
    }
   ]
+ },
+ {
+  "unit_id": "warbuggies",
+  "faction_id": "orks",
+  "models": [
+   {
+    "name": "Warbuggy",
+    "min": 1,
+    "max": 2,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 150,
+     "length": 95
+    },
+    "default_weapon_ids": [
+     "extra-dakka",
+     "mek-speshul",
+     "spiked-ram-warbuggies"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "unit_id": "gunwagon",
+  "faction_id": "orks",
+  "models": [
+   {
+    "name": "Gunwagon",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "default_weapon_ids": [
+     "crushin-bulk",
+     "kannon"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "krootox-rampagers",

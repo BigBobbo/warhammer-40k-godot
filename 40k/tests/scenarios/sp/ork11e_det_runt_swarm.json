@@ -1,0 +1,256 @@
+{
+  "id": "ork11e_det_runt_swarm",
+  "covers": [
+    "ork11e.detachment.runt_swarm.sneaky_little_gitz",
+    "ork11e.detachment.battleline_grant"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Runt Swarm — SNEAKY LITTLE GITZ (WP-O34): Gretchin have BATTLELINE; a GRETCHIN unit's advance/fall-back move does not prevent it from starting an action. Setup: detachment Runt Swarm (BATTLELINE granted); Custodian Guard Charlie moved within 9\" of Gretchin Delta so they have a target and can be selected to shoot. Movement phase: Gretchin Delta clicked, Advance + Confirm, End This Unit's Move: advanced, no action lock. Shooting phase: Gretchin Delta offered the Hold Position action and the action is started with real clicks on the shooting panel's 'Start Action (units not shooting)' button and the chooser (advanced Gretchin without [ASSAULT] weapons cannot be selected to shoot, so the per-shooter Start Action button never appears for them; this button closes that gap — formerly a pre-existing UI limitation, reported).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn true",
+      "equals": true,
+      "comment": "WP-O6: the Weirdboy's codex Da Jump is offered at the start of the Movement phase — not under test, declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Runt Swarm\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nvar _ms_U_CUSTODIAN_GUARD_C = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor _i in range(_ms_U_CUSTODIAN_GUARD_C.size()):\n\t_ms_U_CUSTODIAN_GUARD_C[_i][\"position\"] = {\"x\": (7.000000 + (float(_i) - float(_ms_U_CUSTODIAN_GUARD_C.size() - 1) / 2.0) * 1.800000) * 40.0, \"y\": 20.500000 * 40.0}\nfor _m in GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models:\n\t_m[\"wounds\"] = 99\n\t_m[\"current_wounds\"] = 99\nGameState.state.players[\"2\"][\"cp\"] = 0\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Runt Swarm",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Runt Swarm (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "execute_script",
+      "script": "\"BATTLELINE\" in GameState.state.units[\"U_GRETCHIN_D\"].meta.keywords",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(5)"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_GRETCHIN_D"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_node",
+      "button_text": "Advance"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_node",
+      "button_text": "Confirm Movement Mode"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "A",
+      "ctrl": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "drag_board",
+      "from_x": 320.0,
+      "from_y": 480.0,
+      "to_x": 320.0,
+      "to_y": 500.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_GRETCHIN_D.flags.advanced",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "bool(GameState.get_unit(\"U_GRETCHIN_D\").flags.get(\"cannot_start_action\", false))",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "var AM = load(\"res://scripts/rules/ActionsManager.gd\")\nreturn AM.can_start_action(\"U_GRETCHIN_D\", GameState.state).eligible",
+      "multiline": true,
+      "equals": true,
+      "comment": "still eligible to start an action after advancing"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_gretchin_advanced_no_action_lock"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "var acts = PhaseManager.get_current_phase_instance().get_startable_11e_actions(\"U_GRETCHIN_D\")\nvar ids = []\nfor a in acts:\n\tids.append(str(a.get(\"id\", \"\")))\nreturn \"hold_position\" in ids",
+      "multiline": true,
+      "equals": true,
+      "comment": "the advanced Gretchin are offered the Hold Position action"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/ActionOnlyButton",
+      "timeout_s": 3.0,
+      "comment": "advanced Gretchin cannot be selected to shoot, so the action-only button offers their action"
+    },
+    {
+      "act": "execute_script",
+      "script": "var sc = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/ShootingScrollContainer\")\nsc.ensure_control_visible(sc.get_node(\"ShootingPanel/DeclarationBox/ActionOnlyButton\"))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "02a_action_only_button_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/ActionOnlyButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ActionChoiceDialog/Content/Pick_U_GRETCHIN_D_hold_position",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02b_action_chooser_lists_gretchin_hold_position"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/ActionChoiceDialog/Content/Pick_U_GRETCHIN_D_hold_position"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_GRETCHIN_D\" in PhaseManager.get_current_phase_instance().units_that_shot",
+      "equals": true,
+      "comment": "starting the action gave up shooting (16.01)"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_advanced_gretchin_started_action"
+    }
+  ]
+}

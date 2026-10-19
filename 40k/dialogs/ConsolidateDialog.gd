@@ -24,6 +24,11 @@ var reset_button: Button = null
 # unit is within 3" of — not just the one the phase defaulted to.
 var objective_picker: OptionButton = null
 var objective_ids: Array = []
+# Codex: Adeptus Custodes (11e) Unstoppable Destroyer: "You can select any
+# consolidation mode" — the mode picker and the mode ids behind its items (WP-C46).
+var mode_picker: OptionButton = null
+var mode_ids: Array = []
+const _MODE_LABELS := {"ongoing": "Ongoing", "engaging": "Engaging", "objective": "Objective"}
 
 func setup(fighter_id: String, max_dist: float, phase, controller = null) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -58,6 +63,9 @@ func _build_ui() -> void:
 	instruction.add_theme_font_size_override("font_size", 19)
 	instruction.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	container.add_child(instruction)
+
+	# Unstoppable Destroyer (WP-C46): free choice of consolidation mode.
+	_build_mode_picker(container)
 
 	# 12.08 BEFORE — Objective Consolidation: "select ONE of those objectives".
 	_build_objective_picker(container)
@@ -350,6 +358,80 @@ func _build_objective_picker(container: VBoxContainer) -> void:
 	row.add_child(objective_picker)
 
 	container.add_child(row)
+
+func _build_mode_picker(container: VBoxContainer) -> void:
+	"""Codex: Adeptus Custodes (11e) Unstoppable Destroyer — "You can select any
+	consolidation mode for that consolidation move, regardless of that
+	consolidation move's Before Moving restrictions." Shown only when the phase
+	offers more than one mode (each mode's own condition still applies)."""
+	var ctx = _consolidate_context()
+	var modes: Array = ctx.get("available_modes", [])
+	if modes.size() < 2:
+		return
+	var row = HBoxContainer.new()
+	row.name = "ModePicker"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	var lbl = Label.new()
+	lbl.name = "ModePickerLabel"
+	lbl.text = "%s — mode:" % str(ctx.get("free_choice_source", "Free choice"))
+	lbl.add_theme_font_size_override("font_size", 16)
+	lbl.add_theme_color_override("font_color", _NEUTRAL_STATUS)
+	row.add_child(lbl)
+	mode_picker = OptionButton.new()
+	mode_picker.name = "ModeOption"
+	mode_picker.custom_minimum_size = Vector2(0, 32)
+	mode_ids.clear()
+	var current = str(ctx.get("mode", ""))
+	for i in range(modes.size()):
+		var m = str(modes[i])
+		mode_picker.add_item("%s Consolidation" % str(_MODE_LABELS.get(m, m.capitalize())), i)
+		mode_ids.append(m)
+		if m == current:
+			mode_picker.select(i)
+	mode_picker.tooltip_text = "Unstoppable Destroyer: pick any consolidation mode whose own condition holds (engaged / enemy within 3\" / objective within 3\")."
+	mode_picker.item_selected.connect(_on_mode_option_selected)
+	row.add_child(mode_picker)
+	container.add_child(row)
+
+func _on_mode_option_selected(index: int) -> void:
+	if index < 0 or index >= mode_ids.size():
+		return
+	if controller_reference == null or not controller_reference.has_method("set_consolidate_mode_11e"):
+		return
+	var result = controller_reference.set_consolidate_mode_11e(str(mode_ids[index]))
+	if not result.get("ok", false):
+		var cur = mode_ids.find(str(_consolidate_context().get("mode", "")))
+		if cur >= 0:
+			mode_picker.select(cur)
+		if status_label:
+			status_label.text = "✗ %s" % str(result.get("reason", "mode not selectable"))
+			status_label.add_theme_color_override("font_color", Color.RED)
+		return
+	var instruction = get_node_or_null("Content/Instruction")
+	if instruction != null:
+		instruction.text = _get_consolidate_mode_text()
+	# The objective picker exists only in Objective mode — rebuild it in place.
+	var content = get_node_or_null("Content")
+	var old_picker = get_node_or_null("Content/ObjectivePicker")
+	if old_picker != null:
+		content.remove_child(old_picker)
+		old_picker.queue_free()
+		objective_picker = null
+	if content != null:
+		_build_objective_picker(content)
+		var new_picker = content.get_node_or_null("ObjectivePicker")
+		var mode_row = content.get_node_or_null("ModePicker")
+		if new_picker != null and mode_row != null:
+			content.move_child(new_picker, mode_row.get_index() + 1)
+	if controller_reference.has_method("get_pile_in_movements"):
+		model_movements = controller_reference.get_pile_in_movements()
+	var reverted: Array = result.get("reverted", [])
+	if not reverted.is_empty() and status_label:
+		status_label.text = "Mode changed — %d model move(s) reset (not legal in this mode)" % reverted.size()
+		status_label.add_theme_color_override("font_color", _NEUTRAL_STATUS)
+	else:
+		_update_status()
 
 func _on_objective_option_selected(index: int) -> void:
 	"""Re-target the consolidation at the objective the player just picked. The

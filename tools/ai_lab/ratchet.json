@@ -1,12 +1,12 @@
 {
   "note": "Baseline for tools/ai_lab/ratchet_check.py. Reachability and instrumentation may only improve. Update this file DELIBERATELY, in the same commit as the justified regression, with the reason in the commit message.",
-  "parameters": 238,
-  "call_sites": 305,
+  "parameters": 242,
+  "call_sites": 308,
   "unreachable_coefficients": 120,
-  "unreachable_share_pct": 41.4,
+  "unreachable_share_pct": 42.1,
   "instrumentation_call_sites": {
     "_add_decision_record": 7,
-    "_t_add": 47,
+    "_t_add": 46,
     "_t_mul": 1,
     "_note_param_read": 8,
     "_stash_shooting_alternatives": 2

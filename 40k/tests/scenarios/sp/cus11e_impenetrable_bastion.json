@@ -1,0 +1,178 @@
+{
+  "id": "cus11e_impenetrable_bastion",
+  "covers": [
+    "codex.custodes.stratagems.impenetrable-bastion-emperors-chosen",
+    "codex.custodes.CustodesCodex11e",
+    "stratagem.window.movement_phase_end",
+    "scripts.Main.window_secondary_pick.objective",
+    "rules.objectives.secured"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) IMPENETRABLE BASTION (Emperor's Chosen, 1 CP) — WP-C5. Fixture cus11e_c5_active (P1 Custodes active, round 2; layout in tests/helpers/gen_cus11e_c5_fixtures.gd). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (Movement phase); P2 has 0 CP (no Fire Overwatch); objective control recomputed (Custodian Guard B holds obj_nml_2). The End Movement action opens movement_phase_end; a real click on 'Use on Custodian Guard...' asks which objective it controls; a real click on obj_nml_2 spends 1 CP: the objective stays under P1's control (secured) even with no unit in range.",
+  "fixture": "cus11e_c5_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nMissionManager.check_all_objectives()\nreturn H.setup(1, \"Emperor's Chosen\", {\"cp\": {\"2\": 0}})",
+      "comment": "setup privileges (see description)",
+      "equals": "Emperor's Chosen"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nPhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement_phase_start (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      },
+      "comment": "the End Movement Phase button's action"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "movement_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emperor’s_chosen_impenetrable_bastion/Buttons/Use_faction_ac_emperor’s_chosen_impenetrable_bastion_U_CUSTODIAN_GUARD_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emperor’s_chosen_impenetrable_bastion/Buttons/Use_faction_ac_emperor’s_chosen_impenetrable_bastion_U_CUSTODIAN_GUARD_B",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_impenetrable_bastion_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emperor’s_chosen_impenetrable_bastion/Buttons/Use_faction_ac_emperor’s_chosen_impenetrable_bastion_U_CUSTODIAN_GUARD_B",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemChoiceDialog/Content/Choice_obj_nml_2",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_secondary_pick"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemChoiceDialog/Content/Choice_obj_nml_2",
+      "comment": "REAL click on the secondary pick"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn int(load(\"res://scripts/codex/custodes/CustodesCommon.gd\").objective_secured_by(\"obj_nml_2\"))",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.log_count(\"Used IMPENETRABLE BASTION\")",
+      "comment": "the Game Log names the stratagem",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03_obj_nml_2_secured"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "phase_end (SUPERHUMAN FOCUS, not under test) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn int(GameState.get_current_phase())",
+      "comment": "the Movement phase then ended",
+      "equals": 8
+    }
+  ]
+}

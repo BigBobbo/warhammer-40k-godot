@@ -1,0 +1,128 @@
+{
+  "id": "w3_builder_codex_datasheets",
+  "builder_e2e": "server/tests/e2e-codex-datasheets.mjs",
+  "covers": [
+    "army_builder.codex_datasheets",
+    "army_builder.codex_wargear_points",
+    "ui.main_menu.refresh_cloud_armies",
+    "army_list.cloud_load"
+  ],
+  "description": "WP-W3: an army built in the real browser Army Builder reaches the game with the Codex: Adeptus Custodes (11e) datasheets, not the bundle's pre-codex ones. Game-side half of server/tests/e2e-codex-datasheets.mjs, which first drives the builder page (Playwright): faction Adeptus Custodes, Guardians of the Throne, a warlord Shield-Captain (the builder shows M8\" T7 W8 and 205 pts = 180 + 25 for the default Praesidium Shield) and a Custodian Guard Sodality (3 models, W5, 240 pts), saved to the cloud as WPW3_E2E_Custodes on a local relay server (the driver points res://server_config.json at it for this run only). No fixture: the scenario runs on the MainMenu. A real click on Refresh Cloud Armies lists the army; it is selected for Player 1; a real click on Start Game downloads it and starts the game. In game the Shield-Captain has the codex profile (W8 on the unit and its model, T7, M8, 205 pts, the Praesidium Shield wargear ability) and the Sodality has 3 W5 models; the Shield-Captain's datasheet card shows W 8. Not runnable without that server (driver described in .llm/codex_11e_wahapedia/changelog/WP-W3.md).",
+  "edition": 11,
+  "rng_seed": 42,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_script().resource_path",
+      "equals": "res://scripts/MainMenu.gd"
+    },
+    {
+      "act": "execute_script",
+      "script": "CloudStorage.base_url.begins_with(\"http://localhost:\") and CloudStorage.base_url != \"http://localhost:9080\"",
+      "equals": true,
+      "comment": "the driver's temporary server_config.json points at the e2e relay server"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ArmySection/ArmyBuilderContainer/RefreshCloudArmiesButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the builder-made army is listed (Cloud)",
+      "script": "var main = tree.current_scene\nfor i in range(main.army_options.size()):\n\tif str(main.army_options[i].id) == \"WPW3_E2E_Custodes\":\n\t\treturn i\nreturn -1",
+      "expect_min": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Player 1 picks the cloud army in the dropdown; both seats human",
+      "script": "var main = tree.current_scene\nvar idx := -1\nfor i in range(main.army_options.size()):\n\tif str(main.army_options[i].id) == \"WPW3_E2E_Custodes\":\n\t\tidx = i\nmain.player1_dropdown.select(idx)\nmain.player1_dropdown.item_selected.emit(idx)\nmain.player1_type_dropdown.select(0)\nmain.player1_type_dropdown.item_selected.emit(0)\nmain.player2_type_dropdown.select(0)\nmain.player2_type_dropdown.item_selected.emit(0)\nreturn main.player1_dropdown.get_item_text(main.player1_dropdown.selected).contains(\"Cloud\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_main_menu_builder_army_selected"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.current_scene.get_script().resource_path",
+      "equals": "res://scripts/Main.gd"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the downloaded cloud army is the builder export: codex data_source",
+      "script": "var raw = ArmyListManager.cloud_army_cache.get(\"WPW3_E2E_Custodes\", {})\nvar src := str(raw.get(\"faction\", {}).get(\"data_source\", \"\"))\nprint(\"[w3 builder] cloud army data_source=\", src)\nreturn src.begins_with(\"40kdc-data 1.4.5\") and src.contains(\"Wahapedia 11e codex import\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the Shield-Captain has the codex profile in game: W8 (unit and model; pre-codex W6), T7, M8, 205 pts with its Praesidium Shield",
+      "script": "for uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 1 and str(u.meta.get(\"name\", \"\")) == \"Shield-Captain\":\n\t\tvar s = u.meta.stats\n\t\tvar names := []\n\t\tfor a in u.meta.get(\"abilities\", []):\n\t\t\tnames.append(str(a.get(\"name\", \"\")) if a is Dictionary else str(a))\n\t\tGameState.state.meta[\"_w3_sc\"] = uid\n\t\tprint(\"[w3 builder] \", uid, \" stats=\", s, \" model W=\", u.models[0].get(\"wounds\"), \" pts=\", u.meta.get(\"points\"), \" wargear=\", u.meta.get(\"wargear\"), \" abilities=\", names)\n\t\treturn int(s.wounds) == 8 and int(u.models[0].wounds) == 8 and int(s.toughness) == 7 and int(s.move) == 8 and int(u.meta.points) == 205 and names.has(\"Praesidium Shield\") and bool(u.meta.get(\"is_warlord\", false))\nreturn \"no Shield-Captain\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the Custodian Guard Sodality: 3 models, W5, 240 pts, no Vexilla (+1 OC) — the builder did not take one",
+      "script": "for uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 1 and str(u.meta.get(\"name\", \"\")) == \"Custodian Guard Sodality\":\n\t\tvar ws := []\n\t\tfor m in u.models:\n\t\t\tws.append(int(m.wounds))\n\t\tprint(\"[w3 builder] \", uid, \" models W=\", ws, \" OC=\", u.meta.stats.objective_control, \" pts=\", u.meta.points)\n\t\treturn u.models.size() == 3 and ws == [5, 5, 5] and int(u.meta.stats.objective_control) == 3 and int(u.meta.points) == 240\nreturn \"no Sodality\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "screenshot framing only: the Battle Formations dialog (an exclusive popup) is hidden so the datasheet is readable; it is shown again after the screenshot",
+      "script": "var fd = tree.current_scene.formations_dialog\nif fd == null or not is_instance_valid(fd) or not fd.visible:\n\treturn 0\nfd.set_meta(\"_w3_hidden\", true)\nfd.hide()\nreturn 1",
+      "expect_min": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "open the Shield-Captain's datasheet (the I-key card)",
+      "script": "return tree.current_scene.get_node(\"DatasheetModal\").open_for(str(GameState.state.meta[\"_w3_sc\"]))",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the card's statline reads the codex values",
+      "script": "var ds = tree.current_scene.get_node(\"DatasheetModal\")\nprint(\"[w3 builder] datasheet stats_text=\", ds.stats_text)\nreturn ds.stats_text.contains(\"W 8\") and ds.stats_text.contains(\"T 7\") and ds.stats_text.contains(\"M 8\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_datasheet_shield_captain_codex_w8"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "restore the Battle Formations dialog",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").close()\nvar fd = tree.current_scene.formations_dialog\nif fd != null and is_instance_valid(fd) and fd.has_meta(\"_w3_hidden\"):\n\tfd.remove_meta(\"_w3_hidden\")\n\tfd.show()\nreturn true",
+      "equals": true
+    }
+  ]
+}

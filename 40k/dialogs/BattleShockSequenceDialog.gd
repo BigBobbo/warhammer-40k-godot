@@ -451,8 +451,14 @@ func _refresh() -> void:
 	_reason_label.text = str(_entry.get("reason_text", ""))
 
 	var target := "Needs %d+ on 2D6  (Leadership %d)" % [ld, ld]
-	if bonus > 0:
-		target += "   ·   +%d Waaagh! Effigy" % bonus
+	# battle_shock_malus: the negative part of the bonus (Codex: Adeptus
+	# Custodes 11e Creeping Dread -1, WP-C46); the rest is the +N bonus.
+	var malus := int(_entry.get("battle_shock_malus", 0))
+	var plus := bonus - malus
+	if plus > 0:
+		target += "   ·   +%d Waaagh! Effigy" % plus
+	if malus < 0:
+		target += "   ·   %d %s" % [malus, str(_entry.get("battle_shock_malus_source", "to the roll"))]
 	_target_label.text = target
 
 	_reroll_label.visible = _reroll_note != ""
@@ -496,8 +502,8 @@ func _render_dice_total() -> void:
 	var d1 := int(_die_a.value)
 	var d2 := int(_die_b.value)
 	var bonus := int(_entry.get("battle_shock_bonus", 0))
-	if bonus > 0:
-		_total_label.text = "= %d (+%d) = %d" % [d1 + d2, bonus, d1 + d2 + bonus]
+	if bonus != 0:  # a malus (Creeping Dread -1, WP-C46) shows too
+		_total_label.text = "= %d (%+d) = %d" % [d1 + d2, bonus, d1 + d2 + bonus]
 	else:
 		_total_label.text = "= %d" % (d1 + d2)
 

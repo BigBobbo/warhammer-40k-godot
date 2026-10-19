@@ -145,10 +145,10 @@ var _auto_confirming_pending_move: bool = false
 # from _on_unit_move_begun once the window is answered.
 var _ork11e_deferred_mode_lock: Dictionary = {}
 
-# OA-24: PopupMenu for special movement actions (e.g. Kunnin' Infiltrator)
+# OA-24: PopupMenu for special movement actions that replace the Normal Move
+# (none since the Codex: Orks (11e) dropped the Kunnin' Infiltrator redeploy).
 var _movement_action_popup: PopupMenu = null
 var _popup_pending_unit_id: String = ""  # Unit awaiting action choice from popup
-var _kunnin_infiltrator_button: Button = null  # Persistent button in mode selection panel
 
 # Path tracking
 var current_path: Array = []  # Array of Vector2 points
@@ -168,16 +168,16 @@ func get_unit_movement(unit: Dictionary) -> float:
 		var unit_name = unit.get("meta", {}).get("name", "Unknown")
 		push_warning("MovementController: Unit %s missing movement stat, using default: 6" % unit_name)
 
-	# SPECIAL DOSE: +6" to Move while Waaagh! active (Zodgrod Wortsnagga)
-	if unit.get("flags", {}).get("special_dose_active", false):
-		var old_movement = movement
-		movement += 6.0
-		print("MovementController: Special Dose — movement %d → %d (+6\")" % [int(old_movement), int(movement)])
-
 	# Codex: Orks (11e) FUNGUS-FUEL INJECTION: +2" M (mirrors MovementPhase.get_unit_movement).
 	var ffi_move = int(unit.get("flags", {}).get("ork11e_plus_move", 0))
 	if ffi_move > 0:
 		movement += float(ffi_move)
+	# WP-O6: Codex: Orks (11e) datasheet move modifiers (Runnin' wiv da Herd +4",
+	# Madcap Artillery "smashed" -2") — mirrors MovementPhase.get_unit_movement.
+	if GameConstants.edition >= 11:
+		movement = maxf(0.0, movement + float(load("res://scripts/codex/orks/OrkAbilities11e.gd").move_modifier(unit)))
+		# WP-C7: Codex: Adeptus Custodes (11e) Seeker's Instincts (+2" M).
+		movement += float(load("res://scripts/codex/custodes/CustodesAbilities.gd").move_modifier(unit))
 
 	return movement
 
@@ -613,15 +613,6 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	
 	section.add_child(button_container)
 
-	# OA-24: Add Kunnin' Infiltrator button (hidden by default, shown when ability available)
-	_kunnin_infiltrator_button = Button.new()
-	_kunnin_infiltrator_button.name = "KunninInfiltratorButton"
-	_kunnin_infiltrator_button.text = "Kunnin' Infiltrator (Redeploy)"
-	_kunnin_infiltrator_button.visible = false
-	_kunnin_infiltrator_button.pressed.connect(_on_kunnin_infiltrator_button_pressed)
-	_WhiteDwarfTheme.apply_to_button(_kunnin_infiltrator_button)
-	section.add_child(_kunnin_infiltrator_button)
-
 	# Add dice result display (hidden initially)
 	advance_roll_label = Label.new()
 	advance_roll_label.text = "Advance Roll: -"
@@ -973,9 +964,6 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("krump_and_run_opportunity"):
 				if not phase.krump_and_run_opportunity.is_connected(_on_krump_and_run_opportunity):
 					phase.krump_and_run_opportunity.connect(_on_krump_and_run_opportunity)
-			if phase.has_signal("kunnin_infiltrator_available"):
-				if not phase.kunnin_infiltrator_available.is_connected(_on_kunnin_infiltrator_available):
-					phase.kunnin_infiltrator_available.connect(_on_kunnin_infiltrator_available)
 			# Codex: Orks (11e) READIED BRAWLERS follow-up — assault disembark UI.
 			if phase.has_signal("ork11e_assault_disembark_requested"):
 				if not phase.ork11e_assault_disembark_requested.is_connected(_on_ork11e_assault_disembark_requested):
@@ -983,11 +971,6 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("scatter_opportunity"):
 				if not phase.scatter_opportunity.is_connected(_on_scatter_opportunity):
 					phase.scatter_opportunity.connect(_on_scatter_opportunity)
-				# audit P1: Bomb Squigs — human had no UI; the phase emitted
-				# bomb_squigs_available but only AIPlayer listened.
-				if phase.has_signal("bomb_squigs_available"):
-					if not phase.bomb_squigs_available.is_connected(_on_bomb_squigs_available):
-						phase.bomb_squigs_available.connect(_on_bomb_squigs_available)
 
 			# Update the game state snapshot reference
 			if phase.has_method("get_game_state_snapshot"):
@@ -1073,7 +1056,7 @@ func _refresh_unit_list() -> void:
 		unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 
 	# OA-24: Build a set of unit_ids that have special movement actions
-	var _special_action_types = ["ACTIVATE_KUNNIN_INFILTRATOR"]
+	var _special_action_types: Array = SPECIAL_MOVE_ACTION_TYPES
 	var units_with_special_actions = {}
 	for action in actions:
 		if action.get("type", "") in _special_action_types:
@@ -1270,7 +1253,7 @@ func _on_unit_selected(index: int) -> void:
 			move_cap_inches = get_unit_movement(unit)
 			print("MovementController: Unit %s has movement cap of %.1f inches" % [unit_id, move_cap_inches])
 
-		# OA-24: Check if unit has special movement actions (e.g. Kunnin' Infiltrator)
+		# OA-24: Check if unit has special movement actions (SPECIAL_MOVE_ACTION_TYPES)
 		# If so, show a popup to let the player choose instead of auto-starting Normal Move
 		if current_phase:
 			var special_actions = _get_special_movement_actions(unit_id)
@@ -1484,16 +1467,6 @@ func _on_remain_stationary_pressed() -> void:
 
 	# Don't dispatch REMAIN_STATIONARY yet — wait for "Confirm Movement Mode" button
 	_refresh_confirm_mode_button_enable()
-
-func _on_kunnin_infiltrator_button_pressed() -> void:
-	"""Handle the Kunnin' Infiltrator button press in the mode selection panel."""
-	if active_unit_id == "":
-		return
-	print("MovementController: Kunnin' Infiltrator button pressed for %s" % active_unit_id)
-	emit_signal("move_action_requested", {
-		"type": "ACTIVATE_KUNNIN_INFILTRATOR",
-		"actor_unit_id": active_unit_id
-	})
 
 func _on_undo_model_pressed() -> void:
 	if active_unit_id == "":
@@ -1734,7 +1707,9 @@ func _unit_is_super_heavy_walker(unit_id: String) -> bool:
 	var unit = GameState.get_unit(unit_id)
 	if unit == null or unit.is_empty():
 		return false
-	return "SUPER-HEAVY WALKER" in unit.get("meta", {}).get("keywords", [])
+	# The keyword, or the 24.35 core ability codex datasheets print
+	# (Codex: Orks 11e Stompa / Gorkanaut / Morkanaut).
+	return UnitAbilities.is_super_heavy_walker(unit)
 
 func _update_shw_gamble_visibility() -> void:
 	# ISS-073 (24.35): show the MOBILE-gamble toggle only for a SUPER-HEAVY
@@ -1909,9 +1884,6 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 	if mode_is_locked:
 		# Unit's mode is already locked, disable all controls
 		_update_mode_buttons_state(false)
-		# OA-24: Hide ability button when mode is locked
-		if _kunnin_infiltrator_button:
-			_kunnin_infiltrator_button.visible = false
 
 		# Show the locked mode in the UI
 		var locked_mode = current_phase.active_moves[unit_id].get("mode", "")
@@ -1952,11 +1924,6 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 		# Hide advance roll label
 		if advance_roll_label:
 			advance_roll_label.visible = false
-
-		# OA-24: Show/hide Kunnin' Infiltrator button based on unit abilities
-		if _kunnin_infiltrator_button:
-			var has_ki = _get_special_movement_actions(unit_id).size() > 0 if current_phase else false
-			_kunnin_infiltrator_button.visible = has_ki
 
 		# ISS-073: show the SHW MOBILE-gamble toggle for an eligible fresh unit.
 		_update_shw_gamble_visibility()
@@ -4044,7 +4011,7 @@ func _get_active_unit_keywords() -> Array:
 	if active_unit_id == "":
 		return []
 	# Per-move keyword grants (24.35 MOBILE gamble, Codex: Orks (11e) STOMPING
-	# JUGGERNAUT's MOBILE, Clankin'/Stompin' Forward step-over) — the SAME list the
+	# JUGGERNAUT's MOBILE) — the SAME list the
 	# phase validates drops with, so the client-side wall gate agrees with it.
 	if current_phase and current_phase.has_method("_terrain_rule_keywords") and current_phase.has_method("get_active_move_data"):
 		return current_phase._terrain_rule_keywords(active_unit_id, current_phase.get_active_move_data(active_unit_id))
@@ -5390,7 +5357,9 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	if is_instance_valid(dice_log_display):
 		var roll_val = rolls[0] if rolls.size() > 0 else 0
 		DiceLogFormatter.advance_roll(dice_log_display, unit_name, roll_val)
-		DiceLogFormatter.note(dice_log_display, "Command Re-roll available! (1 CP)", "#E8C477")
+		# Codex: Orks (11e) Waaagh! free advance re-roll (WP-O34) — no CP.
+		var free_rr_name := str(roll_context.get("free_ability_name", ""))
+		DiceLogFormatter.note(dice_log_display, ("%s: free re-roll available!" % free_rr_name) if free_rr_name != "" else "Command Re-roll available! (1 CP)", "#E8C477")
 
 	# Skip dialog for AI players — AIPlayer handles the decision via signal
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
@@ -5419,7 +5388,8 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		player,
 		roll_context.get("roll_type", "advance_roll"),
 		roll_context.get("original_rolls", []),
-		roll_context.get("context_text", "")
+		roll_context.get("context_text", ""),
+		str(roll_context.get("free_ability_name", ""))  # Codex: Orks (11e) Waaagh! free re-roll (WP-O34)
 	)
 	dialog.command_reroll_used.connect(_on_command_reroll_used)
 	dialog.command_reroll_declined.connect(_on_command_reroll_declined)
@@ -5784,69 +5754,24 @@ func _on_scatter_declined(player: int) -> void:
 	})
 
 # ===================================================
-# KUNNIN' INFILTRATOR HANDLING (OA-24)
-# ===================================================
-
-func _on_bomb_squigs_available(unit_id: String, player: int, eligible_targets: Array) -> void:
-	"""audit P1: show the Orks' Bomb Squigs prompt to a human. The phase set
-	_bomb_squigs_pending_unit and emitted this signal, but only AIPlayer listened
-	(guarded by is_ai_player) — so a human could never use it. Skip AI and
-	non-owning MP seats to avoid a double-submit."""
-	print("[MovementController] Bomb Squigs available for %s (player %d, %d targets)" % [unit_id, player, eligible_targets.size()])
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		return
-	if NetworkManager and NetworkManager.is_networked() \
-			and NetworkManager.get_local_player() != player:
-		return
-	var dialog = preload("res://dialogs/BombSquigsDialog.gd").new()
-	dialog.name = "BombSquigsDialog"
-	dialog.setup(unit_id, player, eligible_targets)
-	dialog.bomb_squigs_chosen.connect(_on_bomb_squigs_chosen)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-
-func _on_bomb_squigs_chosen(actor_unit_id: String, target_unit_id: String, use_ability: bool) -> void:
-	"""Dispatch the Bomb Squigs decision from the dialog."""
-	if use_ability:
-		emit_signal("move_action_requested", {
-			"type": "USE_BOMB_SQUIGS",
-			"actor_unit_id": actor_unit_id,
-			"target_unit_id": target_unit_id
-		})
-	else:
-		emit_signal("move_action_requested", {
-			"type": "DECLINE_BOMB_SQUIGS",
-			"actor_unit_id": actor_unit_id
-		})
-
-func _on_kunnin_infiltrator_available(unit_id: String, player: int) -> void:
-	"""Handle Kunnin' Infiltrator activation — notify UI that redeployment placement is needed.
-	The actual placement is handled by Main.gd via DeploymentController (same as reinforcements)."""
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ MovementController: KUNNIN' INFILTRATOR AVAILABLE")
-	print("║ Unit: %s, Player: %d" % [unit_id, player])
-	print("║ Awaiting redeployment placement via DeploymentController...")
-	print("╚═══════════════════════════════════════════════════════════════")
-
-	# Refresh the UI to show the updated available actions (PLACE/CANCEL)
-	_refresh_unit_list()
-	emit_signal("ui_update_requested")
-
-# ===================================================
 # SPECIAL MOVEMENT ACTION POPUP (OA-24)
-# Shows a popup when a unit has abilities like Kunnin' Infiltrator
-# that replace the Normal Move, letting the player choose.
+# Shows a popup when a unit has abilities that replace the Normal Move,
+# letting the player choose. SPECIAL_MOVE_ACTION_TYPES lists those action
+# types; it is empty since the Codex: Orks (11e) Kunnin' Infiltrator became a
+# strategic-reserves ability (WP-O6).
 # ===================================================
+const SPECIAL_MOVE_ACTION_TYPES: Array = []
 
 func _get_special_movement_actions(unit_id: String) -> Array:
 	"""Check phase available actions for special movement abilities for this unit.
-	Returns an array of special action dictionaries (e.g. ACTIVATE_KUNNIN_INFILTRATOR)."""
+	Returns an array of special action dictionaries (types in SPECIAL_MOVE_ACTION_TYPES)."""
 	if not current_phase:
 		print("MovementController: _get_special_movement_actions — no current_phase")
 		return []
+	if SPECIAL_MOVE_ACTION_TYPES.is_empty():
+		return []
 
-	var special_types = ["ACTIVATE_KUNNIN_INFILTRATOR"]
+	var special_types = SPECIAL_MOVE_ACTION_TYPES
 	var special_actions = []
 	var actions = current_phase.get_available_actions()
 	print("MovementController: _get_special_movement_actions for %s — checking %d available actions" % [unit_id, actions.size()])

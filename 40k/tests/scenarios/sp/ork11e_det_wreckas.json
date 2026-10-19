@@ -1,0 +1,140 @@
+{
+  "id": "ork11e_det_wreckas",
+  "covers": [
+    "ork11e.detachment.wreckas.wreckin_and_lootin"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Wreckas — WRECKIN' AND LOOTIN' (WP-O34): in your Shooting phase a Breaka Boyz/Flash Gitz/Tankbustas unit re-rolls hit rolls of 1 if it, or its target, is within range of an objective. Setup: detachment Wreckas; Custodian Guard Charlie moved onto the No Man's Land objective at 10\",22\". Shooting phase: the Flash Gitz are clicked, Quick-Assign at Custodian Guard Charlie, Confirm, Fast: the hit roll's modifier ledger names Wreckin' and Lootin' (re-roll 1s) and every unmodified 1 was re-rolled.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Wreckas\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nvar _ms_U_CUSTODIAN_GUARD_C = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor _i in range(_ms_U_CUSTODIAN_GUARD_C.size()):\n\t_ms_U_CUSTODIAN_GUARD_C[_i][\"position\"] = {\"x\": (9.500000 + (float(_i % 1) - float(1 - 1) / 2.0) * 1.800000) * 40.0, \"y\": (21.000000 + float(_i / 1) * 1.800000) * 40.0}\nfor _m in GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models:\n\t_m[\"wounds\"] = 99\n\t_m[\"current_wounds\"] = 99\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Wreckas",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Wreckas (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkDetachments11e.gd\").hit_reroll_ones_source(GameState.state.units[\"U_FLASH_GITZ_A\"], GameState.state.units[\"U_CUSTODIAN_GUARD_C\"], false)\n",
+      "multiline": true,
+      "equals": "Wreckin' and Lootin' (target within range of an objective)"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_FLASH_GITZ_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_FLASH_GITZ_A"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var pa = PhaseManager.get_current_phase_instance().pending_assignments\nif pa.is_empty():\n\treturn \"none\"\nfor a in pa:\n\tif str(a.get(\"target_unit_id\", \"\")) != \"U_CUSTODIAN_GUARD_C\":\n\t\treturn str(a.get(\"target_unit_id\", \"\"))\nreturn \"U_CUSTODIAN_GUARD_C\"",
+      "multiline": true,
+      "equals": "U_CUSTODIAN_GUARD_C",
+      "comment": "every declared weapon targets U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"to_hit\" and \"Wreckin\" in str(d.get(\"modifier_ledger\", []))):\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "Wreckin' and Lootin' in the hit roll's ledger"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_flash_gitz_reroll_1s"
+    }
+  ]
+}

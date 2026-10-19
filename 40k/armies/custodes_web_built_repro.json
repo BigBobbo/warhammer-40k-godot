@@ -1,14 +1,14 @@
 {
  "faction": {
   "name": "Adeptus Custodes",
-  "points": 430,
+  "points": 500,
   "detachment": "Lions of the Emperor",
   "player_name": "",
   "team_name": "",
   "created_date": "2026-07-17",
   "schema": 2,
   "edition": 11,
-  "data_source": "repro: web-built list, Custodian Guard missing Deep Strike (40kdc gap)"
+  "data_source": "40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes)"
  },
  "units": {
   "U_CUSTODIAN_GUARD_A": {
@@ -17,53 +17,58 @@
    "owner": 1,
    "status": "UNDEPLOYED",
    "meta": {
-    "name": "Custodian Guard",
+    "name": "Custodian Guard Sodality",
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
-     "CUSTODIAN GUARD",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
-     "INFANTRY"
+     "INFANTRY",
+     "TRUSTED SENTINEL"
     ],
     "stats": {
-     "move": 6,
-     "toughness": 6,
+     "move": 8,
+     "toughness": 7,
      "save": 2,
-     "wounds": 3,
-     "leadership": 6,
-     "objective_control": 2,
+     "wounds": 5,
+     "leadership": 5,
+     "objective_control": 3,
      "invuln": 4
     },
-    "points": 215,
+    "points": 240,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "5x Guardian spear"
+     "3x Guardian spear"
     ],
     "weapons": [
      {
-      "name": "Guardian spear \u2013 Ranged",
+      "name": "Guardian Spear – Ranged",
       "type": "Ranged",
       "range": "24",
       "attacks": "2",
       "ballistic_skill": "2",
-      "strength": "4",
+      "strength": "5",
       "ap": "-1",
       "damage": "2",
-      "special_rules": "assault",
+      "special_rules": "assault, rapid fire 2",
       "abilities": [
        {
         "id": "assault"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 2
        }
       ]
      },
      {
-      "name": "Guardian spear \u2013 Melee",
+      "name": "Guardian Spear – Melee",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "5",
+      "attacks": "6",
       "weapon_skill": "2",
-      "strength": "7",
+      "strength": "8",
       "ap": "-2",
       "damage": "2"
      }
@@ -72,27 +77,27 @@
      {
       "name": "Martial Ka'tah",
       "type": "Faction",
-      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+      "description": "At the start of your Command phase, friendly Adeptus Custodes units with this ability are readied. While a friendly unit is readied, you can select one of the ka'tah abilities presented below for that unit to use. If you do, that unit is no longer readied.\nEach ka'tah ability will tell you when that ka'tah ability can be used, and the effects that ka'tah ability has on the unit using it.\nWe recommend placing a token next to each readied unit, removing it when that unit is no longer readied.\nFavoured Ka'tah\nMany of the most prominent shield hosts favour a specific martial ka'tah above all others.\nAll detachments tagged 'Unique: Shield Host' state a Favoured Ka'tah. If you selected one of these detachments, the ka'tah ability that is the Favoured Ka'tah of that detachment grants the additional effect listed in that detachment.\nExample: If you selected the Solar Watch detachment, when you select the Calistus ka'tah ability for a readied unit, that unit has +2\" M in addition to the normal effect of Calistus."
      },
      {
-      "name": "Praesidium Shield",
-      "type": "Datasheet",
-      "description": "Add 1 to this model's Wounds characteristic."
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
      },
      {
-      "name": "Sentinel Storm",
-      "type": "Datasheet",
-      "description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability."
+      "name": "Aegis of the Emperor",
+      "type": "Faction",
+      "description": "Friendly Adeptus Custodes units with this ability have Feel No Pain 5+ against mortal wounds."
      },
      {
-      "name": "Stand Vigil",
+      "name": "Impenetrable Defence",
       "type": "Datasheet",
-      "description": "You can re-roll a Wound roll of 1."
+      "description": "This unit's attacks have [sustained Hits 1: non-Monster/Vehicle] if any of the following apply:\n• This unit is within range of an objective.\n• The target of those attacks is within range of an objective."
      }
     ],
     "unit_composition": [
      {
-      "description": "4-5 Custodian Guard",
+      "description": "3 Custodian Guard",
       "line": 1
      }
     ]
@@ -100,8 +105,8 @@
    "models": [
     {
      "id": "m1",
-     "wounds": 3,
-     "current_wounds": 3,
+     "wounds": 5,
+     "current_wounds": 5,
      "base_mm": 40,
      "position": null,
      "alive": true,
@@ -109,8 +114,8 @@
     },
     {
      "id": "m2",
-     "wounds": 3,
-     "current_wounds": 3,
+     "wounds": 5,
+     "current_wounds": 5,
      "base_mm": 40,
      "position": null,
      "alive": true,
@@ -118,26 +123,8 @@
     },
     {
      "id": "m3",
-     "wounds": 3,
-     "current_wounds": 3,
-     "base_mm": 40,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m4",
-     "wounds": 3,
-     "current_wounds": 3,
-     "base_mm": 40,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m5",
-     "wounds": 3,
-     "current_wounds": 3,
+     "wounds": 5,
+     "current_wounds": 5,
      "base_mm": 40,
      "position": null,
      "alive": true,
@@ -151,53 +138,58 @@
    "owner": 1,
    "status": "UNDEPLOYED",
    "meta": {
-    "name": "Custodian Guard",
+    "name": "Custodian Guard Sodality",
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
-     "CUSTODIAN GUARD",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
-     "INFANTRY"
+     "INFANTRY",
+     "TRUSTED SENTINEL"
     ],
     "stats": {
-     "move": 6,
-     "toughness": 6,
+     "move": 8,
+     "toughness": 7,
      "save": 2,
-     "wounds": 3,
-     "leadership": 6,
-     "objective_control": 2,
+     "wounds": 5,
+     "leadership": 5,
+     "objective_control": 3,
      "invuln": 4
     },
-    "points": 215,
+    "points": 240,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "5x Guardian spear"
+     "3x Guardian spear"
     ],
     "weapons": [
      {
-      "name": "Guardian spear \u2013 Ranged",
+      "name": "Guardian Spear – Ranged",
       "type": "Ranged",
       "range": "24",
       "attacks": "2",
       "ballistic_skill": "2",
-      "strength": "4",
+      "strength": "5",
       "ap": "-1",
       "damage": "2",
-      "special_rules": "assault",
+      "special_rules": "assault, rapid fire 2",
       "abilities": [
        {
         "id": "assault"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 2
        }
       ]
      },
      {
-      "name": "Guardian spear \u2013 Melee",
+      "name": "Guardian Spear – Melee",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "5",
+      "attacks": "6",
       "weapon_skill": "2",
-      "strength": "7",
+      "strength": "8",
       "ap": "-2",
       "damage": "2"
      }
@@ -206,27 +198,27 @@
      {
       "name": "Martial Ka'tah",
       "type": "Faction",
-      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+      "description": "At the start of your Command phase, friendly Adeptus Custodes units with this ability are readied. While a friendly unit is readied, you can select one of the ka'tah abilities presented below for that unit to use. If you do, that unit is no longer readied.\nEach ka'tah ability will tell you when that ka'tah ability can be used, and the effects that ka'tah ability has on the unit using it.\nWe recommend placing a token next to each readied unit, removing it when that unit is no longer readied.\nFavoured Ka'tah\nMany of the most prominent shield hosts favour a specific martial ka'tah above all others.\nAll detachments tagged 'Unique: Shield Host' state a Favoured Ka'tah. If you selected one of these detachments, the ka'tah ability that is the Favoured Ka'tah of that detachment grants the additional effect listed in that detachment.\nExample: If you selected the Solar Watch detachment, when you select the Calistus ka'tah ability for a readied unit, that unit has +2\" M in addition to the normal effect of Calistus."
      },
      {
-      "name": "Praesidium Shield",
-      "type": "Datasheet",
-      "description": "Add 1 to this model's Wounds characteristic."
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
      },
      {
-      "name": "Sentinel Storm",
-      "type": "Datasheet",
-      "description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability."
+      "name": "Aegis of the Emperor",
+      "type": "Faction",
+      "description": "Friendly Adeptus Custodes units with this ability have Feel No Pain 5+ against mortal wounds."
      },
      {
-      "name": "Stand Vigil",
+      "name": "Impenetrable Defence",
       "type": "Datasheet",
-      "description": "You can re-roll a Wound roll of 1."
+      "description": "This unit's attacks have [sustained Hits 1: non-Monster/Vehicle] if any of the following apply:\n• This unit is within range of an objective.\n• The target of those attacks is within range of an objective."
      }
     ],
     "unit_composition": [
      {
-      "description": "4-5 Custodian Guard",
+      "description": "3 Custodian Guard",
       "line": 1
      }
     ]
@@ -234,8 +226,8 @@
    "models": [
     {
      "id": "m1",
-     "wounds": 3,
-     "current_wounds": 3,
+     "wounds": 5,
+     "current_wounds": 5,
      "base_mm": 40,
      "position": null,
      "alive": true,
@@ -243,8 +235,8 @@
     },
     {
      "id": "m2",
-     "wounds": 3,
-     "current_wounds": 3,
+     "wounds": 5,
+     "current_wounds": 5,
      "base_mm": 40,
      "position": null,
      "alive": true,
@@ -252,26 +244,8 @@
     },
     {
      "id": "m3",
-     "wounds": 3,
-     "current_wounds": 3,
-     "base_mm": 40,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m4",
-     "wounds": 3,
-     "current_wounds": 3,
-     "base_mm": 40,
-     "position": null,
-     "alive": true,
-     "status_effects": []
-    },
-    {
-     "id": "m5",
-     "wounds": 3,
-     "current_wounds": 3,
+     "wounds": 5,
+     "current_wounds": 5,
      "base_mm": 40,
      "position": null,
      "alive": true,

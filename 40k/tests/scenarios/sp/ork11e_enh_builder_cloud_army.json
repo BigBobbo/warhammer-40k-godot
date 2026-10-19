@@ -1,0 +1,150 @@
+{
+ "id": "ork11e_enh_builder_cloud_army",
+ "builder_e2e": "server/tests/e2e-orks-codex.mjs",
+ "covers": [
+  "codex.orks.enhancements.kill_kommanda",
+  "codex.orks.enhancements.throat_slittas",
+  "army_builder.codex_enhancements",
+  "ui.main_menu.refresh_cloud_armies",
+  "army_list.cloud_load.enhancements",
+  "ui.formations.leader_attachment"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) — an army built with codex enhancements in the real browser Army Builder reaches the game. Game-side half of the builder end-to-end; 40k/tests/run_ork11e_builder_cloud.sh runs both halves on one local relay server: server/tests/e2e-orks-codex.mjs drives the builder page (Playwright) — faction Orks, detachment Taktikal Brigade, a warlord Warboss whose Enhancement dropdown offers the codex Kill Kommanda (no pre-codex Skwad Leader / Mek Kaptin / Mork's Kunnin'), Kommandos offered only the Throat-slittas Upgrade, both picked; Madcap Meks: Temperamental Shokka / Enhanced Runt-maw offered to (and picked for) the Big Mek with Shokk Attack Gun, not a plain Big Mek — and saves the Taktikal army to the cloud as WPO5_E2E_Orks (the driver points res://server_config.json at that server for this run only). No fixture: the scenario runs on the MainMenu. A real click on Refresh Cloud Armies lists the army, it is selected for Player 1, a real click on Start Game downloads it and starts the game: the codex module recognises Kill Kommanda and Throat-slittas (the exporter's 'Throat Slittas' spelling folds the same), army validation is clean, the Kommandos' melee has [LETHAL HITS] vs INFANTRY, and the Battle Formations dialog offers the Kommandos as a bodyguard for the Warboss (LEADER: KOMMANDOS) — picked in its leader dropdown, and a real click on Confirm Formations records Warboss -> Kommandos. Not runnable without the driver's relay server.",
+ "edition": 11,
+ "rng_seed": 42,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 1.5
+  },
+  {
+   "act": "execute_script",
+   "script": "main.get_script().resource_path",
+   "equals": "res://scripts/MainMenu.gd"
+  },
+  {
+   "act": "execute_script",
+   "script": "CloudStorage.base_url.begins_with(\"http://localhost:\") and CloudStorage.base_url != \"http://localhost:9080\"",
+   "equals": true,
+   "comment": "the driver's temporary res://server_config.json points at the e2e relay server"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/MainMenu/ScrollContainer/MenuContainer/ArmySection/ArmyBuilderContainer/RefreshCloudArmiesButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 2.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var main = tree.current_scene\nfor i in range(main.army_options.size()):\n\tif str(main.army_options[i].id) == \"WPO5_E2E_Orks\":\n\t\treturn i\nreturn -1",
+   "multiline": true,
+   "expect_min": 0,
+   "comment": "the builder-made army is listed (Cloud)"
+  },
+  {
+   "act": "execute_script",
+   "script": "var main = tree.current_scene\nvar idx := -1\nfor i in range(main.army_options.size()):\n\tif str(main.army_options[i].id) == \"WPO5_E2E_Orks\":\n\t\tidx = i\nmain.player1_dropdown.select(idx)\nmain.player1_dropdown.item_selected.emit(idx)\nmain.player1_type_dropdown.select(0)\nmain.player1_type_dropdown.item_selected.emit(0)\nmain.player2_type_dropdown.select(0)\nmain.player2_type_dropdown.item_selected.emit(0)\nreturn main.player1_dropdown.get_item_text(main.player1_dropdown.selected).contains(\"Cloud\")",
+   "multiline": true,
+   "equals": true,
+   "comment": "Player 1 picks the cloud army in the dropdown; both seats human"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_main_menu_cloud_army_selected"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.current_scene.get_script().resource_path",
+   "equals": "res://scripts/Main.gd"
+  },
+  {
+   "act": "execute_script",
+   "script": "var wb := \"\"\nvar ko := \"\"\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) != 1:\n\t\tcontinue\n\tif str(u.meta.get(\"name\", \"\")) == \"Warboss\":\n\t\twb = str(uid)\n\telif str(u.meta.get(\"name\", \"\")) == \"Kommandos\":\n\t\tko = str(uid)\nGameState.state.meta[\"_o5_wb\"] = wb\nGameState.state.meta[\"_o5_ko\"] = ko\nreturn wb != \"\" and ko != \"\"",
+   "multiline": true,
+   "equals": true,
+   "comment": "the cloud army's Warboss and Kommandos are in the game"
+  },
+  {
+   "act": "execute_script",
+   "script": "str(GameState.state.factions[\"1\"].get(\"detachment\", \"\"))",
+   "equals": "Taktikal Brigade"
+  },
+  {
+   "act": "execute_script",
+   "script": "var e = load(\"res://scripts/codex/orks/OrkEnhancements11e.gd\")\nvar wb = GameState.get_unit(str(GameState.state.meta[\"_o5_wb\"]))\nvar ko = GameState.get_unit(str(GameState.state.meta[\"_o5_ko\"]))\nprint(\"[wp-o5 builder] Warboss enh=\", wb.meta.get(\"enhancements\"), \" Kommandos enh=\", ko.meta.get(\"enhancements\"))\nreturn [e.has(wb, \"kill_kommanda\"), e.has(ko, \"throat_slittas\")]",
+   "multiline": true,
+   "equals": [
+    true,
+    true
+   ],
+   "comment": "the codex module recognises both (Kill Kommanda on the Warboss; the exporter's 'Throat Slittas' spelling folds to Throat-slittas)"
+  },
+  {
+   "act": "execute_script",
+   "script": "var w = ArmyListManager.validate_army_construction_11e(ArmyListManager.cloud_army_cache.get(\"WPO5_E2E_Orks\", {})).warnings\nvar bad := []\nfor x in w:\n\tif str(x).contains(\"Codex: Orks\"):\n\t\tbad.append(str(x))\nreturn str(bad)",
+   "multiline": true,
+   "equals": "[]",
+   "comment": "no codex Ork enhancement warning (bearers legal, Upgrade on a non-CHARACTER)"
+  },
+  {
+   "act": "execute_script",
+   "script": "var oa = load(\"res://scripts/codex/orks/OrkAbilities11e.gd\")\nvar ko = GameState.get_unit(str(GameState.state.meta[\"_o5_ko\"]))\nfor uid in GameState.state.units:\n\tvar t = GameState.state.units[uid]\n\tif int(t.get(\"owner\", 0)) == 2 and \"INFANTRY\" in t.meta.get(\"keywords\", []) and not \"MONSTER\" in t.meta.get(\"keywords\", []) and not \"VEHICLE\" in t.meta.get(\"keywords\", []):\n\t\treturn bool(oa.attack_mods(ko, t, {\"name\": \"Choppa\", \"type\": \"Melee\"}, true, GameState.state, []).get(\"lethal\", false))\nreturn \"no P2 infantry\"",
+   "multiline": true,
+   "equals": true,
+   "comment": "Throat-slittas in force: the Kommandos' melee has [LETHAL HITS] against an INFANTRY target (the attack-modifier hook every resolver reads)"
+  },
+  {
+   "act": "execute_script",
+   "script": "var fd = tree.current_scene.formations_dialog\nif fd == null or not is_instance_valid(fd) or not fd.visible:\n\treturn \"no formations dialog\"\nvar wb := str(GameState.state.meta[\"_o5_wb\"])\nvar ko := str(GameState.state.meta[\"_o5_ko\"])\nfor ob in fd.find_children(\"*\", \"OptionButton\", true, false):\n\tif str(ob.get_meta(\"character_id\", \"\")) == wb:\n\t\tfor i in range(ob.item_count):\n\t\t\tif str(ob.get_item_metadata(i)) == ko:\n\t\t\t\tGameState.state.meta[\"_o5_idx\"] = i\n\t\t\t\treturn true\n\t\treturn \"Kommandos not offered to the Warboss\"\nreturn \"no Warboss row\"",
+   "multiline": true,
+   "equals": true,
+   "comment": "the Battle Formations dialog offers the Kommandos as a bodyguard for the Kill Kommanda Warboss (LEADER: KOMMANDOS)"
+  },
+  {
+   "act": "execute_script",
+   "script": "var fd = tree.current_scene.formations_dialog\nvar wb := str(GameState.state.meta[\"_o5_wb\"])\nfor ob in fd.find_children(\"*\", \"OptionButton\", true, false):\n\tif str(ob.get_meta(\"character_id\", \"\")) == wb:\n\t\tvar i := int(GameState.state.meta[\"_o5_idx\"])\n\t\tob.select(i)\n\t\tob.item_selected.emit(i)\n\t\treturn ob.get_item_text(ob.selected).begins_with(\"Kommandos\")\nreturn false",
+   "multiline": true,
+   "equals": true,
+   "comment": "pick the Kommandos in the Warboss's leader dropdown"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "screenshot",
+   "label": "02_formations_warboss_leads_kommandos"
+  },
+  {
+   "act": "click_node",
+   "button_text": "Confirm Formations"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "execute_script",
+   "script": "var p = PhaseManager.get_current_phase_instance()\nvar la = p.player_formations.get(1, {}).get(\"leader_attachments\", {})\nreturn str(la.get(str(GameState.state.meta[\"_o5_wb\"]), \"\")) == str(GameState.state.meta[\"_o5_ko\"])",
+   "multiline": true,
+   "equals": true,
+   "comment": "FormationsPhase recorded P1's leader attachment Warboss -> Kommandos (DECLARE_LEADER_ATTACHMENT accepted); P2's dialog is next"
+  },
+  {
+   "act": "screenshot",
+   "label": "03_formations_confirmed"
+  }
+ ]
+}

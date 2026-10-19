@@ -1,0 +1,16 @@
+id|faction_id|name|legend|type|dp|force_disposition
+000000862|AC|Null Maiden Vigil|"<p class=""ShowFluff legend3"">NULL MAIDENS COMBINE DREAD POWERS AND MARTIAL SKILL TO DEFEAT THEIR FOES</p>"||1|Disruption
+000000863|AC|Auric Champions|"<p class=""ShowFluff legend3"">THE GREATEST OF THE ADEPTUS CUSTODES’ CHAMPIONS SEEK TO SLAY THE MIGHTIEST FOES</p>"||1|Purge the Foe
+000000909|AC|Voyagers in Darkness|<b>Some shield companies of the Adeptus Custodes set sail into the darkness between the stars, either guided by visions of the Emperor’s will or believing that they can do the most to defend Terra by seeking out and destroying distant threats.</b>|Boarding Actions||
+000000910|AC|Black Ship Guardians|<b>Whether fighting furiously to prevent enemies from boarding one of the sinister Black Ships and freeing its psyker inmates, or sweeping into an enemy vessel or installation to seize and imprison powerful witches, the Sisters of Silence are a force to be reckoned with in void warfare.</b>|Boarding Actions||
+000001029|AC|Lions of the Emperor|"<p class=""ShowFluff legend3"">THE CHAMPIONS OF THE THARANATOI ORDER APPEAR IN BURSTS OF GOLDEN LIGHT</p>"||1|Disruption
+000001164|AC|Might of the Moritoi|"<p class=""ShowFluff legend3"">STRIDING TO WAR, THE MORITOI BRING TO BEAR WEAPONS OF TERRIBLE DESTRUCTION</p>"||1|Take and Hold
+000001245|AC|Shadowkeepers|"<p class=""ShowFluff legend3"">THE SHADOWKEEPERS SEEK TO DESTROY OR CONTAIN THAT WHICH SHOULD NOT BE</p>"||1|Purge the Foe
+000001246|AC|Guardians of the Throne|"<p class=""ShowFluff legend3"">FEW FOES CAN STAND AGAINST A COMBINED-ARMS FORCE OF CUSTODIANS</p>"||3|Priority Assets
+000001247|AC|Honoured Companions|||1|Take and Hold
+000001248|AC|Solar Watch|"<p class=""ShowFluff legend3"">GUARDIANS OF THE SOL SYSTEM, THE SOLAR WATCH FAVOUR RAPID WARFARE</p>"||1|Reconnaissance
+000001249|AC|Emperor’s Chosen|"<p class=""ShowFluff legend3"">MOST SHIELD HOSTS ARE TEMPORARY, BUT ALL PLAY A VITAL ROLE IN THE EMPEROR’S SERVICE</p>"||1|Priority Assets
+000001250|AC|Emissaries Imperatus|"<p class=""ShowFluff legend3"">THE EMISSARIES IMPERATUS WILL GO TO ANY LENGTHS TO DELIVER THE EMPEROR’S WORD</p>"||1|Priority Assets
+000001251|AC|Aquilan Shield|"<p class=""ShowFluff legend3"">THE AQUILAN SHIELD ARE AN UNBREAKABLE FORTRESS OF AURAMITE</p>"||1|Take and Hold
+000001252|AC|Grav-Assault Force|"<p class=""ShowFluff legend3"">SWIFT AND AGILE, ADEPTUS CUSTODES GRAV-VEHICLES CAN INFLICT UNTOLD DESTRUCTION</p>"||1|Reconnaissance
+000001253|AC|Dread Host|"<p class=""ShowFluff legend3"">THE DREAD HOST UNLEASHES THE EMPEROR’S WRATH UPON THE FOE</p>"||1|Purge the Foe

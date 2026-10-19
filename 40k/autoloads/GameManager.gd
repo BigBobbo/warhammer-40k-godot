@@ -245,7 +245,7 @@ func process_action(action: Dictionary) -> Dictionary:
 		_:
 			# Not handled directly by GameManager — delegate to the current
 			# phase. Phases own many phase-local action types (END_SCOUT_PHASE,
-			# redeployment ops, katah stances, ...) that single-player reaches
+			# redeployment ops, Moment Shackle, ...) that single-player reaches
 			# via phase.execute_action directly; the MULTIPLAYER path routes
 			# every action through here and used to hard-fail on them with
 			# "Unknown action type". The phase's own validate/process still

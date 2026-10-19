@@ -11,7 +11,7 @@
 // into legal bounds, starting fresh units from their default loadout.
 
 import {
-  dc, conv, unitData, sizeChoices, countsOf, writeCounts,
+  dc, ds, conv, unitData, sizeChoices, countsOf, writeCounts,
   applyWeaponDelta, clampLoadoutToBounds,
 } from './store.js';
 import { looseName } from '../lib/dckit.mjs';
@@ -25,7 +25,7 @@ export function importText(text, { factionOverride = null } = {}) {
   let roster = null;
   let source = null;
 
-  const res = dc.tryImportRoster(text);
+  const res = dc.tryImportRoster(text, { dataset: ds }); // the patched dataset (store.js), not the pre-patch default
   if (res.ok && res.roster) {
     const r = res.roster;
     const resolvedUnits = r.diagnostics?.resolved_units ?? 0;
@@ -187,8 +187,24 @@ export function normalizeImportedRoster(roster, notes = []) {
 
   for (const ru of roster.units ?? []) {
     if (!ru.ref?.id) continue;
-    const data = unitData(ru.ref.id, ru._unit_faction_id);
+    let data = unitData(ru.ref.id, ru._unit_faction_id);
     if (!data) continue;
+
+    // --- a pre-codex datasheet the codex renamed (Custodian Guard ->
+    // Custodian Guard Sodality): move the import to the codex datasheet, as
+    // generate-armies.mjs does through UNIT_ALIASES (decision D1). The source
+    // loadout does not carry over (the kit changed) — it restarts from the
+    // codex default below.
+    const next = data.raw.superseded_by ? unitData(data.raw.superseded_by, data.factionId) : null;
+    if (next) {
+      notes.push(`${ru.ref.raw_name}: pre-codex datasheet — imported as ${next.raw.name} (${data.raw.superseded_by_codex})`);
+      ru.ref = { id: next.raw.id, raw_name: next.raw.name, resolved: true, candidates: [] };
+      ru.wargear = [];
+      delete ru._wargear_hints;
+      data = next;
+    } else if (data.raw.superseded_by_codex) {
+      notes.push(`${ru.ref.raw_name}: pre-codex datasheet, not in ${data.raw.superseded_by_codex} — kept as imported`);
+    }
 
     // --- squad size: sources without explicit model counts (GW text) arrive
     // at 1; snap to the tier whose cost matches the reported points, else the

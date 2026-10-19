@@ -1,0 +1,36 @@
+{
+  "id": "cus11e_enh_inspirational_exemplar",
+  "covers": [
+    "codex.custodes.enhancement.inspirational_exemplar",
+    "stratagem.window.cus11e_phase_start",
+    "rules.battle_shock.removed_by_ability"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) enhancement INSPIRATIONAL EXEMPLAR (Auric Champions, WP-C46): (once per battle round, per army) at the start of any phase, select one friendly battle-shocked ADEPTUS CUSTODES unit within 9\" of this model: it is no longer battle-shocked. Fixture cus11e_c3_custodes_active (P1 Custodes active, Command phase); setup privileges: P1 detachment Auric Champions, the Shield-Captain given Inspirational Exemplar, Custodian Guard Beta (next to it) battle-shocked, CP 0 for both. The Movement phase starts (setup privilege: PhaseManager.transition_to_phase(7)): the start-of-phase window lists the free INSPIRATIONAL EXEMPLAR card; a real click on 'Use on Custodian Guard Sodality' lifts its battle-shock without CP.",
+  "fixture": "cus11e_c3_custodes_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_phase", "equals": 6 },
+    { "act": "click_if_visible", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true, "comment": "setup privileges (see description)", "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Auric Champions\"\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nGameState.state.units[\"U_SHIELD_CAPTAIN_A\"].meta[\"enhancements\"] = [\"Inspirational Exemplar\"]\nGameState.state.units[\"U_CUSTODIAN_GUARD_B\"].flags[\"battle_shocked\"] = true\nPhaseManager.transition_to_phase(7)\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.battle_shocked", "equals": true },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 4.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")", "equals": "cus11e_phase_start" },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_rule_enh_inspirational_exemplar/Buttons/Use_cus11e_rule_enh_inspirational_exemplar_U_CUSTODIAN_GUARD_B", "property": "disabled", "equals": false },
+    { "act": "screenshot", "label": "01_inspirational_exemplar_card" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_rule_enh_inspirational_exemplar/Buttons/Use_cus11e_rule_enh_inspirational_exemplar_U_CUSTODIAN_GUARD_B" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_cp", "player": 1, "equals": 0 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.battle_shocked", "equals": false },
+    { "act": "expect_state", "path": "units.U_SHIELD_CAPTAIN_A.flags.cus11e_inspirational_round", "equals": 2 },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"INSPIRATIONAL EXEMPLAR\")", "expect_min": 1 },
+    { "act": "screenshot", "label": "02_battle_shock_lifted" }
+  ]
+}

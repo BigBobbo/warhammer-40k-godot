@@ -254,19 +254,27 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# dataset dropped it from (Custodian Guard, Allarus, Shield-Captain…)
 			_backfill_custodes_deep_strike(unit_id, unit)
 
-			# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
+			# Apply wargear stat bonuses (e.g. Vexilla +1OC, 'Ard Case +2T)
 			_apply_wargear_stat_bonuses(unit_id, unit)
 
-			# Issue #396: enhancement-driven stat bonuses (Auric Mantle +2W).
+			# Issue #396: enhancement-driven stat bonuses (Da Biggest Boss +2W).
 			_apply_enhancement_stat_bonuses(unit_id, unit)
 
-			# Enhancement-granted abilities/keywords (Praesidius → Lone
-			# Operative + Stealth, Psyk-out Grenades → EXPLOSIVES).
+			# Enhancement-granted abilities/keywords (data-driven tables below).
 			_apply_enhancement_granted_abilities(unit_id, unit)
+
+			# Codex: Adeptus Custodes (11e) enhancements' list-build effects —
+			# Eagle's Eye +1 W, Shroud of the Hidden Blade (Stealth + Lone
+			# Operative), Emperor's Light / Auriferous Orb weapons (WP-C46).
+			_apply_custodes_codex_enhancements(unit_id, unit)
 
 			# Speedwaaagh!: enhancement-driven WEAPON bonuses (Master Meknologist
 			# +1 BS to ranged weapons; Supa-burny Fuel killa jet Attacks changes).
 			_apply_enhancement_weapon_bonuses(unit_id, unit)
+
+			# WP-O5: Codex: Orks (11e) enhancement list-build effects ('Ardboyz,
+			# It Came from da Drops, Flyboss, Warphead, enhancement weapons).
+			_ork11e_enh().apply_list_build(unit_id, unit, str(army_data.get("faction", {}).get("detachment", "")))
 
 			# MA-1: Log model_profiles if present
 			if unit.has("meta") and unit.meta.has("model_profiles"):
@@ -363,6 +371,14 @@ func apply_army_to_game_state(army_data: Dictionary, player: int) -> void:
 	var stratagem_manager = get_node_or_null("/root/StratagemManager")
 	if stratagem_manager:
 		stratagem_manager.load_faction_stratagems_for_player(player)
+
+	# Codex: Orks (11e) detachment BATTLELINE grants (WP-O34): Kult of Speed
+	# Warbikers / Taktikal Brigade Stormboyz / Runt Swarm Gretchin.
+	load("res://scripts/codex/orks/OrkDetachments11e.gd").apply_keyword_grants(player)
+	# Codex: Adeptus Custodes (11e) detachment BATTLELINE grants (WP-C46):
+	# Null Maiden Vigil Prosecutor Squads (Silent Sisterhood).
+	if GameConstants.edition >= 11:
+		load("res://scripts/codex/custodes/CustodesDetachments.gd").apply_keyword_grants(player)
 
 	print("Army applied successfully. Total units in game: ", all_units.size())
 
@@ -663,8 +679,16 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 		# dataset dropped it from (Custodian Guard, Allarus, Shield-Captain…)
 		_backfill_custodes_deep_strike(unit_id, unit)
 
-		# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
+		# Apply wargear stat bonuses (e.g. Vexilla +1OC, 'Ard Case +2T)
 		_apply_wargear_stat_bonuses(unit_id, unit)
+
+		# WP-O5: Codex: Orks (11e) enhancement list-build effects (cloud /
+		# browser-builder armies take this path, not load_army_list).
+		_ork11e_enh().apply_list_build(unit_id, unit, str(army_data.get("faction", {}).get("detachment", "")))
+		# Codex: Adeptus Custodes (11e) enhancements' list-build effects for an
+		# army built in the browser builder and loaded from the cloud (WP-C46;
+		# idempotent — the same call as load_army_list's).
+		_apply_custodes_codex_enhancements(unit_id, unit)
 
 		# MA-1: Log model_profiles if present
 		if unit.has("meta") and unit.meta.has("model_profiles"):
@@ -755,18 +779,16 @@ func _assign_display_names(army_data: Dictionary) -> void:
 # These are applied at army load time by modifying meta.stats and model data.
 #
 # Supported wargear stat bonuses:
-#   - Praesidium Shield: +1 Wounds (Custodian Guard)
-#   - Vexilla: +1 OC (Custodian Guard)
+#   - Vexilla: +1 OC (Custodes units that took one; Codex: Adeptus Custodes 11e)
 #   - 'Ard Case: +2 Toughness (Battlewagon) — also removes Firing Deck
+#     (pre-codex rosters only: the Codex: Orks Battlewagon has no 'Ard Case)
+#
+# Praesidium Shield is NOT a stat bonus any more: Codex: Adeptus Custodes (11e)
+# prints it as "Attacks allocated to this model have -1 D" (the 10e +1 Wounds
+# was removed here; .llm/codex_11e_wahapedia/PLAN.md C7).
 
 # Wargear stat bonus definitions: ability_name -> { stat_changes }
 const WARGEAR_STAT_BONUSES: Dictionary = {
-	"Praesidium Shield": {
-		"stat": "wounds",
-		"bonus": 1,
-		"apply_to_models": true,
-		"description": "+1 Wounds to bearer"
-	},
 	"Vexilla": {
 		"stat": "objective_control",
 		"bonus": 1,
@@ -793,8 +815,9 @@ const WARGEAR_STAT_BONUSES: Dictionary = {
 # the name the rules dispatch on is also the name the player reads.
 
 const ABILITY_NAME_CANON: Dictionary = {
-	"Da Jump (Psychic)": "Da Jump",         # MovementPhase requires exactly "Da Jump"
-	"Ramshackle but Rugged": "Ramshackle",  # ABILITY_EFFECTS worsen-AP entry
+	"Da Jump (Psychic)": "Da Jump",         # Codex: Orks (11e) Weirdboy psychic ability (OrkAbilities11e)
+	# WP-O6: "Ramshackle but Rugged" -> "Ramshackle" removed — no Codex: Orks
+	# (11e) datasheet has either ability.
 }
 
 func _canonicalize_ability_names(unit_id: String, unit: Dictionary) -> void:
@@ -966,22 +989,17 @@ func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 # than emitting a runtime flag. Mirror the wargear pipeline at army-build.
 
 const ENHANCEMENT_STAT_BONUSES: Dictionary = {
-	# Custodes Shield Host enhancement: Shield-Captain or Blade Champion only.
-	# Add 2 to the bearer's Wounds characteristic.
-	"Auric Mantle": {
-		"stat": "wounds",
-		"bonus": 2,
-		"apply_to_models": true,
-		"description": "+2 Wounds to bearer (Shield-Captain or Blade Champion only)"
-	},
-	# Bully Boyz (Orks): Infantry Warboss only. Add 2 to the bearer's Wounds.
-	"Da Biggest Boss": {
-		"stat": "wounds",
-		"bonus": 2,
-		"apply_to_models": true,
-		"description": "+2 Wounds to bearer (Infantry Warboss only)"
-	}
+	# (The 10e Shield Host Auric Mantle +2 W entry was retired in WP-C46 — the
+	# codex Custodes enhancements apply via _apply_custodes_codex_enhancements.)
+	# (WP-O5: the 10e Bully Boyz "Da Biggest Boss" +2 W is gone — Codex: Orks
+	# Bully Boyz has Wimp-kickaz / Tellyporta Boss; Ork list-build effects are
+	# OrkEnhancements11e.apply_list_build.)
 }
+
+## WP-O5: Codex: Orks (11e) enhancements module (scripts/codex/orks/
+## OrkEnhancements11e.gd), loaded at call time.
+func _ork11e_enh():
+	return load("res://scripts/codex/orks/OrkEnhancements11e.gd")
 
 func _apply_enhancement_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 	"""For each enhancement on this unit that has a list-build stat bonus,
@@ -1043,19 +1061,25 @@ func _apply_enhancement_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 # EXPLOSIVES core stratagems' keyword gates, ...) work unchanged.
 
 const ENHANCEMENT_GRANTED_ABILITIES: Dictionary = {
-	# Lions of the Emperor — 10e STOPGAP (user ruling 2026-07-10): the 40kdc
-	# dataset has no published 11e rules for the Lions enhancements yet, so the
-	# official 10e wording stands in until it does. 10e Praesidius: "The bearer
-	# has the Lone Operative and Stealth abilities."
-	"Praesidius": ["Lone Operative", "Stealth"],
+	# (The 10e Lions of the Emperor Praesidius stopgap was retired in WP-C46:
+	# Codex: Adeptus Custodes 11e has no Praesidius.)
 }
 
 const ENHANCEMENT_GRANTED_KEYWORDS: Dictionary = {
-	# Silent Hunters (Anathema Psykana Upgrade enhancement): the 40kdc 11e
-	# ability data grants the unit the Explosives keyword — the 11e EXPLOSIVES
-	# core stratagem's gate accepts it.
-	"Psyk-out Grenades": ["EXPLOSIVES"],
+	# (The 10e Silent Hunters Psyk-out Grenades → EXPLOSIVES entry was retired
+	# with that detachment in WP-C46.)
 }
+
+## Codex: Adeptus Custodes (11e) enhancements — list-build half (WP-C46).
+## Lazily loaded: the codex modules late-bind every autoload.
+func _apply_custodes_codex_enhancements(unit_id: String, unit: Dictionary) -> void:
+	if GameConstants.edition < 11:
+		return
+	var enh_script = load("res://scripts/codex/custodes/CustodesEnhancements.gd")
+	if enh_script == null:
+		return
+	for line in enh_script.apply_list_build(unit_id, unit):
+		print("ArmyListManager: Custodes enhancement — %s" % str(line))
 
 func _apply_enhancement_granted_abilities(unit_id: String, unit: Dictionary) -> void:
 	"""Append enhancement-granted abilities/keywords to the unit's meta lists
@@ -1199,8 +1223,8 @@ func _apply_enhancement_weapon_bonuses(unit_id: String, unit: Dictionary) -> voi
 # MODEL PROFILE WOUNDS OVERRIDE (MA-13)
 # ============================================================================
 # If a model's profile has stats_override.wounds, ensure model["wounds"] uses
-# that value. This runs BEFORE wargear bonuses so that wargear (e.g. Praesidium
-# Shield +1W) stacks correctly on top of the profile wounds value.
+# that value. This runs BEFORE wargear bonuses so that a wargear stat bonus
+# stacks correctly on top of the profile wounds value.
 #
 # model["wounds"] in JSON should match the profile's effective wounds value.
 # If there's a mismatch, this function logs a warning and corrects the value.
@@ -1667,34 +1691,33 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 			keywords.append(str(kw).to_upper())
 		if faction_keyword != "" and not faction_keyword in keywords:
 			result.warnings.append("11e: Warlord %s lacks the army Faction keyword %s" % [unit_id, faction_keyword])
+		# Codex: Adeptus Custodes — Anathema Psykana: "You cannot select an
+		# ANATHEMA PSYKANA model to be your WARLORD" unless the detachment
+		# allows it (Null Maiden Vigil hook; CustodesKatah.gd).
+		var ap_unit: Dictionary = units[unit_id].duplicate()
+		ap_unit["id"] = unit_id
+		var ap_reason: String = load("res://scripts/codex/custodes/CustodesKatah.gd").warlord_block_reason(ap_unit, str(faction.get("detachment", "")))
+		if ap_reason != "":
+			result.warnings.append("11e: Warlord %s — %s" % [unit_id, ap_reason])
 	if not warlord_found:
 		result.warnings.append("11e: no Warlord designated")
 
-	# --- Enhancement cap: 2 per 1000 points; Upgrade-tag counts once ---
-	var enhancement_choices = {}
-	for unit_id in units:
-		var meta = units[unit_id].get("meta", {})
-		var upper_kw = []
-		for k in meta.get("keywords", []):
-			upper_kw.append(str(k).to_upper())
-		var is_character = "CHARACTER" in upper_kw
-		for enh in meta.get("enhancements", []):
-			var name = str(enh) if enh is String else str(enh.get("name", ""))
-			var is_upgrade = enh is Dictionary and enh.get("upgrade", false)
-			if is_upgrade:
-				if is_character:
-					result.warnings.append("11e: Upgrade enhancement '%s' on CHARACTER unit %s (Upgrades are non-CHARACTER only)" % [name, unit_id])
-				var entry = enhancement_choices.get(name, {"count": 0, "upgrade": true})
-				entry["count"] = int(entry.get("count", 0)) + 1
-				enhancement_choices[name] = entry
-				if entry["count"] > 3:
-					result.warnings.append("11e: Upgrade enhancement '%s' on more than three units" % name)
-			else:
-				enhancement_choices["%s@%s" % [name, unit_id]] = {"count": 1, "upgrade": false}
-	var max_enhancements = int(floor(points_limit / 1000.0)) * 2
-	if enhancement_choices.size() > max_enhancements and max_enhancements > 0:
-		result.warnings.append("11e: %d enhancement choices exceed the cap of %d at %d pts" % [
-			enhancement_choices.size(), max_enhancements, points_limit])
+	# --- Enhancements (WP-C46: data-driven against data/40kdc/enhancements.json):
+	# detachment membership, the printed bearer restriction, CHARACTER vs
+	# Upgrade (Upgrades may ALSO go on non-CHARACTER units, up to three units,
+	# "(one per army)" one), one enhancement per unit, once per army, and the
+	# 2-per-1000-points cap (an Upgrade counts once). Skipped for an army whose
+	# faction module owns its enhancement validation (WP-O5). ---
+	var enh_check: Dictionary = {} if _enhancement_validation_owned_elsewhere(army_data) \
+		else load("res://scripts/codex/EnhancementRules11e.gd").validate_army(army_data)
+	for w in enh_check.get("warnings", []):
+		result.warnings.append(w)
+	for e in enh_check.get("errors", []):
+		result.errors.append(e)
+	# WP-O5: an army OrkEnhancements11e owns (codex Orks in a codex detachment)
+	# gets the codex Ork checks (bearer lines, Upgrades, one of each, the cap).
+	if _ork11e_enh().owns_army_validation(army_data):
+		result.warnings.append_array(_ork11e_enh().validate_army(army_data).warnings)
 
 	# --- Detachment Points: pool of 3 at 2000 pts ---
 	var detachments = army_data.get("detachments", [])
@@ -1709,6 +1732,30 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 
 	result.valid = result.errors.is_empty()
 	return result
+
+## WP-C46 x WP-O5: faction modules that own their army's enhancement
+## validation (e.g. OrkEnhancements11e.owns_army_validation(army) for codex Ork
+## armies). The generic data-driven checks (EnhancementRules11e) skip an army
+## one of them claims, so it never gets the same warning twice. A module that
+## is not present (yet) claims nothing.
+const _ENH_VALIDATION_OWNERS := ["res://scripts/codex/orks/OrkEnhancements11e.gd"]
+
+func _enhancement_validation_owned_elsewhere(army_data: Dictionary) -> bool:
+	for path in _ENH_VALIDATION_OWNERS:
+		if not ResourceLoader.exists(path):
+			continue
+		var m = load(path)
+		if m == null:
+			continue
+		var has_hook := false
+		for md in m.get_script_method_list():
+			if str(md.get("name", "")) == "owns_army_validation":
+				has_hook = true
+				break
+		if has_hook and bool(m.owns_army_validation(army_data)):
+			print("ArmyListManager: enhancement validation owned by %s — generic 11e enhancement checks skipped" % path.get_file())
+			return true
+	return false
 
 func validate_army_construction_points(army_data: Dictionary) -> Dictionary:
 	"""Validate army construction points and detachment rules.
@@ -1775,9 +1822,20 @@ func validate_army_construction_points(army_data: Dictionary) -> Dictionary:
 	if units_missing_points.size() > 0:
 		result.warnings.append("Units missing points cost: %s" % ", ".join(units_missing_points))
 
-	# --- Enhancement validation (10e: 1 of each per army; 1 per CHARACTER; bearer must be CHARACTER) ---
+	# --- Enhancement validation ---
+	# 11e (WP-C46): data-driven against data/40kdc/enhancements.json — the
+	# detachment, the printed bearer restriction, Upgrades on non-CHARACTER
+	# units, once per army, the per-1000-points cap (EnhancementRules11e).
+	# 10e: 1 of each per army; 1 per CHARACTER; bearer must be CHARACTER.
 	var enhancement_bearers: Dictionary = {}  # enhancement_name -> [bearer_unit_name, ...]
-	for unit_id in army_data.units:
+	if GameConstants.edition >= 11 and not _enhancement_validation_owned_elsewhere(army_data):
+		var enh_check: Dictionary = load("res://scripts/codex/EnhancementRules11e.gd").validate_army(army_data)
+		for w in enh_check.get("warnings", []):
+			result.warnings.append(w)
+	# WP-O5: the codex Ork checks for an army OrkEnhancements11e owns.
+	if GameConstants.edition >= 11 and _ork11e_enh().owns_army_validation(army_data):
+		result.warnings.append_array(_ork11e_enh().validate_army(army_data).warnings)
+	for unit_id in (army_data.units if GameConstants.edition < 11 else {}):
 		var unit = army_data.units[unit_id]
 		if not unit is Dictionary:
 			continue

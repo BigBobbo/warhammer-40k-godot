@@ -8,6 +8,7 @@ extends Node
 ## concern; apply_state_changes here is a compatibility forwarder.
 const GameStateData = preload("res://autoloads/GameState.gd")
 const BasePhase = preload("res://phases/BasePhase.gd")
+const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")  # WP-O6
 
 # PhaseManager - Orchestrates phase transitions and manages the current active phase
 # This is the central controller for the modular phase system
@@ -127,16 +128,17 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 		current_phase_instance.queue_free()
 		current_phase_instance = null
 
-		# SUPERIOR CREATION (Lions of the Emperor enhancement): bearers destroyed
-		# during the outgoing phase roll their 2+ revival now — "at the end of
-		# the phase" — before the next phase begins.
+		# Codex: Adeptus Custodes (11e) SUPERIOR CREATION (Auric Champions
+		# enhancement, CustodesEnhancements.gd, WP-C46): a bearer destroyed during
+		# the outgoing phase rolls its 2+ now — "at the end of a phase in which
+		# this model is destroyed" — before the next phase begins.
 		# Multiplayer: HOST-only. transition_to_phase runs on both peers, and
 		# each rolled its own unseeded d6 here (client make_rng falls back to
 		# randomize()) — divergent revival results that were never broadcast.
 		# The host now rolls once and ships the diffs to the client.
 		var sc_networked = NetworkManager.is_networked()
 		if not sc_networked or NetworkManager.is_host():
-			var sc_result = RulesEngine.resolve_superior_creation_revivals(GameState.state)
+			var sc_result: Dictionary = load("res://scripts/codex/custodes/CustodesEnhancements.gd").resolve_superior_creation()
 			if not sc_result.get("diffs", []).is_empty():
 				apply_state_changes(sc_result.diffs)
 				if sc_networked:
@@ -151,6 +153,12 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 		# "This phase" unit markers end with the phase. Deterministic, so it
 		# runs on every peer (transition_to_phase runs on host and client).
 		_clear_phase_scoped_unit_flags()
+
+	# WP-O6: Codex: Orks (11e) datasheet-ability flag expiry / permanent states
+	# (deterministic, every peer) — before the new phase is entered.
+	OrkAbilities11eScript.on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
+	# WP-C7: Codex: Adeptus Custodes (11e) datasheet-ability flag expiry (every peer).
+	load("res://scripts/codex/custodes/CustodesAbilities.gd").on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
 
 	# Update game state to new phase
 	GameState.set_phase(new_phase)
@@ -417,6 +425,19 @@ func _on_phase_completed() -> void:
 	if completed_phase == GameStateData.Phase.SCORING and GameState.is_game_complete():
 		_handle_game_end()
 		return
+
+	# Codex: Adeptus Custodes SUPERHUMAN FOCUS (WP-C5, CustodesCodex11e.gd):
+	# "End of any phase" — the phase_end window opens on the completing battle
+	# phase; a human decision holds the advance (the phase completes again from
+	# the window's resume). Single-player / hot-seat only: a networked host
+	# would open it outside an action result, which the client cannot mirror.
+	if completed_phase in [GameStateData.Phase.COMMAND, GameStateData.Phase.MOVEMENT, GameStateData.Phase.SHOOTING,
+			GameStateData.Phase.CHARGE, GameStateData.Phase.FIGHT] \
+			and current_phase_instance != null and current_phase_instance.has_method("cus11e_open_phase_end_window") \
+			and not (network_mgr and network_mgr.is_networked()):
+		if current_phase_instance.cus11e_open_phase_end_window():
+			print("PhaseManager: %s phase end held for a phase_end stratagem decision" % GameStateData.Phase.keys()[completed_phase])
+			return
 
 	# Commit current phase log to history before transitioning
 	GameState.commit_phase_log_to_history()

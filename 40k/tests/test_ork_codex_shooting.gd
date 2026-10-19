@@ -316,11 +316,12 @@ func _section_hook() -> void:
 	_check("window closed", not phase.has_pending_stratagem_window())
 	_check("CP %d -> %d" % [cp0, cp0 - 1], _cp(1) == cp0 - 1, str(_cp(1)))
 	_check("flag set on Tankbustas", bool(GS.state.units.U_TANKBUSTAS_A.flags.get(FLAG[CRD], false)))
-	# The selection continues where it was interrupted: Tankbustas next get
-	# their Pulsa Rokkit prompt (OA-31), then targets.
-	_check("selection resumed: active shooter + the rest of the selection ran (Pulsa Rokkit prompt / targets)",
-		phase.active_shooter_id == "U_TANKBUSTAS_A" and (_selected_events.has("U_TANKBUSTAS_A") or phase.pulsa_rokkit_pending_unit == "U_TANKBUSTAS_A"),
-		"%s pulsa=%s" % [str(_selected_events), phase.pulsa_rokkit_pending_unit])
+	# The selection continues where it was interrupted (targets). WP-O6: the
+	# pre-codex Pulsa Rokkit prompt is gone — the codex Pulsa Rokkit is an
+	# offer in this same unit_selected_to_shoot window.
+	_check("selection resumed: active shooter + the rest of the selection ran (targets)",
+		phase.active_shooter_id == "U_TANKBUSTAS_A" and _selected_events.has("U_TANKBUSTAS_A"),
+		"%s" % str(_selected_events))
 	var cp_diff := false
 	for d in use.get("changes", []):
 		if str(d.get("path", "")) == "players.1.cp":

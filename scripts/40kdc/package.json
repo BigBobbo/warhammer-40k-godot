@@ -5,7 +5,9 @@
   "description": "Data pipeline: converts the @alpaca-software/40kdc-data 11th-edition dataset into this game's data formats (army rosters, mission cards, stratagems/detachments/factions, leader pairings). Run `npm install` then `node extract.mjs` to refresh 40k/data/40kdc/, and the generate-*.mjs scripts to regenerate game data.",
   "scripts": {
     "extract": "node extract.mjs",
-    "bundle": "node bundle-browser.mjs"
+    "bundle": "node bundle-browser.mjs",
+    "builder-overlay": "node gen_codex_builder_patch.mjs",
+    "codex11e": "node wahapedia-import.mjs --faction adeptus-custodes --report ../../.llm/codex_11e_wahapedia/import_report_custodes.md && node wahapedia-import.mjs --faction orks --report ../../.llm/codex_11e_wahapedia/import_report_orks.md && node curate-from-wahapedia.mjs --faction adeptus-custodes && node generate-stratagems.mjs --only-faction AC && node generate-stratagems.mjs --only-faction ORK && node generate-leader-pairings.mjs --only-faction adeptus-custodes && node generate-leader-pairings.mjs --only-faction orks && node gen_codex_builder_patch.mjs && python3 -I gen_custodes_builder_patch.py && python3 -I gen_orks_builder_patch.py"
   },
   "dependencies": {
     "@alpaca-software/40kdc-data": "1.4.5"

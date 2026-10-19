@@ -71,12 +71,30 @@ var phase_type: GameStateData.Phase
 func enter_phase(state_snapshot: Dictionary) -> void:
 	game_state_snapshot = state_snapshot
 	_ev_baseline = _ev_snapshot()
+	# Codex: Adeptus Custodes (11e) "At the start of any phase" abilities
+	# (Moment Shackle, Neutronium Cascade Mine, Sword of the Throne —
+	# CustodesAbilities.gd, WP-C7): queued as event windows BEFORE the phase's
+	# own start rules, so the first window the phase opens resolves them first.
+	_ev_deferred.append_array(_cus11e_abilities().phase_start_entries(int(phase_type)))
 	_on_phase_enter()
+	# (A phase that ended inside its own entry does not carry them over.)
+	var pm_now = get_node_or_null("/root/PhaseManager")
+	if pm_now != null and pm_now.current_phase_instance != null and pm_now.current_phase_instance != self:
+		_ev_deferred = _ev_deferred.filter(func(e): return str(e.get("window_id", "")) != "phase_start")
 	# Units destroyed / battle-shocked by phase-start rules (e.g. Big Gob).
 	_window_events_flush({})
+	# Codex: Adeptus Custodes (11e) "at the start of any phase" enhancements —
+	# Pareldor's Caducatrix, Inspirational Exemplar, Sally Forth (Charge phase):
+	# a rule-only window, opened only when someone has an offer (CustodesEnhancements.gd, WP-C46).
+	_cus11e_open_phase_start_window()
 
 func exit_phase() -> void:
 	_on_phase_exit()
+	# Codex: Adeptus Custodes — the ka'tah effects that lasted for this phase
+	# expire (CustodesKatah.gd; Conservai lasts until the end of the turn).
+	_cus11e_katah().on_phase_exit(int(phase_type))
+	# Codex: Adeptus Custodes (11e) detachment / enhancement phase-scoped choices expire (WP-C46).
+	_cus11e_det().on_phase_end(int(phase_type))
 
 	# Clear debug visualizations on any phase exit
 	_clear_debug_visualizations()
@@ -440,6 +458,93 @@ func open_stratagem_windows(entries: Array, resume_method: String, resume_ctx: D
 	_window_resume_ctx = resume_ctx.duplicate(true)
 	return _process_window_queue()
 
+## Codex: Adeptus Custodes ka'tah abilities (CustodesKatah.gd) are offered in
+## the stratagem windows of their WHEN. Loaded lazily (no preload chain into
+## every phase script).
+static func _cus11e_katah():
+	return load("res://scripts/codex/custodes/CustodesKatah.gd")
+
+## Codex: Adeptus Custodes (11e) detachment rules + enhancements (WP-C46).
+static func _cus11e_det():
+	return load("res://scripts/codex/custodes/CustodesDetachments.gd")
+
+## The start-of-phase rule window (CustodesEnhancements.WINDOW_PHASE_START):
+## resume-less, so the phase's own entry flow is untouched — a pending window
+## (e.g. the Fight phase's start window) queues it behind; while it waits for
+## a human, the phase's actions wait too.
+func _cus11e_open_phase_start_window() -> void:
+	var e = _cus11e_det().enh()
+	if e == null or PhaseManager.get_current_phase_instance() != self:
+		return
+	var entries: Array = e.phase_start_window_entries()
+	if entries.is_empty():
+		return
+	DebugLogger.info("[StratagemWindow] start of phase %d — Codex: Adeptus Custodes enhancement window(s) for %s" % [int(phase_type), str(entries.map(func(x): return x.player))])
+	open_stratagem_windows(entries, "", {})
+
+## Codex: Adeptus Custodes stratagems (WP-C5, CustodesCodex11e.gd): the new
+## windows' hooks and the effect consumers the phases call. Loaded lazily.
+static func _cus11e_codex():
+	return load("res://scripts/codex/custodes/CustodesCodex11e.gd")
+
+## Codex: Adeptus Custodes datasheet abilities (WP-C7, CustodesAbilities.gd):
+## the phase_start window and the phases' passive hooks. Loaded lazily.
+static func _cus11e_abilities():
+	return load("res://scripts/codex/custodes/CustodesAbilities.gd")
+
+## Codex: Adeptus Custodes SUPERHUMAN FOCUS (WP-C5, CustodesCodex11e.gd): the
+## phase_end window ("End of any phase", both players, active first). Called by
+## PhaseManager._on_phase_completed before it advances: true = the window now
+## waits for a human and the phase completes from its resume; false = advance
+## now (no Custodes phase_end stratagem, or an AI decided synchronously — its
+## diffs are already applied by StratagemManager.use_stratagem). Once per phase
+## instance, so the resume's own phase_completed advances.
+var _cus11e_phase_end_done: bool = false
+
+func cus11e_open_phase_end_window() -> bool:
+	if _cus11e_phase_end_done or GameConstants.edition < 11:
+		return false
+	_cus11e_phase_end_done = true
+	var codex = _cus11e_codex()
+	if not (codex.player_has_window_stratagem(1, "phase_end") or codex.player_has_window_stratagem(2, "phase_end")):
+		return false
+	if has_pending_stratagem_window() or _window_followup_pending:
+		_window_error("phase_end window not opened: window %s / a follow-up is still pending at the end of the phase" % str(_window_pending.get("window_id", "followup")))
+		return false
+	var ctx := {"phase": StratagemManager._phase_to_string(GameState.get_current_phase())}
+	if open_stratagem_window_both_players("phase_end", ctx, "_cus11e_resume_after_phase_end"):
+		log_phase_message("End of the %s phase waits for Player %d's phase_end stratagem decision" % [ctx.phase, get_pending_stratagem_window_decider()])
+		return true
+	var sync := consume_window_diffs()
+	if not sync.is_empty():
+		log_phase_message("phase_end: %d stratagem diff(s) applied by an AI decision at the end of the %s phase" % [sync.size(), ctx.phase])
+	return false
+
+func _cus11e_resume_after_phase_end(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	log_phase_message("phase_end windows answered — ending the phase")
+	emit_signal("phase_completed")
+	return create_result(true, [])
+
+## Everything `player` may use in this window: the stratagems
+## (StratagemManager.get_window_offers) followed by the ka'tah cards.
+## katah_only: the ka'tah cards alone (a window re-opened after a stratagem).
+func _window_offers_for(player: int, window_id: String, ctx: Dictionary, katah_only: bool = false) -> Array:
+	# WP-O6: get_all_window_offers = window stratagems + Codex: Orks (11e) datasheet abilities.
+	var offers: Array = [] if katah_only else StratagemManager.get_all_window_offers(player, window_id, ctx)
+	offers.append_array(_cus11e_katah().window_offers(player, window_id, ctx))
+	return offers
+
+## Re-open `window_id` for `player` next (front of the queue): after a ka'tah
+## use with everything still offered; after a stratagem use (katah_only) only
+## when a ka'tah card is still usable there. The queue opens it as usual —
+## nothing left to offer simply resumes the phase.
+func _queue_katah_reopen(player: int, window_id: String, ctx: Dictionary, katah_only: bool) -> void:
+	var rctx: Dictionary = ctx.duplicate(true)
+	if katah_only and _cus11e_katah().window_offers(player, window_id, rctx).is_empty():
+		return
+	_window_queue.push_front({"player": player, "window_id": window_id, "ctx": rctx, "katah_only": katah_only})
+	DebugLogger.info("[StratagemWindow] %s for P%d re-queued (%s)" % [window_id, player, "ka'tah cards only" if katah_only else "after a ka'tah use"])
+
 ## Extra result keys produced by window follow-ups since the last call
 ## (never "success" / "changes" — callers merge without overwriting).
 func consume_window_result_extra() -> Dictionary:
@@ -473,13 +578,34 @@ func _process_window_queue() -> bool:
 			DebugLogger.info("[StratagemWindow] %s for P%d suppressed (\"don't offer again this phase\")" % [window_id, player])
 			_window_event_closed(window_id, ctx, false)
 			continue
-		var offers: Array = StratagemManager.get_window_offers(player, window_id, ctx)
+		var katah_only := bool(entry.get("katah_only", false))
+		var offers: Array = _window_offers_for(player, window_id, ctx, katah_only)
 		if offers.is_empty():
 			DebugLogger.info("[StratagemWindow] %s for P%d — no offers" % [window_id, player])
 			_window_event_closed(window_id, ctx, false)
 			continue
 		if _is_ai_window_decider(player):
 			var decision: Dictionary = AIDecisionMaker.decide_window_stratagem(player, window_id, offers, ctx)
+			# Codex: Adeptus Custodes ka'tah abilities (CustodesKatah.gd) leave the
+			# window open: apply each one the AI picks, then let it decide again
+			# on what is still offered (another readied unit, the stratagems).
+			var katah_guard := 0
+			while decision.get("use", false) and _cus11e_katah().is_katah_offer_id(str(decision.get("stratagem_id", ""))) and katah_guard < 24:
+				katah_guard += 1
+				var k_res = _apply_window_use(player, window_id, str(decision.get("stratagem_id", "")),
+					str(decision.get("target_unit_id", "")), decision.get("context", {}), ctx, offers)
+				if not k_res.get("success", false):
+					_window_error("AI P%d ka'tah decision for %s failed: %s — treated as decline" % [player, window_id, k_res.get("error", "?")])
+					decision = {"use": false}
+					break
+				_window_sync_diffs.append_array(k_res.get("diffs", []))
+				DebugLogger.info("[StratagemWindow] AI P%d used ka'tah %s on %s in %s" % [player, decision.get("stratagem_id", ""), decision.get("target_unit_id", ""), window_id])
+				offers = _window_offers_for(player, window_id, ctx, katah_only)
+				decision = {"use": false} if offers.is_empty() else AIDecisionMaker.decide_window_stratagem(player, window_id, offers, ctx)
+			if offers.is_empty():
+				emit_signal("stratagem_window_closed", player, window_id, true)
+				_window_event_closed(window_id, ctx, true)
+				continue
 			if decision.get("use", false):
 				var sync_mark := _window_sync_diffs.size()
 				var use_res = _apply_window_use(player, window_id, str(decision.get("stratagem_id", "")),
@@ -503,8 +629,13 @@ func _process_window_queue() -> bool:
 							int(use_res.get("cp_cost", 0)))
 					emit_signal("stratagem_window_closed", player, window_id, true)
 					_window_event_closed(window_id, ctx, true)
+					# A ka'tah still usable in this window is offered next (CustodesKatah.gd).
+					_queue_katah_reopen(player, window_id, ctx, true)
 					if use_res.get("paused", false):
 						return true
+					# Codex: Orks (11e) free rule choice (WP-O34): re-offer the window for its stratagems.
+					if use_res.get("reopen_window", false):
+						_window_queue.push_front(entry)
 					# Events the stratagem caused (units it destroyed / battle-shocked)
 					# open their windows next, before the rest of the queue.
 					_window_events_detect()
@@ -534,6 +665,17 @@ func _apply_window_use(player: int, window_id: String, stratagem_id: String, tar
 	var variant_label := _window_variant_label(offers, stratagem_id, target_unit_id, str(use_ctx.get("variant_id", "")))
 	if variant_label != "":
 		use_ctx["variant_label"] = variant_label
+	# Codex: Adeptus Custodes ka'tah ability (CustodesKatah.gd) — no CP, no
+	# stratagem bookkeeping; the module validates, applies and logs it.
+	if _cus11e_katah().is_katah_offer_id(stratagem_id):
+		var k_res: Dictionary = _cus11e_katah().use_katah(player, stratagem_id, target_unit_id, use_ctx)
+		if not k_res.get("success", false):
+			return {"success": false, "error": str(k_res.get("error", "ka'tah use failed"))}
+		var k_name := str(k_res.get("stratagem_name", stratagem_id))
+		_window_last_result = {"used": true, "player": player, "window_id": window_id, "katah": true,
+			"stratagem_id": stratagem_id, "target_unit_id": target_unit_id,
+			"stratagem_name": k_name, "diffs": k_res.get("diffs", [])}
+		return {"success": true, "diffs": k_res.get("diffs", []), "paused": false, "followup": {}, "stratagem_name": k_name}
 	var res: Dictionary = StratagemManager.use_stratagem(player, stratagem_id, target_unit_id, use_ctx)
 	if not res.get("success", false):
 		return {"success": false, "error": str(res.get("error", "stratagem use failed"))}
@@ -556,7 +698,9 @@ func _apply_window_use(player: int, window_id: String, stratagem_id: String, tar
 			paused = _execute_window_followup(player, window_id, followup, use_ctx)
 			_window_followup_pending = paused
 	return {"success": true, "diffs": use_diffs, "paused": paused, "followup": followup,
-		"stratagem_name": str(res.get("stratagem_name", stratagem_id)), "cp_cost": int(res.get("cp_cost", 0))}
+		"stratagem_name": str(res.get("stratagem_name", stratagem_id)), "cp_cost": int(res.get("cp_cost", 0)),
+		# Codex: Orks (11e) rule choice (WP-O34): the window is offered again afterwards.
+		"reopen_window": bool(res.get("reopen_window", false))}
 
 func _validate_window_action(action: Dictionary) -> Dictionary:
 	if not has_pending_stratagem_window():
@@ -630,6 +774,7 @@ func _process_window_action(action: Dictionary) -> Dictionary:
 	var diffs: Array = []
 	var used := false
 	var used_name := ""
+	var katah_used := false
 	if str(action.get("type", "")) == "USE_WINDOW_STRATAGEM":
 		var use_res = _apply_window_use(player, window_id, str(action.get("stratagem_id", "")),
 			str(action.get("target_unit_id", "")), action.get("context", {}), pending.get("ctx", {}), pending.get("offers", []))
@@ -639,7 +784,11 @@ func _process_window_action(action: Dictionary) -> Dictionary:
 		diffs.append_array(use_res.get("diffs", []))
 		used = true
 		used_name = str(use_res.get("stratagem_name", ""))
+		katah_used = _cus11e_katah().is_katah_offer_id(str(action.get("stratagem_id", "")))
 		log_phase_message("[StratagemWindow] P%d used %s on %s (%s)" % [player, used_name, action.get("target_unit_id", ""), window_id])
+		# Codex: Orks (11e) free rule choice (WP-O34): re-offer the window for its stratagems.
+		if use_res.get("reopen_window", false) and not _window_followup_pending:
+			_window_queue.push_front({"player": player, "window_id": window_id, "ctx": pending.get("ctx", {})})
 	else:
 		_window_last_result = {"used": false, "player": player, "window_id": window_id}
 		if bool(action.get("dont_offer_again", false)):
@@ -650,6 +799,11 @@ func _process_window_action(action: Dictionary) -> Dictionary:
 	_window_pending = {}
 	emit_signal("stratagem_window_closed", player, window_id, used)
 	_window_event_closed(window_id, pending.get("ctx", {}), used)
+	if used:
+		# Codex: Adeptus Custodes (CustodesKatah.gd): a ka'tah use keeps the
+		# window open with what is still offered; after a stratagem, a ka'tah
+		# still usable in this window is offered next.
+		_queue_katah_reopen(player, window_id, pending.get("ctx", {}), not katah_used)
 
 	var result: Dictionary
 	if _window_followup_pending:
@@ -729,6 +883,13 @@ func _execute_generic_window_followup(player: int, window_id: String, followup: 
 				PhaseManager.apply_state_changes(diffs)
 			DebugLogger.info("[StratagemWindow] follow-up new_reserve_unit (%s, P%d) resolved: %d diff(s)" % [window_id, player, diffs.size()])
 			return {"handled": true, "diffs": diffs}
+		"ork11e_reoffer":
+			# WP-O6 (OrkAbilities11e): a datasheet ability was used in a window that
+			# can host several (Command phase heals, Makari's picks, ...) — open the
+			# same window again with whatever is still on offer.
+			_window_queue.push_front({"player": player, "window_id": window_id, "ctx": followup.get("ctx", {})})
+			DebugLogger.info("[StratagemWindow] follow-up ork11e_reoffer: %s re-queued for P%d" % [window_id, player])
+			return {"handled": true, "diffs": []}
 	return {"handled": false, "diffs": []}
 
 ## new_reserve_unit {source_unit_id} (INFESTED WAR ZONE): add a NEW unit to
@@ -1051,7 +1212,7 @@ func _window_hold_deadly_demise(unit_id: String) -> bool:
 	# Deadly Demise resolves exactly as before (same order, same dice).
 	var owner := int(GameState.get_unit(unit_id).get("owner", 0))
 	var dd_ctx := {"unit_id": unit_id, "phase": StratagemManager._phase_to_string(GameState.get_current_phase())}
-	if StratagemManager.get_window_offers(owner, "unit_destroyed", dd_ctx).is_empty():
+	if StratagemManager.get_all_window_offers(owner, "unit_destroyed", dd_ctx).is_empty():
 		return false
 	_ev_dd_held[unit_id] = true
 	DebugLogger.info("[StratagemWindow] Deadly Demise of %s held until its unit_destroyed window closes" % unit_id)

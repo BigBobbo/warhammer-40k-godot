@@ -4976,12 +4976,19 @@ func _on_charge_path_tools_enabled(unit_id: String, distance: int) -> void:
 	# The counter-charge target list lives on the phase's HI pending charge,
 	# not in the local selection (the defender never clicked targets).
 	var hi_pending = current_phase.get("heroic_intervention_pending_charge")
+	var hi_label := "Heroic Intervention"
 	if hi_pending is Dictionary:
 		selected_targets = hi_pending.get("targets", []).duplicate()
+		# Codex: Adeptus Custodes SELFLESS SERVICE rides the HI charge flow.
+		if str(hi_pending.get("mode", "")) == "cus11e_selfless_service":
+			hi_label = "SELFLESS SERVICE"
+	var target_names: Array = []
+	for tid in selected_targets:
+		target_names.append(GameState.get_unit_display_name(str(tid)))
 	if is_instance_valid(charge_info_label):
-		charge_info_label.text = "Heroic Intervention! Rolled %d\" - Drag models toward %s - they auto-snap to base contact (max %d\" each)" % [distance, str(selected_targets), distance]
+		charge_info_label.text = "%s! Rolled %d\" - Drag models toward %s - they auto-snap to base contact (max %d\" each)" % [hi_label, distance, ", ".join(target_names), distance]
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gold]Heroic Intervention charge successful! Move models into engagement range.[/color]\n")
+		dice_log_display.append_text("[color=gold]%s charge successful! Move models into engagement range.[/color]\n" % hi_label)
 	_enable_charge_movement(unit_id, distance)
 	_show_charge_distance_display(distance)
 	_update_button_states()

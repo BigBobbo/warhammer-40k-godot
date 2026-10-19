@@ -385,8 +385,6 @@ from 78%.
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `REINFORCE_AAO_BROKEN` | 3 | reinforcement spot: lands inside a friendly bubble, buff lost (penalty) |
-| `REINFORCE_AAO_CLEAR` | 4 | reinforcement spot: arrives with Against All Odds live |
 | `REINFORCE_CHARGE_RANGE` | 3 | reinforcement spot: lands inside charge range |
 | `REINFORCE_NEAR_CHARGE_RANGE` | 2 | reinforcement spot: just outside charge range |
 | `REINFORCE_OBJ_FAR_BASE` | 8 | reinforcement spot: base value at longer range from an objective |

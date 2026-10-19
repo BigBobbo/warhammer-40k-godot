@@ -1757,8 +1757,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	# CONFIRM_AND_RESOLVE_ATTACKS, and without it here the remote DEFENDER
 	# never got the melee save dialog (observed live: 4 melee wounds stuck
 	# "awaiting defender allocation" with the defending client shown nothing).
-	# SELECT_KATAH_STANCE: a stance pick can resume straight into resolution.
-	var is_fight_action = action_type in ["ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS", "APPLY_MELEE_SAVES", "BATCH_FIGHT_ACTIONS", "SELECT_KATAH_STANCE"]
+	var is_fight_action = action_type in ["ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS", "APPLY_MELEE_SAVES", "BATCH_FIGHT_ACTIONS"]
 
 	if is_shooting_action or is_fight_action:
 		var save_data_list = result.get("save_data_list", [])
@@ -1919,17 +1918,6 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			phase.emit_signal("epic_challenge_opportunity", ec_unit_id, ec_player)
 
 	# Handle pile_in_required signal (after SELECT_FIGHTER)
-	# Handle katah_stance_required signal (Martial Ka'tah, after SELECT_FIGHTER)
-	if result.get("trigger_katah_stance", false):
-		print("NetworkManager: Result has trigger_katah_stance flag")
-		var unit_id = result.get("katah_unit_id", "")
-		var katah_player = result.get("katah_player", 0)
-		if phase.has_signal("katah_stance_required") and unit_id != "":
-			print("NetworkManager: Client re-emitting katah_stance_required for unit %s" % unit_id)
-			phase.emit_signal("katah_stance_required", unit_id, katah_player)
-		else:
-			print("NetworkManager: ⚠️ Phase doesn't support katah_stance_required or missing unit_id")
-
 	if result.get("trigger_pile_in", false):
 		print("NetworkManager: Result has trigger_pile_in flag")
 		var unit_id = result.get("pile_in_unit_id", "")
@@ -2819,7 +2807,6 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		# Fight Phase actions - players alternate during active player's turn
 		"SELECT_FIGHTER",
 		"SELECT_MELEE_WEAPON",
-		"SELECT_KATAH_STANCE",
 		"PILE_IN",
 		"ASSIGN_ATTACKS",
 		"CONFIRM_AND_RESOLVE_ATTACKS",

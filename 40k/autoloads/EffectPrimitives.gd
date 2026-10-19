@@ -614,7 +614,31 @@ static func has_effect_invuln(unit: Dictionary) -> bool:
 
 static func get_effect_invuln(unit: Dictionary) -> int:
 	"""Get the effect-granted invulnerable save value (0 if none)."""
-	return unit.get("flags", {}).get(FLAG_INVULN, 0)
+	var inv := int(unit.get("flags", {}).get(FLAG_INVULN, 0))
+	# WP-O6: Codex: Orks (11e) Kustom Force Field / Blastajet Force Field.
+	var ork_inv := int(_ork_abilities().defence_mods_now(unit).get("invuln", 0))
+	if ork_inv > 0 and (inv == 0 or ork_inv < inv):
+		inv = ork_inv
+	# WP-C7: Codex: Adeptus Custodes (11e) Moment Shackle — this model has a 3+ InSv.
+	var cus_inv := int(_cus11e_abilities().defence_mods_now(unit).get("invuln", 0))
+	if cus_inv > 0 and (inv == 0 or cus_inv < inv):
+		inv = cus_inv
+	return inv
+
+## WP-O6: Codex: Orks (11e) datasheet abilities (late-loaded: this class is
+## compiled very early and must not drag the module into every preload chain).
+static var _ork_ab_script = null
+static func _ork_abilities():
+	if _ork_ab_script == null:
+		_ork_ab_script = load("res://scripts/codex/orks/OrkAbilities11e.gd")
+	return _ork_ab_script
+
+## WP-C7: Codex: Adeptus Custodes (11e) datasheet abilities (late-loaded, as above).
+static var _cus11e_ab_script = null
+static func _cus11e_abilities():
+	if _cus11e_ab_script == null:
+		_cus11e_ab_script = load("res://scripts/codex/custodes/CustodesAbilities.gd")
+	return _cus11e_ab_script
 
 static func get_effect_invuln_source(unit: Dictionary) -> String:
 	"""Get the source name of the effect-granted invulnerable save (empty if none)."""
@@ -700,7 +724,9 @@ static func has_effect_worsen_ap(unit: Dictionary) -> bool:
 
 static func get_effect_worsen_ap(unit: Dictionary) -> int:
 	"""Get the effect-granted AP worsen value (0 if none)."""
-	return unit.get("flags", {}).get(FLAG_WORSEN_AP, 0)
+	# WP-O6: + Codex: Orks (11e) Arrogant Invulnerability (-1 AP for attacks that target the unit).
+	return maxi(maxi(int(unit.get("flags", {}).get(FLAG_WORSEN_AP, 0)), int(_ork_abilities().defence_mods_now(unit).get("ap_worsen", 0))),
+		int(_cus11e_abilities().defence_mods_now(unit).get("ap_worsen", 0)))  # WP-C7: Living Fortress (-1 AP)
 
 static func has_effect_improve_ap(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted AP improvement."""
@@ -747,7 +773,9 @@ static func has_effect_minus_damage(unit: Dictionary) -> bool:
 
 static func get_effect_minus_damage(unit: Dictionary) -> int:
 	"""Get the effect-granted damage reduction value (0 if none)."""
-	return unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0)
+	# WP-O6: + Codex: Orks (11e) Dread 'Ard (-1 D) / Mobile Fortress (ranged -1 D).
+	return maxi(maxi(int(unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0)), int(_ork_abilities().defence_mods_now(unit).get("damage_minus", 0))),
+		int(_cus11e_abilities().defence_mods_now(unit).get("damage_minus", 0)))  # WP-C7: Guardian Eternal (ranged -1 D)
 
 static func has_effect_crit_hit_on(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted critical hit threshold."""
@@ -759,27 +787,76 @@ static func get_effect_crit_hit_on(unit: Dictionary) -> int:
 
 static func has_effect_fall_back_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and shoot eligibility."""
-	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false)
+	# Codex: Adeptus Custodes (11e) Anti-gravitic Mobility (WP-C46); Codex: Adeptus
+	# Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives
+	# the Shooting phase effect_* wipe).
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false) \
+		or (GameConstants.edition >= 11 and _cus11e_det().fall_back_allows_shoot(unit)) \
+		or _cus11e_grants(unit, "fall_back_and_shoot") \
+		or (GameConstants.edition >= 11 and load("res://scripts/codex/orks/OrkEnhancements11e.gd").fall_back_allows_shoot(unit))  # Codex: Orks (11e) Kunnin' But Brutal (WP-O5)
 
 static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and charge eligibility."""
-	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false)
+	# Codex: Orks (11e) Adrenaline Junkies / Suspiciously Well Organised (WP-O34);
+	# Codex: Adeptus Custodes (11e) Solar Watch — Talon Sortie (WP-C46);
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives the Shooting phase effect_* wipe).
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false) \
+		or (GameConstants.edition >= 11 and _ork11e_det().fall_back_allows_charge(unit)) \
+		or (GameConstants.edition >= 11 and _cus11e_det().fall_back_allows_charge(unit)) \
+		or _cus11e_grants(unit, "fall_back_and_charge")
 
 static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and charge eligibility."""
-	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false)
+	# Codex: Orks (11e) Adrenaline Junkies (WP-O34); Codex: Adeptus Custodes (11e)
+	# Sally Forth (WP-C46); Codex: Adeptus Custodes stratagems
+	# (CustodesCodex11e.gd): turn-long cus11e_* grant.
+	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false) \
+		or (GameConstants.edition >= 11 and _ork11e_det().advance_allows_charge(unit)) \
+		or (GameConstants.edition >= 11 and _cus11e_det().advance_allows_charge(unit)) \
+		or _cus11e_grants(unit, "advance_and_charge") \
+		or _cus11e_abilities().advance_allows_charge(unit)  # WP-C7: Assault Dropship
 
 static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and shoot eligibility."""
-	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false)
+	# Codex: Orks (11e) ranged [ASSAULT] — Dakka! Dakka! Dakka! / Adrenaline Junkies (WP-O34);
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant.
+	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false) \
+		or (GameConstants.edition >= 11 and _ork11e_det().ranged_attacks_have_assault(unit)) \
+		or _cus11e_grants(unit, "advance_and_shoot")
+
+## Codex: Orks (11e) detachment rules module (WP-O34), loaded on first use so
+## this class compiles without it.
+static var _ork11e_det_script = null
+static func _ork11e_det():
+	if _ork11e_det_script == null:
+		_ork11e_det_script = load("res://scripts/codex/orks/OrkDetachments11e.gd")
+	return _ork11e_det_script
+
+## Codex: Adeptus Custodes (11e) detachment / enhancement facade (WP-C46),
+## loaded on first use like the Ork module above.
+static var _cus11e_det_script = null
+static func _cus11e_det():
+	if _cus11e_det_script == null:
+		_cus11e_det_script = load("res://scripts/codex/custodes/CustodesDetachments.gd")
+	return _cus11e_det_script
+
+## Codex: Adeptus Custodes stratagems (WP-C5): UNCEASING ONSLAUGHT, UNLIMITED
+## ENDURANCE, PRETERNATURAL RAPIDITY, AT SPEAR'S LENGTH, MANOEUVRE AND FIRE,
+## ADVANCED STABILISERS write cus11e_* flags; CustodesCodex11e.grants reads them.
+static func _cus11e_grants(unit: Dictionary, what: String) -> bool:
+	if unit.is_empty() or unit.get("flags", {}).is_empty():
+		return false
+	return bool(load("res://scripts/codex/custodes/CustodesCodex11e.gd").grants(unit, what))
 
 static func has_effect_reroll_charge(unit: Dictionary) -> bool:
-	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""
-	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false)
+	"""Check if a unit has effect-granted charge reroll."""
+	# WP-C7: + Codex: Adeptus Custodes (11e) Swift Onslaught / Seeker's Instincts.
+	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false) or _cus11e_abilities().charge_reroll_source(unit) != ""
 
 static func has_effect_reroll_advance(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted Advance re-roll (Bloodthirsty Belligerence, Superfuelled Boiler)."""
-	return unit.get("flags", {}).get(FLAG_REROLL_ADVANCE, false)
+	# WP-C7: + Codex: Adeptus Custodes (11e) Swift Onslaught / Seeker's Instincts.
+	return unit.get("flags", {}).get(FLAG_REROLL_ADVANCE, false) or _cus11e_abilities().advance_reroll_source(unit) != ""
 
 static func has_effect_counts_as_10(unit: Dictionary) -> bool:
 	"""Green Tide: unit counts as containing 10+ models (Raucous Warcaller, Braggin' Rights)."""

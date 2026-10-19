@@ -12,7 +12,7 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "Codex: Orks (11e) GOADED INTO ACTION (Da Big Hunt, 1 CP, opponent's Shooting phase) through the real enemy_has_shot window and the engine's 11e surge move. Fixture ork11e_orks_reactive: P1 Custodes ACTIVE, P2 Orks. Setup-only privileges: P2's detachment is flipped to Da Big Hunt and its stratagems reloaded; the Beast Snagga Boyz (engaged with the Allarus in the fixture) step 3\" back so they are a legal target, and are marked riled up (so the D6 can be re-rolled). The Custodes player clicks the Allarus Custodians' token and declares their balistus grenade launchers at the Beast Snagga Boyz (phase actions the shooting panel sends), then resolves with the dock's Fast Roll button. Once the Allarus have shot and the Boyz have lost wounds, the enemy_has_shot window opens for PLAYER 2: GOADED INTO ACTION with an enabled Use button. A real click spends 1 CP and opens the reactive-move panel for a surge move: D6 rolled, the riled-up re-roll used through the panel's Re-roll button (only once), Auto-move places the unit (closest model straight at the closest enemy, the rest coherent behind it), the panel reports the move legal and Confirm move finishes it. Asserts the CP delta, the D6/re-roll bookkeeping, no model moved further than the roll, the unit ended closer to the surge target, and the phase free again.",
+  "description": "Codex: Orks (11e) GOADED INTO ACTION (Da Big Hunt, 1 CP, opponent's Shooting phase) through the real enemy_has_shot window and the engine's 11e surge move. Fixture ork11e_orks_reactive: P1 Custodes ACTIVE, P2 Orks. Setup-only privileges: P2's detachment is flipped to Da Big Hunt and its stratagems reloaded; the Beast Snagga Boyz (engaged with the Allarus in the fixture) step 3\" back so they are a legal target, and are marked riled up (so the D6 can be re-rolled). The Custodes player clicks the Allarus Custodians' token and declares their balistus grenade launchers at the Beast Snagga Boyz (phase actions the shooting panel sends), then resolves with the dock's Fast Roll button. Once the Allarus have shot and the Boyz have lost wounds, the enemy_has_shot window opens for PLAYER 2: GOADED INTO ACTION with an enabled Use button. A real click spends 1 CP and opens the reactive-move panel for a surge move: D6 rolled, the riled-up re-roll used through the panel's Re-roll button (only once), Auto-move places the unit (closest model straight at the closest enemy, the rest coherent behind it), the panel reports the move legal and Confirm move finishes it. Asserts the CP delta, the D6/re-roll bookkeeping, no model moved further than the roll, the unit ended closer to the surge target, and the phase free again. Setup privilege (WP-FIX1): the dice are re-seeded (RulesEngine.set_test_seed) right before CONFIRM_TARGETS, so the Boyz are wounded but not destroyed regardless of how many RNG instances the engine made since load.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_phase", "equals": 8 },
@@ -32,6 +32,8 @@
     { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
       "payload": { "weapon_id": "balistus_grenade_launcher_ranged", "target_unit_id": "U_BEAST_SNAGGA_BOYZ_A", "model_ids": ["m1", "m2", "m3", "m4", "m5"] } } },
     { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "RulesEngine.set_test_seed(11)\nreturn RulesEngine.get_test_seed()", "equals": 11,
+      "comment": "WP-FIX1 setup privilege: re-seed the dice right before the shot. The fixture-level rng_seed counts every RNG instance the engine makes from load onwards (instance k is seeded hash([seed, k])); WP-C46's Superior Creation hook no longer makes one on each phase transition, so at the old seed the shot killed all 10 Beast Snagga Boyz (no unit left to GOAD). Seed chosen so the balistus wounds the Boyz (5 wounds) without destroying them." },
     { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
     { "act": "expect_action_result", "path": "success", "equals": true },
     { "act": "wait_seconds", "seconds": 0.8 },
@@ -44,7 +46,9 @@
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "click_if_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton" },
     { "act": "wait_seconds", "seconds": 1.2 },
-    { "act": "expect_state", "path": "units.U_ALLARUS_CUSTODIANS_A.flags.has_shot", "equals": true, "comment": "with this seed the phase's existing 'all remaining targets destroyed' check auto-completes the activation after the saves" },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton", "comment": "WP-FIX1: the Boyz survive the shot, so the activation waits for the shooter — real click on the dock's Complete Shooting (with the delivered dice the phase's 'target fully destroyed by current saves' check auto-completed the activation)" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "units.U_ALLARUS_CUSTODIANS_A.flags.has_shot", "equals": true, "comment": "the Allarus have shot (Complete Shooting)" },
 
     { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 4.0 },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")", "equals": "enemy_has_shot" },

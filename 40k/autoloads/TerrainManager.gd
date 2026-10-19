@@ -959,6 +959,10 @@ func is_obscured_between(p1: Vector2, p2: Vector2) -> bool:
 func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 	if GameConstants.edition < 11:
 		return false
+	# WP-O6 BURNA BOMB (Codex: Orks 11e, Burna-bommer): "That enemy unit cannot
+	# be hidden until the end of your next turn."
+	if _ork_abilities().cannot_be_hidden(unit):
+		return false
 	var keywords: Array = unit.get("meta", {}).get("keywords", [])
 	var qualifies := false
 	for kw in ["INFANTRY", "BEASTS", "SWARM"]:
@@ -1018,7 +1022,20 @@ func detection_range_inches_for(model: Dictionary, unit: Dictionary, observer_mo
 	var range_in := detection_range_base_inches(unit)
 	if _obscured_by_dense_11e(observer_model, model):
 		range_in -= GameConstants.gone_to_ground_penalty_inches()
+	# WP-O6 FOUND 'EM! (Codex: Orks 11e, Kommandos): the selected enemy unit
+	# has +3" detection range until the end of the turn.
+	range_in += _ork_abilities().detection_range_bonus(unit)
+	# WP-C7 PURITY OF EXECUTION (Codex: Adeptus Custodes 11e, Prosecutors): a detected unit has +3" detection range.
+	range_in += load("res://scripts/codex/custodes/CustodesAbilities.gd").detection_range_bonus(unit)
 	return maxf(range_in, GameConstants.detection_range_floor_inches())
+
+## WP-O6: Codex: Orks (11e) datasheet abilities, loaded lazily (no preload
+## cycle through the autoloads it reaches).
+var _ork_ab_script = null
+func _ork_abilities():
+	if _ork_ab_script == null:
+		_ork_ab_script = load("res://scripts/codex/orks/OrkAbilities11e.gd")
+	return _ork_ab_script
 
 ## "Detection Range X\"" datasheet ability — mirrors the Lone Operative X"
 ## parser (RulesEngine.get_lone_operative_range). Absent → 15" default.
@@ -1314,6 +1331,12 @@ func unit_has_cover_11e(unit: Dictionary, attacker_model: Dictionary = {}) -> bo
 	if GameConstants.edition < 11:
 		return false
 	if UnitAbilities.unit_has(unit, "stealth"):
+		return true
+	# WP-O5: Kill Kommanda (Stealth while attached); Smoky Gubbinz (the target
+	# is not fully visible to the attacking model because of a model in that
+	# SPEED FREEKS unit).
+	var o5 = load("res://scripts/codex/orks/OrkEnhancements11e.gd")
+	if o5.grants_stealth(unit) or o5.smoky_gubbinz_cover(unit, attacker_model):
 		return true
 	var keywords: Array = unit.get("meta", {}).get("keywords", [])
 	var qualifies_kw := false

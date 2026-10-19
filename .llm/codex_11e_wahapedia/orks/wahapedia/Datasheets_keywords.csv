@@ -1,0 +1,306 @@
+datasheet_id|keyword|model|is_faction_keyword
+000000001|Orks||true
+000000001|Character||false
+000000001|Warboss||false
+000000001|Explosives||false
+000000001|Infantry||false
+000000002|Orks||true
+000000002|Infantry||false
+000000002|Character||false
+000000002|Mega Armour||false
+000000002|Warboss||false
+000000003|Orks||true
+000000003|Speed Freeks||false
+000000003|Mounted||false
+000000003|Character||false
+000000003|Explosives||false
+000000004|Orks||true
+000000004|Infantry||false
+000000004|Character||false
+000000004|Psyker||false
+000000006|Orks||true
+000000006|Explosives||false
+000000006|Mega Armour||false
+000000006|Infantry||false
+000000006|Big Mek||false
+000000006|Character||false
+000000008|Orks||true
+000000008|Infantry||false
+000000008|Character||false
+000000008|Epic Hero||false
+000000008|Warboss||false
+000000008|Explosives||false
+000000009|Orks||true
+000000009|Epic Hero||false
+000000009|Character||false
+000000009|Infantry||false
+000000010|Orks||true
+000000010|Character||false
+000000010|Epic Hero||false
+000000010|Jump Pack||false
+000000010|Infantry||false
+000000010|Fly||false
+000000011|Orks||true
+000000011|Character||false
+000000011|Epic Hero||false
+000000011|Infantry||false
+000000011|Smoke||false
+000000011|Explosives||false
+000000012|Orks||true
+000000012|Character||false
+000000012|Infantry||false
+000000012|Explosives||false
+000000013|Orks||true
+000000013|Infantry||false
+000000013|Character||false
+000000015|Orks||true
+000000015|Painboy||false
+000000015|Character||false
+000000015|Epic Hero||false
+000000015|Infantry||false
+000000016|Orks||true
+000000016|Explosives||false
+000000016|Battleline||false
+000000016|Mob||false
+000000016|Infantry||false
+000000017|Orks||true
+000000017|Infantry||false
+000000017|Grots||false
+000000019|Orks||true
+000000019|Infantry||false
+000000020|Orks||true
+000000020|Infantry||false
+000000020|Explosives||false
+000000021|Orks||true
+000000021|Infantry||false
+000000021|Explosives||false
+000000024|Orks||true
+000000024|Mega Armour||false
+000000024|Infantry||false
+000000024|Explosives||false
+000000025|Orks||true
+000000025|Smoke||false
+000000025|Explosives||false
+000000025|Infantry||false
+000000026|Orks||true
+000000026|Transport||false
+000000026|Speed Freeks||false
+000000026|Frame||false
+000000026|Dedicated Transport||false
+000000026|Vehicle||false
+000000027|Orks||true
+000000027|Jump Pack||false
+000000027|Fly||false
+000000027|Explosives||false
+000000027|Infantry||false
+000000028|Orks||true
+000000028|Mounted||false
+000000028|Fly||false
+000000028|Speed Freeks||false
+000000028|Explosives||false
+000000029|Orks||true
+000000029|Fly||false
+000000029|Aircraft||false
+000000029|Vehicle||false
+000000029|Speed Freeks||false
+000000030|Orks||true
+000000030|Vehicle||false
+000000030|Speed Freeks||false
+000000030|Fly||false
+000000030|Aircraft||false
+000000031|Orks||true
+000000031|Speed Freeks||false
+000000031|Vehicle||false
+000000031|Aircraft||false
+000000031|Fly||false
+000000032|Orks||true
+000000032|Vehicle||false
+000000032|Aircraft||false
+000000032|Fly||false
+000000032|Smoke||false
+000000032|Speed Freeks||false
+000000033|Orks||true
+000000033|Explosives||false
+000000033|Mounted||false
+000000033|Speed Freeks||false
+000000036|Orks||true
+000000036|Explosives||false
+000000036|Speed Freeks||false
+000000036|Vehicle||false
+000000038|Orks||true
+000000038|Vehicle||false
+000000038|Grots||false
+000000038|Frame||false
+000000039|Orks||true
+000000039|Frame||false
+000000039|Vehicle||false
+000000039|Transport||false
+000000039|Wagon||false
+000000040|Orks||true
+000000040|Vehicle||false
+000000040|Walker||false
+000000041|Orks||true
+000000041|Vehicle||false
+000000041|Grots||false
+000000041|Walker||false
+000000042|Orks||true
+000000042|Titanic||false
+000000042|Vehicle||false
+000000042|Towering||false
+000000042|Transport||false
+000000042|Walker||false
+000000043|Orks||true
+000000043|Vehicle||false
+000000043|Titanic||false
+000000043|Towering||false
+000000043|Transport||false
+000000043|Walker||false
+000000044|Orks||true
+000000044|Infantry||false
+000000045|Orks||true
+000000045|Infantry||false
+000000045|Explosives||false
+000000046|Orks||true
+000000046|Walker||false
+000000046|Transport||false
+000000046|Vehicle||false
+000000046|Frame||false
+000000046|Titanic||false
+000000046|Towering||false
+000000049|Orks||true
+000000049|Frame||false
+000000049|Vehicle||false
+000000049|Grots||false
+000000050|Orks||true
+000000050|Grots||false
+000000050|Frame||false
+000000050|Vehicle||false
+000000053|Orks||true
+000000053|Wagon||false
+000000053|Vehicle||false
+000000053|Frame||false
+000000054|Orks||true
+000000054|Vehicle||false
+000000054|Transport||false
+000000054|Frame||false
+000000056|Orks||true
+000000056|Transport||false
+000000056|Wagon||false
+000000056|Frame||false
+000000056|Vehicle||false
+000000059|Orks||true
+000000059|Transport||false
+000000059|Towering||false
+000000059|Titanic||false
+000000059|Monster||false
+000000059|Frame||false
+000001536|Orks||true
+000001536|Infantry||false
+000001536|Big Mek||false
+000001536|Character||false
+000001536|Explosives||false
+000001537|Orks||true
+000001537|Mounted||false
+000001537|Character||false
+000001537|Speed Freeks||false
+000001537|Warboss||false
+000001545|Orks||true
+000001545|Fortification||false
+000001545|Frame||false
+000001545|Vehicle||false
+000002488|Orks||true
+000002488|Runtherd||false
+000002488|Epic Hero||false
+000002488|Character||false
+000002488|Infantry||false
+000002489|Orks||true
+000002489|Character||false
+000002489|Warboss||false
+000002489|Beast Snagga||false
+000002489|Infantry||false
+000002490|Orks||true
+000002490|Warboss||false
+000002490|Character||false
+000002490|Beast Snagga||false
+000002490|Monster||false
+000002491|Orks||true
+000002491|Character||false
+000002491|Infantry||false
+000002491|Beast Snagga||false
+000002493|Orks||true
+000002493|Character||false
+000002493|Beast Snagga||false
+000002493|Monster||false
+000002493|Epic Hero||false
+000002494|Orks||true
+000002494|Battleline||false
+000002494|Mob||false
+000002494|Beast Snagga||false
+000002494|Infantry||false
+000002496|Orks||true
+000002496|Explosives||false
+000002496|Beast Snagga||false
+000002496|Mounted||false
+000002496|Mobile||false
+000002497|Orks||true
+000002497|Psyker||false
+000002497|Beast Snagga||false
+000002497|Monster||false
+000002497|Wagon||false
+000002497|Transport||false
+000002498|Orks||true
+000002498|Beast Snagga||false
+000002498|Monster||false
+000002498|Transport||false
+000002498|Wagon||false
+000002499|Orks||true
+000002499|Frame||false
+000002499|Vehicle||false
+000002499|Transport||false
+000002499|Fortification||false
+000003707|Orks||true
+000003707|Infantry||false
+000003707|Character||false
+000003707|Explosives||false
+000003861|Orks||true
+000003861|Explosives||false
+000003861|Infantry||false
+000004221|Orks||true
+000004221|Mounted||false
+000004221|Vehicle||false
+000004221|Character||false
+000004221|Speed Freeks||false
+000004221|Smoke||false
+000004221|Epic Hero||false
+000004227|Orks||true
+000004227|Infantry||false
+000004227|Character||false
+000004228|Orks||true
+000004228|Infantry||false
+000004228|Character||false
+000004229|Orks||true
+000004229|Big Mek||false
+000004229|Character||false
+000004229|Walker||false
+000004229|Vehicle||false
+000004239|Orks||true
+000004239|Infantry||false
+000004239|Character||false
+000004240|Orks||true
+000004240|Mounted||false
+000004240|Speed Freeks||false
+000004241|Orks||true
+000004241|Vehicle||false
+000004241|Frame||false
+000004241|Transport||false
+000004241|Wagon||false
+000004242|Orks||true
+000004242|Infantry||false
+000004242|Character||false
+000004242|Epic Hero||false
+000004242|Mega Armour||false
+000004242|Warboss||false
+000004243|Orks||true
+000004243|Vehicle||false
+000004243|Speed Freeks||false
+000004243|Explosives||false

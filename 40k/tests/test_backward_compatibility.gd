@@ -541,7 +541,11 @@ func _init():
 	# --- Test 24: Profiled Meganob transport slots = 2 (positive control) ---
 	test_num += 1
 	print("\n--- Test %d: Profiled Meganob transport_slots = 2 (positive control) ---" % test_num)
-	var mega_unit = ork_data.get("units", {}).get("U_MEGANOBZ_L", {})
+	# Codex: Orks (11e): the shipped U_MEGANOBZ_L (armies/orks.json) was rebuilt
+	# from the codex datasheet without per-model profiles (its MEGA ARMOUR
+	# transport space is the transport's capacity_multipliers, TransportManager).
+	# The positive control keeps the pre-codex profile shape inline.
+	var mega_unit = {"meta": {"model_profiles": {"meganob_klaw": {"label": "Meganob (Power Klaw)", "transport_slots": 2}}}}
 	var mega_model = {"id": "m1", "alive": true, "model_type": "meganob_klaw"}
 	var mega_ts = _get_model_transport_slots(mega_model, mega_unit)
 	if mega_ts == 2:

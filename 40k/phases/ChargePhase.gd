@@ -2,6 +2,8 @@ extends BasePhase
 class_name ChargePhase
 
 const BasePhase = preload("res://phases/BasePhase.gd")
+# WP-O6: Codex: Orks (11e) datasheet abilities (charge-roll bonuses, Mobbed).
+const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 
 
 # ChargePhase - Full implementation of the Charge phase following 10e rules
@@ -29,7 +31,6 @@ signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit
 signal tank_shock_opportunity(player: int, vehicle_unit_id: String, eligible_targets: Array)
 signal tank_shock_result(vehicle_unit_id: String, target_unit_id: String, result: Dictionary)
 signal ability_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
-signal piston_driven_brutality_resolved(unit_id: String, result: Dictionary)  # OA-36: Piston-driven Brutality mortal wounds result
 
 # ISS-002: engagement range comes from GameConstants.engagement_range_inches()
 # (edition-dependent). Do not re-declare it as a local constant.
@@ -150,6 +151,13 @@ func _on_phase_enter() -> void:
 	game_state_snapshot = GameState.create_snapshot()
 
 	_initialize_charge()
+
+	# Codex: Adeptus Custodes GRAVIMETRIC GRENADE (CustodesCodex11e.gd):
+	# charge_phase_start — "Start of your opponent's Charge phase" (the
+	# non-active player decides).
+	_cus11e_charge_end_done = false
+	_cus11e_selfless_pending = false
+	_cus11e_open_charge_phase_start_window()
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Charge Phase")
@@ -518,15 +526,6 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 		"declared_at": Time.get_unix_time_from_system()
 	}
 
-	# Track once-per-battle ability usage when a unit charges after advancing
-	var declaring_unit = get_unit(unit_id)
-	var declaring_flags = declaring_unit.get("flags", {})
-	if declaring_flags.get("advanced", false) and EffectPrimitivesData.has_effect_advance_and_charge(declaring_unit):
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr:
-			ability_mgr.mark_once_per_battle_used(unit_id, "Martial Inspiration")
-			DebugLogger.info(str("ChargePhase: Marked Martial Inspiration as used for unit %s (charged after advancing)" % unit_id))
-
 	# Track the currently charging unit (may not have been set via SELECT_CHARGE_UNIT)
 	current_charging_unit = unit_id
 
@@ -665,12 +664,11 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	ability_reroll_used = false
 
 	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught,
-	# Plummeting Descent, Green Tide's Bloodthirsty Belligerence while the
-	# bearer's unit counts as 10+ models, or the Prey rule / DAT ONE'S EVEN
-	# BIGGA! for a BEAST SNAGGA unit charging its owner's Prey)
+	# Plummeting Descent, or the Prey rule / DAT ONE'S EVEN BIGGA! for a
+	# BEAST SNAGGA unit charging its owner's Prey; Codex: Orks detachment /
+	# enhancement re-rolls via unit_has_detachment_charge_reroll)
 	var unit_data = get_unit(unit_id)
 	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
-		or FactionAbilityManager.unit_has_green_tide_charge_reroll(unit_data, GameState.state.get("units", {})) \
 		or FactionAbilityManager.unit_has_prey_charge_reroll(unit_data, target_ids, GameState.state.get("units", {})) \
 		or FactionAbilityManager.unit_has_detachment_charge_reroll(unit_data)
 
@@ -772,17 +770,36 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	# what feeds the engagement-range feasibility check and movement budget.
 	var unit_for_charge_bonus = get_unit(unit_id)
 	var charge_bonus = EffectPrimitivesData.get_effect_plus_charge(unit_for_charge_bonus)
-	# Runnin' Boots (Blitz Brigade): +1 to Charge rolls while the bearer's
-	# unit disembarked from a Transport this turn.
-	charge_bonus += FactionAbilityManager.runnin_boots_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))
 	# Boarding Ramps (Rollin' Deff): +1 to Charge rolls for a unit that
 	# disembarked this turn from the WAGON bearing the enhancement.
 	charge_bonus += FactionAbilityManager.boarding_ramps_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))
+	# Codex: Adeptus Custodes (11e) Auric Eagle (Solar Watch): +1 to charge rolls (WP-C46).
+	var cus11e_cb: int = int(_cus11e_det().charge_roll_bonus(unit_for_charge_bonus))
+	if cus11e_cb > 0:
+		log_phase_message("Auric Eagle — +%d to the charge roll" % cus11e_cb)
+	charge_bonus += cus11e_cb
+	# WP-O6: Codex: Orks (11e) datasheet abilities — Trophy Hunters, Waaagh!
+	# Banner (+1 to charge rolls), Thundering Stampede aura (+1, BEAST SNAGGA).
+	if GameConstants.edition >= 11:
+		var o6_cb: Dictionary = OrkAbilities11eScript.charge_roll_bonus(unit_id)
+		if int(o6_cb.get("bonus", 0)) > 0:
+			charge_bonus += int(o6_cb.get("bonus", 0))
+			log_phase_message("Charge roll +%d (%s)" % [int(o6_cb.get("bonus", 0)), ", ".join(o6_cb.get("sources", []))])
+	# Codex: Adeptus Custodes (CustodesCodex11e.gd): FURY OF THE EMPEROR +2,
+	# GRAVIMETRIC GRENADE -1 (on the enemy unit), INEXORABLE ignores the penalty.
+	charge_bonus = int(_cus11e_codex().charge_roll_modifier(unit_for_charge_bonus, charge_bonus))
 	if charge_bonus > 0:
 		total_distance += charge_bonus
 		charge_data.distance = total_distance
 		log_phase_message("Charge modifier: +%d → %d total" % [charge_bonus, total_distance])
 		DebugLogger.info(str("ChargePhase: PLUS_CHARGE active for %s — base %d + %d = %d" % [
+			unit_name, charge_data.dice_rolls[0] + charge_data.dice_rolls[1], charge_bonus, total_distance
+		]))
+	elif charge_bonus < 0:
+		total_distance = maxi(0, total_distance + charge_bonus)
+		charge_data.distance = total_distance
+		log_phase_message("Charge modifier: %d → %d total" % [charge_bonus, total_distance])
+		DebugLogger.info(str("ChargePhase: charge-roll penalty for %s — base %d %d = %d" % [
 			unit_name, charge_data.dice_rolls[0] + charge_data.dice_rolls[1], charge_bonus, total_distance
 		]))
 
@@ -1430,14 +1447,16 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	var apply_seed: int = action.get("payload", {}).get("rng_seed", -1)
 	_apply_spiked_ram_if_applicable(unit_id, charge_data.targets, changes, apply_seed)
 
-	# OA-36: Piston-driven Brutality — after Charge move, auto-resolve mortal wounds
-	_resolve_piston_driven_brutality_after_charge(unit_id, changes, apply_seed)
-
 	# Stratagem window unit_ended_charge_move (design §3, e.g. IMPENDING
 	# KRUNCH). The move is applied to GameState first so the window sees the
 	# post-charge positions ("engaged with your unit"); the same set-diffs stay
 	# in the result (idempotent when BasePhase applies them again).
 	PhaseManager.apply_state_changes(changes)
+	# WP-O6 MOBBED (Codex: Orks 11e, Beast Snagga Boyz): "When this unit ends a
+	# charge move, each enemy MONSTER/VEHICLE unit engaged with this unit makes
+	# a battle-shock roll" (-1, or -2 with 13+ models). Diffs already applied.
+	if GameConstants.edition >= 11:
+		changes.append_array(OrkAbilities11eScript.on_charge_move_ended(unit_id))
 	var uecm_owner := int(get_unit(unit_id).get("owner", get_current_player()))
 	var uecm_ctx := {"phase": "charge", "unit_id": unit_id}
 	if open_stratagem_window(uecm_owner, "unit_ended_charge_move", uecm_ctx, "_resume_after_ended_charge_move_window"):
@@ -1735,6 +1754,22 @@ func _process_skip_charge(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_end_charge(action: Dictionary) -> Dictionary:
+	# Codex: Adeptus Custodes SELFLESS SERVICE (CustodesCodex11e.gd):
+	# charge_phase_end — "End of your opponent's Charge phase" — before the
+	# core HEROIC INTERVENTION window (the non-active player decides).
+	if GameConstants.edition >= 11 and not _cus11e_charge_end_done:
+		_cus11e_charge_end_done = true
+		var cpe_decider := 2 if GameState.get_active_player() == 1 else 1
+		if open_stratagem_window(cpe_decider, "charge_phase_end", {"phase": "charge"}, "_cus11e_resume_after_charge_phase_end"):
+			log_phase_message("End of the Charge phase waits for Player %d's charge_phase_end stratagem decision" % cpe_decider)
+			return create_result(true, consume_window_diffs())
+		var cpe_sync := consume_window_diffs()
+		if not cpe_sync.is_empty():
+			var cont := _process_end_charge(action)
+			var merged: Array = cpe_sync.duplicate()
+			merged.append_array(cont.get("changes", []))
+			cont["changes"] = merged
+			return cont
 	# 11e 15.11: HEROIC INTERVENTION happens once, at the END of the
 	# opponent's Charge phase (the 10e per-charge window is retired) —
 	# offer it to the defender before the phase completes.
@@ -1776,10 +1811,118 @@ func _process_end_charge(action: Dictionary) -> Dictionary:
 # 11e: the END_CHARGE that opened the HI window still owes a phase
 # completion once HI resolves (used, declined, failed, or moved).
 func _complete_phase_after_heroic_intervention_if_pending() -> void:
+	if _cus11e_selfless_pending:
+		return  # SELFLESS SERVICE: the window follow-up continues the phase (_cus11e_hi_result)
 	if _hi_pending_phase_complete:
 		_hi_pending_phase_complete = false
 		log_phase_message("Ending Charge Phase (after Heroic Intervention window)")
 		emit_signal("phase_completed")
+
+# ============================================================================
+# Codex: Adeptus Custodes (WP-C5, CustodesCodex11e.gd) — Charge phase windows
+#   charge_phase_start  GRAVIMETRIC GRENADE (opponent's Charge phase start)
+#   charge_phase_end    SELFLESS SERVICE (opponent's Charge phase end, before HI)
+# SELFLESS SERVICE's charge (follow-up cus11e_selfless_service) is made with the
+# Heroic Intervention machinery: 2D6 capped at 6, the closest enemy unit within
+# 6" as the target, the human drags the models (ChargeController HI path) or
+# the AI's APPLY_HEROIC_INTERVENTION_MOVE places them; its end continues the
+# window flow (_cus11e_hi_result) instead of completing the phase.
+# ============================================================================
+
+var _cus11e_charge_end_done: bool = false   # charge_phase_end opened this phase
+var _cus11e_selfless_pending: bool = false  # a SELFLESS SERVICE charge holds the window follow-up
+
+func _cus11e_open_charge_phase_start_window() -> void:
+	if GameConstants.edition < 11:
+		return
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm != null and pm.current_phase_instance != self:
+		return
+	var decider := 2 if GameState.get_active_player() == 1 else 1
+	if open_stratagem_window(decider, "charge_phase_start", {"phase": "charge"}, "_cus11e_resume_after_charge_phase_start"):
+		log_phase_message("Waiting for Player %d's charge_phase_start stratagem decision" % decider)
+	var start_diffs := consume_window_diffs()
+	if not start_diffs.is_empty():
+		log_phase_message("charge_phase_start: %d stratagem diff(s) applied by an AI decision at phase entry" % start_diffs.size())
+
+func _cus11e_resume_after_charge_phase_start(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return create_result(true, [])
+
+func _cus11e_resume_after_charge_phase_end(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	log_phase_message("charge_phase_end answered — continuing the end of the Charge phase")
+	return _process_end_charge({"type": "END_CHARGE"})
+
+func _execute_window_followup(player: int, window_id: String, followup: Dictionary, ctx: Dictionary) -> bool:
+	if str(followup.get("type", "")) == "cus11e_selfless_service":
+		return _cus11e_begin_selfless_service(player, followup)
+	return super(player, window_id, followup, ctx)
+
+## SELFLESS SERVICE: "Declare a charge with your unit: if the charge roll is
+## greater than 6 (after modifiers), change it to 6; you can select any enemy
+## units within 6" of your unit and within the maximum distance." Returns true
+## when the charge move pauses the phase (human drag / AI move action).
+func _cus11e_begin_selfless_service(player: int, followup: Dictionary) -> bool:
+	var unit_id := str(followup.get("unit_id", ""))
+	var unit := get_unit(unit_id)
+	var unit_name := str(unit.get("meta", {}).get("name", unit_id))
+	game_state_snapshot = GameState.create_snapshot()
+	var target := _closest_hi_target_11e(unit_id, player, 6.0, false)
+	if unit.is_empty() or target == "":
+		log_phase_message("SELFLESS SERVICE: %s has no enemy unit within 6\" — no charge" % unit_name)
+		return false
+	var rolls: Array = _cus11e_codex().roll_charge_dice()
+	var raw := int(rolls[0]) + int(rolls[1])
+	var total := maxi(0, raw + int(_cus11e_codex().charge_roll_modifier(unit, 0)))
+	if total > 6:
+		log_phase_message("SELFLESS SERVICE: charge roll %d changed to 6" % total)
+		total = 6
+	heroic_intervention_unit_id = unit_id
+	heroic_intervention_player = player
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_pending_charge = {"targets": [target], "mode": "cus11e_selfless_service",
+		"declared_at": Time.get_unix_time_from_system(), "distance": total, "dice_rolls": rolls}
+	var sufficient := _is_heroic_intervention_roll_sufficient(unit_id, total, [target])
+	var target_name := str(get_unit(target).get("meta", {}).get("name", target))
+	log_phase_message("SELFLESS SERVICE charge roll: 2D6 = %d (%d + %d) → %d\" vs %s — %s" % [
+		raw, int(rolls[0]), int(rolls[1]), total, target_name, "SUCCESS" if sufficient else "FAILED"])
+	var dice_result := {"context": "charge_roll", "unit_id": unit_id, "unit_name": unit_name, "rolls": rolls,
+		"total": total, "targets": [target], "charge_failed": not sufficient, "source": "SELFLESS SERVICE"}
+	dice_log.append(dice_result)
+	emit_signal("dice_rolled", dice_result)
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(player, "SELFLESS SERVICE: %s charge roll [%d, %d] → %d\" vs %s — %s" % [
+			unit_name, int(rolls[0]), int(rolls[1]), total, target_name, "SUCCESS" if sufficient else "FAILED"])
+	if not sufficient:
+		heroic_intervention_unit_id = ""
+		heroic_intervention_pending_charge = {}
+		heroic_intervention_player = 0
+		emit_signal("charge_resolved", unit_id, false, {"reason": "charge roll too low", "heroic_intervention": true})
+		return false
+	_cus11e_selfless_pending = true
+	emit_signal("charge_path_tools_enabled", unit_id, total)
+	return true
+
+## The SELFLESS SERVICE charge ended (moved / failed / aborted): hand the
+## result to the window follow-up so the end of the Charge phase continues.
+func _cus11e_hi_result(result: Dictionary) -> Dictionary:
+	if not _cus11e_selfless_pending:
+		return result
+	_cus11e_selfless_pending = false
+	var changes: Array = result.get("changes", [])
+	if not changes.is_empty():
+		PhaseManager.apply_state_changes(changes)
+	var cont := _finish_window_followup(changes)
+	return cont
+
+## A pending SELFLESS SERVICE charge move belongs to the stratagem's owner.
+func get_pending_stratagem_window_decider() -> int:
+	var decider := super()
+	if decider > 0:
+		return decider
+	if _cus11e_selfless_pending:
+		return heroic_intervention_player
+	return 0
 
 # Helper Methods
 
@@ -1811,6 +1954,9 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	# GRAB IT (Codex: Orks 11e): "not eligible to declare a charge until the
 	# end of the turn" — a hard lock, not overridable by advance-and-charge.
 	if flags.get("ork11e_grab_it_no_charge", false):
+		return false
+	# Codex: Adeptus Custodes MOBILE HUNTER (CustodesAbilities.gd): the same hard lock.
+	if _cus11e_abilities().blocks_charge(unit):
 		return false
 
 	# Check restriction flags
@@ -3200,6 +3346,18 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 	if not EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
 			and FactionAbilityManager.unit_has_prey_charge_reroll(unit_data, declared_targets, GameState.state.get("units", {})):
 		return "Prey"
+	# Codex: Orks (11e) Blitz Brigade — Unstoppable Momentum (WP-O34).
+	var ork11e_um: String = load("res://scripts/codex/orks/OrkDetachments11e.gd").charge_reroll_source(unit_data)
+	if ork11e_um != "":
+		return ork11e_um
+	# Codex: Adeptus Custodes Swift Onslaught / Seeker's Instincts (WP-C7).
+	var cus11e_rr: String = _cus11e_abilities().charge_reroll_source(unit_data)
+	if cus11e_rr != "":
+		return cus11e_rr
+	# Codex: Adeptus Custodes (11e) Dread Host / Combat Deployment (WP-C46).
+	var cus11e_src: String = str(_cus11e_det().charge_reroll_source(unit_data))
+	if cus11e_src != "":
+		return cus11e_src
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:
@@ -3775,7 +3933,7 @@ func _process_abort_heroic_intervention_move(action: Dictionary) -> Dictionary:
 		"heroic_intervention": true,
 	})
 	_complete_phase_after_heroic_intervention_if_pending()
-	return create_result(true, [])
+	return _cus11e_hi_result(create_result(true, []))
 
 func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -3806,7 +3964,7 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 		})
 		# 11e end-of-phase window: the phase completes once HI resolves
 		_complete_phase_after_heroic_intervention_if_pending()
-		return create_result(true, [])
+		return _cus11e_hi_result(create_result(true, []))
 
 	# Apply successful HI charge movement (path keys may name attached
 	# character models — see _resolve_charge_path_ref)
@@ -3839,6 +3997,11 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 				"value": per_model_rotations[path_key]
 			})
 
+	# Codex: Adeptus Custodes SELFLESS SERVICE (CustodesCodex11e.gd) made with
+	# this machinery: "Declare a charge with your unit" — a charge, so it gets
+	# a charge's Fights First (RULINGS WP-C5), not the HI markers.
+	var cus11e_ss := str(charge_data.get("mode", "")) == "cus11e_selfless_service"
+
 	# Mark unit as charged BUT NOT fights_first (key difference for Heroic Intervention)
 	# Per 10e rules: Heroic Intervention does NOT grant Fights First
 	changes.append({
@@ -3849,19 +4012,27 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 	# Explicitly do NOT set fights_first — this is the key mechanical difference
 	# The unit fights in the normal (Remaining Combats) subphase
 
-	# Mark as heroic intervention unit for tracking
-	changes.append({
-		"op": "set",
-		"path": "units.%s.flags.heroic_intervention" % unit_id,
-		"value": true
-	})
+	if cus11e_ss:
+		changes.append({"op": "set", "path": "units.%s.flags.fights_first" % unit_id, "value": true})
+		for ss_tid in charge_data.get("targets", []):
+			changes.append({"op": "set", "path": "units.%s.flags.has_been_charged" % str(ss_tid), "value": true})
+	else:
+		# Mark as heroic intervention unit for tracking
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.heroic_intervention" % unit_id,
+			"value": true
+		})
 
 	# Attached CHARACTER(s) ride the Heroic Intervention with their bodyguard.
 	# HI does NOT grant Fights First, so neither does the character.
-	changes.append_array(_charge_attached_character_changes(unit_id, per_model_paths, false))
+	changes.append_array(_charge_attached_character_changes(unit_id, per_model_paths, cus11e_ss))
 
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	log_phase_message("HEROIC INTERVENTION successful: %s counter-charged into engagement range" % unit_name)
+	if cus11e_ss:
+		log_phase_message("SELFLESS SERVICE successful: %s charged into engagement range" % unit_name)
+	else:
+		log_phase_message("HEROIC INTERVENTION successful: %s counter-charged into engagement range" % unit_name)
 
 	emit_signal("charge_resolved", unit_id, true, {
 		"distance": charge_data.distance,
@@ -3877,7 +4048,7 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 	# 11e end-of-phase window: the phase completes once HI resolves
 	_complete_phase_after_heroic_intervention_if_pending()
 
-	return create_result(true, changes)
+	return _cus11e_hi_result(create_result(true, changes))
 
 # Every model of the Attached unit making a Heroic Intervention: the selected
 # unit's own models plus its attached CHARACTER(s)'. 19.01 makes them one unit,
@@ -3996,165 +4167,6 @@ func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: i
 	return false
 
 # Override create_result to support additional data
-# ============================================================================
-# OA-36: PISTON-DRIVEN BRUTALITY — Mortal wounds after Charge move
-# ============================================================================
-
-func _resolve_piston_driven_brutality_after_charge(unit_id: String, changes: Array, rng_seed: int = -1) -> void:
-	"""OA-36: Check if the charging unit has Piston-driven Brutality.
-	If so, auto-resolve mortal wounds against one enemy in Engagement Range.
-	Roll 1D6: on 2-5, D3 MW; on 6, D3+3 MW; on 1, nothing.
-	Applied immediately via PhaseManager (like Dread Foe in FightPhase)."""
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr or not ability_mgr.has_piston_driven_brutality(unit_id):
-		return
-
-	var unit = get_unit(unit_id)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-
-	# Build a temp snapshot with charge move positions applied
-	# so engagement range checks use post-move positions
-	var temp_snapshot = game_state_snapshot.duplicate(true)
-	for change in changes:
-		if change.get("op", "") == "set":
-			var path_parts = change.path.split(".")
-			if path_parts.size() >= 5 and path_parts[0] == "units" and path_parts[2] == "models":
-				var u_id = path_parts[1]
-				var m_idx = int(path_parts[3])
-				var field = path_parts[4] if path_parts.size() > 4 else ""
-				if field == "position" and temp_snapshot.get("units", {}).has(u_id):
-					var models = temp_snapshot.units[u_id].get("models", [])
-					if m_idx < models.size():
-						models[m_idx]["position"] = change.value
-
-	# Find enemy units within Engagement Range using post-move positions
-	var targets = _get_piston_brutality_targets(unit_id, temp_snapshot)
-	if targets.is_empty():
-		log_phase_message("PISTON-DRIVEN BRUTALITY: %s has ability but no enemies in Engagement Range" % unit_name)
-		DebugLogger.info(str("ChargePhase: Piston-driven Brutality — %s has no valid targets in Engagement Range" % unit_name))
-		return
-
-	# Auto-select first target (same pattern as Dread Foe)
-	var target_id = targets[0].get("unit_id", "")
-	var target_name = targets[0].get("unit_name", target_id)
-	log_phase_message("PISTON-DRIVEN BRUTALITY: %s targets %s within Engagement Range" % [unit_name, target_name])
-
-	# Resolve via RulesEngine
-	# Issue #329: forward seed from action.payload.rng_seed (caller passes it through)
-	var rng_service = RulesEngine.RNGService.new(rng_seed)
-	var result = RulesEngine.resolve_piston_driven_brutality(
-		unit_id, target_id, temp_snapshot, rng_service
-	)
-
-	# Apply state changes if mortal wounds were dealt
-	var pdb_diffs = result.get("diffs", [])
-	if not pdb_diffs.is_empty():
-		PhaseManager.apply_state_changes(pdb_diffs)
-		# Update our snapshot
-		game_state_snapshot = GameState.state.duplicate(true)
-		log_phase_message("PISTON-DRIVEN BRUTALITY: Applied %d state change(s)" % pdb_diffs.size())
-
-	# Emit signal for UI/logging
-	emit_signal("piston_driven_brutality_resolved", unit_id, result)
-
-	# Log to GameEventLog
-	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if game_event_log:
-		var owner = int(unit.get("owner", 0))
-		game_event_log.add_player_entry(owner,
-			"Piston-driven Brutality: %s rolled [%d] — %d mortal wound(s) to %s (%d casualt(y/ies))" % [
-				unit_name, result.get("roll", 0), result.get("mortal_wounds", 0),
-				target_name, result.get("casualties", 0)
-			])
-
-	log_phase_message("PISTON-DRIVEN BRUTALITY: %s rolled %d — %d mortal wound(s) to %s, %d casualt(y/ies)" % [
-		unit_name,
-		result.get("roll", 0),
-		result.get("mortal_wounds", 0),
-		target_name,
-		result.get("casualties", 0)
-	])
-
-	# Check if mortal wounds killed any units (could trigger Deadly Demise)
-	if not pdb_diffs.is_empty():
-		_check_kill_diffs_for_deadly_demise(pdb_diffs)
-
-func _get_piston_brutality_targets(unit_id: String, snapshot: Dictionary) -> Array:
-	"""OA-36: Get enemy units within Engagement Range of a unit for Piston-driven Brutality targeting.
-	Uses post-charge-move positions from the provided snapshot.
-	Returns array of { unit_id, unit_name } dictionaries."""
-	var unit = snapshot.get("units", {}).get(unit_id, {})
-	var unit_owner = unit.get("owner", 0)
-	var all_units = snapshot.get("units", {})
-	var targets: Array = []
-
-	for other_id in all_units:
-		var other = all_units[other_id]
-		# Only enemy units
-		if other.get("owner", 0) == unit_owner:
-			continue
-		# Must have alive models
-		var has_alive = false
-		for m in other.get("models", []):
-			if m.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-
-		# Check if any model of our unit is within Engagement Range of any model of the enemy
-		var in_range = false
-		for model in unit.get("models", []):
-			if not model.get("alive", true):
-				continue
-			var model_pos = _get_model_position(model)
-			if model_pos == Vector2.ZERO:
-				continue
-
-			for enemy_model in other.get("models", []):
-				if not enemy_model.get("alive", true):
-					continue
-				var enemy_pos = _get_model_position(enemy_model)
-				if enemy_pos == Vector2.ZERO:
-					continue
-
-				var effective_er = _get_effective_engagement_range(model_pos, enemy_pos)
-				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
-					in_range = true
-					break
-			if in_range:
-				break
-
-		if in_range:
-			targets.append({
-				"unit_id": other_id,
-				"unit_name": other.get("meta", {}).get("name", other_id)
-			})
-
-	return targets
-
-func _check_kill_diffs_for_deadly_demise(diffs: Array) -> void:
-	"""OA-36: Check if mortal wound diffs killed any models that might trigger Deadly Demise.
-	Follows same pattern as FightPhase._check_kill_diffs."""
-	for diff in diffs:
-		if diff.get("op", "") == "set" and diff.get("path", "").ends_with(".alive") and diff.get("value", true) == false:
-			var path_parts = diff.path.split(".")
-			if path_parts.size() >= 2:
-				var killed_unit_id = path_parts[1]
-				var killed_unit = get_unit(killed_unit_id)
-				if killed_unit.is_empty():
-					continue
-				# Check if any models in unit are still alive
-				var any_alive = false
-				for m in killed_unit.get("models", []):
-					if m.get("alive", true):
-						any_alive = true
-						break
-				if not any_alive:
-					var killed_name = killed_unit.get("meta", {}).get("name", killed_unit_id)
-					log_phase_message("PISTON-DRIVEN BRUTALITY: %s destroyed — checking for Deadly Demise" % killed_name)
-					DebugLogger.info(str("ChargePhase: Piston-driven Brutality destroyed %s — Deadly Demise check may apply" % killed_name))
-
 func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:
 	var result = {
 		"success": success,

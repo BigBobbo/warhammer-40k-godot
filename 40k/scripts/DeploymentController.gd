@@ -528,7 +528,8 @@ func _maybe_offer_combat_squad_split(p_unit_id: String) -> bool:
 	var splittable = false
 	for ab in unit.get("meta", {}).get("abilities", []):
 		var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
-		if ab_name in ["Combat Squads", "Patrol Squad"]:
+		# WP-O6: Codex: Orks (11e) Kommandos "Taktikal Know-wotz" (was "Patrol Squad").
+		if ab_name in ["Combat Squads"] or GameState._is_taktikal_know_wotz(str(ab_name)):
 			splittable = true
 			break
 	if not splittable:
@@ -537,7 +538,7 @@ func _maybe_offer_combat_squad_split(p_unit_id: String) -> bool:
 	var dialog = ConfirmationDialog.new()
 	dialog.title = "Split Unit?"
 	var unit_name = unit.get("meta", {}).get("name", p_unit_id)
-	dialog.dialog_text = "%s can be split into two 5-model squads (Combat Squads / Patrol Squad).\nSplit before deployment?" % unit_name
+	dialog.dialog_text = "%s can be split into two 5-model squads (Combat Squads / Taktikal Know-wotz).\nSplit before deployment?" % unit_name
 	dialog.get_ok_button().text = "Split"
 	dialog.get_cancel_button().text = "Deploy as 10"
 	# Wire up handlers BEFORE showing

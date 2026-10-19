@@ -2806,59 +2806,43 @@
  },
  {
   "id": "huntress-eye-null-maiden-vigil",
-  "name": "Huntress’ Eye",
+  "name": "Huntress' Eye",
   "detachment_id": "null-maiden-vigil",
-  "cost": 15,
-  "keyword_restrictions": [
-   "Anathema Psykana"
-  ],
+  "cost": 10,
+  "keyword_restrictions": [],
   "ability_id": "huntress-eye-null-maiden-vigil",
   "is_unique": true,
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "points_provisional": false,
   "upgrade_tag": false,
   "max_targets": 1,
-  "external_refs": [
-   {
-    "namespace": "game-datacards",
-    "id": "034bdd57-8cd7-5586-8fbe-25049b19e6a8"
-   },
-   {
-    "namespace": "mfm",
-    "id": "a0dd4369-a684-4a28-a35e-f8412fe754e9"
-   }
-  ]
+  "rules_text": "Anathema Psykana model only. In your Movement phase, you can select one visible enemy unit within 12\" of this unit. That unit makes a battle-shock roll, with -1 to that battle-shock roll.",
+  "legend": "This ancient bionic focuses the bearer’s null aura into a horrifying stare that can terrify foes to death.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "oblivion-knight-null-maiden-vigil",
   "name": "Oblivion Knight",
   "detachment_id": "null-maiden-vigil",
-  "cost": 25,
-  "keyword_restrictions": [
-   "Anathema Psykana"
-  ],
+  "cost": 15,
+  "keyword_restrictions": [],
   "ability_id": "oblivion-knight-null-maiden-vigil",
   "is_unique": true,
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "points_provisional": false,
   "upgrade_tag": false,
   "max_targets": 1,
-  "external_refs": [
-   {
-    "namespace": "game-datacards",
-    "id": "12ce10f7-dc0f-512a-9ae2-4a322f716f1c"
-   },
-   {
-    "namespace": "mfm",
-    "id": "ad4c7b31-c0d1-4fdc-940e-9b82ca3d3057"
-   }
-  ]
+  "rules_text": "Anathema Psykana model only. This unit’s attacks have:\n• +1 to hit rolls.\n• Or: If this unit targets a PSYKER/battle-shocked unit, +1 to hit rolls and wound rolls.",
+  "legend": "Knights-Centura of the Chamber of Oblivion demonstrate exceptional prowess with whichever weapons they opt to wield. Woe betide any witch who crosses their path.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "blade-imperator-auric-champions",
@@ -2893,28 +2877,20 @@
   "name": "Inspirational Exemplar",
   "detachment_id": "auric-champions",
   "cost": 10,
-  "keyword_restrictions": [
-   "Adeptus Custodes"
-  ],
+  "keyword_restrictions": [],
   "ability_id": "inspirational-exemplar-auric-champions",
   "is_unique": true,
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "points_provisional": false,
   "upgrade_tag": false,
   "max_targets": 1,
-  "external_refs": [
-   {
-    "namespace": "game-datacards",
-    "id": "db009f0f-0475-5788-aa36-6bcecbb73af4"
-   },
-   {
-    "namespace": "mfm",
-    "id": "84f59743-864c-4f63-89c2-33de243b7adf"
-   }
-  ]
+  "rules_text": "Adeptus Custodes Infantry model only. (Once per battle round, per army) At the start of any phase, you can select one friendly battle-shocked Adeptus Custodes unit within 9\" of this model. That unit is no longer battle-shocked.",
+  "legend": "A master orator, this Custodian’s battle cries light fires of defiance in the hearts of their allies.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "veiled-blade-auric-champions",
@@ -3429,6 +3405,526 @@
     "id": "f832b7c7-53b8-4bd3-856d-29b837ad35ea"
    }
   ]
+ },
+ {
+  "id": "shroud-of-the-hidden-blade-auric-champions",
+  "name": "Shroud of the Hidden Blade",
+  "detachment_id": "auric-champions",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "shroud-of-the-hidden-blade-auric-champions",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model has:\n• Stealth\n• Lone Operative.",
+  "legend": "Long-forgotten technologies shroud this cloak’s bearer.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "superior-creation-auric-champions",
+  "name": "Superior Creation",
+  "detachment_id": "auric-champions",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "superior-creation-auric-champions",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry model only. (Once per battle, per army) At the end of a phase in which this model is destroyed, roll one D6:\n• On a 2+, set this model back up on the battlefield as close as possible to where it was destroyed, unengaged, with 3 wounds remaining.",
+  "legend": "The cellular alchemy by which this heroic warrior was forged has rendered them breathtakingly resilient.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "lightning-descent-lions-of-the-emperor",
+  "name": "Lightning Descent",
+  "detachment_id": "lions-of-the-emperor",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "lightning-descent-lions-of-the-emperor",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Shield-Captain in Allarus Terminator Armour model only. In your first Movement phase, this unit can make an ingress move.",
+  "legend": "This Shield-Captain knows well the value of intelligence, utilising data harvested by agents of the Golden Throne to strike like a bolt of golden lightning before the foe can bring their strength to bear.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "leonine-ferocity-lions-of-the-emperor",
+  "name": "Leonine Ferocity",
+  "detachment_id": "lions-of-the-emperor",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "leonine-ferocity-lions-of-the-emperor",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Shield-Captain in Allarus Terminator Armour model only. (Once per phase, per army) You can target this unit with the Rapid Ingress stratagem, regardless of any other uses of that stratagem this phase. If you do:\n• That use is -1 CP.\n• That use does not prevent any uses of that stratagem on other units this phase.",
+  "legend": "This Shield-Captain demands boundless aggression from the warriors at their command. Each movement by the foe is seized upon and punished with furious countercharges.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "memento-moritoi-one-per-army-might-of-the-moritoi",
+  "name": "Memento Moritoi (one per army)",
+  "detachment_id": "might-of-the-moritoi",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "memento-moritoi-one-per-army-might-of-the-moritoi",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Dreadnought model only. This model’s melee attacks have +1 A, S and D.",
+  "legend": "This reliquary contains drops of blood, promethium and amniotic fluid harvested from the fractured form of a fallen Dreadnought. Said to be infused with the remaining fury of fallen warrior and war machine, this device inspires wrathful fury in those who bear it to war.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "augury-uplink-one-per-army-might-of-the-moritoi",
+  "name": "Augury Uplink (one per army)",
+  "detachment_id": "might-of-the-moritoi",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "augury-uplink-one-per-army-might-of-the-moritoi",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Dreadnought model only. This model has Feel No Pain 5+.",
+  "legend": "The war engines of the Adeptus Custodes possess an array of augury equipment that combines to build an intricate picture of the unfolding conflict, enabling the bearer to detect incoming threats, then angle their armour to repel the worst of enemy attacks.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "auric-exemplar-dread-host",
+  "name": "Auric Exemplar",
+  "detachment_id": "dread-host",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "auric-exemplar-dread-host",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model’s melee attacks have [Cleave 1].",
+  "legend": "This champion’s physical might is exceptional, even for a Custodian. Each swing of their blade carves a bloody swathe through the foe.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "flawless-bladework-dread-host",
+  "name": "Flawless Bladework",
+  "detachment_id": "dread-host",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "flawless-bladework-dread-host",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model’s melee attacks have [Sustained Hits 1].",
+  "legend": "This Custodian’s skills in close-quarters combat are awe-inspiring to behold.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "combat-deployment-grav-assault-force",
+  "name": "Combat Deployment",
+  "detachment_id": "grav-assault-force",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "combat-deployment-grav-assault-force",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "grav-assault Transport model only. When a friendly Adeptus Custodes unit is selected to make a disembark move from this unit, until the end of the turn:\n• That unit can re-roll charge rolls.\n• Enemy units cannot target that unit with snap shooting attacks.",
+  "legend": "Custodian vehicle crews are as consummately skilled as their infantry counterparts, delivering sodalities into the thick of the fight and suppressing foes with turret-mounted weapons to prevent incoming fire.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "anti-gravitic-mobility-grav-assault-force",
+  "name": "Anti-gravitic Mobility",
+  "detachment_id": "grav-assault-force",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "anti-gravitic-mobility-grav-assault-force",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "grav-assault unit only. When this unit makes a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot.",
+  "legend": "The grav-tanks of the Adeptus Custodes are exceptionally mobile, enabling their skilled crews to fade in and out of contact with the foe whilst keeping up a constant stream of killing fire.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "pareldors-caducatrix-aquilan-shield",
+  "name": "Pareldor's Caducatrix",
+  "detachment_id": "aquilan-shield",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "pareldors-caducatrix-aquilan-shield",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. (Once per battle, per army) At the start of any phase, this model heals D3+3 wounds.",
+  "legend": "This immeasurably ancient auto-medicae device meshes seamlessly with any suit of armour, dispensing panacaeic elixirs in response to mental or physical trauma.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "not-a-shell-wasted-aquilan-shield",
+  "name": "Not a Shell Wasted",
+  "detachment_id": "aquilan-shield",
+  "cost": 10,
+  "keyword_restrictions": [],
+  "ability_id": "not-a-shell-wasted-aquilan-shield",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry model only. This unit’s ranged attacks have +1 A.",
+  "legend": "Every volley these warriors fire is calculated to inflict the maximum amount of damage upon the foe.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "auriferous-orb-emissaries-imperatus",
+  "name": "Auriferous Orb",
+  "detachment_id": "emissaries-imperatus",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "auriferous-orb-emissaries-imperatus",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model has the following weapon:",
+  "legend": "When this sphere of solid gold detonates, it unleashes beams of radiating light that blind those they do not kill.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "edge-of-the-blade-emissaries-imperatus",
+  "name": "Edge of the Blade",
+  "detachment_id": "emissaries-imperatus",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "edge-of-the-blade-emissaries-imperatus",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes model only. If this unit made a charge move this turn, this model’s attacks can:\n• Re-roll hit rolls of 1.\n• Re-roll wound rolls of 1.",
+  "legend": "This auric champion always strives to be first into the fray.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "radiant-mantle-emperors-chosen",
+  "name": "Radiant Mantle",
+  "detachment_id": "emperors-chosen",
+  "cost": 40,
+  "keyword_restrictions": [],
+  "ability_id": "radiant-mantle-emperors-chosen",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry model only. Attacks that target this unit have -1 to hit rolls.",
+  "legend": "The golden glory of the Emperor Himself glows around this magnificent warrior like Sol’s own fire. Enemies are blinded by its light, forced to recoil in pain and terror.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "from-the-hall-of-armouries-emperors-chosen",
+  "name": "From the Hall of Armouries",
+  "detachment_id": "emperors-chosen",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "from-the-hall-of-armouries-emperors-chosen",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model’s melee attacks have [Devastating Wounds].",
+  "legend": "The armouries of the Adeptus Custodes contain some of the most finely crafted and deadly close-quarters weaponry wielded by any warrior of the Imperium.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "auric-eagle-solar-watch",
+  "name": "Auric Eagle",
+  "detachment_id": "solar-watch",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "auric-eagle-solar-watch",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry/Mounted unit only (excluding Terminator units). This unit has +1 to advance rolls and charge rolls.",
+  "legend": "Embodying the raptors of ancient Terra, this champion of the Golden Throne descends upon their prey swiftly, with talons unsheathed.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "sally-forth-solar-watch",
+  "name": "Sally Forth",
+  "detachment_id": "solar-watch",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "sally-forth-solar-watch",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Shield-Captain model only. At the start of your Charge phase, select one friendly Adeptus Custodes Infantry unit within 6\" of this model. If that unit made an advance move this turn, that advance move does not prevent that unit from being eligible to declare a charge.",
+  "legend": "This warlord excels in directing fast and deadly offensives designed to close rapidly with the enemy, overwhelming the foe with a devastating concentration of force.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "celeritous-sentries-honoured-companions",
+  "name": "Celeritous Sentries",
+  "detachment_id": "honoured-companions",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "celeritous-sentries-honoured-companions",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "Trusted Sentinel unit only. (Once per phase, per unit) You can target this unit with the Heroic Intervention stratagem, regardless of any other uses of that stratagem this phase. If you do:\n• That use is -1 CP.\n• That use does not prevent any uses of that stratagem on other units this phase.",
+  "legend": "Even while standing statue-still upon their endless watch, these Custodians are ready to spring instantly into violent action.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "arae-shrike-honoured-companions",
+  "name": "Arae-Shrike",
+  "detachment_id": "honoured-companions",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "arae-shrike-honoured-companions",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry model only. Enemy units that are selected to make an ingress move cannot be set up within 12\" of this unit.",
+  "legend": "Built into this Custodian’s armour, this aviform artefact is a relic of the Dark Age of Technology. It projects electromagnetic distortion to corrupt and confound homing beacons, teleportation technology and other methods of translocation.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "eagles-eye-guardians-of-the-throne",
+  "name": "Eagle's Eye",
+  "detachment_id": "guardians-of-the-throne",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "eagles-eye-guardians-of-the-throne",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only.\n• This model has +1 W.\n• (Once per battle, per army) When attacks are allocated to this model, you can use this ability. If you do, this model has 3+ InSv.",
+  "legend": "The sensorium gheists within this helm shriek technomantic warnings to the wearer whenever danger threatens.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "castellans-mark-guardians-of-the-throne",
+  "name": "Castellan's Mark",
+  "detachment_id": "guardians-of-the-throne",
+  "cost": 25,
+  "keyword_restrictions": [],
+  "ability_id": "castellans-mark-guardians-of-the-throne",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. When both players have deployed their armies, you can redeploy up to three friendly Adeptus Custodes units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "legend": "Awarded to the Custodian with the greatest tally of victories in the Blood Games, this finely worked pauldron denotes its bearer as a superlative strategic genius.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "emperors-light-guardians-of-the-throne",
+  "name": "Emperor's Light",
+  "detachment_id": "guardians-of-the-throne",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "emperors-light-guardians-of-the-throne",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model has the following weapon:",
+  "legend": "This masterwork misericordia is believed to flood the hearts of its victims with searing holy radiance.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "bane-of-abominations-guardians-of-the-throne",
+  "name": "Bane of Abominations",
+  "detachment_id": "guardians-of-the-throne",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "bane-of-abominations-guardians-of-the-throne",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model’s attacks that target an enemy CHARACTER/MONSTER/VEHICLE unit have +1 to wound rolls.",
+  "legend": "This Captain-Commander has earned many names destroying mighty champions and powerful war machines.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "genalchemic-warding-shadowkeepers",
+  "name": "Genalchemic Warding",
+  "detachment_id": "shadowkeepers",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "genalchemic-warding-shadowkeepers",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model has Feel No Pain 5+.",
+  "legend": "The genetic alchemy that saturates this warrior’s physiology has been tempered in wars beyond count. There are few hardships or hurts such a warrior cannot endure.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "unstoppable-destroyer-shadowkeepers",
+  "name": "Unstoppable Destroyer",
+  "detachment_id": "shadowkeepers",
+  "cost": 25,
+  "keyword_restrictions": [],
+  "ability_id": "unstoppable-destroyer-shadowkeepers",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry model only. When this unit is selected to make a pile-in/consolidation move:\n• This unit can move up to 4\".\n• You can select any consolidation mode for that consolidation move, regardless of that consolidation move’s Before Moving restrictions.",
+  "legend": "This Custodian unleashes upon their opponents the Emperor’s own fury, pursuing enemy warriors with relentless determination and allowing none to flee the field.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "radial-suffusion-rad-zone-corps",
@@ -32842,7 +33338,8 @@
     "namespace": "mfm",
     "id": "bbc09d5c-a926-4660-a0a9-e9bf51301379"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "supa-glowy-fing-dread-mob",
@@ -32866,7 +33363,8 @@
     "namespace": "mfm",
     "id": "6d5b6077-f812-4cdf-9f73-fff6c455516c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "press-it-fasta-dread-mob",
@@ -32890,7 +33388,8 @@
     "namespace": "mfm",
     "id": "23079735-4f0d-42eb-b660-665e5c3cb72f"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "gitfinder-gogglez-dread-mob",
@@ -32914,7 +33413,8 @@
     "namespace": "mfm",
     "id": "feb611dd-912d-42c4-acd1-c9e0922bd5aa"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "runnin-boots-blitz-brigade",
@@ -32939,7 +33439,8 @@
     "namespace": "mfm",
     "id": "fb854ed4-d89a-48fe-8885-668fc666fb57"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "blitzkaptin-blitz-brigade",
@@ -32963,7 +33464,8 @@
     "namespace": "mfm",
     "id": "1bda534d-da5b-4e7f-b5ee-4fd9b2a9c321"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "supercharged-squig-oil-blitz-brigade",
@@ -32987,7 +33489,8 @@
     "namespace": "mfm",
     "id": "b17429f1-34f9-4b96-89b7-43e46a1146be"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "tuff-git-blitz-brigade",
@@ -33012,13 +33515,14 @@
     "namespace": "mfm",
     "id": "64087f3d-3911-4ed5-bffd-419226e7de28"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "dreadherder-dread-mob",
   "name": "Dreadherder",
   "detachment_id": "dread-mob",
-  "cost": 20,
+  "cost": 30,
   "points_provisional": false,
   "ability_id": "dreadherder-dread-mob",
   "is_unique": true,
@@ -33034,7 +33538,17 @@
     "namespace": "game-datacards",
     "id": "6923d140-58e0-57fe-8895-bcd4803ed1ac"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Big Mek"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Big Mek model only. While this model is within 3\" of a friendly Orks Walker unit (excluding BIG MEK units): • This model has Lone Operative. • In your Shooting phase, you can select one friendly ORKS WALKER unit within 3\" of this model. That unit’s attacks can re-roll hit rolls of 1 until the end of the turn.",
+  "legend": "This Mek is deft at avoiding his creations’ feet and klaws.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "follow-me-ladz-war-horde",
@@ -33060,7 +33574,17 @@
     "namespace": "mfm",
     "id": "6e1ce3ba-cf8c-4f03-8826-d8c32b03c38c"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Orks"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ORKS model only. This unit has +2\" M.",
+  "legend": "Always found at the forefront of an assault, this Ork likes to be the first into the fray with his mob close on his heels to join in the violence.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "headwoppas-killchoppa-war-horde",
@@ -33086,11 +33610,21 @@
     "namespace": "mfm",
     "id": "7387cdc9-10f1-49b5-846f-bd74d0990559"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Orks"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ORKS model only. If this unit made a charge move this turn, this model’s melee attacks have +1 AP.",
+  "legend": "Tribal legend speaks of a blood-slick choppa once owned by Grand Warboss Headwoppa - last seen charging headlong into a horde of daemons - that turns up occasionally across the galaxy in different forms. Though it looks normal, a dark voice is said to growl in the mind of the weapon’s wielder, driving them on to ever greater excesses of violence.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kunnin-but-brutal-war-horde",
-  "name": "Kunnin’ But Brutal",
+  "name": "Kunnin' But Brutal",
   "detachment_id": "war-horde",
   "cost": 20,
   "points_provisional": false,
@@ -33112,7 +33646,17 @@
     "namespace": "mfm",
     "id": "5276cd34-90a7-4ddb-ae3b-bbadf3775764"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Orks"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ORKS model only. When this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot/declare a charge.",
+  "legend": "Feigning weakness, this Ork allows his foes to think he’s legging it before suddenly piling back into the fight and delivering a brutal flurry of attacks.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "glory-hog-da-big-hunt",
@@ -33138,7 +33682,17 @@
     "namespace": "mfm",
     "id": "bb4fc923-48a3-4b7f-a58e-08e2bc7bdbe4"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Beast Snagga"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Beast Snagga model only. When this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to declare a charge.",
+  "legend": "When bigger prey is sighted, nothing can keep this hunter from it. With a roar of glee, lesser gitz are swiftly forgotten in his enthusiasm to pile into a greater challenge.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "ferocious-show-off-green-tide",
@@ -33165,7 +33719,18 @@
     "namespace": "mfm",
     "id": "987fbbf7-d3d3-4e55-a058-14332291177a"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Infantry",
+    "Orks"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Orks Infantry model only. This model’s melee attacks have: • +1 A. • Or: If this unit has 11+ models, +2 A.",
+  "legend": "This brutal fighter is even more dangerous with a raucous audience of chanting Orks, as he displays his violent abilities as a warning to all.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "ard-boyz-green-tide",
@@ -33181,7 +33746,8 @@
   },
   "keyword_restrictions": [
    "Boyz"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "blitzboss-brute-bosses",
@@ -33200,11 +33766,24 @@
     "namespace": "game-datacards",
     "id": "80146bd1-15f6-5c74-9918-42cc8316ca3a"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Warboss"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Warboss"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Warboss model only. A transport unit (excluding Walker units) this unit is embarked within has: • +2\" M. • 5+ InSv.",
+  "legend": "It is said this Ork bleeds Squig oil and his growl is that of a revving engine. Certainly any vehicle he rides to war seems to respond powerfully to his presence.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "brutal-but-kunnin-brute-bosses",
-  "name": "Brutal But Kunnin’",
+  "name": "Brutal But Kunnin'",
   "detachment_id": "brute-bosses",
   "cost": 30,
   "points_provisional": false,
@@ -33222,7 +33801,17 @@
     "namespace": "game-datacards",
     "id": "94894a90-fc6a-543b-b82e-d11c4a3df379"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Warboss"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Warboss model only. This model’s melee attacks have +1 D.",
+  "legend": "What tactics occasionally pop into this Ork’s head revolve purely around how hard he needs to wallop his enemies to send their skulls flying.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "competitive-streak-kult-of-speed",
@@ -33244,7 +33833,17 @@
     "namespace": "game-datacards",
     "id": "350affc1-5169-5c1e-82b0-54af8656d98d"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Deffkilla Wartrike"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Deffkilla Wartrike model only. This unit can re-roll charge rolls.",
+  "legend": "This Speedboss despises the thought of coming anything less than first in a race to reach the biggest fights.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "da-boss-is-watchin-war-horde",
@@ -33266,7 +33865,17 @@
     "namespace": "game-datacards",
     "id": "ee67ae2d-2f35-50ec-a5f1-776143408d8d"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Orks"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ORKS model only. (Once per battle, per army) In your Movement phase, you can use this ability. If you do, this unit is riled up until the start of your next turn.",
+  "legend": "This war leader is a glowering incarnation of violence, his brutality so contagious that when he bellows his blind fury and releases his pent-up aggression, Orks nearby are excitedly swept along with him.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "da-gobshot-thunderbuss-brute-bosses",
@@ -33285,7 +33894,34 @@
     "namespace": "game-datacards",
     "id": "6a9773e3-4d52-5397-8d9b-dcb221d02f44"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Warboss"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Warboss"
+   ]
+  ],
+  "bearer_scope": "model",
+  "granted_weapon": {
+   "name": "Da Gobshot Thunderbuss",
+   "type": "Ranged",
+   "range": "24\"",
+   "A": "6",
+   "BS_WS": "4+",
+   "S": "7",
+   "AP": "-2",
+   "D": "2",
+   "keywords": [
+    "Lethal Hits: non-Monster/Vehicle",
+    "Rapid Fire 6"
+   ]
+  },
+  "rules_text": "Warboss model only. This model has the following weapon:",
+  "legend": "Firing gold-plated teef as its unconventional ammunition, da Gobshot Thunderbuss proclaims its owner’s obscene wealth even as it sweeps away swathes of enemies.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "da-krunch-wurrband",
@@ -33308,7 +33944,34 @@
     "namespace": "game-datacards",
     "id": "bcfa79fe-d295-515e-ac2f-d18afbe0c46d"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Orks",
+    "Psyker"
+   ]
+  ],
+  "bearer_scope": "model",
+  "granted_weapon": {
+   "name": "Da Krunch",
+   "type": "Ranged",
+   "range": "24\"",
+   "A": "3",
+   "BS_WS": "4+",
+   "S": "5",
+   "AP": "-1",
+   "D": "1",
+   "keywords": [
+    "Blast 3",
+    "Hazardous",
+    "Lethal Hits",
+    "Psychic"
+   ]
+  },
+  "rules_text": "Orks Psyker model only. This model has the following weapon.",
+  "legend": "Roiling energies frequently erupt from this Weirdboy’s eyes, solidifying above the enemy into the huge green foot of Gork (or Mork) himself, which repeatedly stamps on the foe.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "eadbanger-wurrband",
@@ -33331,11 +33994,37 @@
     "namespace": "game-datacards",
     "id": "a9d76f2d-9129-576c-8c46-c8fc3fde5c77"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Orks",
+    "Psyker"
+   ]
+  ],
+  "bearer_scope": "model",
+  "granted_weapon": {
+   "name": "'Eadbanger",
+   "type": "Ranged",
+   "range": "24\"",
+   "A": "2",
+   "BS_WS": "4+",
+   "S": "6",
+   "AP": "-3",
+   "D": "3",
+   "keywords": [
+    "Hazardous",
+    "Precision",
+    "Psychic"
+   ]
+  },
+  "rules_text": "Orks Psyker model only. This model has the following weapon.",
+  "legend": "Known for yelling ‘Kop dis, ya zogger!’ at his chosen target beforehand, this Weirdboy is in the habit of projecting a bolt of raw power from his forehead which splatters the victim’s brains across a wide area.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "enhanced-runt-maw-upgrade-madcap-meks",
-  "name": "Enhanced Runt-maw (Upgrade)",
+  "name": "Enhanced Runt-maw",
   "detachment_id": "madcap-meks",
   "cost": 10,
   "points_provisional": false,
@@ -33355,11 +34044,20 @@
     "namespace": "game-datacards",
     "id": "5673cfa0-7099-58be-b3f6-ed9ece5be056"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Big Mek with Shokk Attack Gun"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Big Mek with Shokk Attack Gun model only. When this unit has shot, select one enemy unit hit by those attacks. That unit is infested with Snotlings until the start of your next turn. • While an enemy unit is infested with Snotlings, that unit has -1 to leadership rolls.",
+  "legend": "These kustom jobs incorporate an oversized suction device, drawing in nearby runts aplenty, as well as Squigs, loose scrap, and even poorly fastened pieces of the gun itself. The Mek’s targets - those that survive - end up infested with countless screeching Snotlings.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "extra-sneaky-upgrade-runt-swarm",
-  "name": "Extra Sneaky (Upgrade)",
+  "name": "Extra Sneaky",
   "detachment_id": "runt-swarm",
   "cost": 10,
   "points_provisional": false,
@@ -33379,11 +34077,20 @@
     "namespace": "game-datacards",
     "id": "f4892714-49c2-5faa-84d4-ed24da62d998"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Gretchin"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Gretchin unit only. This unit has -3\" detection range.",
+  "legend": "A lifetime of evading the attentions of Orks and even other runts has honed these Grots’ sneakiness to preternatural levels.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "flyboss-upgrade-flyboyz",
-  "name": "Flyboss (Upgrade)",
+  "name": "Flyboss",
   "detachment_id": "flyboyz",
   "cost": 20,
   "points_provisional": false,
@@ -33404,11 +34111,21 @@
     "namespace": "game-datacards",
     "id": "82987ea2-9a77-5246-8b67-40e46e7124a0"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Aircraft",
+    "Orks"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Orks Aircraft unit only. • This unit has CHARACTER. • When this unit ends an ingress move, each friendly Orks Aircraft/Deffkoptas unit within 6\" of this unit is riled up until the start of your next turn.",
+  "legend": "Brutish aces who have survived enough dogfights to rise to positions of superiority, Flybosses inspire other Ork aviators to heights of psychotic enthusiasm.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "impulsive-recon-upgrade-flyboyz",
-  "name": "Impulsive Recon (Upgrade)",
+  "name": "Impulsive Recon",
   "detachment_id": "flyboyz",
   "cost": 15,
   "points_provisional": false,
@@ -33429,7 +34146,17 @@
     "namespace": "game-datacards",
     "id": "af9fbd3e-0a28-5b33-b83f-d1028ec5bc87"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Aircraft",
+    "Orks"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Orks Aircraft unit only. In your first Movement phase, this unit can make an ingress move.",
+  "legend": "Despite claims of scoutin’, this aircraft’s screaming dive ahead of its pilot’s mates is purely for the thrill of attacking first.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "it-came-from-da-drops-da-big-hunt",
@@ -33451,7 +34178,17 @@
     "namespace": "game-datacards",
     "id": "2b3b563d-e1d4-5f44-b1e0-dcab535118fc"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Beastboss on Squigosaur"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Beastboss on Squigosaur model only. This model has +1 T.",
+  "legend": "The monstrous resilience - and odour - of this Beastboss’ hulking mount has inspired many lurid tales of its origin.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kaptins-hat-wreckas",
@@ -33467,11 +34204,12 @@
   },
   "keyword_restriction_groups": [
    [
-    "Big Mek"
+    "Big Mek",
+    "Infantry"
    ],
    [
-    "Infantry",
-    "Warboss"
+    "Warboss",
+    "Infantry"
    ]
   ],
   "attachment_bodyguard_ids": [
@@ -33482,7 +34220,13 @@
     "namespace": "game-datacards",
     "id": "b36e25a9-bddf-5a15-b80f-6fb01fe59568"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restrictions": null,
+  "bearer_scope": "model",
+  "rules_text": "Big Mek/Warboss Infantry model only. When both players have deployed their armies, you can redeploy up to three friendly Orks Infantry units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "legend": "This impressively ostentatious piece of headgear signifies that whoever nicked it last controls a fleet of kroozers and invasion landers, ideal for the rapid redeployment of loot-hungry Orks.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kill-kommando-taktikal-brigade",
@@ -33503,7 +34247,8 @@
    [
     "Warboss Infantry"
    ]
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "mekwaaagh-mastermind-madcap-meks",
@@ -33525,11 +34270,21 @@
     "namespace": "game-datacards",
     "id": "54bc27b8-2da1-59c4-9246-c390378b18ed"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Big Mek"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Big Mek model only. This unit is riled up.",
+  "legend": "This Big Mek’s obsession with feverish inventing and his dreams of ludicrous technological destruction are infectious, inspiring other Orks to excitable aggression.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "minefield-detail-upgrade-runt-swarm",
-  "name": "Minefield Detail (Upgrade)",
+  "name": "Minefield Detail",
   "detachment_id": "runt-swarm",
   "cost": 10,
   "points_provisional": false,
@@ -33549,11 +34304,20 @@
     "namespace": "game-datacards",
     "id": "e7526036-f5d5-5d0a-a14f-9c4dbcf00de7"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Gretchin"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Gretchin unit only. While this unit is not embarked, this unit has Scouts 6\".",
+  "legend": "Rebellious, lazy or just plain unlucky Gretchin are driven into dangerous vanguard duties. These runts scarper forward with the hope of making it through as quickly as possible.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "morgogs-finkin-cap-brute-bosses",
-  "name": "Morgog’s Finkin’ Cap",
+  "name": "Morgog's Finkin' Cap",
   "detachment_id": "brute-bosses",
   "cost": 50,
   "points_provisional": false,
@@ -33568,7 +34332,20 @@
     "namespace": "game-datacards",
     "id": "19c9ab6a-485b-55de-bfd9-f3a838260656"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Warboss"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Warboss"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Warboss model only. (Once per battle, per army) At the end of your opponent’s Movement phase, if this unit is unengaged, this unit can make a normal move of: • Up to D6\". • If this unit is riled up, you can re-roll that D6.",
+  "legend": "Thanks to the tangle of stolen empyric electrodes wired into this helmet, a powerful Ork wearing it is capable of thinking a little further ahead than his next fight.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "proper-killy-brute-bosses",
@@ -33587,11 +34364,24 @@
     "namespace": "game-datacards",
     "id": "f1497cd3-88a4-5d88-ac95-f6b8cab6c831"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Warboss"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Warboss"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Warboss model only. This model can re-roll hit rolls of 1.",
+  "legend": "This unstoppable brute is an engine of destruction whose welts of scars have been won in countless victories.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "smoky-gubbinz-upgrade-kult-of-speed",
-  "name": "Smoky Gubbinz (Upgrade)",
+  "name": "Smoky Gubbinz",
   "detachment_id": "kult-of-speed",
   "cost": 10,
   "points_provisional": false,
@@ -33611,7 +34401,19 @@
     "namespace": "game-datacards",
     "id": "e7f7348c-92e4-53ec-be4e-5422013c948a"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Speed Freeks"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "exclusion_keywords": [
+   "Aircraft"
+  ],
+  "rules_text": "Speed Freeks unit only (excluding Aircraft units). When an attack targets a unit that is not fully visible to the attacking model because of a model in this unit, the target has the benefit of cover against that attack.",
+  "legend": "These loud, fume-belching devices wreathe those in the Speed Freeks’ wake in a thick bank of obscuring smoke.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "supa-glowy-fing-shoota-boyz",
@@ -33630,20 +34432,31 @@
    "Orks"
   ],
   "exclusion_keywords": [
-   "Psyker"
+   "Weirdboy"
   ],
   "external_refs": [
    {
     "namespace": "game-datacards",
     "id": "92024cbe-1d67-57dc-a5c4-2fb0eabc2337"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Infantry",
+    "Orks"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Orks Infantry model only (excluding Weirdboy models). This model’s ranged attacks have: • [Anti-Infantry 4+]. • [Devastating Wounds]. • [SUPA-HAZARDOUS]. [SUPA-HAZARDOUS]: Each time a unit is selected to shoot, after that unit has resolved all of its attacks, make two hazard rolls for that unit for each [SUPA-HAZARDOUS] weapon you selected in the Select Weapons step.",
+  "legend": "The Mek who cobbled together this strange dakka accelerator isn’t sure exactly what it does - and it glows weirdly - but its new owner proudly carries it to battle, eager to know what its big switch will do this time.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "supa-snazz-dakka-upgrade-wreckas",
-  "name": "Supa-Snazz Dakka Upgrade",
+  "name": "Supa-snazz Dakka",
   "detachment_id": "wreckas",
-  "cost": 20,
+  "cost": 25,
   "points_provisional": false,
   "ability_id": "supa-snazz-dakka-upgrade-wreckas",
   "is_unique": true,
@@ -33661,7 +34474,16 @@
     "namespace": "game-datacards",
     "id": "ef65e131-b18c-5d0f-8288-f073ecead340"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Flash Gitz"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Flash Gitz unit only. This unit’s Snazzgun weapons have [Rapid Fire 1].",
+  "legend": "Coils of sparking wires, unstable propellant and throbbing power cells are just some of the extras which Flash Gitz rivet onto their snazzguns to kill the enemy in more over-the-top ways.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "surly-as-a-squiggoth-brute-bosses",
@@ -33684,7 +34506,18 @@
     "namespace": "game-datacards",
     "id": "46f7d12e-9d3e-5f28-815f-0db2b422d59d"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Infantry",
+    "Warboss"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Infantry Warboss model only. (Once per battle, per army) At the end of a phase in which this model is destroyed, roll one D6: • On a 2+, set this model back up on the battlefield as close as possible to where it was destroyed, unengaged, with 3 wounds remaining.",
+  "legend": "With a lifetime of picking fights with the galaxy’s most lethal fighters behind him, and a gnarled hide thicker than Battlewagon armour, this Ork has survived blows that would fell an Ambull.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "targetin-squigs-shoota-boyz",
@@ -33714,7 +34547,13 @@
     "namespace": "game-datacards",
     "id": "743c1270-2860-5bd6-ae9d-dd3041ac325f"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restrictions": null,
+  "bearer_scope": "model",
+  "rules_text": "Big Mek/bigBoss/Warboss model only. This unit’s ranged attacks (excluding [Torrent] attacks) have +3\" R.",
+  "legend": "With a couple of these boggle-eyed varieties of Squigs on hand, even Ork shooting has a chance of hitting distant targets, helped by squinting really hard.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "tellyporta-boss-bully-boyz",
@@ -33736,11 +34575,21 @@
     "namespace": "game-datacards",
     "id": "336c20c0-7740-5764-83a0-e04cacb56d15"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Mega Armour"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Mega Armour model only. This unit (excluding Vehicle units) has Deep Strike.",
+  "legend": "This Ork has bullied his way into possession of a mostly functional tellyporta pad, and has so far survived being thrown through the Warp towards the best fights.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "temperamental-shokka-upgrade-madcap-meks",
-  "name": "Temperamental Shokka (Upgrade)",
+  "name": "Temperamental Shokka",
   "detachment_id": "madcap-meks",
   "cost": 20,
   "points_provisional": false,
@@ -33760,11 +34609,20 @@
     "namespace": "game-datacards",
     "id": "cce81974-c2d4-581b-b47e-2fedb5074062"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Big Mek with Shokk Attack Gun"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Big Mek with Shokk Attack Gun model only. In your Shooting phase, when this unit is selected to shoot, you can roll one D6: • On a 1, this model’s Shokk Attack Gun weapon has [Torrent], and when this unit has shot, this model is destroyed. • On a 2-5, this model’s Shokk Attack Gun weapon has +1 A. • On a 6, this model’s Shokk Attack Gun weapon has [Sustained Hits 2].",
+  "legend": "Shokk attack guns are notoriously unreliable, and even with a supposedly enhanced set of worky bits, this Big Mek is never certain what will happen when he sets the thing off.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "throat-slittas-upgrade-taktikal-brigade",
-  "name": "Throat-Slittas Upgrade",
+  "name": "Throat-slittas",
   "detachment_id": "taktikal-brigade",
   "cost": 15,
   "points_provisional": false,
@@ -33789,7 +34647,12 @@
     "namespace": "game-datacards",
     "id": "cb0ba06e-38c9-5646-8e5f-6ddf559a0c06"
    }
-  ]
+  ],
+  "keyword_restrictions": null,
+  "bearer_scope": "unit",
+  "rules_text": "Kommandos/Stormboyz unit only. This unit’s melee attacks have [Lethal Hits: non-Monster/Vehicle].",
+  "legend": "Veterans of the relatively organised butchery of well-protected targets, these distrusted Orks make excellent forward assassins.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "warphead-wurrband",
@@ -33812,11 +34675,22 @@
     "namespace": "game-datacards",
     "id": "7757c223-321f-5b10-8909-48fa1cb1f198"
    }
-  ]
+  ],
+  "upgrade_tag": false,
+  "keyword_restriction_groups": [
+   [
+    "Orks",
+    "Psyker"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Orks Psyker model only. This model: • Has psyker level 2. • Has Deadly Demise D6. • Can re-roll psychic rolls.",
+  "legend": "Where most Weirdboyz would quite like to be left alone, so-called Warpheads become addicted to the danger, intentionally supercharging their tortured minds and revelling in venting dangerously unpredictable powers.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "wimp-kickaz-upgrade-bully-boyz",
-  "name": "Wimp-kickaz (Upgrade)",
+  "name": "Wimp-kickaz",
   "detachment_id": "bully-boyz",
   "cost": 15,
   "points_provisional": false,
@@ -33836,7 +34710,16 @@
     "namespace": "game-datacards",
     "id": "788fa53f-2377-51d0-902f-0d58c77e7fa8"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Nobz"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Nobz unit only. When an enemy unit engaged with this unit is selected to make a fall-back move: • That enemy unit must select the desperate escape mode. • If this unit is riled up, that enemy unit has -1 to the hazard rolls made for that desperate escape.",
+  "legend": "Any snivelling gitz attempting to back away from a good fight with these arrogant Nobz get a good kicking to see them on their way.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "tellyporta-bully-boyz",
@@ -33860,7 +34743,8 @@
     "namespace": "mfm",
     "id": "3d83cfeb-581e-435d-b322-029c6adf5add"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "brutal-but-kunnin-green-tide",
@@ -33885,7 +34769,8 @@
     "namespace": "mfm",
     "id": "e291c41b-6522-4912-a96a-b720d4c622e7"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "raucous-warcaller-green-tide",
@@ -33910,7 +34795,8 @@
     "namespace": "mfm",
     "id": "7c2dd985-67a3-45f1-bd44-f0184b602442"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "speed-makes-right-kult-of-speed",
@@ -33934,7 +34820,8 @@
     "namespace": "mfm",
     "id": "dfd09bc4-e093-4201-b0db-c782a4868a24"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "supa-cybork-body-war-horde",
@@ -33958,7 +34845,8 @@
     "namespace": "mfm",
     "id": "193c7ee0-362c-4c27-92f7-97c33317dba4"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "surly-as-a-squiggoth-da-big-hunt",
@@ -33982,7 +34870,8 @@
     "namespace": "mfm",
     "id": "331bb820-2848-4288-86db-75419c914d31"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "bloodthirsty-belligerence-green-tide",
@@ -34007,7 +34896,8 @@
     "namespace": "mfm",
     "id": "580c5d4d-7866-4f6c-bf44-5f82dc26e1ec"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "squig-hide-tyres-kult-of-speed",
@@ -34031,7 +34921,8 @@
     "namespace": "mfm",
     "id": "33b00a2b-b234-4caf-b5bf-59de4374b7e7"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "wazblasta-kult-of-speed",
@@ -34055,7 +34946,8 @@
     "namespace": "mfm",
     "id": "a85af4a1-7f20-456c-829f-ca0ccf55f026"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-gob-bully-boyz",
@@ -34080,7 +34972,8 @@
     "namespace": "mfm",
     "id": "f23a65d4-01ec-4c5a-b35a-6ad7664b7fd0"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "proper-killy-da-big-hunt",
@@ -34104,7 +34997,8 @@
     "namespace": "mfm",
     "id": "054ed69c-a8e8-4469-80bf-1d1e39dc5103"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "slippery-git-taktikal-brigade",
@@ -34135,7 +35029,8 @@
     "namespace": "mfm",
     "id": "64bce989-3720-4e84-a38f-4f34a7c6cf5a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "fasta-than-yooz-kult-of-speed",
@@ -34160,7 +35055,8 @@
     "namespace": "mfm",
     "id": "6516c10a-9123-4046-8c02-5567433b3290"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "eadstompa-bully-boyz",
@@ -34185,7 +35081,8 @@
     "namespace": "mfm",
     "id": "86673872-5905-47cb-a23e-382723db48cd"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "skrag-every-stash-da-big-hunt",
@@ -34209,7 +35106,8 @@
     "namespace": "mfm",
     "id": "7a2c90a9-5645-451d-971a-7c3068698401"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "da-biggest-boss-bully-boyz",
@@ -34234,7 +35132,8 @@
     "namespace": "mfm",
     "id": "b26524a0-05cb-4f6d-a0ee-eb29836d5cd5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "morks-kunnin-taktikal-brigade",
@@ -34258,11 +35157,12 @@
     "namespace": "mfm",
     "id": "04e821f4-4153-49f4-b6b4-365816821e2c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "ardboyz-upgrade-green-tide",
-  "name": "'Ardboyz (Upgrade)",
+  "name": "'Ardboyz",
   "detachment_id": "green-tide",
   "cost": 25,
   "ability_id": null,
@@ -34282,7 +35182,16 @@
     "namespace": "game-datacards",
     "id": "af65d54e-4bc4-5e72-99d2-674085e80e46"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Boyz"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Boyz unit only. This unit has 4+ Sv.",
+  "legend": "Orks with enough teef - or muscle - can acquire extra scrap iron plates collectively referred to as ‘eavy armour, which is battered into shape so that it roughly fits the wearer.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kill-kommanda-taktikal-brigade",
@@ -34300,11 +35209,12 @@
   "max_targets": 1,
   "keyword_restriction_groups": [
    [
-    "Big Mek"
+    "Big Mek",
+    "Infantry"
    ],
    [
-    "Infantry",
-    "Warboss"
+    "Warboss",
+    "Infantry"
    ]
   ],
   "attachment_bodyguard_ids": [
@@ -34315,7 +35225,12 @@
     "namespace": "game-datacards",
     "id": "2c369501-4236-5c2d-b688-6f2a27c4d4b2"
    }
-  ]
+  ],
+  "keyword_restrictions": null,
+  "bearer_scope": "model",
+  "rules_text": "Big Mek/Warboss Infantry model only. While this model is part of an attached unit, this model has: • Infiltrators. • Stealth.",
+  "legend": "Possessed of exceptional kunnin’ and a weird obsession with sneakin’ about, this powerful Ork leader loves nothing more than creeping through enemy defences before carving a bloody path through their lines.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "cybork-boosta-dread-mob",
@@ -34344,11 +35259,16 @@
     "namespace": "game-datacards",
     "id": "32346fb6-bd01-5947-8255-c2ae9e69581a"
    }
-  ]
+  ],
+  "keyword_restrictions": null,
+  "bearer_scope": "model",
+  "rules_text": "Big Mek/Mek model only. This model has +2\" M.",
+  "legend": "This Mek’s extra bioniks help him keep up with his Kans.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "boss-boomer-upgrade-blitz-brigade",
-  "name": "Boss Boomer (Upgrade)",
+  "name": "Boss Boomer",
   "detachment_id": "blitz-brigade",
   "cost": 10,
   "ability_id": null,
@@ -34368,13 +35288,22 @@
     "namespace": "game-datacards",
     "id": "9cabdfb5-f52a-5954-867c-a47d7e952107"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Wagon"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Wagon unit only. While a Warboss model is embarked within this unit, this unit has that WARBOSS model’s Intimidating Motivation/Keep Huntin’ ability.",
+  "legend": "Fitted with speakin’ tubes linked to deafening projectors, this noisy ride allows an important Ork to boss his ladz around while on the move.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "targetin-gizmos-upgrade-blitz-brigade",
-  "name": "Targetin’ Gizmos (Upgrade)",
+  "name": "Targetin' Gizmos",
   "detachment_id": "blitz-brigade",
-  "cost": 10,
+  "cost": 25,
   "ability_id": null,
   "is_unique": true,
   "game_version": {
@@ -34392,7 +35321,16 @@
     "namespace": "game-datacards",
     "id": "d9de0258-ab6a-5cb6-bf6f-0df3f1ed01dc"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Wagon"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Wagon unit only. While a Big Mek model is embarked within this unit: • This unit’s ranged attacks have [Ignores Cover]. • If this unit is riled up, this unit’s ranged attacks have [Sustained Hits 1].",
+  "legend": "These sparkly optiks and other elaborate gitfindas help focus a wagon’s dakka, but it takes a really clever Mek to know how to work them.",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "blackwing-shroud-shadowmark-talon",

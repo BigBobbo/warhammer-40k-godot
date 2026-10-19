@@ -1,0 +1,268 @@
+{
+  "id": "ork11e_det_flyboyz",
+  "covers": [
+    "ork11e.detachment.flyboyz.skyborne_loons"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Flyboyz — SKYBORNE LOONS (WP-O34): AIRCRAFT do not count towards the strategic-reserves points; a riled-up AIRCRAFT/Deffkoptas unit's ranged attacks have +1 to hit. Setup: detachment Flyboyz; Custodian Guard Delta moved within 22\" of the Deffkoptas. Command phase: a real click on CALL DA WAAAGH! (War Cry) riles the Orks up. Shooting phase: the Deffkoptas are clicked, Quick-Assign at Custodian Guard Delta, Confirm, Fast: the hit roll's ledger names Skyborne Loons (+1). The reserves-points half is shown by GameState.get_reserves_points ignoring the Dakkajet.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Flyboyz\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nvar _ms_U_CUSTODIAN_GUARD_D = GameState.state.units[\"U_CUSTODIAN_GUARD_D\"].models\nfor _i in range(_ms_U_CUSTODIAN_GUARD_D.size()):\n\t_ms_U_CUSTODIAN_GUARD_D[_i][\"position\"] = {\"x\": (28.000000 + (float(_i) - float(_ms_U_CUSTODIAN_GUARD_D.size() - 1) / 2.0) * 1.800000) * 40.0, \"y\": 33.000000 * 40.0}\nfor _m in GameState.state.units[\"U_CUSTODIAN_GUARD_D\"].models:\n\t_m[\"wounds\"] = 99\n\t_m[\"current_wounds\"] = 99\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Flyboyz",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Flyboyz (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"HUD_Right/VBoxContainer/CommandScrollContainer\").ensure_control_visible(main.get_node(\"HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton\"))"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "FactionAbilityManager.is_waaagh_active(1)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkDetachments11e.gd\").hit_plus_one_source(GameState.state.units[\"U_DEFFKOPTAS_A\"], GameState.state.units[\"U_CUSTODIAN_GUARD_D\"], false) != \"\"\n",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_DAKKAJET_A\"][\"status\"] = GameState.UnitStatus.IN_RESERVES\nvar pts = GameState.get_reserves_points(1)\nGameState.state.units[\"U_DAKKAJET_A\"][\"status\"] = GameState.UnitStatus.DEPLOYED\nreturn pts",
+      "multiline": true,
+      "equals": 0,
+      "comment": "a Dakkajet in reserves adds 0 reserves points"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_COMMAND",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_DEFFKOPTAS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_DEFFKOPTAS_A"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_CUSTODIAN_GUARD_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var pa = PhaseManager.get_current_phase_instance().pending_assignments\nif pa.is_empty():\n\treturn \"none\"\nfor a in pa:\n\tif str(a.get(\"target_unit_id\", \"\")) != \"U_CUSTODIAN_GUARD_D\":\n\t\treturn str(a.get(\"target_unit_id\", \"\"))\nreturn \"U_CUSTODIAN_GUARD_D\"",
+      "multiline": true,
+      "equals": "U_CUSTODIAN_GUARD_D",
+      "comment": "every declared weapon targets U_CUSTODIAN_GUARD_D"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"to_hit\" and \"Skyborne\" in str(d.get(\"modifier_ledger\", []))):\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "Skyborne Loons +1 to hit in the ledger"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_riled_up_deffkoptas_plus1_hit"
+    }
+  ]
+}

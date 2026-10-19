@@ -27,6 +27,7 @@ const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 # file, adding "Failed to compile depended scripts" SCRIPT ERROR lines to the
 # headless tests that reference AIDecisionMaker (RG-F6).
 static var _ork_codex_dispatcher = null
+static var _ork_abilities_module = null  # WP-O6 OrkAbilities11e (lazy)
 const PIXELS_PER_INCH: float = 40.0
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
 # Clearance added to base-to-base placements (pile-in/consolidate). The
@@ -432,7 +433,6 @@ static func reset_caches() -> void:
 	_fight_order_logged = false
 	_active_rule_overrides.clear()
 	_current_player = 0
-	_aao_now_cache.clear()
 	print("AIDecisionMaker: Static caches reset complete")
 
 # Config override system — load parameter overrides for hand-tuning the AI.
@@ -1479,8 +1479,6 @@ const FIGHT_ORDER_LIKELY_TO_DIE: float = 3.0  # fight order: this unit is likely
 const FIGHT_ORDER_MASSIVE_OVERKILL: float = 1.5  # fight order: massive overkill, let others take the weak target (penalty)
 const FIGHT_ORDER_TARGET_ON_OBJ: float = 1.5  # fight order: target is on an objective
 const FIGHT_TARGET_ON_OBJ: float = 2.0  # fight target: standing on an objective
-const REINFORCE_AAO_BROKEN: float = 3.0  # reinforcement spot: lands inside a friendly bubble, buff lost (penalty)
-const REINFORCE_AAO_CLEAR: float = 4.0  # reinforcement spot: arrives with Against All Odds live
 const REINFORCE_CHARGE_RANGE: float = 3.0  # reinforcement spot: lands inside charge range
 const REINFORCE_NEAR_CHARGE_RANGE: float = 2.0  # reinforcement spot: just outside charge range
 const REINFORCE_OBJ_FAR_BASE: float = 8.0  # reinforcement spot: base value at longer range from an objective
@@ -2586,50 +2584,6 @@ static func _get_units_remaining_pct(snapshot: Dictionary, player: int) -> float
 		return 100.0
 	return (float(alive) / float(total)) * 100.0
 
-# ============================================================================
-# AGAINST ALL ODDS (Lions of the Emperor) — isolation awareness
-# ============================================================================
-# The Lions of the Emperor detachment rule (Against All Odds) gives every
-# non-VEHICLE ADEPTUS CUSTODES unit +1 to Hit AND +1 to Wound while no other
-# friendly unit is within 6" of it. The engine applies the buff automatically
-# (FactionAbilityManager.check_against_all_odds); this section teaches the AI
-# to PLAY FOR it:
-#   - movement / deployment / deep-strike placement keeps units >6" apart
-#   - shooting / charge / fight expected damage values the +1/+1 when earned
-#   - charge target selection prefers solo fights over gang-ups
-# An attached CHARACTER and its bodyguard count as ONE unit (they never break
-# each other's bubble) — mirrored from the engine's check via _aao_group_ids.
-
-const AAO_RADIUS_INCHES: float = 6.0
-# Planning slack over the 6" rule distance: destinations are picked with this
-# buffer so model spread / collision nudges don't accidentally break the bubble.
-const AAO_SPACING_BUFFER_INCHES: float = 1.0
-const WEIGHT_AAO_ISOLATION: float = 2.5   # movement-assignment bonus for keeping the buff
-const AAO_CLUMP_PENALTY: float = 2.5      # movement-assignment penalty for breaking it
-
-# Per-decide() cache of the engine-exact "buff active right now" check,
-# keyed by unit id. Cleared at decide() entry (positions change between calls).
-static var _aao_now_cache: Dictionary = {}
-
-static func _aao_detachment_active(snapshot: Dictionary, player: int) -> bool:
-	"""True when this player's army runs the Lions of the Emperor detachment."""
-	var det = str(snapshot.get("factions", {}).get(str(player), {}).get("detachment", ""))
-	return FactionStratagemLoaderData._normalise_detachment_name(det) == "lions of the emperor"
-
-static func _aao_unit_eligible(unit: Dictionary) -> bool:
-	"""Non-VEHICLE ADEPTUS CUSTODES units can earn Against All Odds."""
-	var is_custodes := false
-	for kw in unit.get("meta", {}).get("keywords", []):
-		var upper = str(kw).to_upper()
-		if upper == "ADEPTUS CUSTODES":
-			is_custodes = true
-		elif upper == "VEHICLE":
-			return false
-	return is_custodes
-
-static func _aao_applies(snapshot: Dictionary, player: int, unit: Dictionary) -> bool:
-	return _aao_detachment_active(snapshot, player) and _aao_unit_eligible(unit)
-
 # Late-bound reference to FactionAbilityManager autoload (a preload would drag
 # its naked-autoload references into --script test mode where they can't compile)
 static func _faction_ability_manager():
@@ -2657,493 +2611,9 @@ static func _waaagh_effects_summary() -> String:
 		return "riled up: 5+ invuln, ranged [ASSAULT], advance and charge"
 	return "advance and charge, +1 S/A melee, 5+ invuln"
 
-static func _aao_isolated_now(unit: Dictionary, snapshot: Dictionary) -> bool:
-	"""'Buff is active right now' check (detachment + keywords + no other
-	friendly within 6\" of the unit's CURRENT model positions). Uses the
-	engine's own check_against_all_odds when the autoload is up; falls back to
-	the AI's equivalent measurement in bare --script test mode."""
-	var uid = str(unit.get("id", ""))
-	if uid != "" and _aao_now_cache.has(uid):
-		return _aao_now_cache[uid]
-	var result: bool
-	var fam = _faction_ability_manager()
-	if fam != null and fam.has_method("check_against_all_odds"):
-		result = fam.check_against_all_odds(unit, snapshot)
-	else:
-		var owner = int(unit.get("owner", -1))
-		result = owner > 0 and _aao_applies(snapshot, owner, unit) \
-			and _aao_min_friendly_gap_inches(unit, snapshot, owner) > AAO_RADIUS_INCHES
-	if uid != "":
-		_aao_now_cache[uid] = result
-	return result
-
-static func _aao_group_ids(unit: Dictionary, units: Dictionary) -> Dictionary:
-	"""Leader-rules attachment group: the unit itself, its attached leaders,
-	or — when the unit IS an attached leader — its bodyguard and that
-	bodyguard's other leaders. Group members never break each other's bubble."""
-	var ids := {str(unit.get("id", "")): true}
-	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
-		ids[str(char_id)] = true
-	var bodyguard_id = unit.get("attached_to", null)
-	if bodyguard_id != null and str(bodyguard_id) != "":
-		ids[str(bodyguard_id)] = true
-		for char_id in units.get(str(bodyguard_id), {}).get("attachment_data", {}).get("attached_characters", []):
-			ids[str(char_id)] = true
-	return ids
-
-static func _aao_min_friendly_gap_inches(unit: Dictionary, snapshot: Dictionary,
-		player: int, move_delta: Vector2 = Vector2.ZERO, intent_overrides: Dictionary = {},
-		ignore_ids: Dictionary = {}) -> float:
-	"""Smallest edge-to-edge distance (inches) from this unit's alive models —
-	rigidly translated by move_delta — to any OTHER friendly on-board unit.
-	Friendly units that already planned a move this phase can be measured at
-	their intended destination via intent_overrides {unit_id: dest centroid};
-	units in ignore_ids (and without an override) are skipped entirely — used
-	at plan time for friends who are themselves about to move away, whose
-	clumped start positions would otherwise drown the spacing signal.
-	Returns INF when no other friendly unit is on the battlefield."""
-	var units = snapshot.get("units", {})
-	var group_ids = _aao_group_ids(unit, units)
-	var own_models: Array = []
-	for m in _get_alive_models(unit):
-		var mp = _get_model_position(m)
-		if mp == Vector2.INF:
-			continue
-		own_models.append({
-			"pos": mp + move_delta,
-			"radius": _model_min_radius_px(int(m.get("base_mm", 32)), str(m.get("base_type", "circular")), m.get("base_dimensions", {}))
-		})
-	if own_models.is_empty():
-		return INF
-	var min_gap := INF
-	for other_id in units:
-		if group_ids.has(str(other_id)):
-			continue
-		if ignore_ids.has(str(other_id)) and not intent_overrides.has(str(other_id)):
-			continue
-		var other = units[other_id]
-		if int(other.get("owner", -1)) != player:
-			continue
-		# Off-battlefield units (embarked / reserves) keep stale coordinates and
-		# never block the bubble — same filters as the engine's check.
-		if other.get("embarked_in", null) != null:
-			continue
-		var status_v = other.get("status", -1)
-		if typeof(status_v) == TYPE_STRING:
-			if str(status_v) in ["UNDEPLOYED", "IN_RESERVES"]:
-				continue
-		elif int(status_v) == GameStateData.UnitStatus.UNDEPLOYED or int(status_v) == GameStateData.UnitStatus.IN_RESERVES:
-			continue
-		var other_models = _get_alive_models(other)
-		if other_models.is_empty():
-			continue
-		var override_delta := Vector2.ZERO
-		if intent_overrides.has(str(other_id)):
-			var other_centroid = _get_unit_centroid(other)
-			var intent_dest = intent_overrides[str(other_id)]
-			if other_centroid != Vector2.INF and intent_dest is Vector2:
-				override_delta = intent_dest - other_centroid
-		for om in other_models:
-			var op = _get_model_position(om)
-			if op == Vector2.INF:
-				continue
-			op += override_delta
-			var o_rad = _model_min_radius_px(int(om.get("base_mm", 32)), str(om.get("base_type", "circular")), om.get("base_dimensions", {}))
-			for mine in own_models:
-				var gap_in = (mine.pos.distance_to(op) - mine.radius - o_rad) / PIXELS_PER_INCH
-				if gap_in < min_gap:
-					min_gap = gap_in
-	return min_gap
-
-static func _aao_intent_dest_overrides(player: int, snapshot: Dictionary = {}) -> Dictionary:
-	"""Destinations friendly units are headed to this phase ({unit_id: Vector2
-	dest centroid}) — spacing checks measure them where they are GOING, not
-	where they stand. Executed moves come from the intent ledger; units still
-	waiting on their plan entry are estimated at their assigned objective
-	(clamped to one move) when a snapshot is provided."""
-	var overrides := {}
-	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", -1))
-	var plan: Dictionary = _turn_movement_plan.get(player, {})
-	if not snapshot.is_empty() and not plan.is_empty() and plan.get("round", -2) == battle_round:
-		var consumed: Dictionary = plan.get("consumed", {})
-		var assignments: Dictionary = plan.get("assignments", {})
-		for uid in assignments:
-			if consumed.has(uid):
-				continue  # executed — the intent ledger below has the real dest
-			var a = assignments[uid]
-			if str(a.get("action", "")) not in ["move", "advance"]:
-				continue
-			var obj_pos = a.get("objective_pos", Vector2.INF)
-			if not (obj_pos is Vector2) or obj_pos == Vector2.INF:
-				continue
-			var u = snapshot.get("units", {}).get(uid, {})
-			var c = _get_unit_centroid(u)
-			if c == Vector2.INF:
-				continue
-			var reach = float(u.get("meta", {}).get("stats", {}).get("move", 6)) * PIXELS_PER_INCH
-			if str(a.get("action", "")) == "advance":
-				reach += 2.0 * PIXELS_PER_INCH
-			overrides[str(uid)] = c + (obj_pos - c).limit_length(reach)
-	var intents = _get_movement_intents(player)
-	for uid in intents:
-		var dest = intents[uid].get("dest", null)
-		if dest is Vector2:
-			overrides[str(uid)] = dest
-	return overrides
-
-static func _aao_execution_spacing_ctx(player: int, snapshot: Dictionary) -> Dictionary:
-	"""Spacing context for EXECUTION-time nudges ({overrides, ignore}). Units
-	that already moved this phase are measured at their REAL recorded
-	destination; units still waiting on their own move/advance/attack plan
-	entry are ignored — they get their own nudge against the growing intent
-	ledger when they act, so counting their pre-move clump positions here
-	would deadlock every lane. Holds and units outside the plan stay put and
-	remain real blockers."""
-	var overrides := {}
-	var intents = _get_movement_intents(player)
-	for uid in intents:
-		var dest = intents[uid].get("dest", null)
-		if dest is Vector2:
-			overrides[str(uid)] = dest
-	var ignore := {}
-	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", -1))
-	var plan: Dictionary = _turn_movement_plan.get(player, {})
-	if not plan.is_empty() and plan.get("round", -2) == battle_round:
-		var consumed: Dictionary = plan.get("consumed", {})
-		for uid in plan.get("assignments", {}):
-			if consumed.has(uid) or overrides.has(str(uid)):
-				continue
-			if str(plan.assignments[uid].get("action", "")) in ["move", "advance", "attack"]:
-				ignore[str(uid)] = true
-	return {"overrides": overrides, "ignore": ignore}
-
-static func _aao_planning_ignore_set(snapshot: Dictionary, movable_units: Dictionary, objectives: Array) -> Dictionary:
-	"""Friendly units that are mobile this phase and NOT parked on an objective
-	are about to scatter — at PLAN time (before anyone has a destination) their
-	clumped start positions must not count against every candidate, or the
-	spacing term penalizes everything equally and teaches nothing."""
-	var ignore := {}
-	for m_uid in movable_units:
-		var m_unit = snapshot.get("units", {}).get(m_uid, {})
-		var m_centroid = _get_unit_centroid(m_unit)
-		if m_centroid == Vector2.INF:
-			continue
-		var parked = false
-		for obj_pos in objectives:
-			if m_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				parked = true
-				break
-		if not parked:
-			ignore[str(m_uid)] = true
-	return ignore
-
-static func _wound_needed_roll(strength: int, toughness: int) -> int:
-	"""Unmodified wound roll needed for S vs T (core S/T ladder)."""
-	if strength >= toughness * 2:
-		return 2
-	if strength > toughness:
-		return 3
-	if strength == toughness:
-		return 4
-	if strength * 2 <= toughness:
-		return 6
-	return 5
-
-static func _aao_attack_multiplier(skill: int, strength: int, toughness: int) -> float:
-	"""Expected-damage multiplier from Against All Odds (+1 Hit, +1 Wound),
-	exact for the given attack profile. A hit/wound roll can never need less
-	than 2+ (unmodified 1s always fail), so already-capped profiles gain less —
-	e.g. WS2+ gains nothing on the hit roll, wounding on 3+ gains x1.25."""
-	var base_hit = _hit_probability(clampi(skill, 2, 6))
-	var buffed_hit = _hit_probability(clampi(skill - 1, 2, 6))
-	var base_needed = _wound_needed_roll(strength, toughness)
-	var buffed_needed = clampi(base_needed - 1, 2, 6)
-	var base_wound = float(7 - base_needed) / 6.0
-	var buffed_wound = float(7 - buffed_needed) / 6.0
-	var mult := 1.0
-	if base_hit > 0.0:
-		mult *= buffed_hit / base_hit
-	if base_wound > 0.0:
-		mult *= buffed_wound / base_wound
-	return mult
-
-static func _aao_charge_keeps_isolation(charger: Dictionary, target: Dictionary,
-		snapshot: Dictionary, player: int) -> bool:
-	"""Would the charger still earn Against All Odds AFTER landing the charge?
-	Projects the unit to just outside the target and measures the 6\" bubble
-	there — friendly units already engaged with (or standing near) the target
-	break it, which is exactly why Lions prefer solo charges."""
-	if not _aao_applies(snapshot, player, charger):
-		return false
-	var cc = _get_unit_centroid(charger)
-	var tc = _get_unit_centroid(target)
-	if cc == Vector2.INF or tc == Vector2.INF:
-		return false
-	var to_target = tc - cc
-	var dist = to_target.length()
-	# Land ~2" short of the target centroid (base contact at engagement range)
-	var delta = Vector2.ZERO
-	if dist > 1.0:
-		delta = to_target.normalized() * maxf(dist - 2.0 * PIXELS_PER_INCH, 0.0)
-	var gap = _aao_min_friendly_gap_inches(charger, snapshot, player, delta)
-	return gap > AAO_RADIUS_INCHES
-
-static func _aao_spread_move_target(unit: Dictionary, unit_name: String, snapshot: Dictionary,
-		player: int, move_target: Vector2, obj_pos: Vector2, move_inches: float) -> Vector2:
-	"""Shift a movement target sideways so the unit lands >6\" from other
-	friendly units while staying on task. When an objective is assigned the
-	candidates orbit the marker INSIDE control range (never trading the
-	objective for the buff); otherwise the move direction fans out. Returns
-	move_target unchanged when the direct destination already keeps the
-	bubble, or when no candidate restores it."""
-	if move_target == Vector2.INF or not _aao_applies(snapshot, player, unit):
-		return move_target
-	var centroid = _get_unit_centroid(unit)
-	if centroid == Vector2.INF:
-		return move_target
-	var spacing_ctx = _aao_execution_spacing_ctx(player, snapshot)
-	var intent_overrides: Dictionary = spacing_ctx.overrides
-	var spacing_ignore: Dictionary = spacing_ctx.ignore
-	var move_px = move_inches * PIXELS_PER_INCH
-	var direct_dest = centroid + (move_target - centroid).limit_length(move_px)
-	var direct_gap: float = _aao_min_friendly_gap_inches(unit, snapshot, player, direct_dest - centroid, intent_overrides, spacing_ignore)
-	var need = AAO_RADIUS_INCHES + AAO_SPACING_BUFFER_INCHES * 0.5
-	if direct_gap > need:
-		return move_target
-	var has_objective = obj_pos != Vector2.INF
-	# When the direct move would reach the objective's control range, adjusted
-	# candidates must stay inside it — the marker outranks the buff.
-	var must_control = has_objective and direct_dest.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX
-	var best_target := Vector2.INF
-	var best_gap := direct_gap
-	if must_control:
-		# ON the marker: orbit inside control range, far side from the crowd.
-		for angle_deg in range(0, 360, 30):
-			var cand = obj_pos + Vector2.RIGHT.rotated(deg_to_rad(float(angle_deg))) * (OBJECTIVE_CONTROL_RANGE_PX * 0.7)
-			if cand.x < BASE_MARGIN_PX or cand.y < BASE_MARGIN_PX \
-					or cand.x > BOARD_WIDTH_PX - BASE_MARGIN_PX or cand.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
-				continue
-			var cand_dest = centroid + (cand - centroid).limit_length(move_px)
-			if cand_dest.distance_to(obj_pos) > OBJECTIVE_CONTROL_RANGE_PX:
-				continue
-			var gap = _aao_min_friendly_gap_inches(unit, snapshot, player, cand_dest - centroid, intent_overrides, spacing_ignore)
-			if gap > best_gap + 0.1:
-				best_gap = gap
-				best_target = cand
-		if best_target == Vector2.INF or best_gap <= AAO_RADIUS_INCHES:
-			return move_target
-	else:
-		# EN ROUTE: fan the travel lane sideways — smallest deviation that
-		# restores the bubble wins, so progress toward the target is kept.
-		# (Orbiting a distant marker would barely bend the lane at all.)
-		var base_vec = move_target - centroid
-		if base_vec.length() < 1.0:
-			return move_target
-		for angle_deg in [15, -15, 30, -30, 45, -45, 60, -60, 90, -90]:
-			var cand = centroid + base_vec.rotated(deg_to_rad(float(angle_deg)))
-			if cand.x < BASE_MARGIN_PX or cand.y < BASE_MARGIN_PX \
-					or cand.x > BOARD_WIDTH_PX - BASE_MARGIN_PX or cand.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
-				continue
-			var cand_dest = centroid + (cand - centroid).limit_length(move_px)
-			var gap = _aao_min_friendly_gap_inches(unit, snapshot, player, cand_dest - centroid, intent_overrides, spacing_ignore)
-			if gap > AAO_RADIUS_INCHES + AAO_SPACING_BUFFER_INCHES * 0.5:
-				best_gap = gap
-				best_target = cand
-				break
-			if gap > best_gap + 0.1:
-				best_gap = gap
-				best_target = cand
-		if best_target == Vector2.INF or best_gap <= AAO_RADIUS_INCHES:
-			return move_target
-	_add_thinking_step("%s: shifting destination to keep 6\"+ from friends — Against All Odds +1 Hit/+1 Wound (gap %.1f\" → %.1f\")" % [
-		unit_name, maxf(direct_gap, 0.0), best_gap])
-	return best_target
-
-static func _aao_friendly_model_positions(snapshot: Dictionary, player: int, exclude_unit: Dictionary) -> Array:
-	"""Alive on-board model positions (Vector2) of every friendly unit OUTSIDE
-	the excluded unit's attachment group — the keep-away set for Against All
-	Odds spacing when placing deployments and reinforcements."""
-	var positions: Array = []
-	var units = snapshot.get("units", {})
-	var group_ids = _aao_group_ids(exclude_unit, units)
-	for uid in units:
-		if group_ids.has(str(uid)):
-			continue
-		var u = units[uid]
-		if int(u.get("owner", -1)) != player:
-			continue
-		if u.get("embarked_in", null) != null:
-			continue
-		var status_v = u.get("status", -1)
-		if typeof(status_v) == TYPE_STRING:
-			if str(status_v) in ["UNDEPLOYED", "IN_RESERVES"]:
-				continue
-		elif int(status_v) == GameStateData.UnitStatus.UNDEPLOYED or int(status_v) == GameStateData.UnitStatus.IN_RESERVES:
-			continue
-		for m in _get_alive_models(u):
-			var mp = _get_model_position(m)
-			if mp != Vector2.INF:
-				positions.append(mp)
-	return positions
-
-static func _aao_adjust_deploy_position(pos: Vector2, unit: Dictionary, snapshot: Dictionary,
-		player: int, zone_bounds: Dictionary) -> Vector2:
-	"""Deployment spacing for Lions: nudge the deploy centroid so the unit
-	starts >6\" from already-deployed friendlies where the zone has room.
-	Formations spread a couple of inches around the centroid, so the target
-	centroid gap carries that margin. Best effort — a cramped zone deploys as
-	close to spaced as it can and the movement phase finishes the job."""
-	if not _aao_applies(snapshot, player, unit):
-		return pos
-	var avoid = _aao_friendly_model_positions(snapshot, player, unit)
-	if avoid.is_empty():
-		return pos
-	# Centroid-to-model target: 6" rule + planning buffer + ~2" formation spread
-	var want_px = (AAO_RADIUS_INCHES + AAO_SPACING_BUFFER_INCHES + 2.0) * PIXELS_PER_INCH
-	var min_gap := INF
-	for ap in avoid:
-		min_gap = minf(min_gap, pos.distance_to(ap))
-	if min_gap >= want_px:
-		return pos
-	var best_pos := pos
-	var best_gap := min_gap
-	for radius_in in [3.0, 5.0, 7.0, 9.0]:
-		var radius_px = radius_in * PIXELS_PER_INCH
-		for angle_deg in range(0, 360, 30):
-			var cand = pos + Vector2.RIGHT.rotated(deg_to_rad(float(angle_deg))) * radius_px
-			if cand.x < zone_bounds.min_x + 60.0 or cand.x > zone_bounds.max_x - 60.0 \
-					or cand.y < zone_bounds.min_y + 60.0 or cand.y > zone_bounds.max_y - 60.0:
-				continue
-			var cand_gap := INF
-			for ap in avoid:
-				cand_gap = minf(cand_gap, cand.distance_to(ap))
-				if cand_gap <= best_gap:
-					break
-			if cand_gap > best_gap:
-				best_gap = cand_gap
-				best_pos = cand
-		if best_gap >= want_px:
-			break
-	if best_pos != pos:
-		_add_thinking_step("Against All Odds: deploying %s\" clear of friendlies (gap %.1f\" → %.1f\")" % [
-			"6+", min_gap / PIXELS_PER_INCH, best_gap / PIXELS_PER_INCH])
-	return best_pos
-
-static func _aao_standoff_move_target(unit: Dictionary, unit_name: String, snapshot: Dictionary,
-		player: int, move_target: Vector2, obj_pos: Vector2, obj_id: String) -> Vector2:
-	"""When the assigned marker is already SECURELY held by a friendly (no
-	enemy OC contesting it), a Lions reinforcement should stand off 6\"+
-	instead of hugging the holder — an overwatch ring that keeps Against All
-	Odds +1 Hit / +1 Wound live on BOTH units while still being one move from
-	stepping in. Contested markers are piled onto as normal."""
-	if obj_pos == Vector2.INF or move_target == Vector2.INF:
-		return move_target
-	if not _aao_applies(snapshot, player, unit):
-		return move_target
-	var centroid = _get_unit_centroid(unit)
-	if centroid == Vector2.INF:
-		return move_target
-	# Already inside control range → the hold logic owns this case.
-	if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-		return move_target
-	# Enemy OC at the marker → contest it properly, no standoff.
-	if _get_oc_at_position(obj_pos, snapshot.get("units", {}), player, false) > 0:
-		return move_target
-	var units = snapshot.get("units", {})
-	var group_ids = _aao_group_ids(unit, units)
-	var secured := false
-	for ouid in units:
-		if group_ids.has(str(ouid)):
-			continue
-		var other = units[ouid]
-		if int(other.get("owner", -1)) != player:
-			continue
-		if other.get("embarked_in", null) != null:
-			continue
-		var status_v = other.get("status", -1)
-		if typeof(status_v) == TYPE_STRING:
-			if str(status_v) in ["UNDEPLOYED", "IN_RESERVES"]:
-				continue
-		elif int(status_v) == GameStateData.UnitStatus.UNDEPLOYED or int(status_v) == GameStateData.UnitStatus.IN_RESERVES:
-			continue
-		if _get_alive_models(other).is_empty():
-			continue
-		var oc = _get_unit_centroid(other)
-		if oc != Vector2.INF and oc.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-			secured = true
-			break
-	if not secured:
-		var intents = _get_movement_intents(player)
-		for iuid in intents:
-			if group_ids.has(str(iuid)):
-				continue
-			var idest = intents[iuid].get("dest", null)
-			if idest is Vector2 and idest.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				secured = true
-				break
-	if not secured:
-		return move_target
-	var standoff_px = OBJECTIVE_CONTROL_RANGE_PX + (AAO_RADIUS_INCHES + 1.0) * PIXELS_PER_INCH
-	if centroid.distance_to(obj_pos) <= standoff_px + 1.0:
-		# Ring reached — hold here rather than closing onto the holder.
-		_add_thinking_step("%s: holding the overwatch ring 6\"+ off %s — Against All Odds +1/+1 stays live" % [unit_name, obj_id])
-		return centroid
-	var dir = (obj_pos - centroid).normalized()
-	_add_thinking_step("%s: standing off 6\"+ from the held %s — overwatch ring keeps Against All Odds +1/+1" % [unit_name, obj_id])
-	return obj_pos - dir * standoff_px
-
-static func _aao_try_hold_reposition(unit: Dictionary, unit_id: String, unit_name: String,
-		snapshot: Dictionary, player: int, obj_pos: Vector2, obj_id: String,
-		move_types: Array, enemies: Dictionary, objectives: Array) -> Dictionary:
-	"""A holder parked within 6\" of another friendly is wasting Against All
-	Odds. Try a short shuffle to the far side of the marker that restores the
-	bubble WITHOUT leaving control range. Returns a BEGIN_NORMAL_MOVE decision
-	or {} when holding still is fine (or nothing restores the buff)."""
-	if obj_pos == Vector2.INF or not ("BEGIN_NORMAL_MOVE" in move_types):
-		return {}
-	if not _aao_applies(snapshot, player, unit):
-		return {}
-	var centroid = _get_unit_centroid(unit)
-	if centroid == Vector2.INF:
-		return {}
-	var spacing_ctx = _aao_execution_spacing_ctx(player, snapshot)
-	var intent_overrides: Dictionary = spacing_ctx.overrides
-	var spacing_ignore: Dictionary = spacing_ctx.ignore
-	var gap_now: float = _aao_min_friendly_gap_inches(unit, snapshot, player, Vector2.ZERO, intent_overrides, spacing_ignore)
-	if gap_now > AAO_RADIUS_INCHES:
-		return {}
-	var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
-	var move_px = move_inches * PIXELS_PER_INCH
-	var best := Vector2.INF
-	var best_gap := gap_now
-	for angle_deg in range(0, 360, 30):
-		var cand = obj_pos + Vector2.RIGHT.rotated(deg_to_rad(float(angle_deg))) * (OBJECTIVE_CONTROL_RANGE_PX * 0.7)
-		if cand.distance_to(centroid) > move_px:
-			continue
-		var gap = _aao_min_friendly_gap_inches(unit, snapshot, player, cand - centroid, intent_overrides, spacing_ignore)
-		if gap > best_gap + 0.1:
-			best_gap = gap
-			best = cand
-	if best == Vector2.INF or best_gap <= AAO_RADIUS_INCHES:
-		return {}
-	var dests = _compute_movement_toward_target(unit, unit_id, best, move_inches, snapshot, enemies, 0.0, [], objectives)
-	if dests.is_empty():
-		return {}
-	_add_thinking_step("%s: shuffling to the far side of %s — restores Against All Odds +1/+1 (friendly gap %.1f\" → %.1f\")" % [
-		unit_name, obj_id, maxf(gap_now, 0.0), best_gap])
-	return {
-		"type": "BEGIN_NORMAL_MOVE",
-		"actor_unit_id": unit_id,
-		"_ai_model_destinations": dests,
-		"_ai_description": "%s repositions on %s to stay 6\"+ from friends (Against All Odds)" % [unit_name, obj_id]
-	}
-
 static func decide(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
 	_current_difficulty = difficulty
 	_current_player = player
-	# Against All Odds cache is only valid for one board state — positions
-	# change between decisions, so re-derive it every evaluation.
-	_aao_now_cache.clear()
 	# Evaluate profile rules if player has a profile
 	if _player_profiles.has(player):
 		# Real enum values — a stale literal map here previously fired
@@ -3478,13 +2948,6 @@ static func _decide_random(phase: int, snapshot: Dictionary, available_actions: 
 	if action_types.has("COMPLETE_SHOOTING_FOR_UNIT"):
 		var a = action_types["COMPLETE_SHOOTING_FOR_UNIT"][0]
 		return {"type": "COMPLETE_SHOOTING_FOR_UNIT", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Complete shooting (Easy)"}
-	# P1-10: Always use Sentinel Storm — free extra shooting round
-	if action_types.has("USE_SENTINEL_STORM"):
-		var a = action_types["USE_SENTINEL_STORM"][0]
-		return {"type": "USE_SENTINEL_STORM", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Use Sentinel Storm (Easy)"}
-	if action_types.has("DECLINE_SENTINEL_STORM") and not action_types.has("USE_SENTINEL_STORM"):
-		var a = action_types["DECLINE_SENTINEL_STORM"][0]
-		return {"type": "DECLINE_SENTINEL_STORM", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Decline Sentinel Storm (Easy)"}
 	if action_types.has("CONFIRM_UNIT_MOVE"):
 		var a = action_types["CONFIRM_UNIT_MOVE"][0]
 		return {"type": "CONFIRM_UNIT_MOVE", "actor_unit_id": a.get("actor_unit_id", a.get("unit_id", "")), "_ai_description": "Confirm move (Easy)"}
@@ -3828,7 +3291,6 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 				continue
 
 			# Score the charge: melee damage * target value
-			# (snapshot → Against All Odds valued when the unit is isolated)
 			var melee_dmg = _estimate_melee_damage(unit, enemy, snapshot)
 			var score = melee_dmg * 2.0
 
@@ -4208,7 +3670,7 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 	# T7-33 / FORM-2: After leader attachments, evaluate transport embarkation.
 	# Embark small/fast infantry units in transports for deployment efficiency.
 	if not transport_actions.is_empty():
-		var embark_decision = _evaluate_transport_embarkation(snapshot, transport_actions, player, formations_plan)
+		var embark_decision = _evaluate_transport_embarkation(snapshot, transport_actions, player, formations_plan, reserves_actions)
 		if not embark_decision.is_empty():
 			return embark_decision
 
@@ -4394,7 +3856,7 @@ static func _score_leader_bodyguard_pairing(char_id: String, bg_id: String, all_
 # =============================================================================
 
 static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_actions: Array, player: int,
-		plan: Dictionary = {}) -> Dictionary:
+		plan: Dictionary = {}, reserves_actions: Array = []) -> Dictionary:
 	"""Evaluate which units should embark in available transports during formations.
 	Prioritizes embarking small/fast INFANTRY units for deployment efficiency.
 	Only embarks one transport per call (called repeatedly until no more are beneficial).
@@ -4414,11 +3876,28 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 		for entry in _plan_reserve_units(plan, snapshot, player):
 			plan_reserved_ids[str(entry.get("unit", ""))] = true
 
+	# Formation declarations are only written to the units at CONFIRM, so
+	# `embarked_in` is still empty for a unit declared aboard a moment ago. The
+	# phase offers DECLARE_RESERVES for exactly the units that are not yet
+	# attached / embarked / reserved — that list is the "still undeclared" set
+	# (same signal the plan pass uses, _plan_formations_action).
+	var still_undeclared := {}
+	for action in reserves_actions:
+		still_undeclared[str(action.get("unit_id", ""))] = true
+	var declared_aboard := {}
+	for action in transport_actions:
+		for uid in action.get("declared_unit_ids", []):
+			declared_aboard[str(uid)] = true
+
 	# Build list of candidate units that could embark (not characters, not transports themselves)
 	var candidate_units = []
 	for unit_id in all_units:
 		var unit = all_units[unit_id]
 		if unit.get("owner", 0) != player:
+			continue
+		if declared_aboard.has(str(unit_id)):
+			continue
+		if not reserves_actions.is_empty() and not still_undeclared.has(str(unit_id)):
 			continue
 		# Skip transports themselves
 		if unit.has("transport_data"):
@@ -4483,7 +3962,11 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 
 		var capacity = transport.get("transport_data", {}).get("capacity", 0)
 		var capacity_keywords = transport.get("transport_data", {}).get("capacity_keywords", [])
-		var already_embarked = transport.get("transport_data", {}).get("embarked_units", [])
+		var already_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
+		# ...plus the passengers declared this Formations phase (not yet on the unit).
+		for uid in action.get("declared_unit_ids", []):
+			if not uid in already_embarked:
+				already_embarked.append(uid)
 
 		# Count already-embarked models
 		var embarked_model_count = 0
@@ -4503,14 +3986,17 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 			var unit = all_units.get(unit_id, {})
 			var unit_keywords = unit.get("meta", {}).get("keywords", [])
 
-			# Check keyword compatibility
+			# Check keyword compatibility — ALL capacity keywords, exactly as
+			# FormationsPhase / TransportManager validate ("22 ORKS INFANTRY
+			# models" = ORKS *and* INFANTRY). The old any-match proposed an
+			# ORKS AIRCRAFT (Wazbom Blastajet) and the phase rejected it.
 			if capacity_keywords.size() > 0:
-				var has_keyword = false
+				var has_all_keywords = true
 				for kw in capacity_keywords:
-					if kw in unit_keywords:
-						has_keyword = true
+					if not kw in unit_keywords:
+						has_all_keywords = false
 						break
-				if not has_keyword:
+				if not has_all_keywords:
 					continue
 
 			# Count alive models
@@ -4709,7 +4195,7 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 	for action in undeclare_reserves_actions:
 		var uid = action.get("unit_id", "")
 		var u = all_units.get(uid, {})
-		current_reserves_points += u.get("meta", {}).get("points", 0)
+		current_reserves_points += load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(u)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 		current_reserves_count += 1
 		for char_id in _reserve_riders(action, all_units):
 			current_reserves_points += all_units.get(char_id, {}).get("meta", {}).get("points", 0)
@@ -4759,7 +4245,7 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 		# The whole attached unit is what leaves the table: the bodyguard plus
 		# every leader the phase says goes with it.
 		var riders := _reserve_riders(action, all_units)
-		var unit_points = unit.get("meta", {}).get("points", 0)
+		var unit_points = load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 		for char_id in riders:
 			unit_points += all_units.get(char_id, {}).get("meta", {}).get("points", 0)
 		var unit_slots := 1 + riders.size()
@@ -5114,10 +4600,6 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		baseline_pos, unit_role, terrain_features, zone_bounds,
 		is_top_zone, objectives, snapshot, player
 	)
-
-	# AGAINST ALL ODDS (Lions): start the game spaced 6"+ from already-deployed
-	# friendlies so round 1 opens with the +1 Hit / +1 Wound bubble intact.
-	best_pos = _aao_adjust_deploy_position(best_pos, unit, snapshot, player, zone_bounds)
 
 	# A6: deployment placement scored among real alternatives. Deployment
 	# largely decides rounds 1-2 and until now it left no trace at all — the
@@ -6332,40 +5814,6 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			else:
 				_add_thinking_step("Skipping Da Kaptin on %s: %d pts and off-objective — not worth D3 MW or the once-per-battle" % [dk_name, int(dk_pts)])
 
-	# Grot Orderly (once per battle): return up to D3 destroyed Bodyguard
-	# models — hold it until 3+ are down so the D3 isn't wasted.
-	for action in available_actions:
-		if action.get("type") == "USE_GROT_ORDERLY":
-			var go_destroyed = 0
-			var go_desc = str(action.get("description", ""))
-			var go_re = RegEx.new()
-			go_re.compile("\\((\\d+) destroyed\\)")
-			var go_m = go_re.search(go_desc)
-			if go_m:
-				go_destroyed = int(go_m.get_string(1))
-			var go_round = snapshot.get("meta", {}).get("battle_round", 1)
-			if go_destroyed >= 3 or (go_round >= 4 and go_destroyed >= 1):
-				_add_thinking_step("Grot Orderly: %d bodyguard models down — reviving up to D3 now" % go_destroyed)
-				return {
-					"type": "USE_GROT_ORDERLY",
-					"unit_id": action.get("unit_id", ""),
-					"bodyguard_unit_id": action.get("bodyguard_unit_id", ""),
-					"_ai_description": action.get("description", "Grot Orderly revives bodyguard models")
-				}
-			else:
-				_add_thinking_step("Holding Grot Orderly (once per battle): only %d model(s) destroyed — waiting for a bigger heal" % go_destroyed)
-
-	# Fix Dat Armour Up (every Command phase): free 1-model return — always take it.
-	for action in available_actions:
-		if action.get("type") == "USE_FIX_DAT_ARMOUR_UP":
-			_add_thinking_step("Fix Dat Armour Up: free model return each Command phase — using it")
-			return {
-				"type": "USE_FIX_DAT_ARMOUR_UP",
-				"unit_id": action.get("unit_id", ""),
-				"bodyguard_unit_id": action.get("bodyguard_unit_id", ""),
-				"_ai_description": action.get("description", "Fix Dat Armour Up returns a model")
-			}
-
 	# Unleash the Lions (1 CP): split Allarus/Aquilon into single-model units —
 	# multiplies objective coverage. Best in the mid-game with CP to spare.
 	for action in available_actions:
@@ -6474,16 +5922,8 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		if not best_doctrine.is_empty():
 			return best_doctrine
 
-	# P2-27: Martial Mastery selection (Adeptus Custodes — Shield Host)
-	# AI strategy: Default to crit_on_5 for more damage output, pick improve_ap vs high-save targets
-	var mastery_actions = []
-	for action in available_actions:
-		if action.get("type") == "SELECT_MARTIAL_MASTERY":
-			mastery_actions.append(action)
-	if not mastery_actions.is_empty():
-		var best_mastery = _select_martial_mastery(mastery_actions, snapshot, player)
-		if not best_mastery.is_empty():
-			return best_mastery
+	# (The 10e Shield Host Martial Mastery Command-phase pick is gone — the codex
+	# choice is made in the unit_selected_to_fight window, CustodesDetachments.ai_decide.)
 
 	# T7-25: Build secondary mission awareness before ending command phase
 	# Analyzes active secondary missions to inform movement positioning this turn (per-player)
@@ -6753,60 +6193,6 @@ static func _select_combat_doctrine(doctrine_actions: Array, battle_round: int) 
 
 	return {}
 
-static func _select_martial_mastery(mastery_actions: Array, snapshot: Dictionary, player: int) -> Dictionary:
-	"""
-	P2-27: Select Martial Mastery option. Default to crit_on_5 for more damage output.
-	Pick improve_ap when facing high-save targets (3+ or better).
-	"""
-	var opponent = 1 if player == 2 else 2
-	var units = snapshot.get("units", {})
-
-	# Analyze enemy average save to decide
-	var total_save = 0
-	var count = 0
-	for unit_id in units:
-		var unit = units[unit_id]
-		if unit.get("owner", 0) != opponent:
-			continue
-		var has_alive = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-		var save = unit.get("meta", {}).get("stats", {}).get("save", 4)
-		total_save += save
-		count += 1
-
-	var avg_save = float(total_save) / max(count, 1)
-
-	# If enemies have good saves (3+ or better on average), AP improvement is better
-	var preferred_key = "crit_on_5"
-	if avg_save <= 3.5:
-		preferred_key = "improve_ap"
-
-	# Find the matching action
-	for action in mastery_actions:
-		if action.get("mastery_key", "") == preferred_key:
-			print("AIDecisionMaker: P2-27 Martial Mastery selected: %s (avg enemy save: %.1f)" % [preferred_key, avg_save])
-			return {
-				"type": "SELECT_MARTIAL_MASTERY",
-				"mastery_key": preferred_key,
-				"_ai_description": "Martial Mastery: %s (avg enemy save %.1f)" % [preferred_key, avg_save]
-			}
-
-	# Fallback: pick first available
-	if not mastery_actions.is_empty():
-		var first = mastery_actions[0]
-		return {
-			"type": "SELECT_MARTIAL_MASTERY",
-			"mastery_key": first.get("mastery_key", ""),
-			"_ai_description": "Martial Mastery: %s (fallback)" % first.get("mastery_key", "")
-		}
-
-	return {}
-
 # =============================================================================
 # MOVEMENT PHASE
 # =============================================================================
@@ -6832,94 +6218,6 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 			"actor_unit_id": uid,
 			"_ai_description": "Decline Command Re-roll (movement phase fallback)"
 		}
-
-	# Step 0.5: Handle Sawbonez healing ability (Painboss)
-	# Always use Sawbonez — free healing is always beneficial.
-	# Pick the most-wounded offered target and pass the model fields through —
-	# _process_use_sawbonez heals via target_model_index; dropping it made the
-	# heal a silent no-op.
-	if action_types.has("USE_SAWBONEZ"):
-		var best_sb = action_types["USE_SAWBONEZ"][0]
-		var best_sb_missing := -1.0
-		for sb in action_types["USE_SAWBONEZ"]:
-			var sb_tuid = sb.get("target_unit_id", "")
-			var sb_unit = snapshot.get("units", {}).get(sb_tuid, {})
-			var sb_idx = int(sb.get("target_model_index", -1))
-			var sb_models = sb_unit.get("models", [])
-			if sb_idx >= 0 and sb_idx < sb_models.size():
-				var m = sb_models[sb_idx]
-				var missing = float(m.get("wounds", 1)) - float(m.get("current_wounds", 1))
-				if missing > best_sb_missing:
-					best_sb_missing = missing
-					best_sb = sb
-		return {
-			"type": "USE_SAWBONEZ",
-			"actor_unit_id": best_sb.get("actor_unit_id", ""),
-			"target_unit_id": best_sb.get("target_unit_id", best_sb.get("actor_unit_id", "")),
-			"target_model_id": best_sb.get("target_model_id", ""),
-			"target_model_index": best_sb.get("target_model_index", -1),
-			"player": player,
-			"_ai_description": "AI uses Sawbonez healing (heal up to 3 wounds)"
-		}
-
-	# Step 0.6: Free heal windows (Grot Oiler: D3, Mekaniak: D3 + hit buff).
-	# Same shape as Sawbonez — always use, heal the most-wounded offered
-	# model. These BLOCK the whole movement phase until answered; with no
-	# branch here the AI used to hang on the watchdog (audit Tier 1).
-	for heal_type in ["USE_GROT_OILER", "USE_MEKANIAK"]:
-		if action_types.has(heal_type):
-			var best_h = action_types[heal_type][0]
-			var best_h_missing := -1.0
-			for h in action_types[heal_type]:
-				var h_tuid = h.get("target_unit_id", "")
-				var h_unit = snapshot.get("units", {}).get(h_tuid, {})
-				var h_idx = int(h.get("target_model_index", -1))
-				var h_models = h_unit.get("models", [])
-				if h_idx >= 0 and h_idx < h_models.size():
-					var hm = h_models[h_idx]
-					var missing = float(hm.get("wounds", 1)) - float(hm.get("current_wounds", 1))
-					if missing > best_h_missing:
-						best_h_missing = missing
-						best_h = h
-			return {
-				"type": heal_type,
-				"actor_unit_id": best_h.get("actor_unit_id", ""),
-				"target_unit_id": best_h.get("target_unit_id", ""),
-				"target_model_id": best_h.get("target_model_id", ""),
-				"target_model_index": best_h.get("target_model_index", -1),
-				"player": player,
-				"_ai_description": "AI uses %s (heal most-damaged model)" % heal_type
-			}
-
-	# Step 0.7: Free mortal-wound windows (Deff from Above: D6/model 4+ = 1 MW,
-	# Quicksilver Execution: D6/model 2+ = 2 MW). Free once-per-window damage —
-	# use it on the most grenade-worthy offered target.
-	for mw_type in ["USE_DEFF_FROM_ABOVE", "USE_QUICKSILVER_EXECUTION"]:
-		if action_types.has(mw_type):
-			var best_mw = action_types[mw_type][0]
-			var best_mw_score := -INF
-			for mwa in action_types[mw_type]:
-				var mw_tuid = mwa.get("target_unit_id", "")
-				var mw_unit = snapshot.get("units", {}).get(mw_tuid, {})
-				if mw_unit.is_empty():
-					continue
-				var s = _score_grenade_target(mw_unit)
-				if s > best_mw_score:
-					best_mw_score = s
-					best_mw = mwa
-			var mw_decision = {
-				"type": mw_type,
-				"player": player,
-				"target_unit_id": best_mw.get("target_unit_id", ""),
-				"_ai_description": "AI uses %s on best mortal-wound target" % mw_type
-			}
-			# The two windows key the acting unit differently (actor_unit_id
-			# vs unit_id) — pass through whichever the offer carried.
-			if best_mw.has("actor_unit_id"):
-				mw_decision["actor_unit_id"] = best_mw["actor_unit_id"]
-			if best_mw.has("unit_id"):
-				mw_decision["unit_id"] = best_mw["unit_id"]
-			return mw_decision
 
 	# Step 0.8: Kunnin' Infiltrator placement needs an interactive board
 	# click the AI has no pathway for — cancel so the phase unblocks
@@ -7296,14 +6594,6 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		# declined, so the unit genuinely holds (and the plan said so).
 		if assignment_action == "hold":
 			if "REMAIN_STATIONARY" in move_types:
-				# AGAINST ALL ODDS (Lions): a holder parked next to a friendly is
-				# giving up +1 Hit / +1 Wound — shuffle to the marker's far side
-				# when a short move restores the 6" bubble without losing control.
-				var aao_shuffle = _aao_try_hold_reposition(
-					unit, unit_id, unit_name, snapshot, player,
-					assigned_obj_pos, assigned_obj_id, move_types, enemies, objectives)
-				if not aao_shuffle.is_empty():
-					return aao_shuffle
 				var dist_inches = assignment.get("distance", 0.0) / PIXELS_PER_INCH
 				var reason = assignment.get("reason", "holding objective")
 				print("AIDecisionMaker: %s holds %s (%s, %.1f\" away)" % [unit_name, assigned_obj_id, reason, dist_inches])
@@ -7318,8 +6608,6 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 			var advance_move = move_inches + 2.0  # Average advance roll
 			var target_pos = assigned_obj_pos if assigned_obj_pos != Vector2.INF else _nearest_objective_pos(_get_unit_centroid(unit), objectives)
-			# AGAINST ALL ODDS (Lions): land the advance 6"+ clear of friendlies
-			target_pos = _aao_spread_move_target(unit, unit_name, snapshot, player, target_pos, assigned_obj_pos, advance_move)
 			var model_destinations = _compute_movement_toward_target(
 				unit, unit_id, target_pos, advance_move, snapshot, enemies,
 				0.0, threat_data, objectives
@@ -7458,13 +6746,6 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					print("AIDecisionMaker: [OBJ-PRIORITY] %s holding objective — enemy %s at %.1f\" beyond limit %.0f\" (round %d)" % [
 						unit_name, _dn(obj_hold_nearest.enemy_unit, "enemy"), obj_hold_nearest.distance_inches, obj_hold_dist_limit, obj_hold_round])
 			if not obj_hold_skip and target_pos != Vector2.INF and centroid.distance_to(target_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				# AGAINST ALL ODDS (Lions): before settling in, restore the 6"
-				# bubble with a short shuffle if a friendly is parked alongside.
-				var aao_shuffle_mv = _aao_try_hold_reposition(
-					unit, unit_id, unit_name, snapshot, player,
-					target_pos, assigned_obj_id, move_types, enemies, objectives)
-				if not aao_shuffle_mv.is_empty():
-					return aao_shuffle_mv
 				if "REMAIN_STATIONARY" in move_types:
 					var dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH
 					print("AIDecisionMaker: %s within control range of %s (%.1f\"), holding" % [unit_name, assigned_obj_id, dist_inches])
@@ -7674,12 +6955,6 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 							move_target = firing_pos * get_param("FIRING_POSITION_BLEND", FIRING_POSITION_BLEND) + move_target * (1.0 - get_param("FIRING_POSITION_BLEND", FIRING_POSITION_BLEND))
 							print("AIDecisionMaker: [T7-14] %s blending movement to maintain %.0f\" weapon range (%d targets in range)" % [
 								unit_name, max_weapon_range_inches, enemies_in_range_now.size()])
-
-			# AGAINST ALL ODDS (Lions): reinforcements to a marker a friendly
-			# already holds securely stand off 6"+ (buffed overwatch ring)…
-			move_target = _aao_standoff_move_target(unit, unit_name, snapshot, player, move_target, assigned_obj_pos, assigned_obj_id)
-			# …and any landing spot within 6" of another friendly shifts sideways.
-			move_target = _aao_spread_move_target(unit, unit_name, snapshot, player, move_target, assigned_obj_pos, move_inches)
 
 			var model_destinations = _compute_movement_toward_target(
 				unit, unit_id, move_target, move_inches, snapshot, enemies,
@@ -7966,25 +7241,17 @@ static func _compute_reinforcement_positions(unit: Dictionary, unit_id: String, 
 	if omni_positions.size() > 0:
 		print("AIDecisionMaker: [RESERVES] %d Omni-scrambler models creating 12\" deep strike denial zones" % omni_positions.size())
 
-	# AGAINST ALL ODDS (Lions): arriving units prefer drop spots >6" clear of
-	# friendlies so the +1 Hit / +1 Wound bubble is live the moment they land.
-	var aao_avoid: Array = []
-	if _aao_applies(snapshot, player, unit):
-		aao_avoid = _aao_friendly_model_positions(snapshot, player, unit)
-		if not aao_avoid.is_empty():
-			_add_thinking_step("Against All Odds: picking a reinforcement spot 6\"+ clear of friendlies")
-
 	if reserve_type == "strategic_reserves":
-		candidates = _generate_strategic_reserves_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, battle_round, omni_positions, aao_avoid)
+		candidates = _generate_strategic_reserves_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, battle_round, omni_positions)
 	else:
 		# Deep strike: can be placed anywhere on the board >9" from enemies
-		candidates = _generate_deep_strike_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, omni_positions, aao_avoid)
+		candidates = _generate_deep_strike_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, omni_positions)
 
 	return candidates
 
 static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player: int,
 		objectives: Array, enemies: Dictionary, enemy_model_positions: Array,
-		min_enemy_dist_px: float, battle_round: int, omni_scrambler_positions: Array = [], aao_avoid: Array = []) -> Array:
+		min_enemy_dist_px: float, battle_round: int, omni_scrambler_positions: Array = []) -> Array:
 	"""Generate candidate positions for strategic reserves (within 6\" of board edge)."""
 	var candidates = []
 	var edge_margin_px = 3.0 * PIXELS_PER_INCH  # Place 3" from edge (safely within the 6" limit)
@@ -8041,14 +7308,14 @@ static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player
 		x += step_px
 
 	# Score candidates by objective proximity and tactical value
-	candidates = _score_and_sort_reinforcement_candidates(candidates, objectives, enemies, aao_avoid)
+	candidates = _score_and_sort_reinforcement_candidates(candidates, objectives, enemies)
 
 	print("AIDecisionMaker: [RESERVES] Found %d valid strategic reserves positions" % candidates.size())
 	return candidates
 
 static func _generate_deep_strike_candidates(snapshot: Dictionary, player: int,
 		objectives: Array, enemies: Dictionary, enemy_model_positions: Array,
-		min_enemy_dist_px: float, omni_scrambler_positions: Array = [], aao_avoid: Array = []) -> Array:
+		min_enemy_dist_px: float, omni_scrambler_positions: Array = []) -> Array:
 	"""Generate candidate positions for deep strike (anywhere on the board >9\" from enemies)."""
 	var candidates = []
 	var step_px = 4.0 * PIXELS_PER_INCH  # Sample every 4 inches
@@ -8078,7 +7345,7 @@ static func _generate_deep_strike_candidates(snapshot: Dictionary, player: int,
 		x += step_px
 
 	# Score and sort candidates
-	candidates = _score_and_sort_reinforcement_candidates(candidates, objectives, enemies, aao_avoid)
+	candidates = _score_and_sort_reinforcement_candidates(candidates, objectives, enemies)
 
 	print("AIDecisionMaker: [RESERVES] Found %d valid deep strike positions" % candidates.size())
 	return candidates
@@ -8113,26 +7380,11 @@ static func _is_candidate_position_valid(pos: Vector2, enemy_model_positions: Ar
 
 	return true
 
-static func _score_and_sort_reinforcement_candidates(candidates: Array, objectives: Array, enemies: Dictionary, aao_avoid: Array = []) -> Array:
-	"""Score reinforcement candidate positions by tactical value and sort (best first).
-	aao_avoid (AGAINST ALL ODDS, Lions): friendly model positions the arriving
-	unit wants to stay >6\" clear of — drops with the bubble intact outscore
-	drops beside a friendly squad."""
-	# Centroid-to-model spacing target: 6" rule + buffer + ~2" formation spread
-	var aao_want_px = (AAO_RADIUS_INCHES + AAO_SPACING_BUFFER_INCHES + 2.0) * PIXELS_PER_INCH
-	var aao_break_px = (AAO_RADIUS_INCHES + 2.0) * PIXELS_PER_INCH
+static func _score_and_sort_reinforcement_candidates(candidates: Array, objectives: Array, enemies: Dictionary) -> Array:
+	"""Score reinforcement candidate positions by tactical value and sort (best first)."""
 	var scored = []
 	for pos in candidates:
 		var score = 0.0
-
-		if not aao_avoid.is_empty():
-			var aao_gap := INF
-			for ap in aao_avoid:
-				aao_gap = minf(aao_gap, pos.distance_to(ap))
-			if aao_gap >= aao_want_px:
-				score += get_param("REINFORCE_AAO_CLEAR", REINFORCE_AAO_CLEAR)   # arrives with +1 Hit / +1 Wound live
-			elif aao_gap <= aao_break_px:
-				score -= get_param("REINFORCE_AAO_BROKEN", REINFORCE_AAO_BROKEN)   # lands inside a friendly's bubble — buff lost
 
 		# Closer to objectives = better (but not TOO close — we want control range)
 		var min_obj_dist = INF
@@ -8224,6 +7476,13 @@ static func _get_omni_scrambler_positions_from_snapshot(snapshot: Dictionary, de
 			if aname == "Omni-scramblers":
 				has_omni = true
 				break
+		# Codex: Adeptus Custodes (11e) Arae-Shrike: enemy units making an
+		# ingress move cannot be set up within 12" of the bearer's unit — the
+		# same 12" denial ring as Omni-scramblers (WP-C46).
+		if not has_omni and GameConstants.edition >= 11:
+			var cus11e_enh = load("res://scripts/codex/custodes/CustodesEnhancements.gd")
+			if cus11e_enh != null and cus11e_enh.key_in_group(unit, cus11e_enh.ARAE_SHRIKE):
+				has_omni = true
 		if not has_omni:
 			continue
 		var unit_name = _dn(unit, unit_id)
@@ -9171,16 +8430,6 @@ static func _assign_units_to_objectives(
 			inc_obj_id, before_need, obj_oc_remaining[inc_obj_id], incoming_oc[inc_obj_id],
 			", ".join(incoming_names[inc_obj_id])])
 
-	# --- AGAINST ALL ODDS (Lions of the Emperor) spacing awareness ---
-	# When the army runs Lions, every non-VEHICLE Custodes unit wants no other
-	# friendly within 6" (+1 Hit / +1 Wound). Computed once per plan; per-unit
-	# eligibility and per-destination gap feed the candidate scores below.
-	var aao_active = _aao_detachment_active(snapshot, player)
-	var aao_intent_overrides = _aao_intent_dest_overrides(player, snapshot) if aao_active else {}
-	var aao_ignore = _aao_planning_ignore_set(snapshot, movable_units, objectives) if aao_active else {}
-	if aao_active:
-		_add_thinking_step("Against All Odds (Lions): spacing units 6\"+ apart for +1 Hit / +1 Wound")
-
 	# Build all (unit, objective) candidate pairs with scores
 	var candidates = []
 	for unit_id in movable_units:
@@ -9188,7 +8437,6 @@ static func _assign_units_to_objectives(
 		var centroid = _get_unit_centroid(unit)
 		if centroid == Vector2.INF:
 			continue
-		var unit_aao_eligible = aao_active and _aao_unit_eligible(unit)
 		var move_types = movable_units[unit_id]
 		var is_engaged = "BEGIN_FALL_BACK" in move_types and not "BEGIN_NORMAL_MOVE" in move_types
 		if is_engaged:
@@ -9361,17 +8609,6 @@ static func _assign_units_to_objectives(
 			var hidden_bonus = _hidden_gain_value(unit, estimated_dest, enemies)
 			if hidden_bonus > 0.0:
 				score += _t_add(score_terms, "hidden_gain", hidden_bonus)
-
-			# --- AGAINST ALL ODDS (Lions): prefer destinations that keep the 6" bubble ---
-			# +1 Hit / +1 Wound on every attack is worth more than stacking a
-			# second unit on a covered marker — spread across objectives unless
-			# the OC math genuinely demands reinforcement.
-			if unit_aao_eligible:
-				var aao_gap = _aao_min_friendly_gap_inches(unit, snapshot, player, estimated_dest - centroid, aao_intent_overrides, aao_ignore)
-				if aao_gap > AAO_RADIUS_INCHES + AAO_SPACING_BUFFER_INCHES:
-					score += _t_add(score_terms, "aao_isolation", get_param("WEIGHT_AAO_ISOLATION", WEIGHT_AAO_ISOLATION))
-				elif aao_gap <= AAO_RADIUS_INCHES:
-					score += _t_add(score_terms, "aao_isolation", -(get_param("AAO_CLUMP_PENALTY", AAO_CLUMP_PENALTY)))
 
 			# --- T7-23: MULTI-PHASE PLANNING INFLUENCE ---
 			# Units with charge intent should be biased toward charge angle
@@ -9676,18 +8913,6 @@ static func _assign_units_to_objectives(
 	# earlier movers already have it covered — so the redirect can be narrated.
 	var blocked_best = {}  # unit_id -> {objective_id, names}
 
-	# AGAINST ALL ODDS (Lions): committed-unit count per objective. Piling a
-	# third eligible unit onto a marker two friends already cover trades the
-	# army's 6" bubbles for redundant OC — capped below (2 uncontested, 4 in a
-	# live flip fight).
-	var obj_commit_count = {}
-	for a_uid in assignments:
-		var a_oid = assignments[a_uid].get("objective_id", "")
-		if a_oid != "":
-			obj_commit_count[a_oid] = obj_commit_count.get(a_oid, 0) + 1
-	for inc_oid in incoming_oc:
-		obj_commit_count[inc_oid] = obj_commit_count.get(inc_oid, 0) + incoming_names.get(inc_oid, []).size()
-
 	# Shared capture-assignment applier (used by pass 2 and the COORD-4
 	# backfill pass after attack conversions re-open OC needs). Mutates the
 	# captured assignments / assigned_unit_ids / obj_oc_remaining dictionaries.
@@ -9695,7 +8920,6 @@ static func _assign_units_to_objectives(
 		var c_uid = cand.unit_id
 		var c_oid = cand.objective_id
 		var c_remaining = obj_oc_remaining.get(c_oid, 0)
-		obj_commit_count[c_oid] = obj_commit_count.get(c_oid, 0) + 1
 		assignments[c_uid] = cand.duplicate()
 		assigned_unit_ids[c_uid] = true
 		assignments[c_uid]["oc_consumed"] = min(cand.unit_oc, max(0, c_remaining))
@@ -9731,14 +8955,6 @@ static func _assign_units_to_objectives(
 				blocked_best[uid] = {"objective_id": oid, "names": incoming_names.get(oid, [])}
 			continue  # Skip objectives that don't need more OC
 
-		# AGAINST ALL ODDS (Lions): enough friends are already committed to this
-		# marker — an eligible unit takes its next-best objective instead, so
-		# the army stays spread and the +1 Hit / +1 Wound bubbles stay live.
-		if aao_active and _aao_unit_eligible(snapshot.get("units", {}).get(uid, {})):
-			var aao_cap = 2 if _get_obj_eval_by_id(obj_evaluations, oid).get("enemy_oc", 0) == 0 else 4
-			if obj_commit_count.get(oid, 0) >= aao_cap:
-				continue
-
 		apply_capture_assignment.call(cand)
 
 	# =========================================================================
@@ -9765,9 +8981,6 @@ static func _assign_units_to_objectives(
 			obj_oc_remaining[a_oid] = obj_oc_remaining[a_oid] + reopened
 			print("AIDecisionMaker: [COORD-4] %s: OC need re-opened to %d (planned unit is attacking instead)" % [
 				a_oid, obj_oc_remaining[a_oid]])
-		# AAO: the hunter is no longer bound for the marker — release its slot
-		if a_oid != "" and obj_commit_count.get(a_oid, 0) > 0:
-			obj_commit_count[a_oid] = obj_commit_count[a_oid] - 1
 		var a_unit_name = _dn(a_unit, uid)
 		assignments[uid] = {
 			"objective_id": a_oid,  # kept as fallback if the target dies before this unit acts
@@ -9795,12 +9008,6 @@ static func _assign_units_to_objectives(
 			continue
 		if obj_oc_remaining.get(cand.objective_id, 0) <= 0:
 			continue
-		# AGAINST ALL ODDS (Lions): the backfill honours the same per-marker
-		# commit cap as pass 2 — without this the flip conga re-forms here.
-		if aao_active and _aao_unit_eligible(snapshot.get("units", {}).get(cand.unit_id, {})):
-			var bf_cap = 2 if _get_obj_eval_by_id(obj_evaluations, cand.objective_id).get("enemy_oc", 0) == 0 else 4
-			if obj_commit_count.get(cand.objective_id, 0) >= bf_cap:
-				continue
 		apply_capture_assignment.call(cand)
 		assignments[cand.unit_id]["reason"] += " — backfilling for a unit that went hunting"
 
@@ -13490,7 +12697,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 	# (swift_eagle_move_remaining has no consumer), so USE would burn 1 CP for
 	# no effect — decline deliberately and say why. Revisit when the engine
 	# implements the move: the right play is often a D6" hop back onto an
-	# objective or out to Against All Odds isolation.
+	# objective.
 	if action_types.has("DECLINE_SWIFT_AS_THE_EAGLE"):
 		var sw = action_types["DECLINE_SWIFT_AS_THE_EAGLE"][0]
 		var sw_unit_id = str(sw.get("actor_unit_id", ""))
@@ -13511,15 +12718,6 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			"type": "USE_THROAT_SLITTAS",
 			"actor_unit_id": a.get("actor_unit_id", ""),
 			"_ai_description": "Activate Throat Slittas — mortal wounds"
-		}
-
-	# Step 0.5b: P1-10 — Always use Sentinel Storm (free extra shooting)
-	if action_types.has("USE_SENTINEL_STORM"):
-		var a = action_types["USE_SENTINEL_STORM"][0]
-		return {
-			"type": "USE_SENTINEL_STORM",
-			"actor_unit_id": a.get("actor_unit_id", ""),
-			"_ai_description": "Activate Sentinel Storm — shoot again"
 		}
 
 	# Step 1: Handle saves if needed
@@ -15073,15 +14271,8 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 		else:
 			effective_save = max(2, target_save - 1)
 
-	# --- AGAINST ALL ODDS (Lions): +1 to Hit and +1 to Wound while isolated ---
-	var aao_shot := not shooter_unit.is_empty() and _aao_isolated_now(shooter_unit, snapshot)
-	if aao_shot:
-		effective_bs = clampi(effective_bs - 1, 2, 6)
-
 	var p_hit = _hit_probability(effective_bs)
 	var p_wound = _wound_probability(strength, toughness)
-	if aao_shot:
-		p_wound = float(7 - clampi(_wound_needed_roll(strength, toughness) - 1, 2, 6)) / 6.0
 	var p_unsaved = 1.0 - _save_probability(effective_save, ap, target_invuln)
 
 	# --- Apply weapon keyword modifiers (SHOOT-5) ---
@@ -15511,10 +14702,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var target_score = _score_charge_target(unit, target_unit, snapshot, player)
 
 			# T7-37: Compute expected melee damage for description
-			# (Against All Odds evaluated at the charge landing spot, matching
-			# the scoring inside _score_charge_target)
-			var melee_dmg = _estimate_melee_damage(unit, target_unit, {},
-				1 if _aao_charge_keeps_isolation(unit, target_unit, snapshot, player) else 0)
+			var melee_dmg = _estimate_melee_damage(unit, target_unit)
 			var target_hp = _calculate_kill_threshold(target_unit)
 
 			# Apply charge probability as a multiplier
@@ -15658,8 +14846,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			# Find the scored entry for this target
 			var t_score = 0.0
 			var t_prob = _charge_success_probability(_charge_roll_needed(t_dist))
-			var t_melee = _estimate_melee_damage(charge_unit, t_unit, {},
-				1 if _aao_charge_keeps_isolation(charge_unit, t_unit, snapshot, player) else 0) if not t_unit.is_empty() else 0.0
+			var t_melee = _estimate_melee_damage(charge_unit, t_unit) if not t_unit.is_empty() else 0.0
 			var t_hp = _calculate_kill_threshold(t_unit) if not t_unit.is_empty() else 0.0
 			# Score comes from best_score for the chosen target, 0.0 for others
 			if tid == best_action.get("payload", {}).get("target_unit_ids", [null])[0] if not best_action.get("payload", {}).get("target_unit_ids", []).is_empty() else "":
@@ -15931,18 +15118,9 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	"""Score a potential charge target based on expected melee damage, target value, and tactical factors."""
 	var score = 0.0
 
-	# --- AGAINST ALL ODDS (Lions): evaluate the buff at the charge LANDING spot ---
-	# A solo charge keeps the 6" bubble (+1 Hit / +1 Wound in the fight); piling
-	# into a combat a friendly already occupies loses it for both units.
-	var aao_charger := _aao_applies(snapshot, player, charger)
-	var aao_solo_charge := aao_charger and _aao_charge_keeps_isolation(charger, target, snapshot, player)
-
 	# --- Expected melee damage ---
-	var melee_damage = _estimate_melee_damage(charger, target, {}, 1 if aao_solo_charge else 0)
+	var melee_damage = _estimate_melee_damage(charger, target)
 	score += melee_damage * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT)  # Weight melee damage highly
-	if aao_charger and not aao_solo_charge:
-		print("AIDecisionMaker: [AAO] %s charge on %s lands within 6\" of a friendly — no Against All Odds" % [
-			_dn(charger, ""), _dn(target, "")])
 
 	# --- Target value factors ---
 	var target_keywords = target.get("meta", {}).get("keywords", [])
@@ -16019,13 +15197,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 
 	# --- Focus charge: bonus for charging targets that friendly units are already engaged with ---
 	# This encourages Orks to pile multiple units into the same target for a kill
-	# AGAINST ALL ODDS (Lions): inverted — joining an occupied combat costs BOTH
-	# units +1 Hit / +1 Wound, so Lions spread their charges instead of ganging up.
 	var target_id_for_focus = target.get("id", "")
-	if aao_charger:
-		if not aao_solo_charge:
-			score -= get_param("AAO_CLUMP_PENALTY", AAO_CLUMP_PENALTY)
-		target_id_for_focus = ""  # skip the pile-on bonus below
 	if target_id_for_focus != "":
 		var all_units_focus = snapshot.get("units", {})
 		for funit_id in all_units_focus:
@@ -16088,10 +15260,6 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 
 	# --- Charge coordination: bonus for piling onto targets already declared as charge targets ---
 	# This makes the AI gang up multiple chargers on the same target for concentrated kills
-	# AGAINST ALL ODDS (Lions): no gang-up bonus — a second charger into the same
-	# target breaks isolation for both. The clump penalty above already applies.
-	if aao_charger:
-		coord_target_id = ""
 	if coord_target_id != "" and _charge_coordination.has(coord_target_id):
 		var coord_data = _charge_coordination[coord_target_id]
 		var num_already_charging = coord_data.charger_ids.size()
@@ -16304,12 +15472,8 @@ static func _estimate_unit_overwatch_damage(shooter: Dictionary, target_toughnes
 
 	return total_damage
 
-static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, snapshot: Dictionary = {}, aao_override: int = -1) -> float:
-	"""Estimate expected damage from a melee attack using the attacker's best melee weapon.
-	AGAINST ALL ODDS (Lions): pass the snapshot to auto-detect the +1 Hit/+1
-	Wound buff from the attacker's CURRENT isolation (fight-phase estimates);
-	chargers evaluate at the landing spot instead and pass aao_override
-	(1 = buffed, 0 = not). Without either, no buff is modeled."""
+static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, snapshot: Dictionary = {}) -> float:
+	"""Estimate expected damage from a melee attack using the attacker's best melee weapon."""
 	var weapons = attacker.get("meta", {}).get("weapons", [])
 	var best_damage = 0.0
 	var alive_attackers = _get_alive_models(attacker).size()
@@ -16318,32 +15482,10 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 	var target_save = int(defender.get("meta", {}).get("stats", {}).get("save", 4))
 	var target_invuln = _get_target_invulnerable_save(defender)
 
-	var aao_bonus := false
-	if aao_override >= 0:
-		aao_bonus = aao_override == 1
-	elif not snapshot.is_empty():
-		aao_bonus = _aao_isolated_now(attacker, snapshot)
-
 	# Check for WAAAGH! active on attacker — +1 Strength, +1 Attacks to melee weapons
 	# (10e only: FactionAbilityManager.waaagh_melee_bonus_applies gates the bonus)
 	var waaagh_active = attacker.get("flags", {}).get("waaagh_active", false)
 	var waaagh_melee_bonus = _waaagh_melee_bonus_applies(attacker)
-	# Check for Da Biggest and Da Best (Warboss) — +4 Attacks while WAAAGH active
-	var has_da_biggest = false
-	# Check for Dead Brutal (Warboss in Mega Armour) — damage becomes 3 while WAAAGH active
-	var has_dead_brutal = false
-	if waaagh_active:
-		var attacker_abilities = attacker.get("meta", {}).get("abilities", [])
-		for ab in attacker_abilities:
-			var ab_name = ""
-			if ab is String:
-				ab_name = ab
-			elif ab is Dictionary:
-				ab_name = ab.get("name", "")
-			if ab_name == "Da Biggest and da Best":
-				has_da_biggest = true
-			elif ab_name == "Dead Brutal":
-				has_dead_brutal = true
 
 	for w in weapons:
 		if w.get("type", "").to_lower() != "melee":
@@ -16373,13 +15515,6 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		if waaagh_melee_bonus:
 			strength += 1
 			attacks += 1.0
-		if waaagh_active:
-			# Da Biggest and da Best: +4 additional attacks (Warboss only)
-			if has_da_biggest:
-				attacks += 4.0
-			# Dead Brutal: damage becomes 3 (Warboss in Mega Armour only)
-			if has_dead_brutal:
-				damage = 3.0
 
 		var p_hit = _hit_probability(ws)
 		var p_wound = _wound_probability(strength, target_toughness)
@@ -16427,8 +15562,6 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		# Total expected damage across the models that actually carry this weapon
 		var carriers = _weapon_carrier_count(attacker, w)
 		var weapon_damage = attacks * carriers * p_hit * p_wound * p_unsaved * damage
-		if aao_bonus:
-			weapon_damage *= _aao_attack_multiplier(ws, strength, target_toughness)
 		best_damage = max(best_damage, weapon_damage)
 
 	# Fallback: close combat weapon (S=user, AP0, D1, 1 attack)
@@ -16443,8 +15576,6 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		var p_wound = _wound_probability(charger_strength, target_toughness)
 		var p_unsaved = 1.0 - _save_probability(target_save, 0, target_invuln)
 		best_damage = alive_attackers * fallback_attacks * p_hit * p_wound * p_unsaved * 1.0
-		if aao_bonus:
-			best_damage *= _aao_attack_multiplier(4, charger_strength, target_toughness)
 
 	# --- AI-GAP-4: Factor in target FNP for more accurate melee damage estimates ---
 	var target_fnp = AIAbilityAnalyzerData.get_unit_fnp(defender)
@@ -17097,43 +16228,6 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			action_types[t] = []
 		action_types[t].append(a)
 
-	# Moment Shackle (Trajann): once-per-battle, blocks the whole fight
-	# phase until answered — with no branch here the AI hung permanently
-	# (audit Tier 1). Choose 2+ invuln when heavy melee is incoming, 12
-	# attacks when there's real damage to deal, decline vs chaff to keep
-	# the once-per-battle use.
-	if action_types.has("USE_MOMENT_SHACKLE") or action_types.has("DECLINE_MOMENT_SHACKLE"):
-		var ms_offer = action_types.get("USE_MOMENT_SHACKLE", action_types.get("DECLINE_MOMENT_SHACKLE", [{}]))[0]
-		var ms_uid = ms_offer.get("unit_id", "")
-		var ms_unit = snapshot.get("units", {}).get(ms_uid, {})
-		var ms_enemies = _get_enemy_units(snapshot, player)
-		var ms_incoming = _estimate_incoming_melee_damage(ms_unit, ms_enemies, ms_uid) if not ms_unit.is_empty() else 0.0
-		var ms_remaining = _estimate_unit_remaining_wounds(ms_unit) if not ms_unit.is_empty() else 0.0
-		var ms_best_target_value := 0.0
-		for eng in _get_engaging_enemy_units(ms_unit, ms_uid, ms_enemies):
-			ms_best_target_value = maxf(ms_best_target_value, _estimate_unit_value(eng.get("enemy_unit", {})))
-		var ms_choice := ""
-		if ms_incoming >= ms_remaining * 0.5 and ms_incoming >= 3.0:
-			ms_choice = "invuln_2"  # likely to eat a big swing — survive it
-		elif ms_best_target_value >= 6.0:
-			ms_choice = "attacks_12"  # something worth killing is in reach
-		if ms_choice != "" and action_types.has("USE_MOMENT_SHACKLE"):
-			for msa in action_types["USE_MOMENT_SHACKLE"]:
-				if msa.get("choice", "") == ms_choice and msa.get("unit_id", "") == ms_uid:
-					return {
-						"type": "USE_MOMENT_SHACKLE",
-						"unit_id": ms_uid,
-						"choice": ms_choice,
-						"player": player,
-						"_ai_description": "AI uses Moment Shackle (%s): incoming %.1f, target value %.1f" % [ms_choice, ms_incoming, ms_best_target_value]
-					}
-		return {
-			"type": "DECLINE_MOMENT_SHACKLE",
-			"unit_id": ms_uid,
-			"player": player,
-			"_ai_description": "AI declines Moment Shackle (save the once-per-battle use)"
-		}
-
 	# P0-58: If melee saves need to be applied (should not normally happen for AI, but handle gracefully)
 	if action_types.has("APPLY_MELEE_SAVES"):
 		# DEFENDER CONTROL: an empty submission would consume the window and
@@ -17162,6 +16256,10 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		if action_types.has("PILE_IN"):
 			var a = action_types["PILE_IN"][0]
 			var uid = a.get("unit_id", "")
+			# Codex: Adeptus Custodes LIGHTNING WRATH: its window opens first.
+			var cus_pi := _cus11e_ai_step_select("pile_in", str(uid), player)
+			if not cus_pi.is_empty():
+				return cus_pi
 			return _compute_pile_in_action(snapshot, uid, player)
 
 		# Then assign attacks — but check for repeated failures first
@@ -17287,6 +16385,10 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 	if action_types.has("CONSOLIDATE"):
 		var a = action_types["CONSOLIDATE"][0]
 		var uid = a.get("unit_id", "")
+		# Codex: Adeptus Custodes EMPEROR'S DOMAIN: its window opens first.
+		var cus_co := _cus11e_ai_step_select("consolidate", str(uid), player)
+		if not cus_co.is_empty():
+			return cus_co
 		return _compute_consolidate_action(snapshot, uid, player)
 
 	# Step 5b (11e 12.07): all our units consolidated (or none eligible) —
@@ -17410,17 +16512,6 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	if waaagh_active:
 		waaagh_buffs["active"] = true
 		waaagh_buffs["melee_bonus"] = waaagh_melee_bonus
-		var attacker_abilities = unit.get("meta", {}).get("abilities", [])
-		for ab in attacker_abilities:
-			var ab_name = ""
-			if ab is String:
-				ab_name = ab
-			elif ab is Dictionary:
-				ab_name = ab.get("name", "")
-			if ab_name == "Da Biggest and da Best":
-				waaagh_buffs["da_biggest"] = true
-			elif ab_name == "Dead Brutal":
-				waaagh_buffs["dead_brutal"] = true
 
 	# T7-29: Score each target by combined damage output + strategic value
 	# For each target, find the best weapon and compute a composite score
@@ -17901,10 +16992,6 @@ static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: i
 		if waaagh_buffs.get("melee_bonus", GameConstants.edition < 11):
 			strength += 1
 			attacks += 1.0
-		if waaagh_buffs.get("da_biggest", false):
-			attacks += 4.0
-		if waaagh_buffs.get("dead_brutal", false):
-			damage = 3.0
 
 	var p_hit = _hit_probability(ws)
 	var p_wound = _wound_probability(strength, target_toughness)
@@ -17994,6 +17081,34 @@ static func _fold_attached_unit_for_ai(snapshot: Dictionary, unit_id: String) ->
 		for m in char_unit.get("models", []):
 			folded.models.append(m)
 	return folded
+
+## Pile-in / consolidation reach in px: 3", or the Codex: Adeptus Custodes
+## (11e) cap — Unstoppable Destroyer 4", Dread Host Favoured Dacatarai -2" —
+## so the AI never plans a move the phase validator rejects (WP-C46).
+static func _fight_move_cap_px(unit_id: String, base_in: float = 3.0) -> float:
+	if GameConstants.edition < 11 or unit_id == "":
+		return base_in * PIXELS_PER_INCH
+	var cap: float = float(load("res://scripts/codex/custodes/CustodesDetachments.gd").fight_move_cap(unit_id, base_in))
+	return maxf(0.0, cap) * PIXELS_PER_INCH
+
+## Codex: Adeptus Custodes (CustodesCodex11e.gd): before the AI computes a
+## pile-in / consolidation move for a unit whose owner has a stratagem for that
+## step (LIGHTNING WRATH / EMPEROR'S DOMAIN), it selects the unit with
+## CUS11E_SELECT_*_UNIT so the window opens (decided synchronously by
+## decide_window_stratagem). {} = compute the move now.
+static func _cus11e_ai_step_select(kind: String, unit_id: String, player: int) -> Dictionary:
+	if GameConstants.edition < 11 or unit_id == "":
+		return {}
+	var window_id := "unit_selected_to_pile_in" if kind == "pile_in" else "unit_selected_to_consolidate"
+	if not load("res://scripts/codex/custodes/CustodesCodex11e.gd").player_has_window_stratagem(player, window_id):
+		return {}
+	var pm = Engine.get_main_loop().root.get_node_or_null("/root/PhaseManager") if Engine.get_main_loop() else null
+	var phase = pm.current_phase_instance if pm != null else null
+	if phase == null or not phase.has_method("cus11e_step_unit_asked") or phase.cus11e_step_unit_asked(kind, unit_id):
+		return {}
+	return {"type": "CUS11E_SELECT_PILE_IN_UNIT" if kind == "pile_in" else "CUS11E_SELECT_CONSOLIDATION_UNIT",
+		"unit_id": unit_id, "player": player,
+		"_ai_description": "%s selected to %s" % [unit_id, "pile in" if kind == "pile_in" else "consolidate"]}
 
 static func _compute_pile_in_action(snapshot: Dictionary, unit_id: String, player: int) -> Dictionary:
 	"""Compute pile-in movements for a unit. Each model moves up to 3" toward the
@@ -18091,7 +17206,9 @@ static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, un
 	var friendly_obstacles = obstacle_split.friendly + extra_friendly_obstacles
 	var enemy_obstacles = obstacle_split.enemy
 
-	var pile_in_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
+	# Codex: Adeptus Custodes LIGHTNING WRATH: a D3+3" pile-in move (WP-C5), then
+	# the WP-C46 cap (Unstoppable Destroyer 4", Dread Host Favoured Dacatarai -2").
+	var pile_in_range_px = _fight_move_cap_px(unit_id, maxf(3.0, float(load("res://scripts/codex/custodes/CustodesCodex11e.gd").pile_in_inches(unit_id))))
 	var base_contact_threshold_px = 0.1 * PIXELS_PER_INCH  # Match FightPhase tolerance (0.1")
 
 	# Track placed positions to avoid intra-unit collisions
@@ -18330,6 +17447,12 @@ static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, p
 	# assessed on the ATTACHED unit (19.03) — the validator folds the attached
 	# characters' models in, so the AI must judge range gates the same way.
 	var mode = _determine_ai_consolidate_mode(snapshot, _fold_attached_unit_for_ai(snapshot, unit_id), player)
+	# Codex: Adeptus Custodes EMPEROR'S DOMAIN: objective mode regardless of the
+	# Before Moving restrictions (when an objective can be selected).
+	if mode != "OBJECTIVE" and load("res://scripts/codex/custodes/CustodesCodex11e.gd").consolidation_objective_override(unit_id) \
+			and not _ai_consolidate_objective_target(snapshot, _fold_attached_unit_for_ai(snapshot, unit_id), forced_objective_id).is_empty():
+		print("AIDecisionMaker: EMPEROR'S DOMAIN — %s consolidates in objective mode" % unit_id)
+		mode = "OBJECTIVE"
 	var movements = {}
 
 	# 12.08 BEFORE (Objective mode): the whole unit selects ONE objective. Resolve
@@ -18588,7 +17711,7 @@ static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit
 	var friendly_obstacles = obstacle_split.friendly + extra_friendly_obstacles
 	var enemy_obstacles = obstacle_split.enemy
 
-	var consolidate_range_px = 3.0 * PIXELS_PER_INCH
+	var consolidate_range_px = _fight_move_cap_px(unit_id)
 	var base_contact_threshold_px = 0.1 * PIXELS_PER_INCH  # Match FightPhase tolerance (0.1")
 
 	# Track placed positions
@@ -18899,7 +18022,7 @@ static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_
 	# Get deployed models for collision checking (excluding this unit)
 	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id) + extra_friendly_obstacles
 
-	var consolidate_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
+	var consolidate_range_px = _fight_move_cap_px(unit_id)  # 3" in pixels (Custodes cap, WP-C46)
 
 	# Track placed positions to avoid intra-unit collisions
 	var placed_positions = []
@@ -21739,16 +20862,8 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 			effective_save = max(2, target_save - 1)  # Cover improves armour save by 1 (min 2+)
 			print("AIDecisionMaker: Target has cover, effective save %d+ -> %d+" % [target_save, effective_save])
 
-	# --- AGAINST ALL ODDS (Lions): +1 to Hit and +1 to Wound while isolated ---
-	# Mirrors the engine's modifier (net-capped with cover, hit floor 2+).
-	var aao_shot := not shooter_unit.is_empty() and _aao_isolated_now(shooter_unit, snapshot)
-	if aao_shot:
-		effective_bs = clampi(effective_bs - 1, 2, 6)
-
 	var p_hit = _hit_probability(effective_bs)
 	var p_wound = _wound_probability(strength, toughness)
-	if aao_shot:
-		p_wound = float(7 - clampi(_wound_needed_roll(strength, toughness) - 1, 2, 6)) / 6.0
 	var p_unsaved = 1.0 - _save_probability(effective_save, ap, target_invuln)
 
 	# --- Apply weapon keyword modifiers (SHOOT-5) ---
@@ -22314,6 +21429,28 @@ static func _ork_codex():
 		_ork_codex_dispatcher = load("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
 	return _ork_codex_dispatcher
 
+## The codex dispatcher (Codex: Orks OrkCodex11e.gd / Codex: Adeptus Custodes
+## CustodesCodex11e.gd, WP-C5) that owns `strat`, or null — both have the same
+## handler API (ai_kind / ai_score / ...). Loaded on first use (see _ork_codex).
+static func _codex_for_strat(strat: Dictionary):
+	if _ork_codex().handles(strat):
+		return _ork_codex()
+	var cc = load("res://scripts/codex/custodes/CustodesCodex11e.gd")
+	if cc != null and cc.handles(strat):
+		return cc
+	return null
+
+## WP-O6: Codex: Orks (11e) datasheet abilities (loaded on first use, like _ork_codex).
+static func _ork_abilities():
+	if _ork_abilities_module == null:
+		_ork_abilities_module = load("res://scripts/codex/orks/OrkAbilities11e.gd")
+	return _ork_abilities_module
+
+## Codex: Adeptus Custodes army rules (CustodesKatah.gd) — loaded on first use,
+## like _ork_codex (a const preload extends the `godot -s` compile cascade).
+static func _custodes_katah():
+	return load("res://scripts/codex/custodes/CustodesKatah.gd")
+
 static func _stratagem_manager():
 	"""Access the StratagemManager autoload from static context (may be null headless)."""
 	var main_loop = Engine.get_main_loop()
@@ -22669,10 +21806,11 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 	# Codex: Orks (11e) S-panel stratagems (no window — DREAD POWER, DELICIOUS
 	# EATING SQUIGS): the codex handler scores each friendly target (keyed by
 	# csv_id, so a 10e name-keyed heuristic below can never claim a codex row).
-	if _ork_codex().handles(strat):
+	var panel_codex = _codex_for_strat(strat)
+	if panel_codex != null:
 		var cbest := {}
 		for cuid in friendly_units:
-			var cscore: float = _ork_codex().ai_score(strat, player, str(cuid), "", {"phase": phase_name})
+			var cscore: float = panel_codex.ai_score(strat, player, str(cuid), "", {"phase": phase_name})
 			if cscore > float(cbest.get("score", 0.0)) and _faction_stratagem_usable(player, strat, str(cuid)):
 				cbest = {"unit_id": str(cuid), "unit_name": _dn(friendly_units[cuid], str(cuid)), "score": cscore,
 					"reason": "codex heuristic (%.1f)" % cscore}
@@ -22944,7 +22082,7 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 		"GILDED CHAMPION":
 			# Lions (1 CP, any phase, once per battle per model): restore a
 			# CHARACTER's spent 'once per battle' datasheet ability — e.g. a
-			# Blade Champion's Martial Inspiration for another advance+charge.
+			# Shield-Captain's Vengeful Surge or Archeotech Teleport-shunter.
 			# Only worth it while there is battle left to spend the refresh in.
 			if battle_round >= 5 or enemy_units.is_empty():
 				return {}
@@ -23058,48 +22196,6 @@ static func evaluate_epic_challenge(player: int, unit_id: String, snapshot: Dict
 			best_value, best_dmg, cp_cost])
 	return {}
 
-static func evaluate_katah_stance(player: int, unit_id: String, snapshot: Dictionary, master_available: bool) -> Dictionary:
-	"""Martial Ka'tah (Custodes): pick a stance when this unit is selected to
-	fight. Dacatarai = Sustained Hits 1 (volume, best into hordes / poor saves);
-	Rendax = Lethal Hits (auto-wound on crits, best into high Toughness).
-	'both' needs Master of the Stances (once per battle) — save it for a
-	valuable engagement."""
-	var unit = snapshot.get("units", {}).get(unit_id, {})
-	var unit_name = _dn(unit, unit_id)
-	var enemies = _get_enemy_units(snapshot, player)
-	var engaging = _get_engaging_enemy_units(unit, unit_id, enemies)
-
-	# Assess the toughest engaged target to pick the stance
-	var max_t = 0
-	var max_pts = 0.0
-	var target_name = ""
-	for enemy in engaging:
-		var t = int(enemy.get("meta", {}).get("stats", {}).get("toughness", 4))
-		var pts = float(enemy.get("meta", {}).get("points", 0))
-		if t > max_t:
-			max_t = t
-			target_name = _dn(enemy, "")
-		max_pts = maxf(max_pts, pts)
-
-	var stance = "dacatarai"
-	var reason = "Sustained Hits for attack volume"
-	# Our melee strength vs their toughness: when wounding on 5+/6+, Lethal
-	# Hits (auto-wound on crit) is worth more than extra hits.
-	if max_t >= 7:
-		stance = "rendax"
-		reason = "Lethal Hits into T%d (%s)" % [max_t, target_name]
-	if master_available and max_pts >= 150.0:
-		stance = "both"
-		reason = "Master of the Stances on a %d-pt engagement" % int(max_pts)
-
-	_add_thinking_step("Ka'tah stance for %s: %s — %s" % [unit_name, stance, reason])
-	return {
-		"type": "SELECT_KATAH_STANCE",
-		"unit_id": unit_id,
-		"stance": stance,
-		"_ai_description": "%s assumes %s stance (%s)" % [unit_name, stance, reason]
-	}
-
 static func evaluate_reactive_stratagem(defending_player: int, available_stratagems: Array, target_unit_ids: Array, snapshot: Dictionary) -> Dictionary:
 	"""
 	Evaluate whether the AI should use a defensive reactive stratagem when its
@@ -23127,10 +22223,10 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 				continue
 
 			var score: float
-			if strat_entry.has("window_id") and _ork_codex().handles(strat):
+			if strat_entry.has("window_id") and _codex_for_strat(strat) != null:
 				# Window offer folded into the shooting reactive dialog: the
 				# codex handler scores it (its effects list is just a marker).
-				score = _ork_codex().ai_score(strat, defending_player, unit_id,
+				score = _codex_for_strat(strat).ai_score(strat, defending_player, unit_id,
 					str(strat_entry.get("window_id", "")), strat_entry.get("window_ctx", {}))
 			else:
 				score = _score_defensive_stratagem_target(unit, strat)
@@ -23192,8 +22288,37 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	Non-codex window stratagems fall back to the defensive effects scorer.
 	"""
 	var decline := {"use": false}
+	# Codex: Adeptus Custodes ka'tah abilities ride in the same windows
+	# (CustodesKatah.gd): free (they cost the unit's readied state), so the AI
+	# picks one first at every difficulty; the window stays open afterwards and
+	# BasePhase asks again. Then only the stratagems are weighed.
+	var katah_pick: Dictionary = _custodes_katah().ai_pick(player, window_id, offers, ctx)
+	if katah_pick.get("use", false):
+		_add_thinking_step("Ka'tah in %s: %s" % [window_id, str(katah_pick.get("reason", ""))])
+		return katah_pick
+	offers = _custodes_katah().strip_katah_offers(offers)
 	var sm = _stratagem_manager()
 	if sm == null or offers.is_empty():
+		return decline
+	# Codex: Orks (11e) free rule choices (WP-O34: Try Dat Button!, Hop Splat,
+	# Roar of Mork, Visions of Violence, War Cry) are answered first, at every
+	# difficulty — the window is re-offered afterwards for its stratagems.
+	var ork11e_det = load("res://scripts/codex/orks/OrkDetachments11e.gd")
+	var rule_pick: Dictionary = ork11e_det.ai_decide(player, window_id, offers, ctx)
+	if not rule_pick.is_empty():
+		_add_thinking_step("Rule choice in %s: %s on %s" % [window_id, rule_pick.get("name", ""), rule_pick.get("target_unit_id", "")])
+		return rule_pick
+	# Codex: Adeptus Custodes (11e) free detachment-rule / enhancement choices
+	# (CustodesDetachments.gd, WP-C46): Martial Mastery, dreadful foe, On Gilded
+	# Wings, Huntress' Eye, Blinding Light, ... — synchronous, answered first.
+	var cus11e_det = load("res://scripts/codex/custodes/CustodesDetachments.gd")
+	var cus11e_pick: Dictionary = cus11e_det.ai_decide(player, window_id, offers, ctx)
+	if not cus11e_pick.is_empty():
+		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, cus11e_pick.get("name", ""), cus11e_pick.get("target_unit_id", "")])
+		return cus11e_pick
+	offers = offers.filter(func(o): return not ork11e_det.is_rule_offer(o))
+	if offers.is_empty():
+		_add_thinking_step("Window %s: declining its rule choice(s)" % window_id)
 		return decline
 	var difficulty := _current_difficulty
 	var ai_node = null
@@ -23225,17 +22350,28 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 				best = {"use": true, "stratagem_id": sid, "target_unit_id": str(fo.target_unit_id),
 					"context": {"secondary_id": str(fo.secondary_id)}, "name": str(offer.get("name", sid))}
 			continue
-		var is_codex: bool = _ork_codex().handles(strat)
-		var kind: String = str(_ork_codex().ai_kind(strat)) if is_codex else "defensive"
+		var codex = _codex_for_strat(strat)
+		var is_codex: bool = codex != null
+		var kind: String = str(codex.ai_kind(strat)) if is_codex else "defensive"
+		# WP-O6: a Codex: Orks datasheet ability offer (0 CP) — scored by OrkAbilities11e.
+		var is_ability: bool = bool(offer.get("is_ability", false))
+		if is_ability:
+			kind = "ability"
 		for t in offer.get("targets", []):
 			var tid := str(t.get("unit_id", ""))
 			var score := 0.0
-			if is_codex:
-				score = _ork_codex().ai_score(strat, player, tid, window_id, ctx)
+			if is_ability:
+				# WP-C7: Codex: Adeptus Custodes ability offers ("cus11e_ab_*") are scored by CustodesAbilities.
+				var cus_ab = load("res://scripts/codex/custodes/CustodesAbilities.gd")
+				score = float(cus_ab.ai_score(player, sid, tid, window_id, ctx)) if cus_ab.handles_id(sid) else float(_ork_abilities().ai_score(player, sid, tid, window_id, ctx))
+			elif is_codex:
+				score = codex.ai_score(strat, player, tid, window_id, ctx)
 			elif units.has(tid):
 				score = _score_defensive_stratagem_target(units[tid], strat)
 			var threshold := 2.0
 			match kind:
+				"ability":
+					threshold = 1.0
 				"offensive":
 					if cp < 2:
 						considered.append("%s on %s: skip (CP %d < 2, keeping one for reactions)" % [offer.get("name", sid), tid, cp])

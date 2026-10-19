@@ -126,6 +126,11 @@ var grenade_button: Button  # GRENADE stratagem button
 var shoot_all_remaining_button: Button  # T5-UX3: "Shoot All Remaining" button
 var perform_action_button: Button  # Secondary mission action button
 var start_action_button: Button  # B1 (11e): start a generic 11e action
+# Units that cannot be selected to shoot can still start an action (16.01):
+# advanced Gretchin under Runt Swarm's Sneaky Little Gitz, a MIND MOSTLY ON THE
+# MISSION target, ... They never appear in the shooter list, so this button
+# lists them (unit -> action) and dispatches START_ACTION for the picked one.
+var action_only_button: Button = null
 var burn_objective_button: Button  # Scorched Earth burn objective button
 var _auto_shoot_queue: Array = []  # T5-UX3: Queue of SHOOT actions to dispatch sequentially
 var _auto_shoot_in_progress: bool = false  # T5-UX3: Whether auto-shoot sequence is active
@@ -860,6 +865,16 @@ func _setup_right_panel() -> void:
 	declaration_box.add_child(start_action_button)
 	start_action_button.visible = false  # Shown only for FLY/edition>=11 eligible units
 
+	action_only_button = Button.new()
+	action_only_button.name = "ActionOnlyButton"
+	action_only_button.text = "Start Action (units not shooting)"
+	action_only_button.custom_minimum_size = Vector2(230, 35)
+	action_only_button.pressed.connect(_on_action_only_pressed)
+	action_only_button.tooltip_text = "11e Action (16.01) for a unit that cannot be selected to shoot (e.g. it advanced): it starts the action instead. It cannot charge this turn; the action completes at the end of your turn."
+	WhiteDwarfTheme.apply_to_button(action_only_button)
+	declaration_box.add_child(action_only_button)
+	action_only_button.visible = false  # Shown only when such a unit can start an action
+
 	# Scorched Earth burn objective button
 	burn_objective_button = Button.new()
 	burn_objective_button.name = "BurnObjectiveButton"
@@ -915,11 +930,7 @@ func phase_signal_map() -> Dictionary:
 		"grenade_result": _on_grenade_result,
 		"shooting_damage_applied": _on_shooting_damage_visual,  # T7-53
 		"ai_shooting_visual": _on_ai_shooting_visual,  # T7-38
-		"sentinel_storm_available": _on_sentinel_storm_available,  # P1-10
 		"throat_slittas_available": _on_throat_slittas_available,  # P1-12
-		"distraction_grot_available": _on_distraction_grot_available,  # audit P0: human defender UI
-		"shooty_power_trip_available": _on_shooty_power_trip_available,  # audit P1: human UI
-		"pulsa_rokkit_available": _on_pulsa_rokkit_available,  # audit P1: human UI
 		# Codex: Orks (11e) reactive move follow-ups (GRAB IT / GOADED INTO ACTION)
 		"ork11e_reactive_move_started": _on_ork11e_reactive_move_started,
 		"ork11e_reactive_move_updated": _on_ork11e_reactive_move_updated,
@@ -1092,6 +1103,7 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 	
 	if not current_phase:
 		return
+	_update_action_only_button()
 	
 	var units = current_phase.get_units_for_player(current_phase.get_current_player())
 	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
@@ -1204,7 +1216,7 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 				# Re-entered from inside our own auto-selection: the SELECT_SHOOTER
 				# is routed synchronously and Main refreshes this list on success
 				# BEFORE active_shooter_id is set (always when the phase answers
-				# with a prompt — Pulsa Rokkit, Ammo Runt, Firing Deck dialog …).
+				# with a prompt — a stratagem/ability window, Firing Deck dialog …).
 				# Auto-selecting again here recursed until the stack overflowed.
 				print("ShootingController: auto-select skipped — re-entered during an auto-selection")
 			elif auto_idx >= 0:
@@ -3723,197 +3735,6 @@ func _on_shooting_complete() -> void:
 	if dice_log_display:
 		DiceLogFormatter.outcome(dice_log_display, "Shooting complete for unit", "good")
 
-# ============================================================================
-# P1-10: SENTINEL STORM — SHOOT AGAIN PROMPT
-# ============================================================================
-
-func _on_sentinel_storm_available(unit_id: String, player: int) -> void:
-	"""Show Sentinel Storm dialog when the ability is available after shooting."""
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SHOOTING CONTROLLER: SENTINEL STORM AVAILABLE")
-	print("║ Unit ID: ", unit_id)
-	print("║ Player: ", player)
-	print("╚═══════════════════════════════════════════════════════════════")
-
-	# Skip dialog for AI players — auto-use Sentinel Storm (free ability, always beneficial)
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		print("ShootingController: AI player %d auto-using Sentinel Storm for %s" % [player, unit_id])
-		emit_signal("shoot_action_requested", {
-			"type": "USE_SENTINEL_STORM",
-			"actor_unit_id": unit_id
-		})
-		return
-
-	# Dismiss any lingering dialogs (e.g. NextWeaponDialog/attack summary)
-	for child in get_tree().root.get_children():
-		if child is AcceptDialog and child.visible:
-			child.hide()
-			child.queue_free()
-
-	var dialog = preload("res://dialogs/SentinelStormDialog.gd").new()
-	dialog.setup(unit_id, player)
-	dialog.sentinel_storm_chosen.connect(_on_sentinel_storm_chosen)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-
-func _on_sentinel_storm_chosen(unit_id: String, use_ability: bool) -> void:
-	"""Handle player's Sentinel Storm decision."""
-	if use_ability:
-		print("ShootingController: Player activates Sentinel Storm for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "USE_SENTINEL_STORM",
-			"actor_unit_id": unit_id
-		})
-		# Show feedback in dice log
-		if dice_log_display:
-			dice_log_display.append_text("[b][color=gold]SENTINEL STORM! Unit shoots again![/color][/b]\n")
-	else:
-		print("ShootingController: Player declines Sentinel Storm for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "DECLINE_SENTINEL_STORM",
-			"actor_unit_id": unit_id
-		})
-		# Clear local state since shooting is complete
-		active_shooter_id = ""
-		weapon_assignments.clear()
-		_clear_visuals()
-
-# ============================================================================
-# AUDIT P0: DISTRACTION GROT — DEFENDER'S 5+ INVULN REACTIVE
-# ============================================================================
-
-func _on_distraction_grot_available(unit_id: String, player: int) -> void:
-	"""Show the Distraction Grot prompt to a HUMAN defender. The phase pauses
-	awaiting USE/DECLINE_DISTRACTION_GROT; previously the controller ignored the
-	signal, so a human defender was soft-locked. AIPlayer resolves the AI
-	defender (its own is_ai_player guard), so skip AI here to avoid a
-	double-submit."""
-	print("[ShootingController] Distraction Grot available for %s (defending player %d)" % [unit_id, player])
-
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		print("[ShootingController] Distraction Grot belongs to AI player %d — AIPlayer handles it" % player)
-		return
-
-	# Multiplayer: only the defending seat chooses.
-	if NetworkManager and NetworkManager.is_networked() \
-			and NetworkManager.get_local_player() != player:
-		print("[ShootingController] Distraction Grot is P%d's choice — local seat waits" % player)
-		return
-
-	var dialog = preload("res://dialogs/DistractionGrotDialog.gd").new()
-	dialog.name = "DistractionGrotDialog"
-	dialog.setup(unit_id, player)
-	dialog.distraction_grot_chosen.connect(_on_distraction_grot_chosen)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-
-func _on_distraction_grot_chosen(unit_id: String, use_ability: bool) -> void:
-	"""Dispatch the defender's Distraction Grot decision."""
-	if use_ability:
-		print("[ShootingController] Player activates Distraction Grot for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "USE_DISTRACTION_GROT",
-			"actor_unit_id": unit_id
-		})
-		if dice_log_display:
-			dice_log_display.append_text("[b][color=gold]DISTRACTION GROT! 5+ invulnerable save.[/color][/b]\n")
-	else:
-		print("[ShootingController] Player declines Distraction Grot for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "DECLINE_DISTRACTION_GROT",
-			"actor_unit_id": unit_id
-		})
-
-# ============================================================================
-# AUDIT P1: SHOOTY POWER TRIP — WARBOSS D6 BONUS
-# ============================================================================
-
-func _on_shooty_power_trip_available(unit_id: String, player: int) -> void:
-	"""Show the Shooty Power Trip prompt to a HUMAN. The phase pauses awaiting
-	USE/DECLINE; previously neither the controller NOR AIPlayer listened, so the
-	phase blocked both players. AIPlayer now auto-resolves the AI (its own
-	is_ai_player guard), so skip AI here to avoid a double-submit."""
-	print("[ShootingController] Shooty Power Trip available for %s (player %d)" % [unit_id, player])
-
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		print("[ShootingController] Shooty Power Trip belongs to AI player %d — AIPlayer handles it" % player)
-		return
-
-	if NetworkManager and NetworkManager.is_networked() \
-			and NetworkManager.get_local_player() != player:
-		print("[ShootingController] Shooty Power Trip is P%d's choice — local seat waits" % player)
-		return
-
-	var dialog = preload("res://dialogs/ShootyPowerTripDialog.gd").new()
-	dialog.name = "ShootyPowerTripDialog"
-	dialog.setup(unit_id, player)
-	dialog.shooty_power_trip_chosen.connect(_on_shooty_power_trip_chosen)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-
-func _on_shooty_power_trip_chosen(unit_id: String, use_ability: bool) -> void:
-	"""Dispatch the Shooty Power Trip decision."""
-	if use_ability:
-		print("[ShootingController] Player activates Shooty Power Trip for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "USE_SHOOTY_POWER_TRIP",
-			"actor_unit_id": unit_id
-		})
-		if dice_log_display:
-			dice_log_display.append_text("[b][color=gold]SHOOTY POWER TRIP! Rolling D6…[/color][/b]\n")
-	else:
-		print("[ShootingController] Player declines Shooty Power Trip for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "DECLINE_SHOOTY_POWER_TRIP",
-			"actor_unit_id": unit_id
-		})
-
-# ============================================================================
-# AUDIT P1: PULSA ROKKIT — +1 STRENGTH / +1 AP RANGED
-# ============================================================================
-
-func _on_pulsa_rokkit_available(unit_id: String, player: int) -> void:
-	"""Show the Pulsa Rokkit prompt to a HUMAN. The phase pauses awaiting
-	USE/DECLINE; previously neither the controller NOR AIPlayer listened, so the
-	phase blocked both players. AIPlayer now auto-resolves the AI, so skip AI."""
-	print("[ShootingController] Pulsa Rokkit available for %s (player %d)" % [unit_id, player])
-
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		print("[ShootingController] Pulsa Rokkit belongs to AI player %d — AIPlayer handles it" % player)
-		return
-
-	if NetworkManager and NetworkManager.is_networked() \
-			and NetworkManager.get_local_player() != player:
-		print("[ShootingController] Pulsa Rokkit is P%d's choice — local seat waits" % player)
-		return
-
-	var dialog = preload("res://dialogs/PulsaRokkitDialog.gd").new()
-	dialog.name = "PulsaRokkitDialog"
-	dialog.setup(unit_id, player)
-	dialog.pulsa_rokkit_chosen.connect(_on_pulsa_rokkit_chosen)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-
-func _on_pulsa_rokkit_chosen(unit_id: String, use_ability: bool) -> void:
-	"""Dispatch the Pulsa Rokkit decision."""
-	if use_ability:
-		print("[ShootingController] Player fires Pulsa Rokkit for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "USE_PULSA_ROKKIT",
-			"actor_unit_id": unit_id
-		})
-		if dice_log_display:
-			dice_log_display.append_text("[b][color=gold]PULSA ROKKIT! +1 Strength, +1 AP.[/color][/b]\n")
-	else:
-		print("[ShootingController] Player declines Pulsa Rokkit for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "DECLINE_PULSA_ROKKIT",
-			"actor_unit_id": unit_id
-		})
 
 # ============================================================================
 # P1-12: THROAT SLITTAS — MORTAL WOUNDS PROMPT
@@ -4691,6 +4512,7 @@ func _update_perform_action_button() -> void:
 func _update_start_action_button() -> void:
 	"""B1 (16.01): show 'Start Action' for the active shooter when it is eligible
 	to start a registered 11e action (edition >= 11)."""
+	_update_action_only_button()
 	if not start_action_button:
 		return
 	if not current_phase or not current_phase is ShootingPhase or active_shooter_id == "" or GameConstants.edition < 11:
@@ -4722,6 +4544,48 @@ func _update_start_action_button() -> void:
 		start_action_button.visible = true
 		start_action_button.disabled = false
 
+## Own units that cannot be selected to shoot this phase but can start an 11e
+## action: [{unit_id, unit_name, actions: [...]}].
+func _action_only_candidates() -> Array:
+	var out: Array = []
+	if not current_phase or not current_phase is ShootingPhase or GameConstants.edition < 11:
+		return out
+	if not current_phase.has_method("get_startable_11e_actions"):
+		return out
+	var units = current_phase.get_units_for_player(current_phase.get_current_player())
+	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit_id in units_shot or current_phase._can_unit_shoot(unit):
+			continue  # shooters use the per-shooter Start Action button
+		var actions: Array = current_phase.get_startable_11e_actions(unit_id)
+		if actions.is_empty():
+			continue
+		var meta = unit.get("meta", {})
+		out.append({"unit_id": unit_id, "unit_name": meta.get("display_name", meta.get("name", unit_id)), "actions": actions})
+	return out
+
+func _update_action_only_button() -> void:
+	if not action_only_button:
+		return
+	var cands := _action_only_candidates()
+	action_only_button.visible = not cands.is_empty()
+	action_only_button.disabled = cands.is_empty()
+	if not cands.is_empty():
+		action_only_button.text = "Start Action (units not shooting: %d)" % cands.size()
+
+func _on_action_only_pressed() -> void:
+	var cands := _action_only_candidates()
+	if cands.is_empty():
+		return
+	var options: Array = []
+	for c in cands:
+		for a in c.actions:
+			options.append({"id": str(a.get("id", "")), "unit_id": c.unit_id,
+				"name": "%s — %s" % [c.unit_name, a.get("name", a.get("id", "Action"))],
+				"description": a.get("description", "")})
+	_show_action_choice_dialog(options)
+
 func _on_start_action_pressed() -> void:
 	"""B1: the active shooter gives up shooting to start a generic 11e action."""
 	if active_shooter_id == "" or not start_action_button:
@@ -4734,8 +4598,10 @@ func _on_start_action_pressed() -> void:
 		return
 	_dispatch_start_action(action_id)
 
-func _dispatch_start_action(action_id: String) -> void:
-	var unit_id = active_shooter_id
+func _dispatch_start_action(action_id: String, unit_id: String = "") -> void:
+	var for_active_shooter := unit_id == ""
+	if for_active_shooter:
+		unit_id = active_shooter_id
 	if unit_id == "":
 		return
 	print("ShootingController: Start Action pressed — %s starts '%s'" % [unit_id, action_id])
@@ -4744,6 +4610,12 @@ func _dispatch_start_action(action_id: String) -> void:
 		"actor_unit_id": unit_id,
 		"payload": {"action_id": action_id}
 	})
+	if not for_active_shooter:
+		# a non-shooting unit started its action: the selected shooter (if any)
+		# is untouched
+		_update_action_only_button()
+		_refresh_unit_list(false)
+		return
 	active_shooter_id = ""
 	weapon_assignments.clear()
 	assignment_history.clear()
@@ -4787,8 +4659,9 @@ func _show_action_choice_dialog(options: Array) -> void:
 	var resolved = [false]
 	for option in options:
 		var oid: String = str(option.get("id", ""))
+		var ouid: String = str(option.get("unit_id", ""))
 		var btn = Button.new()
-		btn.name = "Pick_%s" % oid
+		btn.name = "Pick_%s" % oid if ouid == "" else "Pick_%s_%s" % [ouid, oid]
 		btn.text = str(option.get("name", oid))
 		if option.get("description", "") != "":
 			btn.tooltip_text = str(option.get("description", ""))
@@ -4797,7 +4670,7 @@ func _show_action_choice_dialog(options: Array) -> void:
 				return
 			resolved[0] = true
 			dialog.queue_free()
-			_dispatch_start_action(oid))
+			_dispatch_start_action(oid, ouid))
 		content.add_child(btn)
 
 	content.add_child(HSeparator.new())

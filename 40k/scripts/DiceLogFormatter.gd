@@ -241,6 +241,11 @@ static func format_roll_block(rtl: RichTextLabel, dice_data: Dictionary) -> void
 		"mathhammer_prediction":
 			note(rtl, str(dice_data.get("message", "")), "#6FBFD8")
 			return
+		# A defender-side damage modifier (Codex: Adeptus Custodes Praesidium
+		# Shield: "-1 Damage (2 -> 1) — attack allocated to Shield-Captain").
+		"damage_modifier":
+			note(rtl, "⛨ %s" % str(dice_data.get("message", "")), "#9FE09F")
+			return
 		"feel_no_pain":
 			_format_feel_no_pain(rtl, dice_data)
 			return

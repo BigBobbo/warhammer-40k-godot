@@ -922,41 +922,20 @@ func _test_end_of_phase_prompt_hold_scope() -> void:
 	_std_board()
 	var phase = _movement()
 	_check("no prompt: nothing holds", not phase.has_pending_end_of_phase_prompt())
-	phase._awaiting_mekaniak = true
-	phase._awaiting_sawbonez = true
-	phase._awaiting_grot_oiler = true
-	_check("SAWBONEZ / MEKANIAK / GROT OILER (no dialog, no client mirror) do NOT hold the phase", not phase.has_pending_end_of_phase_prompt())
-	phase._awaiting_mekaniak = false
-	phase._awaiting_sawbonez = false
-	phase._awaiting_grot_oiler = false
+	# (Main's version also checked that the 10e SAWBONEZ / MEKANIAK / GROT OILER
+	# end-of-Movement prompts do not hold the phase; Codex: Orks (11e) removed
+	# those prompts — WP-O6, RETIRED_TESTS.md — so there is nothing to hold.)
 	phase._awaiting_rapid_ingress = true
 	_check("a RAPID INGRESS decision holds it", phase.has_pending_end_of_phase_prompt())
 	phase._awaiting_rapid_ingress = false
 	phase._rapid_ingress_unit_id = "U_STORMBOYZ_A"
 	_check("…and so does a RAPID INGRESS set-up in progress", phase.has_pending_end_of_phase_prompt())
 	phase._rapid_ingress_unit_id = ""
-	# A real MEKANIAK prompt through GameManager's host END_MOVEMENT: the phase
-	# completes as before (it used to hang online after the previous change).
-	_load(["U_CUSTODIAN_GUARD_A", "U_BATTLEWAGON_A", "U_RUNTHERD_A"])
-	GS.state.meta["active_player"] = 2
-	_place("U_CUSTODIAN_GUARD_A", 5.0, 5.0, 2.0)
-	GS.state.units["U_BATTLEWAGON_A"].models[0]["position"] = {"x": 30.0 * PX, "y": 40.0 * PX}
-	var rh: Dictionary = GS.state.units["U_RUNTHERD_A"]
-	rh.meta["abilities"] = rh.meta.get("abilities", []) + [{"name": "Mekaniak"}]
-	var i := 0
-	for m in rh.models:
-		# UnitAbilityManager's Mekaniak range check compares PIXELS to 3.0 (a
-		# pre-existing bug) — stand the Runtherd 2 px from the Battlewagon.
-		m["position"] = {"x": 30.0 * PX + 2.0 + i * 60.0, "y": 40.0 * PX}
-		i += 1
-	phase = _movement()
-	var mek_targets: Array = root.get_node("UnitAbilityManager").get_mekaniak_targets("U_RUNTHERD_A")
-	_check("(setup) the Runtherd has a MEKANIAK target", not mek_targets.is_empty())
+	# (Main's version then drove a real 10e MEKANIAK prompt through GameManager's
+	# host END_MOVEMENT; the codex Mek's Clever Know-wotz is a start/end-of-move
+	# window offer, not an end-of-phase prompt — retired with WP-O6.)
 	var gm = root.get_node("GameManager")
-	var res: Dictionary = gm._end_phase_via_phase({"type": "END_MOVEMENT", "player": 2}, GameStateData.Phase.MOVEMENT)
-	_check("END_MOVEMENT raised the MEKANIAK prompt", res.get("trigger_mekaniak", false), str(res.keys()))
-	_check("…and GameManager still completed the phase (no online stall on a prompt nobody can answer)",
-		res.get("changes", []).any(func(d): return str(d.get("path", "")) == "meta.phase" and int(d.get("value", 0)) == GameStateData.Phase.SHOOTING), str(res.get("changes", [])))
+	var res: Dictionary = {}
 	# 10e: the RAPID INGRESS prompt keeps the previous network behaviour.
 	_ri_board(2)
 	GameConstants.edition = 10

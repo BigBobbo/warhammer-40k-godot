@@ -25,8 +25,11 @@
 
     { "act": "dispatch_action", "action": { "type": "END_COMMAND", "player": 2 } },
     { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn true", "equals": true, "comment": "WP-O6: the Orks' codex Da Jump / Makari are offered at the start of their Movement phase — not under test, declined" },
     { "act": "dispatch_action", "action": { "type": "END_MOVEMENT", "player": 2 } },
     { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn true", "equals": true, "comment": "WP-O6: the Weirdboy's codex Da Jump is offered again at the end of the Movement phase — not under test, declined (the phase then ends)" },
+    { "act": "wait_frames", "frames": 3 },
     { "act": "dispatch_action", "action": { "type": "END_SHOOTING", "player": 2 } },
     { "act": "wait_frames", "frames": 2 },
     { "act": "dispatch_action", "action": { "type": "END_CHARGE", "player": 2 } },
@@ -40,7 +43,13 @@
     { "act": "expect_state", "path": "meta.battle_round", "equals": 1 },
     { "act": "screenshot", "label": "02_after_p2_turn_still_round1" },
 
+    { "act": "click_if_visible", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true, "comment": "dismiss the new-secondaries review popup before ending the Command phase" },
+    { "act": "wait_seconds", "seconds": 0.4 },
     { "act": "dispatch_action", "action": { "type": "END_COMMAND", "player": 1 } },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")", "equals": "ork11e_war_cry", "comment": "WP-O34 (Codex: Orks 11e War Cry, 'at the start of the Command phase' — either player's): the Orks (P2) are offered WAR CRY in a rule window when P1's Command phase reaches the Battle-shock step — declined, not under test" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "wait_frames", "frames": 3 },
 
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },

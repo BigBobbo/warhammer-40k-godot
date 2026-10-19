@@ -32291,30 +32291,35 @@
  },
  {
   "id": "spiculus-bolt-launcher",
-  "name": "Spiculus bolt launcher",
+  "name": "Spiculus Bolt Launcher",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Spiculus bolt launcher",
+    "name": "Spiculus Bolt Launcher",
     "range": 36,
     "stats": {
-     "A": "D6+3",
+     "A": 6,
      "S": 5,
-     "AP": 0,
+     "AP": -1,
      "D": 1,
      "BS": 2
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -32324,31 +32329,39 @@
     "namespace": "mfm",
     "id": "7d5556b4-cb65-4fed-8b46-e0c8f1e682f1"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "iliastus-accelerator-culverin",
-  "name": "Iliastus accelerator culverin",
+  "name": "Iliastus Accelerator Culverin",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Iliastus accelerator culverin",
+    "name": "Iliastus Accelerator Culverin",
     "range": 48,
     "stats": {
-     "A": 4,
-     "S": 9,
+     "A": 3,
+     "S": 10,
      "AP": -1,
      "D": 3,
      "BS": 2
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 3
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -32358,16 +32371,15 @@
     "namespace": "mfm",
     "id": "2e2af0e8-ba19-44ff-ad97-8be484cffb05"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "arachnus-storm-cannon",
-  "name": "Arachnus storm cannon",
+  "name": "Arachnus Storm Cannon",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Arachnus storm cannon",
+    "name": "Arachnus Storm Cannon",
     "range": 24,
     "stats": {
      "A": 12,
@@ -32379,14 +32391,22 @@
     "keywords": [
      {
       "keyword_id": "devastating-wounds"
+     },
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1
+      }
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -32396,8 +32416,7 @@
     "namespace": "mfm",
     "id": "3eb928c8-392a-4d2f-a7e6-b4e746ad4df8"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "twin-plasma-projector",
@@ -32560,14 +32579,14 @@
  },
  {
   "id": "lastrum-storm-bolter",
-  "name": "Lastrum storm bolter",
+  "name": "Lastrum Storm Bolter",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Lastrum storm bolter",
+    "name": "Lastrum Storm Bolter",
     "range": 24,
     "stats": {
-     "A": 2,
+     "A": 3,
      "S": 5,
      "AP": -1,
      "D": 1,
@@ -32577,7 +32596,7 @@
      {
       "keyword_id": "rapid-fire",
       "parameters": {
-       "value": 2
+       "value": 3
       }
      }
     ]
@@ -32585,8 +32604,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -32600,8 +32621,7 @@
     "namespace": "mfm",
     "id": "00229083-4697-4a6b-96a7-e09c526b8385"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "infernus-incinerator",
@@ -32902,46 +32922,11 @@
   "type": "melee",
   "profiles": [
    {
-    "name": "Hurricanis",
-    "range": "Melee",
-    "stats": {
-     "A": 9,
-     "S": 5,
-     "AP": -1,
-     "D": 1,
-     "WS": 2
-    },
-    "keywords": [
-     {
-      "keyword_id": "sustained-hits",
-      "parameters": {
-       "value": 1
-      }
-     }
-    ]
-   },
-   {
     "name": "Behemor",
     "range": "Melee",
     "stats": {
-     "A": 6,
-     "S": 7,
-     "AP": -2,
-     "D": 2,
-     "WS": 2
-    },
-    "keywords": [
-     {
-      "keyword_id": "precision"
-     }
-    ]
-   },
-   {
-    "name": "Victus",
-    "range": "Melee",
-    "stats": {
      "A": 5,
-     "S": 6,
+     "S": 10,
      "AP": -3,
      "D": 3,
      "WS": 2
@@ -32951,12 +32936,55 @@
       "keyword_id": "devastating-wounds"
      }
     ]
+   },
+   {
+    "name": "Hurricanis",
+    "range": "Melee",
+    "stats": {
+     "A": 10,
+     "S": 6,
+     "AP": -2,
+     "D": 1,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "Victus",
+    "range": "Melee",
+    "stats": {
+     "A": 8,
+     "S": 8,
+     "AP": -3,
+     "D": 2,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "precision"
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -32970,8 +32998,7 @@
     "namespace": "mfm",
     "id": "9de4ed7a-19a1-49ff-b7f6-78346a4f0ac9"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "twin-iliastus-accelerator-cannon",
@@ -33019,17 +33046,17 @@
  },
  {
   "id": "twin-lastrum-bolt-cannon",
-  "name": "Twin lastrum bolt cannon",
+  "name": "Twin Lastrum Bolt Cannon",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Twin lastrum bolt cannon",
+    "name": "Twin Lastrum Bolt Cannon",
     "range": 36,
     "stats": {
      "A": 3,
      "S": 6,
-     "AP": -1,
-     "D": 1,
+     "AP": -2,
+     "D": 2,
      "BS": 2
     },
     "keywords": [
@@ -33038,14 +33065,19 @@
       "parameters": {
        "value": 1
       }
+     },
+     {
+      "keyword_id": "twin-linked"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33063,8 +33095,7 @@
     "namespace": "mfm",
     "id": "a7ec504a-66cb-444c-9694-48d9c828ee78"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "twin-arachnus-heavy-blaze-cannon",
@@ -33106,11 +33137,11 @@
  },
  {
   "id": "armoured-hull",
-  "name": "Armoured hull",
+  "name": "Armoured Hull",
   "type": "melee",
   "profiles": [
    {
-    "name": "Armoured hull",
+    "name": "Armoured Hull",
     "range": "Melee",
     "stats": {
      "A": 4,
@@ -33124,8 +33155,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33135,35 +33168,42 @@
     "namespace": "mfm",
     "id": "c84338d1-9780-461f-be96-a0ea44bae718"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "balistus-grenade-launcher",
-  "name": "Balistus grenade launcher",
+  "name": "Balistus Grenade Launcher",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Balistus grenade launcher",
+    "name": "Balistus Grenade Launcher",
     "range": 18,
     "stats": {
-     "A": "D6",
-     "S": 4,
+     "A": 3,
+     "S": 5,
      "AP": -1,
      "D": 1,
      "BS": 2
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33173,12 +33213,11 @@
     "namespace": "mfm",
     "id": "2aa5eb61-30da-4c8f-9191-ec40f0e78da0"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "guardian-spear",
-  "name": "Guardian spear",
+  "name": "Guardian Spear",
   "type": "ranged",
   "profiles": [
    {
@@ -33186,7 +33225,7 @@
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 4,
+     "S": 5,
      "AP": -1,
      "D": 2,
      "BS": 2
@@ -33194,6 +33233,12 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
    },
@@ -33201,8 +33246,8 @@
     "name": "Melee",
     "range": "Melee",
     "stats": {
-     "A": 5,
-     "S": 7,
+     "A": 6,
+     "S": 8,
      "AP": -2,
      "D": 2,
      "WS": 2
@@ -33212,8 +33257,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33243,12 +33290,11 @@
     "namespace": "mfm",
     "id": "5398474a-3f3f-4042-b760-64448fd6f0ed"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "castellan-axe",
-  "name": "Castellan axe",
+  "name": "Castellan Axe",
   "type": "ranged",
   "profiles": [
    {
@@ -33256,7 +33302,7 @@
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 4,
+     "S": 5,
      "AP": -1,
      "D": 2,
      "BS": 2
@@ -33264,6 +33310,12 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
    },
@@ -33271,10 +33323,10 @@
     "name": "Melee",
     "range": "Melee",
     "stats": {
-     "A": 4,
-     "S": 9,
-     "AP": -1,
-     "D": 3,
+     "A": 3,
+     "S": 10,
+     "AP": -2,
+     "D": 4,
      "WS": 2
     },
     "keywords": []
@@ -33282,8 +33334,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33301,8 +33355,7 @@
     "namespace": "mfm",
     "id": "4b5011e7-0b10-409c-923e-6ad25582a80f"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "misericordia",
@@ -33344,30 +33397,28 @@
  },
  {
   "id": "salvo-launcher",
-  "name": "Salvo launcher",
+  "name": "Salvo Launcher",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Salvo launcher",
+    "name": "Salvo Launcher",
     "range": 24,
     "stats": {
-     "A": 1,
+     "A": 2,
      "S": 10,
-     "AP": -3,
-     "D": "D6+1",
+     "AP": -2,
+     "D": "D3+2",
      "BS": 2
     },
-    "keywords": [
-     {
-      "keyword_id": "twin-linked"
-     }
-    ]
+    "keywords": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33381,8 +33432,7 @@
     "namespace": "mfm",
     "id": "fe53fc8f-9959-4cff-9d78-1c534cdde160"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "vertus-hurricane-bolter",
@@ -33434,15 +33484,15 @@
  },
  {
   "id": "interceptor-lance",
-  "name": "Interceptor lance",
+  "name": "Interceptor Lance",
   "type": "melee",
   "profiles": [
    {
-    "name": "Interceptor lance",
+    "name": "Interceptor Lance",
     "range": "Melee",
     "stats": {
-     "A": 6,
-     "S": 7,
+     "A": 8,
+     "S": 8,
      "AP": -2,
      "D": 2,
      "WS": 2
@@ -33456,8 +33506,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33467,19 +33519,18 @@
     "namespace": "mfm",
     "id": "ebfaed9c-de5c-475a-92df-99486e41bc7e"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "executioner-greatblade",
-  "name": "Executioner greatblade",
+  "name": "Executioner Greatblade",
   "type": "melee",
   "profiles": [
    {
-    "name": "Executioner greatblade",
+    "name": "Executioner Greatblade",
     "range": "Melee",
     "stats": {
-     "A": 2,
+     "A": 3,
      "S": 5,
      "AP": -2,
      "D": 2,
@@ -33494,15 +33545,22 @@
       }
      },
      {
-      "keyword_id": "devastating-wounds"
+      "keyword_id": "devastating-wounds",
+      "parameters": {
+       "required_target_keywords_any": [
+        "Psyker"
+       ]
+      }
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33516,8 +33574,7 @@
     "namespace": "mfm",
     "id": "b46cbae2-59ca-41d1-abec-baa21e4ffbd0"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "adrastus-bolt-caliver",
@@ -33649,16 +33706,16 @@
  },
  {
   "id": "arachnus-magna-blaze-cannon",
-  "name": "Arachnus magna-blaze cannon",
+  "name": "Arachnus Magna-blaze Cannon",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Arachnus magna-blaze cannon",
+    "name": "Arachnus Magna-blaze Cannon",
     "range": 48,
     "stats": {
      "A": 3,
      "S": 18,
-     "AP": -4,
+     "AP": -3,
      "D": "D6+6",
      "BS": 2
     },
@@ -33667,8 +33724,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33678,22 +33737,21 @@
     "namespace": "mfm",
     "id": "108f05f1-c08a-4885-830f-dcefdd2b255f"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "arachnus-heavy-blaze-cannon",
-  "name": "Arachnus heavy blaze cannon",
+  "name": "Arachnus Heavy Blaze Cannon",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Arachnus heavy blaze cannon",
+    "name": "Arachnus Heavy Blaze Cannon",
     "range": 36,
     "stats": {
      "A": 4,
      "S": 12,
      "AP": -3,
-     "D": "D6+1",
+     "D": "D3+3",
      "BS": 2
     },
     "keywords": []
@@ -33701,8 +33759,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33716,20 +33776,19 @@
     "namespace": "mfm",
     "id": "1a6d4733-db14-44ee-aa67-1e0fb24fc4f7"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "sentinel-blade",
-  "name": "Sentinel blade",
+  "name": "Sentinel Blade",
   "type": "ranged",
   "profiles": [
    {
     "name": "Ranged",
     "range": 12,
     "stats": {
-     "A": 2,
-     "S": 4,
+     "A": 4,
+     "S": 5,
      "AP": -1,
      "D": 2,
      "BS": 2
@@ -33739,7 +33798,7 @@
       "keyword_id": "assault"
      },
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
      }
     ]
    },
@@ -33750,7 +33809,7 @@
      "A": 5,
      "S": 6,
      "AP": -2,
-     "D": 1,
+     "D": 2,
      "WS": 2
     },
     "keywords": []
@@ -33758,8 +33817,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33769,19 +33830,18 @@
     "namespace": "mfm",
     "id": "37266675-c970-4e30-b207-1caab3f27358"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "spiculus-heavy-bolt-launcher",
-  "name": "Spiculus heavy bolt launcher",
+  "name": "Spiculus Heavy Bolt Launcher",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Spiculus heavy bolt launcher",
+    "name": "Spiculus Heavy Bolt Launcher",
     "range": 36,
     "stats": {
-     "A": "D6+6",
+     "A": 8,
      "S": 7,
      "AP": -1,
      "D": 2,
@@ -33789,15 +33849,20 @@
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33807,25 +33872,34 @@
     "namespace": "mfm",
     "id": "4610135f-0813-40ad-9665-6a70ec1354cf"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "master-crafted-boltgun",
-  "name": "Master-crafted boltgun",
+  "name": "Master-crafted Boltgun",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Master-crafted boltgun",
+    "name": "Master-crafted Boltgun",
     "range": 24,
     "stats": {
-     "A": 1,
-     "S": 4,
-     "AP": 0,
+     "A": 2,
+     "S": 5,
+     "AP": -1,
      "D": 2,
      "BS": 2
     },
     "keywords": [
+     {
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Psyker",
+       "threshold": 4
+      }
+     },
+     {
+      "keyword_id": "assault"
+     },
      {
       "keyword_id": "rapid-fire",
       "parameters": {
@@ -33837,8 +33911,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33848,21 +33924,20 @@
     "namespace": "mfm",
     "id": "79d28bf4-87fb-4b58-99a2-0552a234f47b"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "storm-bolter",
-  "name": "Storm bolter",
+  "name": "Storm Bolter",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Storm bolter",
+    "name": "Storm Bolter",
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 4,
-     "AP": 0,
+     "S": 5,
+     "AP": -1,
      "D": 1,
      "BS": 3
     },
@@ -33878,8 +33953,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33889,22 +33966,21 @@
     "namespace": "mfm",
     "id": "15cb7b56-d9d4-42c7-b6d0-d1864bb1539a"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "hunter-killer-missile",
-  "name": "Hunter-killer missile",
+  "name": "Hunter-killer Missile",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Hunter-killer missile",
+    "name": "Hunter-killer Missile",
     "range": 48,
     "stats": {
      "A": 1,
      "S": 14,
      "AP": -3,
-     "D": "D6",
+     "D": "D3+3",
      "BS": 2
     },
     "keywords": [
@@ -33916,8 +33992,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33927,16 +34005,15 @@
     "namespace": "mfm",
     "id": "4b8b97d5-aa03-43c8-ba84-f591e3e27992"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "armoured-tracks",
-  "name": "Armoured tracks",
+  "name": "Armoured Tracks",
   "type": "melee",
   "profiles": [
    {
-    "name": "Armoured tracks",
+    "name": "Armoured Tracks",
     "range": "Melee",
     "stats": {
      "A": 3,
@@ -33950,8 +34027,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -33961,8 +34040,7 @@
     "namespace": "mfm",
     "id": "dbaf17ff-06fd-4215-be55-c02fcd3d293b"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "somnus",
@@ -34011,17 +34089,17 @@
  },
  {
   "id": "lastrum-bolt-cannon",
-  "name": "Lastrum bolt cannon",
+  "name": "Lastrum Bolt Cannon",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Lastrum bolt cannon",
+    "name": "Lastrum Bolt Cannon",
     "range": 36,
     "stats": {
      "A": 3,
      "S": 6,
-     "AP": -1,
-     "D": 1,
+     "AP": -2,
+     "D": 2,
      "BS": 2
     },
     "keywords": [
@@ -34036,8 +34114,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34047,20 +34127,19 @@
     "namespace": "mfm",
     "id": "c55cf033-8aaf-451d-bb84-205f37be1d95"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "adrathic-devastator",
-  "name": "Adrathic devastator",
+  "name": "Adrathic Devastator",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Adrathic devastator",
+    "name": "Adrathic Devastator",
     "range": 18,
     "stats": {
-     "A": 1,
-     "S": 7,
+     "A": 3,
+     "S": 8,
      "AP": -2,
      "D": 3,
      "BS": 2
@@ -34070,8 +34149,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34081,8 +34162,7 @@
     "namespace": "mfm",
     "id": "bd07c0ee-9bfb-4f09-88ac-32081cf9e2ed"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "twin-las-pulsar",
@@ -34202,23 +34282,20 @@
  },
  {
   "id": "twin-arachnus-blaze-cannon",
-  "name": "Twin arachnus blaze cannon",
+  "name": "Twin Arachnus Blaze Cannon",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Twin arachnus blaze cannon",
+    "name": "Twin Arachnus Blaze Cannon",
     "range": 24,
     "stats": {
-     "A": 8,
-     "S": 5,
-     "AP": -1,
-     "D": 1,
+     "A": 2,
+     "S": 10,
+     "AP": -3,
+     "D": "D3+2",
      "BS": 2
     },
     "keywords": [
-     {
-      "keyword_id": "devastating-wounds"
-     },
      {
       "keyword_id": "twin-linked"
      }
@@ -34227,8 +34304,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34242,8 +34321,7 @@
     "namespace": "mfm",
     "id": "9f2694b8-c041-4d03-904c-d7912bbc3f34"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "gnosis",
@@ -34351,22 +34429,25 @@
  },
  {
   "id": "kinetic-destroyer",
-  "name": "Kinetic destroyer",
+  "name": "Kinetic Destroyer",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Kinetic destroyer",
-    "range": 12,
+    "name": "Kinetic Destroyer",
+    "range": 18,
     "stats": {
-     "A": 2,
+     "A": 4,
      "S": 6,
-     "AP": -1,
+     "AP": -2,
      "D": 1,
      "BS": 2
     },
     "keywords": [
      {
-      "keyword_id": "pistol"
+      "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "close-quarters"
      },
      {
       "keyword_id": "sustained-hits",
@@ -34379,8 +34460,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34390,27 +34473,29 @@
     "namespace": "mfm",
     "id": "51a534aa-70c3-43d1-bb73-9b78b049027b"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "infernus-firepike",
-  "name": "Infernus firepike",
+  "name": "Infernus Firepike",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Infernus firepike",
+    "name": "Infernus Firepike",
     "range": 12,
     "stats": {
-     "A": "D6",
-     "S": 6,
+     "A": 3,
+     "S": 5,
      "AP": -1,
      "D": 1,
      "BS": null
     },
     "keywords": [
      {
-      "keyword_id": "ignores-cover"
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
      },
      {
       "keyword_id": "torrent"
@@ -34420,8 +34505,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34431,8 +34518,7 @@
     "namespace": "mfm",
     "id": "6e9cae4d-08dc-4584-9432-3213bd03bd84"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "solerite-power-gauntlet",
@@ -34611,12 +34697,22 @@
     "range": 24,
     "stats": {
      "A": 1,
-     "S": 4,
-     "AP": 0,
+     "S": 5,
+     "AP": -1,
      "D": 1,
      "BS": 3
     },
     "keywords": [
+     {
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Psyker",
+       "threshold": 4
+      }
+     },
+     {
+      "keyword_id": "assault"
+     },
      {
       "keyword_id": "rapid-fire",
       "parameters": {
@@ -34628,8 +34724,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34643,8 +34741,7 @@
     "namespace": "mfm",
     "id": "d9821879-c858-4701-aa27-36f98122943e"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "eagles-scream",
@@ -34656,22 +34753,30 @@
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 5,
+     "S": 6,
      "AP": -2,
-     "D": 3,
+     "D": 2,
      "BS": 2
     },
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34681,8 +34786,7 @@
     "namespace": "mfm",
     "id": "b1d46259-4484-4fd5-a792-768086eedd6b"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "watchers-axe",
@@ -34694,18 +34798,27 @@
     "range": "Melee",
     "stats": {
      "A": 6,
-     "S": 10,
-     "AP": -2,
-     "D": 3,
+     "S": 12,
+     "AP": -3,
+     "D": 4,
      "WS": 2
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34715,16 +34828,15 @@
     "namespace": "mfm",
     "id": "ddd082c3-2fae-4a15-9aba-85167adfe7ea"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "armoured-hull-ares-gunship",
-  "name": "Armoured hull",
+  "name": "Armoured Hull",
   "type": "melee",
   "profiles": [
    {
-    "name": "Armoured hull",
+    "name": "Armoured Hull",
     "range": "Melee",
     "stats": {
      "A": 9,
@@ -34738,8 +34850,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34749,16 +34863,15 @@
     "namespace": "mfm",
     "id": "3b4bff07-ef0a-444c-858b-958b3a64f132"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "armoured-hull-coronus-grav-carrier",
-  "name": "Armoured hull",
+  "name": "Armoured Hull",
   "type": "melee",
   "profiles": [
    {
-    "name": "Armoured hull",
+    "name": "Armoured Hull",
     "range": "Melee",
     "stats": {
      "A": 6,
@@ -34772,8 +34885,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34783,16 +34898,15 @@
     "namespace": "mfm",
     "id": "0599399d-4323-49b5-802f-be2df72b34a3"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "armoured-hull-orion-assault-dropship",
-  "name": "Armoured hull",
+  "name": "Armoured Hull",
   "type": "melee",
   "profiles": [
    {
-    "name": "Armoured hull",
+    "name": "Armoured Hull",
     "range": "Melee",
     "stats": {
      "A": 9,
@@ -34806,8 +34920,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34817,16 +34933,15 @@
     "namespace": "mfm",
     "id": "3b4bff07-ef0a-444c-858b-958b3a64f132"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "armoured-hull-pallas-grav-attack",
-  "name": "Armoured hull",
+  "name": "Armoured Hull",
   "type": "melee",
   "profiles": [
    {
-    "name": "Armoured hull",
+    "name": "Armoured Hull",
     "range": "Melee",
     "stats": {
      "A": 3,
@@ -34840,8 +34955,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34851,8 +34968,7 @@
     "namespace": "mfm",
     "id": "3fb8f047-b5d7-41cf-b4c8-26ddd50e3f86"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "armoured-tracks-venerable-land-raider",
@@ -34890,7 +35006,7 @@
  },
  {
   "id": "castellan-axe-shield-captain",
-  "name": "Castellan axe",
+  "name": "Castellan Axe",
   "type": "ranged",
   "profiles": [
    {
@@ -34898,7 +35014,7 @@
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 4,
+     "S": 5,
      "AP": -1,
      "D": 2,
      "BS": 2
@@ -34906,6 +35022,12 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
    },
@@ -34913,10 +35035,10 @@
     "name": "Melee",
     "range": "Melee",
     "stats": {
-     "A": 6,
-     "S": 9,
-     "AP": -1,
-     "D": 3,
+     "A": 5,
+     "S": 10,
+     "AP": -2,
+     "D": 4,
      "WS": 2
     },
     "keywords": []
@@ -34924,8 +35046,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34935,12 +35059,11 @@
     "namespace": "mfm",
     "id": "404aa3f4-304b-4561-ab94-848a84d75d05"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "castellan-axe-shield-captain-in-allarus-terminator-armour",
-  "name": "Castellan axe",
+  "name": "Castellan Axe",
   "type": "ranged",
   "profiles": [
    {
@@ -34948,7 +35071,7 @@
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 4,
+     "S": 5,
      "AP": -1,
      "D": 2,
      "BS": 2
@@ -34956,6 +35079,12 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
    },
@@ -34963,10 +35092,10 @@
     "name": "Melee",
     "range": "Melee",
     "stats": {
-     "A": 6,
-     "S": 9,
-     "AP": -1,
-     "D": 3,
+     "A": 5,
+     "S": 10,
+     "AP": -2,
+     "D": 4,
      "WS": 2
     },
     "keywords": []
@@ -34974,8 +35103,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -34985,8 +35116,7 @@
     "namespace": "mfm",
     "id": "404aa3f4-304b-4561-ab94-848a84d75d05"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "close-combat-weapon-knight-centura",
@@ -35028,14 +35158,14 @@
  },
  {
   "id": "executioner-greatblade-knight-centura",
-  "name": "Executioner greatblade",
+  "name": "Executioner Greatblade",
   "type": "melee",
   "profiles": [
    {
-    "name": "Executioner greatblade",
+    "name": "Executioner Greatblade",
     "range": "Melee",
     "stats": {
-     "A": 3,
+     "A": 4,
      "S": 5,
      "AP": -2,
      "D": 2,
@@ -35050,15 +35180,28 @@
       }
      },
      {
-      "keyword_id": "devastating-wounds"
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
+      "keyword_id": "devastating-wounds",
+      "parameters": {
+       "required_target_keywords_any": [
+        "Psyker"
+       ]
+      }
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -35068,12 +35211,11 @@
     "namespace": "mfm",
     "id": "943b5523-a244-42c0-84c7-ec93e97b5a81"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "guardian-spear-shield-captain",
-  "name": "Guardian spear",
+  "name": "Guardian Spear",
   "type": "ranged",
   "profiles": [
    {
@@ -35081,7 +35223,7 @@
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 4,
+     "S": 5,
      "AP": -1,
      "D": 2,
      "BS": 2
@@ -35089,6 +35231,12 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
    },
@@ -35096,19 +35244,28 @@
     "name": "Melee",
     "range": "Melee",
     "stats": {
-     "A": 7,
-     "S": 7,
+     "A": 8,
+     "S": 8,
      "AP": -2,
      "D": 2,
      "WS": 2
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -35118,12 +35275,11 @@
     "namespace": "mfm",
     "id": "10dd9142-3f32-44aa-b762-8db0dfce185e"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "guardian-spear-shield-captain-in-allarus-terminator-armour",
-  "name": "Guardian spear",
+  "name": "Guardian Spear",
   "type": "ranged",
   "profiles": [
    {
@@ -35131,7 +35287,7 @@
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 4,
+     "S": 5,
      "AP": -1,
      "D": 2,
      "BS": 2
@@ -35139,6 +35295,12 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
    },
@@ -35146,19 +35308,28 @@
     "name": "Melee",
     "range": "Melee",
     "stats": {
-     "A": 7,
-     "S": 7,
+     "A": 8,
+     "S": 8,
      "AP": -2,
      "D": 2,
      "WS": 2
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -35168,8 +35339,7 @@
     "namespace": "mfm",
     "id": "10dd9142-3f32-44aa-b762-8db0dfce185e"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "interceptor-lance-agamatus-custodians",
@@ -35219,15 +35389,15 @@
  },
  {
   "id": "interceptor-lance-vertus-praetors",
-  "name": "Interceptor lance",
+  "name": "Interceptor Lance",
   "type": "melee",
   "profiles": [
    {
-    "name": "Interceptor lance",
+    "name": "Interceptor Lance",
     "range": "Melee",
     "stats": {
-     "A": 5,
-     "S": 7,
+     "A": 6,
+     "S": 8,
      "AP": -2,
      "D": 2,
      "WS": 2
@@ -35241,8 +35411,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -35256,8 +35428,7 @@
     "namespace": "mfm",
     "id": "34df57a9-5fbb-42cd-8c1e-38d881c15981"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "misericordia-sagittarum-custodians",
@@ -35295,7 +35466,7 @@
  },
  {
   "id": "pyrithite-spear-shield-captain",
-  "name": "Pyrithite spear",
+  "name": "Pyrithite Spear",
   "type": "ranged",
   "profiles": [
    {
@@ -35303,12 +35474,15 @@
     "range": 12,
     "stats": {
      "A": 1,
-     "S": 9,
-     "AP": -4,
-     "D": "D6",
+     "S": 10,
+     "AP": -3,
+     "D": "D3+2",
      "BS": 2
     },
     "keywords": [
+     {
+      "keyword_id": "assault"
+     },
      {
       "keyword_id": "melta",
       "parameters": {
@@ -35321,26 +35495,34 @@
     "name": "Melee",
     "range": "Melee",
     "stats": {
-     "A": 7,
-     "S": 7,
+     "A": 8,
+     "S": 8,
      "AP": -2,
      "D": 2,
      "WS": 2
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "mfm",
     "id": "3858908a-25f1-4716-b472-b62367520d1e"
    }
-  ],
-  "faction_id": "adeptus-custodes"
+  ]
  },
  {
   "id": "sentinel-blade-shield-captain",
@@ -35515,6 +35697,865 @@
    }
   ],
   "faction_id": "adeptus-custodes"
+ },
+ {
+  "id": "eternity-pattern-paragon-blade",
+  "name": "Eternity-pattern Paragon Blade",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Eternity-pattern Paragon Blade",
+    "range": "Melee",
+    "stats": {
+     "A": 6,
+     "S": 10,
+     "AP": -3,
+     "D": 3,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "precision"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "hurricane-bolter",
+  "name": "Hurricane Bolter",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Hurricane Bolter",
+    "range": 18,
+    "stats": {
+     "A": 3,
+     "S": 5,
+     "AP": -1,
+     "D": 2,
+     "BS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 3
+      }
+     },
+     {
+      "keyword_id": "twin-linked"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "adrathic-combi-destructor",
+  "name": "Adrathic Combi-destructor",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Adrathic Combi-destructor",
+    "range": 12,
+    "stats": {
+     "A": 2,
+     "S": 5,
+     "AP": -2,
+     "D": 3,
+     "BS": 2
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "dreadspear",
+  "name": "Dreadspear",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Ranged",
+    "range": 18,
+    "stats": {
+     "A": 2,
+     "S": 10,
+     "AP": -3,
+     "D": "D3+2",
+     "BS": 2
+    },
+    "keywords": []
+   },
+   {
+    "name": "Melee",
+    "range": "Melee",
+    "stats": {
+     "A": 5,
+     "S": 12,
+     "AP": -3,
+     "D": "D3+3",
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "lance"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "twin-infernus-incinerator",
+  "name": "Twin Infernus Incinerator",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Twin Infernus Incinerator",
+    "range": 12,
+    "stats": {
+     "A": 3,
+     "S": 6,
+     "AP": -1,
+     "D": 1,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     },
+     {
+      "keyword_id": "torrent"
+     },
+     {
+      "keyword_id": "twin-linked"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "iliastus-accelerator-cannon",
+  "name": "Iliastus Accelerator Cannon",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Iliastus Accelerator Cannon",
+    "range": 48,
+    "stats": {
+     "A": 4,
+     "S": 10,
+     "AP": -1,
+     "D": 3,
+     "BS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 4
+      }
+     },
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1,
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "twin-neutronium-cascade-projectors",
+  "name": "Twin Neutronium Cascade Projectors",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Twin Neutronium Cascade Projectors",
+    "range": 12,
+    "stats": {
+     "A": 3,
+     "S": 7,
+     "AP": -2,
+     "D": 1,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
+      "keyword_id": "torrent"
+     },
+     {
+      "keyword_id": "twin-linked"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "adrathic-desolator",
+  "name": "Adrathic Desolator",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Adrathic Desolator",
+    "range": 24,
+    "stats": {
+     "A": 4,
+     "S": 10,
+     "AP": -2,
+     "D": 4,
+     "BS": 2
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "caestus-fist",
+  "name": "Caestus Fist",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Caestus Fist",
+    "range": "Melee",
+    "stats": {
+     "A": 5,
+     "S": 14,
+     "AP": -3,
+     "D": 4,
+     "WS": 2
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "dual-caestus-fists",
+  "name": "Dual Caestus Fists",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Dual Caestus Fists",
+    "range": "Melee",
+    "stats": {
+     "A": 7,
+     "S": 14,
+     "AP": -3,
+     "D": 4,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "twin-linked"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "warblade",
+  "name": "Warblade",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Ranged",
+    "range": 12,
+    "stats": {
+     "A": 4,
+     "S": 6,
+     "AP": -1,
+     "D": 2,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     },
+     {
+      "keyword_id": "torrent"
+     },
+     {
+      "keyword_id": "twin-linked"
+     }
+    ]
+   },
+   {
+    "name": "Melee",
+    "range": "Melee",
+    "stats": {
+     "A": 8,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1,
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "twin-iliastus-accelerator-fusil",
+  "name": "Twin Iliastus Accelerator Fusil",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Twin Iliastus Accelerator Fusil",
+    "range": 48,
+    "stats": {
+     "A": 2,
+     "S": 10,
+     "AP": -1,
+     "D": 3,
+     "BS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     },
+     {
+      "keyword_id": "twin-linked"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "master-crafted-flamer",
+  "name": "Master-crafted Flamer",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Master-crafted Flamer",
+    "range": 12,
+    "stats": {
+     "A": 4,
+     "S": 4,
+     "AP": -1,
+     "D": 1,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Psyker",
+       "threshold": 4
+      }
+     },
+     {
+      "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     },
+     {
+      "keyword_id": "torrent"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "gun-stock",
+  "name": "Gun Stock",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Gun Stock",
+    "range": "Melee",
+    "stats": {
+     "A": 3,
+     "S": 3,
+     "AP": 0,
+     "D": 1,
+     "WS": 2
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "gun-stock-prosecutor-squad",
+  "name": "Gun Stock",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Gun Stock",
+    "range": "Melee",
+    "stats": {
+     "A": 2,
+     "S": 3,
+     "AP": 0,
+     "D": 1,
+     "WS": 3
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "verutum-lance",
+  "name": "Verutum Lance",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Ranged",
+    "range": 18,
+    "stats": {
+     "A": 1,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "BS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "assault"
+     }
+    ]
+   },
+   {
+    "name": "Melee",
+    "range": "Melee",
+    "stats": {
+     "A": 5,
+     "S": 7,
+     "AP": -2,
+     "D": 2,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "lance"
+     },
+     {
+      "keyword_id": "precision"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "solarite-power-gauntlet",
+  "name": "Solarite Power Gauntlet",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Solarite Power Gauntlet",
+    "range": "Melee",
+    "stats": {
+     "A": 5,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "WS": 2
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "flamer",
+  "name": "Flamer",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Flamer",
+    "range": 12,
+    "stats": {
+     "A": 3,
+     "S": 4,
+     "AP": -1,
+     "D": 1,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Psyker",
+       "threshold": 4
+      }
+     },
+     {
+      "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
+      "keyword_id": "torrent"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "gun-stock-witchseeker-squad",
+  "name": "Gun Stock",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Gun Stock",
+    "range": "Melee",
+    "stats": {
+     "A": 2,
+     "S": 3,
+     "AP": 0,
+     "D": 1,
+     "WS": 3
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "arachnus-volley-cannon",
+  "name": "Arachnus Volley Cannon",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Arachnus Volley Cannon",
+    "range": 24,
+    "stats": {
+     "A": 8,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "devastating-wounds"
+     },
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "twin-corvae-las-pulser",
+  "name": "Twin Corvae Las-pulser",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Twin Corvae Las-pulser",
+    "range": 18,
+    "stats": {
+     "A": 1,
+     "S": 10,
+     "AP": -3,
+     "D": "D3+2",
+     "BS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "twin-linked"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "solarite-power-lance",
+  "name": "Solarite Power Lance",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Solarite Power Lance",
+    "range": "Melee",
+    "stats": {
+     "A": 5,
+     "S": 8,
+     "AP": -2,
+     "D": 3,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "lance"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "solarite-power-talon",
+  "name": "Solarite Power Talon",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Solarite Power Talon",
+    "range": "Melee",
+    "stats": {
+     "A": 6,
+     "S": 6,
+     "AP": -2,
+     "D": 1,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "arachnus-blaze-carronade",
+  "name": "Arachnus Blaze Carronade",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Arachnus Blaze Carronade",
+    "range": 48,
+    "stats": {
+     "A": 4,
+     "S": 12,
+     "AP": -3,
+     "D": "D6+2",
+     "BS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "required_target_keywords_any": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "tarsus-buckler",
+  "name": "Tarsus Buckler",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Tarsus Buckler",
+    "range": "Melee",
+    "stats": {
+     "A": 5,
+     "S": 6,
+     "AP": -2,
+     "D": 1,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "twin-cognis-lascannon",
@@ -111078,7 +112119,7 @@
     "name": "Supa-kannon",
     "range": 60,
     "stats": {
-     "A": "2D6",
+     "A": 8,
      "S": 12,
      "AP": -2,
      "D": 3,
@@ -111109,7 +112150,8 @@
     "id": "7b115539-38eb-4991-9a17-1b3b9f68fc1f"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "huge-tusks",
@@ -111117,19 +112159,7 @@
   "type": "melee",
   "profiles": [
    {
-    "name": "Sweep",
-    "range": "Melee",
-    "stats": {
-     "A": 18,
-     "S": 9,
-     "AP": -2,
-     "D": 3,
-     "WS": 3
-    },
-    "keywords": []
-   },
-   {
-    "name": "Strike",
+    "name": "strike",
     "range": "Melee",
     "stats": {
      "A": 6,
@@ -111159,7 +112189,8 @@
     "id": "bd08a2ee-bf53-4b38-9e13-ff0e6e5abbe1"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "close-combat-weapons",
@@ -111200,19 +112231,26 @@
     "name": "Shell",
     "range": 36,
     "stats": {
-     "A": 1,
-     "S": 9,
+     "A": 2,
+     "S": 10,
      "AP": -2,
-     "D": "D6",
+     "D": "D6+1",
      "BS": 5
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
    },
    {
     "name": "Frag",
     "range": 36,
     "stats": {
-     "A": "D6",
+     "A": 6,
      "S": 5,
      "AP": 0,
      "D": 1,
@@ -111220,7 +112258,16 @@
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 6
+      }
+     },
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
      }
     ]
    }
@@ -111235,7 +112282,8 @@
     "id": "b770-d969-e667-3e1a"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "armoured-hull",
@@ -111322,7 +112370,7 @@
     "name": "Beast Snagga Klaw",
     "range": "Melee",
     "stats": {
-     "A": 4,
+     "A": 3,
      "S": 10,
      "AP": -2,
      "D": 2,
@@ -111378,7 +112426,8 @@
     "id": "ebf35dd5-16cf-4c68-9370-8b622f38cc1d"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "beast-snagga-klaw-beastboss",
@@ -111436,7 +112485,7 @@
     "stats": {
      "A": 6,
      "S": 6,
-     "AP": -1,
+     "AP": -2,
      "D": 2,
      "WS": 2
     },
@@ -111454,9 +112503,9 @@
     "range": "Melee",
     "stats": {
      "A": 6,
-     "S": 7,
+     "S": 12,
      "AP": -2,
-     "D": 2,
+     "D": "D6",
      "WS": 2
     },
     "keywords": [
@@ -111495,7 +112544,8 @@
     "id": "7a43228d-b94e-445b-acc4-45e08f52750e"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-chompas-jaws",
@@ -111514,7 +112564,24 @@
     },
     "keywords": [
      {
-      "keyword_id": "devastating-wounds"
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Monster",
+       "threshold": 3,
+       "required_target_keywords_any": [
+        "Monster"
+       ]
+      }
+     },
+     {
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Vehicle",
+       "threshold": 3,
+       "required_target_keywords_any": [
+        "Vehicle"
+       ]
+      }
      },
      {
       "keyword_id": "extra-attacks"
@@ -111536,7 +112603,8 @@
     "id": "a3c2af5c-c86e-4271-b06d-ef7ec4d7214e"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-choppa",
@@ -111547,20 +112615,25 @@
     "name": "Big choppa",
     "range": "Melee",
     "stats": {
-     "A": 3,
+     "A": 5,
      "S": 7,
-     "AP": -1,
+     "AP": -2,
      "D": 2,
      "WS": 3
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "precision"
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-choppa-boyz",
@@ -111577,14 +112650,22 @@
      "D": 2,
      "WS": 3
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-choppa-kommandos",
@@ -111621,7 +112702,8 @@
     "id": "5bf6-ed4b-e32a-d7c1"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-choppa-nobz",
@@ -111638,14 +112720,22 @@
      "D": 2,
      "WS": 3
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-choppa-squighog-boyz",
@@ -111702,7 +112792,8 @@
     "id": "aecd-6ba5-5558-fee2"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-choppa-warboss",
@@ -111790,7 +112881,8 @@
     "id": "6d2798b0-e751-4515-ae4e-81ea6e173d67"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-shoota-boyz",
@@ -111807,14 +112899,31 @@
      "D": 1,
      "BS": 5
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-shoota-warboss-in-mega-armour",
@@ -111832,6 +112941,15 @@
      "BS": 4
     },
     "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
      {
       "keyword_id": "rapid-fire",
       "parameters": {
@@ -111851,7 +112969,8 @@
     "id": "7142-4c07-8072-8474"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "blitzkannon",
@@ -111866,16 +112985,19 @@
      "S": 7,
      "AP": -2,
      "D": 2,
-     "BS": 5
+     "BS": 4
     },
     "keywords": [
      {
-      "keyword_id": "heavy"
+      "keyword_id": "ignores-cover"
      },
      {
-      "keyword_id": "sustained-hits",
+      "keyword_id": "lethal-hits",
       "parameters": {
-       "value": 1
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
       }
      }
     ]
@@ -111895,7 +113017,8 @@
     "id": "6c421e93-540c-4c45-ba21-f7f1bbdb53f3"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "boomstikks",
@@ -111915,6 +113038,15 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
      }
     ]
    }
@@ -111929,7 +113061,8 @@
     "id": "5262de47-8a38-43ec-b902-5d0e81e903dd"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "breacha-ram",
@@ -111941,7 +113074,7 @@
     "range": "Melee",
     "stats": {
      "A": 2,
-     "S": 9,
+     "S": 8,
      "AP": -2,
      "D": 2,
      "WS": 4
@@ -111963,7 +113096,8 @@
     "id": "dd08661e-7734-4b05-8301-ee99f98306f0"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "bubblechukka",
@@ -111971,59 +113105,24 @@
   "type": "ranged",
   "profiles": [
    {
-    "name": "Big bubble (1-2)",
+    "name": "Bubblechukka",
     "range": 48,
     "stats": {
-     "A": "2D6",
-     "S": 6,
-     "AP": -1,
+     "A": 8,
+     "S": 3,
+     "AP": -3,
      "D": 1,
      "BS": 4
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 3
+      }
      },
      {
-      "keyword_id": "bubblechukka"
-     }
-    ]
-   },
-   {
-    "name": "Wobbly bubble (3-4)",
-    "range": 48,
-    "stats": {
-     "A": "D6",
-     "S": 9,
-     "AP": -2,
-     "D": 3,
-     "BS": 4
-    },
-    "keywords": [
-     {
-      "keyword_id": "blast"
-     },
-     {
-      "keyword_id": "bubblechukka"
-     }
-    ]
-   },
-   {
-    "name": "Dense bubble (5-6)",
-    "range": 48,
-    "stats": {
-     "A": "D3",
-     "S": 12,
-     "AP": -3,
-     "D": "D6+3",
-     "BS": 4
-    },
-    "keywords": [
-     {
-      "keyword_id": "blast"
-     },
-     {
-      "keyword_id": "bubblechukka"
+      "keyword_id": "lethal-hits"
      }
     ]
    }
@@ -112042,7 +113141,8 @@
     "id": "519e63c8-c5ce-4029-9e09-83cff5524bbc"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "burna-kommandos",
@@ -112053,7 +113153,7 @@
     "name": "Burna",
     "range": 12,
     "stats": {
-     "A": "D6",
+     "A": 3,
      "S": 4,
      "AP": 0,
      "D": 1,
@@ -112082,7 +113182,8 @@
     "id": "8f0e-a9ba-1cfd-3106"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "butcha-boyz",
@@ -112140,7 +113241,8 @@
     "id": "e6dd77d9-23d0-42f4-8a27-7911a5e4453f"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "choppa",
@@ -112152,7 +113254,7 @@
     "range": "Melee",
     "stats": {
      "A": 3,
-     "S": 4,
+     "S": 5,
      "AP": -1,
      "D": 1,
      "WS": 3
@@ -112164,7 +113266,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "choppa-bannernob",
@@ -112249,7 +113352,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "choppa-boyz",
@@ -112273,7 +113377,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "choppa-breaka-boyz",
@@ -112303,7 +113408,8 @@
     "id": "8fca-90dd-a784-b5c0"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "choppa-flash-gitz",
@@ -112333,7 +113439,8 @@
     "id": "8fca-90dd-a784-b5c0"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "choppa-tankbustas",
@@ -112344,7 +113451,7 @@
     "name": "Choppa",
     "range": "Melee",
     "stats": {
-     "A": 3,
+     "A": 4,
      "S": 5,
      "AP": -1,
      "D": 1,
@@ -112357,7 +113464,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "close-combat-weapon",
@@ -112547,7 +113655,8 @@
     "id": "04e1aec8-b54a-4a23-a321-b3a02cf54928"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "deff-rolla",
@@ -112589,7 +113698,7 @@
   "type": "ranged",
   "profiles": [
    {
-    "name": "Deffstorm mega-shoota",
+    "name": "Aimed",
     "range": 36,
     "stats": {
      "A": 20,
@@ -112600,10 +113709,29 @@
     },
     "keywords": [
      {
-      "keyword_id": "rapid-fire",
+      "keyword_id": "lethal-hits",
       "parameters": {
-       "value": 10
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
       }
+     }
+    ]
+   },
+   {
+    "name": "Point Blank",
+    "range": 12,
+    "stats": {
+     "A": "3D6",
+     "S": 6,
+     "AP": -1,
+     "D": 1,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "torrent"
      }
     ]
    }
@@ -112622,7 +113750,8 @@
     "id": "fa2f7e9c-571e-4aae-8e47-706bedc89983"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "dread-klaw",
@@ -112633,7 +113762,7 @@
     "name": "Dread Klaws",
     "range": "Melee",
     "stats": {
-     "A": 4,
+     "A": 5,
      "S": 12,
      "AP": -2,
      "D": 3,
@@ -112641,7 +113770,10 @@
     },
     "keywords": [
      {
-      "keyword_id": "dead-choppy"
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
      }
     ]
    }
@@ -112660,7 +113792,8 @@
     "id": "e456d9a7-54b3-4594-991d-931e708484ad"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "drilla",
@@ -112671,7 +113804,7 @@
     "name": "Drilla",
     "range": "Melee",
     "stats": {
-     "A": 2,
+     "A": 3,
      "S": 12,
      "AP": -3,
      "D": 3,
@@ -112694,7 +113827,8 @@
     "id": "f51664af-d722-4f32-b297-e02e9c69dfd0"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "eadbanger",
@@ -112746,7 +113880,7 @@
     "name": "Eavy Lobba",
     "range": 48,
     "stats": {
-     "A": "D6",
+     "A": 3,
      "S": 6,
      "AP": 0,
      "D": 2,
@@ -112779,7 +113913,8 @@
     "id": "cf0449d4-e15c-4020-bc4a-136e1d3bc21e"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "fixits-wrench",
@@ -112817,7 +113952,8 @@
     "id": "270bd7d3-0c88-46e9-ab2e-24801b1bb5f4"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "gaze-of-gork",
@@ -112870,7 +114006,8 @@
     "id": "6f8d4f5b-1fe8-4208-b34b-3c781185eda4"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "gorks-klaw",
@@ -112882,10 +114019,10 @@
     "range": "Melee",
     "stats": {
      "A": 7,
-     "WS": 2,
      "S": 14,
      "AP": -3,
-     "D": 4
+     "D": 4,
+     "WS": 2
     },
     "keywords": [
      {
@@ -112914,7 +114051,8 @@
     "id": "69433362-3d49-4eeb-a158-8c83abafbd12"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "grabba-dragga",
@@ -112952,6 +114090,12 @@
     },
     "keywords": [
      {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 2
+      }
+     },
+     {
       "keyword_id": "lance"
      }
     ]
@@ -112971,7 +114115,8 @@
     "id": "2e701bd7-89ac-4dcd-b53e-79f18f7267b1"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "grabbin-klaw",
@@ -112983,7 +114128,7 @@
     "range": "Melee",
     "stats": {
      "A": 2,
-     "S": 8,
+     "S": 10,
      "AP": -2,
      "D": 2,
      "WS": 3
@@ -113009,7 +114154,8 @@
     "id": "93fcf0e9-7cdb-4706-b8c4-3d3cf6a8565d"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "grot-blasta",
@@ -113028,7 +114174,7 @@
     },
     "keywords": [
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
      }
     ]
    }
@@ -113047,7 +114193,8 @@
     "id": "9b7f013d-e411-4668-88fa-249910abaf21"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "grot-crew",
@@ -113089,31 +114236,57 @@
   "type": "melee",
   "profiles": [
    {
-    "name": "Gutrippa",
+    "name": "Standard",
     "range": "Melee",
     "stats": {
      "A": 6,
-     "S": 7,
-     "AP": -1,
-     "D": 3,
+     "S": 9,
+     "AP": -2,
+     "D": 2,
      "WS": 2
     },
     "keywords": [
      {
-      "keyword_id": "anti",
+      "keyword_id": "cleave",
       "parameters": {
-       "target_keyword": "Monster",
-       "threshold": 4
-      }
-     },
-     {
-      "keyword_id": "anti",
-      "parameters": {
-       "target_keyword": "Vehicle",
-       "threshold": 4
+       "value": 1
       }
      }
     ]
+   },
+   {
+    "name": "Hunter",
+    "range": "Melee",
+    "stats": {
+     "A": 6,
+     "S": 12,
+     "AP": -2,
+     "D": "D6+1",
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits"
+     },
+     {
+      "keyword_id": "hunter",
+      "parameters": {
+       "target_keyword": "Monster"
+      }
+     },
+     {
+      "keyword_id": "hunter",
+      "parameters": {
+       "target_keyword": "Vehicle"
+      }
+     }
+    ],
+    "target_restrictions": {
+     "required_keywords_any": [
+      "Monster",
+      "Vehicle"
+     ]
+    }
    }
   ],
   "game_version": {
@@ -113130,7 +114303,8 @@
     "id": "59cbb201-fdaf-4501-b2d1-a0e7a6ef5f2e"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kan-klaw",
@@ -113164,7 +114338,8 @@
     "id": "35217662-6f03-47c1-9f63-5511cb62851e"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kannon",
@@ -113175,11 +114350,11 @@
     "name": "Shell",
     "range": 36,
     "stats": {
-     "A": 1,
+     "A": 2,
      "S": 10,
      "AP": -2,
-     "D": "D6",
-     "BS": 5
+     "D": "D6+1",
+     "BS": 4
     },
     "keywords": [
      {
@@ -113194,11 +114369,11 @@
     "name": "Frag",
     "range": 36,
     "stats": {
-     "A": "D6+3",
-     "S": 6,
+     "A": 4,
+     "S": 5,
      "AP": 0,
      "D": 1,
-     "BS": 5
+     "BS": 4
     },
     "keywords": [
      {
@@ -113242,7 +114417,8 @@
     "id": "b5e7c71d-f4e6-48be-965b-0f52fb8aadaf"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "killa-jet",
@@ -113251,39 +114427,39 @@
   "profiles": [
    {
     "name": "Burna",
-    "range": 12,
+    "range": "Melee",
     "stats": {
-     "A": "D6",
+     "A": 3,
      "S": 5,
      "AP": -1,
      "D": 1,
-     "BS": null
+     "WS": 3
     },
     "keywords": [
      {
-      "keyword_id": "torrent"
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
      },
      {
-      "keyword_id": "ignores-cover"
+      "keyword_id": "extra-attacks"
      }
     ]
    },
    {
     "name": "Cutta",
-    "range": 12,
+    "range": "Melee",
     "stats": {
      "A": 1,
-     "S": 9,
-     "AP": -4,
-     "D": "D6",
-     "BS": 5
+     "S": 10,
+     "AP": -3,
+     "D": "D6+2",
+     "WS": 3
     },
     "keywords": [
      {
-      "keyword_id": "melta",
-      "parameters": {
-       "value": 2
-      }
+      "keyword_id": "extra-attacks"
      }
     ]
    }
@@ -113302,7 +114478,8 @@
     "id": "6fbdce00-4b1d-4e28-9c64-06b591cc74e8"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "killkannon",
@@ -113313,11 +114490,11 @@
     "name": "Killkannon",
     "range": 24,
     "stats": {
-     "A": "D6+1",
-     "S": 9,
-     "AP": -2,
+     "A": 4,
+     "S": 6,
+     "AP": -3,
      "D": 2,
-     "BS": 5
+     "BS": 4
     },
     "keywords": [
      {
@@ -113360,7 +114537,8 @@
     "id": "1b155627-7228-4d76-a201-0caa55ef2c2a"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "killsaw",
@@ -113372,9 +114550,9 @@
     "range": "Melee",
     "stats": {
      "A": 3,
-     "S": 12,
-     "AP": -3,
-     "D": 2,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
      "WS": 4
     },
     "keywords": []
@@ -113418,7 +114596,8 @@
     "id": "a6d77d0b-4f37-4710-86e8-072c1f64ef5b"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "killsaw-meganobz",
@@ -113430,9 +114609,9 @@
     "range": "Melee",
     "stats": {
      "A": 3,
-     "S": 12,
-     "AP": -3,
-     "D": 2,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
      "WS": 4
     },
     "keywords": []
@@ -113448,7 +114627,8 @@
     "id": "a3d0-1971-d5df-1651"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "killsaw-mek",
@@ -113486,28 +114666,23 @@
   "type": "melee",
   "profiles": [
    {
-    "name": "Sweep",
+    "name": "Klaw of Gork",
     "range": "Melee",
     "stats": {
-     "A": 15,
-     "S": 8,
-     "AP": -1,
-     "D": 2,
-     "WS": 3
-    },
-    "keywords": []
-   },
-   {
-    "name": "Strike",
-    "range": "Melee",
-    "stats": {
-     "A": 5,
+     "A": 6,
      "S": 18,
      "AP": -3,
      "D": 6,
      "WS": 3
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 3
+      }
+     }
+    ]
    }
   ],
   "game_version": {
@@ -113524,7 +114699,8 @@
     "id": "f20c2589-6c70-412c-8e27-261e1e91afaf"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "klaw-of-mork",
@@ -113532,28 +114708,23 @@
   "type": "melee",
   "profiles": [
    {
-    "name": "Sweep",
+    "name": "Klaw of Mork",
     "range": "Melee",
     "stats": {
-     "A": 12,
-     "S": 8,
-     "AP": -1,
-     "D": 2,
-     "WS": 3
-    },
-    "keywords": []
-   },
-   {
-    "name": "Strike",
-    "range": "Melee",
-    "stats": {
-     "A": 4,
+     "A": 5,
      "S": 18,
      "AP": -3,
      "D": 6,
      "WS": 3
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
    }
   ],
   "game_version": {
@@ -113570,7 +114741,8 @@
     "id": "7ba18c94-aefc-4131-801b-761455fed8b3"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "knucklebustas",
@@ -113581,10 +114753,10 @@
     "name": "Knucklebustas",
     "range": "Melee",
     "stats": {
-     "A": 5,
+     "A": 4,
      "S": 5,
-     "AP": -1,
-     "D": 1,
+     "AP": -2,
+     "D": 2,
      "WS": 3
     },
     "keywords": [
@@ -113607,9 +114779,6 @@
         "Vehicle"
        ]
       }
-     },
-     {
-      "keyword_id": "twin-linked"
      }
     ]
    }
@@ -113632,7 +114801,8 @@
     "id": "9493a87e-5bdd-4dac-a96a-2e085d8a1d41"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kombi-rokkit-boyz",
@@ -113661,14 +114831,31 @@
      "D": 1,
      "BS": 5
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kombi-weapon",
@@ -113683,7 +114870,7 @@
      "S": 4,
      "AP": 0,
      "D": 1,
-     "BS": 5
+     "BS": 4
     },
     "keywords": [
      {
@@ -113711,7 +114898,7 @@
      "S": 10,
      "AP": -2,
      "D": 3,
-     "BS": 5
+     "BS": 4
     },
     "keywords": []
    },
@@ -113752,7 +114939,8 @@
     "id": "aa36e918-3183-411d-b6b6-8fbbd478f852"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kopta-rokkits",
@@ -113805,7 +114993,7 @@
     "range": "Melee",
     "stats": {
      "A": 6,
-     "S": 8,
+     "S": 7,
      "AP": -2,
      "D": 2,
      "WS": 2
@@ -113838,7 +115026,8 @@
     "id": "68e9958c-aa87-41dc-ba18-d381f63afd5e"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-mega-blasta",
@@ -113852,8 +115041,8 @@
      "A": 3,
      "S": 9,
      "AP": -2,
-     "D": "D6",
-     "BS": 5
+     "D": 3,
+     "BS": 4
     },
     "keywords": [
      {
@@ -113880,7 +115069,8 @@
     "id": "d25e0ee6-7b2b-48dd-8dfb-d6ade7f8b74c"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-mega-kannon",
@@ -113894,7 +115084,7 @@
      "A": "D3+1",
      "S": 12,
      "AP": -2,
-     "D": 3,
+     "D": 4,
      "BS": 4
     },
     "keywords": [
@@ -113924,7 +115114,8 @@
     "id": "37b7e06b-b1dc-473a-accc-9a8678b185a4"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-mega-slugga",
@@ -113935,15 +115126,15 @@
     "name": "Kustom Mega-Slugga",
     "range": 12,
     "stats": {
-     "A": "D3",
+     "A": 3,
      "S": 8,
      "AP": -2,
-     "D": "D6",
-     "BS": 5
+     "D": 3,
+     "BS": 4
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "close-quarters"
      },
      {
       "keyword_id": "hazardous"
@@ -113965,7 +115156,8 @@
     "id": "62c60539-0d0a-40df-bfb7-7bc149259804"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-mega-zappa",
@@ -113976,11 +115168,11 @@
     "name": "Kustom mega-zappa",
     "range": 36,
     "stats": {
-     "A": "D6+3",
-     "S": 10,
+     "A": 3,
+     "S": 12,
      "AP": -2,
-     "D": "D6",
-     "BS": 5
+     "D": 4,
+     "BS": 4
     },
     "keywords": [
      {
@@ -114006,7 +115198,8 @@
     "id": "667bc6ba-0abc-48dc-8a89-bfa5c3e1112a"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-shoota",
@@ -114024,6 +115217,15 @@
      "BS": 5
     },
     "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
      {
       "keyword_id": "rapid-fire",
       "parameters": {
@@ -114071,7 +115273,8 @@
     "id": "cbc0e892-bcaf-4806-a724-e5a66707529d"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-shoota-boyz",
@@ -114088,14 +115291,31 @@
      "D": 1,
      "BS": 5
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-shoota-kommandos",
@@ -114141,7 +115361,8 @@
     "id": "8bba-d0bf-1102-2131"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-shoota-meganobz",
@@ -114206,7 +115427,8 @@
     "id": "8bba-d0bf-1102-2131"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "lobba",
@@ -114217,11 +115439,11 @@
     "name": "Lobba",
     "range": 48,
     "stats": {
-     "A": "D6",
+     "A": 3,
      "S": 5,
      "AP": 0,
      "D": 1,
-     "BS": 5
+     "BS": 4
     },
     "keywords": [
      {
@@ -114254,7 +115476,8 @@
     "id": "01c49bf1-12c3-475a-9ee1-6dd3dcd04df1"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "mega-choppa",
@@ -114271,7 +115494,14 @@
      "D": 10,
      "WS": 3
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 4
+      }
+     }
+    ]
    }
   ],
   "game_version": {
@@ -114288,7 +115518,8 @@
     "id": "3e1bcc26-6650-48df-b9dc-816b8da9f119"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "morks-roar",
@@ -114300,10 +115531,10 @@
     "range": 36,
     "stats": {
      "A": 12,
-     "BS": 5,
      "S": 6,
      "AP": -1,
-     "D": 1
+     "D": 1,
+     "BS": 5
     },
     "keywords": [
      {
@@ -114325,12 +115556,13 @@
    },
    {
     "name": "Point Blank",
-    "range": 12,
+    "range": 9,
     "stats": {
      "A": "2D6+2",
      "S": 6,
      "AP": -1,
-     "D": 1
+     "D": 1,
+     "BS": null
     },
     "keywords": [
      {
@@ -114356,7 +115588,8 @@
     "id": "98638cf4-1ce6-4dc7-98a4-c358ae766c9b"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "morks-teeth",
@@ -114409,10 +115642,10 @@
     "range": "Melee",
     "stats": {
      "A": 3,
-     "S": 9,
+     "S": 10,
      "AP": -2,
      "D": 2,
-     "WS": 4
+     "WS": 3
     },
     "keywords": []
    }
@@ -114421,7 +115654,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "power-klaw-big-mek",
@@ -114432,8 +115666,8 @@
     "name": "Power klaw",
     "range": "Melee",
     "stats": {
-     "A": 4,
-     "S": 9,
+     "A": 5,
+     "S": 10,
      "AP": -2,
      "D": 2,
      "WS": 3
@@ -114451,7 +115685,8 @@
     "id": "a325-d197-5553-a355"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "power-klaw-big-mek-in-mega-armour",
@@ -114462,8 +115697,8 @@
     "name": "Power klaw",
     "range": "Melee",
     "stats": {
-     "A": 4,
-     "S": 9,
+     "A": 3,
+     "S": 10,
      "AP": -2,
      "D": 2,
      "WS": 3
@@ -114481,7 +115716,8 @@
     "id": "a325-d197-5553-a355"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "power-klaw-boyz",
@@ -114496,7 +115732,7 @@
      "S": 10,
      "AP": -2,
      "D": 2,
-     "WS": 4
+     "WS": 3
     },
     "keywords": []
    }
@@ -114505,7 +115741,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "power-klaw-meganobz",
@@ -114535,7 +115772,8 @@
     "id": "ee65-6385-44ba-3758"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "power-klaw-warboss",
@@ -114546,11 +115784,11 @@
     "name": "Power klaw",
     "range": "Melee",
     "stats": {
-     "A": 4,
-     "S": 10,
+     "A": 6,
+     "S": 12,
      "AP": -2,
      "D": 2,
-     "WS": 3
+     "WS": 2
     },
     "keywords": []
    }
@@ -114565,7 +115803,8 @@
     "id": "edac-a910-975a-d4fd"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "power-snappa",
@@ -114610,7 +115849,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "psyko-gatler",
@@ -114630,6 +115870,15 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
      },
      {
       "keyword_id": "sustained-hits",
@@ -114654,7 +115903,8 @@
     "id": "d83ccf81-b77e-40c8-b10b-2083b39116b7"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "rokkit-launcha-big-mek-dakkarig",
@@ -114696,7 +115946,26 @@
   "type": "ranged",
   "profiles": [
    {
-    "name": "Rokkit Launcha",
+    "name": "Blasta",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 4,
+     "AP": 0,
+     "D": 1,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   },
+   {
+    "name": "Busta",
     "range": 24,
     "stats": {
      "A": 2,
@@ -114712,7 +115981,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "rokkit-launcha-deff-dread",
@@ -114720,20 +115990,35 @@
   "type": "ranged",
   "profiles": [
    {
-    "name": "Rokkit launcha",
+    "name": "Blasta",
     "range": 24,
     "stats": {
-     "A": "D3",
-     "S": 9,
-     "AP": -2,
-     "D": 3,
+     "A": 2,
+     "S": 4,
+     "AP": 0,
+     "D": 1,
      "BS": 5
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
+   },
+   {
+    "name": "Busta",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "BS": 5
+    },
+    "keywords": []
    }
   ],
   "game_version": {
@@ -114746,7 +116031,8 @@
     "id": "80bc-5c89-4125-2253"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "rokkit-launcha-gorkanaut",
@@ -114754,20 +116040,35 @@
   "type": "ranged",
   "profiles": [
    {
-    "name": "Rokkit launcha",
+    "name": "Blasta",
     "range": 24,
     "stats": {
-     "A": "D3",
-     "S": 9,
-     "AP": -2,
-     "D": 3,
+     "A": 2,
+     "S": 5,
+     "AP": 0,
+     "D": 1,
      "BS": 5
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
+   },
+   {
+    "name": "Busta",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "BS": 5
+    },
+    "keywords": []
    }
   ],
   "game_version": {
@@ -114780,7 +116081,8 @@
     "id": "80bc-5c89-4125-2253"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "rokkit-launcha-kommandos",
@@ -114792,9 +116094,9 @@
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 9,
-     "AP": -2,
-     "D": 3,
+     "S": 4,
+     "AP": 0,
+     "D": 1,
      "BS": 5
     },
     "keywords": [
@@ -114829,7 +116131,8 @@
     "id": "80bc-5c89-4125-2253"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "rokkit-launcha-morkanaut",
@@ -114837,20 +116140,35 @@
   "type": "ranged",
   "profiles": [
    {
-    "name": "Rokkit launcha",
+    "name": "Blasta",
     "range": 24,
     "stats": {
-     "A": "D3",
-     "S": 9,
-     "AP": -2,
-     "D": 3,
-     "BS": 5
+     "A": 2,
+     "S": 5,
+     "AP": 0,
+     "D": 1,
+     "BS": 4
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
      }
     ]
+   },
+   {
+    "name": "Busta",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "BS": 4
+    },
+    "keywords": []
    }
   ],
   "game_version": {
@@ -114863,7 +116181,8 @@
     "id": "80bc-5c89-4125-2253"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "rokkit-launcha-tankbustas",
@@ -114874,8 +116193,8 @@
     "name": "Standard",
     "range": 24,
     "stats": {
-     "A": 3,
-     "S": 9,
+     "A": 2,
+     "S": 10,
      "AP": -2,
      "D": 3,
      "BS": 4
@@ -114918,7 +116237,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "rokkit-pistol",
@@ -114930,10 +116250,10 @@
     "range": 12,
     "stats": {
      "A": 1,
-     "S": 9,
+     "S": 10,
      "AP": -2,
      "D": 3,
-     "BS": 5
+     "BS": 4
     },
     "keywords": [
      {
@@ -114946,7 +116266,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "runtherd-tools",
@@ -115049,7 +116370,8 @@
     "id": "efef7b43-09d6-4e2a-8e03-d7d9ed96b92c"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "saw-blades-hunta-rig",
@@ -115089,7 +116411,8 @@
     "id": "b52d-d0e9-825d-e3a9"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "saw-blades-kill-rig",
@@ -115129,7 +116452,8 @@
     "id": "b52d-d0e9-825d-e3a9"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "shokk-attack-gun",
@@ -115140,10 +116464,10 @@
     "name": "Shokk Attack Gun",
     "range": 60,
     "stats": {
-     "A": "D6+1",
-     "S": 9,
+     "A": "D3+3",
+     "S": 12,
      "AP": -4,
-     "D": "D6",
+     "D": "D6+1",
      "BS": 5
     },
     "keywords": [
@@ -115170,7 +116494,8 @@
     "id": "e70a33d4-b3ac-43e9-8f7d-c350d3580e7d"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "shoota",
@@ -115188,6 +116513,15 @@
      "BS": 5
     },
     "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
      {
       "keyword_id": "rapid-fire",
       "parameters": {
@@ -115227,7 +116561,8 @@
     "id": "bec3f5b4-f46a-4a1e-a60c-c91d3f3fa25c"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "shoota-beastboss",
@@ -115245,6 +116580,15 @@
      "BS": 4
     },
     "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
      {
       "keyword_id": "rapid-fire",
       "parameters": {
@@ -115264,7 +116608,8 @@
     "id": "64da-fae7-507d-8b18"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "skorcha",
@@ -115277,11 +116622,17 @@
     "stats": {
      "A": 3,
      "S": 5,
-     "AP": -1,
+     "AP": 0,
      "D": 1,
      "BS": null
     },
     "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
+     },
      {
       "keyword_id": "torrent"
      }
@@ -115302,7 +116653,8 @@
     "id": "35e4d773-1c11-4635-9091-2c7ee5dc1a02"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "skorcha-missile-rack",
@@ -115313,9 +116665,9 @@
     "name": "Skorcha missile rack",
     "range": 36,
     "stats": {
-     "A": "2D6",
+     "A": 6,
      "S": 5,
-     "AP": -1,
+     "AP": 0,
      "D": 1,
      "BS": 5
     },
@@ -115343,7 +116695,8 @@
     "id": "e114ab53-9e3a-4a34-9ec2-556d35e1a5a5"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "slugga",
@@ -115380,7 +116733,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "slugga-bigboss",
@@ -115400,6 +116754,15 @@
     "keywords": [
      {
       "keyword_id": "close-quarters"
+     },
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
      }
     ]
    }
@@ -115414,7 +116777,8 @@
     "id": "752e-cd9b-4721-f0b0"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "slugga-boss-snikrot",
@@ -115429,11 +116793,23 @@
      "S": 4,
      "AP": 0,
      "D": 1,
-     "BS": 4
+     "BS": 5
     },
     "keywords": [
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
+     },
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "precision"
      }
     ]
    }
@@ -115448,7 +116824,8 @@
     "id": "b621-5929-fc60-ed8d"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "smash-hammer",
@@ -115465,37 +116842,16 @@
      "D": 2,
      "WS": 3
     },
-    "keywords": [
-     {
-      "keyword_id": "anti",
-      "parameters": {
-       "target_keyword": "Monster",
-       "threshold": 4,
-       "required_target_keywords_any": [
-        "Monster"
-       ]
-      }
-     },
-     {
-      "keyword_id": "anti",
-      "parameters": {
-       "target_keyword": "Vehicle",
-       "threshold": 4,
-       "required_target_keywords_any": [
-        "Vehicle"
-       ]
-      }
-     }
-    ]
+    "keywords": []
    },
    {
     "name": "Hunter",
     "range": "Melee",
     "stats": {
-     "A": 2,
-     "S": 14,
-     "AP": -3,
-     "D": 6,
+     "A": 3,
+     "S": 12,
+     "AP": -2,
+     "D": 3,
      "WS": 3
     },
     "keywords": [
@@ -115524,7 +116880,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "smasha-gun",
@@ -115535,15 +116892,15 @@
     "name": "Smasha gun",
     "range": 48,
     "stats": {
-     "A": "D3",
-     "S": 9,
+     "A": 4,
+     "S": 6,
      "AP": -3,
-     "D": 4,
+     "D": 3,
      "BS": 4
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "ignores-cover"
      }
     ]
    }
@@ -115570,7 +116927,8 @@
     "id": "54d8f88f-f220-41c7-a522-0d597378125b"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "smasha-gun-mek-gunz",
@@ -115581,8 +116939,8 @@
     "name": "Smasha Gun",
     "range": 48,
     "stats": {
-     "A": "D3+1",
-     "S": 9,
+     "A": 4,
+     "S": 7,
      "AP": -3,
      "D": 3,
      "BS": 4
@@ -115604,7 +116962,8 @@
     "id": "507e-5415-d6c5-f5f5"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "snagga-klaw",
@@ -115612,16 +116971,42 @@
   "type": "melee",
   "profiles": [
    {
-    "name": "Snagga Klaw",
-    "range": "Melee",
+    "name": "Ranged",
+    "range": 12,
     "stats": {
-     "A": 4,
-     "S": 10,
+     "A": 1,
+     "S": 7,
      "AP": -2,
      "D": 2,
-     "WS": 3
+     "BS": 5
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "precision"
+     }
+    ]
+   },
+   {
+    "name": "Melee",
+    "range": "Melee",
+    "stats": {
+     "A": 5,
+     "S": 7,
+     "AP": -2,
+     "D": 2,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
    }
   ],
   "game_version": {
@@ -115638,7 +117023,8 @@
     "id": "664b8592-c1ea-433b-acf2-e9ffbf643768"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "snazzgun",
@@ -115649,9 +117035,9 @@
     "name": "Cutta",
     "range": 12,
     "stats": {
-     "A": 3,
-     "S": 6,
-     "AP": -1,
+     "A": 1,
+     "S": 9,
+     "AP": -3,
      "D": "D3+2",
      "BS": 4
     },
@@ -115668,11 +117054,39 @@
     ]
    },
    {
+    "name": "Dakka",
+    "range": 24,
+    "stats": {
+     "A": 3,
+     "S": 6,
+     "AP": -1,
+     "D": 2,
+     "BS": 4
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
+   },
+   {
     "name": "Kill Shot",
     "range": 36,
     "stats": {
      "A": 2,
-     "S": 6,
+     "S": 8,
      "AP": -2,
      "D": 2,
      "BS": 4
@@ -115698,7 +117112,8 @@
     "id": "7e0c6155-ce15-4884-bf7b-0d8f8333e9d1"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "speeding-bulk-and-flaming-exhaust",
@@ -115709,13 +117124,19 @@
     "name": "Speeding bulk and flaming exhaust",
     "range": "Melee",
     "stats": {
-     "A": 6,
+     "A": 3,
      "S": 5,
      "AP": -1,
      "D": 1,
      "WS": 2
     },
     "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     },
      {
       "keyword_id": "extra-attacks"
      }
@@ -115736,7 +117157,8 @@
     "id": "fc395c93-dc4e-4b9b-bea2-1218206065a8"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "spiked-wheels",
@@ -115785,13 +117207,23 @@
     "name": "Spinnin’ blades",
     "range": "Melee",
     "stats": {
-     "A": 6,
+     "A": 4,
      "S": 5,
-     "AP": 0,
+     "AP": -1,
      "D": 1,
      "WS": 3
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
+      "keyword_id": "hazardous"
+     }
+    ]
    }
   ],
   "game_version": {
@@ -115808,7 +117240,8 @@
     "id": "a50d6532-c501-42d5-bce3-8ac91d7b4749"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "squig-jaws",
@@ -115846,7 +117279,8 @@
     "id": "8cf511cf-5760-421b-8a8e-1725e5f7e898"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "squigosaurs-jaws",
@@ -115904,7 +117338,8 @@
     "id": "b11fbdf4-0080-4789-84dd-37d73228cc1f"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "squigstoppa",
@@ -115926,11 +117361,33 @@
       "keyword_id": "anti",
       "parameters": {
        "target_keyword": "Monster",
-       "threshold": 4
+       "threshold": 4,
+       "required_target_keywords_any": [
+        "Monster"
+       ]
       }
      },
      {
-      "keyword_id": "pistol"
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Vehicle",
+       "threshold": 4,
+       "required_target_keywords_any": [
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "close-quarters"
+     },
+     {
+      "keyword_id": "devastating-wounds",
+      "parameters": {
+       "required_target_keywords_any": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
      }
     ]
    }
@@ -115949,7 +117406,8 @@
     "id": "3ec246f6-fb72-40c9-9e44-2ea61fc1699a"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "stikka",
@@ -116040,7 +117498,8 @@
     "id": "2e5a42cd-d0e6-4733-b7b2-e16bd5237164"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "stikka-kannon",
@@ -116095,7 +117554,8 @@
     "id": "8d49c005-678e-4676-9571-40e8efa84a0e"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "stompy-feet",
@@ -116171,7 +117631,8 @@
     "id": "6feb-277f-7f31-504a"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "supa-gatler",
@@ -116188,7 +117649,23 @@
      "D": 2,
      "BS": 5
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
    },
    {
     "name": "Point Blank",
@@ -116221,7 +117698,8 @@
     "id": "71d101c9-8dda-4ebc-9a0a-7573256c4de3"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "tankhammer",
@@ -116232,11 +117710,11 @@
     "name": "Tankhammer",
     "range": "Melee",
     "stats": {
-     "A": 2,
-     "S": 7,
+     "A": 3,
+     "S": 12,
      "AP": -2,
      "D": 3,
-     "WS": 3
+     "WS": 4
     },
     "keywords": [
      {
@@ -116266,7 +117744,8 @@
     "id": "88212237-e456-421c-88dd-405040292152"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "tellyport-blasta",
@@ -116277,11 +117756,11 @@
     "name": "Tellyport blasta",
     "range": 12,
     "stats": {
-     "A": 3,
-     "S": 8,
-     "AP": -1,
+     "A": 6,
+     "S": 9,
+     "AP": -2,
      "D": 3,
-     "BS": 5
+     "BS": 4
     },
     "keywords": [
      {
@@ -116304,7 +117783,8 @@
     "id": "0491679f-9b81-416a-b7d2-43ac4af390df"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "thump-gun",
@@ -116315,7 +117795,7 @@
     "name": "Thump Gun",
     "range": 18,
     "stats": {
-     "A": "D3",
+     "A": 3,
      "S": 6,
      "AP": 0,
      "D": 2,
@@ -116349,7 +117829,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "tracks-and-wheels",
@@ -116396,24 +117877,21 @@
   "profiles": [
    {
     "name": "Traktor blasta",
-    "range": 36,
+    "range": 24,
     "stats": {
-     "A": 1,
-     "S": 10,
+     "A": 3,
+     "S": 6,
      "AP": -2,
-     "D": "D6+1",
-     "BS": 5
+     "D": "D3+3",
+     "BS": 4
     },
     "keywords": [
      {
       "keyword_id": "anti",
       "parameters": {
        "target_keyword": "Fly",
-       "threshold": 3
+       "threshold": 2
       }
-     },
-     {
-      "keyword_id": "devastating-wounds"
      }
     ]
    }
@@ -116432,7 +117910,8 @@
     "id": "a0d54cc7-ae34-46b9-a837-b125dd25f02b"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "traktor-kannon",
@@ -116444,9 +117923,9 @@
     "range": 48,
     "stats": {
      "A": 2,
-     "S": 10,
+     "S": 6,
      "AP": -2,
-     "D": "D6+1",
+     "D": "D3+3",
      "BS": 4
     },
     "keywords": [
@@ -116455,14 +117934,6 @@
       "parameters": {
        "target_keyword": "Fly",
        "threshold": 2
-      }
-     },
-     {
-      "keyword_id": "devastating-wounds",
-      "parameters": {
-       "required_target_keywords_any": [
-        "Fly"
-       ]
       }
      }
     ]
@@ -116482,7 +117953,8 @@
     "id": "a8d3fa41-44fe-4167-b697-da1077dc145f"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "twin-big-shoota",
@@ -116601,7 +118073,8 @@
     "id": "b46a-4885-3b28-428b"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "twin-sluggas",
@@ -116979,13 +118452,20 @@
     "name": "Uge choppa",
     "range": "Melee",
     "stats": {
-     "A": 4,
+     "A": 5,
      "S": 12,
      "AP": -2,
-     "D": 2,
+     "D": 3,
      "WS": 2
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
    }
   ],
   "game_version": {
@@ -117002,7 +118482,8 @@
     "id": "ba41e205-6a6c-4612-956b-1c1d501e08a5"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "urty-syringe",
@@ -117016,7 +118497,7 @@
      "A": 1,
      "S": 2,
      "AP": 0,
-     "D": 1,
+     "D": "D6",
      "WS": 3
     },
     "keywords": [
@@ -117028,10 +118509,15 @@
       }
      },
      {
-      "keyword_id": "extra-attacks"
+      "keyword_id": "devastating-wounds",
+      "parameters": {
+       "required_target_keywords_any": [
+        "Infantry"
+       ]
+      }
      },
      {
-      "keyword_id": "precision"
+      "keyword_id": "extra-attacks"
      }
     ]
    }
@@ -117050,7 +118536,8 @@
     "id": "8abcd5a3-d51f-4b1d-8ded-9c6cbd3a3e7f"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "weirdboy-staff",
@@ -117103,7 +118590,7 @@
      "S": 10,
      "AP": 0,
      "D": "D6",
-     "WS": 4
+     "WS": 3
     },
     "keywords": [
      {
@@ -117132,7 +118619,8 @@
     "id": "b66ff2e1-4600-4433-bc4a-2d48abf5b568"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "wurrtower",
@@ -117143,10 +118631,10 @@
     "name": "Wurrtower",
     "range": 24,
     "stats": {
-     "A": "D3",
+     "A": 1,
      "S": 12,
      "AP": -3,
-     "D": "D6",
+     "D": 6,
      "BS": null
     },
     "keywords": [
@@ -117176,7 +118664,8 @@
     "id": "8f333188-6bd5-423f-bb25-976af52ea7b9"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "zzap-gun",
@@ -117260,7 +118749,8 @@
     "id": "0141da71-8e71-44ae-93b9-054b978f8e7d"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "rokkit-launcha",
@@ -117268,15 +118758,35 @@
   "type": "ranged",
   "profiles": [
    {
-    "name": "Rokkit launcha",
+    "name": "Blasta",
     "range": 24,
     "stats": {
-     "A": "D3+3",
+     "A": 2,
+     "S": 4,
+     "AP": 0,
+     "D": 1,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   },
+   {
+    "name": "Busta",
+    "range": 24,
+    "stats": {
+     "A": 2,
      "S": 10,
      "AP": -2,
      "D": 3,
      "BS": 5
-    }
+    },
+    "keywords": []
    }
   ],
   "game_version": {
@@ -117321,7 +118831,8 @@
     "id": "fcbda1b6-22f4-4466-a97c-e8cff322bb30"
    }
   ],
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kombi-shoota",
@@ -117698,7 +119209,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "multi-busta-launcha",
@@ -117735,7 +119247,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "burna",
@@ -117786,7 +119299,7 @@
   "type": "ranged",
   "profiles": [
    {
-    "name": "Kombi-rokkit",
+    "name": "Busta Rokkit",
     "range": 24,
     "stats": {
      "A": 1,
@@ -117794,14 +119307,44 @@
      "AP": -2,
      "D": 3,
      "BS": 5
-    }
+    },
+    "keywords": []
+   },
+   {
+    "name": "Shoota",
+    "range": 18,
+    "stats": {
+     "A": 2,
+     "S": 4,
+     "AP": 0,
+     "D": 1,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "blasta",
@@ -117898,7 +119441,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "extra-dakka",
@@ -117926,6 +119470,15 @@
       "keyword_id": "assault"
      },
      {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
       "keyword_id": "sustained-hits",
       "parameters": {
        "value": 1
@@ -117938,7 +119491,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "mek-speshul",
@@ -117964,6 +119518,15 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
      },
      {
       "keyword_id": "sustained-hits",
@@ -117997,7 +119560,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "spiked-ram",
@@ -118014,10 +119578,10 @@
     "name": "Spiked Ram",
     "range": "Melee",
     "stats": {
-     "A": 4,
-     "S": 7,
-     "AP": -1,
-     "D": 2,
+     "A": 3,
+     "S": 6,
+     "AP": 0,
+     "D": 1,
      "WS": 3
     },
     "keywords": [
@@ -118034,7 +119598,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "rivet-kannon",
@@ -118067,6 +119632,14 @@
      },
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "devastating-wounds",
+      "parameters": {
+       "required_target_keywords_any": [
+        "Infantry"
+       ]
+      }
      }
     ]
    },
@@ -118092,6 +119665,14 @@
       "keyword_id": "assault"
      },
      {
+      "keyword_id": "devastating-wounds",
+      "parameters": {
+       "required_target_keywords_any": [
+        "Infantry"
+       ]
+      }
+     },
+     {
       "keyword_id": "torrent"
      }
     ]
@@ -118101,7 +119682,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "armoured-impact",
@@ -118130,7 +119712,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "dual-supa-shoota",
@@ -118155,6 +119738,15 @@
     },
     "keywords": [
      {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
       "keyword_id": "rapid-fire",
       "parameters": {
        "value": 4
@@ -118167,7 +119759,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "crushin-bulk",
@@ -118204,7 +119797,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "dual-kombi-rokkit",
@@ -118246,6 +119840,15 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
      }
     ]
    }
@@ -118254,7 +119857,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "dual-dakkagun",
@@ -118280,6 +119884,15 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
      }
     ]
    }
@@ -118288,7 +119901,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "meks-toolz",
@@ -118317,7 +119931,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "morks-teef",
@@ -118358,7 +119973,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "deffkannon-and-supa-rokkits",
@@ -118392,7 +120008,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "beast-snagga-klaw-and-beastchoppa",
@@ -118414,14 +120031,27 @@
      "AP": -2,
      "D": 2,
      "WS": 2
-    }
+    },
+    "keywords": [
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 2,
+       "required_target_keywords_any": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-meks-toolz",
@@ -118450,7 +120080,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kombi-skorcha",
@@ -118474,6 +120105,15 @@
      "BS": 5
     },
     "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
      {
       "keyword_id": "rapid-fire",
       "parameters": {
@@ -118506,7 +120146,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "dual-big-shoota",
@@ -118531,6 +120172,15 @@
     },
     "keywords": [
      {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
       "keyword_id": "rapid-fire",
       "parameters": {
        "value": 4
@@ -118543,7 +120193,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "extra-klaw",
@@ -118577,7 +120228,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "adamantine-eadbutt",
@@ -118617,7 +120269,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "saw-blades",
@@ -118634,9 +120287,9 @@
     "name": "Saw Blades",
     "range": "Melee",
     "stats": {
-     "A": 6,
-     "S": 10,
-     "AP": -2,
+     "A": 4,
+     "S": 7,
+     "AP": -1,
      "D": 2,
      "WS": 3
     },
@@ -118646,9 +120299,6 @@
       "parameters": {
        "value": 1
       }
-     },
-     {
-      "keyword_id": "extra-attacks"
      }
     ]
    }
@@ -118657,7 +120307,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kan-blasta",
@@ -118730,7 +120381,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-blasta-x",
@@ -118742,10 +120394,10 @@
     "range": 24,
     "stats": {
      "A": 6,
-     "BS": 4,
-     "S": 8,
+     "S": 9,
      "AP": -2,
-     "D": 3
+     "D": 3,
+     "BS": 4
     },
     "keywords": [
      {
@@ -118758,10 +120410,10 @@
     "range": 18,
     "stats": {
      "A": 4,
-     "BS": 4,
      "S": 5,
      "AP": -1,
-     "D": 1
+     "D": 1,
+     "BS": 4
     },
     "keywords": [
      {
@@ -118785,14 +120437,43 @@
     "name": "Skorcha",
     "range": 12,
     "stats": {
-     "A": "D6+1",
+     "A": 3,
      "S": 5,
      "AP": -1,
-     "D": 1
+     "D": 1,
+     "BS": null
     },
     "keywords": [
      {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
       "keyword_id": "torrent"
+     }
+    ]
+   },
+   {
+    "name": "Melee",
+    "range": "Melee",
+    "stats": {
+     "A": 6,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "WS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
+      "keyword_id": "extra-attacks"
      }
     ]
    }
@@ -118801,7 +120482,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "moonchewa",
@@ -118813,10 +120495,10 @@
     "range": "Melee",
     "stats": {
      "A": 5,
-     "WS": 2,
      "S": 12,
      "AP": -2,
-     "D": 3
+     "D": 3,
+     "WS": 2
     },
     "keywords": [
      {
@@ -118835,7 +120517,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "busta-rokkit-launcha",
@@ -118924,7 +120607,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "buzzsaw",
@@ -118964,7 +120648,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "dual-wazbom-mega-kannon",
@@ -119001,7 +120686,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "dual-tellyport-mega-blasta",
@@ -119044,7 +120730,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "power-vomit",
@@ -119087,7 +120774,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "copper-staff",
@@ -119121,7 +120809,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-skorcha",
@@ -119182,7 +120871,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-big-shoota",
@@ -119204,14 +120894,26 @@
      "AP": 0,
      "D": 1,
      "BS": 5
-    }
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "doks-toolz",
@@ -119240,7 +120942,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "sawn-off-shotgun",
@@ -119266,6 +120969,15 @@
     "keywords": [
      {
       "keyword_id": "assault"
+     },
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
      }
     ]
    }
@@ -119274,7 +120986,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "squig-launchas",
@@ -119308,7 +121021,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "saddlegits-shiv",
@@ -119342,7 +121056,8 @@
    "edition": "11th",
    "dataslate": "launch"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-skorcha-nobz",
@@ -119361,6 +121076,12 @@
     },
     "keywords": [
      {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     },
+     {
       "keyword_id": "torrent"
      }
     ]
@@ -119370,7 +121091,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "burna-boyz-unit",
@@ -119389,6 +121111,12 @@
     },
     "keywords": [
      {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
       "keyword_id": "torrent"
      }
     ]
@@ -119398,7 +121126,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kombi-rokkit-nobz",
@@ -119427,14 +121156,31 @@
      "D": 1,
      "BS": 5
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kombi-skorcha-boyz",
@@ -119442,7 +121188,35 @@
   "type": "ranged",
   "profiles": [
    {
-    "name": "Kombi-skorcha",
+    "name": "Shoota",
+    "range": 18,
+    "stats": {
+     "A": 2,
+     "S": 4,
+     "AP": 0,
+     "D": 1,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "Skorcha",
     "range": 12,
     "stats": {
      "A": 3,
@@ -119453,6 +121227,12 @@
     },
     "keywords": [
      {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
       "keyword_id": "torrent"
      }
     ]
@@ -119462,7 +121242,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-choppa-boyz",
@@ -119473,7 +121254,7 @@
     "name": "Kustom Choppa",
     "range": "Melee",
     "stats": {
-     "A": 3,
+     "A": 4,
      "S": 5,
      "AP": -2,
      "D": 2,
@@ -119486,7 +121267,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-choppa-nobz",
@@ -119497,7 +121279,7 @@
     "name": "Kustom Choppa",
     "range": "Melee",
     "stats": {
-     "A": 3,
+     "A": 4,
      "S": 5,
      "AP": -2,
      "D": 2,
@@ -119510,7 +121292,8 @@
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-shoota-nobz",
@@ -119521,20 +121304,37 @@
     "name": "Kustom Shoota",
     "range": 18,
     "stats": {
-     "A": 8,
+     "A": 4,
      "S": 4,
      "AP": 0,
      "D": 1,
      "BS": 5
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "paired-kustom-krumpas",
@@ -119575,14 +121375,31 @@
      "D": 1,
      "BS": 5
     },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "codex-orks"
   },
-  "faction_id": "orks"
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kustom-blasta-x-melee",
@@ -119617,6 +121434,699 @@
    "dataslate": "codex-orks"
   },
   "faction_id": "orks"
+ },
+ {
+  "id": "kustom-shoota-big-mek-in-mega-armour",
+  "name": "Kustom Shoota",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Aimed",
+    "range": 18,
+    "stats": {
+     "A": 4,
+     "S": 4,
+     "AP": 0,
+     "D": 1,
+     "BS": 4
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   },
+   {
+    "name": "Point Blank",
+    "range": 6,
+    "stats": {
+     "A": "D3+3",
+     "S": 4,
+     "AP": 0,
+     "D": 1,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
+     },
+     {
+      "keyword_id": "torrent"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "kombi-weapon-meganobz",
+  "name": "Kombi-weapon",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Shoota",
+    "range": 18,
+    "stats": {
+     "A": 2,
+     "S": 4,
+     "AP": 0,
+     "D": 1,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "Kill Shot",
+    "range": 24,
+    "stats": {
+     "A": 1,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "BS": 5
+    },
+    "keywords": []
+   },
+   {
+    "name": "Point Blank",
+    "range": 12,
+    "stats": {
+     "A": 3,
+     "S": 5,
+     "AP": 0,
+     "D": 1,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
+     },
+     {
+      "keyword_id": "torrent"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "kustom-choppa-stormboyz",
+  "name": "Kustom Choppa",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Kustom Choppa",
+    "range": "Melee",
+    "stats": {
+     "A": 4,
+     "S": 5,
+     "AP": -2,
+     "D": 2,
+     "WS": 3
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "rokkit-launcha-deffkoptas",
+  "name": "Rokkit Launcha",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Blasta",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 4,
+     "AP": 0,
+     "D": 1,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   },
+   {
+    "name": "Busta",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "kustom-mega-blasta-deffkoptas",
+  "name": "Kustom Mega-blasta",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Kustom Mega-blasta",
+    "range": 24,
+    "stats": {
+     "A": 3,
+     "S": 9,
+     "AP": -2,
+     "D": 3,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "hazardous"
+     },
+     {
+      "keyword_id": "lethal-hits"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "choppa-deffkoptas",
+  "name": "Choppa",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Choppa",
+    "range": "Melee",
+    "stats": {
+     "A": 3,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "WS": 4
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "dual-supa-shoota-burna-bommer",
+  "name": "Dual Supa Shoota",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Dual Supa Shoota",
+    "range": 36,
+    "stats": {
+     "A": 8,
+     "S": 6,
+     "AP": -1,
+     "D": 1,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 4
+      }
+     },
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "dual-supa-shoota-wazbom-blastajet",
+  "name": "Dual Supa-shoota",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Dual Supa-shoota",
+    "range": 36,
+    "stats": {
+     "A": 8,
+     "S": 6,
+     "AP": -1,
+     "D": 1,
+     "BS": 4
+    },
+    "keywords": [
+     {
+      "keyword_id": "ignores-cover"
+     },
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 4
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "kustom-choppa-warbikers",
+  "name": "Kustom Choppa",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Kustom Choppa",
+    "range": "Melee",
+    "stats": {
+     "A": 4,
+     "S": 5,
+     "AP": -2,
+     "D": 2,
+     "WS": 3
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "spiked-ram-warbuggies",
+  "name": "Spiked Ram",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Spiked Ram",
+    "range": "Melee",
+    "stats": {
+     "A": 4,
+     "S": 7,
+     "AP": -1,
+     "D": 2,
+     "WS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "scavenged-shivs-mek-gunz",
+  "name": "Scavenged Shivs",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Scavenged Shivs",
+    "range": "Melee",
+    "stats": {
+     "A": 5,
+     "S": 2,
+     "AP": 0,
+     "D": 1,
+     "WS": 5
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "kustom-mega-blasta-deff-dread",
+  "name": "Kustom Mega-blasta",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Kustom Mega-blasta",
+    "range": 24,
+    "stats": {
+     "A": 3,
+     "S": 9,
+     "AP": -2,
+     "D": 3,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "hazardous"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "dual-big-shoota-morkanaut",
+  "name": "Dual Big Shoota",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Dual Big Shoota",
+    "range": 36,
+    "stats": {
+     "A": 6,
+     "S": 5,
+     "AP": 0,
+     "D": 1,
+     "BS": 4
+    },
+    "keywords": [
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     },
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 4
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "skorcha-stompa",
+  "name": "Skorcha",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Skorcha",
+    "range": 12,
+    "stats": {
+     "A": 3,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     },
+     {
+      "keyword_id": "torrent"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "butcha-boyz-hunta-rig",
+  "name": "Butcha Boyz",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Butcha Boyz",
+    "range": "Melee",
+    "stats": {
+     "A": 4,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "WS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Monster",
+       "threshold": 4,
+       "required_target_keywords_any": [
+        "Monster"
+       ]
+      }
+     },
+     {
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Vehicle",
+       "threshold": 4,
+       "required_target_keywords_any": [
+        "Vehicle"
+       ]
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "rokkit-pistol-breaka-boyz",
+  "name": "Rokkit Pistol",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Rokkit Pistol",
+    "range": 12,
+    "stats": {
+     "A": 1,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "BS": 5
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "kustom-choppa-bannernob",
+  "name": "Kustom Choppa",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Kustom Choppa",
+    "range": "Melee",
+    "stats": {
+     "A": 4,
+     "S": 5,
+     "AP": -2,
+     "D": 2,
+     "WS": 3
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "multi-busta-launcha-wartrakks",
+  "name": "Multi-busta Launcha",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Multi-busta Launcha",
+    "range": 24,
+    "stats": {
+     "A": "D3+3",
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "BS": 5
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "kustom-choppa-wartrakks",
+  "name": "Kustom Choppa",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Kustom Choppa",
+    "range": "Melee",
+    "stats": {
+     "A": 4,
+     "S": 5,
+     "AP": -2,
+     "D": 2,
+     "WS": 3
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "orks",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kroot-pistol-and-hunting-javelins",

@@ -1,0 +1,299 @@
+datasheet_id|line|ability_id|model|name|description|type|parameter
+000000001|1|000008346||||Core|
+000000001|2|000011126||||Faction|
+000000001|3|000003676||||Faction|
+000000001|4|||Boss’ Ammo Runt (Once per battle, per unit)|In your Shooting phase, when this unit is selected to shoot, you can use this ability. If you do, this model’s ranged attacks have +1 to hit rolls.<br><br><i>Place a Boss’ Ammo Runt token next to the unit, removing it when this ability is used.</i>|Datasheet|
+000000001|5|||Might Is Right|If this unit made a charge move this turn, this model’s melee attacks have:<br><ul><li>+3 <b>A</b>.</li><li>+2 <b>S</b>.</li></ul>|Datasheet|
+000000001|6|||Intimidating Motivation (Once per battle round, per army)|"In your Movement phase, at the start or end of this unit’s move, you can select one friendly <span class=""kwb"">ORKS</span> unit within 6"" of this unit. That unit:<br><ul><li>Is no longer battle-shocked.</li><li>Is riled up until the start of your next turn.</li></ul>"|Datasheet|
+000000002|1|000008346||||Core|
+000000002|2|000011126||||Faction|
+000000002|3|000003676||||Faction|
+000000002|4|||Krushin’ Impetus|When this unit ends a charge move, you can select one enemy unit engaged with this unit. If you do, roll one D6 for each model in this unit <b>engaged</b> with that enemy unit:<br><ul><li>For each 3+, that enemy unit suffers 1 mortal wound.</li></ul>|Datasheet|
+000000002|5|||Intimidating Motivation (Once per battle round, per army)|"In your Movement phase, at the start or end of this unit’s move, you can select one friendly <span class=""kwb"">ORKS</span> unit within 6"" of this unit. That unit:<br><ul><li>Is no longer battle-shocked.</li><li>Is riled up until the start of your next turn.</li></ul>"|Datasheet|
+000000003|1|000008346||||Core|
+000000003|2|000003676||||Faction|
+000000003|3|000011126||||Faction|
+000000003|4|||Get Back in Da Race|"In your Movement phase, at the start or end of this unit’s move, you can select one friendly Speed Freeks unit within 6"" of this unit. That unit (and any units embarked within that unit):<br><ul><li>Is no longer battle-shocked.</li><li>Is riled up until the start of your next turn.</li></ul>"|Datasheet|
+000000003|5|||Speedboss|This unit’s melee attacks have +1 to hit rolls.|Datasheet|
+000000004|1|000008339||||Core|D3
+000000004|2|000010857||||Core|
+000000004|3|000011127||||Faction|
+000000004|4|000003676||||Faction|
+000000004|5|||Waaagh! Energy (psyker level 1)|This model has the psychic abilities listed in the Psychic Abilities section (see above).|Datasheet|
+000000004|6|||Da Jump (psychic level 1, once per army, per battle round)|In your Movement phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>Place this unit in strategic reserves.</li><li>This unit has Deep Strike.</li></ul>|Psychic|
+000000004|7|||Warpath (psychic level 1)|In the Fight phase, when this unit is selected to fight, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>This unit’s melee attacks can re-roll wound rolls of 1.</li><li>This unit’s melee attacks have [Psychic].</li></ul>|Psychic|
+000000006|1|000008346||||Core|
+000000006|2|000003676||||Faction|
+000000006|3|||Fix Dat Armour Up (Once per battle, per unit)|In your Command phase, this unit heals 3 wounds.<br><br><i>Place a Grot Oiler token next to the unit, removing it when this ability is used.</i>|Datasheet|
+000000006|4|||More Dakka|This unit’s ranged attacks have:<br><ul><li>[Ignores Cover]. </li><li>If this unit is riled up, [Sustained Hits 1].</li></ul>|Datasheet|
+000000006|5|||Kustom Force Field|This unit has 4+ InSv against ranged attacks.|Wargear|
+000000008|1|000011126||||Faction|
+000000008|2|000003676||||Faction|
+000000008|3|||Da Grand Warlord's Ladz|"While this unit is within 3"" of another friendly Orks Infantry unit, this unit has Lone Operative."|Datasheet|
+000000008|4|||Makari, Hoist Dat Banner! (Once per battle, per army)|"In your Movement phase, you can select a number of friendly <span class=""kwb"">ORKS</span> units equal to or less than the current battle round number. Those units are riled up until the start of your next turn.<br><br><i>Place one Makari token next to the unit, removing it after this ability is used.</i>"|Datasheet|
+000000008|5|||Prophet of da Great Waaagh! (Aura)|"While a friendly <span class=""kwb"">ORKS</span> unit is within 6"" of this unit, that unit’s melee attacks have:<br><ul><li>+1 to hit rolls.</li><li>+1 to wound rolls.</li></ul>"|Datasheet|
+000000008|6|||SUPREME COMMANDER|"If this model is in your army, it must be your <span class=""kwb"">WARLORD</span>."|Fortification (левая колонка)|
+000000009|1|000008346||||Core|
+000000009|2|000003676||||Faction|
+000000009|3|||Flashiest Gitz|This unit’s ranged attacks can re-roll hit rolls.|Datasheet|
+000000009|4|||Ded Glowy Ammo|"Enemy units within 6"" of this model have -1 <b>T</b>."|Datasheet|
+000000010|1|000008346||||Core|
+000000010|2|000008343||||Core|
+000000010|3|000008338||||Core|6+
+000000010|4|000003676||||Faction|
+000000010|5|||Drill Boss|This unit’s melee attacks have +1 to hit rolls.|Datasheet|
+000000010|6|||Plummeting Descent|If this unit made an ingress move this turn, this unit can re-roll charge rolls.|Datasheet|
+000000011|1|000008345||||Core|
+000000011|2|000008346||||Core|
+000000011|3|000008336||||Core|
+000000011|4|000008337||||Core|
+000000011|5|000003676||||Faction|
+000000011|6|||Kunnin’ Infiltrator|At the end of your opponent’s Fight phase, if each model in this unit is hidden and unengaged, you can place this unit in strategic reserves.|Datasheet|
+000000011|7|||Deff from the Shadows (First battle round onwards)|At the end of your opponent’s Movement phase, if this unit is in strategic reserves, this unit can make an ingress move.|Datasheet|
+000000012|1|000010857||||Core|
+000000012|2|000003676||||Faction|
+000000012|3|||Kustom Dakka|This unit’s ranged attacks have [Ignores Cover].|Datasheet|
+000000012|4|||Clever Know-wotz|"In your Movement phase, at the start or end of this unit’s move, you can select one friendly Orks Vehicle model (excluding <span class=""kwb"">AIRCRAFT</span>/<span class=""kwb"">TITANIC</span> models) within 3"" of this model:<br><ul><li>That <span class=""kwb"">VEHICLE</span> model heals D3 wounds.</li><li>That <span class=""kwb"">VEHICLE</span> model’s attacks have +1 to hit rolls until the start of your next Movement phase.</li></ul>"|Datasheet|
+000000013|1|000010857||||Core|
+000000013|2|000003676||||Faction|
+000000013|3|||Crude Surgery|In your Command phase, this unit heals 3 wounds.|Datasheet|
+000000013|4|||Catch Dat Red Bit (Once per battle, per unit)|When this model uses its <b>Crude Surgery</b> ability, you can add D3 to the number of wounds healed.<br><br><i>Place a Grot Orderly token next to the unit, removing it when this ability is used.</i>|Datasheet|
+000000015|1|000008346||||Core|
+000000015|2|000008338||||Core|5+
+000000015|3|000003676||||Faction|
+000000015|4|||One Scalpel Short of a Medpack|When this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to declare a charge.|Datasheet|
+000000015|5|||Mad Dok|"In your Command phase, select one friendly Orks Infantry unit within 6"" of this model, and select one of the following:<br><ul><li>That unit heals 3 wounds.</li><li><u>Or:</u> If all models in that unit have their starting number of wounds, revive one <span class=""kwb"">CHARACTER</span> model in that unit.</li></ul>"|Datasheet|
+000000016|1|000003676||||Faction|
+000000016|2|||Ammo Runts (Once per battle, per unit)|In your Shooting phase, when this unit is selected to shoot, you can use this ability. If you do, this unit’s ranged attacks have +1 to hit rolls.<br><br><i>Place any number of Ammo Runt tokens next to the unit, removing them when this ability is used.</i>|Datasheet|
+000000016|3|||Tide of Muscle|In the Fight phase, if this unit made a charge move this turn, this unit’s melee attacks have [Lethal Hits].|Datasheet|
+000000016|4|||Never Too Busy to Fight|Being engaged does not prevent this unit from being eligible to start an action.|Datasheet|
+000000017|1|000003676||||Faction|
+000000017|2|||Downtrodden|For the purposes of transport capacity, each 2 Gretchin models (rounding up) take up the space of 1 model.|Datasheet|
+000000017|3|||Thievin’ Scavengers|At the end of your Movement phase, if this unit is controlling an objective, that objective is secured.|Datasheet|
+000000019|1|000003676||||Faction|
+000000019|2|||Pyromaniaks|"This unit’s attacks that target a unit within 6"" of this unit can re-roll wound rolls of 1."|Datasheet|
+000000020|1|000003676||||Faction|
+000000020|2|||Rokkit Barrage|In your Shooting phase, when this unit has shot, select one enemy unit hit by those attacks. That unit makes a battle-shock roll, with -1 to that <b>battle-shock roll</b>.|Datasheet|
+000000020|3|||Bomb Squigs (Once per turn, twice per battle, per unit)|"In your Movement phase, when this unit ends a normal move, you can select one visible enemy unit within 12"" of this unit and roll one D6:<br><ul><li>On a 3+, that enemy unit suffers D3 mortal wounds.</li></ul><br><i>Place two Bomb Squig tokens next to the unit, removing one each time this ability is used.</i>"|Datasheet|
+000000020|4|||Pulsa Rokkit (Once per battle, per unit)|"In your Shooting phase, when this unit is selected to shoot, you can select one enemy <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit within 24"" of this unit. If you do. this unit’s attacks that target that unit have:<br><ul><li>+1 <b>AP</b></li><li>[LETHAL HITS]</li></ul>"|Wargear|
+000000021|1|000003676||||Faction|
+000000021|2|||Get Out da Way!|"While making a charge move, this unit can move through models (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> models)."|Datasheet|
+000000021|3|||Ammo Runts (Once per battle, per unit)|In your Shooting phase, when this unit is selected to shoot, you can use this ability. If you do, this unit’s ranged attacks have +1 to hit rolls.<br><br><i>Place any number of Ammo Runt tokens next to the unit, removing them when this ability is used.</i>|Datasheet|
+000000021|4|||Paired Krumpas|Attacks made with this model’s Kustom Krumpa weapon can re-roll hit rolls and wound rolls.|Wargear|
+000000024|1|000003676||||Faction|
+000000024|2|||Arrogant Invulnerability|Attacks that target this unit have -1 <b>AP</b>.|Datasheet|
+000000024|3|||Krumpin’ Time|In the Fight phase, if this unit is riled up, this unit has +1 to hit rolls.|Datasheet|
+000000025|1|000008345||||Core|
+000000025|2|000008337||||Core|
+000000025|3|000003676||||Faction|
+000000025|4|||Found ’Em!|"In your Movement phase, you can select one enemy unit within 12"" of this unit. That unit has +3"" detection range until the end of the turn.<br><br><i>Place one Kommando Grot token next to that enemy unit to remind you.</i>"|Datasheet|
+000000025|5|||Taktikal Know-wotz|In the Declare Battle Formations step, you can split this unit into two units, each with a starting strength of 5. If you do, select which one of those units will have the <b>Bomb Squig</b> ability and which one of those units will have the <b>Found ’Em!</b> ability.|Datasheet|
+000000025|6|||Nowhere to Hide|This unit’s attacks that target a hidden unit have +1 to hit rolls.|Datasheet|
+000000025|7|||Bomb Squig (Once per battle, per unit)|"In your Movement phase, when this unit ends a normal move, you can select one visible enemy unit within 12"" of this unit and roll one D6:<br><ul><li>On a 3+, that enemy unit suffers D3 mortal wounds.</li></ul><br><i>Place one Bomb Squig token next to the unit, removing it after this ability is used.</i>"|Datasheet|
+000000026|1|000008339||||Core|D3
+000000026|2|000008334||||Core|12
+000000026|3|000003676||||Faction|
+000000026|4|||Pilin’ Out|"In your opponent’s Movement phase, when an enemy unit ends a move within 8"" of this model, units embarked within this model can make a disembark move using the <b>rapid disembark mode</b>."|Datasheet|
+000000027|1|000008343||||Core|
+000000027|2|000003676||||Faction|
+000000027|3|||Rokkit Charge|When this unit is selected to fight, if this unit made a charge move this turn, you can use this ability. If you do, this unit’s melee attacks have:<br><ul><li>+1 <b>A</b> and <b>S</b>.</li><li>[Hazardous].</li></ul>|Datasheet|
+000000028|1|000008343||||Core|
+000000028|2|000003676||||Faction|
+000000028|3|||Deff from Above|In your Shooting phase, if this unit made an ingress move this turn, this unit’s ranged attacks have +1 to hit rolls.|Datasheet|
+000000028|4|||Aerial Manoover|At the end of your opponent’s Fight phase, if this unit is unengaged, you can place this unit in strategic reserves.|Datasheet|
+000000029|1|000011125||||Core|4
+000000029|2|000008339||||Core|D3
+000000029|3|000003676||||Faction|
+000000029|4|||Strafing Run|"In your Shooting phase, this unit’s ranged attacks that target a unit (excluding <span class=""kwb"">FLY</span> units) have +1 to hit rolls."|Datasheet|
+000000030|1|000011125||||Core|4
+000000030|2|000008339||||Core|D3
+000000030|3|000003676||||Faction|
+000000030|4|||Burna Bomb|"At the end of your opponent’s Fight phase, select one visible enemy unit (excluding Lone Operative and <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) within 36"" of this unit, and roll one D6 for that unit. On a 2+:<br><ul><li>That enemy unit suffers D3 mortal wounds.</li><li>That enemy unit cannot be hidden until the end of your next turn.</li><li>Ranged attacks that target that enemy unit have [IGNORES COVER] until the end of your next turn.</li></ul>"|Datasheet|
+000000031|1|000011125||||Core|4
+000000031|2|000008339||||Core|D3
+000000031|3|000003676||||Faction|
+000000031|4|||Boom Bomb|"At the end of your opponent’s Fight phase, select one visible enemy unit (excluding Lone Operative units) within 24"" of this unit, and roll one D6 for that unit:<br><ul><li>On a 1-3, that enemy unit suffers D3 mortal wounds.</li><li>On a 4-5, that enemy unit suffers 3 <b>mortal wounds</b>.</li><li>On a 6, that enemy unit suffers D3+3 <b>mortal wounds</b>.</li></ul>"|Datasheet|
+000000032|1|000011125||||Core|4
+000000032|2|000008339||||Core|D3
+000000032|3|000003676||||Faction|
+000000032|4|||Go fer da Weak Spot|"In your Shooting phase, this unit’s ranged attacks that target a <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit have +1 to wound rolls."|Datasheet|
+000000032|5|||Blastajet Force Field|"Models in this unit:<br><ul><li>Have 5+ InSv.</li><li>Do not have <span class=""kwb"">SMOKE</span>.</li></ul>"|Wargear|
+000000033|1|000003676||||Faction|
+000000033|2|||High-speed Carnage|If this unit made a charge move this turn, this unit’s melee attacks have:<br><ul><li>+1 <b>S</b> and <b>D</b>.</li></ul>|Datasheet|
+000000036|1|000008339||||Core|1
+000000036|2|000003676||||Faction|
+000000036|3|||Drive-by Skorchin’|"In your Movement phase, you can select one visible enemy unit (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) within 6"" of this unit:<br><ul><li>That enemy unit cannot be targeted with the Fire Overwatch <b>stratagem</b> until the end of the turn.</li></ul>"|Datasheet|
+000000038|1|000003676||||Faction|
+000000038|2|||Madcap Artillery|"In your Shooting phase, when this unit has shot, if all ranged weapons equipped by each Mek Gunz model in this unit are the same, select one enemy unit hit by those attacks. That enemy unit has the ability below that matches that weapon’s name until the start of your next turn:<br><ul><li><b>Bubblechukka:</b> This unit is wobbled. While a wobbled unit is attacking, its targets have the benefit of cover against those attacks.</li><li><b>Kustom Mega-kannon:</b> This unit is zapped. While a unit is zapped, that unit has -1 <b>Ld</b>.</li><li><b>Smasha Gun:</b> This unit is smashed. While a unit is smashed, that unit has -2"" <b>M</b>.</li><li><b>Traktor Kannon:</b> This unit is <b>grounded</b>. While a unit is <b>grounded</b>, it cannot take to the skies.</li></ul><i>Place five Grot Crew tokens next to each Mek Gun model, removing one each time its Mek Gun model loses a wound (a Mek Gun model itself is considered to represent its final wound).</i>"|Datasheet|
+000000039|1|000011125||||Core|6
+000000039|2|000008339||||Core|D6
+000000039|3|000008334||||Core|11
+000000039|4|000003676||||Faction|
+000000039|5|||Mobile Fortress|Ranged attacks that target this unit have -1 <b>D</b>.|Datasheet|
+000000040|1|000008339||||Core|1
+000000040|2|000003676||||Faction|
+000000040|3|||Dread ’Ard|Attacks that target this unit have -1 <b>D</b>.|Datasheet|
+000000041|1|000008339||||Core|1
+000000041|2|000003676||||Faction|
+000000041|3|||Spiteful Power Trip|This unit’s attacks that target a unit that has no models with a <b>T</b> of 7+ have +1 to hit rolls.|Datasheet|
+000000042|1|000011125||||Core|7
+000000042|2|000008339||||Core|D6
+000000042|3|000010844||||Core|
+000000042|4|000003676||||Faction|
+000000042|5|||Gut Hatch|In your Movement phase, when this unit ends a normal move, units embarked within this unit can make an assault disembark move.|Datasheet|
+000000042|6|||Big an’ Shooty|In your Shooting phase, this unit’s ranged attacks can re-roll hit rolls of 1.|Datasheet|
+000000043|1|000011125||||Core|7
+000000043|2|000008339||||Core|D6
+000000043|3|000010844||||Core|
+000000043|4|000003676||||Faction|
+000000043|5|||Gut Hatch|In your Movement phase, when this unit ends a normal move, units embarked within this unit can make an assault disembark move.|Datasheet|
+000000043|6|||Big an’ Stompy|This unit’s melee attacks can re-roll hit rolls of 1.|Datasheet|
+000000044|1|000003676||||Faction|
+000000044|2|||Dat's Our Loot|<ul><li>This unit’s ranged attacks can re-roll hit rolls of 1.</li><li>This unit’s ranged attacks that target a unit within range of an objective can re-roll <b>hit rolls</b>.</li></ul>|Datasheet|
+000000045|1|000003676||||Faction|
+000000045|2|||Finderz Keeperz|In your Shooting phase, if any of the following apply, this unit’s ranged attacks have +1 <b>AP</b>:<br><ul><li>This unit is within range of an objective.</li><li>The target of that attack is within range of an <b>objective</b>.</li></ul>|Datasheet|
+000000046|1|000011125||||Core|10
+000000046|2|000008339||||Core|2D6
+000000046|3|000010844||||Core|
+000000046|4|000003676||||Faction|
+000000046|5|||Idol of Belligerence|In your Movement phase, when a unit embarked within this unit is selected to make a disembark move, that unit is riled up until the start of your next turn.|Datasheet|
+000000046|6|||Waaagh! Effigy|This unit is riled up.|Datasheet|
+000000049|1|000008339||||Core|1
+000000049|2|000003676||||Faction|
+000000049|3|||Scatter! (Once per phase, per unit)|"In your opponent’s Movement phase, when an enemy unit ends a move within 8"" of this unit, if this unit is unengaged, this unit can make a normal move of up to 6""."|Datasheet|
+000000050|1|000008339||||Core|D3
+000000050|2|000011125||||Core|4
+000000050|3|000003676||||Faction|
+000000050|4|||Bizarrely Resilient|Attacks that target this unit have -1 <b>AP</b>.|Datasheet|
+000000053|1|000011125||||Core|6
+000000053|2|000008339||||Core|D6
+000000053|3|000003676||||Faction|
+000000053|4|||Da Bigger Dey Are, Da Better Dey Drop|"In your Shooting phase, when this unit’s Lifta-droppa destroys an enemy <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> model with Deadly Demise, that enemy model suffers a <b>Deadly Demise</b> on a roll of 3+, instead of a 6."|Datasheet|
+000000054|1|000008339||||Core|D3
+000000054|2|000008334||||Core|12
+000000054|3|000011125||||Core|4
+000000054|4|000003676||||Faction|
+000000054|5|||Spiked Ram|When this unit ends a charge move, you can select one enemy unit engaged with this unit. If you do, roll one D6:<br><ul><li>On a 2-5, that enemy unit suffers D3 mortal wounds.</li><li>On a 6, that enemy unit suffers 3 <b>mortal wounds</b>.</li></ul>|Datasheet|
+000000056|1|000008339||||Core|D6
+000000056|2|000011125||||Core|6
+000000056|3|000008334||||Core|12
+000000056|4|000003676||||Faction|
+000000056|5|||Rolling Fortress|"When an attack targets a friendly <span class=""kwb"">ORKS</span> unit that is not fully visible to the attacking model because of this unit, the target has the benefit of cover against that attack."|Datasheet|
+000000056|6|||Da Biggest Boom|"In your Shooting phase, when this unit has shot, you can select one enemy unit hit by this unit’s Tank Kannon attacks. If you do, enemy units (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) within 3"" of that enemy unit make a battle-shock roll."|Datasheet|
+000000059|1|000008339||||Core|2D6
+000000059|2|000008334||||Core|11
+000000059|3|000011125||||Core|10
+000000059|4|000010844||||Core|
+000000059|5|000003676||||Faction|
+000000059|6|||Walking Bastion|This unit’s attacks can ignore modifiers to:<br><ul><li><b>BS/WS</b>.</li><li>Hit rolls.</li></ul>|Datasheet|
+000001536|1|000008346||||Core|
+000001536|2|000003676||||Faction|
+000001536|3|||More Dakka|This unit’s ranged attacks have:<br><ul><li>[Ignores Cover]. </li><li>If this unit is riled up, [Sustained Hits 1].</li></ul>|Datasheet|
+000001536|4|||Support Shokka|"While this model is within 3"" of a friendly Orks Infantry unit (excluding <span class=""kwb"">BIG</span> <span class=""kwb"">MEK</span> <span class=""kwb"">WITH</span> <span class=""kwb"">SHOKK</span> <span class=""kwb"">ATTACK</span> <span class=""kwb"">GUN</span> units), this model has Lone Operative."|Datasheet|
+000001537|1|000008339||||Core|1
+000001537|2|000008346||||Core|
+000001537|3|000011126||||Faction|
+000001537|4|000003676||||Faction|
+000001537|5|||Get Back in da Race! (Once per battle round, per army)|"In your Movement phase, at the start or end of this unit’s move, you can select one friendly Speed Freeks unit within 6"" of this unit. That unit (and any units embarked within that unit):<br><ul><li>Is no longer battle-shocked.</li><li>Is riled up until the start of your next turn.</li></ul>"|Datasheet|
+000001537|6|||Fuel-mixa Grot|This unit has +1 to advance rolls.|Datasheet|
+000001545|1|000008339||||Core|1
+000001545|2|000003676||||Faction|
+000001545|3|||Workshop|"<ul><li>When this unit is set up, all parts of it must be set up in a single group, in which each part is within 1"" of another part.</li><li>At the end of the Movement phase, each friendly  Orks Vehicle within 6"" of this unit heals D3 wounds. Each friendly <span class=""kwb"">ORKS</span> <span class=""kwb"">VEHICLE</span> unit can only be affected by this ability once per turn.</li></ul>"|Datasheet|
+000001545|4|||Fortification|"While an enemy unit is engaged with only <span class=""kwb"">FORTIFICATION</span> units:<br><ul><li>That enemy unit can be selected as a target of ranged attacks.</li><li>When shooting that enemy unit, those ranged attacks have -1 to hit rolls (excluding [CLOSE-QUARTERS] attacks).</li><li>When that enemy unit is selected to make a fall-back move, if that enemy unit is only engaged with <span class=""kwb"">FORTIFICATION</span> units, and that enemy unit is not battle-shocked, hazard rolls made for that enemy unit are automatically passed.</li></ul>"|Datasheet|
+000001545|5|||Ramshackle Cover|When an attack targets a unit that is not fully visible to the attacking model because of this unit, the target has the benefit of cover against that attack.|Datasheet|
+000002488|1|000008346||||Core|
+000002488|2|000003676||||Faction|
+000002488|3|||Super Runts|<ul><li>This unit is riled up.</li><li>This unit’s Scavenged Shivs weapons have +1 <b>A</b>, <b>WS</b> and <b>S</b>.</li></ul>|Datasheet|
+000002489|1|000008338||||Core|6+
+000002489|2|000008346||||Core|
+000002489|3|000011126||||Faction|
+000002489|4|000003676||||Faction|
+000002489|5|||Keep Huntin’! (Once per battle round, per army)|"In your Movement phase, at the start or end of this unit’s move, you can select one friendly Beast Snagga unit within 6"" of this unit. That unit:<br><ul><li>Is no longer battle-shocked.</li><li>Is riled up until the start of your next turn.</li></ul>"|Datasheet|
+000002489|6|||Dodge Dis!|This unit’s attacks have +1 to hit rolls.|Datasheet|
+000002490|1|000008338||||Core|5+
+000002490|2|000011126||||Faction|
+000002490|3|000003676||||Faction|
+000002490|4|||Thundering Stampede (Aura)|"Friendly Beast Snagga units within 6"" of this unit have +1 to charge rolls."|Datasheet|
+000002490|5|||Keep Huntin’! (Once per battle round, per army)|"In your Movement phase, at the start or end of this unit’s move, you can select one friendly Beast Snagga unit within 6"" of this unit. That unit:<br><ul><li>Is no longer battle-shocked.</li><li>Is riled up until the start of your next turn.</li></ul>"|Datasheet|
+000002490|6|||Boss of da Hunt|"While this unit is within 3"" of a friendly Beast Snagga unit (excluding <span class=""kwb"">MONSTER</span> <span class=""kwb"">CHARACTER</span> units), this unit has Lone Operative."|Datasheet|
+000002491|1|000010857||||Core|
+000002491|2|000003676||||Faction|
+000002491|3|||Push Dat Bit Back In (Once per battle, per unit)|"In your Command phase, select one friendly Beast Snagga unit within 6"" of this unit. That unit heals 3 wounds.<br><br><i>Place a Grot Orderly token next to the unit, removing it when this ability is used.</i>"|Datasheet|
+000002491|4|||Hardy Bioniks|Attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Datasheet|
+000002491|5|||Runnin’ wiv da Herd|"While this model is attached to a Mounted unit, this model:<br><ul><li>Does not have <span class=""kwb"">INFANTRY</span>.</li><li>Has <span class=""kwb"">MOBILE</span> and <span class=""kwb"">MOUNTED</span>.</li><li>Has +4"" <b>M</b>.</li></ul>"|Datasheet|
+000002493|1|000008338||||Core|5+
+000002493|2|000003676||||Faction|
+000002493|3|||One Last Kill|In the Fight phase, when this model is destroyed, if this unit has not been selected to fight this phase, roll one D6:<br><ul><li>On a 2+, do not remove this model from the battlefield. When this unit has fought, or at the end of the phase (whichever comes first), this model is removed from the battlefield.</li></ul>|Datasheet|
+000002493|4|||Da Bigger Dey Iz…|"This unit’s melee attacks that target a <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit can re-roll wound rolls."|Datasheet|
+000002493|5|||Beast Snagga Following|"While this unit is within 3"" of a friendly Beast Snagga unit (excluding <span class=""kwb"">MONSTER</span> <span class=""kwb"">CHARACTER</span> units), this unit has Lone Operative."|Datasheet|
+000002494|1|000003676||||Faction|
+000002494|2|||Mobbed|"When this unit ends a charge move, each enemy <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit engaged with this unit makes a battle-shock roll:<br><ul><li>With -1 to that <b>battle-shock roll</b>.</li><li><u>Or:</u> With -2 to that <b>battle-shock roll</b> if this unit has 13+ models.</li></ul>"|Datasheet|
+000002496|1|000003676||||Faction|
+000002496|2|||Bomb Squig (Once per battle, per unit)|"In your Movement phase, when this unit ends a normal move, you can select one visible enemy unit within 12"" of this unit and roll one D6:<br><ul><li>On a 3+, that enemy unit suffers D3 mortal wounds.</li></ul><br><i>Place one Bomb Squig token next to the unit, removing it after this ability is used.</i>"|Datasheet|
+000002496|3|||Brutal Impact|If this unit made a charge move this turn, this unit’s attacks have +1 <b>D</b>.|Datasheet|
+000002497|1|000011125||||Core|6
+000002497|2|000008339||||Core|D6
+000002497|3|000008338||||Core|5+
+000002497|4|000011127||||Faction|
+000002497|5|000003676||||Faction|
+000002497|6|||Wurrboy (psyker level 1)|This model has the psychic abilities listed in the Psychic Abilities section.|Datasheet|
+000002497|7|||Beastscent (psychic level 1)|"In your Movement phase, when a unit embarked within this unit is selected to make a disembark move, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>That disembarking unit’s attacks that target a <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit have +1 to wound rolls until the end of the turn.</li></ul>"|Psychic|
+000002497|8|||Warpath (psychic level 1)|In the Fight phase, when this unit is selected to fight, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>This unit’s melee attacks have [Lethal Hits] and [Psychic].</li></ul>|Psychic|
+000002498|1|000011125||||Core|6
+000002498|2|000008339||||Core|D6
+000002498|3|000008338||||Core|5+
+000002498|4|000008334||||Core|11
+000002498|5|000003676||||Faction|
+000002498|6|||Fully Loaded Butchery|This unit’s Butcha Boyz weapon has +2 <b>A</b> for each model embarked within this unit (to a maximum of +22 <b>A</b>).|Datasheet|
+000002498|7|||Tramplasquig Charge|When you target this unit with the Crushing Impact <b>stratagem</b>, that use is -1 CP.|Datasheet|
+000002499|1|000008339||||Core|D3
+000002499|2|000008334||||Core|11
+000002499|3|000003676||||Faction|
+000002499|4|||Raucous Occupants|While this model is within range of your <b>home objective</b>, add the <b>OC</b> of models embarked within this model to this model’s <b>OC</b>.|Datasheet|
+000002499|5|||Fortification|"While an enemy unit is engaged with only <span class=""kwb"">FORTIFICATION</span> units:<br><ul><li>That enemy unit can be selected as a target of ranged attacks.</li><li>When shooting that enemy unit, those ranged attacks have -1 to hit rolls (excluding [Close-quarters] attacks).</li><li>When that enemy unit is selected to make a fall-back move, if that enemy unit is only engaged with <span class=""kwb"">FORTIFICATION</span> units, and that enemy unit is not battle-shocked, hazard rolls made for that enemy unit are automatically passed.</li></ul>"|Datasheet|
+000002499|6|||Ramshackle Cover|When an attack targets a unit that is not fully visible to the attacking model because of this unit, the target has the benefit of cover against that attack.|Datasheet|
+000003707|1|000008346||||Core|
+000003707|2|000003676||||Faction|
+000003707|3|||More Dakka|This unit’s ranged attacks have:<br><ul><li>[Ignores Cover].</li><li>If this unit is riled up, [Sustained Hits 1].</li></ul>|Datasheet|
+000003707|4|||Shokk-boosta|In your Movement phase, when this unit is selected to make an advance move, you can use this ability. If you do:<br><ul><li>This unit can change that advance roll to a 6.</li><li>This unit can move through all types of model.</li><li>When this unit ends that <b>advance move</b>, make a hazard roll for each model in this unit.</li></ul>|Datasheet|
+000003861|1|000003676||||Faction|
+000003861|2|||Bomb Squigs (Once per turn, twice per battle, per unit)|"In your Movement phase, when this unit ends a normal move, you can select one visible enemy unit within 12"" of this unit and roll one D6:<br><ul><li>On a 3+, that enemy unit suffers D3 mortal wounds.</li></ul><br><i>Place two Bomb Squig tokens next to the unit, removing one each time this ability is used.</i>"|Datasheet|
+000003861|3|||Trophy Hunters|This unit has +1 to charge rolls.|Datasheet|
+000004221|1|000008339||||Core|D3
+000004221|2|000008343||||Core|
+000004221|3|000008336||||Core|
+000004221|4|000003676||||Faction|
+000004221|5|||Full Throttle|In your Command phase, select one Throttlerokkit Shokka Engine ability (see above). This unit has that ability until the start of your next Command phase.|Datasheet|
+000004221|6|||Turbo Engine|When this unit is selected to make an advance/fall-back move, that move does not prevent this unit from being eligible to declare a charge.|Primarch|
+000004221|7|||Shokk Attack Engine|In your Command phase, if this unit is unengaged, you can place this unit in strategic reserves.|Primarch|
+000004221|8|||Pulse Jet|In your Movement phase, when this unit is selected to move, if this unit is unengaged, this unit can make a pulse jet move.|Primarch|
+000004227|1|000010857||||Core|
+000004227|2|000003676||||Faction|
+000004227|3|||Waaagh! Banner|This unit has +1 to charge rolls.|Datasheet|
+000004228|1|000010857||||Core|
+000004228|2|000003676||||Faction|
+000004228|3|||Sumfin’ to Prove|This unit’s melee attacks have +1 to hit rolls.|Datasheet|
+000004229|1|000008339||||Core|1
+000004229|2|000003676||||Faction|
+000004229|3|||Even More Dakka|If this unit is riled up, this unit’s ranged attacks have [Sustained Hits 1].|Datasheet|
+000004229|4|||Blitz Dem Gitz!|"In your Shooting phase, if this unit’s Blitzkannon weapon targets a unit (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units), that weapon has +6 <b>A</b>."|Datasheet|
+000004239|1|000010857||||Core|
+000004239|2|000003676||||Faction|
+000004239|3|||That’ll Learn Ya (Once per battle round, per unit)|When this unit becomes battle-shocked, if this unit contains 4+ Gretchin models, you can roll one D3:<br><ul><li>That number of Gretchin models in this unit are destroyed.</li><li>This unit is no longer <b>battle-shocked</b>.</li></ul>|Datasheet|
+000004240|1|000003676||||Faction|
+000004240|2|||Speednob Support|"While each model in this unit is within 3"" of a friendly Speed Freeks unit (excluding <span class=""kwb"">WARTRAKK</span> units), this unit has Lone Operative."|Datasheet|
+000004240|3|||Bust ’Em|In your Shooting phase, when this unit has shot, select one enemy unit hit by those attacks. That unit is <b>busted</b> until the end of the turn:<br><ul><li>Friendly Speed Freeks units’ attacks that target a <b>busted</b> unit have [Lethal Hits].</li></ul>|Datasheet|
+000004241|1|000011125||||Core|6
+000004241|2|000008339||||Core|D6
+000004241|3|000003676||||Faction|
+000004241|4|||Mobile Arsenal|In your Shooting phase, this unit’s ranged attacks can re-roll hit rolls of 1.|Datasheet|
+000004242|1|000008343||||Core|
+000004242|2|000008346||||Core|
+000004242|3|000011126||||Faction|
+000004242|4|000003676||||Faction|
+000004242|5|||Intimidating Motivation (Once per battle round, per army)|"In your Movement phase, at the start or end of this unit’s move, you can select one friendly <span class=""kwb"">ORKS</span> unit within 6"" of this unit. That unit:<br><ul><li>Is no longer battle-shocked.</li><li>Is riled up until the start of your next turn.</li></ul>"|Datasheet|
+000004242|6|||Nazdreg’s Know-wotz|<ul><li>This unit has Deep Strike.</li><li>This unit’s ranged attacks have [Ignores Cover].</li></ul>|Datasheet|
+000004242|7|||Supreme Kunnin’ (Once per phase, per army)|"In your opponent’s Movement phase, when an enemy unit ends a move within 8"" of this unit, if this unit is unengaged, this unit can:<br><ul><li>Make a normal move of up to D6"".</li><li><u>Or:</u> If this unit is riled up, make a <b>normal move</b> of up to 5"".</li></ul>"|Datasheet|
+000004243|1|000008339||||Core|1
+000004243|2|000003676||||Faction|
+000004243|3|||Squig Barrage|"In your Shooting phase, when this unit has shot, select one enemy unit (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) hit by this unit’s Squig Launchas weapons. That enemy unit is <b>covered in Squigs</b> until the start of your next turn:<br><ul><li>While a unit is <b>covered in Squigs</b>, that unit’s attacks have -1 to hit rolls.</li></ul>"|Datasheet|

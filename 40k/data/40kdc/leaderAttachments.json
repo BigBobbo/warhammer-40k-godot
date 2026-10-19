@@ -1236,74 +1236,95 @@
   "leader_id": "blade-champion",
   "eligible_bodyguard_ids": [
    "custodian-guard",
+   "custodian-guard-sodality",
    "custodian-guard-with-adrasite-and-pyrithite-spears",
    "custodian-wardens",
-   "sagittarum-custodians"
+   "sagittarum-custodians",
+   "sentinel-guard-sodality"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "knight-centura",
   "eligible_bodyguard_ids": [
+   "prosecutor-squad",
    "prosecutors",
+   "vigilator-squad",
    "vigilators",
+   "witchseeker-squad",
    "witchseekers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "shield-captain",
   "eligible_bodyguard_ids": [
    "custodian-guard",
+   "custodian-guard-sodality",
    "custodian-guard-with-adrasite-and-pyrithite-spears",
    "custodian-wardens",
-   "sagittarum-custodians"
+   "sagittarum-custodians",
+   "sentinel-guard-sodality"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "shield-captain-in-allarus-terminator-armour",
   "eligible_bodyguard_ids": [
    "allarus-custodians",
-   "aquilon-custodians"
+   "aquilon-custodians",
+   "aquilon-terminators-with-solarite-power-gauntlets",
+   "aquilon-terminators-with-solarite-power-talons"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "shield-captain-on-dawneagle-jetbike",
   "eligible_bodyguard_ids": [
    "agamatus-custodians",
+   "gyrfalcon-jetbike-sodality",
    "vertus-praetors"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "trajann-valoris",
   "eligible_bodyguard_ids": [
+   "allarus-custodians",
+   "aquilon-terminators-with-solarite-power-gauntlets",
+   "aquilon-terminators-with-solarite-power-talons",
    "custodian-guard",
+   "custodian-guard-sodality",
    "custodian-guard-with-adrasite-and-pyrithite-spears",
    "custodian-wardens",
-   "sagittarum-custodians"
+   "sagittarum-custodians",
+   "sentinel-guard-sodality"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "valerian",
@@ -3128,7 +3149,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "beastboss",
@@ -3138,7 +3160,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "beastboss-on-squigosaur",
@@ -3163,7 +3186,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "big-mek-in-mega-armour",
@@ -3174,7 +3198,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "big-mek-with-shokk-attack-gun",
@@ -3187,7 +3212,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "bigboss",
@@ -3199,7 +3225,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "boss-snikrot",
@@ -3209,7 +3236,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "deffkilla-wartrike",
@@ -3219,7 +3247,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "ghazghkull-thraka",
@@ -3246,7 +3275,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "mozrog-skragbad",
@@ -3266,7 +3296,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "painboss",
@@ -3277,7 +3308,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "painboy",
@@ -3291,7 +3323,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "runtherd",
@@ -3301,7 +3334,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "warboss",
@@ -3313,7 +3347,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "warboss-in-mega-armour",
@@ -3323,7 +3358,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "weirdboy",
@@ -3334,7 +3370,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "zodgrod-wortsnagga",
@@ -3344,7 +3381,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "leader_id": "cadre-fireblade",

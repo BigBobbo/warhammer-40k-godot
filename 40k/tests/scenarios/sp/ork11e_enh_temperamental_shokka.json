@@ -1,0 +1,355 @@
+{
+ "id": "ork11e_enh_temperamental_shokka",
+ "covers": [
+  "codex.orks.enhancements.temperamental_shokka",
+  "codex.orks.enhancements.mekwaaagh_mastermind",
+  "scripts.codex.orks.OrkEnhancements11e",
+  "stratagem.window.unit_selected_to_shoot"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) TEMPERAMENTAL SHOKKA (Madcap Meks Upgrade, Big Mek with Shokk Attack Gun; in your Shooting phase, when this unit is selected to shoot, you can roll one D6: 1 — the Shokk Attack Gun has [TORRENT] and, after the unit has shot, the bearer is destroyed; 2-5 — +1 A; 6 — [SUSTAINED HITS 2]) and MEKWAAAGH! MASTERMIND (passive: this model's unit is riled up). Fixture ork11e_enh_madcap_shoot. At the Shooting phase start Boyz C and their Big Mek are riled up (Mekwaaagh!). The ShootingController auto-selects the Big Mek with SAG (Shokk Attack Gun pre-assigned to Custodian Guard B), so its unit_selected_to_shoot window is deferred to the player's first action: a real click on 'Confirm (1 weapons)' opens the window with the 0-CP Upgrade card; a real click on 'Use' rolls the D6 (deterministic in this harness) and the rolled effect is on the Shokk Attack Gun's attack modifiers; the card is gone (once per phase); the held Confirm resumes and the SAG shoots Custodian Guard B and the effect is cleared once the unit has shot. The AI never uses it (a 1 destroys the Big Mek — headless). Setup privilege: auto wound allocation.",
+ "fixture": "ork11e_enh_madcap_shoot",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 8,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 8
+  },
+  {
+   "act": "expect_state",
+   "path": "factions.1.detachment",
+   "equals": "Madcap Meks"
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege: auto wound allocation"
+  },
+  {
+   "act": "execute_script",
+   "script": "[GameState.get_unit(\"U_BOYZ_C\").flags.get(\"ork11e_riled_up\", false), GameState.get_unit(\"U_BIG_MEK_A\").flags.get(\"ork11e_riled_up\", false)]",
+   "equals": [
+    true,
+    true
+   ],
+   "comment": "Mekwaaagh! Mastermind (passive): the Big Mek's Attached unit is riled up (re-asserted at every phase start)"
+  },
+  {
+   "act": "execute_script",
+   "script": "var m = load(\"res://scripts/codex/orks/OrkAbilities11e.gd\").attack_mods(GameState.get_unit(\"U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A\"), GameState.get_unit(\"U_CUSTODIAN_GUARD_B\"), {\"name\": \"Shokk Attack Gun\", \"type\": \"Ranged\"}, false, GameState.state, [])\nreturn \"A+%d S%d T%s\" % [int(m.get(\"attacks\", 0)), int(m.get(\"sustained\", 0)), str(bool(m.get(\"torrent\", false)))]",
+   "multiline": true,
+   "equals": "A+0 S0 Tfalse",
+   "comment": "before: the Shokk Attack Gun is unmodified"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+   "equals": "U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A",
+   "comment": "the ShootingController auto-selected the Big Mek with SAG at phase entry: its unit_selected_to_shoot window is deferred to the player's first action with it (LV-2)"
+  },
+  {
+   "act": "screenshot",
+   "label": "00_sag_auto_selected"
+  },
+  {
+   "act": "click_node",
+   "button_text": "Confirm (1 weapons)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "unit_selected_to_shoot"
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_enh_temperamental_shokka/Buttons/Use_ork11e_ab_enh_temperamental_shokka_U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_enh_temperamental_shokka\").find_child(\"Cost\", true, false).text",
+   "equals": "Enhancement"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_temperamental_shokka_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_enh_temperamental_shokka/Buttons/Use_ork11e_ab_enh_temperamental_shokka_U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0
+  },
+  {
+   "act": "execute_script",
+   "script": "var f = GameState.get_unit(\"U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A\").flags.get(\"ork11e_enh_tshokka\", {})\nvar r := int(f.get(\"result\", 0)) if f is Dictionary else 0\nprint(\"[wp-o5] Temperamental Shokka rolled \", r)\nreturn r >= 1 and r <= 6",
+   "multiline": true,
+   "equals": true,
+   "comment": "the D6 result is recorded on the Big Mek"
+  },
+  {
+   "act": "execute_script",
+   "script": "var r := int(GameState.get_unit(\"U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A\").flags.ork11e_enh_tshokka.result)\nvar m = load(\"res://scripts/codex/orks/OrkAbilities11e.gd\").attack_mods(GameState.get_unit(\"U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A\"), GameState.get_unit(\"U_CUSTODIAN_GUARD_B\"), {\"name\": \"Shokk Attack Gun\", \"type\": \"Ranged\"}, false, GameState.state, [])\nif r == 1:\n\treturn bool(m.get(\"torrent\", false))\nif r == 6:\n\treturn int(m.get(\"sustained\", 0)) == 2\nreturn int(m.get(\"attacks\", 0)) == 1",
+   "multiline": true,
+   "equals": true,
+   "comment": "the rolled effect is on the Shokk Attack Gun: 1 [TORRENT], 2-5 +1 A, 6 [SUSTAINED HITS 2]"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Temperamental Shokka\")",
+   "expect_min": 1
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var dlg = tree.root.get_node_or_null(\"StratagemDialog\")\nif dlg == null or not dlg.visible:\n\treturn true\nreturn dlg.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_temperamental_shokka\") == null",
+   "multiline": true,
+   "equals": true,
+   "comment": "once per phase"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "screenshot",
+   "label": "02_temperamental_shokka_rolled"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var p = PhaseManager.get_current_phase_instance()\nvar out := []\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) in [\"to_hit\", \"auto_hit\"]:\n\t\tout.append({\"ctx\": d.get(\"context\"), \"n\": (d.get(\"rolls_raw\", []) as Array).size(), \"ledger\": d.get(\"modifier_ledger\", [])})\nprint(\"[wp-o5] Temperamental Shokka hit entries: \", out)\nreturn out.size() > 0",
+   "multiline": true,
+   "equals": true,
+   "comment": "the Shokk Attack Gun's attack resolved"
+  },
+  {
+   "act": "execute_script",
+   "script": "var r := int(GameState.get_unit(\"U_BIG_MEK_WITH_SHOKK_ATTACK_GUN_A\").flags.get(\"ork11e_enh_tshokka\", {}).get(\"result\", -1))\nreturn r",
+   "multiline": true,
+   "equals": -1,
+   "comment": "the effect ends once the unit has shot (flag cleared)"
+  },
+  {
+   "act": "screenshot",
+   "label": "03_temperamental_shokka_shot"
+  }
+ ]
+}

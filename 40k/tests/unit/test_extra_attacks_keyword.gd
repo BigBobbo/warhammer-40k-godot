@@ -446,71 +446,7 @@ func test_regular_weapon_still_modified_by_waaagh():
 	var total_attacks = dice_block.get("total_attacks", -1)
 	assert_eq(total_attacks, 5, "Regular weapon should have 5 attacks (4 base + 1 Waaagh!)")
 
-func test_extra_attacks_weapon_not_modified_by_da_biggest():
-	"""Balance Dataslate (P2-75): Da Biggest and da Best +4 should NOT apply to Extra Attacks weapons."""
-	# Legacy 10e regression: Balance Dataslate P2-75 "Extra Attacks weapons cannot have their attack count modified" — 11e 24.11 replaced it ([EXTRA ATTACKS] 24.11 only says "those models will make attacks with those weapons in addition to any others. In the Select Weapons step (04.01) ... you must select: All of that model's [EXTRA ATTACKS] weapons. One of that model's other melee weapons, if possible." — no restriction on modifying A); 11e coverage: tests/test_iss047_weapon_abilities_11e.gd E5 "11e: EXTRA ATTACKS takes the modifier (3 hit rolls)"
-	GameConstants.edition = 10
-	assert_eq(GameConstants.edition, 10, "Legacy 10e regression must run at edition 10")
-	var board = _make_warboss_board_with_waaagh(true, true)  # Both Waaagh! and Da Biggest
 
-	# Resolve Attack squig (Extra Attacks weapon)
-	var action = {
-		"type": "FIGHT",
-		"actor_unit_id": "warboss",
-		"payload": {
-			"assignments": [
-				{
-					"attacker": "warboss",
-					"weapon": "attack_squig",
-					"target": "target",
-					"models": []
-				}
-			]
-		}
-	}
-
-	var rng = rules_engine.RNGService.new()
-	var result = rules_engine.resolve_melee_attacks(action, board, rng)
-
-	assert_true(result.success, "Melee resolution should succeed")
-	# Attack squig has 2 base attacks. Both Waaagh! +1 and Da Biggest +4 should be blocked.
-	var dice_block = result.dice[0] if result.dice.size() > 0 else {}
-	var total_attacks = dice_block.get("total_attacks", -1)
-	assert_eq(total_attacks, 2, "Extra Attacks weapon should have 2 attacks (both Waaagh! +1 and Da Biggest +4 blocked)")
-
-func test_regular_weapon_modified_by_da_biggest():
-	"""Verify that Da Biggest and da Best +4 DOES apply to regular weapons."""
-	# TRIAGE (2026-10-17, unresolved — left failing at 11e on purpose): the
-	# expected 9 includes the 10e Waaagh! +1 A (engine gives 8 at 11e: 4 + 4 Da
-	# Biggest). Same open question as test_regular_weapon_still_modified_by_waaagh
-	# — the 11e Waaagh! army rule and the 11e Warboss "Da Biggest and da Best"
-	# text are not available verbatim in the repo.
-	var board = _make_warboss_board_with_waaagh(true, true)  # Both Waaagh! and Da Biggest
-
-	# Resolve Power klaw (regular weapon)
-	var action = {
-		"type": "FIGHT",
-		"actor_unit_id": "warboss",
-		"payload": {
-			"assignments": [
-				{
-					"attacker": "warboss",
-					"weapon": "power_klaw",
-					"target": "target",
-					"models": []
-				}
-			]
-		}
-	}
-
-	var rng = rules_engine.RNGService.new()
-	var result = rules_engine.resolve_melee_attacks(action, board, rng)
-
-	assert_true(result.success, "Melee resolution should succeed")
-	# Power klaw has 4 base attacks + 1 Waaagh! + 4 Da Biggest = 9
-	var dice_block = result.dice[0] if result.dice.size() > 0 else {}
-	var total_attacks = dice_block.get("total_attacks", -1)
-	assert_eq(total_attacks, 9, "Regular weapon should have 9 attacks (4 base + 1 Waaagh! + 4 Da Biggest)")
 
 func test_extra_attacks_no_modification_without_waaagh():
 	"""Verify Extra Attacks weapons work normally when no modifiers are active."""

@@ -16,6 +16,7 @@
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_phase", "equals": 9 },
+    { "act": "execute_script", "multiline": true, "comment": "Codex: Adeptus Custodes 11e (WP-C3): loading this Command-phase fixture readied the Custodes (Martial Ka'tah), which would open ka'tah windows (fight_phase_start / unit_selected_to_fight). Not under test here (the cus11e_* scenarios cover them): un-ready the Custodes - replaces the old 'click the Dacatarai stance' step.", "script": "for uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif u.get(\"flags\", null) is Dictionary:\n\t\tu.flags.erase(\"cus11e_readied\")\nreturn true", "equals": true },
     { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Bully Boyz\"}, true)" },
     { "act": "execute_script", "script": "StratagemManager.load_faction_stratagems_for_player(2)" },
     { "act": "execute_script", "script": "StratagemManager.get_stratagem(\"faction_ork_bully_boyz_too_arrogant_to_die\").get(\"implemented\", false)", "equals": true },
@@ -37,7 +38,6 @@
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B", "timeout_s": 5.0 },
     { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B" },
     { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "click_if_visible", "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton" },
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },

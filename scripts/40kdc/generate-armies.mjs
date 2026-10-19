@@ -16,14 +16,19 @@
 import { readFileSync, writeFileSync, readdirSync } from 'fs';
 import { dirname, join, basename } from 'path';
 import { fileURLToPath } from 'url';
-import { loadCollection, normName, looseName, pointsFor, buildCanonEntries } from './lib.mjs';
-import { describeAbility } from '@alpaca-software/40kdc-data';
+import { loadCollection, normName, looseName, pointsFor, buildCanonEntries, DATA_DIR as DATA_DIR_FOR_LEGACY } from './lib.mjs';
+import { describeAbility, weaponBounds } from '@alpaca-software/40kdc-data';
 import {
   createConverter, normalizeQuotes, weaponBaseName,
-  FACTION_IDS, UNIT_ALIASES, WEAPON_ALIASES_SRC, ALLIED_FACTIONS,
+  FACTION_IDS, UNIT_ALIASES, WEAPON_ALIASES_SRC, ALLIED_FACTIONS, DEFAULT_DATA_SOURCE,
+  bareEnhancementName, compositionCounts,
 } from '../../server/public/js/lib/gameformat.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
+// Stamped into every regenerated file's faction block. Shared with the
+// browser army builder's exports (gameformat.mjs), which convert from the same
+// data (WP-W3: the bundle + the codex overlay).
+const DATA_SOURCE = DEFAULT_DATA_SOURCE;
 const ARMIES_DIR = join(here, '..', '..', '40k', 'armies');
 
 // ---------------------------------------------------------------------------
@@ -39,6 +44,16 @@ const rawData = {
   factions: loadCollection('factions'),
 };
 
+// Datasheets whose kit a codex rewrote (frozen by legacy-kits.mjs): a roster
+// built on the old kit has wargear lines that contradict the codex kit. The
+// file is named after the first freeze (1.0.19); each record's frozen_from
+// names the dataset its kit came from (40kdc-data 1.0.19, or 40kdc-data 1.4.5
+// for the Ork datasheets the Wahapedia overlay re-kitted — WP-O1b).
+const LEGACY_KIT_UNITS = new Set(
+  loadCollection('unitCompositions_1.0.19', join(DATA_DIR_FOR_LEGACY, 'legacy'))
+    .map(c => `${c.faction_id}::${c.unit_id}`));
+const wargearOptionsAll = loadCollection('wargearOptions');
+
 const conv = createConverter({
   rawData,
   describeAbility,
@@ -52,11 +67,31 @@ const { unitsByFaction, compByUnit } = conv;
 
 // ---------------------------------------------------------------------------
 // Unit conversion
-function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachmentEnh = new Map()) {
+function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachmentEnh = new Map(), ordinal = 1) {
   const comp = compByUnit.get(`${factionId}::${dcUnit.id}`);
   const oldMeta = existing.meta ?? {};
-  const modelCount = (existing.models ?? []).length ||
+  let modelCount = (existing.models ?? []).length ||
     dcUnit.model_count?.min || 1;
+  // A codex can change unit sizes (Custodian Wardens 4-5 -> 2-3): clamp the
+  // roster's model count into the datasheet's range.
+  const mc = dcUnit.model_count;
+  if (mc && (modelCount < mc.min || modelCount > mc.max)) {
+    const clamped = Math.max(mc.min, Math.min(mc.max, modelCount));
+    warnings.push(`${existing.id}: ${modelCount} models outside the datasheet's ${mc.min}-${mc.max} — now ${clamped}`);
+    modelCount = clamped;
+  }
+  // ...and onto a size the datasheet is sold at (11e prices per unit size:
+  // Gretchin come as 10 or 20, so a pre-codex 11-model mob becomes 10).
+  const sizes = [];
+  for (const t of dcUnit.points ?? []) {
+    for (let n = t.models; n <= (t.models_max ?? t.models); n++) if (!sizes.includes(n)) sizes.push(n);
+  }
+  if (sizes.length && !sizes.includes(modelCount)) {
+    sizes.sort((a, b) => a - b);
+    const snapped = [...sizes].reverse().find(n => n <= modelCount) ?? sizes[0];
+    warnings.push(`${existing.id}: ${modelCount} models is not a codex unit size (${sizes.join('/')}) — now ${snapped}`);
+    modelCount = snapped;
+  }
 
   // --- weapons: preserve the roster's loadout where names still exist,
   // otherwise the unit's full 11e weapon list.
@@ -84,12 +119,23 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
       if (dcWeaponNames.has(looseName(conv.wres.resolve(factionId, wid)?.name ?? ''))) chosenIds.add(wid);
     }
   }
+  // A roster built on a pre-codex kit: the datasheet was re-kitted by a codex
+  // (legacy kit frozen) and the roster's weapon list names a weapon the codex
+  // datasheet no longer has. Its wargear lines are rebuilt below.
+  const preCodexRoster = !!dcUnit.source && LEGACY_KIT_UNITS.has(`${factionId}::${dcUnit.id}`) &&
+    oldWeaponNames.some(n => !dcWeaponNames.has(looseName(n)) && !weaponAliases[looseName(n)]);
   const weaponsOut = [];
   for (const wid of chosenIds) weaponsOut.push(...conv.convertWeapon(factionId, wid, warnings));
   weaponsOut.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'Ranged' ? -1 : 1));
 
   // --- abilities (faction army rule first, mirroring the existing files)
-  const abilitiesOut = conv.unitAbilities(dcUnit, factionId, factionName, warnings);
+  // wargear abilities only when the roster lists the wargear or the
+  // datasheet's default loadout includes it
+  const defaultWargear = (comp?.models ?? []).flatMap(m => m.default_wargear ?? []).map(normName);
+  const rosterWargear = (oldMeta.wargear ?? []).map(normName);
+  const hasWargear = n => defaultWargear.some(w => w.includes(normName(n))) ||
+    rosterWargear.some(w => w.includes(normName(n)));
+  const abilitiesOut = conv.unitAbilities(dcUnit, factionId, factionName, warnings, hasWargear);
 
   // --- composition + models
   const modelsOut = conv.buildModelsArray(dcUnit, comp, modelCount);
@@ -100,17 +146,25 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
   for (const e of oldMeta.enhancements ?? []) {
     let name = typeof e === 'string' ? e : (e?.name ?? '');
     name = name.replace(/\s*\(\+?\d+\s*pts?\)\s*$/i, ''); // "X (+25 pts)" -> "X"
-    const match = detachmentEnh.get(normName(name));
+    const match = detachmentEnh.get(enhKey(name));
     if (match) {
-      enhancementsOut.push(conv.canonicalName(match.name));
+      // the game keys enhancements on the bare name ("Smoky Gubbinz", not the
+      // dataset's "Smoky Gubbinz (Upgrade)")
+      enhancementsOut.push(conv.canonicalName(bareEnhName(match.name)));
       enhancementPoints += match.cost ?? 0;
     } else if (name) {
       warnings.push(`${existing.id}: enhancement "${name}" not in 11e detachment — dropped`);
     }
   }
 
-  // --- points for this model count (first-copy pricing)
-  const points = pointsFor(dcUnit, modelsOut.length) + enhancementPoints;
+  // --- points for this model count; `ordinal` = which copy of the datasheet
+  // this is in the file (11e prices later copies higher), plus priced wargear
+  // (wargear_points, e.g. "per Praesidium Shield 25") the roster lists.
+  // Same rule as the browser builder (gameformat.mjs wargearPointsForLines):
+  // each line's item is matched to a priced item by exact name, so "2x Twin
+  // Killsaws" pays "per Twin Killsaws" only, not "per Killsaw" as well.
+  const wargearPoints = conv.wargearPointsForLines(dcUnit, oldMeta.wargear ?? []);
+  const points = pointsFor(dcUnit, modelsOut.length, ordinal) + enhancementPoints + wargearPoints;
 
   // --- leader data
   const meta = {
@@ -120,7 +174,10 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
     points,
     is_warlord: oldMeta.is_warlord ?? false,
     enhancements: enhancementsOut,
-    wargear: oldMeta.wargear ?? [],
+    wargear: preCodexRoster
+      ? rebuildCodexWargear(existing.id, oldMeta.wargear ?? [], dcUnit, factionId, comp, modelsOut.length, warnings)
+      : syncWargearCounts(resplitDefaultLines(existing.id, oldMeta.wargear ?? [], dcUnit, factionId, comp, modelsOut.length, warnings),
+        comp, modelsOut.length, dcUnit, factionId, warnings, existing.id),
     weapons: weaponsOut,
     abilities: abilitiesOut,
     unit_composition: conv.compositionLines(comp),
@@ -136,6 +193,156 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
     meta,
     models: modelsOut,
   };
+}
+
+// A pre-codex roster of a datasheet the codex re-kitted (Boyz: the Nob lost
+// his slugga; Battlewagon: Tracks and wheels -> Crushin' Bulk): its wargear
+// lines name the OLD kit, which UnitLoadoutResolver / RulesEngine cannot map
+// onto the codex roles (every model ended up carrying the whole melee menu).
+// Rebuild the lines as a codex-built roster records them: each composition
+// role's default weapons with that role's model count, plus the roster's
+// picks that are pure codex ADD-ON options (no "replaces": Battlewagon big
+// shootas / Grabbin' Klaw / Wreckin' Ball). Swaps made against the old kit and
+// stale weapons are dropped, with a warning.
+// The default-kit lines of a codex-built roster: each composition row's
+// default weapons with that row's model count, rows split the way the models
+// array is built (compositionCounts — 20 Boyz = 2 Nobs + 18 Boyz). A weapon a
+// row lists twice ("2 Rokkit Pistol") counts both copies: "2x Rokkit Pistol".
+function defaultKitLines(comp, factionId, modelCount, opts = {}) {
+  const nameOf = id => conv.wres.resolve(factionId, id)?.name ?? null;
+  const rows = comp?.models ?? [];
+  const counts = compositionCounts(rows, modelCount, opts);
+  const out = [];
+  const defaults = new Set();
+  rows.forEach((m, k) => {
+    const n = counts[k];
+    if (n <= 0) return;
+    const copies = new Map();
+    for (const id of m.default_weapon_ids ?? []) copies.set(id, (copies.get(id) ?? 0) + 1);
+    for (const [id, c] of copies) {
+      const nm = nameOf(id);
+      if (!nm) continue;
+      defaults.add(looseName(nm));
+      out.push(`${n * c}x ${nm}`);
+    }
+  });
+  return { lines: out, defaults };
+}
+
+// WP-O1b: rosters this generator rebuilt before the composition split was
+// shared with the models array list a 20-model Boyz mob's default kit as 1 Nob
+// + 19 Boyz ("1x Kustom Choppa ... 19x Choppa") while the unit has 2 Nobs +
+// 18 Boyz — the second Nob then resolved a Boy's Choppa. Lines that are
+// EXACTLY that stale min-first default kit are re-split; any other roster
+// (a builder export, a roster with swaps) is left as it is.
+function resplitDefaultLines(unitKey, wargear, dcUnit, factionId, comp, modelCount, warnings) {
+  const stale = defaultKitLines(comp, factionId, modelCount, { minFirst: true }).lines;
+  const fresh = defaultKitLines(comp, factionId, modelCount).lines;
+  if (JSON.stringify(stale) === JSON.stringify(fresh)) return wargear;
+  const counted = wargear.filter(e => /^\d+x\s+/.test(String(e)));
+  const key = ls => JSON.stringify([...ls].map(String).sort());
+  if (key(counted) !== key(stale)) return wargear;
+  warnings.push(`${unitKey}: default-kit lines re-split to the unit's composition (${JSON.stringify(stale)} -> ${JSON.stringify(fresh)})`);
+  return [...wargear.filter(e => !/^\d+x\s+/.test(String(e))), ...fresh];
+}
+
+function rebuildCodexWargear(unitKey, wargear, dcUnit, factionId, comp, modelCount, warnings) {
+  const nameOf = id => conv.wres.resolve(factionId, id)?.name ?? null;
+  const { lines: out, defaults } = defaultKitLines(comp, factionId, modelCount);
+  const addOns = new Set();
+  for (const o of wargearOptionsAll) {
+    if (o.faction_id !== factionId || o.unit_id !== dcUnit.id || (o.replaces ?? []).length) continue;
+    for (const id of [...(o.replacement ?? []), ...(o.replacement_choice ?? []).flat()]) {
+      const nm = nameOf(id);
+      if (nm) addOns.add(looseName(nm));
+    }
+  }
+  const dropped = [];
+  for (const entry of wargear) {
+    const m = String(entry).match(/^(\d+)x\s+(.+)$/);
+    if (!m) { out.push(entry); continue; }   // descriptive lines ("Shield-Captain (Shield), ...")
+    const key = looseName(m[2]);
+    if (addOns.has(key) && !defaults.has(key)) {
+      const nm = [...(dcUnit.weapon_ids ?? [])].map(nameOf).find(x => x && looseName(x) === key) ?? m[2];
+      out.push(`${m[1]}x ${nm}`);
+    } else if (!defaults.has(key)) {
+      dropped.push(entry);
+    }
+  }
+  if (dropped.length) warnings.push(`${unitKey}: codex re-kitted this datasheet — loadout reset to the codex default kit; dropped ${JSON.stringify(dropped)}`);
+  return out;
+}
+
+// Enhancement names may carry a trailing qualifier in the dataset
+// ("Smoky Gubbinz (Upgrade)", "Fear Made Manifest (Aura)"); rosters and the
+// game's enhancement tables use the bare name.
+const bareEnhName = bareEnhancementName; // shared with the browser builder (gameformat.mjs)
+function enhKey(n) { return normName(bareEnhName(n)); }
+
+// "Nx <model>" wargear lines are model counts: ArmyListManager re-derives a
+// unit's size from them (_get_expected_model_count) and re-adds models. When a
+// codex resizes a unit (Gretchin 11 -> 10), rewrite those lines to the
+// composition's per-row counts and cap any other "Nx" line at the unit size —
+// or, for a weapon / wargear item of the datasheet, at the most copies a unit
+// of that size can legally carry (the package's loadout bounds over the
+// datasheet's options), never lower than the unit size: a Battlewagon's one
+// model carries up to 4 big shootas, and a builder export says "2x Big
+// shoota" (WP-W3 parity with the browser builder).
+// Rows are counted the way gameformat.buildModelsArray fills them
+// (compositionCounts: a whole multiple of the minimum size scales every row,
+// else each row its minimum and the last row the remainder).
+//
+// A line naming one of the datasheet's weapons / wargear items WITHOUT a count
+// ("Castellan Axe" — the Adeptus_Custodes_1995_Mar_7 import wrote every line
+// that way) gets one: every model of the unit, capped at the legal maximum. A
+// count-less line left the game unable to tell how many models took the swap
+// (WP-O1b: Allarus Custodians "roster names 'castellan-axe' with no count").
+// Descriptive lines ("Shield-Captain (Shield), Praesidium Shield") are kept.
+function syncWargearCounts(wargear, comp, modelCount, dcUnit = null, factionId = null, warnings = [], unitKey = '') {
+  const rows = comp?.models ?? [];
+  const counts = new Map();
+  const split = compositionCounts(rows, modelCount);
+  rows.forEach((m, k) => counts.set(roleKey(m.name), split[k]));
+  const gearMax = new Map(); // looseName(weapon / item) -> legal maximum
+  const gearName = new Map(); // looseName(weapon / item) -> the datasheet's spelling
+  if (dcUnit && comp) {
+    const options = wargearOptionsAll.filter(o => o.faction_id === factionId && o.unit_id === dcUnit.id);
+    const items = conv.wargearItems(dcUnit, factionId);
+    const bounds = weaponBounds(dcUnit, modelCount, options, conv.loadoutModels(dcUnit, factionId, comp));
+    for (const [id, b] of bounds) {
+      const name = conv.wres.resolve(factionId, id)?.name ?? items.get(id)?.name;
+      if (name) gearMax.set(looseName(name), Math.max(gearMax.get(looseName(name)) ?? 0, b.max));
+    }
+    for (const id of dcUnit.weapon_ids ?? []) {
+      const name = conv.wres.resolve(factionId, id)?.name;
+      if (name && !gearName.has(looseName(name))) gearName.set(looseName(name), name);
+    }
+    for (const it of items.values()) if (!gearName.has(looseName(it.name))) gearName.set(looseName(it.name), it.name);
+  }
+  return wargear.map(entry => {
+    const m = String(entry).match(/^(\d+)x\s+(.+)$/);
+    if (!m) {
+      const item = String(entry).trim();
+      const name = !/,/.test(item) ? gearName.get(looseName(weaponBaseName(item))) : null;
+      if (!name) return entry;
+      const max = gearMax.get(looseName(name));
+      const n = max != null && max > 0 ? Math.min(modelCount, max) : modelCount;
+      warnings.push(`${unitKey}: wargear line "${item}" had no count — now "${n}x ${name}" (every model, capped at the legal maximum)`);
+      return `${n}x ${name}`;
+    }
+    const n = parseInt(m[1], 10);
+    const want = counts.get(roleKey(m[2]));
+    if (want != null && want !== n) return `${want}x ${m[2]}`;
+    const cap = Math.max(modelCount, gearMax.get(looseName(weaponBaseName(m[2]))) ?? 0);
+    if (want == null && n > cap) return `${cap}x ${m[2]}`;
+    return entry;
+  });
+}
+// ArmyListManager._normalize_model_name: lowercase, drop one trailing z/s.
+function roleKey(name) {
+  let s = String(name).toLowerCase().trim();
+  if (s.length > 2 && (s.endsWith('z') || s.endsWith('s'))) s = s.slice(0, -1);
+  return s;
 }
 
 // ---------------------------------------------------------------------------
@@ -162,12 +369,13 @@ function convertFile(path) {
   if (detachment) {
     for (const eid of detachment.enhancement_ids ?? []) {
       const e = enhancementsAll.find(x => x.id === eid);
-      if (e) detachmentEnh.set(normName(e.name), e);
+      if (e) detachmentEnh.set(enhKey(e.name), e);
     }
   } else if (detName) {
     warnings.push(`detachment "${army.faction.detachment}" not found in 11e ${factionId} detachments`);
   }
   const outUnits = {};
+  const copies = new Map(); // datasheet -> copies seen so far (repeat pricing)
   let totalPoints = 0;
   for (const [key, u] of Object.entries(army.units ?? {})) {
     const name = u.meta?.name ?? '';
@@ -190,10 +398,18 @@ function convertFile(path) {
       if (dcUnit) warnings.push(`${key}: "${name}" resolved as ${unitFactionId} allied unit`);
     }
     if (!dcUnit) {
-      warnings.push(`${key}: unit "${name}" has NO 11e datasheet (discontinued/Legends?) — REMOVED`);
+      // No codex datasheet (Legends / discontinued — e.g. Lootas, Burna Boyz):
+      // keep the roster entry exactly as it is (owner decision D2, PLAN
+      // .llm/codex_11e_wahapedia/PLAN.md) rather than silently deleting a
+      // player's unit.
+      warnings.push(`${key}: unit "${name}" has NO 11e codex datasheet (Legends?) — kept unchanged`);
+      totalPoints += u.meta?.points ?? 0;
+      outUnits[key] = u;
       continue;
     }
-    const conv2 = convertUnit(u, dcUnit, unitFactionId, factionName, warnings, detachmentEnh);
+    const copyKey = `${unitFactionId}::${dcUnit.id}`;
+    copies.set(copyKey, (copies.get(copyKey) ?? 0) + 1);
+    const conv2 = convertUnit(u, dcUnit, unitFactionId, factionName, warnings, detachmentEnh, copies.get(copyKey));
     totalPoints += conv2.meta.points;
     outUnits[key] = conv2;
   }
@@ -203,7 +419,7 @@ function convertFile(path) {
       created_date: army.faction?.created_date ?? '',
       schema: 2,
       edition: 11,
-      data_source: '40kdc-data 1.4.5 (11th edition, launch + Codex: Orks)',
+      data_source: DATA_SOURCE,
     },
     units: outUnits,
   };

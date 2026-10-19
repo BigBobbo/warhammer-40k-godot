@@ -83,7 +83,8 @@
   ],
   "faction_rule_ids": [
    "martial-ka-tah"
-  ]
+  ],
+  "source_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "adeptus-mechanicus",
@@ -710,7 +711,8 @@
   ],
   "faction_rule_ids": [
    "waaagh"
-  ]
+  ],
+  "source_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "raven-guard",

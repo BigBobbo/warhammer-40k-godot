@@ -2287,8 +2287,7 @@ func _get_ai_action_highlight_color(action_type: String) -> Color:
 	if action_type in ["STAGE_MODEL_MOVE", "CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY",
 			"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK",
 			"SET_SCOUT_MODEL_DEST", "CONFIRM_SCOUT_MOVE", "SKIP_SCOUT_MOVE",
-			"BEGIN_REDEPLOY", "SET_REDEPLOY_MODEL_POS", "CONFIRM_REDEPLOY", "SKIP_REDEPLOY",
-			"ACTIVATE_KUNNIN_INFILTRATOR", "PLACE_KUNNIN_INFILTRATOR"]:
+			"BEGIN_REDEPLOY", "SET_REDEPLOY_MODEL_POS", "CONFIRM_REDEPLOY", "SKIP_REDEPLOY"]:
 		return AIUnitHighlightScript.COLOR_MOVE
 	# Shooting actions → red
 	if action_type in ["SHOOT", "ASSIGN_WEAPON", "CONFIRM_TARGETS", "RESOLVE_SHOOTING",
@@ -2783,6 +2782,37 @@ func _clear_stale_movement_selection_for_placement() -> void:
 		movement_controller.active_unit_id = ""
 		movement_controller._update_selected_unit_display()
 
+## Codex: Adeptus Custodes (WP-C5): when the reserve unit's owner has a
+## unit_selected_to_ingress stratagem and the Movement phase has not asked for
+## this unit yet, send CUS11E_SELECT_INGRESS_UNIT and return true — the
+## placement resumes from _on_cus11e_ingress_unit_ready.
+func _cus11e_route_ingress_selection(unit_id: String, unit: Dictionary) -> bool:
+	var pm = get_node_or_null("/root/PhaseManager")
+	var phase = pm.current_phase_instance if pm != null else null
+	if phase == null or not phase.has_signal("cus11e_ingress_unit_ready") or phase._cus11e_ingress_asked.has(unit_id):
+		return false
+	var owner := int(unit.get("owner", 0))
+	if not load("res://scripts/codex/custodes/CustodesCodex11e.gd").player_has_window_stratagem(owner, "unit_selected_to_ingress"):
+		return false
+	if not phase.cus11e_ingress_unit_ready.is_connected(_on_cus11e_ingress_unit_ready):
+		phase.cus11e_ingress_unit_ready.connect(_on_cus11e_ingress_unit_ready)
+	_cus11e_ingress_placement_type = _reinforcement_placement_type
+	print("Main: %s selected to make an ingress move — unit_selected_to_ingress may open first" % unit_id)
+	var res = NetworkIntegration.route_action({"type": "CUS11E_SELECT_INGRESS_UNIT", "unit_id": unit_id, "player": owner})
+	if not res.get("success", false):
+		push_warning("Main: CUS11E_SELECT_INGRESS_UNIT failed for %s: %s — placing without the window" % [unit_id, str(res.get("error", res.get("errors", "?")))])
+		return false
+	return true
+
+var _cus11e_ingress_placement_type: String = ""
+
+func _on_cus11e_ingress_unit_ready(unit_id: String) -> void:
+	print("Main: %s ready for its ingress placement" % unit_id)
+	if _reinforcement_placement_type == "" and _cus11e_ingress_placement_type != "":
+		_reinforcement_placement_type = _cus11e_ingress_placement_type
+	_cus11e_ingress_placement_type = ""
+	call_deferred("_begin_reinforcement_placement", unit_id)
+
 func _begin_reinforcement_placement(unit_id: String) -> void:
 	"""Start placing a reserve unit on the battlefield as reinforcement"""
 	var unit = GameState.get_unit(unit_id)
@@ -2795,6 +2825,12 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		return
 
 	_clear_stale_movement_selection_for_placement()
+
+	# Codex: Adeptus Custodes GOLDEN LIGHT OF THE MOIRAIDES (CustodesCodex11e.gd):
+	# a unit selected to make an ingress move opens unit_selected_to_ingress
+	# first; the placement starts on the phase's cus11e_ingress_unit_ready.
+	if _cus11e_route_ingress_selection(unit_id, unit):
+		return
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	# NULL-safe: loaded saves can carry "reserve_type": null, and the value
@@ -3496,132 +3532,6 @@ func _on_rapid_ingress_confirmed() -> void:
 
 	refresh_unit_list()
 	update_ui()
-
-# OA-24: Kunnin' Infiltrator redeployment placement
-var _kunnin_infiltrator_unit_id: String = ""
-
-func _begin_kunnin_infiltrator_placement(unit_id: String) -> void:
-	"""Start placing a unit at a new position via Kunnin' Infiltrator redeployment."""
-	var unit = GameState.get_unit(unit_id)
-	if unit.is_empty():
-		return
-
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	print("Main: Beginning Kunnin' Infiltrator redeployment placement for %s" % unit_name)
-
-	# Ensure deployment controller exists
-	if not deployment_controller:
-		print("Main: Creating deployment controller for Kunnin' Infiltrator placement")
-		setup_deployment_controller()
-
-	if deployment_controller:
-		deployment_controller.is_reinforcement_mode = true
-
-		# Hide existing unit tokens temporarily (unit is "removed from the battlefield")
-		for child in token_layer.get_children():
-			if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id:
-				child.visible = false
-
-		# Temporarily set unit status to DEPLOYING so the controller can work with it
-		if has_node("/root/PhaseManager"):
-			var phase_manager = get_node("/root/PhaseManager")
-			if phase_manager.current_phase_instance:
-				phase_manager.apply_state_changes([{
-					"op": "set",
-					"path": "units.%s.status" % unit_id,
-					"value": GameStateData.UnitStatus.DEPLOYING
-				}])
-
-		deployment_controller.unit_id = unit_id
-		deployment_controller.model_idx = 0
-		deployment_controller.temp_positions.clear()
-		deployment_controller.temp_rotations.clear()
-		var unit_data = GameState.get_unit(unit_id)
-		deployment_controller.temp_positions.resize(unit_data["models"].size())
-		deployment_controller.temp_rotations.resize(unit_data["models"].size())
-		deployment_controller.temp_rotations.fill(0.0)
-		deployment_controller.formation_rotation = 0.0
-
-		# Create ghost for placement
-		deployment_controller._create_ghost()
-
-		# Store that we're in kunnin infiltrator placement mode
-		_kunnin_infiltrator_unit_id = unit_id
-
-		# Connect to confirm signal for placement completion
-		if not deployment_controller.unit_confirmed.is_connected(_on_kunnin_infiltrator_confirmed):
-			deployment_controller.unit_confirmed.connect(_on_kunnin_infiltrator_confirmed)
-
-		status_label.text = "Kunnin' Infiltrator: placing %s — must be >9\" from all enemies" % unit_name
-
-		unit_list.visible = false
-		show_unit_card(unit_id)
-
-func _on_kunnin_infiltrator_confirmed() -> void:
-	"""Handle Kunnin' Infiltrator placement completion."""
-	if _kunnin_infiltrator_unit_id == "":
-		return
-
-	var unit_id = _kunnin_infiltrator_unit_id
-	var unit_data = GameState.get_unit(unit_id)
-
-	if unit_data.is_empty() or not deployment_controller:
-		return
-
-	# Collect model positions from the deployment controller
-	var model_positions = []
-	for pos in deployment_controller.temp_positions:
-		model_positions.append(pos)
-
-	var model_rotations = deployment_controller.temp_rotations.duplicate()
-
-	print("Main: Kunnin' Infiltrator placement confirmed for %s with %d model positions" % [unit_id, model_positions.size()])
-
-	# Reset the unit status back to DEPLOYED before sending the action
-	if has_node("/root/PhaseManager"):
-		var phase_manager = get_node("/root/PhaseManager")
-		if phase_manager.current_phase_instance:
-			phase_manager.apply_state_changes([{
-				"op": "set",
-				"path": "units.%s.status" % unit_id,
-				"value": GameStateData.UnitStatus.DEPLOYED
-			}])
-
-	# Create the placement action
-	var action = {
-		"type": "PLACE_KUNNIN_INFILTRATOR",
-		"actor_unit_id": unit_id,
-		"model_positions": model_positions,
-		"model_rotations": model_rotations,
-		"phase": GameStateData.Phase.MOVEMENT,
-		"timestamp": Time.get_unix_time_from_system()
-	}
-
-	var result = NetworkIntegration.route_action(action)
-
-	if result.success:
-		var unit_name = unit_data.get("meta", {}).get("name", unit_id)
-		var toast_mgr = get_node_or_null("/root/ToastManager")
-		if toast_mgr:
-			toast_mgr.show_success("Kunnin' Infiltrator: %s redeployed!" % unit_name)
-		print("Main: Kunnin' Infiltrator redeployment placed successfully for %s" % unit_name)
-	else:
-		var errors = result.get("errors", [])
-		var error_msg = errors[0] if errors.size() > 0 else "Failed to place via Kunnin' Infiltrator"
-		var toast_mgr = get_node_or_null("/root/ToastManager")
-		if toast_mgr:
-			toast_mgr.show_error(error_msg)
-		print("Main: Kunnin' Infiltrator placement failed: %s" % str(errors))
-
-	_kunnin_infiltrator_unit_id = ""
-
-	# Reset reinforcement mode
-	if deployment_controller:
-		deployment_controller.is_reinforcement_mode = false
-
-	# Disconnect signal
-	if deployment_controller.unit_confirmed.is_connected(_on_kunnin_infiltrator_confirmed):
-		deployment_controller.unit_confirmed.disconnect(_on_kunnin_infiltrator_confirmed)
 
 func _on_objective_removed(objective_id: String) -> void:
 	var visual = MissionManager.objectives_visual_refs.get(objective_id)
@@ -8400,7 +8310,14 @@ func _refresh_unit_list_inner() -> void:
 				else:
 					independent_reserves.append(reserve_id)
 
-			if independent_reserves.size() > 0 and battle_round >= 2:
+			# Battle round 1: only units that may make an ingress move in their first
+			# Movement phase — WP-O5 Impulsive Recon (ORKS AIRCRAFT) and WP-C46
+			# Lightning Descent (Custodes).
+			if battle_round < 2:
+				var o5_round1: Array = load("res://scripts/codex/orks/OrkEnhancements11e.gd").first_round_ingress_units(independent_reserves)
+				var cus11e_det_script = load("res://scripts/codex/custodes/CustodesDetachments.gd")
+				independent_reserves = independent_reserves.filter(func(rid): return rid in o5_round1 or cus11e_det_script.can_ingress_first_round(GameState.get_unit(str(rid))))
+			if independent_reserves.size() > 0:  # (round 1: only the filtered first-round units)
 				unit_list.add_item("--- REINFORCEMENTS (Reserves) ---")
 				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 				for reserve_id in independent_reserves:
@@ -9183,6 +9100,13 @@ func _build_status_marker_hover_text(unit: Dictionary, unit_id: String = "") -> 
 		lines.append("[color=#CC9A93]Failed a Battle-shock test (Below Half-strength) or was shocked by an effect (e.g. emergency disembark).[/color]")
 		lines.append("[color=#CC9A93]OC 0 — cannot hold objectives; cannot use Stratagems; cannot start Actions; Desperate Escape tests fail on 1-3.[/color]")
 		lines.append("[color=#CC9A93]Tests again at the start of its next Command phase.[/color]")
+	# Codex: Adeptus Custodes MARTIAL KA'TAH (CustodesKatah.gd): the readied
+	# token and the ka'tah effects active on the unit.
+	var cus11e_katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
+	if cus11e_katah.unit_dict_readied(unit):
+		lines.append("[color=#DBAE38][b]◆ Readied[/b][/color] [color=#888888](gold K badge)[/color] [color=#AAAAAA]— Martial Ka'tah: can use one ka'tah ability[/color]")
+	for cus11e_kid in cus11e_katah.active_katahs(unit):
+		lines.append("[color=#DBAE38][b]%s[/b][/color] [color=#AAAAAA]— %s[/color]" % [cus11e_katah.katah_display_name(cus11e_kid), cus11e_katah.katah_short(cus11e_kid)])
 	# LV-3: a riled-up Ork unit (11e Waaagh! / DREAD POWER) — otherwise only the
 	# Game Log said so, and the player could not tell the stratagem took effect.
 	if flags.get("ork11e_riled_up", false) or flags.get("waaagh_active", false):
@@ -9232,39 +9156,9 @@ func _build_status_marker_hover_text(unit: Dictionary, unit_id: String = "") -> 
 		lines.append("[color=%s][b]Marked for Death (%s)[/b][/color] [color=#AAAAAA]— the marking player scores VP if this unit is destroyed[/color]" % [mfd_color, mfd.capitalize()])
 	if flags.get("beacon", false):
 		lines.append("[color=#39D6FF][b]Beacon[/b][/color] [color=#AAAAAA]— designated unit for the Beacon secondary mission[/color]")
-	# AGAINST ALL ODDS (Lions of the Emperor): the sparkle on the token says the
-	# unit is earning +1 Hit / +1 Wound; this says so in words, and — when it is
-	# NOT earning it — names the friendly unit standing too close. Only units
-	# that could ever earn it get an entry (see evaluate_against_all_odds).
-	lines.append_array(_build_against_all_odds_hover_lines(unit, unit_id))
 	if lines.is_empty():
 		return ""
 	return "\n" + "\n".join(lines)
-
-func _build_against_all_odds_hover_lines(unit: Dictionary, unit_id: String = "") -> Array:
-	var fam = get_node_or_null("/root/FactionAbilityManager")
-	if fam == null or not fam.has_method("get_against_all_odds_status"):
-		return []
-	var uid := unit_id if unit_id != "" else str(unit.get("id", ""))
-	var status: Dictionary = fam.get_against_all_odds_status(uid)
-	if status.is_empty() or not status.get("applicable", false):
-		return []
-	var out: Array = []
-	var near_name = str(status.get("nearest_name", ""))
-	var near_in = float(status.get("nearest_inches", INF))
-	if status.get("active", false):
-		out.append("[color=#FFD86A][b]✦ Against All Odds[/b][/color] [color=#888888](sparkle)[/color] [color=#9FE09F]— +1 to Hit and +1 to Wound[/color]")
-		if near_name != "" and near_in < INF:
-			out.append("[color=#CCB877]No other friendly unit within 6\" — nearest is %s at %.1f\".[/color]" % [near_name, near_in])
-		else:
-			out.append("[color=#CCB877]No other friendly unit within 6\".[/color]")
-	else:
-		out.append("[color=#8A8A92][b]✦ Against All Odds — inactive[/b][/color] [color=#888888](no sparkle)[/color]")
-		if near_name != "" and near_in < INF:
-			out.append("[color=#8A8A92]%s is %.1f\" away; needs more than 6\" from every other friendly unit for +1 Hit / +1 Wound.[/color]" % [near_name, near_in])
-		else:
-			out.append("[color=#8A8A92]Needs more than 6\" from every other friendly unit for +1 Hit / +1 Wound.[/color]")
-	return out
 
 func _position_token_hover(screen_pos: Vector2) -> void:
 	if not _token_hover_tooltip:
@@ -13099,13 +12993,6 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 					print("Main: Rapid Ingress used — starting reinforcement placement for %s" % ri_unit_id)
 					_begin_rapid_ingress_placement(ri_unit_id)
 
-			# OA-24: Handle Kunnin' Infiltrator activation — start redeployment placement
-			if action.type == "ACTIVATE_KUNNIN_INFILTRATOR" and result.get("kunnin_infiltrator_activated", false):
-				var ki_unit_id = result.get("unit_id", action.get("actor_unit_id", ""))
-				if ki_unit_id != "":
-					print("Main: Kunnin' Infiltrator activated — starting redeployment placement for %s" % ki_unit_id)
-					_begin_kunnin_infiltrator_placement(ki_unit_id)
-
 			# Update UI after successful action
 			update_movement_card_buttons()
 	else:
@@ -15543,12 +15430,26 @@ func _toggle_stratagem_panel() -> void:
 		# not a CanvasItem; assigning z_index raised a SCRIPT ERROR that
 		# aborted this function before popup(), leaving the panel button dead.
 		_stratagem_panel.stratagem_use_requested.connect(_on_stratagem_panel_use_requested)
-	var active_player = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
+	var active_player = _stratagem_panel_player()
 	_stratagem_panel.populate(active_player, current_phase)
 	DialogUtils.popup_at_bottom(_stratagem_panel)
 	if stratagem_panel_button:
 		_WhiteDwarfTheme.apply_tab_button(stratagem_panel_button, true)
 
+
+## The seat the S panel acts for: the active player — or, in a single-player
+## game against the AI, the human seat while the AI takes its turn, so the
+## human's "Either player's turn" panel stratagems (Codex: Adeptus Custodes
+## HONOURED INTERRED in the Fight phase, GILDED CHAMPION) can be used then.
+## StratagemManager.can_use_stratagem still gates every use by its timing.
+func _stratagem_panel_player() -> int:
+	var active: int = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
+	var ai = get_node_or_null("/root/AIPlayer")
+	if ai != null and ai.has_method("is_ai_player") and ai.is_ai_player(active) and not NetworkManager.is_networked():
+		var other := 2 if active == 1 else 1
+		if not ai.is_ai_player(other):
+			return other
+	return active
 
 func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	# A stratagem window is waiting for a decision: the S panel must not let a
@@ -15569,7 +15470,7 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager == null:
 		return
-	var active_player = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
+	var active_player = _stratagem_panel_player()
 	# Audit #11 (15.05/15.06): EXPLOSIVES and CRUSHING IMPACT need the
 	# attacker to pick a friendly unit AND an enemy target — prompt for
 	# both instead of firing target-less (which no-oped the effect).
@@ -15598,6 +15499,12 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	# buggies, then confirm where the revived models are set up (01.02.03).
 	if str(strat.get("csv_id", "")) == "delicious-eating-squigs-kult-of-speed":
 		_prompt_delicious_squigs(sid_resolved, active_player)
+		return
+	# Codex: Adeptus Custodes S-panel stratagems (CustodesCodex11e.gd: UNLEASH
+	# THE LIONS, HONOURED INTERRED, GILDED CHAMPION — no window): pick the
+	# friendly target the codex handler accepts, then use it.
+	if load("res://scripts/codex/custodes/CustodesCodex11e.gd").handles(strat) and strat.get("timing", {}).get("windows", []).is_empty():
+		_prompt_friendly_target_then_use(sid_resolved, active_player)
 		return
 	# Unit-targeted faction stratagems (SPESHUL AMMO, DUST TRAILS, DAT'S OURS,
 	# TAKTIKAL RETREAT, DED SNEAKY, ...): prompt for the friendly target
@@ -15639,6 +15546,11 @@ func _prompt_friendly_target_then_use(sid: String, player: int) -> void:
 		func(fid: String):
 			var result = strat_manager.use_stratagem(player, sid, fid)
 			print("Main: %s on %s -> %s" % [display_name, fid, str(result)])
+			# Codex: Adeptus Custodes UNLEASH THE LIONS adds one-model units:
+			# rebuild the tokens / unit list so the new units appear.
+			if result.get("success", false) and str(strat_manager.get_stratagem(sid).get("csv_id", "")) == "unleash-the-lions-lions-of-the-emperor":
+				_recreate_unit_visuals()
+				refresh_unit_list()
 			if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
 				_stratagem_panel.populate(player, current_phase))
 

@@ -1,0 +1,232 @@
+{
+ "id": "ork11e_ab_warpath",
+ "covers": [
+  "codex.orks.datasheet_abilities.warpath",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.unit_selected_to_fight",
+  "rules.psychic"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) WARPATH (Weirdboy psychic) through the real unit_selected_to_fight window. Fixture ork11e_ab_fight: the Weirdboy is engaged with Witchseekers C. After the pile-in step, a real click on 'Fight' for the Weirdboy opens the window; 'Use on Weirdboy' makes the psychic roll: its melee attacks re-roll wound rolls of 1 and have [PSYCHIC] (live hook); it fights. The Kill Rig's Warpath ([LETHAL HITS]) is pinned headless. Setup privileges: auto wound allocation, the Custodes' wounds inflated (the fight must not end the scenario). The Custodes player's IN AURAMITE CLAD card (WP-C5, offered when the Weirdboy targets Witchseekers C — ANATHEMA PSYKANA units carry the ADEPTUS CUSTODES faction keyword) is declined with a real click (WP-FIX1).",
+ "fixture": "ork11e_ab_fight",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 10
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 2:\n\t\tfor m in u.models:\n\t\t\tm[\"wounds\"] = 99\n\t\t\tm[\"current_wounds\"] = 99\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege (see description)"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "timeout_s": 6.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WEIRDBOY_A",
+   "timeout_s": 6.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WEIRDBOY_A",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "unit_selected_to_fight"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_warpath/Buttons/Use_ork11e_ab_warpath_U_WEIRDBOY_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_warpath\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_warpath_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_warpath/Buttons/Use_ork11e_ab_warpath_U_WEIRDBOY_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+   "multiline": true,
+   "comment": "EPIC CHALLENGE prompt for a CHARACTER fighter — not under test, declined"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_WEIRDBOY_A.flags.ork11e_ab_warpath",
+   "equals": "weirdboy"
+  },
+  {
+   "act": "execute_script",
+   "script": "var u = GameState.get_unit(\"U_WEIRDBOY_A\")\nvar t = GameState.get_unit(\"U_WITCHSEEKERS_C\")\nvar m = RulesEngine.ork11e_ab_mods(u, t, {\"name\": \"Weirdboy staff\", \"type\": \"Melee\"}, true, GameState.state, [])\nprint(\"[wp-o6] mods \", \"U_WEIRDBOY_A\", \" -> \", \"U_WITCHSEEKERS_C\", \": \", m)\nreturn str(m.wound_reroll) == \"ones\" and bool(m.psychic)",
+   "multiline": true,
+   "equals": true,
+   "comment": "re-roll wound rolls of 1 + [PSYCHIC]"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Warpath\")",
+   "expect_min": 1
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/AttackAssignmentDialog",
+   "timeout_s": 5.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "click_node",
+   "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0,
+   "comment": "WP-FIX1: the Ork unit's attacks target an ADEPTUS CUSTODES unit, so the WP-C5 IN AURAMITE CLAD (Guardians of the Throne: 'the Fight phase, when an enemy unit targets a friendly ADEPTUS CUSTODES unit') card is correctly offered to the Custodes player — not under test"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "enemy_targets_unit_fight"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 2
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_guardians_of_the_throne_in_auramite_clad",
+   "timeout_s": 2.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/DeclineButton",
+   "comment": "real click: the Custodes player declines IN AURAMITE CLAD (not under test)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "\"U_WEIRDBOY_A\" in PhaseManager.get_current_phase_instance().units_that_fought",
+   "equals": true
+  },
+  {
+   "act": "screenshot",
+   "label": "02_warpath_fought"
+  }
+ ]
+}

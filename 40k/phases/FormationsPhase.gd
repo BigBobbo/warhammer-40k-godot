@@ -185,7 +185,7 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 		errors.append("Unit is not a CHARACTER: " + character_id)
 	var leader_data = character.get("meta", {}).get("leader_data", {})
 	var can_lead = leader_data.get("can_lead", []).duplicate()
-	# Taktikal Brigade enhancements (Skwad Leader / Mek Kaptin) extend which
+	# Enhancement LEADER lines (Codex: Orks Kill Kommanda / Kaptin's Hat) extend which
 	# units the bearer can lead — mirror CharacterAttachmentManager.can_attach.
 	for extra_kw in CharacterAttachmentManager.get_enhancement_can_lead_extras(character):
 		if not extra_kw in can_lead:
@@ -415,7 +415,7 @@ func _validate_declare_reserves(action: Dictionary) -> Dictionary:
 		errors.append("Unit already declared in reserves")
 
 	# Check 50% reserves point cap (Chapter Approved 2025-26)
-	var unit_points = unit.get("meta", {}).get("points", 0)
+	var unit_points = load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 	# Include attached character points in the calculation. The characters are
 	# DERIVED, not taken from the action: the player's dialog names them
 	# (Main.gd:10229-10240) but the AI declares straight off
@@ -519,6 +519,12 @@ func _validate_designate_warlord(action: Dictionary) -> Dictionary:
 		errors.append("Only CHARACTER units can be designated as Warlord")
 		return {"valid": false, "errors": errors}
 
+	# Codex: Adeptus Custodes — Anathema Psykana (CustodesKatah.gd).
+	var ap_reason := _cus11e_warlord_block_reason(unit_id, player)
+	if ap_reason != "":
+		errors.append(ap_reason)
+		return {"valid": false, "errors": errors}
+
 	if _is_player_confirmed(player):
 		errors.append("Cannot modify formations after confirming")
 		return {"valid": false, "errors": errors}
@@ -544,7 +550,8 @@ func _find_supreme_commander_unit(player: int) -> String:
 			continue
 		for ab in u.get("meta", {}).get("abilities", []):
 			var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
-			if ab_name == "Supreme Commander":
+			# Case-insensitive: Codex: Adeptus Custodes (11e) Trajann Valoris prints "SUPREME COMMANDER" (WP-C7).
+			if str(ab_name).to_lower() == "supreme commander":
 				return uid
 	return ""
 
@@ -864,7 +871,7 @@ func _get_declared_reserves_points(player: int) -> int:
 	for entry in formations.get("reserves", []):
 		var unit_id = entry.get("unit_id", "")
 		var unit = get_unit(unit_id)
-		total += unit.get("meta", {}).get("points", 0)
+		total += load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 		# Include attached character points
 		for char_id in _reserve_attached_characters(unit_id, player, entry):
 			var char_unit = get_unit(char_id)
@@ -884,7 +891,16 @@ func _validate_warlord_designation(player: int) -> Dictionary:
 	"""Validate that exactly one CHARACTER unit is designated as Warlord for the player.
 	Per 10e core rules, each player must designate exactly one CHARACTER model as their Warlord.
 	If no warlord is set and there's exactly one CHARACTER, auto-designate it."""
-	var characters = _get_all_characters_for_player(player)
+	var all_characters = _get_all_characters_for_player(player)
+	# Codex: Adeptus Custodes — Anathema Psykana: an ANATHEMA PSYKANA model
+	# cannot be the WARLORD (unless the detachment allows it); it is neither
+	# accepted nor auto-designated (CustodesKatah.gd).
+	for ap_id in all_characters:
+		if get_unit(ap_id).get("meta", {}).get("is_warlord", false):
+			var ap_reason := _cus11e_warlord_block_reason(ap_id, player)
+			if ap_reason != "":
+				return {"valid": false, "errors": [ap_reason]}
+	var characters = _cus11e_warlord_eligible(all_characters, player)
 
 	# If no CHARACTER units at all, warlord designation is not applicable
 	if characters.is_empty():
@@ -974,13 +990,29 @@ func _get_auto_warlord_id(player: int) -> String:
 	"""If the player has exactly one CHARACTER and no designated Warlord,
 	return that unit id for auto-designation (mirrors the auto-designate
 	branch of _validate_warlord_designation). Returns "" otherwise."""
-	var characters = _get_all_characters_for_player(player)
-	for char_id in characters:
+	var all_characters = _get_all_characters_for_player(player)
+	for char_id in all_characters:
 		if get_unit(char_id).get("meta", {}).get("is_warlord", false):
 			return ""
+	var characters = _cus11e_warlord_eligible(all_characters, player)
 	if characters.size() == 1:
 		return characters[0]
 	return ""
+
+## Codex: Adeptus Custodes — Anathema Psykana warlord restriction
+## (CustodesKatah.gd): "" when the unit may be the player's Warlord.
+func _cus11e_warlord_block_reason(unit_id: String, player: int) -> String:
+	var katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
+	var u: Dictionary = get_unit(unit_id).duplicate()
+	u["id"] = unit_id
+	return str(katah.warlord_block_reason(u, katah.player_detachment(player)))
+
+func _cus11e_warlord_eligible(character_ids: Array, player: int) -> Array:
+	var out: Array = []
+	for cid in character_ids:
+		if _cus11e_warlord_block_reason(str(cid), player) == "":
+			out.append(cid)
+	return out
 
 func _get_all_characters_for_player(player: int) -> Array:
 	"""Get all units with the CHARACTER keyword for a player (regardless of Leader ability)."""
@@ -1274,7 +1306,12 @@ func get_available_actions() -> Array:
 				"type": "DECLARE_TRANSPORT_EMBARKATION",
 				"transport_id": transport_id,
 				"player": current_player,
-				"description": "Embark units in %s" % transport_name
+				"description": "Embark units in %s" % transport_name,
+				# What is already declared aboard (formations are only written to
+				# the units at CONFIRM), so an AI can price the space left
+				# instead of re-proposing the same passengers.
+				"declared_unit_ids": already_embarked_ids.duplicate(),
+				"remaining_capacity": capacity - already_embarked_count,
 			})
 
 	# Reserves options
@@ -1322,8 +1359,9 @@ func get_available_actions() -> Array:
 			"description": "Undo: %s reserves" % unit_name
 		})
 
-	# Warlord designation options (only show if multiple CHARACTERs exist)
-	var all_characters = _get_all_characters_for_player(current_player)
+	# Warlord designation options (only show if multiple CHARACTERs exist;
+	# ANATHEMA PSYKANA models are never offered — CustodesKatah.gd)
+	var all_characters = _cus11e_warlord_eligible(_get_all_characters_for_player(current_player), current_player)
 	if all_characters.size() > 1:
 		for char_id in all_characters:
 			var unit = get_unit(char_id)

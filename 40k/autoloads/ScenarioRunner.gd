@@ -284,6 +284,11 @@ func _run_scenario() -> void:
 	var scenario_id: String = _scenario.get("id", "unnamed")
 	print("[ScenarioRunner] === scenario id=%s ===" % scenario_id)
 
+	# 1b) Codex: Adeptus Custodes MARTIAL KA'TAH policy (see _katah_policy_*).
+	_katah_policy_arm()
+	# 1c) Codex: Adeptus Custodes datasheet-ability cards policy (WP-C7).
+	_cus11e_abilities_policy_arm()
+
 	# 2) Load fixture (optional)
 	var fixture: String = _scenario.get("fixture", "")
 	if fixture != "":
@@ -1873,6 +1878,60 @@ func min_edge_distance_between_units(unit_a_id: String, unit_b_id: String) -> fl
 				continue
 			best = min(best, Measurement.model_to_model_distance_inches(ma, mb))
 	return best
+
+# Codex: Adeptus Custodes (11e) MARTIAL KA'TAH (WP-C3) — scenario policy.
+# Every Custodes Command phase readies the Custodes units, and a readied unit
+# opens a ka'tah window (a 0-CP card in the StratagemDialog) whenever it is
+# selected to move / shoot / fight, at the start of each Fight phase and when
+# the Command phase ends. The scenarios written before the codex never answer
+# those windows (most of them load a Custodes Command-phase fixture), so
+# unless a scenario opts in with top-level  "martial_katah": true  the runner
+# clears flags.cus11e_readied right after every Command phase entry — before
+# any step or transition_to_phase runs — and logs it. Nothing else of the army
+# rules is touched. The cus11e_* scenarios opt in and drive the windows.
+func _katah_policy_arm() -> void:
+	if bool(_scenario.get("martial_katah", false)):
+		print("[ScenarioRunner] martial_katah: true — Custodes readied state kept (ka'tah windows will open)")
+		return
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm != null and pm.has_signal("phase_changed") and not pm.phase_changed.is_connected(_katah_policy_on_phase_changed):
+		pm.phase_changed.connect(_katah_policy_on_phase_changed)
+
+# Codex: Adeptus Custodes (11e) DATASHEET ABILITIES (WP-C7) — scenario policy,
+# like the ka'tah one above. Moment Shackle / Neutronium Cascade Mine / Sword of
+# the Throne open a start-of-phase window, and the shooting / fight-end /
+# movement-start abilities are 0-CP cards in the StratagemDialog. The scenarios
+# written before WP-C7 never answer those cards (the standard fixtures field
+# Trajann, Venatari, ...), so unless a scenario opts in with top-level
+# "custodes_abilities": true  the runner turns the ability OFFERS off
+# (CustodesAbilities.offers_suppressed) and logs it. The passive abilities
+# (Captain-General, Praesidium Shield, ...) are untouched. The cus11e_ab_*
+# scenarios opt in and drive the cards.
+func _cus11e_abilities_policy_arm() -> void:
+	var ca = load("res://scripts/codex/custodes/CustodesAbilities.gd")
+	if ca == null:
+		return
+	var opt_in := bool(_scenario.get("custodes_abilities", false))
+	ca.offers_suppressed = not opt_in
+	if opt_in:
+		print("[ScenarioRunner] custodes_abilities: true — Codex: Adeptus Custodes datasheet-ability cards will be offered")
+	else:
+		print("[ScenarioRunner] custodes_abilities policy: Codex: Adeptus Custodes datasheet-ability cards are not offered in this scenario (opt in with \"custodes_abilities\": true); passive abilities still apply")
+
+func _katah_policy_on_phase_changed(new_phase) -> void:
+	if int(new_phase) != int(GameStateData.Phase.COMMAND):
+		return
+	var gs = get_node_or_null("/root/GameState")
+	if gs == null:
+		return
+	var cleared: Array = []
+	for uid in gs.state.get("units", {}):
+		var flags = gs.state.units[uid].get("flags", null)
+		if flags is Dictionary and flags.has("cus11e_readied"):
+			flags.erase("cus11e_readied")
+			cleared.append(str(uid))
+	if not cleared.is_empty():
+		print("[ScenarioRunner] martial_katah policy: cleared the Custodes readied state on %d unit(s) %s — this scenario does not opt in (\"martial_katah\": true)" % [cleared.size(), str(cleared)])
 
 # Count GameEventLog entries whose text contains `needle`. Callable from
 # `execute_script` steps, e.g. `event_log_count_containing("charge move failed")`

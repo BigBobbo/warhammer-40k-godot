@@ -309,6 +309,12 @@ func _section_a_held_shoot_post_windows() -> void:
 	_set_det(2, "Da Big Hunt")
 	_move_to("U_TANKBUSTAS_A", Vector2(38, 43))
 	_move_to("U_BEAST_SNAGGA_BOYZ_A", Vector2(40, 52))
+	# WP-O6: the Tankbustas' codex ROKKIT BARRAGE resolves automatically after
+	# a shot that hit one unit (battle-shock roll at -1) — a failed roll makes
+	# the Beast Snagga Boyz battle-shocked and so ineligible for GOADED INTO
+	# ACTION. This section pins the window framework, not that interaction.
+	var tb_meta: Dictionary = GS.state.units["U_TANKBUSTAS_A"]["meta"]
+	tb_meta["abilities"] = tb_meta.get("abilities", []).filter(func(a): return not str(a.get("name", "") if typeof(a) == TYPE_DICTIONARY else a).begins_with("Rokkit Barrage"))
 	var ph = _shooting()
 	_window_events.clear()
 	var res = _shoot(ph, "U_TANKBUSTAS_A", "U_BEAST_SNAGGA_BOYZ_A", 5)
@@ -668,11 +674,13 @@ func _section_g_ap_sign() -> void:
 	# effect -> (attacker flags, target flags, expected save AP)
 	var cases := [
 		["none", {}, {}, -2],
-		["PULSA ROKKIT", {"effect_pulsa_rokkit_active": true}, {}, -3],
+		# WP-O6: Codex: Orks (11e) Pulsa Rokkit — +1 AP vs the selected unit (the
+		# pre-codex effect_pulsa_rokkit_active +1 S / +1 AP flag is retired).
+		["PULSA ROKKIT (codex: vs the selected unit)", {"ork11e_ab_pulsa_target": "U_CUSTODIAN_GUARD_C"}, {}, -3],
 		["scoped improve_ap (ranged +1)", {"effect_improve_ap_ranged": 1}, {}, -3],
 		["SPESHUL SHELLS (More Dakka!)", {"effect_speshul_shells_md": true}, {}, -3],
 		["TRY DAT BUTTON! (+2)", {"effect_try_dat_ap2": true}, {}, -4],
-		["GLOWIN' DAKKA + PULSA ROKKIT", {"ork11e_glowin_dakka": true, "effect_pulsa_rokkit_active": true}, {}, -4],
+		["GLOWIN' DAKKA + PULSA ROKKIT", {"ork11e_glowin_dakka": true, "ork11e_ab_pulsa_target": "U_CUSTODIAN_GUARD_C"}, {}, -4],
 		["target worsen AP 1", {}, {"effect_worsen_ap": 1}, -1],
 		["GLOWIN' DAKKA + target worsen AP 1", {"ork11e_glowin_dakka": true}, {"effect_worsen_ap": 1}, -2],
 	]
@@ -691,19 +699,28 @@ func _section_g_ap_sign() -> void:
 	var mprof := {"name": "Test Klaw", "type": "Melee", "ap": -2, "damage": 2, "damage_raw": "2", "special_rules": "", "keywords": [], "abilities": []}
 	var msr: Dictionary = RE.prepare_melee_save_resolution(1, "U_CUSTODIAN_GUARD_C", "U_TANKBUSTAS_A", mprof, bm)
 	_check("melee interactive: AP-2 vs a target that worsens AP by 1 -> AP-1", msr.get("success", false) and int(msr.get("ap", 99)) == -1, str(msr.get("ap", msr.get("error", ""))))
-	bm.units.U_TANKBUSTAS_A.flags["martial_mastery_improve_ap"] = true
+	# (WP-C46: was the 10e Shield Host martial_mastery_improve_ap flag, retired
+	# with that detachment — the scoped melee improve-AP effect is the same
+	# "improve AP by 1" helper on this path.)
+	bm.units.U_TANKBUSTAS_A.flags["effect_improve_ap_melee"] = 1
 	msr = RE.prepare_melee_save_resolution(1, "U_CUSTODIAN_GUARD_C", "U_TANKBUSTAS_A", mprof, bm)
 	_check("melee interactive: ... plus an 'improve AP by 1' -> AP-2", msr.get("success", false) and int(msr.get("ap", 99)) == -2, str(msr.get("ap", msr.get("error", ""))))
-	# DRIVE-BY DAKKA (ability) and PREY (Da Big Hunt) are the other "+1 AP" helpers.
+	# PREY (Da Big Hunt) is the other "+1 AP" helper. WP-O6: the pre-codex
+	# DRIVE-BY DAKKA ability is on no Codex: Orks (11e) datasheet — the old
+	# name no longer improves AP (retired check: "DRIVE-BY DAKKA ... save AP -3").
 	var bd: Dictionary = b.duplicate(true)
 	bd.units.U_TANKBUSTAS_A.meta["abilities"] = bd.units.U_TANKBUSTAS_A.meta.get("abilities", []) + [{"name": "Drive-by Dakka"}]
 	var bd_c: Vector2 = Vector2(float(bd.units.U_TANKBUSTAS_A.models[1].position.x), float(bd.units.U_TANKBUSTAS_A.models[1].position.y))
 	for i in range(bd.units.U_CUSTODIAN_GUARD_C.models.size()):
 		bd.units.U_CUSTODIAN_GUARD_C.models[i]["position"] = {"x": bd_c.x + (i - 2) * 1.8 * PX, "y": bd_c.y + 6.0 * PX}
 	var aps_d := _save_aps(bd, "U_TANKBUSTAS_A", wid, "U_CUSTODIAN_GUARD_C")
-	_check("DRIVE-BY DAKKA (target within 9\"): save AP -3", aps_d[0] == -3 and aps_d[1] == -3, "interactive %d auto %d" % [aps_d[0], aps_d[1]])
+	_check("pre-codex Drive-by Dakka (target within 9\"): no AP change (save AP -2)", aps_d[0] == -2 and aps_d[1] == -2, "interactive %d auto %d" % [aps_d[0], aps_d[1]])
 	var bp: Dictionary = b.duplicate(true)
-	bp.units.U_CUSTODIAN_GUARD_C.flags["is_prey_of_1"] = true
+	# 11e (WP-O34): the 10e Prey rule is gone — Da Big Hunt's DA HUNT IS ON (+1 AP
+	# for Beast Snagga attacks vs a MONSTER/VEHICLE unit) is the same "+1 AP" helper.
+	bp.units.U_CUSTODIAN_GUARD_C.meta["keywords"] = bp.units.U_CUSTODIAN_GUARD_C.meta.get("keywords", []) + ["VEHICLE"]
+	var det_before_hunt := str(GS.state.factions["1"].get("detachment", ""))
+	_set_det(1, "Da Big Hunt")
 	var bsb_w := ""
 	var bw = RE.get_unit_weapons("U_BEAST_SNAGGA_BOYZ_A", bp)
 	for mid in bw:
@@ -718,7 +735,8 @@ func _section_g_ap_sign() -> void:
 		for i in range(bp.units.U_ALLARUS_CUSTODIANS_A.models.size()):
 			bp.units.U_ALLARUS_CUSTODIANS_A.models[i]["position"] = {"x": 2.0 * PX, "y": 2.0 * PX}
 		var aps_p := _save_aps(bp, "U_BEAST_SNAGGA_BOYZ_A", bsb_w, "U_CUSTODIAN_GUARD_C")
-		_check("PREY (BEAST SNAGGA vs its Prey): AP %d -> %d" % [bsb_ap, RE.improve_ap(bsb_ap, 1)], aps_p[0] == RE.improve_ap(bsb_ap, 1) and aps_p[1] == RE.improve_ap(bsb_ap, 1), "interactive %d auto %d" % [aps_p[0], aps_p[1]])
+		_check("DA HUNT IS ON (BEAST SNAGGA vs a VEHICLE): AP %d -> %d" % [bsb_ap, RE.improve_ap(bsb_ap, 1)], aps_p[0] == RE.improve_ap(bsb_ap, 1) and aps_p[1] == RE.improve_ap(bsb_ap, 1), "interactive %d auto %d" % [aps_p[0], aps_p[1]])
+	_set_det(1, det_before_hunt)
 
 
 # ---------------------------------------------------------------------------

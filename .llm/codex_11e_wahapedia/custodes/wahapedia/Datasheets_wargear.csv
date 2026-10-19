@@ -1,0 +1,117 @@
+datasheet_id|line|line_in_wargear|dice|name|description|range|type|A|BS_WS|S|AP|D
+000000883|1|1||Combi-bolter|Rapid Fire 2|24|Ranged|2|2|5|-1|1
+000000883|2|1||Kheres-pattern Assault Cannon|Sustained Hits 1|24|Ranged|6|2|7|-2|2
+000000883|3|1||Multi-melta|Melta 3|18|Ranged|2|2|10|-3|D3+2
+000000883|4|1||Contemptor Fist||Melee|Melee|5|2|12|-3|D3+3
+000000884|1|1||Godhammer Lascannon||48|Ranged|2|2|12|-3|D3+3
+000000884|2|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000000884|3|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|2|5|-1|1
+000000884|4|1||Twin Heavy Bolter|Rapid Fire 2, Sustained Hits 1, Twin-linked|36|Ranged|3|2|5|-1|2
+000000884|5|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000001446|1|1||Eagle’s Scream|ASSAULT, Rapid Fire 2|24|Ranged|2|2|6|-2|2
+000001446|2|1||Watcher’s Axe|CLEAVE 1|Melee|Melee|6|2|12|-3|4
+000001447|1|1||Castellan Axe|ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|2
+000001447|2|1||Guardian Spear|ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|2
+000001447|3|1||Pyrithite Spear|ASSAULT, Melta 2|12|Ranged|1|2|10|-3|D3+2
+000001447|4|1||Castellan Axe||Melee|Melee|5|2|10|-2|4
+000001447|5|1||Eternity-pattern Paragon Blade|Precision|Melee|Melee|6|2|10|-3|3
+000001447|6|1||Guardian Spear|CLEAVE 1|Melee|Melee|8|2|8|-2|2
+000001447|7|1||Pyrithite Spear|CLEAVE 1|Melee|Melee|8|2|8|-2|2
+000001448|1|1||Balistus Grenade Launcher|ASSAULT, BLAST 1|18|Ranged|3|2|5|-1|1
+000001448|2|1||Castellan Axe|ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|2
+000001448|3|1||Guardian Spear|ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|2
+000001448|4|1||Castellan Axe||Melee|Melee|5|2|10|-2|4
+000001448|5|1||Guardian Spear|CLEAVE 1|Melee|Melee|8|2|8|-2|2
+000001449|1|1||Hurricane Bolter|Rapid Fire 3, Twin-linked|18|Ranged|3|2|5|-1|2
+000001449|2|1||Salvo Launcher||24|Ranged|2|2|10|-2|D3+2
+000001449|3|1||Interceptor Lance|Lance|Melee|Melee|8|2|8|-2|2
+000001450|1|1||Castellan Axe|ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|2
+000001450|2|1||Guardian Spear|ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|2
+000001450|3|1||Castellan Axe||Melee|Melee|3|2|10|-2|4
+000001450|4|1||Guardian Spear||Melee|Melee|6|2|8|-2|2
+000001453|1|1||Balistus Grenade Launcher|ASSAULT, BLAST 1|18|Ranged|3|2|5|-1|1
+000001453|2|1||Castellan Axe|ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|2
+000001453|3|1||Guardian Spear|ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|2
+000001453|4|1||Castellan Axe||Melee|Melee|3|2|10|-2|4
+000001453|5|1||Guardian Spear||Melee|Melee|6|2|8|-2|2
+000001454|1|1||Hurricane Bolter|Rapid Fire 3, Twin-linked|18|Ranged|3|2|5|-1|2
+000001454|2|1||Salvo Launcher||24|Ranged|2|2|10|-2|D3+2
+000001454|3|1||Interceptor Lance|Lance|Melee|Melee|6|2|8|-2|2
+000001458|1|1||Adrathic Combi-destructor||12|Ranged|2|2|5|-2|3
+000001458|2|1||Dreadspear||18|Ranged|2|2|10|-3|D3+2
+000001458|3|1||Lastrum Storm Bolter|Rapid Fire 3|24|Ranged|3|2|5|-1|1
+000001458|4|1||Twin Infernus Incinerator|BLAST 2, Torrent, Twin-linked|12|Ranged|3|-|6|-1|1
+000001458|5|1||Dreadspear|Lance|Melee|Melee|5|2|12|-3|D3+3
+000001460|1|1||Iliastus Accelerator Cannon|Rapid Fire 4, SUSTAINED HITS 1: non-MONSTER/VEHICLE|48|Ranged|4|2|10|-1|3
+000001460|2|1||Twin Lastrum Bolt Cannon|Sustained Hits 1, Twin-linked|36|Ranged|3|2|6|-2|2
+000001460|3|1||Twin Neutronium Cascade Projectors|BLAST 1, Torrent, Twin-linked|12|Ranged|3|-|7|-2|1
+000001460|4|1||Armoured Hull||Melee|Melee|4|4|6|0|1
+000001461|1|1||Twin Arachnus Blaze Cannon|Twin-linked|24|Ranged|2|2|10|-3|D3+2
+000001461|2|1||Twin Lastrum Bolt Cannon|Sustained Hits 1, Twin-linked|36|Ranged|3|2|6|-2|2
+000001461|3|1||Twin Neutronium Cascade Projectors|BLAST 1, Torrent, Twin-linked|12|Ranged|3|-|7|-2|1
+000001461|4|1||Armoured Hull||Melee|Melee|6|4|8|0|1
+000001479|1|1||Adrathic Desolator||24|Ranged|4|2|10|-2|4
+000001479|2|1||Arachnus Storm Cannon|Devastating Wounds, Sustained Hits 1|24|Ranged|12|2|6|-1|1
+000001479|3|1||Iliastus Accelerator Culverin|Rapid Fire 3|48|Ranged|3|2|10|-1|3
+000001479|4|1||Spiculus Bolt Launcher|BLAST 2|36|Ranged|6|2|5|-1|1
+000001479|5|1||Twin Neutronium Cascade Projectors|BLAST 1, Torrent, Twin-linked|12|Ranged|3|-|7|-2|1
+000001479|6|1||Caestus Fist||Melee|Melee|5|2|14|-3|4
+000001479|7|1||Dual Caestus Fists|Twin-linked|Melee|Melee|7|2|14|-3|4
+000001557|1|1||Warblade|BLAST 2, Torrent, Twin-linked|12|Ranged|4|-|6|-1|2
+000001557|2|1||Warblade|CLEAVE 1, SUSTAINED HITS 1: non-MONSTER/VEHICLE|Melee|Melee|8|2|10|-2|3
+000001562|1|1||Twin Arachnus Blaze Cannon|Twin-linked|24|Ranged|2|2|10|-3|D3+2
+000001562|2|1||Twin Iliastus Accelerator Fusil|Rapid Fire 2, Twin-linked|48|Ranged|2|2|10|-1|3
+000001562|3|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000001564|1|1||Arachnus Heavy Blaze Cannon||36|Ranged|4|2|12|-3|D3+3
+000001564|2|1||Spiculus Heavy Bolt Launcher|BLAST 2|36|Ranged|8|2|7|-1|2
+000001564|3|1||Twin Lastrum Bolt Cannon|Sustained Hits 1, Twin-linked|36|Ranged|3|2|6|-2|2
+000001564|4|1||Armoured Hull||Melee|Melee|9|4|9|0|1
+000001680|1|1||Arachnus Heavy Blaze Cannon||36|Ranged|4|2|12|-3|D3+3
+000001680|2|1||Arachnus Magna-blaze Cannon||48|Ranged|3|2|18|-3|D6+6
+000001680|3|1||Armoured Hull||Melee|Melee|9|4|9|0|1
+000002088|1|1||Somnus|Anti-Psyker 5+, Devastating Wounds|Melee|Melee|4|2|6|-3|3
+000002518|1|1||Vaultswords - Behemor|Devastating Wounds|Melee|Melee|5|2|10|-3|3
+000002518|2|2||Vaultswords - Hurricanis|CLEAVE 1, Sustained Hits 1|Melee|Melee|10|2|6|-2|1
+000002518|3|3||Vaultswords - Victus|Precision|Melee|Melee|8|2|8|-3|2
+000002519|1|1||Gnosis|ASSAULT, Rapid Fire 2|24|Ranged|3|2|6|-1|2
+000002519|2|1||Gnosis||Melee|Melee|7|2|8|-3|3
+000002520|1|1||Master-crafted Boltgun|Anti-Psyker 4+, ASSAULT, Rapid Fire 1|24|Ranged|2|2|5|-1|2
+000002520|2|1||Master-crafted Flamer|Anti-Psyker 4+, ASSAULT, BLAST 2, Torrent|12|Ranged|4|-|4|-1|1
+000002520|3|1||Executioner Greatblade|Anti-Psyker 5+, CLEAVE 1, DEVASTATING WOUNDS: PSYKER|Melee|Melee|4|2|5|-2|2
+000002520|4|1||Gun Stock||Melee|Melee|3|2|3|0|1
+000002524|1|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000002524|2|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002524|3|1||Armoured Tracks||Melee|Melee|3|4|6|0|1
+000004250|1|1||Adrasite Spear||18|Ranged|2|2|8|-2|3
+000004250|2|1||Adrasite Spear||Melee|Melee|6|2|8|-2|2
+000004251|1|1||Guardian Spear|ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|2
+000004251|2|1||Guardian Spear||Melee|Melee|6|2|8|-2|2
+000004252|1|1||Boltgun|Anti-Psyker 4+, ASSAULT, Rapid Fire 1|24|Ranged|1|3|5|-1|1
+000004252|2|1||Gun Stock||Melee|Melee|2|3|3|0|1
+000004253|1|1||Verutum Lance|ASSAULT|18|Ranged|1|2|10|-2|3
+000004253|2|1||Verutum Lance|Lance, Precision|Melee|Melee|5|2|7|-2|2
+000004254|1|1||Adrathic Combi-destructor||12|Ranged|2|2|5|-2|3
+000004254|2|1||Solarite Power Gauntlet||Melee|Melee|5|2|10|-2|3
+000004255|1|1||Sentinel Blade|ASSAULT, CLOSE-QUARTERS|12|Ranged|4|2|5|-1|2
+000004255|2|1||Sentinel Blade||Melee|Melee|5|2|6|-2|2
+000004256|1|1||Flamer|Anti-Psyker 4+, ASSAULT, BLAST 1, Torrent|12|Ranged|3|-|4|-1|1
+000004256|2|1||Gun Stock||Melee|Melee|2|3|3|0|1
+000004257|1|1||Adrathic Devastator||18|Ranged|3|2|8|-2|3
+000004257|2|1||Arachnus Volley Cannon|Devastating Wounds, Sustained Hits 1|24|Ranged|8|2|5|-1|1
+000004257|3|1||Lastrum Bolt Cannon|Sustained Hits 1|36|Ranged|3|2|6|-2|2
+000004257|4|1||Twin Corvae Las-pulser|Twin-linked|18|Ranged|1|2|10|-3|D3+2
+000004257|5|1||Solarite Power Lance|Lance|Melee|Melee|5|2|8|-2|3
+000004258|1|1||Executioner Greatblade|Anti-Psyker 5+, DEVASTATING WOUNDS: PSYKER|Melee|Melee|3|3|5|-2|2
+000004259|1|1||Infernus Firepike|BLAST 2, Torrent|12|Ranged|3|-|5|-1|1
+000004259|2|1||Lastrum Storm Bolter|Rapid Fire 3|24|Ranged|3|2|5|-1|1
+000004259|3|1||Solarite Power Talon|Sustained Hits 2|Melee|Melee|6|2|6|-2|1
+000004260|1|1||Adrastus Bolt Caliver|Sustained Hits 1|36|Ranged|3|2|7|-2|2
+000004260|2|1||Misericordia||Melee|Melee|4|2|6|-2|1
+000004261|1|1||Arachnus Blaze Carronade|LETHAL HITS: MONSTER/VEHICLE|48|Ranged|4|2|12|-3|D6+2
+000004261|2|1||Twin Lastrum Bolt Cannon|Sustained Hits 1, Twin-linked|36|Ranged|3|2|6|-2|2
+000004261|3|1||Twin Neutronium Cascade Projectors|BLAST 1, Torrent, Twin-linked|12|Ranged|3|-|7|-2|1
+000004261|4|1||Armoured Hull||Melee|Melee|4|4|6|0|1
+000004262|1|1||Kinetic Destroyer|ASSAULT, CLOSE-QUARTERS, Sustained Hits 1|18|Ranged|4|2|6|-2|1
+000004262|2|1||Tarsus Buckler|Sustained Hits 1|Melee|Melee|5|2|6|-2|1
+000004263|1|1||Pyrithite Spear|Melta 2|12|Ranged|1|2|10|-3|D3+2
+000004263|2|1||Pyrithite Spear||Melee|Melee|6|2|8|-2|2

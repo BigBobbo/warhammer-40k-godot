@@ -975,39 +975,12 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "reactive_stratagem_opportunity", "callable": callable})
 		print("AIPlayer: Connected to ShootingPhase.reactive_stratagem_opportunity")
 
-	# P2-25: Distraction Grot signal
-	if phase.has_signal("distraction_grot_available"):
-		var callable_dg = Callable(self, "_on_distraction_grot_available")
-		phase.distraction_grot_available.connect(callable_dg)
-		_connected_phase_signals.append({"signal_name": "distraction_grot_available", "callable": callable_dg})
-		print("AIPlayer: Connected to ShootingPhase.distraction_grot_available")
-	# audit P1: Shooty Power Trip previously had NO listener (controller or AI),
-	# so the phase blocked the AI too. Auto-resolve it here (free beneficial roll).
-	if phase.has_signal("shooty_power_trip_available"):
-		var callable_spt = Callable(self, "_on_shooty_power_trip_available")
-		phase.shooty_power_trip_available.connect(callable_spt)
-		_connected_phase_signals.append({"signal_name": "shooty_power_trip_available", "callable": callable_spt})
-		print("AIPlayer: Connected to ShootingPhase.shooty_power_trip_available")
-	# audit P1: Pulsa Rokkit had no listener either — auto-resolve for the AI.
-	if phase.has_signal("pulsa_rokkit_available"):
-		var callable_pr = Callable(self, "_on_pulsa_rokkit_available")
-		phase.pulsa_rokkit_available.connect(callable_pr)
-		_connected_phase_signals.append({"signal_name": "pulsa_rokkit_available", "callable": callable_pr})
-		print("AIPlayer: Connected to ShootingPhase.pulsa_rokkit_available")
-
 	# --- MovementPhase signals ---
 	if phase.has_signal("fire_overwatch_opportunity"):
 		var callable = Callable(self, "_on_movement_fire_overwatch_opportunity")
 		phase.fire_overwatch_opportunity.connect(callable)
 		_connected_phase_signals.append({"signal_name": "fire_overwatch_opportunity", "callable": callable})
 		print("AIPlayer: Connected to MovementPhase.fire_overwatch_opportunity")
-
-	# P2-25: Bomb Squigs signal
-	if phase.has_signal("bomb_squigs_available"):
-		var callable_bs = Callable(self, "_on_bomb_squigs_available")
-		phase.bomb_squigs_available.connect(callable_bs)
-		_connected_phase_signals.append({"signal_name": "bomb_squigs_available", "callable": callable_bs})
-		print("AIPlayer: Connected to MovementPhase.bomb_squigs_available")
 
 	if phase.has_signal("ability_reroll_opportunity"):
 		var callable_ar = Callable(self, "_on_ability_reroll_opportunity")
@@ -1081,13 +1054,6 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "epic_challenge_opportunity", "callable": callable_ec})
 		print("AIPlayer: Connected to FightPhase.epic_challenge_opportunity")
 
-	# Martial Ka'tah stance selection (Custodes) — AI must respond or the fight stalls
-	if phase.has_signal("katah_stance_required"):
-		var callable_ks = Callable(self, "_on_katah_stance_required")
-		phase.katah_stance_required.connect(callable_ks)
-		_connected_phase_signals.append({"signal_name": "katah_stance_required", "callable": callable_ks})
-		print("AIPlayer: Connected to FightPhase.katah_stance_required")
-
 func _disconnect_phase_stratagem_signals() -> void:
 	"""Disconnect all previously connected phase stratagem signals."""
 	if _current_phase_ref and is_instance_valid(_current_phase_ref):
@@ -1139,78 +1105,6 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	decision["player"] = defending_player
 	_submit_reactive_action(defending_player, decision)
 
-# --- P2-25: Distraction Grot (ShootingPhase) ---
-
-func _on_distraction_grot_available(unit_id: String, player: int) -> void:
-	"""
-	Called when the ShootingPhase offers Distraction Grot (5+ invuln) to the defending player.
-	AI always activates this free ability since it has no cost.
-	"""
-	if not is_ai_player(player):
-		return
-
-	print("AIPlayer: P2-25 Distraction Grot available for AI player %d, unit %s — auto-activating" % [player, unit_id])
-
-	var decision = {
-		"type": "USE_DISTRACTION_GROT",
-		"actor_unit_id": unit_id,
-		"player": player,
-		"_ai_description": "AI activates Distraction Grot (5+ invuln, free ability)"
-	}
-	_submit_reactive_action(player, decision)
-
-func _on_shooty_power_trip_available(unit_id: String, player: int) -> void:
-	"""audit P1: the AI auto-activates Shooty Power Trip (free once-per-battle
-	D6 bonus). Without a listener the phase blocked awaiting a decision."""
-	if not is_ai_player(player):
-		return
-	print("AIPlayer: Shooty Power Trip available for AI player %d, unit %s — auto-activating" % [player, unit_id])
-	var decision = {
-		"type": "USE_SHOOTY_POWER_TRIP",
-		"actor_unit_id": unit_id,
-		"player": player,
-		"_ai_description": "AI activates Shooty Power Trip (free D6 bonus)"
-	}
-	_submit_reactive_action(player, decision)
-
-func _on_pulsa_rokkit_available(unit_id: String, player: int) -> void:
-	"""audit P1: the AI auto-fires Pulsa Rokkit (free once-per-battle +1 S/+1 AP
-	on ranged weapons). Without a listener the phase blocked awaiting a decision."""
-	if not is_ai_player(player):
-		return
-	print("AIPlayer: Pulsa Rokkit available for AI player %d, unit %s — auto-firing" % [player, unit_id])
-	var decision = {
-		"type": "USE_PULSA_ROKKIT",
-		"actor_unit_id": unit_id,
-		"player": player,
-		"_ai_description": "AI fires Pulsa Rokkit (+1 S / +1 AP ranged)"
-	}
-	_submit_reactive_action(player, decision)
-
-# --- P2-25: Bomb Squigs (MovementPhase) ---
-
-func _on_bomb_squigs_available(unit_id: String, player: int, eligible_targets: Array) -> void:
-	"""
-	Called when the MovementPhase offers Bomb Squigs after a Normal move.
-	AI always activates this free once-per-battle ability.
-	"""
-	if not is_ai_player(player):
-		return
-
-	print("AIPlayer: P2-25 Bomb Squigs available for AI player %d, unit %s — auto-activating" % [player, unit_id])
-
-	var target_unit_id = ""
-	if not eligible_targets.is_empty():
-		target_unit_id = eligible_targets[0].get("target_unit_id", "")
-
-	var decision = {
-		"type": "USE_BOMB_SQUIGS",
-		"actor_unit_id": unit_id,
-		"target_unit_id": target_unit_id,
-		"player": player,
-		"_ai_description": "AI activates Bomb Squigs (D3 mortal wounds, free ability)"
-	}
-	_submit_reactive_action(player, decision)
 
 # --- Reactive Stratagem: Fire Overwatch (MovementPhase) ---
 
@@ -1544,24 +1438,6 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 
 	_submit_reactive_action(player, decision)
 
-func _on_katah_stance_required(unit_id: String, player: int) -> void:
-	"""Martial Ka'tah (Custodes): the FightPhase pauses until a stance is
-	selected for the active fighter. Without this handler an AI Custodes
-	fight activation would stall forever."""
-	if not is_ai_player(player):
-		return
-
-	var master_available = false
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr and ability_mgr.has_method("has_master_of_the_stances"):
-		master_available = ability_mgr.has_master_of_the_stances(unit_id)
-
-	var snapshot = GameState.create_snapshot(false)
-	var decision = AIDecisionMaker.evaluate_katah_stance(player, unit_id, snapshot, master_available)
-	_flush_reactive_thinking(player, "Ka'tah stance (%s activating)" % _get_unit_name(unit_id))
-	decision["player"] = player
-	_submit_reactive_action(player, decision)
-
 func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:
 	"""
 	Called when a phase offers Command Re-roll to a player after a dice roll.
@@ -1573,6 +1449,16 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	var difficulty = get_difficulty(player)
 	print("AIPlayer: Command Re-roll opportunity for AI player %d — %s (roll type: %s, difficulty: %s)" % [
 		player, unit_id, roll_context.get("roll_type", "unknown"), AIDifficultyConfigData.difficulty_name(difficulty)])
+
+	# Codex: Orks (11e) Waaagh! free advance re-roll (WP-O34): no CP — re-roll a 1-3.
+	if str(roll_context.get("free_ability_name", "")) != "":
+		var take_free: bool = load("res://scripts/codex/orks/OrkArmyRules11e.gd").ai_take_free_advance_reroll(int(roll_context.get("total", 0)))
+		_submit_reactive_action(player, {
+			"type": "USE_COMMAND_REROLL" if take_free else "DECLINE_COMMAND_REROLL",
+			"actor_unit_id": unit_id, "player": player,
+			"_ai_description": "AI %s the free %s advance re-roll (rolled %d)" % [
+				"takes" if take_free else "declines", str(roll_context.get("free_ability_name", "")), int(roll_context.get("total", 0))]})
+		return
 
 	# T7-40: Easy AI never uses Command Re-roll
 	if not AIDifficultyConfigData.use_command_reroll(difficulty):
@@ -3925,7 +3811,29 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 		})
 	else:
 		var error_msg = "" if result == null else result.get("error", result.get("errors", ""))
-		push_error("AIPlayer: Failed to place %s in reserves: %s — marking as failed to prevent infinite loop" % [unit_name, error_msg])
+		# The unit fits nowhere on the board and the reserves caps refuse it.
+		# Skipping it left it UNDEPLOYED, so DeploymentPhase never let this
+		# player SWITCH_PLAYER / END_DEPLOYMENT and the whole deployment hung
+		# (pm10: the formula seat's Warbikers + attached Deffkilla Wartrike).
+		# Same rule as the deployment-timer timeout (P2-42): a unit MUST be
+		# placed somewhere, so it goes to Strategic Reserves past the caps.
+		print("AIPlayer: Reserves rejected %s (%s) — placing it past the reserves caps so deployment can finish" % [unit_name, error_msg])
+		var stuck_action = reserves_action.duplicate()
+		stuck_action["stuck_unit_fallback"] = true
+		stuck_action["_ai_description"] = "%s placed in reserves past the caps (no legal position)" % unit_name
+		_current_phase_actions += 1
+		var stuck_result = NetworkIntegration.route_action(stuck_action)
+		if stuck_result != null and stuck_result.get("success", false):
+			_log_ai_event(player, "%s could not be set up anywhere and the reserves limits were full — placed in Strategic Reserves past the limits so deployment can finish" % unit_name)
+			_append_action_log({
+				"phase": GameState.get_current_phase(),
+				"action_type": "PLACE_IN_RESERVES",
+				"description": "%s placed in reserves past the caps (no legal position)" % unit_name,
+				"player": player
+			})
+			return
+		var stuck_err = "" if stuck_result == null else stuck_result.get("error", stuck_result.get("errors", ""))
+		push_error("AIPlayer: Failed to place %s in reserves: %s / %s — marking as failed to prevent infinite loop" % [unit_name, error_msg, stuck_err])
 		_failed_deploy_unit_ids.append(unit_id)
 		_log_ai_event(player, "%s deployment permanently failed (reserves also rejected: %s) — skipping unit" % [unit_name, error_msg])
 

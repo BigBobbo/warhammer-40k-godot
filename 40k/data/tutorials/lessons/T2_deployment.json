@@ -129,10 +129,10 @@
       "prompt": {
         "bark": "ROLL THE DICE!",
         "bark_orky": "ROLL DA BONES!",
-        "kbm": "Deployment roll-off: click [b]⚄ Roll the dice[/b] in the dialog (roll again on a tie), then [b]Continue[/b] — the winner picks who deploys first.",
-        "kbm_orky": "Deployment roll-off: click [b]⚄ Roll the dice[/b] in da dialog (roll again on a tie), den [b]Continue[/b] — da winner picks who deploys first.",
-        "pad": "The dialog's Roll button takes the pad focus — just press {a}. Re-roll ties, then {a} on Continue.",
-        "pad_orky": "Da dialog's Roll button takes da pad focus — just press {a}. Re-roll ties, den {a} on Continue."
+        "kbm": "Deployment roll-off: click [b]⚄ Roll the dice[/b] in the dialog (roll again on a tie). The winner picks who deploys first: if you win, choose [b]Deploy first[/b] or [b]Deploy second[/b]; if the AI wins, click [b]Continue[/b].",
+        "kbm_orky": "Deployment roll-off: click [b]⚄ Roll the dice[/b] in da dialog (roll again on a tie). Da winner picks who deploys first: if you win, pick [b]Deploy first[/b] or [b]Deploy second[/b]; if da AI wins, click [b]Continue[/b].",
+        "pad": "The dialog's Roll button takes the pad focus — just press {a}. Re-roll ties, then {a} on your deploy choice if you won, or on Continue if the AI did.",
+        "pad_orky": "Da dialog's Roll button takes da pad focus — just press {a}. Re-roll ties, den {a} on yer deploy choice if ya won, or on Continue if da AI did."
       },
       "spotlight": "none",
       "allow": [

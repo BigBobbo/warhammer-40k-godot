@@ -270,6 +270,11 @@
       "label": "03_snap_target_picker"
     },
     {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(42)",
+      "comment": "Re-start the seeded dice stream right before the snap shot: every RNGService created earlier in the run (load, Command/Movement steps, codex hooks) advances the seed counter, so the snap dice depended on unrelated code — after the Codex: Orks/Custodes merge one fewer seeded RNG is created before the snap shot (its hazardous roll drew the dice main's hit roll drew) and seed 42 left the Flash Gitz with 1 hit and no wound. From here the hit, wound and save rolls are fixed again (seed 42: one wound, a failed save)."
+    },
+    {
       "act": "click_node",
       "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_C"
     },

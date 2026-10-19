@@ -16,7 +16,7 @@
     { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
     { "act": "expect_cp", "player": 1, "equals": 0 },
     { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.attachment_data.attached_characters.0", "equals": "U_BLADE_CHAMPION_A" },
-    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.effect_reroll_charge", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "return load(\"res://scripts/codex/custodes/CustodesAbilities.gd\").charge_reroll_source(GameState.get_unit(\"U_CUSTODIAN_GUARD_B\"))", "equals": "Swift Onslaught", "comment": "Codex Swift Onslaught: the led unit's charge re-roll comes from the Blade Champion ability (CustodesAbilities.charge_reroll_source), not the 10e effect_reroll_charge flag." },
 
     { "act": "execute_script",
       "script": "GameState.state.units[\"U_ENEMY_BOYZ_X\"].models[0].merge({\"position\": {\"x\": 600.0, \"y\": 480.0}}, true)" },

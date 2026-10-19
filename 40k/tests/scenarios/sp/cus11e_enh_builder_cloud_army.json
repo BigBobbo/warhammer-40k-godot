@@ -1,0 +1,120 @@
+{
+  "id": "cus11e_enh_builder_cloud_army",
+  "builder_e2e": "server/tests/e2e-custodes-codex.mjs",
+  "covers": [
+    "codex.custodes.enhancement.eagles_eye.list_build",
+    "army_builder.codex_enhancements",
+    "ui.main_menu.refresh_cloud_armies",
+    "army_list.cloud_load.enhancements"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) \u2014 an army built with a codex enhancement in the real browser Army Builder reaches the game (WP-C46). Game-side half of the builder end-to-end: server/tests/e2e-custodes-codex.mjs first drives the builder page (Playwright) \u2014 faction Adeptus Custodes, detachment Guardians of the Throne (the 10e detachments are hidden), a warlord Shield-Captain whose Enhancement dropdown offers exactly the 4 Guardians of the Throne enhancements, Eagle's Eye picked \u2014 and saves it to the cloud as WPC46_E2E_Custodes on a local relay server (the driver points res://server_config.json at it for this run only). No fixture: the scenario runs on the MainMenu. A real click on Refresh Cloud Armies lists the army, it is selected for Player 1, a real click on Start Game downloads it and starts the game; the Shield-Captain carries Eagle's Eye and the list-build pass gave it +1 W (meta and every model), and its datasheet shows the enhancement. Not runnable without that server (the driver: .llm scratch script described in changelog/WP-C46.md).",
+  "edition": 11,
+  "rng_seed": 42,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_script().resource_path",
+      "equals": "res://scripts/MainMenu.gd"
+    },
+    {
+      "act": "execute_script",
+      "script": "CloudStorage.base_url.begins_with(\"http://localhost:\") and CloudStorage.base_url != \"http://localhost:9080\"",
+      "equals": true,
+      "comment": "the driver's temporary server_config.json points at the e2e relay server"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ArmySection/ArmyBuilderContainer/RefreshCloudArmiesButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the builder-made army is listed (Cloud)",
+      "script": "var main = tree.current_scene\nfor i in range(main.army_options.size()):\n\tif str(main.army_options[i].id) == \"WPC46_E2E_Custodes\":\n\t\treturn i\nreturn -1",
+      "expect_min": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Player 1 picks the cloud army in the dropdown; both seats human",
+      "script": "var main = tree.current_scene\nvar idx := -1\nfor i in range(main.army_options.size()):\n\tif str(main.army_options[i].id) == \"WPC46_E2E_Custodes\":\n\t\tidx = i\nmain.player1_dropdown.select(idx)\nmain.player1_dropdown.item_selected.emit(idx)\nmain.player1_type_dropdown.select(0)\nmain.player1_type_dropdown.item_selected.emit(0)\nmain.player2_type_dropdown.select(0)\nmain.player2_type_dropdown.item_selected.emit(0)\nreturn main.player1_dropdown.get_item_text(main.player1_dropdown.selected).contains(\"Cloud\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_main_menu_cloud_army_selected"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.current_scene.get_script().resource_path",
+      "equals": "res://scripts/Main.gd"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the Shield-Captain carries Eagle's Eye and +1 W from the list-build pass",
+      "script": "for uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 1 and str(u.meta.get(\"name\", \"\")) == \"Shield-Captain\":\n\t\tvar enh = u.meta.get(\"enhancements\", [])\n\t\tvar w := int(u.meta.stats.get(\"wounds\", 0))\n\t\tvar mw := int(u.models[0].get(\"wounds\", 0))\n\t\tvar done := bool(u.get(\"flags\", {}).get(\"cus11e_listbuild_eagles_eye\", false))\n\t\tGameState.state.meta[\"_c46_sc\"] = uid\n\t\tprint(\"[cus11e builder] \", uid, \" enh=\", enh, \" W=\", w, \" model W=\", mw, \" listbuild=\", done)\n\t\treturn str(enh).contains(\"Eagle\") and w == mw and done\nreturn \"no Shield-Captain\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "+1 W: the game W is the exported (builder) W + 1 \u2014 read from the cloud army as downloaded (ArmyListManager.cloud_army_cache), meta and model agree",
+      "script": "var u = GameState.state.units[str(GameState.state.meta[\"_c46_sc\"])]\nvar raw = ArmyListManager.cloud_army_cache.get(\"WPC46_E2E_Custodes\", {})\nvar exported := -1\nfor k in raw.get(\"units\", {}):\n\tvar ru = raw.units[k]\n\tif str(ru.get(\"meta\", {}).get(\"name\", \"\")) == \"Shield-Captain\":\n\t\texported = int(ru.meta.stats.wounds)\nprint(\"[cus11e builder] exported W=\", exported, \" game W=\", u.meta.stats.wounds)\nreturn exported > 0 and int(u.meta.stats.wounds) == exported + 1 and int(u.models[0].wounds) == exported + 1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "screenshot framing only: the Battle Formations dialog (an exclusive popup) is hidden so the datasheet is readable; it is shown again after the screenshot",
+      "script": "var fd = tree.current_scene.formations_dialog\nif fd == null or not is_instance_valid(fd) or not fd.visible:\n\treturn 0\nfd.set_meta(\"_c46_hidden\", true)\nfd.hide()\nreturn 1",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "open the Shield-Captain's datasheet (the I-key card)",
+      "script": "return tree.current_scene.get_node(\"DatasheetModal\").open_for(str(GameState.state.meta[\"_c46_sc\"]))",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ds = tree.current_scene.get_node(\"DatasheetModal\")\nfor l in ds.find_children(\"*\", \"Label\", true, false):\n\tif str(l.text).begins_with(\"Enhancement:\"):\n\t\treturn l.text.contains(\"Eagle\")\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_datasheet_eagles_eye_plus_one_wound"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "restore the Battle Formations dialog",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").close()\nvar fd = tree.current_scene.formations_dialog\nif fd != null and is_instance_valid(fd) and fd.has_meta(\"_c46_hidden\"):\n\tfd.remove_meta(\"_c46_hidden\")\n\tfd.show()\nreturn true",
+      "equals": true
+    }
+  ]
+}

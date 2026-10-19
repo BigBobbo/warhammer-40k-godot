@@ -8,7 +8,7 @@
   "created_date": "2026-07-10",
   "schema": 2,
   "edition": 11,
-  "data_source": "40kdc-data 1.0.19 (11th edition, launch); detachment + enhancements hand-migrated to Codex: Orks (40kdc-data 1.4.5)"
+  "data_source": "40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes)"
  },
  "units": {
   "U_DEFFKILLA_WARTRIKE_A": {
@@ -35,7 +35,7 @@
      "objective_control": 3,
      "invuln": 5
     },
-    "points": 80,
+    "points": 90,
     "is_warlord": false,
     "enhancements": [
      "Smoky Gubbinz"
@@ -55,70 +55,99 @@
       "strength": "5",
       "ap": "0",
       "damage": "1",
-      "special_rules": "assault",
+      "special_rules": "assault, lethal hits",
       "abilities": [
        {
         "id": "assault"
-       }
-      ]
-     },
-     {
-      "name": "Killa jet – Burna",
-      "type": "Ranged",
-      "range": "12",
-      "attacks": "D6",
-      "ballistic_skill": "N/A",
-      "strength": "5",
-      "ap": "-1",
-      "damage": "1",
-      "special_rules": "ignores cover, torrent",
-      "abilities": [
-       {
-        "id": "ignores_cover"
        },
        {
-        "id": "torrent"
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Killa jet – Cutta",
+      "name": "Snagga Klaw – Ranged",
       "type": "Ranged",
       "range": "12",
       "attacks": "1",
       "ballistic_skill": "5",
-      "strength": "9",
-      "ap": "-4",
-      "damage": "D6",
-      "special_rules": "melta 2",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "assault, precision",
       "abilities": [
        {
-        "id": "melta",
-        "x": 2
+        "id": "assault"
+       },
+       {
+        "id": "precision"
        }
       ]
      },
      {
-      "name": "Snagga klaw",
+      "name": "Killa Jet – Burna",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "4",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "cleave 1, extra attacks",
+      "abilities": [
+       {
+        "id": "cleave",
+        "x": 1
+       },
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     },
+     {
+      "name": "Killa Jet – Cutta",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "1",
       "weapon_skill": "3",
       "strength": "10",
+      "ap": "-3",
+      "damage": "D6+2",
+      "special_rules": "extra attacks",
+      "abilities": [
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     },
+     {
+      "name": "Snagga Klaw – Melee",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "7",
       "ap": "-2",
-      "damage": "2"
+      "damage": "2",
+      "special_rules": "cleave 2",
+      "abilities": [
+       {
+        "id": "cleave",
+        "x": 2
+       }
+      ]
      }
     ],
     "abilities": [
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Fuel-mixa Grot",
-      "type": "Datasheet",
-      "description": "Until the end of the phase, add 6 to the unit's Move characteristic."
+      "name": "Deadly Demise 1",
+      "type": "Core",
+      "description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers 1 mortal wound."
      },
      {
       "name": "Leader",
@@ -126,9 +155,19 @@
       "description": "The unit gains the Leader ability."
      },
      {
-      "name": "Speedboss",
+      "name": "Da Boss",
+      "type": "Faction",
+      "description": "At the start of the battle round, if a model with this ability is your WARLORD, gain 1CP."
+     },
+     {
+      "name": "Get Back in da Race!",
       "type": "Datasheet",
-      "description": "During the Fight phase, after being attached to a unit, the unit gets +1 to Hit rolls."
+      "description": "In your Movement phase, at the start or end of this unit's move, you can select one friendly Speed Freeks unit within 6\" of this unit. That unit (and any units embarked within that unit):\n• Is no longer battle-shocked.\n• Is riled up until the start of your next turn."
+     },
+     {
+      "name": "Fuel-mixa Grot",
+      "type": "Datasheet",
+      "description": "This unit has +1 to advance rolls."
      }
     ],
     "unit_composition": [
@@ -184,7 +223,7 @@
      "objective_control": 3,
      "invuln": 5
     },
-    "points": 85,
+    "points": 95,
     "is_warlord": false,
     "enhancements": [
      "Competitive Streak"
@@ -204,70 +243,99 @@
       "strength": "5",
       "ap": "0",
       "damage": "1",
-      "special_rules": "assault",
+      "special_rules": "assault, lethal hits",
       "abilities": [
        {
         "id": "assault"
-       }
-      ]
-     },
-     {
-      "name": "Killa jet – Burna",
-      "type": "Ranged",
-      "range": "12",
-      "attacks": "D6",
-      "ballistic_skill": "N/A",
-      "strength": "5",
-      "ap": "-1",
-      "damage": "1",
-      "special_rules": "ignores cover, torrent",
-      "abilities": [
-       {
-        "id": "ignores_cover"
        },
        {
-        "id": "torrent"
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Killa jet – Cutta",
+      "name": "Snagga Klaw – Ranged",
       "type": "Ranged",
       "range": "12",
       "attacks": "1",
       "ballistic_skill": "5",
-      "strength": "9",
-      "ap": "-4",
-      "damage": "D6",
-      "special_rules": "melta 2",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "assault, precision",
       "abilities": [
        {
-        "id": "melta",
-        "x": 2
+        "id": "assault"
+       },
+       {
+        "id": "precision"
        }
       ]
      },
      {
-      "name": "Snagga klaw",
+      "name": "Killa Jet – Burna",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "4",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "cleave 1, extra attacks",
+      "abilities": [
+       {
+        "id": "cleave",
+        "x": 1
+       },
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     },
+     {
+      "name": "Killa Jet – Cutta",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "1",
       "weapon_skill": "3",
       "strength": "10",
+      "ap": "-3",
+      "damage": "D6+2",
+      "special_rules": "extra attacks",
+      "abilities": [
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     },
+     {
+      "name": "Snagga Klaw – Melee",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "7",
       "ap": "-2",
-      "damage": "2"
+      "damage": "2",
+      "special_rules": "cleave 2",
+      "abilities": [
+       {
+        "id": "cleave",
+        "x": 2
+       }
+      ]
      }
     ],
     "abilities": [
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Fuel-mixa Grot",
-      "type": "Datasheet",
-      "description": "Until the end of the phase, add 6 to the unit's Move characteristic."
+      "name": "Deadly Demise 1",
+      "type": "Core",
+      "description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers 1 mortal wound."
      },
      {
       "name": "Leader",
@@ -275,9 +343,19 @@
       "description": "The unit gains the Leader ability."
      },
      {
-      "name": "Speedboss",
+      "name": "Da Boss",
+      "type": "Faction",
+      "description": "At the start of the battle round, if a model with this ability is your WARLORD, gain 1CP."
+     },
+     {
+      "name": "Get Back in da Race!",
       "type": "Datasheet",
-      "description": "During the Fight phase, after being attached to a unit, the unit gets +1 to Hit rolls."
+      "description": "In your Movement phase, at the start or end of this unit's move, you can select one friendly Speed Freeks unit within 6\" of this unit. That unit (and any units embarked within that unit):\n• Is no longer battle-shocked.\n• Is riled up until the start of your next turn."
+     },
+     {
+      "name": "Fuel-mixa Grot",
+      "type": "Datasheet",
+      "description": "This unit has +1 to advance rolls."
      }
     ],
     "unit_composition": [
@@ -330,44 +408,64 @@
      "leadership": 7,
      "objective_control": 1
     },
-    "points": 45,
+    "points": 55,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Killsaw"
+     "1x Kustom Mega-Slugga",
+     "1x Mek's Toolz"
     ],
     "weapons": [
      {
-      "name": "Killsaw",
+      "name": "Kustom Mega-Slugga",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "3",
+      "ballistic_skill": "4",
+      "strength": "8",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "close quarters, hazardous",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       },
+       {
+        "id": "hazardous"
+       }
+      ]
+     },
+     {
+      "name": "Mek's Toolz",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "1",
-      "weapon_skill": "4",
-      "strength": "12",
-      "ap": "-3",
-      "damage": "2"
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1"
      }
     ],
     "abilities": [
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Know-wotz",
-      "type": "Datasheet",
-      "description": "This model gains the Lone Operative ability."
-     },
-     {
-      "name": "Leader",
+      "name": "Support",
       "type": "Core",
-      "description": "The unit gains the Leader ability."
+      "description": "SUPPORT24.34\nMighty heroes fight at the forefront of battle.\nBefore the battle, in the Muster Armies step, for each leader and support unit in your army, you can select one friendly bodyguard unit that unit can lead. That unit will then lead that bodyguard unit for the battle and form an attached unit with it.\nUnless otherwise stated, each bodyguard unit can only have one leader unit and one support unit attached to it."
      },
      {
-      "name": "Mekaniak",
+      "name": "Kustom Dakka",
       "type": "Datasheet",
-      "description": "Once per turn per model, at end of movement phase, in your turn, until your next Command phase:\n  -> Select up to 1 friendly ORKS VEHICLE unit:\n    -> The unit regains up to D3 lost wounds.\n    -> The unit gets +1 to Hit rolls."
+      "description": "This unit's ranged attacks have [Ignores Cover]."
+     },
+     {
+      "name": "Clever Know-wotz",
+      "type": "Datasheet",
+      "description": "In your Movement phase, at the start or end of this unit's move, you can select one friendly Orks Vehicle model (excluding AIRCRAFT/TITANIC models) within 3\" of this model:\n• That VEHICLE model heals D3 wounds.\n• That VEHICLE model's attacks have +1 to hit rolls until the start of your next Movement phase."
      }
     ],
     "unit_composition": [
@@ -380,7 +478,6 @@
      "can_lead": [
       "BOYZ",
       "FLASH GITZ",
-      "LOOTAS",
       "MEK GUNZ",
       "NOBZ",
       "TANKBUSTAS"
@@ -425,7 +522,7 @@
      "objective_control": 3,
      "invuln": 4
     },
-    "points": 175,
+    "points": 200,
     "is_warlord": true,
     "enhancements": [],
     "wargear": [
@@ -463,10 +560,13 @@
       "strength": "6",
       "ap": "-2",
       "damage": "2",
-      "special_rules": "assault, sustained hits 1",
+      "special_rules": "assault, lethal hits, sustained hits 1",
       "abilities": [
        {
         "id": "assault"
+       },
+       {
+        "id": "lethal_hits"
        },
        {
         "id": "sustained_hits",
@@ -499,8 +599,12 @@
       "strength": "10",
       "ap": "-2",
       "damage": "3",
-      "special_rules": "lance",
+      "special_rules": "cleave 2, lance",
       "abilities": [
+       {
+        "id": "cleave",
+        "x": 2
+       },
        {
         "id": "lance"
        }
@@ -510,13 +614,17 @@
       "name": "Speeding bulk and flaming exhaust",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "6",
+      "attacks": "3",
       "weapon_skill": "2",
       "strength": "5",
       "ap": "-1",
       "damage": "1",
-      "special_rules": "extra attacks",
+      "special_rules": "cleave 1, extra attacks",
       "abilities": [
+       {
+        "id": "cleave",
+        "x": 1
+       },
        {
         "id": "extra_attacks"
        }
@@ -527,7 +635,42 @@
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
+     },
+     {
+      "name": "Deadly Demise D3",
+      "type": "Core",
+      "description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers D3 mortal wounds."
+     },
+     {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
+      "name": "Lone Operative",
+      "type": "Core",
+      "description": "This model can only be selected as the target of ranged attacks if the attacking unit is within 12\"."
+     },
+     {
+      "name": "Full Throttle",
+      "type": "Datasheet",
+      "description": "In your Command phase, select one Throttlerokkit Shokka Engine ability (see above). This unit has that ability until the start of your next Command phase."
+     },
+     {
+      "name": "Turbo Engine",
+      "type": "Datasheet",
+      "description": "When this unit is selected to make an advance/fall-back move, that move does not prevent this unit from being eligible to declare a charge."
+     },
+     {
+      "name": "Shokk Attack Engine",
+      "type": "Datasheet",
+      "description": "In your Command phase, if this unit is unengaged, you can place this unit in strategic reserves."
+     },
+     {
+      "name": "Pulse Jet",
+      "type": "Datasheet",
+      "description": "In your Movement phase, when this unit is selected to move, if this unit is unengaged, this unit can make a pulse jet move."
      }
     ],
     "unit_composition": [
@@ -577,7 +720,7 @@
      "leadership": 7,
      "objective_control": 1
     },
-    "points": 65,
+    "points": 70,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
@@ -595,30 +738,43 @@
       "strength": "4",
       "ap": "0",
       "damage": "1",
-      "special_rules": "pistol",
+      "special_rules": "close quarters, lethal hits",
       "abilities": [
        {
-        "id": "pistol"
+        "id": "close_quarters"
+       },
+       {
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Choppa",
+      "name": "Choppas",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
       "weapon_skill": "3",
-      "strength": "4",
+      "strength": "5",
       "ap": "-1",
       "damage": "1"
      },
      {
-      "name": "Power klaw",
+      "name": "Kustom Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2"
+     },
+     {
+      "name": "Power Klaw",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
-      "weapon_skill": "4",
-      "strength": "9",
+      "weapon_skill": "3",
+      "strength": "10",
       "ap": "-2",
       "damage": "2"
      }
@@ -627,55 +783,39 @@
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Full Throttle",
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
+      "name": "Rokkit Charge",
       "type": "Datasheet",
-      "description": "The unit gains the Advance & Charge ability."
+      "description": "When this unit is selected to fight, if this unit made a charge move this turn, you can use this ability. If you do, this unit's melee attacks have:\n• +1 A and S.\n• [Hazardous]."
      }
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob",
+      "description": "4-9 Stormboy",
       "line": 1
      },
      {
-      "description": "4-9 Stormboy",
+      "description": "1 nob",
       "line": 2
      }
-    ],
-    "model_profiles": {
-     "boss_nob": {
-      "label": "Boss Nob",
-      "short_label": "N",
-      "weapons": [
-       "Slugga",
-       "Power klaw"
-      ],
-      "stats_override": {}
-     },
-     "stormboy": {
-      "label": "Stormboy",
-      "short_label": "S",
-      "weapons": [
-       "Slugga",
-       "Choppa"
-      ],
-      "stats_override": {}
-     }
-    }
+    ]
    },
    "models": [
     {
      "id": "m1",
-     "wounds": 2,
-     "current_wounds": 2,
+     "wounds": 1,
+     "current_wounds": 1,
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "boss_nob"
+     "status_effects": []
     },
     {
      "id": "m2",
@@ -684,8 +824,7 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m3",
@@ -694,8 +833,7 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m4",
@@ -704,18 +842,16 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m5",
-     "wounds": 1,
-     "current_wounds": 1,
+     "wounds": 3,
+     "current_wounds": 3,
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     }
    ]
   },
@@ -742,7 +878,7 @@
      "leadership": 7,
      "objective_control": 1
     },
-    "points": 65,
+    "points": 70,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
@@ -760,30 +896,43 @@
       "strength": "4",
       "ap": "0",
       "damage": "1",
-      "special_rules": "pistol",
+      "special_rules": "close quarters, lethal hits",
       "abilities": [
        {
-        "id": "pistol"
+        "id": "close_quarters"
+       },
+       {
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Choppa",
+      "name": "Choppas",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
       "weapon_skill": "3",
-      "strength": "4",
+      "strength": "5",
       "ap": "-1",
       "damage": "1"
      },
      {
-      "name": "Power klaw",
+      "name": "Kustom Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2"
+     },
+     {
+      "name": "Power Klaw",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
-      "weapon_skill": "4",
-      "strength": "9",
+      "weapon_skill": "3",
+      "strength": "10",
       "ap": "-2",
       "damage": "2"
      }
@@ -792,55 +941,39 @@
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Full Throttle",
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
+      "name": "Rokkit Charge",
       "type": "Datasheet",
-      "description": "The unit gains the Advance & Charge ability."
+      "description": "When this unit is selected to fight, if this unit made a charge move this turn, you can use this ability. If you do, this unit's melee attacks have:\n• +1 A and S.\n• [Hazardous]."
      }
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob",
+      "description": "4-9 Stormboy",
       "line": 1
      },
      {
-      "description": "4-9 Stormboy",
+      "description": "1 nob",
       "line": 2
      }
-    ],
-    "model_profiles": {
-     "boss_nob": {
-      "label": "Boss Nob",
-      "short_label": "N",
-      "weapons": [
-       "Slugga",
-       "Power klaw"
-      ],
-      "stats_override": {}
-     },
-     "stormboy": {
-      "label": "Stormboy",
-      "short_label": "S",
-      "weapons": [
-       "Slugga",
-       "Choppa"
-      ],
-      "stats_override": {}
-     }
-    }
+    ]
    },
    "models": [
     {
      "id": "m1",
-     "wounds": 2,
-     "current_wounds": 2,
+     "wounds": 1,
+     "current_wounds": 1,
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "boss_nob"
+     "status_effects": []
     },
     {
      "id": "m2",
@@ -849,8 +982,7 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m3",
@@ -859,8 +991,7 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m4",
@@ -869,18 +1000,16 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m5",
-     "wounds": 1,
-     "current_wounds": 1,
+     "wounds": 3,
+     "current_wounds": 3,
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     }
    ]
   },
@@ -907,7 +1036,7 @@
      "leadership": 7,
      "objective_control": 1
     },
-    "points": 65,
+    "points": 70,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
@@ -924,76 +1053,74 @@
       "strength": "4",
       "ap": "0",
       "damage": "1",
-      "special_rules": "pistol",
+      "special_rules": "close quarters, lethal hits",
       "abilities": [
        {
-        "id": "pistol"
+        "id": "close_quarters"
+       },
+       {
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Choppa",
+      "name": "Choppas",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
       "weapon_skill": "3",
-      "strength": "4",
+      "strength": "5",
       "ap": "-1",
       "damage": "1"
+     },
+     {
+      "name": "Kustom Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2"
      }
     ],
     "abilities": [
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Full Throttle",
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
+      "name": "Rokkit Charge",
       "type": "Datasheet",
-      "description": "The unit gains the Advance & Charge ability."
+      "description": "When this unit is selected to fight, if this unit made a charge move this turn, you can use this ability. If you do, this unit's melee attacks have:\n• +1 A and S.\n• [Hazardous]."
      }
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob",
+      "description": "4-9 Stormboy",
       "line": 1
      },
      {
-      "description": "4-9 Stormboy",
+      "description": "1 nob",
       "line": 2
      }
-    ],
-    "model_profiles": {
-     "boss_nob": {
-      "label": "Boss Nob",
-      "short_label": "N",
-      "weapons": [
-       "Slugga"
-      ],
-      "stats_override": {}
-     },
-     "stormboy": {
-      "label": "Stormboy",
-      "short_label": "S",
-      "weapons": [
-       "Slugga",
-       "Choppa"
-      ],
-      "stats_override": {}
-     }
-    }
+    ]
    },
    "models": [
     {
      "id": "m1",
-     "wounds": 2,
-     "current_wounds": 2,
+     "wounds": 1,
+     "current_wounds": 1,
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "boss_nob"
+     "status_effects": []
     },
     {
      "id": "m2",
@@ -1002,8 +1129,7 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m3",
@@ -1012,8 +1138,7 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m4",
@@ -1022,18 +1147,16 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m5",
-     "wounds": 1,
-     "current_wounds": 1,
+     "wounds": 3,
+     "current_wounds": 3,
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     }
    ]
   },
@@ -1060,7 +1183,7 @@
      "leadership": 7,
      "objective_control": 1
     },
-    "points": 65,
+    "points": 70,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
@@ -1078,30 +1201,43 @@
       "strength": "4",
       "ap": "0",
       "damage": "1",
-      "special_rules": "pistol",
+      "special_rules": "close quarters, lethal hits",
       "abilities": [
        {
-        "id": "pistol"
+        "id": "close_quarters"
+       },
+       {
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Choppa",
+      "name": "Choppas",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
       "weapon_skill": "3",
-      "strength": "4",
+      "strength": "5",
       "ap": "-1",
       "damage": "1"
      },
      {
-      "name": "Power klaw",
+      "name": "Kustom Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2"
+     },
+     {
+      "name": "Power Klaw",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
-      "weapon_skill": "4",
-      "strength": "9",
+      "weapon_skill": "3",
+      "strength": "10",
       "ap": "-2",
       "damage": "2"
      }
@@ -1110,55 +1246,39 @@
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Full Throttle",
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
+      "name": "Rokkit Charge",
       "type": "Datasheet",
-      "description": "The unit gains the Advance & Charge ability."
+      "description": "When this unit is selected to fight, if this unit made a charge move this turn, you can use this ability. If you do, this unit's melee attacks have:\n• +1 A and S.\n• [Hazardous]."
      }
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob",
+      "description": "4-9 Stormboy",
       "line": 1
      },
      {
-      "description": "4-9 Stormboy",
+      "description": "1 nob",
       "line": 2
      }
-    ],
-    "model_profiles": {
-     "boss_nob": {
-      "label": "Boss Nob",
-      "short_label": "N",
-      "weapons": [
-       "Slugga",
-       "Power klaw"
-      ],
-      "stats_override": {}
-     },
-     "stormboy": {
-      "label": "Stormboy",
-      "short_label": "S",
-      "weapons": [
-       "Slugga",
-       "Choppa"
-      ],
-      "stats_override": {}
-     }
-    }
+    ]
    },
    "models": [
     {
      "id": "m1",
-     "wounds": 2,
-     "current_wounds": 2,
+     "wounds": 1,
+     "current_wounds": 1,
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "boss_nob"
+     "status_effects": []
     },
     {
      "id": "m2",
@@ -1167,8 +1287,7 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m3",
@@ -1177,8 +1296,7 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m4",
@@ -1187,18 +1305,16 @@
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     },
     {
      "id": "m5",
-     "wounds": 1,
-     "current_wounds": 1,
+     "wounds": 3,
+     "current_wounds": 3,
      "base_mm": 32,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "stormboy"
+     "status_effects": []
     }
    ]
   },
@@ -1225,55 +1341,87 @@
      "objective_control": 2,
      "invuln": 6
     },
-    "points": 60,
+    "points": 75,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Power klaw",
-     "2x Close combat weapon",
-     "2x Twin dakkagun"
+     "1x Kustom Choppa",
+     "1x Dual Kombi-rokkit",
+     "2x Choppas",
+     "2x Dual Dakkagun"
     ],
     "weapons": [
      {
-      "name": "Twin dakkagun",
+      "name": "Dual Dakkagun",
       "type": "Ranged",
       "range": "18",
-      "attacks": "3",
+      "attacks": "6",
       "ballistic_skill": "5",
       "strength": "5",
       "ap": "0",
       "damage": "1",
-      "special_rules": "assault, rapid fire 2, twin linked",
+      "special_rules": "assault, lethal hits",
       "abilities": [
        {
         "id": "assault"
        },
        {
-        "id": "rapid_fire",
-        "x": 2
-       },
-       {
-        "id": "twin_linked"
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Close combat weapon",
-      "type": "Melee",
-      "range": "Melee",
+      "name": "Dual Kombi-rokkit – Busta Rokkit",
+      "type": "Ranged",
+      "range": "24",
       "attacks": "2",
-      "weapon_skill": "3",
-      "strength": "4",
-      "ap": "0",
-      "damage": "1"
+      "ballistic_skill": "5",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "assault",
+      "abilities": [
+       {
+        "id": "assault"
+       }
+      ]
      },
      {
-      "name": "Power klaw",
+      "name": "Dual Kombi-rokkit – Dakkagun",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "6",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "assault, lethal hits",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "lethal_hits"
+       }
+      ]
+     },
+     {
+      "name": "Choppas",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
-      "weapon_skill": "4",
-      "strength": "9",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Kustom Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
       "ap": "-2",
       "damage": "2"
      }
@@ -1282,44 +1430,24 @@
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Drive-by Dakka",
+      "name": "High-speed Carnage",
       "type": "Datasheet",
-      "description": "During the Shooting phase against targets within 9\", subtract 1 from the unit's Armour Penetration characteristic."
+      "description": "If this unit made a charge move this turn, this unit's melee attacks have:\n• +1 S and D."
      }
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob on Warbike",
+      "description": "1 Biker Nob",
       "line": 1
      },
      {
       "description": "2-5 Warbiker",
       "line": 2
      }
-    ],
-    "model_profiles": {
-     "boss_nob": {
-      "label": "Boss Nob on Warbike",
-      "short_label": "N",
-      "weapons": [
-       "Twin dakkagun",
-       "Power klaw"
-      ],
-      "stats_override": {}
-     },
-     "warbiker": {
-      "label": "Warbiker",
-      "short_label": "B",
-      "weapons": [
-       "Twin dakkagun",
-       "Close combat weapon"
-      ],
-      "stats_override": {}
-     }
-    }
+    ]
    },
    "models": [
     {
@@ -1334,8 +1462,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "boss_nob"
+     }
     },
     {
      "id": "m2",
@@ -1349,8 +1476,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     },
     {
      "id": "m3",
@@ -1364,8 +1490,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     }
    ]
   },
@@ -1392,55 +1517,87 @@
      "objective_control": 2,
      "invuln": 6
     },
-    "points": 60,
+    "points": 75,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Power klaw",
-     "2x Close combat weapon",
-     "2x Twin dakkagun"
+     "1x Kustom Choppa",
+     "1x Dual Kombi-rokkit",
+     "2x Choppas",
+     "2x Dual Dakkagun"
     ],
     "weapons": [
      {
-      "name": "Twin dakkagun",
+      "name": "Dual Dakkagun",
       "type": "Ranged",
       "range": "18",
-      "attacks": "3",
+      "attacks": "6",
       "ballistic_skill": "5",
       "strength": "5",
       "ap": "0",
       "damage": "1",
-      "special_rules": "assault, rapid fire 2, twin linked",
+      "special_rules": "assault, lethal hits",
       "abilities": [
        {
         "id": "assault"
        },
        {
-        "id": "rapid_fire",
-        "x": 2
-       },
-       {
-        "id": "twin_linked"
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Close combat weapon",
-      "type": "Melee",
-      "range": "Melee",
+      "name": "Dual Kombi-rokkit – Busta Rokkit",
+      "type": "Ranged",
+      "range": "24",
       "attacks": "2",
-      "weapon_skill": "3",
-      "strength": "4",
-      "ap": "0",
-      "damage": "1"
+      "ballistic_skill": "5",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "assault",
+      "abilities": [
+       {
+        "id": "assault"
+       }
+      ]
      },
      {
-      "name": "Power klaw",
+      "name": "Dual Kombi-rokkit – Dakkagun",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "6",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "assault, lethal hits",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "lethal_hits"
+       }
+      ]
+     },
+     {
+      "name": "Choppas",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
-      "weapon_skill": "4",
-      "strength": "9",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Kustom Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
       "ap": "-2",
       "damage": "2"
      }
@@ -1449,44 +1606,24 @@
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Drive-by Dakka",
+      "name": "High-speed Carnage",
       "type": "Datasheet",
-      "description": "During the Shooting phase against targets within 9\", subtract 1 from the unit's Armour Penetration characteristic."
+      "description": "If this unit made a charge move this turn, this unit's melee attacks have:\n• +1 S and D."
      }
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob on Warbike",
+      "description": "1 Biker Nob",
       "line": 1
      },
      {
       "description": "2-5 Warbiker",
       "line": 2
      }
-    ],
-    "model_profiles": {
-     "boss_nob": {
-      "label": "Boss Nob on Warbike",
-      "short_label": "N",
-      "weapons": [
-       "Twin dakkagun",
-       "Power klaw"
-      ],
-      "stats_override": {}
-     },
-     "warbiker": {
-      "label": "Warbiker",
-      "short_label": "B",
-      "weapons": [
-       "Twin dakkagun",
-       "Close combat weapon"
-      ],
-      "stats_override": {}
-     }
-    }
+    ]
    },
    "models": [
     {
@@ -1501,8 +1638,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "boss_nob"
+     }
     },
     {
      "id": "m2",
@@ -1516,8 +1652,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     },
     {
      "id": "m3",
@@ -1531,8 +1666,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     }
    ]
   },
@@ -1559,55 +1693,87 @@
      "objective_control": 2,
      "invuln": 6
     },
-    "points": 120,
+    "points": 140,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Power klaw",
-     "5x Close combat weapon",
-     "5x Twin dakkagun"
+     "1x Kustom Choppa",
+     "1x Dual Kombi-rokkit",
+     "5x Choppas",
+     "5x Dual Dakkagun"
     ],
     "weapons": [
      {
-      "name": "Twin dakkagun",
+      "name": "Dual Dakkagun",
       "type": "Ranged",
       "range": "18",
-      "attacks": "3",
+      "attacks": "6",
       "ballistic_skill": "5",
       "strength": "5",
       "ap": "0",
       "damage": "1",
-      "special_rules": "assault, rapid fire 2, twin linked",
+      "special_rules": "assault, lethal hits",
       "abilities": [
        {
         "id": "assault"
        },
        {
-        "id": "rapid_fire",
-        "x": 2
-       },
-       {
-        "id": "twin_linked"
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Close combat weapon",
-      "type": "Melee",
-      "range": "Melee",
+      "name": "Dual Kombi-rokkit – Busta Rokkit",
+      "type": "Ranged",
+      "range": "24",
       "attacks": "2",
-      "weapon_skill": "3",
-      "strength": "4",
-      "ap": "0",
-      "damage": "1"
+      "ballistic_skill": "5",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "assault",
+      "abilities": [
+       {
+        "id": "assault"
+       }
+      ]
      },
      {
-      "name": "Power klaw",
+      "name": "Dual Kombi-rokkit – Dakkagun",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "6",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "assault, lethal hits",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "lethal_hits"
+       }
+      ]
+     },
+     {
+      "name": "Choppas",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
-      "weapon_skill": "4",
-      "strength": "9",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Kustom Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
       "ap": "-2",
       "damage": "2"
      }
@@ -1616,44 +1782,24 @@
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Drive-by Dakka",
+      "name": "High-speed Carnage",
       "type": "Datasheet",
-      "description": "During the Shooting phase against targets within 9\", subtract 1 from the unit's Armour Penetration characteristic."
+      "description": "If this unit made a charge move this turn, this unit's melee attacks have:\n• +1 S and D."
      }
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob on Warbike",
+      "description": "1 Biker Nob",
       "line": 1
      },
      {
       "description": "2-5 Warbiker",
       "line": 2
      }
-    ],
-    "model_profiles": {
-     "boss_nob": {
-      "label": "Boss Nob on Warbike",
-      "short_label": "N",
-      "weapons": [
-       "Twin dakkagun",
-       "Power klaw"
-      ],
-      "stats_override": {}
-     },
-     "warbiker": {
-      "label": "Warbiker",
-      "short_label": "B",
-      "weapons": [
-       "Twin dakkagun",
-       "Close combat weapon"
-      ],
-      "stats_override": {}
-     }
-    }
+    ]
    },
    "models": [
     {
@@ -1668,8 +1814,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "boss_nob"
+     }
     },
     {
      "id": "m2",
@@ -1683,8 +1828,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     },
     {
      "id": "m3",
@@ -1698,8 +1842,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     },
     {
      "id": "m4",
@@ -1713,8 +1856,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     },
     {
      "id": "m5",
@@ -1728,8 +1870,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     },
     {
      "id": "m6",
@@ -1743,8 +1884,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     }
    ]
   },
@@ -1771,55 +1911,87 @@
      "objective_control": 2,
      "invuln": 6
     },
-    "points": 120,
+    "points": 140,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Power klaw",
-     "5x Close combat weapon",
-     "5x Twin dakkagun"
+     "1x Kustom Choppa",
+     "1x Dual Kombi-rokkit",
+     "5x Choppas",
+     "5x Dual Dakkagun"
     ],
     "weapons": [
      {
-      "name": "Twin dakkagun",
+      "name": "Dual Dakkagun",
       "type": "Ranged",
       "range": "18",
-      "attacks": "3",
+      "attacks": "6",
       "ballistic_skill": "5",
       "strength": "5",
       "ap": "0",
       "damage": "1",
-      "special_rules": "assault, rapid fire 2, twin linked",
+      "special_rules": "assault, lethal hits",
       "abilities": [
        {
         "id": "assault"
        },
        {
-        "id": "rapid_fire",
-        "x": 2
-       },
-       {
-        "id": "twin_linked"
+        "id": "lethal_hits"
        }
       ]
      },
      {
-      "name": "Close combat weapon",
-      "type": "Melee",
-      "range": "Melee",
+      "name": "Dual Kombi-rokkit – Busta Rokkit",
+      "type": "Ranged",
+      "range": "24",
       "attacks": "2",
-      "weapon_skill": "3",
-      "strength": "4",
-      "ap": "0",
-      "damage": "1"
+      "ballistic_skill": "5",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "assault",
+      "abilities": [
+       {
+        "id": "assault"
+       }
+      ]
      },
      {
-      "name": "Power klaw",
+      "name": "Dual Kombi-rokkit – Dakkagun",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "6",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "assault, lethal hits",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "lethal_hits"
+       }
+      ]
+     },
+     {
+      "name": "Choppas",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
-      "weapon_skill": "4",
-      "strength": "9",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Kustom Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
       "ap": "-2",
       "damage": "2"
      }
@@ -1828,44 +2000,24 @@
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Drive-by Dakka",
+      "name": "High-speed Carnage",
       "type": "Datasheet",
-      "description": "During the Shooting phase against targets within 9\", subtract 1 from the unit's Armour Penetration characteristic."
+      "description": "If this unit made a charge move this turn, this unit's melee attacks have:\n• +1 S and D."
      }
     ],
     "unit_composition": [
      {
-      "description": "1 Boss Nob on Warbike",
+      "description": "1 Biker Nob",
       "line": 1
      },
      {
       "description": "2-5 Warbiker",
       "line": 2
      }
-    ],
-    "model_profiles": {
-     "boss_nob": {
-      "label": "Boss Nob on Warbike",
-      "short_label": "N",
-      "weapons": [
-       "Twin dakkagun",
-       "Power klaw"
-      ],
-      "stats_override": {}
-     },
-     "warbiker": {
-      "label": "Warbiker",
-      "short_label": "B",
-      "weapons": [
-       "Twin dakkagun",
-       "Close combat weapon"
-      ],
-      "stats_override": {}
-     }
-    }
+    ]
    },
    "models": [
     {
@@ -1880,8 +2032,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "boss_nob"
+     }
     },
     {
      "id": "m2",
@@ -1895,8 +2046,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     },
     {
      "id": "m3",
@@ -1910,8 +2060,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     },
     {
      "id": "m4",
@@ -1925,8 +2074,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     },
     {
      "id": "m5",
@@ -1940,8 +2088,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     },
     {
      "id": "m6",
@@ -1955,8 +2102,7 @@
      "base_dimensions": {
       "length": 42,
       "width": 75
-     },
-     "model_type": "warbiker"
+     }
     }
    ]
   },
@@ -1984,31 +2130,45 @@
      "objective_control": 2,
      "invuln": 6
     },
-    "points": 140,
+    "points": 170,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "6x Kopta rokkits",
+     "6x Choppa",
+     "6x Rokkit Launcha",
      "6x Slugga",
      "6x Spinnin' blades"
     ],
     "weapons": [
      {
-      "name": "Kopta rokkits",
+      "name": "Rokkit Launcha – Blasta",
       "type": "Ranged",
       "range": "24",
-      "attacks": "D3",
+      "attacks": "2",
       "ballistic_skill": "5",
-      "strength": "9",
-      "ap": "-2",
-      "damage": "3",
-      "special_rules": "blast, twin linked",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "blast",
       "abilities": [
        {
         "id": "blast"
-       },
+       }
+      ]
+     },
+     {
+      "name": "Rokkit Launcha – Busta",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "lethal hits",
+      "abilities": [
        {
-        "id": "twin_linked"
+        "id": "lethal_hits"
        }
       ]
      },
@@ -2021,29 +2181,52 @@
       "strength": "4",
       "ap": "0",
       "damage": "1",
-      "special_rules": "pistol",
+      "special_rules": "close quarters, lethal hits",
       "abilities": [
        {
-        "id": "pistol"
+        "id": "close_quarters"
+       },
+       {
+        "id": "lethal_hits"
        }
       ]
+     },
+     {
+      "name": "Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1"
      },
      {
       "name": "Spinnin' blades",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "6",
+      "attacks": "4",
       "weapon_skill": "3",
       "strength": "5",
-      "ap": "0",
-      "damage": "1"
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "cleave 1, hazardous",
+      "abilities": [
+       {
+        "id": "cleave",
+        "x": 1
+       },
+       {
+        "id": "hazardous"
+       }
+      ]
      }
     ],
     "abilities": [
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
       "name": "Deep Strike",
@@ -2053,7 +2236,12 @@
      {
       "name": "Deff from Above",
       "type": "Datasheet",
-      "description": "Roll one D6 for each model in this unit: for each 4+, the target suffers 1 mortal wound."
+      "description": "In your Shooting phase, if this unit made an ingress move this turn, this unit's ranged attacks have +1 to hit rolls."
+     },
+     {
+      "name": "Aerial Manoover",
+      "type": "Datasheet",
+      "description": "At the end of your opponent's Fight phase, if this unit is unengaged, you can place this unit in strategic reserves."
      }
     ],
     "unit_composition": [
@@ -2174,31 +2362,45 @@
      "objective_control": 2,
      "invuln": 6
     },
-    "points": 140,
+    "points": 170,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "6x Kopta rokkits",
+     "6x Choppa",
+     "6x Rokkit Launcha",
      "6x Slugga",
      "6x Spinnin' blades"
     ],
     "weapons": [
      {
-      "name": "Kopta rokkits",
+      "name": "Rokkit Launcha – Blasta",
       "type": "Ranged",
       "range": "24",
-      "attacks": "D3",
+      "attacks": "2",
       "ballistic_skill": "5",
-      "strength": "9",
-      "ap": "-2",
-      "damage": "3",
-      "special_rules": "blast, twin linked",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "blast",
       "abilities": [
        {
         "id": "blast"
-       },
+       }
+      ]
+     },
+     {
+      "name": "Rokkit Launcha – Busta",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "lethal hits",
+      "abilities": [
        {
-        "id": "twin_linked"
+        "id": "lethal_hits"
        }
       ]
      },
@@ -2211,29 +2413,52 @@
       "strength": "4",
       "ap": "0",
       "damage": "1",
-      "special_rules": "pistol",
+      "special_rules": "close quarters, lethal hits",
       "abilities": [
        {
-        "id": "pistol"
+        "id": "close_quarters"
+       },
+       {
+        "id": "lethal_hits"
        }
       ]
+     },
+     {
+      "name": "Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1"
      },
      {
       "name": "Spinnin' blades",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "6",
+      "attacks": "4",
       "weapon_skill": "3",
       "strength": "5",
-      "ap": "0",
-      "damage": "1"
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "cleave 1, hazardous",
+      "abilities": [
+       {
+        "id": "cleave",
+        "x": 1
+       },
+       {
+        "id": "hazardous"
+       }
+      ]
      }
     ],
     "abilities": [
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
       "name": "Deep Strike",
@@ -2243,7 +2468,12 @@
      {
       "name": "Deff from Above",
       "type": "Datasheet",
-      "description": "Roll one D6 for each model in this unit: for each 4+, the target suffers 1 mortal wound."
+      "description": "In your Shooting phase, if this unit made an ingress move this turn, this unit's ranged attacks have +1 to hit rolls."
+     },
+     {
+      "name": "Aerial Manoover",
+      "type": "Datasheet",
+      "description": "At the end of your opponent's Fight phase, if this unit is unengaged, you can place this unit in strategic reserves."
      }
     ],
     "unit_composition": [
@@ -2356,23 +2586,21 @@
     "stats": {
      "move": 6,
      "toughness": 2,
-     "save": 7,
+     "save": 6,
      "wounds": 1,
      "leadership": 8,
-     "objective_control": 2
+     "objective_control": 1
     },
     "points": 45,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "10x Close combat weapon",
-     "10x Grot blasta",
-     "1x Runtherd tools",
-     "1x Slugga"
+     "10x Grot Blasta",
+     "10x Scavenged Shivs"
     ],
     "weapons": [
      {
-      "name": "Grot blasta",
+      "name": "Grot Blasta",
       "type": "Ranged",
       "range": "12",
       "attacks": "1",
@@ -2380,46 +2608,20 @@
       "strength": "3",
       "ap": "0",
       "damage": "1",
-      "special_rules": "pistol",
+      "special_rules": "close quarters",
       "abilities": [
        {
-        "id": "pistol"
+        "id": "close_quarters"
        }
       ]
      },
      {
-      "name": "Slugga",
-      "type": "Ranged",
-      "range": "12",
-      "attacks": "1",
-      "ballistic_skill": "5",
-      "strength": "4",
-      "ap": "0",
-      "damage": "1",
-      "special_rules": "pistol",
-      "abilities": [
-       {
-        "id": "pistol"
-       }
-      ]
-     },
-     {
-      "name": "Close combat weapon",
+      "name": "Scavenged Shivs",
       "type": "Melee",
       "range": "Melee",
       "attacks": "1",
       "weapon_skill": "5",
       "strength": "2",
-      "ap": "0",
-      "damage": "1"
-     },
-     {
-      "name": "Runtherd tools",
-      "type": "Melee",
-      "range": "Melee",
-      "attacks": "3",
-      "weapon_skill": "3",
-      "strength": "5",
       "ap": "0",
       "damage": "1"
      }
@@ -2428,60 +2630,35 @@
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Runtherd",
+      "name": "Downtrodden",
       "type": "Datasheet",
-      "description": "Modify this model's Toughness characteristic to 2."
+      "description": "For the purposes of transport capacity, each 2 Gretchin models (rounding up) take up the space of 1 model."
      },
      {
       "name": "Thievin' Scavengers",
       "type": "Datasheet",
-      "description": "You gain 1CP."
+      "description": "At the end of your Movement phase, if this unit is controlling an objective, that objective is secured."
      }
     ],
     "unit_composition": [
      {
-      "description": "1-2 Runtherd",
-      "line": 1
-     },
-     {
       "description": "10-20 Gretchin",
-      "line": 2
+      "line": 1
      }
-    ],
-    "model_profiles": {
-     "runtherd": {
-      "label": "Runtherd",
-      "short_label": "R",
-      "weapons": [
-       "Slugga",
-       "Runtherd tools"
-      ],
-      "stats_override": {}
-     },
-     "gretchin": {
-      "label": "Gretchin",
-      "short_label": "G",
-      "weapons": [
-       "Grot blasta",
-       "Close combat weapon"
-      ],
-      "stats_override": {}
-     }
-    }
+    ]
    },
    "models": [
     {
      "id": "m1",
-     "wounds": 2,
-     "current_wounds": 2,
-     "base_mm": 32,
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "runtherd"
+     "status_effects": []
     },
     {
      "id": "m2",
@@ -2490,8 +2667,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m3",
@@ -2500,8 +2676,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m4",
@@ -2510,8 +2685,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m5",
@@ -2520,8 +2694,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m6",
@@ -2530,8 +2703,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m7",
@@ -2540,8 +2712,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m8",
@@ -2550,8 +2721,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m9",
@@ -2560,8 +2730,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m10",
@@ -2570,18 +2739,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
-    },
-    {
-     "id": "m11",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     }
    ]
   },
@@ -2601,23 +2759,21 @@
     "stats": {
      "move": 6,
      "toughness": 2,
-     "save": 7,
+     "save": 6,
      "wounds": 1,
      "leadership": 8,
-     "objective_control": 2
+     "objective_control": 1
     },
     "points": 45,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "10x Close combat weapon",
-     "10x Grot blasta",
-     "1x Runtherd tools",
-     "1x Slugga"
+     "10x Grot Blasta",
+     "10x Scavenged Shivs"
     ],
     "weapons": [
      {
-      "name": "Grot blasta",
+      "name": "Grot Blasta",
       "type": "Ranged",
       "range": "12",
       "attacks": "1",
@@ -2625,46 +2781,20 @@
       "strength": "3",
       "ap": "0",
       "damage": "1",
-      "special_rules": "pistol",
+      "special_rules": "close quarters",
       "abilities": [
        {
-        "id": "pistol"
+        "id": "close_quarters"
        }
       ]
      },
      {
-      "name": "Slugga",
-      "type": "Ranged",
-      "range": "12",
-      "attacks": "1",
-      "ballistic_skill": "5",
-      "strength": "4",
-      "ap": "0",
-      "damage": "1",
-      "special_rules": "pistol",
-      "abilities": [
-       {
-        "id": "pistol"
-       }
-      ]
-     },
-     {
-      "name": "Close combat weapon",
+      "name": "Scavenged Shivs",
       "type": "Melee",
       "range": "Melee",
       "attacks": "1",
       "weapon_skill": "5",
       "strength": "2",
-      "ap": "0",
-      "damage": "1"
-     },
-     {
-      "name": "Runtherd tools",
-      "type": "Melee",
-      "range": "Melee",
-      "attacks": "3",
-      "weapon_skill": "3",
-      "strength": "5",
       "ap": "0",
       "damage": "1"
      }
@@ -2673,60 +2803,35 @@
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
      },
      {
-      "name": "Runtherd",
+      "name": "Downtrodden",
       "type": "Datasheet",
-      "description": "Modify this model's Toughness characteristic to 2."
+      "description": "For the purposes of transport capacity, each 2 Gretchin models (rounding up) take up the space of 1 model."
      },
      {
       "name": "Thievin' Scavengers",
       "type": "Datasheet",
-      "description": "You gain 1CP."
+      "description": "At the end of your Movement phase, if this unit is controlling an objective, that objective is secured."
      }
     ],
     "unit_composition": [
      {
-      "description": "1-2 Runtherd",
-      "line": 1
-     },
-     {
       "description": "10-20 Gretchin",
-      "line": 2
+      "line": 1
      }
-    ],
-    "model_profiles": {
-     "runtherd": {
-      "label": "Runtherd",
-      "short_label": "R",
-      "weapons": [
-       "Slugga",
-       "Runtherd tools"
-      ],
-      "stats_override": {}
-     },
-     "gretchin": {
-      "label": "Gretchin",
-      "short_label": "G",
-      "weapons": [
-       "Grot blasta",
-       "Close combat weapon"
-      ],
-      "stats_override": {}
-     }
-    }
+    ]
    },
    "models": [
     {
      "id": "m1",
-     "wounds": 2,
-     "current_wounds": 2,
-     "base_mm": 32,
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "runtherd"
+     "status_effects": []
     },
     {
      "id": "m2",
@@ -2735,8 +2840,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m3",
@@ -2745,8 +2849,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m4",
@@ -2755,8 +2858,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m5",
@@ -2765,8 +2867,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m6",
@@ -2775,8 +2876,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m7",
@@ -2785,8 +2885,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m8",
@@ -2795,8 +2894,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m9",
@@ -2805,8 +2903,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     },
     {
      "id": "m10",
@@ -2815,18 +2912,7 @@
      "base_mm": 25,
      "position": null,
      "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
-    },
-    {
-     "id": "m11",
-     "wounds": 1,
-     "current_wounds": 1,
-     "base_mm": 25,
-     "position": null,
-     "alive": true,
-     "status_effects": [],
-     "model_type": "gretchin"
+     "status_effects": []
     }
    ]
   },
@@ -2853,19 +2939,21 @@
      "wounds": 30,
      "leadership": 6,
      "objective_control": 12,
-     "invuln": 6
+     "invuln": 5
     },
-    "points": 600,
+    "points": 700,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Deffkannon",
+     "1x Big shoota",
+     "1x Big shoota",
+     "1x Big shoota",
+     "1x Big shoota",
+     "1x Big shoota",
+     "1x Deffkannon and Supa-rokkits",
      "1x Mega-choppa",
      "1x Skorcha",
-     "1x Supa-gatler",
-     "1x Supa-rokkits",
-     "1x Twin big shoota",
-     "3x Big shoota"
+     "1x Supa-gatler"
     ],
     "weapons": [
      {
@@ -2877,8 +2965,11 @@
       "strength": "5",
       "ap": "0",
       "damage": "1",
-      "special_rules": "rapid fire 2",
+      "special_rules": "lethal hits, rapid fire 2",
       "abilities": [
+       {
+        "id": "lethal_hits"
+       },
        {
         "id": "rapid_fire",
         "x": 2
@@ -2886,14 +2977,14 @@
       ]
      },
      {
-      "name": "Deffkannon",
+      "name": "Deffkannon and Supa-rokkits",
       "type": "Ranged",
       "range": "72",
-      "attacks": "3D6",
+      "attacks": "12",
       "ballistic_skill": "5",
       "strength": "14",
       "ap": "-3",
-      "damage": "D6",
+      "damage": "D6+2",
       "special_rules": "blast",
       "abilities": [
        {
@@ -2905,15 +2996,15 @@
       "name": "Skorcha",
       "type": "Ranged",
       "range": "12",
-      "attacks": "D6",
+      "attacks": "3",
       "ballistic_skill": "N/A",
       "strength": "5",
       "ap": "-1",
       "damage": "1",
-      "special_rules": "ignores cover, torrent",
+      "special_rules": "blast, torrent",
       "abilities": [
        {
-        "id": "ignores_cover"
+        "id": "blast"
        },
        {
         "id": "torrent"
@@ -2921,16 +3012,19 @@
       ]
      },
      {
-      "name": "Supa-gatler",
+      "name": "Supa-gatler – Aimed",
       "type": "Ranged",
       "range": "24",
-      "attacks": "20",
+      "attacks": "30",
       "ballistic_skill": "5",
       "strength": "7",
-      "ap": "-1",
+      "ap": "-2",
       "damage": "2",
-      "special_rules": "sustained hits 1",
+      "special_rules": "lethal hits, sustained hits 1",
       "abilities": [
+       {
+        "id": "lethal_hits"
+       },
        {
         "id": "sustained_hits",
         "x": 1
@@ -2938,67 +3032,49 @@
       ]
      },
      {
-      "name": "Supa-rokkits",
+      "name": "Supa-gatler – Point Blank",
       "type": "Ranged",
-      "range": "100",
-      "attacks": "D6",
-      "ballistic_skill": "5",
-      "strength": "12",
-      "ap": "-3",
-      "damage": "D6+2",
-      "special_rules": "blast",
+      "range": "12",
+      "attacks": "3D6+3",
+      "ballistic_skill": "N/A",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "torrent",
       "abilities": [
        {
-        "id": "blast"
+        "id": "torrent"
        }
       ]
      },
      {
-      "name": "Twin big shoota",
-      "type": "Ranged",
-      "range": "36",
-      "attacks": "3",
-      "ballistic_skill": "5",
-      "strength": "5",
-      "ap": "0",
-      "damage": "1",
-      "special_rules": "rapid fire 2, twin linked",
-      "abilities": [
-       {
-        "id": "rapid_fire",
-        "x": 2
-       },
-       {
-        "id": "twin_linked"
-       }
-      ]
-     },
-     {
-      "name": "Mega-choppa – Strike",
+      "name": "Mega-choppa",
       "type": "Melee",
       "range": "Melee",
       "attacks": "6",
       "weapon_skill": "3",
       "strength": "24",
-      "ap": "-5",
-      "damage": "10"
-     },
-     {
-      "name": "Mega-choppa – Sweep",
-      "type": "Melee",
-      "range": "Melee",
-      "attacks": "18",
-      "weapon_skill": "3",
-      "strength": "10",
-      "ap": "-2",
-      "damage": "3"
+      "ap": "-4",
+      "damage": "10",
+      "special_rules": "cleave 4",
+      "abilities": [
+       {
+        "id": "cleave",
+        "x": 4
+       }
+      ]
      }
     ],
     "abilities": [
      {
       "name": "Waaagh!",
       "type": "Faction",
-      "description": "Once per battle, until your next Command phase:\n  -> The unit gains the Advance & Charge ability.\n  -> Add 1 to the unit's Strength characteristic (melee).\n  -> Add 1 to the unit's Attacks characteristic (melee).\n  -> The unit has a 5+ invulnerable save."
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
+     },
+     {
+      "name": "Damaged: 1-10 Wounds Remaining",
+      "type": "Core",
+      "description": "DAMAGED24.39\nThis ability always takes the form Damaged X. While a model's remaining wounds are equal to or less than X, that model is damaged: while damaged, that model's attacks have -1 to hit rolls."
      },
      {
       "name": "Deadly Demise 2D6",
@@ -3006,19 +3082,24 @@
       "description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers 2D6 mortal wounds."
      },
      {
-      "name": "Stompin' Forward",
+      "name": "Super-heavy Walker",
       "type": "Datasheet",
-      "description": "This model can move over terrain features as though they were not there."
+      "description": "Until the end of the turn, this model can move over terrain features 4\" or lower (up to 4\" high) as though they were not there (excluding Titanic models), during its Normal, Advance and Fall Back moves."
      },
      {
-      "name": "Waaagh! Effigy (Aura)",
+      "name": "Idol of Belligerence",
       "type": "Datasheet",
-      "description": "If the unit has the ORKS keyword, for the rest of the battle, add 1 to the Leadership characteristic of friendly units within 12\"."
+      "description": "In your Movement phase, when a unit embarked within this unit is selected to make a disembark move, that unit is riled up until the start of your next turn."
+     },
+     {
+      "name": "Waaagh! Effigy",
+      "type": "Datasheet",
+      "description": "This unit is riled up."
      },
      {
       "name": "TRANSPORT",
       "type": "Core",
-      "description": "This model has a transport capacity of 22 ORKS INFANTRY models."
+      "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. Each JUMP PACK model takes up the space of 2 models. Each GHAZGHKULL THRAKA model takes up the space of 4 models."
      }
     ],
     "unit_composition": [

@@ -81,6 +81,10 @@ func begin(board: Dictionary, p_active_player: int) -> void:
 func is_fights_first(unit: Dictionary) -> bool:
 	if unit.get("flags", {}).get("fights_first", false):
 		return true
+	# Codex: Adeptus Custodes (11e) Emissaries Imperatus — Heralds of the
+	# Throne: friendly ADEPTUS CUSTODES units have Fights First (WP-C46).
+	if load("res://scripts/codex/custodes/CustodesDetachments.gd").has_fights_first(unit):
+		return true
 	return UnitAbilities.unit_has(unit, "fights first")
 
 
@@ -168,7 +172,8 @@ func eligible_units(board: Dictionary, player: int, only_fights_first: bool) -> 
 func selectable_units(board: Dictionary, player: int, only_fights_first: bool) -> Array:
 	if passed.get(player, false):
 		return []
-	return eligible_units(board, player, only_fights_first)
+	# Codex: Adeptus Custodes INDOMITABLE GUARDIANS (CustodesCodex11e.gd): "must be the next unit you select to fight".
+	return load("res://scripts/codex/custodes/CustodesCodex11e.gd").restrict_fight_candidates(player, eligible_units(board, player, only_fights_first))
 
 
 ## "Eligible to fight, but unable to fight" (core rules p.74): true when

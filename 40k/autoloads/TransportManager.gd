@@ -272,14 +272,10 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 
 	if transport.get("flags", {}).get("moved", false):
 		unit.flags["cannot_move"] = true
-		# Fasta Than Yooz (Kult of Speed): the bearer's unit is still eligible
-		# to declare a charge after disembarking from a transport that made a
-		# Normal move this turn. (Runtime lookup: TransportManager registers
-		# before FactionAbilityManager in the autoload order, so a parse-time
-		# identifier reference breaks the boot-time compile chain.)
-		# MEKANISED BRUTALITY (Blitz Brigade): the flagged rig grants the same
-		# to every unit disembarking from it this turn.
-		var fam_tm = get_node_or_null("/root/FactionAbilityManager")
+		# MEKANISED BRUTALITY (Blitz Brigade): the flagged rig keeps every unit
+		# disembarking from it this turn eligible to declare a charge. (The 10e
+		# Kult of Speed Fasta Than Yooz did the same for its bearer — gone with
+		# WP-O5: no Codex: Orks detachment has it.)
 		if transport.get("flags", {}).get("effect_mekanised_brutality", false):
 			unit.flags["cannot_charge"] = false
 			print("Mekanised Brutality - transport has moved but disembarked unit remains eligible to charge")
@@ -288,9 +284,6 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 			# (18.06) has no "not eligible to declare a charge" rider.
 			unit.flags["cannot_charge"] = false
 			print("READIED BRAWLERS - assault disembark: disembarked unit remains eligible to charge")
-		elif fam_tm != null and fam_tm._unit_or_attached_has_enhancement(unit, "Fasta Than Yooz", GameState.state.get("units", {})):
-			unit.flags["cannot_charge"] = false
-			print("Fasta Than Yooz - transport has moved but disembarked unit remains eligible to charge")
 		else:
 			unit.flags["cannot_charge"] = true
 			print("Transport has moved - disembarked unit cannot move or charge")
@@ -300,34 +293,15 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 		unit.flags["cannot_charge"] = false
 		print("Transport hasn't moved - disembarked unit can move normally")
 
-	# Tuff Git (Blitz Brigade): at the end of a phase in which the bearer's
-	# unit disembarked, it stops being Battle-shocked. (Applied at disembark —
-	# a faithful simplification of the end-of-phase timing.)
-	# 19.01: the Attached unit stops being Battle-shocked as ONE unit — clear
-	# every component, or a flag left on the leader keeps the whole unit's OC
-	# at '-' (MissionManager reads battle-shock group-wide).
-	var fam_tg = get_node_or_null("/root/FactionAbilityManager")
-	if unit.get("flags", {}).get("battle_shocked", false) \
-			and fam_tg != null and fam_tg._unit_or_attached_has_enhancement(unit, "Tuff Git", GameState.state.get("units", {})):
-		unit.flags["battle_shocked"] = false
-		print("Tuff Git - disembarked unit is no longer Battle-shocked")
-		# Same group MissionManager's OC read uses (RulesEngine linkage, both
-		# sides), unioned with this manager's group: a leader linked only by
-		# its attached_to back-pointer is cleared too.
-		var tg_group: Array = get_attached_unit_group(unit_id).duplicate()
-		var tg_head_id = RulesEngine.attached_unit_target_id(unit_id, GameState.state)
-		for tg_gid in RulesEngine.attached_unit_component_ids(tg_head_id, GameState.state):
-			if not tg_group.has(str(tg_gid)):
-				tg_group.append(str(tg_gid))
-		for tg_id in tg_group:
-			var tg_unit = GameState.state.get("units", {}).get(tg_id, {})
-			if tg_id != unit_id and tg_unit.get("flags", {}).get("battle_shocked", false):
-				tg_unit.flags["battle_shocked"] = false
-				print("Tuff Git - attached unit component %s is no longer Battle-shocked" % tg_id)
-
 	# Update GameState directly
 	GameState.state.units[unit_id] = unit
 	GameState.state.units[transport_id] = transport
+
+	# Codex: Adeptus Custodes (11e) Combat Deployment (Grav-Assault Force): a
+	# friendly ADEPTUS CUSTODES unit that disembarks from the bearer TRANSPORT
+	# can re-roll charge rolls and cannot be snap-shot this turn (WP-C46).
+	if GameConstants.edition >= 11:
+		load("res://scripts/codex/custodes/CustodesDetachments.gd").on_unit_disembarked(unit_id, str(transport_id))
 
 	emit_signal("disembark_completed", unit_id)
 	print("Unit %s disembarked from transport %s" % [unit_id, transport_id])
@@ -349,6 +323,16 @@ func _get_unit_capacity_cost(unit: Dictionary, transport: Dictionary) -> int:
 						model_cost = multipliers[kw]
 						break
 				cost += model_cost
+
+	# WP-O6 DOWNTRODDEN (Codex: Orks 11e, Gretchin): "each 2 Gretchin models
+	# (rounding up) take up the space of 1 model" (no multiplier applies to them).
+	if GameConstants.edition >= 11 and cost > 0:
+		var dt_uid := str(unit.get("id", ""))
+		if dt_uid != "":
+			var dt_space := int(load("res://scripts/codex/orks/OrkAbilities11e.gd").transport_space(dt_uid, cost))
+			if dt_space != cost:
+				print("TransportManager: Downtrodden — %s takes %d transport space(s) instead of %d" % [dt_uid, dt_space, cost])
+				cost = dt_space
 
 	return cost
 
@@ -593,7 +577,9 @@ func resolve_transport_destroyed(transport_id: String) -> Dictionary:
 		# allocation), and the emergency-disembarked unit is battle-shocked.
 		if GameConstants.edition >= 11:
 			if hazard_mortals > 0:
-				var mw_out = Allocation.apply_mortal_wounds_11e(unit, hazard_mortals, CasualtyPreference.engine_auto_preference(unit, GameState.state))
+				# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
+				var em_mw: int = RulesEngine.mortal_wounds_after_fnp(unit, hazard_mortals, null, [], false, "emergency_disembark")
+				var mw_out = Allocation.apply_mortal_wounds_11e(unit, em_mw, CasualtyPreference.engine_auto_preference(unit, GameState.state))
 				for idx in mw_out.remaining:
 					var mi = int(idx)
 					if mi >= 0 and mi < unit.models.size() and int(mw_out.remaining[idx]) != int(unit.models[mi].get("current_wounds", unit.models[mi].get("wounds", 1))):

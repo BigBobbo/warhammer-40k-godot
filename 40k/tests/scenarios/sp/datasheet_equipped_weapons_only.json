@@ -13,6 +13,8 @@
   "description": "Pressing Y (pad) on a selected Battlewagon opens the datasheet showing ONLY the weapons it is equipped with. Its roster wargear is Kannon / Lobba / Deff rolla / Grabbin' klaw / Wreckin' ball, so the datasheet must list those (plus the base-kit Tracks and wheels) and must NOT list the killkannon, zzap gun or big shoota the datasheet menu also contains.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.6 },
+    {"act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tif str(w.get(\"window_id\", \"\")) != \"movement_phase_start\":\n\t\tbreak\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn p != null and not p.has_pending_stratagem_window()", "equals": true, "comment": "WP-O6: the Orks' Weirdboy is offered the codex Da Jump in the movement_phase_start window when the Movement phase starts (it holds the phase like the unit_selected_to_move window below) — not under test, declined"},
+    {"act": "wait_seconds", "seconds": 0.5},
     { "act": "expect_token_visible", "unit_id": "U_BATTLEWAGON_G" },
     { "act": "click_unit", "unit_id": "U_BATTLEWAGON_G" },
     { "act": "wait_seconds", "seconds": 0.4 },

@@ -6,9 +6,9 @@
     "log.ability.hidden_by_default",
     "log.ability.real_manager_path"
   ],
-  "fixture": "audit_367_warlord",
+  "fixture": "shooting_phase",
   "transition_to_phase": 0,
-  "description": "Passive always-on ability activations (e.g. 'Stand Vigil active', 'Guardian Eternal active') repeat at the start of every phase for every unit that has one, flooding the game log. This scenario proves the new 'Abilities' filter. Part A drives the real logging API (GameEventLog.add_ability_entry, the exact call UnitAbilityManager now makes): the entry is tagged type 'ability', lands in the ABILITY category, and is HIDDEN by default while an ordinary shooting entry stays visible. It then opens the filter bar with a real click, confirms the 'Abilities' chip exists, clicks it, and the ability card appears. Part B drives the REAL UnitAbilityManager.on_phase_start(SHOOTING) path against a Custodes/Ork fixture and asserts the always-on abilities it re-applies are logged with type 'ability' (not p1_action/charge/info), so they filter as a group regardless of phase.",
+  "description": "Passive always-on ability activations (e.g. 'Stand Vigil active', 'Guardian Eternal active') repeat at the start of every phase for every unit that has one, flooding the game log. This scenario proves the new 'Abilities' filter. Part A drives the real logging API (GameEventLog.add_ability_entry, the exact call UnitAbilityManager now makes): the entry is tagged type 'ability', lands in the ABILITY category, and is HIDDEN by default while an ordinary shooting entry stays visible. It then opens the filter bar with a real click, confirms the 'Abilities' chip exists, clicks it, and the ability card appears. Part B drives the REAL UnitAbilityManager.on_phase_start(SHOOTING) path against an Ork fixture whose units carry Feel No Pain (the Codex: Adeptus Custodes / Orks 11e datasheet abilities live in their codex modules, not UnitAbilityManager effect rows, so they no longer re-apply here) and asserts the always-on abilities it re-applies are logged with type 'ability' (not p1_action/charge/info), so they filter as a group regardless of phase.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
 

@@ -9,11 +9,13 @@ extends SceneTree
 #
 # Covers:
 #  1. ModifierLedger formatting (effect text, de-dup, cancelled entries)
-#  2. Against All Odds provenance reaches BOTH the melee hit and wound contexts
-#  3. The same attack WITHOUT the Lions detachment records no AAO entry
-#  4. evaluate_against_all_odds reports the nearest friendly (drives the
-#     board sparkle + hover readout), and agrees with check_against_all_odds
-#  5. A non-AAO modifier ([LANCE]) is also named, proving the mechanism is
+#  2. A Codex: Adeptus Custodes (11e) rule's provenance reaches BOTH the melee
+#     hit and wound contexts (Oblivion Knight: +1 hit; +1 wound vs a
+#     battle-shocked target) — WP-C46 replaced the retired 10e Lions of the
+#     Emperor Against All Odds groups (RETIRED_TESTS.md)
+#  3. The same attack WITHOUT the enhancement records no such entry
+#  4. The retired 10e Against All Odds evaluator is gone (no board sparkle)
+#  5. A non-codex modifier ([LANCE]) is also named, proving the mechanism is
 #     general rather than special-cased for one rule
 #
 # Usage: godot --headless --path . -s tests/test_modifier_provenance.gd
@@ -54,10 +56,13 @@ func _run_tests():
 		return
 
 	_test_ledger_formatting()
-	_test_aao_named_in_melee(rules, fam)
-	_test_no_aao_without_detachment(rules)
-	_test_aao_evaluator(fam)
+	var prev_edition = GameConstants.edition
+	GameConstants.edition = 11
+	_test_codex_rule_named_in_melee(rules)
+	_test_no_codex_rule_without_enhancement(rules)
+	_test_aao_retired(fam)
 	_test_lance_named(rules)
+	GameConstants.edition = prev_edition
 	_finish()
 
 
@@ -188,85 +193,57 @@ func _ledger_sources(res: Dictionary, kind: String) -> Array:
 	return out
 
 
-func _test_aao_named_in_melee(rules, fam) -> void:
-	print("\n-- Against All Odds named in a real melee resolution --")
-	# 9" of clear air: the rule is ON.
-	var board := _custodes_board(9.0, "Lions of the Emperor")
+func _test_codex_rule_named_in_melee(rules) -> void:
+	print("\n-- a Codex: Adeptus Custodes rule named in a real melee resolution --")
+	# Null Maiden Vigil fighter carrying Oblivion Knight vs a battle-shocked
+	# enemy: +1 to hit AND +1 to wound, both attributed to the enhancement.
+	var board := _custodes_board(9.0, "Null Maiden Vigil")
+	board["units"]["U_FIGHTER"]["meta"]["keywords"].append("ANATHEMA PSYKANA")
+	board["units"]["U_FIGHTER"]["meta"]["enhancements"] = ["Oblivion Knight"]
+	board["units"]["U_ENEMY"]["flags"]["battle_shocked"] = true
 	var res = rules.resolve_melee_attacks(_melee_action(), board, rules.RNGService.new(7))
 	_check("melee resolution succeeded", res.get("success", false), str(res.get("log_text", "")))
-
 	var hit_sources := _ledger_sources(res, ModifierLedger.KIND_HIT)
 	var wound_sources := _ledger_sources(res, ModifierLedger.KIND_WOUND)
-	_check("hit ledger names Against All Odds", "Against All Odds" in hit_sources, str(hit_sources))
-	_check("wound ledger names Against All Odds", "Against All Odds" in wound_sources, str(wound_sources))
-
-	# The provenance must agree with the maths it is explaining.
-	var fighter: Dictionary = board["units"]["U_FIGHTER"]
-	_check("engine agrees the bonus is active",
-		fam.check_against_all_odds(fighter, board))
+	_check("hit ledger names Oblivion Knight", "Oblivion Knight" in hit_sources, str(hit_sources))
+	_check("wound ledger names Oblivion Knight", "Oblivion Knight" in wound_sources, str(wound_sources))
 
 
-func _test_no_aao_without_detachment(rules) -> void:
-	print("\n-- no Against All Odds without the Lions detachment --")
-	# Same 9" spacing, Shield Host instead — the rule must not fire, and must
-	# not be claimed in the readout either.
-	var board := _custodes_board(9.0, "Shield Host")
+func _test_no_codex_rule_without_enhancement(rules) -> void:
+	print("\n-- no codex entry without the enhancement --")
+	var board := _custodes_board(9.0, "Null Maiden Vigil")
+	board["units"]["U_ENEMY"]["flags"]["battle_shocked"] = true
 	var res = rules.resolve_melee_attacks(_melee_action(), board, rules.RNGService.new(7))
 	_check("melee resolution succeeded", res.get("success", false))
 	var hit_sources := _ledger_sources(res, ModifierLedger.KIND_HIT)
 	var wound_sources := _ledger_sources(res, ModifierLedger.KIND_WOUND)
-	_check("hit ledger does NOT claim Against All Odds",
-		not ("Against All Odds" in hit_sources), str(hit_sources))
-	_check("wound ledger does NOT claim Against All Odds",
-		not ("Against All Odds" in wound_sources), str(wound_sources))
+	_check("hit ledger does NOT claim Oblivion Knight",
+		not ("Oblivion Knight" in hit_sources), str(hit_sources))
+	_check("wound ledger does NOT claim Oblivion Knight",
+		not ("Oblivion Knight" in wound_sources), str(wound_sources))
+	# Lions of the Emperor no longer has the 10e Against All Odds +1/+1.
+	var lions := _custodes_board(9.0, "Lions of the Emperor")
+	var res2 = rules.resolve_melee_attacks(_melee_action(), lions, rules.RNGService.new(7))
+	_check("retired: isolated Lions unit records no Against All Odds",
+		not ("Against All Odds" in _ledger_sources(res2, ModifierLedger.KIND_WOUND))
+		and not ("Against All Odds" in _ledger_sources(res2, ModifierLedger.KIND_HIT)))
 
-	# And with the Lions detachment but a friendly parked 3" away, likewise off.
-	var close_board := _custodes_board(3.0, "Lions of the Emperor")
-	var res2 = rules.resolve_melee_attacks(_melee_action(), close_board, rules.RNGService.new(7))
-	_check("crowded Lions unit records no Against All Odds",
-		not ("Against All Odds" in _ledger_sources(res2, ModifierLedger.KIND_WOUND)))
+
+func _test_aao_retired(fam) -> void:
+	print("\n-- the 10e Against All Odds evaluator is retired (WP-C46) --")
+	_check("retired: FactionAbilityManager.check_against_all_odds removed",
+		not fam.has_method("check_against_all_odds"))
+	_check("retired: FactionAbilityManager.evaluate_against_all_odds removed",
+		not fam.has_method("evaluate_against_all_odds"))
 
 
 func _test_lance_named(rules) -> void:
 	print("\n-- a non-AAO modifier is named too (mechanism is general) --")
-	# Shield Host (so AAO cannot fire) + [LANCE] on the charge.
-	var board := _custodes_board(9.0, "Shield Host", true)
+	# A codex detachment with no melee hit/wound rule + [LANCE] on the charge.
+	var board := _custodes_board(9.0, "Shadowkeepers", true)
 	var res = rules.resolve_melee_attacks(_melee_action(), board, rules.RNGService.new(3))
 	_check("melee resolution succeeded", res.get("success", false))
 	var wound_sources := _ledger_sources(res, ModifierLedger.KIND_WOUND)
 	_check("wound ledger names [LANCE]", "[LANCE]" in wound_sources, str(wound_sources))
 
 
-# -- 4. the evaluator behind the board sparkle ---------------------------------
-
-func _test_aao_evaluator(fam) -> void:
-	print("\n-- evaluate_against_all_odds (board sparkle + hover) --")
-	var far := _custodes_board(9.0, "Lions of the Emperor")
-	var st_far = fam.evaluate_against_all_odds(far["units"]["U_FIGHTER"], far, true)
-	_check("isolated unit is applicable", st_far.get("applicable", false))
-	_check("isolated unit is active", st_far.get("active", false))
-	_check("names the nearest friendly", st_far.get("nearest_name", "") == "Prosecutors",
-		str(st_far.get("nearest_name", "")))
-	_check("measures the gap (~9\")", abs(float(st_far.get("nearest_inches", 0.0)) - 9.0) < 0.15,
-		"got %.2f" % float(st_far.get("nearest_inches", 0.0)))
-
-	var near := _custodes_board(3.0, "Lions of the Emperor")
-	var st_near = fam.evaluate_against_all_odds(near["units"]["U_FIGHTER"], near, true)
-	_check("crowded unit is still applicable (so it gets an explanation)",
-		st_near.get("applicable", false))
-	_check("crowded unit is NOT active", not st_near.get("active", false))
-	_check("crowded unit reports the spoiler's distance (~3\")",
-		abs(float(st_near.get("nearest_inches", 0.0)) - 3.0) < 0.15,
-		"got %.2f" % float(st_near.get("nearest_inches", 0.0)))
-
-	# Non-Lions army: no marker at all, not merely an inactive one.
-	var sh := _custodes_board(9.0, "Shield Host")
-	var st_sh = fam.evaluate_against_all_odds(sh["units"]["U_FIGHTER"], sh, true)
-	_check("Shield Host unit is not applicable", not st_sh.get("applicable", false))
-
-	# The fast path the engine uses and the full path the UI uses must agree.
-	for b in [far, near, sh]:
-		var quick: bool = fam.check_against_all_odds(b["units"]["U_FIGHTER"], b)
-		var full: bool = fam.evaluate_against_all_odds(b["units"]["U_FIGHTER"], b, true).get("active", false)
-		_check("fast path agrees with full evaluation", quick == full,
-			"quick=%s full=%s" % [quick, full])

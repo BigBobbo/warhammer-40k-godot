@@ -58,15 +58,11 @@ tests/unit/test_skip_attacks_target_destroyed.gd::test_overwatch_skips_weapons_a
 tests/unit/test_tank_shock.gd::test_both_players_can_use_separately  # fails at 10e and 11e (pre-existing)
 tests/unit/test_terrain_charge_interaction.gd::test_rules_engine_charge_paths_with_terrain_penalty  # fails at 10e and 11e (pre-existing)
 tests/unit/test_terrain_charge_interaction.gd::test_rules_engine_fly_vs_non_fly_terrain_penalty  # fails at 10e and 11e (pre-existing)
-tests/unit/test_unit_ability_manager.gd::test_get_implemented_abilities  # fails at 10e and 11e (pre-existing)
-tests/unit/test_unit_ability_manager.gd::test_is_ability_implemented  # fails at 10e and 11e (pre-existing)
 
 # --- tests/unit: fail at 11e only — tracked 11e engine bugs / undecidable (2026-10-17 triage) ---
 tests/unit/test_barricade_engagement_range.gd::test_charge_without_barricade_requires_1_inch  # BUG-11: 11.04 "within 1"" charge obligation not enforced at 11e (RulesEngine.validate_base_to_base_possible_rules uses the 2" ER)
 tests/unit/test_base_contact_enforcement.gd::test_model_could_reach_within_1in_but_didnt  # BUG-11: same 11.04 within-1" obligation
-tests/unit/test_extra_attacks_keyword.gd::test_regular_weapon_modified_by_da_biggest  # 11e only: same as above
 tests/unit/test_extra_attacks_keyword.gd::test_regular_weapon_still_modified_by_waaagh  # 11e only: no verbatim 11e Waaagh!/Da Biggest text locally to decide expected attacks (triage OTHER)
-tests/unit/test_hold_still_ability.gd::test_mortal_wounds_on_critical_wound_with_urty_syringe  # BUG-11 (suspected): 11e auto melee save path returns before the Hold Still mortal-wound block
 
 # --- intermittent (pass or fail run to run, in both editions; root cause not isolated) ---
 ? tests/unit/test_insane_bravery_stratagem.gd::test_command_phase_rejects_insane_bravery_for_already_tested_unit  # flips between runs of the same tree; CommandPhase battle_shock_step_start window opening depends on shared autoload state — follow-up

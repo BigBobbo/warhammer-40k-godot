@@ -13,10 +13,49 @@
 // bundle so the fix survives a re-bundle (scripts/40kdc/bundle-browser.mjs
 // re-pulls the still-incomplete upstream package).
 //
+// Codex: Adeptus Custodes (11e) — WP-C46: the bundle predates the codex. It
+// lists the pre-codex Custodes detachments (Shield Host, Talons of the
+// Emperor, ...) and none of the 13 codex detachments / 29 enhancements, so
+// the builder offered stale enhancements. The codex records (generated from
+// the game's own 40k/data/40kdc dataset into custodes-codex-11e-data.mjs) are
+// upserted by id, and the superseded detachments are flagged
+// superseded_by_codex (kept for importing old lists, hidden from the picker).
+//
 // Environment-free (no fs / DOM). applyDataPatches() mutates the RAW_DATA
 // arrays in place and is idempotent — the converter (createConverter) and the
 // package importer (tryImportRoster) both read these arrays/objects by
 // reference, so an in-place patch reaches every consumer.
+
+// Codex: Orks (11e) — WP-O5: the bundle's Ork detachments are the pre-codex
+// provisional ones (Kult of Speed with Wazblasta, Taktikal Brigade with Skwad
+// Leader / Mek Kaptin / Mork's Kunnin', ...) and 7 of the 15 codex detachments
+// are missing (Brute Bosses, Flyboyz, Madcap Meks, Runt Swarm, Shoota Boyz,
+// Wreckas, Wurrband). The 15 codex detachments and their 38 enhancements
+// (generated from the game's own 40k/data/40kdc dataset into
+// orks-codex-11e-data.mjs) are upserted by id, so each detachment's
+// enhancement_ids lists exactly its codex enhancements.
+import { ORKS_CODEX_DETACHMENTS, ORKS_CODEX_ENHANCEMENTS } from './orks-codex-11e-data.mjs';
+
+export { ORKS_CODEX_DETACHMENTS, ORKS_CODEX_ENHANCEMENTS };
+
+/**
+ * Codex: Orks (11e): upsert the 15 codex detachments and their 38
+ * enhancements by id (in place: consumers hold the arrays). Idempotent.
+ */
+export function applyOrksCodex(rawData) {
+  if (!rawData) return rawData;
+  const upsert = (arr, rec) => {
+    const i = arr.findIndex(x => x.id === rec.id);
+    const copy = JSON.parse(JSON.stringify(rec));
+    if (i >= 0) arr[i] = copy;
+    else arr.push(copy);
+  };
+  const enhancements = rawData.enhancements ?? (rawData.enhancements = []);
+  const detachments = rawData.detachments ?? (rawData.detachments = []);
+  for (const e of ORKS_CODEX_ENHANCEMENTS) upsert(enhancements, e);
+  for (const d of ORKS_CODEX_DETACHMENTS) upsert(detachments, d);
+  return rawData;
+}
 
 // Enhancement records use the same shape the dataset emits (see any
 // *-war-horde entry in the bundle): id, name, detachment_id, cost,
@@ -47,6 +86,20 @@ export const SPEEDWAAAGH_ENHANCEMENTS = [
 ];
 
 // detachment id -> enhancement records that upstream is missing.
+import {
+  CUSTODES_CODEX_DETACHMENTS,
+  CUSTODES_CODEX_ENHANCEMENTS,
+  CUSTODES_SUPERSEDED_DETACHMENT_IDS,
+  CUSTODES_CODEX_UNIT_KEYWORDS,
+} from './custodes-codex-11e-data.mjs';
+
+export {
+  CUSTODES_CODEX_DETACHMENTS,
+  CUSTODES_CODEX_ENHANCEMENTS,
+  CUSTODES_SUPERSEDED_DETACHMENT_IDS,
+  CUSTODES_CODEX_UNIT_KEYWORDS,
+};
+
 const ENHANCEMENT_PATCHES = [
   { detachmentId: 'speedwaaagh', enhancements: SPEEDWAAAGH_ENHANCEMENTS },
 ];
@@ -57,6 +110,8 @@ const ENHANCEMENT_PATCHES = [
  */
 export function applyDataPatches(rawData) {
   if (!rawData) return rawData;
+  applyCodexDatasheets(rawData); // WP-W3: codex datasheets as the game has them (see below)
+  applyOrksCodex(rawData);
   const enhancements = rawData.enhancements ?? (rawData.enhancements = []);
   const detachments = rawData.detachments ?? [];
 
@@ -68,6 +123,138 @@ export function applyDataPatches(rawData) {
       if (!enhancements.some(x => x.id === e.id)) enhancements.push({ ...e });
       if (!det.enhancement_ids.includes(e.id)) det.enhancement_ids.push(e.id);
     }
+  }
+  applyCustodesCodex(rawData);
+  return rawData;
+}
+
+/** Replace-or-append `rec` in `arr` by id (in place: consumers hold `arr`). */
+function upsertById(arr, rec) {
+  const i = arr.findIndex(x => x.id === rec.id);
+  const copy = JSON.parse(JSON.stringify(rec));
+  if (i >= 0) arr[i] = copy;
+  else arr.push(copy);
+}
+
+/**
+ * Codex: Adeptus Custodes (11e): upsert the 13 codex detachments and their 29
+ * enhancements; flag the superseded pre-codex detachments. Idempotent.
+ */
+export function applyCustodesCodex(rawData) {
+  if (!rawData) return rawData;
+  const enhancements = rawData.enhancements ?? (rawData.enhancements = []);
+  const detachments = rawData.detachments ?? (rawData.detachments = []);
+  for (const e of CUSTODES_CODEX_ENHANCEMENTS) upsertById(enhancements, e);
+  for (const d of CUSTODES_CODEX_DETACHMENTS) upsertById(detachments, d);
+  for (const d of detachments) {
+    if (d.faction_id === 'adeptus-custodes' && CUSTODES_SUPERSEDED_DETACHMENT_IDS.includes(d.id)) {
+      d.superseded_by_codex = 'Codex: Adeptus Custodes (11th edition)';
+    }
+  }
+  return rawData;
+}
+
+/** Keywords for the enhancement bearer filter: the bundle's datasheet
+ * keywords + faction keywords, plus the codex keywords the bundle predates. */
+export function bearerKeywords(rawUnit) {
+  const out = [...(rawUnit?.keywords ?? []), ...(rawUnit?.faction_keywords ?? [])];
+  for (const k of CUSTODES_CODEX_UNIT_KEYWORDS[rawUnit?.id] ?? []) {
+    if (!out.some(x => String(x).toLowerCase() === String(k).toLowerCase())) out.push(k);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Codex datasheets (WP-W3). The game's 40k/data/40kdc dataset is the 40kdc
+// extract + local-patches.mjs + the Wahapedia 11e codex import (Codex:
+// Adeptus Custodes, Codex: Orks); the vendored bundle is the bare 40kdc
+// release. codex-11e-datasheets.mjs (generated by
+// scripts/40kdc/gen_codex_builder_patch.mjs) holds every record the game has
+// differently — datasheets (profiles, points tiers, wargear points, model
+// counts, keywords), weapons, abilities, compositions, wargear options, leader
+// pairings, faction records. They are upserted here by key, so the builder
+// converts a list exactly as generate-armies.mjs does. Nothing is deleted
+// (decision D1): pre-codex Custodes datasheets stay resolvable for old lists
+// and are flagged superseded_by_codex (+ superseded_by, the codex datasheet
+// a pre-codex roster moves to), which the unit picker hides.
+import {
+  CODEX_DATASHEET_RECORDS,
+  CODEX_WARGEAR_OPTION_BLOCKS,
+  CODEX_SUPERSEDED_UNITS,
+  CODEX_OVERLAY_BASE_VERSION,
+  CODEX_OVERLAY_SOURCES,
+  CODEX_OVERLAY_FACTIONS,
+} from './codex-11e-datasheets.mjs';
+
+export {
+  CODEX_DATASHEET_RECORDS,
+  CODEX_WARGEAR_OPTION_BLOCKS,
+  CODEX_SUPERSEDED_UNITS,
+  CODEX_OVERLAY_BASE_VERSION,
+  CODEX_OVERLAY_SOURCES,
+  CODEX_OVERLAY_FACTIONS,
+};
+
+// Same keys as the generator: shared ids are per-faction copies in 40kdc.
+const CODEX_RECORD_KEYS = {
+  units: r => `${r.faction_id}::${r.id}`,
+  weapons: r => `${r.faction_id ?? ''}::${r.id}`,
+  abilities: r => `${r.faction_id ?? ''}::${r.ability_id}`,
+  unitCompositions: r => `${r.faction_id}::${r.unit_id}`,
+  leaderAttachments: r => r.leader_id,
+  factions: r => r.id,
+};
+
+const cloneRecord = r => JSON.parse(JSON.stringify(r));
+
+/** Index right after the last record of `factionId` (the faction's block),
+ * where wahapedia-import.mjs puts new records; the end when there is none. */
+function afterFactionBlock(arr, factionId) {
+  if (factionId) {
+    for (let j = arr.length - 1; j >= 0; j--) if (arr[j]?.faction_id === factionId) return j + 1;
+  }
+  return arr.length;
+}
+
+/**
+ * Upsert the codex datasheet overlay into rawData (in place: the converter
+ * and the package importer hold these arrays). Idempotent.
+ */
+export function applyCodexDatasheets(rawData) {
+  if (!rawData) return rawData;
+  for (const [coll, recs] of Object.entries(CODEX_DATASHEET_RECORDS)) {
+    const keyOf = CODEX_RECORD_KEYS[coll];
+    if (!keyOf || !recs.length) continue;
+    const arr = rawData[coll] ?? (rawData[coll] = []);
+    const at = new Map();
+    arr.forEach((r, i) => { const k = keyOf(r); if (!at.has(k)) at.set(k, i); });
+    const fresh = [];
+    for (const rec of recs) {
+      const i = at.get(keyOf(rec));
+      if (i !== undefined) arr[i] = cloneRecord(rec);
+      else fresh.push(cloneRecord(rec));
+    }
+    const owned = coll !== 'factions' && coll !== 'leaderAttachments';
+    for (const rec of fresh) arr.splice(afterFactionBlock(arr, owned ? rec.faction_id : null), 0, rec);
+  }
+
+  // A codex datasheet's wargear option block replaces the bundle's block whole.
+  const opts = rawData.wargearOptions ?? (rawData.wargearOptions = []);
+  for (const b of CODEX_WARGEAR_OPTION_BLOCKS) {
+    const mine = o => o.faction_id === b.faction_id && o.unit_id === b.unit_id;
+    let pos = opts.findIndex(mine);
+    if (pos < 0) pos = afterFactionBlock(opts, b.faction_id);
+    for (let j = opts.length - 1; j >= pos; j--) if (mine(opts[j])) opts.splice(j, 1);
+    opts.splice(pos, 0, ...b.options.map(cloneRecord));
+  }
+
+  const units = rawData.units ?? [];
+  const unitAt = new Map(units.map((u, i) => [`${u.faction_id}::${u.id}`, i]));
+  for (const s of CODEX_SUPERSEDED_UNITS) {
+    const u = units[unitAt.get(`${s.faction_id}::${s.id}`)];
+    if (!u) continue;
+    u.superseded_by_codex = s.codex;
+    if (s.superseded_by) u.superseded_by = s.superseded_by;
   }
   return rawData;
 }

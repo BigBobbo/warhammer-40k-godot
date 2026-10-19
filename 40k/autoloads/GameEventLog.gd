@@ -337,19 +337,6 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			if doctrine != "":
 				return prefix + "Activated the %s doctrine" % doctrine.capitalize()
 			return prefix + "Selected a Combat Doctrine"
-		"SELECT_KATAH_STANCE":
-			if ai_desc != "":
-				return prefix + ai_desc
-			var stance = str(_af(action, "stance", ""))
-			if stance == "both":
-				return prefix + "%s adopts BOTH Ka'tah stances (Master of the Stances)" % unit_name
-			elif stance != "":
-				return prefix + "%s adopts the %s Ka'tah stance" % [unit_name, stance.capitalize()]
-			return prefix + "%s selects a Ka'tah stance" % unit_name
-		"SELECT_MARTIAL_MASTERY":
-			if ai_desc != "":
-				return prefix + ai_desc
-			return prefix + "%s uses Martial Mastery" % unit_name
 		"PERFORM_SECONDARY_ACTION", "START_ACTION", "PERFORM_RITUAL_ACTION", "PERFORM_TERRAFORM_ACTION":
 			if ai_desc != "":
 				return prefix + ai_desc

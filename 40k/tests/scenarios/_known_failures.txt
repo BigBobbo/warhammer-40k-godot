@@ -57,7 +57,6 @@ scout_invalid_move_snaps_back_nested  # fails at 10e and 11e (11e 30/6, 10e 30/6
 shoot_quick_assign_rejected_no_crash  # fails at 10e and 11e (11e , 10e  steps passed/failed); fixture tutorial_t4_shoot fails to load (exit 2)
 split_fire_per_model  # fails at 10e and 11e (11e 26/10, 10e 26/10 steps passed/failed)
 split_fire_spinbox_commit  # fails at 10e and 11e (11e 24/12, 10e 24/12 steps passed/failed)
-stompa_gets_to_fight_11e  # fails at 10e and 11e (11e 51/1, 10e 51/1 steps passed/failed)
 terrain_11e_layouts  # fails at 10e and 11e (11e 34/1, 10e 34/1 steps passed/failed)
 tut_full_course_chain_pad  # fails at 10e and 11e (11e 22/8, 10e 22/8 steps passed/failed)
 tut_t1_basics  # fails at 10e and 11e (11e 106/1, 10e 106/1 steps passed/failed)

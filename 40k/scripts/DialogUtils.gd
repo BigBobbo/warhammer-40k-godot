@@ -121,7 +121,7 @@ static func popup_at_bottom(dialog: Window, base_size: Vector2 = Vector2.ZERO, m
 	# Re-anchor once the content has been laid out to its real height.
 	var t := dialog.get_tree()
 	if t != null:
-		t.process_frame.connect(DialogUtils._reanchor_bottom.bind(dialog, margin_bottom), CONNECT_ONE_SHOT)
+		_connect_frame_once(t, DialogUtils._reanchor_bottom.bind(dialog, margin_bottom))
 
 
 ## Re-measure a bottom-anchored dialog against its CURRENT content and re-pin it
@@ -140,7 +140,7 @@ static func refit_bottom(dialog: Window) -> void:
 		return
 	# Deferred by a frame so the swapped-in content has been laid out (autowrap
 	# Labels have re-wrapped) before we measure it.
-	t.process_frame.connect(DialogUtils._reanchor_bottom.bind(dialog, margin), CONNECT_ONE_SHOT)
+	_connect_frame_once(t, DialogUtils._reanchor_bottom.bind(dialog, margin))
 
 
 static func _repin_bottom_on_resize(dialog: Window) -> void:
@@ -150,7 +150,9 @@ static func _repin_bottom_on_resize(dialog: Window) -> void:
 	dialog.position = _bottom_position(_screen_size(dialog), int(dialog.size.x), int(dialog.size.y), margin)
 
 
-static func _reanchor_bottom(dialog: Window, margin_bottom: int) -> void:
+static func _reanchor_bottom(dialog, margin_bottom: int) -> void:
+	# Untyped: the dialog may have been freed before this deferred call fires
+	# (a typed Window parameter then fails the call with "Cannot convert argument").
 	if not is_instance_valid(dialog) or not dialog.visible or not dialog.is_inside_tree():
 		return
 	var vp_size: Vector2 = _screen_size(dialog)
@@ -308,6 +310,14 @@ static func _screen_size(dialog: Window) -> Vector2:
 ## Only fires on ACTUAL overflow, so correctly-sized dialogs are never touched.
 ## Wired into WhiteDwarfTheme.apply_to_dialog() so every themed dialog is covered
 ## without each having to opt in.
+## Connect a deferred one-shot `cb` to the next process_frame unless the same
+## bound callable is already waiting (a dialog shown twice in one frame used to
+## log "Signal 'process_frame' is already connected").
+static func _connect_frame_once(t: SceneTree, cb: Callable) -> void:
+	if not t.process_frame.is_connected(cb):
+		t.process_frame.connect(cb, CONNECT_ONE_SHOT)
+
+
 static func arm_overflow_guard(dialog: Window) -> void:
 	if dialog == null:
 		return
@@ -322,10 +332,10 @@ static func _on_guarded_visibility(dialog: Window) -> void:
 	# we decide whether the window overflows.
 	var t := dialog.get_tree()
 	if t != null:
-		t.process_frame.connect(DialogUtils._cap_if_overflowing.bind(dialog), CONNECT_ONE_SHOT)
+		_connect_frame_once(t, DialogUtils._cap_if_overflowing.bind(dialog))
 
 
-static func _cap_if_overflowing(dialog: Window) -> void:
+static func _cap_if_overflowing(dialog) -> void:
 	if not is_instance_valid(dialog) or not dialog.visible or not dialog.is_inside_tree():
 		return
 	var vp_size: Vector2 = _screen_size(dialog)

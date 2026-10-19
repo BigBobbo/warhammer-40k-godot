@@ -44,6 +44,9 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	# GRAB IT (Codex: Orks 11e): hard charge lock until the end of the turn.
 	if flags.get("ork11e_grab_it_no_charge", false):
 		return {"eligible": false, "reasons": ["GRAB IT: not eligible to declare a charge this turn"]}
+	# WP-C7: Codex: Adeptus Custodes (11e) MOBILE HUNTER — the same hard lock.
+	if load("res://scripts/codex/custodes/CustodesAbilities.gd").blocks_charge(unit):
+		return {"eligible": false, "reasons": ["Mobile Hunter: not eligible to declare a charge this turn"]}
 	# Adrenaline Junkies does NOT override other charge locks (e.g.
 	# Wazblasta's post-shooting move).
 	var adrenaline = _has_adrenaline_junkies(unit) and not flags.get("wazblasta_no_charge", false)

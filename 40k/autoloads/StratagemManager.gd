@@ -20,6 +20,41 @@ signal stratagem_available(player: int, stratagem_id: String, trigger: String)
 # get_window_offers. Preloaded (not referenced by class_name) so headless
 # --script tests resolve it without a rebuilt global class cache.
 const OrkCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+# Codex: Adeptus Custodes (11e) dispatcher (WP-C5) — same API as OrkCodex,
+# dispatched at every site OrkCodex is (rows marked {"type":"custom:custodes11e"}).
+const CustodesCodex = preload("res://scripts/codex/custodes/CustodesCodex11e.gd")
+
+## The codex dispatcher that owns `strat` (Codex: Orks / Codex: Adeptus
+## Custodes 11e rows), or null for every other stratagem.
+static func codex_for(strat: Dictionary):
+	if OrkCodex.handles(strat):
+		return OrkCodex
+	if CustodesCodex.handles(strat):
+		return CustodesCodex
+	return null
+# WP-O6: Codex: Orks (11e) datasheet abilities — activated ones ride the window
+# framework (offers appended in get_all_window_offers, "ork11e_ab_*" ids routed in
+# use_stratagem).
+const OrkAbilities = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
+# WP-C7: Codex: Adeptus Custodes (11e) datasheet abilities — the same window
+# pattern ("cus11e_ab_*" ids), plus SWIFT RUIN's Rapid Ingress exemption.
+const CustodesAbilities = preload("res://scripts/codex/custodes/CustodesAbilities.gd")
+# Codex: Orks (11e) army / detachment rule choices (WP-O34): free rule offers
+# that ride the window framework (get_window_offers / use_stratagem hooks).
+const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
+
+## Codex: Adeptus Custodes (11e) detachment rules + enhancements (WP-C46) —
+## loaded lazily (CustodesDetachments.gd is the façade).
+static func _cus11e_det():
+	return load("res://scripts/codex/custodes/CustodesDetachments.gd")
+
+## Leonine Ferocity / Celeritous Sentries override for a core stratagem use
+## ({applies: false} when it does not apply).
+func _cus11e_stratagem_override(player: int, stratagem_id: String, target_unit_id: String) -> Dictionary:
+	if GameConstants.edition < 11 or target_unit_id == "":
+		return {"applies": false}
+	var e = _cus11e_det().enh()
+	return e.stratagem_override(player, stratagem_id, target_unit_id) if e else {"applies": false}
 
 # Stratagem WINDOWS (design §3): the game event at which a stratagem with
 # timing.windows is offered automatically. The phrase completes
@@ -44,6 +79,23 @@ const WINDOW_WHEN_TEXT: Dictionary = {
 	"fight_phase_end": "the Fight phase ends",
 	"unit_destroyed": "one of your units is destroyed",
 	"enemy_unit_has_attacked": "an enemy unit has made its attacks",
+	# Codex: Adeptus Custodes (WP-C3, CustodesKatah.gd): Dacatarai / Kaptaris /
+	# SHIELD OF HONOUR, and Conservai.
+	"fight_phase_start": "the Fight phase starts",
+	"command_phase_main": "your Command phase is under way",
+	# Codex: Adeptus Custodes stratagems (WP-C5, CustodesCodex11e.gd).
+	"phase_end": "a phase ends",
+	"unit_ended_advance_move": "one of your units ends an Advance move",
+	"unit_selected_to_ingress": "one of your units is selected to make an ingress move",
+	"unit_selected_to_pile_in": "one of your units is selected to make a pile-in move",
+	"unit_selected_to_consolidate": "one of your units is selected to make a consolidation move",
+	"enemy_has_fought": "an enemy unit has fought",
+	"charge_phase_start": "your opponent's Charge phase starts",
+	"charge_phase_end": "your opponent's Charge phase ends",
+	# Codex: Adeptus Custodes datasheet abilities (WP-C7, CustodesAbilities.gd):
+	# "At the start of any phase" (Moment Shackle, Neutronium Cascade Mine,
+	# Sword of the Throne).
+	"phase_start": "a phase starts",
 }
 
 # 11e CORE stratagems offered through a stratagem window (design §3), keyed by
@@ -121,7 +173,7 @@ const _CUSTOM_IMPLEMENTED_NAMES: Array = [
 # When a unit performs an out-of-phase action (e.g. Fire Overwatch during opponent's
 # Movement/Charge phase), no other rules normally triggered in that simulated phase
 # can be used. For example, if a unit shoots via Fire Overwatch, abilities like
-# Sentinel Storm or Sanctified Flames (which trigger "after shooting") cannot be used.
+# post-shot abilities (which trigger "after shooting") cannot be used.
 # This flag is set when an out-of-phase action begins and cleared when it completes.
 var _out_of_phase_action_active: bool = false
 var _out_of_phase_player: int = 0  # The player performing the out-of-phase action
@@ -575,6 +627,14 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 			if strat["implemented"]:
 				print("StratagemManager: Marked '%s' (%s) as implemented (Ork codex registry)" % [strat.get("name", ""), strat.get("csv_id", "")])
 			continue
+		# Codex: Adeptus Custodes (11e) rows: the Custodes codex registry only
+		# (CustodesCodex11e.gd) — GILDED CHAMPION, UNLEASH THE LIONS, SWIFT AS
+		# THE EAGLE and MANOEUVRE AND FIRE also name 10e handlers below.
+		if CustodesCodex.handles(strat):
+			strat["implemented"] = CustodesCodex.is_implemented(strat)
+			if strat["implemented"]:
+				print("StratagemManager: Marked '%s' (%s) as implemented (Adeptus Custodes codex registry)" % [strat.get("name", ""), strat.get("csv_id", "")])
+			continue
 		# Data sources use typographic apostrophes (BOARDIN’ RUSH) — normalize
 		# so the straight-quoted handler names below keep matching.
 		var name_upper = strat.get("name", "").replace("’", "'").to_upper()
@@ -839,22 +899,30 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		if ctx_window == "" or not ctx_window in strat_windows:
 			return {"can_use": false, "reason": "Offered automatically when %s" % window_when_text(strat_windows)}
 
-	# Check CP (account for possible Strategic Mastery discount and Lord of Deceit increase)
+	# Check CP (account for possible discounts and Lord of Deceit increase)
 	var effective_cost = _base_cp_cost(strat, context)
+	# WP-C7 SWIFT RUIN (Codex: Adeptus Custodes 11e, Venatari): that Rapid Ingress use is -1 CP.
+	var swift_ruin := CustodesAbilities.swift_ruin_applies(player, strat, target_unit_id)
+	if swift_ruin and effective_cost > 0:
+		effective_cost = maxi(effective_cost - 1, 0)
+	# WP-O6 TRAMPLASQUIG CHARGE (Codex: Orks 11e, Hunta Rig): Crushing Impact -1 CP.
 	if target_unit_id != "" and effective_cost > 0:
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr and ability_mgr.has_strategic_mastery(target_unit_id):
-			if not ability_mgr.is_once_per_round_used(player, "Strategic Mastery"):
-				effective_cost = maxi(effective_cost - 1, 0)
+		effective_cost = maxi(effective_cost - OrkAbilities.stratagem_cp_discount(str(strat.get("name", "")), target_unit_id), 0)
 	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus with Lord of Deceit aura
 	if target_unit_id != "":
 		effective_cost += get_lord_of_deceit_cp_increase(player, target_unit_id)
+	# Codex: Adeptus Custodes (11e) Leonine Ferocity (RAPID INGRESS) / Celeritous Sentries
+	# (HEROIC INTERVENTION): -1CP, regardless of other uses this phase (CustodesEnhancements.gd, WP-C46).
+	var cus11e_ov: Dictionary = _cus11e_stratagem_override(player, stratagem_id, target_unit_id)
+	effective_cost = maxi(0, effective_cost + int(cus11e_ov.get("cost_delta", 0)))
 	var player_cp = _get_player_cp(player)
 	if player_cp < effective_cost:
 		return {"can_use": false, "reason": "Not enough CP (need %d, have %d)" % [effective_cost, player_cp]}
 
 	# Check usage restrictions
-	var restriction_check = _check_usage_restriction(player, stratagem_id, strat)
+	# WP-C7 SWIFT RUIN / WP-C46 Leonine Ferocity, Celeritous Sentries: "regardless of any other
+	# uses of that stratagem this phase".
+	var restriction_check = _check_usage_restriction(player, stratagem_id, strat, bool(cus11e_ov.get("applies", false)) or swift_ruin)
 	if not restriction_check.can_use:
 		return restriction_check
 
@@ -890,7 +958,8 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# Check battle-shocked (battle-shocked units can't be affected by stratagems)
 	# Exception: Insane Bravery explicitly allows targeting battle-shocked units,
 	# and so may a codex stratagem whose rule says so (BREAKIN' HEADS).
-	var codex_allows_shocked: bool = OrkCodex.handles(strat) and OrkCodex.allows_battle_shocked_target(strat, context)
+	var shocked_codex = codex_for(strat)
+	var codex_allows_shocked: bool = shocked_codex != null and shocked_codex.allows_battle_shocked_target(strat, context)
 	if target_unit_id != "" and stratagem_id != "insane_bravery" and not codex_allows_shocked:
 		var unit = GameState.get_unit(target_unit_id)
 		if not unit.is_empty() and unit.get("flags", {}).get("battle_shocked", false):
@@ -953,7 +1022,9 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 
 	# GILDED CHAMPION (Lions): must target an ADEPTUS CUSTODES CHARACTER that
 	# has spent a 'once per battle' datasheet ability; once per battle per model.
-	if strat.get("name", "").to_upper() == "GILDED CHAMPION" and target_unit_id != "":
+	# (10e handler — never for the Codex: Adeptus Custodes row, whose rule check
+	# is CustodesCodex.validate below.)
+	if strat.get("name", "").to_upper() == "GILDED CHAMPION" and target_unit_id != "" and not CustodesCodex.handles(strat):
 		var gc_target = GameState.get_unit(target_unit_id)
 		if not gc_target.is_empty():
 			if not RulesEngine.unit_has_keyword(gc_target, "ADEPTUS CUSTODES") \
@@ -971,8 +1042,9 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# start of the Shooting phase and is stale in every other phase.
 	# Codex: Orks (11e) rows: the dispatcher's rule-specific validation is the
 	# authority (design §4) — the CSV-parsed TARGET conditions are skipped.
-	if OrkCodex.handles(strat):
-		var codex_check: Dictionary = OrkCodex.validate(strat, player, target_unit_id, context)
+	var rule_codex = codex_for(strat)
+	if rule_codex != null:
+		var codex_check: Dictionary = rule_codex.validate(strat, player, target_unit_id, context)
 		if not codex_check.get("ok", false):
 			return {"can_use": false, "reason": str(codex_check.get("reason", "%s cannot be used now" % strat.get("name", stratagem_id)))}
 	elif target_unit_id != "" and is_faction_stratagem(stratagem_id):
@@ -1042,13 +1114,17 @@ func _attached_unit_member_ids(unit_id: String) -> Array:
 				ids.append(str(char_id))
 	return ids
 
-func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictionary) -> Dictionary:
-	"""Check once-per restrictions for a stratagem."""
+func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictionary, ignore_once_per: bool = false) -> Dictionary:
+	"""Check once-per restrictions for a stratagem. ignore_once_per: a rule lets
+	this use happen "regardless of any other uses of that stratagem this phase"
+	(Codex: Adeptus Custodes Leonine Ferocity / Celeritous Sentries, WP-C46)."""
 	# 11e 15.07: RAPID INGRESS "cannot be used during the first battle
 	# round" — generic not_battle_round restriction.
 	var blocked_round = int(strat.get("restrictions", {}).get("not_battle_round", 0))
 	if blocked_round > 0 and GameState.get_battle_round() == blocked_round:
 		return {"can_use": false, "reason": "%s cannot be used during battle round %d" % [strat.name, blocked_round]}
+	if ignore_once_per:
+		return {"can_use": true, "reason": ""}
 
 	var restriction = strat.get("restrictions", {}).get("once_per", null)
 	if restriction == null:
@@ -1084,6 +1160,11 @@ func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictiona
 					return {"can_use": false, "reason": "%s can only be used once per turn" % strat.name}
 		"phase":
 			for usage in player_history:
+				# Codex: Adeptus Custodes (11e) Swift Ruin (WP-C7) / Leonine Ferocity, Celeritous
+				# Sentries (WP-C46): "that use does not prevent any uses of that stratagem on other
+				# units this phase".
+				if bool(usage.get("cus11e_swift_ruin", false)) or bool(usage.get("cus11e_free_use", false)):
+					continue
 				if usage.stratagem_id == stratagem_id and usage.turn == current_turn \
 						and usage.phase == current_phase \
 						and int(usage.get("active_player", current_active)) == current_active:
@@ -1120,7 +1201,19 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	Use a stratagem. Validates, deducts CP, records usage, and returns effect data.
 	Returns { "success": bool, "effects": Array, "diffs": Array, "message": String }
 	"""
+	# WP-O6: a Codex: Orks datasheet ability offered in a window (0 CP).
+	if OrkAbilities.handles_id(stratagem_id):
+		return OrkAbilities.use(player, stratagem_id, target_unit_id, context)
+	# WP-C7: a Codex: Adeptus Custodes datasheet ability offered in a window (0 CP).
+	if CustodesAbilities.handles_id(stratagem_id):
+		return CustodesAbilities.use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
+	# Codex: Orks (11e) rule choice offered in a window (WP-O34): no CP, no stratagem bookkeeping.
+	if Ork11eDetachments.is_rule_offer_id(stratagem_id):
+		return Ork11eDetachments.use_rule_offer(player, stratagem_id, target_unit_id, context)
+	# Codex: Adeptus Custodes (11e) rule choice / enhancement ability in a window (WP-C46): free.
+	if _cus11e_det().is_rule_offer_id(stratagem_id):
+		return _cus11e_det().use_rule_offer(player, stratagem_id, target_unit_id, context)
 	# Validate
 	var validation = can_use_stratagem(player, stratagem_id, target_unit_id, context)
 	if not validation.can_use:
@@ -1129,17 +1222,19 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	var strat = stratagems[stratagem_id]
 	var diffs = []
 
-	# Calculate effective CP cost (check for Strategic Mastery discount and Lord of Deceit increase)
+	# Calculate effective CP cost (discounts and Lord of Deceit increase)
 	var effective_cp_cost = _base_cp_cost(strat, context)
-	var strategic_mastery_applied = false
+	# WP-C7 SWIFT RUIN (Codex: Adeptus Custodes 11e): Rapid Ingress on the Venatari is -1 CP and not counted against the once-per-phase limit.
+	var swift_ruin_applied := CustodesAbilities.swift_ruin_applies(player, strat, target_unit_id)
+	if swift_ruin_applied:
+		effective_cp_cost = maxi(effective_cp_cost - 1, 0)
+		CustodesAbilities.swift_ruin_record(player)
+	# WP-O6 TRAMPLASQUIG CHARGE (Codex: Orks 11e, Hunta Rig): Crushing Impact -1 CP.
 	if target_unit_id != "" and effective_cp_cost > 0:
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr and ability_mgr.has_strategic_mastery(target_unit_id):
-			if not ability_mgr.is_once_per_round_used(player, "Strategic Mastery"):
-				effective_cp_cost = maxi(effective_cp_cost - 1, 0)
-				strategic_mastery_applied = true
-				ability_mgr.mark_once_per_round_used(player, "Strategic Mastery")
-				print("StratagemManager: Strategic Mastery reduces CP cost of %s by 1 (was %d, now %d)" % [strat.name, strat.cp_cost, effective_cp_cost])
+		var tsc_disc := OrkAbilities.stratagem_cp_discount(str(strat.get("name", "")), target_unit_id)
+		if tsc_disc > 0:
+			effective_cp_cost = maxi(effective_cp_cost - tsc_disc, 0)
+			print("StratagemManager: Tramplasquig Charge reduces CP cost of %s by %d (now %d)" % [strat.name, tsc_disc, effective_cp_cost])
 	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus
 	var lord_of_deceit_increase = 0
 	if target_unit_id != "":
@@ -1147,6 +1242,12 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		if lord_of_deceit_increase > 0:
 			effective_cp_cost += lord_of_deceit_increase
 			print("StratagemManager: Lord of Deceit increases CP cost of %s by %d (now %d)" % [strat.name, lord_of_deceit_increase, effective_cp_cost])
+	# Codex: Adeptus Custodes (11e) Leonine Ferocity / Celeritous Sentries: -1CP (WP-C46).
+	var cus11e_ov_use: Dictionary = _cus11e_stratagem_override(player, stratagem_id, target_unit_id)
+	if bool(cus11e_ov_use.get("applies", false)):
+		effective_cp_cost = maxi(0, effective_cp_cost + int(cus11e_ov_use.get("cost_delta", 0)))
+		diffs.append_array(_cus11e_det().enh().record_stratagem_override(cus11e_ov_use))
+		print("StratagemManager: %s — %s costs %d CP and does not count towards its once-per-phase limit" % [str(cus11e_ov_use.source), strat.name, effective_cp_cost])
 
 	# Deduct CP
 	var current_cp = _get_player_cp(player)
@@ -1167,14 +1268,18 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		"active_player": GameState.get_active_player(),
 		"timestamp": Time.get_unix_time_from_system()
 	}
+	if swift_ruin_applied:
+		usage_record["cus11e_swift_ruin"] = true  # WP-C7: "does not prevent any uses of that stratagem on other units this phase"
+	if bool(cus11e_ov_use.get("applies", false)):
+		usage_record["cus11e_free_use"] = true
 	_usage_history[str(player)].append(usage_record)
 
 	# Apply the CP diff immediately
 	_safe_apply_state_changes(diffs)
 
 	var cost_msg = "%d CP" % effective_cp_cost
-	if strategic_mastery_applied:
-		cost_msg += " (reduced from %d by Strategic Mastery)" % strat.cp_cost
+	if swift_ruin_applied:
+		cost_msg += " (Swift Ruin: -1 CP)"
 	print("StratagemManager: Player %d used %s on %s (cost %s, %d -> %d)" % [
 		player, strat.name, target_unit_id if target_unit_id != "" else "N/A",
 		cost_msg, current_cp, new_cp
@@ -1194,8 +1299,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		# variant (VINDICTIVE ARTILLERISTS' three options — r3:F8), else the
 		# label the window/dialog passed (LIVE-10), minus any "+N CP:" prefix.
 		var variant_note := ""
-		if OrkCodex.handles(strat):
-			variant_note = OrkCodex.variant_label(strat, str(context.get("variant_id", "")))
+		var vl_codex = codex_for(strat)
+		if vl_codex != null:
+			variant_note = vl_codex.variant_label(strat, str(context.get("variant_id", "")))
 		if variant_note == "":
 			var variant_label := str(context.get("variant_label", "")).strip_edges()
 			if variant_label != "":
@@ -1216,7 +1322,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		"target_unit_id": target_unit_id,
 		"cp_cost": effective_cp_cost,
 		"original_cp_cost": strat.cp_cost,
-		"strategic_mastery_discount": strategic_mastery_applied,
+		"swift_ruin_discount": swift_ruin_applied,
 		"turn": GameState.get_battle_round()
 	})
 
@@ -1356,11 +1462,12 @@ func get_player_cp(player: int) -> int:
 # ============================================================================
 
 func _base_cp_cost(strat: Dictionary, context: Dictionary) -> int:
-	"""CP cost before Strategic Mastery / Lord of Deceit. A codex stratagem may
+	"""CP cost before discounts / Lord of Deceit. A codex stratagem may
 	price a chosen variant differently (context.variant_id, e.g. HULKING
 	BRUTES' upgrade)."""
-	if OrkCodex.handles(strat):
-		return OrkCodex.cp_cost_for(strat, context if typeof(context) == TYPE_DICTIONARY else {})
+	var cp_codex = codex_for(strat)
+	if cp_codex != null:
+		return cp_codex.cp_cost_for(strat, context if typeof(context) == TYPE_DICTIONARY else {})
 	return int(strat.get("cp_cost", 1))
 
 func window_when_text(windows) -> String:
@@ -1411,8 +1518,9 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 		if not strat.get("implemented", false):
 			continue
 		var candidates: Array = []
-		if OrkCodex.handles(strat):
-			candidates = OrkCodex.eligible_targets(strat, player, window_id, wctx)
+		var offer_codex = codex_for(strat)
+		if offer_codex != null:
+			candidates = offer_codex.eligible_targets(strat, player, window_id, wctx)
 		elif strat_id == "fire_overwatch_11e":
 			# Skip the per-unit search when the stratagem cannot be used at all
 			# (CP, once per turn, not the opponent's turn, ...).
@@ -1459,9 +1567,30 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 			"type": str(strat.get("type", "")),
 			"targets": targets,
 		})
+	# Codex: Orks (11e) rule choices for this window (WP-O34): free, listed first.
+	offers = Ork11eDetachments.window_offers(player, window_id, wctx) + offers
+	# Codex: Adeptus Custodes (11e) detachment-rule / enhancement choices (WP-C46): free, listed first.
+	offers = _cus11e_det().window_offers(player, window_id, wctx) + offers
 	print("StratagemManager: get_window_offers(P%d, %s) -> %d offer(s)%s" % [
 		player, window_id, offers.size(),
 		"" if offers.is_empty() else " " + str(offers.map(func(o): return o.name))])
+	return offers
+
+## Everything `player` can do in window `window_id`: the window stratagems
+## (get_window_offers) plus the activated Codex: Orks (11e) datasheet
+## abilities whose timing is that window (WP-O6, OrkAbilities11e.gd). Ability
+## offers carry is_ability = true and cp_cost 0; they are used through
+## use_stratagem like a stratagem. The phases' window queue calls this.
+func get_all_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> Array:
+	var offers: Array = get_window_offers(player, window_id, ctx)
+	var wctx: Dictionary = ctx.duplicate(true)
+	wctx["window_id"] = window_id
+	var abil: Array = OrkAbilities.window_offers(player, window_id, wctx)
+	abil.append_array(CustodesAbilities.window_offers(player, window_id, wctx))  # WP-C7: Codex: Adeptus Custodes datasheet abilities
+	if not abil.is_empty():
+		print("StratagemManager: get_all_window_offers(P%d, %s) + %d datasheet ability offer(s) %s" % [
+			player, window_id, abil.size(), str(abil.map(func(o): return o.name))])
+	offers.append_array(abil)
 	return offers
 
 # ============================================================================
@@ -1590,8 +1719,9 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 	"""
 	# Codex: Orks (11e) rows go to the dispatcher FIRST (design §4), keyed by
 	# csv_id — the legacy name-keyed handlers below must never see them.
-	if OrkCodex.handles(strat):
-		var codex_result = OrkCodex.apply(strat, target_unit_id, context if typeof(context) == TYPE_DICTIONARY else {})
+	var apply_codex = codex_for(strat)
+	if apply_codex != null:
+		var codex_result = apply_codex.apply(strat, target_unit_id, context if typeof(context) == TYPE_DICTIONARY else {})
 		if typeof(codex_result) == TYPE_DICTIONARY:
 			_last_codex_followup = codex_result.get("followup", {})
 			return codex_result.get("diffs", [])
@@ -1985,8 +2115,9 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 	var strat = stratagems.get(stratagem_id, {})
 
 	# Codex: Orks (11e) rows: the dispatcher owns expiry (design §4).
-	if OrkCodex.handles(strat):
-		OrkCodex.clear(strat, unit_id)
+	var clear_codex = codex_for(strat)
+	if clear_codex != null:
+		clear_codex.clear(strat, unit_id)
 		print("StratagemManager: Cleared %s flags from %s (Ork codex)" % [stratagem_id, unit_id])
 		return
 
@@ -3782,6 +3913,15 @@ func get_fire_overwatch_eligible_units(player: int, enemy_unit_id: String, game_
 	var enemy_unit = all_units.get(enemy_unit_id, {})
 	if enemy_unit.is_empty():
 		return eligible
+	# Codex: Adeptus Custodes (11e) COMBAT DEPLOYMENT: enemy units cannot target that unit with snap shooting (WP-C46).
+	if GameConstants.edition >= 11 and _cus11e_det().enh() != null and _cus11e_det().enh().blocks_snap_shooting(GameState.get_unit(enemy_unit_id)):
+		print("StratagemManager: Fire Overwatch — %s cannot be targeted by snap shooting this turn (Combat Deployment)" % enemy_unit_id)
+		return eligible
+	# Codex: Adeptus Custodes GOLDEN LIGHT OF THE MOIRAIDES (CustodesCodex11e.gd):
+	# enemy units cannot target that unit with snap shooting attacks.
+	if CustodesCodex.blocks_snap_shooting_at(enemy_unit):
+		print("StratagemManager: %s is under GOLDEN LIGHT OF THE MOIRAIDES — no Fire Overwatch (snap shooting) at it" % enemy_unit_id)
+		return eligible
 
 	for unit_id in all_units:
 		var unit = all_units[unit_id]
@@ -3808,6 +3948,10 @@ func get_fire_overwatch_eligible_units(player: int, enemy_unit_id: String, game_
 				break
 		if has_sneaky_gitz:
 			print("StratagemManager: %s has Sneaky Gitz — cannot Fire Overwatch" % unit_id)
+			continue
+		# WP-O6 Drive-by Skorchin' (Warbuggies): cannot be targeted with Fire Overwatch.
+		if OrkAbilities.blocks_fire_overwatch(str(unit_id)):
+			print("StratagemManager: %s was hit by Drive-by Skorchin' — cannot Fire Overwatch this turn" % unit_id)
 			continue
 
 		# Must not be battle-shocked
@@ -3908,6 +4052,12 @@ func fire_overwatch_shooter_reason_11e(player: int, unit_id: String, board: Dict
 			var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
 			if ab_name == "Sneaky Gitz":
 				return "Sneaky Gitz units cannot fire overwatch"
+	# Codex: Orks (11e) Drive-by Skorchin' (Warbuggies, WP-O6): "That enemy unit
+	# cannot be targeted with the Fire Overwatch stratagem until the end of the
+	# turn" — group-aware (OrkAbilities11e.group_flag). It used to be checked
+	# only on the 10e per-move path (get_fire_overwatch_eligible_units).
+	if OrkAbilities.blocks_fire_overwatch(unit_id):
+		return "Drive-by Skorchin': cannot be targeted with FIRE OVERWATCH this turn"
 	var status := int(unit.get("status", GameStateData.UnitStatus.DEPLOYED))
 	if status in [GameStateData.UnitStatus.UNDEPLOYED, GameStateData.UnitStatus.DEPLOYING, GameStateData.UnitStatus.IN_RESERVES]:
 		return "the unit is not on the battlefield"
@@ -4308,7 +4458,11 @@ func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids
 		for t in offer.get("targets", []):
 			w_units.append(str(t.get("unit_id", "")))
 		results.append({
-			"stratagem": stratagems.get(offer.stratagem_id, {}),
+			# A free rule offer (Codex: Adeptus Custodes Eagle's Eye, WP-C46) has no
+			# stratagem row: the dialog renders a stand-in built from the offer.
+			"stratagem": stratagems.get(offer.stratagem_id, {"id": offer.stratagem_id, "name": str(offer.get("name", offer.stratagem_id)),
+				"cp_cost": int(offer.get("cp_cost", 0)), "type": str(offer.get("type", "")), "description": str(offer.get("effect_text", "")),
+				"effect_text": str(offer.get("effect_text", "")), "rule": true, "timing": {"windows": ["enemy_targets_unit_shooting"]}}),
 			"eligible_units": w_units,
 			"window_id": "enemy_targets_unit_shooting",
 			"window_ctx": wctx,
@@ -4723,7 +4877,7 @@ func _load_core_stratagems_11e() -> void:
 	# phase "shooting" / start_of_phase, so RAPID INGRESS could never be used
 	# at 11e: MovementPhase offers it at the end of the opponent's Movement
 	# phase and can_use_stratagem refused it there.) Offered by the bespoke
-	# end-of-Movement prompt (MovementPhase._continue_end_movement_after_grot_oiler).
+	# end-of-Movement prompt (MovementPhase._continue_end_movement_rapid_ingress).
 	stratagems["rapid_ingress_11e"] = {
 		"id": "rapid_ingress_11e", "name": "RAPID INGRESS", "type": "Core Stratagem",
 		"cp_cost": 1, "edition": 11,

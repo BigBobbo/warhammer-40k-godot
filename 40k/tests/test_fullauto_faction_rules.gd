@@ -4,21 +4,28 @@ extends SceneTree
 #
 # Covers the engine half of the "every Ork/Custodes rule is mechanically
 # implemented" work:
-#   1. Army load pipeline: wargear stat bonuses apply from type "Datasheet"
-#      abilities ('Ard Case +2T / Firing Deck removal, Praesidium Shield +1W)
-#      and renamed 11e abilities are canonicalized (Da Jump, Ramshackle).
-#   2. Faction stratagems: all 6 Shield Host stratagems load mechanically
-#      implemented from the curated effects_json; the 6 War Horde stratagems
-#      load as the Codex: Orks (11e) rows (custom:ork11e marker — their
-#      implementation is owned by the Ork codex registry, not effects_json).
+#   1. Army load pipeline: codex characteristics survive the load pipeline
+#      (Codex: Orks Battlewagon T11 with Firing Deck 11 and Damaged 6 — no
+#      'Ard Case any more; Codex: Adeptus Custodes Praesidium Shield is no
+#      longer a +1W stat bonus) and renamed 11e abilities are canonicalized
+#      (Da Jump).
+#   2. Faction stratagems: the 6 War Horde stratagems load as the Codex: Orks
+#      (11e) rows (custom:ork11e marker) and the 6 Guardians of the Throne
+#      stratagems as Codex: Adeptus Custodes rows (custom:custodes11e marker —
+#      their implementation is owned by the Custodes codex registry, WP-C5).
+#      The Shield Host stopgap checks were retired with the codex
+#      (.llm/codex_11e_wahapedia/RETIRED_TESTS.md).
 #   3. Defender-side modifiers: 'ARD AS NAILS (-1 wound vs the flagged unit,
 #      ranged + melee) and UNWAVERING SENTINELS (-1 hit vs the flagged unit,
 #      melee only — must NOT leak into ranged).
 #   4. Blastajet Force Field: always-on ability applies effect_invuln 4.
-#   5. Devoted to Destruction: melee-only +2 Attacks (fight phase flag).
+#   5. (retired by WP-C7: Devoted to Destruction is a 10e Telemon rule no
+#      Codex: Adeptus Custodes (11e) datasheet has — RETIRED_TESTS.md)
 #   6. Sneaky Gitz: unit excluded from Fire Overwatch eligibility.
 #   7. Bodyguard: second leader-role attachment allowed, third rejected.
-#   8. Admonimortis: 10e stopgap — +3S/+1AP/+1D on the bearer's melee weapons.
+#   8. Admonimortis: the 10e Lions stopgap is RETIRED (WP-C46 — Codex: Adeptus
+#      Custodes 11e has no Admonimortis): the enhancement no longer changes
+#      the bearer's melee attacks (RETIRED_TESTS.md).
 #   9. StateSerializer 1.2.0 -> 1.3.0 migration canonicalizes ability names.
 #
 # The windowed analogues live in tests/scenarios/sp/fullauto_*.json.
@@ -152,14 +159,16 @@ func _test_army_load_pipeline() -> void:
 	var orks = alm.load_army_list("orks", 1)
 	_check("orks army loads", not orks.is_empty())
 	var bw = orks.get("units", {}).get("U_BATTLEWAGON_G", {})
-	_check("Battlewagon T12 ('Ard Case +2)", int(bw.get("meta", {}).get("stats", {}).get("toughness", 0)) == 12,
+	# Codex: Orks Battlewagon: T11, Firing Deck 11, Damaged 6; no 'Ard Case.
+	_check("Battlewagon T11 (codex; no 'Ard Case)", int(bw.get("meta", {}).get("stats", {}).get("toughness", 0)) == 11,
 		"got %s" % str(bw.get("meta", {}).get("stats", {}).get("toughness")))
-	_check("Battlewagon Firing Deck removed", int(bw.get("transport_data", {}).get("firing_deck", -1)) == 0)
+	_check("Battlewagon keeps its Firing Deck (11)", int(bw.get("transport_data", {}).get("firing_deck", -1)) == 11,
+		str(bw.get("transport_data", {})))
 	var bw_ability_names := []
 	for ab in bw.get("meta", {}).get("abilities", []):
 		bw_ability_names.append(ab.get("name", "") if ab is Dictionary else str(ab))
-	_check("Battlewagon has canonical 'Ramshackle'", "Ramshackle" in bw_ability_names, str(bw_ability_names))
-	_check("Battlewagon 'Firing Deck 11' ability stripped", not ("Firing Deck 11" in bw_ability_names))
+	_check("Battlewagon lists 'Firing Deck 11' and 'Damaged: 1-6 Wounds Remaining'",
+		"Firing Deck 11" in bw_ability_names and "Damaged: 1-6 Wounds Remaining" in bw_ability_names, str(bw_ability_names))
 
 	var wb = orks.get("units", {}).get("U_WEIRDBOY_J", {})
 	var wb_names := []
@@ -170,15 +179,18 @@ func _test_army_load_pipeline() -> void:
 	var cust = alm.load_army_list("adeptus_custodes", 2)
 	_check("custodes army loads", not cust.is_empty())
 	var cg = cust.get("units", {}).get("U_CUSTODIAN_GUARD_B", {})
-	_check("Custodian Guard W4 (Praesidium Shield +1)", int(cg.get("meta", {}).get("stats", {}).get("wounds", 0)) == 4)
-	var all_w4 := true
+	# Codex: Custodian Guard Sodality W5; a rostered Praesidium Shield is no
+	# longer +1W (codex: -1 D to attacks allocated to the bearer).
+	_check("Custodian Guard Sodality W5 (codex; no Praesidium +1W)", int(cg.get("meta", {}).get("stats", {}).get("wounds", 0)) == 5,
+		str(cg.get("meta", {}).get("stats", {})))
+	var all_w5 := true
 	for m in cg.get("models", []):
-		if int(m.get("wounds", 0)) != 4:
-			all_w4 = false
-	_check("all Custodian Guard models W4", all_w4)
+		if int(m.get("wounds", 0)) != 5:
+			all_w5 = false
+	_check("all Custodian Guard Sodality models W5", all_w5)
 
 func _test_faction_stratagems_implemented() -> void:
-	print("\n-- Faction stratagems: 6 codex War Horde rows + 6/6 Shield Host implemented --")
+	print("\n-- Faction stratagems: 6 codex War Horde rows + 6 codex Guardians of the Throne rows --")
 	var alm = root.get_node("ArmyListManager")
 	var sm = root.get_node("StratagemManager")
 
@@ -202,29 +214,15 @@ func _test_faction_stratagems_implemented() -> void:
 					codex += 1
 			_check("player 1: all 6 War Horde rows are Codex: Orks 11e rows (custom:ork11e)", codex == 6, "%d/6" % codex)
 			continue
-		var impl := 0
+		# Codex: Adeptus Custodes (11e) Guardians of the Throne: 6 codex rows.
+		var codex_ac := 0
 		for s in strats:
-			if s.get("implemented", false):
-				impl += 1
-			else:
-				print("    unimplemented: %s" % s.get("name", "?"))
-		_check("player %d: all 6 mechanically implemented" % player, impl == 6, "%d/6" % impl)
-
-	# Spot-check curated effect types survived the loader round-trip
-	var expect := {
-		"AVENGE THE FALLEN": "plus_attacks",
-		"MULTIPOTENTIALITY": "fall_back_and_shoot",
-		"VIGILANCE ETERNAL": "sticky_objective_control",
-	}
-	var seen := {}
-	for player in [1, 2]:
-		for s in sm.get_faction_stratagems_for_player(player):
-			var nm = str(s.get("name", "")).replace("’", "'").to_upper()
 			for e in s.get("effects", []):
-				if nm in expect and str(e.get("type", "")) == expect[nm]:
-					seen[nm] = true
-	for nm in expect:
-		_check("%s carries effect '%s'" % [nm, expect[nm]], seen.get(nm, false))
+				if typeof(e) == TYPE_DICTIONARY and str(e.get("type", "")) == "custom:custodes11e":
+					codex_ac += 1
+					break
+		_check("player %d: all 6 Guardians of the Throne rows are Codex: Adeptus Custodes rows (custom:custodes11e)" % player,
+			codex_ac == 6, "%d/6" % codex_ac)
 
 func _test_defender_minus_one_wound() -> void:
 	print("\n-- 'ARD AS NAILS: defender-side -1 to wound (ranged + melee) --")
@@ -282,49 +280,28 @@ func _test_defender_minus_one_hit_melee_only() -> void:
 	_check("ranged: melee-defense flag does NOT change ranged hits", ranged_identical)
 
 func _test_blastajet_force_field() -> void:
-	print("\n-- Blastajet Force Field: always-on 4+ invulnerable --")
+	# WP-O6: the Codex: Orks (11e) Blastajet Force Field is a 5+ invulnerable
+	# save (the pre-codex 4+ phase-start flag is retired — RETIRED_TESTS.md); it
+	# is read through EffectPrimitives.get_effect_invuln (OrkAbilities11e).
+	print("\n-- Blastajet Force Field: always-on 5+ invulnerable (Codex: Orks 11e) --")
 	var uam = root.get_node("UnitAbilityManager")
 	var gs = root.get_node("GameState")
 	_check("ability is table-implemented", uam.is_ability_implemented("Blastajet Force Field"))
-	# Craft a unit with the ability, apply phase-start effects, read the flag.
 	gs.state["units"] = {
 		"U_WAZBOM": {
 			"id": "U_WAZBOM", "owner": 1,
-			"meta": {"keywords": ["VEHICLE", "FLY"], "stats": {"toughness": 9, "save": 3, "wounds": 12, "invuln": 6},
+			"meta": {"keywords": ["ORKS", "VEHICLE", "FLY"], "stats": {"toughness": 9, "save": 3, "wounds": 12, "invuln": 6},
 				"abilities": [{"name": "Blastajet Force Field", "type": "Datasheet"}]},
 			"flags": {},
 			"models": [{"id": "m1", "alive": true, "wounds": 12, "current_wounds": 12, "position": {"x": 100, "y": 100}}]
 		}
 	}
 	uam.on_phase_start(8)  # shooting
-	var flags = gs.state["units"]["U_WAZBOM"].get("flags", {})
-	_check("effect_invuln 4 applied at shooting phase start", int(flags.get("effect_invuln", 0)) == 4, str(flags))
+	var ep = load("res://autoloads/EffectPrimitives.gd")
+	var inv := int(ep.get_effect_invuln(gs.state["units"]["U_WAZBOM"]))
+	_check("Blastajet Force Field: 5+ invulnerable save (codex)", inv == 5, str(inv))
 	uam.on_phase_end(8)
 
-func _test_devoted_to_destruction() -> void:
-	print("\n-- Devoted to Destruction: +2 melee Attacks flag in fight phase --")
-	var uam = root.get_node("UnitAbilityManager")
-	var gs = root.get_node("GameState")
-	_check("ability is table-implemented", uam.is_ability_implemented("Devoted to Destruction"))
-	gs.state["units"] = {
-		"U_TELEMON": {
-			"id": "U_TELEMON", "owner": 2,
-			"meta": {"keywords": ["VEHICLE"], "stats": {"toughness": 10, "save": 2, "wounds": 14},
-				"abilities": [{"name": "Devoted to Destruction", "type": "Datasheet"}]},
-			"flags": {},
-			"models": [{"id": "m1", "alive": true, "wounds": 14, "current_wounds": 14, "position": {"x": 100, "y": 100}}]
-		}
-	}
-	uam.on_phase_start(10)  # fight
-	var flags = gs.state["units"]["U_TELEMON"].get("flags", {})
-	_check("effect_plus_attacks 2 applied at fight phase start", int(flags.get("effect_plus_attacks", 0)) == 2, str(flags))
-	uam.on_phase_end(10)
-	# Melee-only: shooting phase must not set it
-	gs.state["units"]["U_TELEMON"]["flags"] = {}
-	uam.on_phase_start(8)
-	var flags2 = gs.state["units"]["U_TELEMON"].get("flags", {})
-	_check("no plus_attacks flag in shooting phase (melee-only)", int(flags2.get("effect_plus_attacks", 0)) == 0)
-	uam.on_phase_end(8)
 
 func _test_sneaky_gitz_overwatch() -> void:
 	print("\n-- Sneaky Gitz: cannot Fire Overwatch --")
@@ -424,7 +401,7 @@ func _test_bodyguard_extra_leader() -> void:
 	_check("second leader rejected without Bodyguard", not v4.get("valid", true), str(v4))
 
 func _test_admonimortis() -> void:
-	print("\n-- Admonimortis (10e stopgap): +3S/+1AP/+1D on bearer's melee weapons --")
+	print("\n-- Admonimortis (10e stopgap RETIRED, WP-C46): no melee bonus any more --")
 	# Policy (user ruling 2026-07-10): the 40kdc dataset has no 11e rule for
 	# Admonimortis, so the official 10e wording stands in — improve the
 	# bearer's melee weapon Strength by 3, AP and Damage by 1. (The earlier
@@ -452,9 +429,11 @@ func _test_admonimortis() -> void:
 		for d in res_admon.get("dice", []):
 			if "save" in str(d.get("context", "")) and d.has("ap"):
 				ap_admon = int(d.get("ap", 0))
-	_check("+3 Strength raises melee wounds across seeds (%d > %d)" % [wounds_admon, wounds_plain],
-		wounds_admon > wounds_plain)
-	_check("+1 AP applied to melee saves (ap %d -> %d)" % [ap_plain, ap_admon], ap_admon == ap_plain + 1)
+	# WP-C46: the codex has no Admonimortis — the retired 10e +3S/+1AP/+1D must
+	# not apply (same seeds, same wounds, same AP).
+	_check("retired: Admonimortis no longer raises melee wounds (%d == %d)" % [wounds_admon, wounds_plain],
+		wounds_admon == wounds_plain)
+	_check("retired: Admonimortis no longer improves melee AP (ap %d == %d)" % [ap_plain, ap_admon], ap_admon == ap_plain)
 	var rules = root.get_node("RulesEngine")
 	_check("no bearer-death trigger remains (resolve_admonimortis removed)",
 		not rules.has_method("resolve_admonimortis"))
@@ -484,7 +463,10 @@ func _test_serializer_migration() -> void:
 	var bw_names := []
 	for ab in migrated["units"]["U_BW"]["meta"]["abilities"]:
 		bw_names.append(ab.get("name", ""))
-	_check("Ramshackle canonicalized in save", "Ramshackle" in bw_names, str(bw_names))
+	# WP-O6: "Ramshackle but Rugged" is on no Codex: Orks (11e) datasheet — the
+	# canon entry (and its "Ramshackle" worsen-AP row) were removed, so the old
+	# name is left as-is (retired check: "Ramshackle canonicalized in save").
+	_check("Ramshackle but Rugged left as-is in save (no codex ability)", "Ramshackle but Rugged" in bw_names, str(bw_names))
 
 # ----------------------------------------------------------------------------
 func _run_tests():
@@ -500,7 +482,6 @@ func _run_tests():
 	_test_defender_minus_one_wound()
 	_test_defender_minus_one_hit_melee_only()
 	_test_blastajet_force_field()
-	_test_devoted_to_destruction()
 	_test_sneaky_gitz_overwatch()
 	_test_bodyguard_extra_leader()
 	_test_admonimortis()

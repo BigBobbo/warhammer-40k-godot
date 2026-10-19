@@ -17,6 +17,24 @@
     },
     {
       "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tif str(w.get(\"window_id\", \"\")) != \"movement_phase_start\":\n\t\tbreak\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn p != null and not p.has_pending_stratagem_window()",
+      "equals": true,
+      "comment": "WP-O6: the Orks' Weirdboy is offered the codex Da Jump in the movement_phase_start window when the Movement phase starts (it holds the phase) \u2014 not under test, declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "TerrainManager.terrain_features.clear()\nreturn TerrainManager.terrain_features.size()",
+      "equals": 0,
+      "comment": "setup privilege: the board's default terrain layout is cleared. Codex: Orks (11e) removed the Stompa's 10e Stompin' Forward (WP-O6), so it no longer gets the 13.06 step-over and the drag destination below ends on a ruin it cannot cross: the movement panel then reports 'Cannot overlap with walls' first. This scenario is about the VEHICLE model-collision toggle, so the terrain is out of the way."
+    },
+    {
+      "act": "execute_script",
       "script": "SettingsService.disable_vehicle_collision",
       "equals": false
     },

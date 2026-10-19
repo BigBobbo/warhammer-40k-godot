@@ -553,7 +553,19 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 			oc = int(RulesEngine.get_model_effective_stats(unit, model).get("objective_control", 0))
 	if oc > 0:
 		oc += int(flags.get(EffectPrimitivesData.FLAG_PLUS_OC, 0))
+		# Codex: Adeptus Custodes (11e) Moritoi Ancients (Might of the
+		# Moritoi): an ADEPTUS CUSTODES DREADNOUGHT unit at starting strength
+		# "has +2 OC" — every model of it (WP-C46). Same order as above: only
+		# a model that already has OC gets it.
+		oc += _custodes_11e_oc_bonus(unit)
 	return maxi(oc, 0)
+
+## Codex: Adeptus Custodes (11e) Moritoi Ancients OC bonus for `unit` (0 at 10e
+## or outside Might of the Moritoi) — CustodesDetachments.oc_bonus (WP-C46).
+func _custodes_11e_oc_bonus(unit: Dictionary) -> int:
+	if GameConstants.edition < 11:
+		return 0
+	return int(load("res://scripts/codex/custodes/CustodesDetachments.gd").oc_bonus(unit))
 
 ## 01.07 / 19.01: battle-shocked models have OC '-'. Group-aware — an Attached
 ## unit is a single unit, so a battle_shocked flag on ANY component zeroes every
@@ -616,6 +628,9 @@ func _unit_oc_in_range(unit_id: String, unit: Dictionary, objective: Dictionary,
 		print("  Checking unit %s (Player %d, OC: %d, %d models)" % [
 			unit_id, owner, oc_value, unit.get("models", []).size()
 		])
+		var cus11e_oc := _custodes_11e_oc_bonus(unit)
+		if cus11e_oc != 0:
+			print("  Moritoi Ancients: %s OC +%d per model" % [unit_id, cus11e_oc])
 
 	# Control radius is 3" + 20mm (radius of objective marker)
 	# 20mm = 0.78740157 inches, so total is 3.78740157 inches

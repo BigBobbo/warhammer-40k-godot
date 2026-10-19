@@ -227,6 +227,14 @@ func _build_warlord_section() -> void:
 	CHARACTER to be is_warlord before CONFIRM_FORMATIONS will succeed. Auto-default
 	to the lone CHARACTER when only one exists."""
 	var characters = GameState.get_characters_for_player(declaring_player)
+	# Codex: Adeptus Custodes — Anathema Psykana: ANATHEMA PSYKANA models
+	# cannot be the Warlord unless the detachment allows it (CustodesKatah.gd).
+	var cus11e_katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
+	var cus11e_det: String = cus11e_katah.player_detachment(declaring_player)
+	characters = characters.filter(func(cid):
+		var cu: Dictionary = GameState.get_unit(str(cid)).duplicate()
+		cu["id"] = str(cid)
+		return str(cus11e_katah.warlord_block_reason(cu, cus11e_det)) == "")
 	if characters.is_empty():
 		return
 
@@ -393,7 +401,7 @@ func _build_reserves_section() -> void:
 		var bodyguard_native_ds = GameState.unit_has_ability(unit_id, "Deep Strike")
 		var whole_unit_grant = has_deep_strike and not bodyguard_native_ds
 		var all_models_have_ds = has_deep_strike
-		var combined_points = unit_points
+		var combined_points = load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons (WP-O34)
 		var attached_chars_text = ""
 
 		# Check if this unit has any attached characters (bodyguard check)
@@ -705,7 +713,7 @@ func _get_declared_reserves_points() -> int:
 	var total = 0
 	for entry in reserves:
 		var unit = GameState.get_unit(entry.get("unit_id", ""))
-		total += unit.get("meta", {}).get("points", 0)
+		total += load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 		# Include attached character points
 		for char_id in entry.get("attached_character_ids", []):
 			var char_unit = GameState.get_unit(char_id)

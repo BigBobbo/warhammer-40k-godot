@@ -984,6 +984,18 @@ func start_battle_shock_sequence(start_unit_id: String = "", end_phase_after: bo
 			current_phase.stratagem_window_closed.connect(reopen, CONNECT_ONE_SHOT)
 			return true
 
+	# WP-O6: after a Codex: Orks datasheet ability is used in the
+	# battle_shock_step_start window the window re-opens with what is still on
+	# offer (OrkAbilities11e.REOFFER_WINDOWS) — the roll call waits for that
+	# decision too instead of opening a second modal on top of it.
+	if current_phase.has_method("has_pending_stratagem_window") and current_phase.has_pending_stratagem_window() \
+			and current_phase.has_signal("stratagem_window_closed"):
+		print("CommandController: Battle-shock roll call waits — a stratagem window is still open")
+		var reopen_again := func(_p, _w, _u):
+			call_deferred("start_battle_shock_sequence", start_unit_id, end_phase_after)
+		current_phase.stratagem_window_closed.connect(reopen_again, CONNECT_ONE_SHOT)
+		return true
+
 	_bs_order.clear()
 	for entry in queue:
 		_bs_order.append(str(entry.get("unit_id", "")))
@@ -1712,12 +1724,16 @@ func _show_drawn_missions_review_dialog() -> void:
 
 	var current_player = GameState.get_active_player()
 
-	# Skip dialog for AI players — they don't need a review panel
+	# Skip dialog for AI players — they don't need a review panel. The newly
+	# drawn list is NOT cleared here: it is what offers the AI its "replace a
+	# newly drawn mission (1 CP)" action (CommandPhase.get_available_actions),
+	# the same choice the human's review dialog offers. Clearing it here made
+	# the AI's options depend on whether this controller set-up ran before or
+	# after the AI's first Command-phase decision — a frame-timing race that
+	# made same-seed AI games diverge (tests/test_plan_simulator.gd).
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(current_player):
-		print("CommandController: Skipping drawn missions review dialog for AI player %d" % current_player)
-		if current_phase and current_phase.has_method("clear_newly_drawn_missions"):
-			current_phase.clear_newly_drawn_missions()
+		print("CommandController: Skipping drawn missions review dialog for AI player %d (its replace option stays offered)" % current_player)
 		return
 	var player_cp = GameState.state.get("players", {}).get(str(current_player), {}).get("cp", 0)
 
@@ -2882,22 +2898,15 @@ func _clear_guard_pick_state() -> void:
 	_guard_eligible_ids = {}
 
 
-# T-096: compute command phase sub-step progress (1/3 → 3/3)
+# T-096: compute command phase sub-step progress (1/2 → 2/2)
 # Steps:
-#   1/3 — CP Generation (auto, runs on entry)
-#   2/3 — Battle Mastery selection (Adeptus Custodes only)
-#   3/3 — Stratagems / End Phase
+#   1/2 — CP Generation (auto, runs on entry)
+#   2/2 — Stratagems / End Phase
+# (The 10e Shield Host "Choose Martial Mastery" step is gone — the codex
+# Guardians of the Throne Martial Mastery is chosen in the Fight phase when a
+# unit is selected to fight, CustodesDetachments.gd, WP-C46.)
 func _compute_command_phase_progress() -> String:
 	if not GameState:
-		return "Step ?/3"
-	var active_player = GameState.get_active_player()
-	var faction = GameState.get_faction_name(active_player)
+		return "Step ?/2"
 	# Step 1: CP generated (always done by phase entry — assume past step 1)
-	# Step 2: Battle Mastery still needs selection?
-	var meta = GameState.state.get("meta", {})
-	var selected_mastery = meta.get("martial_mastery_choice_p%d" % active_player, "")
-	var requires_mastery = (faction == "Adeptus Custodes")
-	if requires_mastery and selected_mastery == "":
-		return "Step 2/3 — Choose Martial Mastery"
-	# Step 3: stratagems / end phase
-	return "Step 3/3 — Stratagems / End Phase"
+	return "Step 2/2 — Stratagems / End Phase"

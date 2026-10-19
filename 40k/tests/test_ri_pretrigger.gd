@@ -66,6 +66,7 @@ func _run_tests():
 	if phase == null:
 		_finish()
 		return
+	_decline_movement_start_windows(phase)
 
 	var cp_before = game_state.state["players"]["1"]["cp"]
 
@@ -124,6 +125,7 @@ func _run_tests():
 	GameConstants.edition = 11
 	phase_mgr.transition_to_phase(7)
 	phase = phase_mgr.get_current_phase_instance()
+	_decline_movement_start_windows(phase)
 	var end2 = phase.execute_action({"type": "END_MOVEMENT"})
 	_check("decline path: RAPID INGRESS offered again", end2.get("trigger_rapid_ingress") == true)
 	var dec = phase.execute_action({"type": "DECLINE_RAPID_INGRESS", "player": 1})
@@ -138,6 +140,25 @@ func _run_tests():
 		"phase=%d window=%s" % [game_state.get_current_phase(), str(window_open)])
 
 	_finish()
+
+## Codex: Orks (11e): the fixture's Weirdboy offers Da Jump in the Orks'
+## movement_phase_start window (WP-O34/WP-O6), which holds the phase until
+## answered — the same window the windowed scenarios on this fixture decline
+## (RETIRED_TESTS.md, WP-O6). Decline only start-of-Movement windows, so the
+## end-of-phase RAPID INGRESS flow under test is untouched.
+func _decline_movement_start_windows(phase) -> void:
+	var declined: Array = []
+	for _i in range(4):
+		if phase == null or not phase.has_pending_stratagem_window():
+			break
+		var w: Dictionary = phase.get_pending_stratagem_window()
+		if str(w.get("window_id", "")) != "movement_phase_start":
+			break
+		declined.append("P%d %s" % [int(w.get("player", 0)), str(w.get("window_id", ""))])
+		phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": int(w.get("player", 1)), "window_id": str(w.get("window_id", ""))})
+	print("test_ri_pretrigger: declined start-of-Movement window(s): %s" % str(declined))
+	_check("no stratagem window pending before END_MOVEMENT", phase != null and not phase.has_pending_stratagem_window(),
+		str(phase.get_pending_stratagem_window() if phase != null and phase.has_pending_stratagem_window() else {}))
 
 func _finish():
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])

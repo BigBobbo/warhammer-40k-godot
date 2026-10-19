@@ -234,6 +234,16 @@ function renderValidation(legality) {
     if (!ru.ref.resolved) {
       items.push({ sev: 'warn', text: `${ru.ref.raw_name}: not matched to a datasheet — select it to fix` });
     }
+    // A pre-codex datasheet kept for old lists (WP-W3, decision D1).
+    const sup = ru.ref.resolved ? S.unitData(ru.ref.id, ru._unit_faction_id)?.raw : null;
+    if (sup?.superseded_by_codex) {
+      const next = sup.superseded_by ? S.unitData(sup.superseded_by, ru._unit_faction_id)?.raw : null;
+      items.push({
+        sev: 'warn',
+        text: `${ru.ref.raw_name}: pre-codex datasheet, not in ${sup.superseded_by_codex}` +
+          (next ? ` — replace it with ${next.name}` : ''),
+      });
+    }
   }
   if (S.state.importReport?.warnings?.length) {
     items.push({ sev: 'info', text: `${S.state.importReport.title} — ${S.state.importReport.warnings.length} note(s)`, details: S.state.importReport.warnings });
@@ -353,20 +363,22 @@ function renderWarlordRow(i, ru, raw) {
 }
 
 function renderEnhancementRow(i, ru, raw) {
-  const isCharacter = (raw.keywords ?? []).some(k => k.toLowerCase() === 'character');
-  const isEpic = (raw.keywords ?? []).some(k => k.toLowerCase() === 'epic hero');
-  const choices = S.enhancementChoices();
-  if (!choices.length) return null;
-  if (!isCharacter || isEpic) return null; // enhancements: non-epic characters
+  // 11e (WP-C46): CHARACTERs (not EPIC HEROes) take normal enhancements;
+  // Upgrades may go on any non-EPIC HERO unit, CHARACTER or not; each is
+  // offered only to the units its printed restriction allows ("Anathema
+  // Psykana model only", ...). One enhancement per unit.
   const current = ru.enhancement?.id ?? '';
+  const choices = S.enhancementChoices(i).filter(c => c.eligible || c.id === current);
+  if (!choices.length) return null;
   return h('div.field-row', {},
     h('label', {}, 'Enhancement'),
     select([
       { value: '', label: '— none —' },
       ...choices.map(c => ({
         value: c.id,
-        label: `${c.name} (${c.cost} pts)` + (c.takenBy !== null && c.takenBy !== i ? ' — taken' : ''),
-        disabled: c.takenBy !== null && c.takenBy !== i,
+        label: `${c.name} (${c.cost} pts)` + (c.upgrade ? ' — Upgrade' : '') + (c.takenBy !== null && c.takenBy !== i ? ' — taken' : '')
+          + (!c.eligible ? ` — ${c.reason}` : ''),
+        disabled: (c.takenBy !== null && c.takenBy !== i) || !c.eligible,
       })),
     ], current, (v) => S.setEnhancement(i, v || null)));
 }

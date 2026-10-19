@@ -36,7 +36,14 @@ var consolidate_context_11e: Dictionary = {}
 # Rides along on the CONSOLIDATE action so the phase validates the same target
 # the dialog offered.
 var consolidate_chosen_objective_11e: String = ""
+# Codex: Adeptus Custodes (11e) Unstoppable Destroyer: the consolidation mode
+# the player picked when the mandatory order is lifted ("" = default, WP-C46).
+var consolidate_chosen_mode_11e: String = ""
 var sweeping_advance_active: bool = false
+# Sweeping Advance is a NORMAL move (unengaged) or a FALL-BACK move (engaged) of
+# up to the unit's M (Codex: Adeptus Custodes 11e, WP-C7) — not a pile-in: the
+# reused drag mode takes this cap and skips the "closer to the enemy" rule.
+var sweeping_advance_move_inches: float = 0.0
 var acrobatic_escape_active: bool = false
 var pile_in_unit_id: String = ""
 var pile_in_dialog_ref: Node = null
@@ -885,18 +892,15 @@ func set_phase(phase: BasePhase) -> void:
 		# 11e 12.02: global Pile In step — player picks units to pile in
 		if phase.has_signal("pile_in_step_required") and not phase.pile_in_step_required.is_connected(_on_pile_in_step_required):
 			phase.pile_in_step_required.connect(_on_pile_in_step_required)
+		# Codex: Adeptus Custodes (CustodesCodex11e.gd): the chosen step unit may move once its window closed.
+		if phase.has_signal("cus11e_step_unit_ready") and not phase.cus11e_step_unit_ready.is_connected(_on_cus11e_step_unit_ready):
+			phase.cus11e_step_unit_ready.connect(_on_cus11e_step_unit_ready)
 		if phase.has_signal("subphase_transition") and not phase.subphase_transition.is_connected(_on_subphase_transition):
 			phase.subphase_transition.connect(_on_subphase_transition)
 		if phase.has_signal("epic_challenge_opportunity") and not phase.epic_challenge_opportunity.is_connected(_on_epic_challenge_opportunity):
 			phase.epic_challenge_opportunity.connect(_on_epic_challenge_opportunity)
 		if phase.has_signal("counter_offensive_opportunity") and not phase.counter_offensive_opportunity.is_connected(_on_counter_offensive_opportunity):
 			phase.counter_offensive_opportunity.connect(_on_counter_offensive_opportunity)
-		if phase.has_signal("katah_stance_required") and not phase.katah_stance_required.is_connected(_on_katah_stance_required):
-			phase.katah_stance_required.connect(_on_katah_stance_required)
-		if phase.has_signal("moment_shackle_required") and not phase.moment_shackle_required.is_connected(_on_moment_shackle_required):
-			phase.moment_shackle_required.connect(_on_moment_shackle_required)
-		if phase.has_signal("dread_foe_resolved") and not phase.dread_foe_resolved.is_connected(_on_dread_foe_resolved):
-			phase.dread_foe_resolved.connect(_on_dread_foe_resolved)
 		# P0-58: Connect saves_required signal for interactive melee wound allocation
 		if phase.has_signal("saves_required") and not phase.saves_required.is_connected(_on_melee_saves_required):
 			phase.saves_required.connect(_on_melee_saves_required)
@@ -937,7 +941,7 @@ func set_phase(phase: BasePhase) -> void:
 			if not pending_pile_in.is_empty():
 				print("DEBUG: Retrieved pending pile-in step data after signal connection")
 				_on_pile_in_step_required(pending_pile_in)
-		
+
 		_refresh_fighter_list()
 		
 		# Restore state if loading from save
@@ -2251,145 +2255,6 @@ func _on_counter_offensive_declined(player: int) -> void:
 	}
 	emit_signal("fight_action_requested", action)
 
-func _on_katah_stance_required(unit_id: String, player: int) -> void:
-	"""Show Martial Ka'tah stance selection dialog"""
-	print("[FightController] Martial Ka'tah stance selection required for %s (player %d)" % [unit_id, player])
-
-	# Check if Master of the Stances is available for this unit
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	var master_available = ability_mgr and ability_mgr.has_master_of_the_stances(unit_id)
-
-	# Skip dialog for AI players - auto-select "both" if Master of the Stances available, else dacatarai
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		var ai_stance = "both" if master_available else "dacatarai"
-		print("[FightController] Auto-selecting Ka'tah stance '%s' for AI player %d" % [ai_stance, player])
-		var action = {
-			"type": "SELECT_KATAH_STANCE",
-			"unit_id": unit_id,
-			"stance": ai_stance,
-			"player": player
-		}
-		emit_signal("fight_action_requested", action)
-		return
-
-	# Multiplayer: the stance choice belongs to the fighting unit's OWNER —
-	# only their seat shows the dialog (it previously popped on both screens).
-	if NetworkManager and NetworkManager.is_networked() \
-			and NetworkManager.get_local_player() != player:
-		print("[FightController] Ka'tah stance is P%d's choice — local seat waits" % player)
-		return
-
-	var dialog_script = load("res://dialogs/KatahStanceDialog.gd")
-	if not dialog_script:
-		push_error("Failed to load KatahStanceDialog.gd")
-		return
-
-	var dialog = AcceptDialog.new()
-	dialog.set_script(dialog_script)
-	dialog.name = "KatahStanceDialog"
-	dialog.setup(unit_id, player, master_available)
-	dialog.stance_selected.connect(_on_katah_stance_selected)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-	print("[FightController] Ka'tah stance dialog shown for %s (master_of_stances: %s)" % [unit_id, str(master_available)])
-
-func _on_katah_stance_selected(unit_id: String, stance: String, player: int) -> void:
-	"""Submit SELECT_KATAH_STANCE action when stance selected from dialog"""
-	print("[FightController] Ka'tah stance selected: %s for unit %s" % [stance, unit_id])
-
-	var action = {
-		"type": "SELECT_KATAH_STANCE",
-		"unit_id": unit_id,
-		"stance": stance,
-		"player": player
-	}
-	emit_signal("fight_action_requested", action)
-
-	if dice_log_display:
-		var unit_name = current_phase.get_unit(unit_id).get("meta", {}).get("name", unit_id) if current_phase else unit_id
-		var stance_display = ""
-		if stance == "both":
-			stance_display = "MASTER OF THE STANCES (Dacatarai + Rendax)"
-		elif stance == "dacatarai":
-			stance_display = "Dacatarai (Sustained Hits 1)"
-		else:
-			stance_display = "Rendax (Lethal Hits)"
-		dice_log_display.append_text("[color=gold]MARTIAL KA'TAH: %s assumes %s stance[/color]\n" % [unit_name, stance_display])
-
-func _on_moment_shackle_required(unit_id: String, player: int) -> void:
-	"""Show the Blade Champion's Moment Shackle choice at the start of the Fight
-	phase. AI resolves it via get_available_actions(), so this only drives the
-	human dialog (previously missing — the phase soft-locked a human here)."""
-	print("[FightController] Moment Shackle choice required for %s (player %d)" % [unit_id, player])
-
-	# AI player: it submits USE/DECLINE_MOMENT_SHACKLE from get_available_actions().
-	# Do not also pop a dialog (that would double-submit).
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		print("[FightController] Moment Shackle belongs to AI player %d — no dialog" % player)
-		return
-
-	# Multiplayer: only the owning seat chooses.
-	if NetworkManager and NetworkManager.is_networked() \
-			and NetworkManager.get_local_player() != player:
-		print("[FightController] Moment Shackle is P%d's choice — local seat waits" % player)
-		return
-
-	var dialog_script = load("res://dialogs/MomentShackleDialog.gd")
-	if not dialog_script:
-		push_error("Failed to load MomentShackleDialog.gd")
-		return
-
-	var dialog = AcceptDialog.new()
-	dialog.set_script(dialog_script)
-	dialog.name = "MomentShackleDialog"
-	dialog.setup(unit_id, player)
-	dialog.moment_shackle_chosen.connect(_on_moment_shackle_chosen)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-	print("[FightController] Moment Shackle dialog shown for %s" % unit_id)
-
-func _on_moment_shackle_chosen(unit_id: String, choice: String, player: int) -> void:
-	"""Dispatch the Moment Shackle decision from the dialog."""
-	print("[FightController] Moment Shackle chosen: %s for %s" % [choice, unit_id])
-	if choice == "decline":
-		emit_signal("fight_action_requested", {
-			"type": "DECLINE_MOMENT_SHACKLE",
-			"unit_id": unit_id,
-			"player": player
-		})
-	else:
-		emit_signal("fight_action_requested", {
-			"type": "USE_MOMENT_SHACKLE",
-			"unit_id": unit_id,
-			"choice": choice,
-			"player": player
-		})
-
-func _on_dread_foe_resolved(unit_id: String, result: Dictionary) -> void:
-	"""P1-17: Display Dread Foe mortal wounds result in dice log"""
-	print("[FightController] Dread Foe resolved for %s — result: %s" % [unit_id, str(result)])
-
-	if dice_log_display:
-		var unit_name = current_phase.get_unit(unit_id).get("meta", {}).get("name", unit_id) if current_phase else unit_id
-		var roll = result.get("roll", 0)
-		var modified_roll = result.get("modified_roll", 0)
-		var mortal_wounds = result.get("mortal_wounds", 0)
-		var casualties = result.get("casualties", 0)
-
-		var roll_text = str(roll)
-		if modified_roll != roll:
-			roll_text = "%d +2 (charged) = %d" % [roll, modified_roll]
-
-		if mortal_wounds > 0:
-			dice_log_display.append_text("[color=red]DREAD FOE: %s rolled %s — %d mortal wound(s)! (%d casualt(y/ies))[/color]\n" % [
-				unit_name, roll_text, mortal_wounds, casualties
-			])
-		else:
-			dice_log_display.append_text("[color=gray]DREAD FOE: %s rolled %s — no effect (needs 4+)[/color]\n" % [
-				unit_name, roll_text
-			])
 
 func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
 	"""Show pile-in dialog and enable interactive movement"""
@@ -2750,6 +2615,7 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	# verdict below read this instead of guessing at the mode locally.
 	consolidate_context_11e = {}
 	consolidate_chosen_objective_11e = ""
+	consolidate_chosen_mode_11e = ""
 	if current_phase and current_phase.has_method("get_consolidation_context_11e"):
 		consolidate_context_11e = current_phase.get_consolidation_context_11e(unit_id)
 	print("[FightController] Consolidate context for %s: %s" % [unit_id, str(consolidate_context_11e)])
@@ -2822,6 +2688,9 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String, dialog: N
 	# 12.08 BEFORE (Objective mode): tell the phase WHICH objective the player
 	# selected, so it validates the move against that marker and not against
 	# whichever one it would have defaulted to.
+	# Unstoppable Destroyer (WP-C46): the freely chosen mode rides the action.
+	if consolidate_context_11e.has("available_modes"):
+		action["chosen_mode"] = str(consolidate_context_11e.get("mode", ""))
 	if str(consolidate_context_11e.get("mode", "")) == "objective":
 		var target_obj = consolidate_chosen_objective_11e
 		if target_obj == "":
@@ -2916,6 +2785,9 @@ func _on_pile_in_step_unit_chosen(unit_id: String) -> void:
 	_set_step_panel_busy(pile_in_step_panel, true)
 	if pile_in_step_panel and is_instance_valid(pile_in_step_panel):
 		pile_in_step_panel.get_node("StepInstructions").text = STEP_MOVE_IN_PROGRESS_INSTRUCTIONS
+	# Codex: Adeptus Custodes LIGHTNING WRATH (CustodesCodex11e.gd): its window opens first.
+	if _cus11e_route_step_unit("CUS11E_SELECT_PILE_IN_UNIT", "unit_selected_to_pile_in", unit_id):
+		return
 	_on_pile_in_required(unit_id, 3.0)
 
 # ----------------------------------------------------------------------------
@@ -3089,6 +2961,30 @@ func _on_consolidation_unit_chosen(unit_id: String) -> void:
 	_set_step_panel_busy(consolidation_step_panel, true)
 	if consolidation_step_panel and is_instance_valid(consolidation_step_panel):
 		consolidation_step_panel.get_node("StepInstructions").text = STEP_MOVE_IN_PROGRESS_INSTRUCTIONS
+	# Codex: Adeptus Custodes EMPEROR'S DOMAIN (CustodesCodex11e.gd): its window opens first.
+	if _cus11e_route_step_unit("CUS11E_SELECT_CONSOLIDATION_UNIT", "unit_selected_to_consolidate", unit_id):
+		return
+	var dist = 3.0
+	if current_phase and current_phase.has_method("_get_consolidation_distance"):
+		dist = current_phase._get_consolidation_distance(unit_id)
+	_on_consolidate_required(unit_id, dist)
+
+## Codex: Adeptus Custodes (CustodesCodex11e.gd): when the unit's owner has a
+## stratagem for this step window, ask the phase first (it opens the window;
+## the move starts on cus11e_step_unit_ready). Returns true when routed.
+func _cus11e_route_step_unit(action_type: String, window_id: String, unit_id: String) -> bool:
+	var owner := int(GameState.get_unit(unit_id).get("owner", 0))
+	if not load("res://scripts/codex/custodes/CustodesCodex11e.gd").player_has_window_stratagem(owner, window_id):
+		return false
+	print("[FightController] %s: %s may open %s first" % [action_type, unit_id, window_id])
+	emit_signal("fight_action_requested", {"type": action_type, "unit_id": unit_id, "player": owner})
+	return true
+
+func _on_cus11e_step_unit_ready(kind: String, unit_id: String, max_inches: float) -> void:
+	print("[FightController] %s ready for its %s move (up to %.0f\")" % [unit_id, kind, max_inches])
+	if kind == "pile_in":
+		_on_pile_in_required(unit_id, max_inches)
+		return
 	var dist = 3.0
 	if current_phase and current_phase.has_method("_get_consolidation_distance"):
 		dist = current_phase._get_consolidation_distance(unit_id)
@@ -3195,6 +3091,7 @@ func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
 	"""Enable interactive pile-in mode for the unit (and its attached characters)"""
 	pile_in_active = true
 	pile_in_unit_id = unit_id
+	_fight_move_cap_cache.clear()  # re-measure the Custodes cap for this move (WP-C46)
 	pile_in_dialog_ref = dialog
 
 	# Store original positions for all models in the unit
@@ -3380,7 +3277,7 @@ func _create_pile_in_visuals() -> void:
 		if model_id in locked_base_contact_models:
 			continue  # T4-5: No range circle for locked models
 		var pos = original_model_positions[model_id]
-		var circle = _create_range_circle(pos, 3.0)
+		var circle = _create_range_circle(pos, _fight_move_base_cap())
 		circle.name = "RangeCircle_" + model_id
 		pile_in_visuals.add_child(circle)
 		range_circles[model_id] = circle
@@ -3557,6 +3454,42 @@ func consolidate_objective_options_11e() -> Array:
 		return []
 	return consolidate_context_11e.get("objective_options", [])
 
+func consolidate_available_modes_11e() -> Array:
+	"""The consolidation modes the player may choose between (Codex: Adeptus
+	Custodes Unstoppable Destroyer lifts the 12.08 mandatory order — WP-C46).
+	Empty when the mode is mandatory."""
+	return consolidate_context_11e.get("available_modes", [])
+
+func set_consolidate_mode_11e(mode: String) -> Dictionary:
+	"""Pick the consolidation mode (only when the context offers a choice).
+	Re-derives the 12.08 context so drag verdicts, arrows and CONSOLIDATE
+	validation follow the new mode; preview moves illegal under it are reset.
+	Returns {ok, reverted, mode}."""
+	if not consolidate_active or pile_in_unit_id == "" or current_phase == null:
+		return {"ok": false, "reason": "no consolidation move in progress"}
+	if not mode in consolidate_available_modes_11e():
+		return {"ok": false, "reason": "%s is not a selectable consolidation mode here" % mode}
+	var ctx = current_phase.get_consolidation_context_11e(pile_in_unit_id, "", mode)
+	if str(ctx.get("mode", "")) != mode:
+		return {"ok": false, "reason": "%s consolidation is not available (12.08)" % mode}
+	consolidate_context_11e = ctx
+	consolidate_chosen_mode_11e = mode
+	consolidate_chosen_objective_11e = ""
+	print("[FightController] Consolidation mode for %s set to %s (%s)" % [pile_in_unit_id, mode, str(ctx.get("free_choice_source", ""))])
+	var reverted: Array = []
+	for key in current_model_positions:
+		var pos = current_model_positions[key]
+		var orig = original_model_positions.get(key, pos)
+		if pos.distance_to(orig) <= 0.01:
+			continue
+		if not current_phase.has_method("check_consolidation_model_move_11e"):
+			break
+		if not current_phase.check_consolidation_model_move_11e(pile_in_unit_id, key, pos, ctx).get("allowed", false):
+			current_model_positions[key] = orig
+			reverted.append(key)
+	_update_pile_in_visuals()
+	return {"ok": true, "reverted": reverted, "mode": mode}
+
 func set_consolidate_objective_11e(obj_id: String) -> Dictionary:
 	"""12.08 BEFORE — "select ONE of those objectives". Re-derives the whole move
 	context from the phase for `obj_id`, so the drag verdicts, the direction
@@ -3568,7 +3501,7 @@ func set_consolidate_objective_11e(obj_id: String) -> Dictionary:
 		return {"ok": false, "reason": "no consolidation move in progress"}
 	if not current_phase.has_method("get_consolidation_context_11e"):
 		return {"ok": false, "reason": "phase does not expose the 12.08 context"}
-	var ctx = current_phase.get_consolidation_context_11e(pile_in_unit_id, obj_id)
+	var ctx = current_phase.get_consolidation_context_11e(pile_in_unit_id, obj_id, consolidate_chosen_mode_11e)
 	if str(ctx.get("mode", "")) != "objective" or str(ctx.get("objective", "")) != obj_id:
 		print("[FightController] Objective %s is not selectable for %s (12.08) — keeping %s" % [
 			obj_id, pile_in_unit_id, str(consolidate_context_11e.get("objective", ""))])
@@ -3620,7 +3553,7 @@ func _fight_move_drop_is_valid(model_key: String, original_pos: Vector2, current
 	Objective mode, where 'valid' means ending in range of the objective or at
 	least closer to it. Pile-in keeps the simple 'closer to the closest enemy
 	within 3"' check."""
-	if move_distance_inches > 3.0 + Measurement.DISTANCE_TOLERANCE_INCHES:
+	if move_distance_inches > _fight_move_base_cap() + Measurement.DISTANCE_TOLERANCE_INCHES:
 		return false
 	if consolidate_active and current_phase and current_phase.has_method("check_consolidation_model_move_11e"):
 		if original_pos.distance_to(current_pos) <= 0.01:
@@ -4075,6 +4008,9 @@ func _end_model_drag_pile_in() -> void:
 					reverted = true
 			elif consolidate_active:
 				print("[FightController] Consolidate drag: phase has no 12.08 move check — leaving the drop to CONSOLIDATE validation")
+			elif sweeping_advance_active:
+				# WP-C7: a normal / fall-back move has no "closer to the enemy" rule.
+				print("[FightController] Sweeping Advance drag: normal / fall-back move — no move-closer rule")
 			else:
 				# Pile-in mode - always check toward enemy
 				var closest_enemy_pos = _find_closest_enemy_pos(original_pos)
@@ -4209,12 +4145,31 @@ func _clamp_pile_in_to_budget(dest: Vector2) -> Vector2:
 		original_pos, dest, _effective_pile_in_cap_inches(drag_model_id), _pile_in_cost_inches)
 
 func _effective_pile_in_cap_inches(model_id: String) -> float:
-	"""The positional distance a model may still move: 3" minus the pivot cost if
-	it has been pivoted this move."""
+	"""The positional distance a model may still move: 3" (or the Codex:
+	Adeptus Custodes adjusted cap — WP-C46) minus the pivot cost if it has been
+	pivoted this move."""
+	var base_cap: float = _fight_move_base_cap()
 	if _is_model_pivoted(model_id):
 		var model = _find_pile_in_model(model_id)
-		return max(0.0, PILE_IN_MAX_INCHES - _pivot_cost_inches(model, model_id))
-	return PILE_IN_MAX_INCHES
+		return max(0.0, base_cap - _pivot_cost_inches(model, model_id))
+	return base_cap
+
+## The piling-in / consolidating unit's base distance (3" unless Codex:
+## Adeptus Custodes Unstoppable Destroyer / Dacatarai changes it), cached per
+## unit for the move so dragging does not re-measure every frame (WP-C46).
+var _fight_move_cap_cache: Dictionary = {}
+func _fight_move_base_cap() -> float:
+	if pile_in_unit_id == "":
+		return PILE_IN_MAX_INCHES
+	if sweeping_advance_active and sweeping_advance_move_inches > 0.0:
+		return sweeping_advance_move_inches  # WP-C7: Sweeping Advance moves up to M
+	if not _fight_move_cap_cache.has(pile_in_unit_id):
+		var cap: float = PILE_IN_MAX_INCHES
+		if current_phase and current_phase.has_method("_fight_base_move_cap"):
+			cap = float(current_phase._fight_base_move_cap(pile_in_unit_id))
+		_fight_move_cap_cache.clear()
+		_fight_move_cap_cache[pile_in_unit_id] = cap
+	return float(_fight_move_cap_cache[pile_in_unit_id])
 
 func _model_id_at_pos(mouse_pos: Vector2) -> String:
 	"""Return the id of the (unlocked) model nearest the cursor within its base
@@ -4646,6 +4601,7 @@ func _on_sweeping_advance_available(unit_id: String, player: int, in_engagement:
 
 	# Enable movement mode (reuses pile-in infrastructure)
 	sweeping_advance_active = true
+	sweeping_advance_move_inches = move_distance  # WP-C7: the move's own cap (M), not 3"
 	_enable_pile_in_mode(unit_id, dialog)
 
 	# Show in dice log

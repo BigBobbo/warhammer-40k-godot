@@ -12,8 +12,13 @@ extends SceneTree
 #   ▪ ending overlapped is refused via the keyword-aware endpoint rule
 #     (model_overlaps_any_wall now also covers solid dense feature pieces);
 #   ▪ piece_class "area" footprints are enterable (only "feature" walls are
-#     solid), infantry remain exempt, and OA-28/29 / SUPER-HEAVY WALKER get
-#     the 4" step-over;
+#     solid), infantry remain exempt, and SUPER-HEAVY WALKER gets the 4"
+#     step-over — the keyword, or the 24.35 core ability the Codex: Orks
+#     (11e) Stompa prints ("Super-heavy Walker", orks/wahapedia
+#     Datasheets_abilities.csv datasheet 000000046 line 3), which replaced
+#     its 10e Stompin' Forward (WP-O6);
+#   ▪ 24.35 model passthrough: that Stompa moves through a non-TITANIC
+#     enemy VEHICLE but not through a TITANIC one (T12);
 #   ▪ models stranded inside walls by pre-fix saves can move OUT (escape
 #     clause) but not stay;
 #   ▪ charge paths are swept too (FLY chargers exempt at the caller).
@@ -88,7 +93,10 @@ func _run_tests():
 	var start := Vector2(32.0, 28.0) * ppi        # open ground, base fully clear
 	var in_wall := Vector2(27.08, 28.0) * ppi     # centre inside the wall stroke
 	var straddle := Vector2(28.6, 28.0) * ppi     # centre clear, 180mm base overlaps wall
-	var stompa_abilities := ["Waaagh!", "Deadly Demise 2D6", "Stompin' Forward", "Waaagh! Effigy (Aura)", "TRANSPORT"]
+	# The Codex: Orks (11e) Stompa's ability list, as armies/recon_stomps.json
+	# carries it: 24.35 "Super-heavy Walker" is a core ability, not a keyword.
+	var stompa_abilities := ["Waaagh!", "Damaged: 1-10 Wounds Remaining", "Deadly Demise 2D6", "Super-heavy Walker",
+		"Idol of Belligerence", "Waaagh! Effigy", "TRANSPORT"]
 
 	print("-- T1: STAGE_MODEL_MOVE gate — Stompa cannot cross the 5\" wall --")
 	_seed_unit(gs, STOMPA_KW, 180, start, 10, stompa_abilities, "Stompa")
@@ -137,7 +145,7 @@ func _run_tests():
 	var v6 = _stage(phase, Vector2(21.5, 27.5) * ppi)
 	_check("50mm vehicle enters the trapezoid area between walls", v6.get("valid", false), str(v6))
 
-	print("\n-- T7: 4\" step-over — Stompin' Forward crosses a 3\" generator, plain vehicle cannot --")
+	print("\n-- T7: 4\" step-over — the Super-heavy Walker Stompa crosses a 3\" generator, plain vehicle cannot --")
 	# Start far enough that a 180mm base is fully clear of generator-38
 	# (start at `start` would already overlap it, engaging the escape clause).
 	var gen_start := Vector2(31.5, 30.5) * ppi
@@ -145,7 +153,7 @@ func _run_tests():
 	phase = _begin_move(pm, gs)
 	var over_gen := Vector2(34.0, 25.5) * ppi  # inside generator-38 (dense, 3")
 	var v7a = _stage(phase, over_gen)
-	_check("Stompa (Stompin' Forward -> 4\" limit) may cross/stand on the 3\" generator",
+	_check("Stompa (24.35 Super-heavy Walker ability -> 4\" limit) may cross/stand on the 3\" generator",
 		v7a.get("valid", false), str(v7a))
 	_seed_unit(gs, ["ORKS", "VEHICLE"], 180, gen_start, 12, [], "Big Trukk")
 	phase = _begin_move(pm, gs)
@@ -200,6 +208,36 @@ func _run_tests():
 		AIDecisionMaker._path_blocked_by_solid_terrain(start, in_wall, 180, "circular", {}, STOMPA_KW) == true)
 	_check("AI path check clears open ground",
 		AIDecisionMaker._path_blocked_by_solid_terrain(start, start + Vector2(2.0 * ppi, 0), 180, "circular", {}, STOMPA_KW) == false)
+
+	print("\n-- T12: 24.35 model passthrough — through a VEHICLE, not through a TITANIC model --")
+	# "Models in that unit can move through models (including MONSTER /
+	# VEHICLE models, but excluding TITANIC models)". Terrain cleared so only
+	# the model-crossing checks decide. The enemy sits 8" from both ends of a
+	# 16" move along y = 20" (clear of engagement range at either end).
+	tm.terrain_features = []
+	var pt_start := Vector2(14.0, 20.0) * ppi
+	var pt_enemy := Vector2(22.0, 20.0) * ppi
+	var pt_dest := Vector2(30.0, 20.0) * ppi
+	for case in [
+		{"label": "Super-heavy Walker Stompa moves through an enemy VEHICLE (Trukk)", "kw": STOMPA_KW, "ab": stompa_abilities,
+			"enemy_kw": ["ORKS", "VEHICLE", "TRANSPORT"], "valid": true},
+		{"label": "Super-heavy Walker Stompa cannot move through an enemy TITANIC model", "kw": STOMPA_KW, "ab": stompa_abilities,
+			"enemy_kw": ["ORKS", "VEHICLE", "TITANIC"], "valid": false},
+		{"label": "a plain VEHICLE (no 24.35) cannot move through the enemy VEHICLE", "kw": ["ORKS", "VEHICLE"], "ab": [],
+			"enemy_kw": ["ORKS", "VEHICLE", "TRANSPORT"], "valid": false},
+	]:
+		_seed_unit(gs, case.kw, 180, pt_start, 18, case.ab, "Mover")
+		gs.state["units"]["U_ENEMY"] = {"id": "U_ENEMY", "owner": 2, "status": 2, "flags": {},
+			"meta": {"name": "Enemy", "keywords": case.enemy_kw.duplicate(), "abilities": [],
+				"stats": {"move": 12, "toughness": 9, "save": 4, "wounds": 10, "objective_control": 2}},
+			"models": [{"id": "m0", "alive": true, "wounds": 10, "current_wounds": 10,
+				"base_mm": 50, "base_type": "circular", "position": {"x": pt_enemy.x, "y": pt_enemy.y}}]}
+		phase = _begin_move(pm, gs)
+		var v12 = _stage(phase, pt_dest)
+		if case.valid:
+			_check(case.label, v12.get("valid", false), str(v12))
+		else:
+			_check(case.label, not v12.get("valid", true) and str(v12.get("errors", [])).contains("Cannot move through"), str(v12))
 
 	gs.state = prev_state
 	GameConstants.edition = prev_edition

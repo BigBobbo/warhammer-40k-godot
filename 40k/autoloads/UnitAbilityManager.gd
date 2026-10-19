@@ -15,7 +15,7 @@ extends Node
 #
 # Supported ability categories:
 # 1. Leader abilities ("while this model is leading a unit") - apply to the led unit
-# 2. Always-on unit abilities (Stealth, Ramshackle, etc.) - apply to the unit itself
+# 2. Always-on unit abilities (Stealth, etc.) - apply to the unit itself
 # 3. Conditional abilities (Waaagh!-dependent, objective-dependent) - apply when condition met
 # 4. Aura abilities (affect nearby friendly/enemy units within range) - uses edge-to-edge
 #    distance via Measurement.model_to_model_distance_inches(). Same aura from multiple
@@ -60,24 +60,15 @@ const ABILITY_EFFECTS: Dictionary = {
 	# These apply to the bodyguard unit when the CHARACTER is attached.
 	# ======================================================================
 
-	# Ork Warboss / Boss Zagstruk / Speedboss — +1 to melee hit rolls
+	# Might is Right — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Might is Right": {
-		"condition": "while_leading",
-		"effects": [{"type": "plus_one_hit"}],
-		"target": "led_unit",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
+		"target": "unit",
 		"attack_type": "melee",
 		"implemented": true,
-		"description": "+1 to melee Hit rolls for led unit"
-	},
-
-	# Ork Warboss on Warbike — same as Might is Right
-	"Speedboss": {
-		"condition": "while_leading",
-		"effects": [{"type": "plus_one_hit"}],
-		"target": "led_unit",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "+1 to melee Hit rolls for led unit"
+		"description": "If this unit made a charge move this turn, this model's melee attacks have +3 A and +2 S (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# Ork Boss Zagstruk — same as Might is Right
@@ -90,36 +81,37 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "+1 to melee Hit rolls for led unit"
 	},
 
-	# Ork Ghazghkull Thraka — +1 to melee Hit AND Wound rolls; Crit Hit 5+ during Waaagh!
+	# Prophet of Da Great Waaagh! — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Prophet of Da Great Waaagh!": {
-		"condition": "while_leading",
-		"effects": [{"type": "plus_one_hit"}, {"type": "plus_one_wound"}],
-		# OA-20: Waaagh!-conditional effects applied by FactionAbilityManager._apply_waaagh_effects()
-		"waaagh_effects": [{"type": "crit_hit_on", "value": 5}],
-		"target": "led_unit",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
+		"target": "unit",
 		"attack_type": "melee",
 		"implemented": true,
-		"description": "+1 to melee Hit and Wound rolls for led unit. During Waaagh!: Critical Hits on 5+"
+		"description": "Aura: friendly ORKS units within 6\" — melee attacks have +1 to hit and +1 to wound (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
-	# Ork Big Mek in Mega Armour — re-roll Hit rolls of 1 (ranged)
+	# More Dakka — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"More Dakka": {
-		"condition": "while_leading",
-		"effects": [{"type": "reroll_hits", "scope": "ones"}],
-		"target": "led_unit",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
+		"target": "unit",
 		"attack_type": "ranged",
 		"implemented": true,
-		"description": "Re-roll ranged Hit rolls of 1 for led unit"
+		"description": "This unit's ranged attacks have [IGNORES COVER]; while riled up, [SUSTAINED HITS 1] (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
-	# Ork Big Mek — Kustom Force Field wargear: 4+ invulnerable save vs ranged attacks
+	# Kustom Force Field — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Kustom Force Field": {
-		"condition": "while_leading",
-		"effects": [{"type": "grant_invuln", "value": 4}],
-		"target": "led_unit",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
+		"target": "unit",
 		"attack_type": "ranged",
 		"implemented": true,
-		"description": "4+ invulnerable save against ranged attacks for led unit"
+		"description": "This unit has a 4+ invulnerable save against ranged attacks (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# Ork Kaptin Badrukk — re-roll Hit rolls (all, ranged)
@@ -130,26 +122,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "ranged",
 		"implemented": true,
 		"description": "Re-roll all ranged Hit rolls for led unit"
-	},
-
-	# Ork Boss Snikrot — led unit has Benefit of Cover
-	"Red Skull Kommandos": {
-		"condition": "while_leading",
-		"effects": [{"type": "grant_cover"}],
-		"target": "led_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Led unit has Benefit of Cover"
-	},
-
-	# Ork Painboy / Mad Dok Grotsnik — led unit has Feel No Pain 5+
-	"Dok's Toolz": {
-		"condition": "while_leading",
-		"effects": [{"type": "grant_fnp", "value": 5}],
-		"target": "led_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Led unit has Feel No Pain 5+"
 	},
 
 	"Mad Dok": {
@@ -171,62 +143,352 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Led unit can charge after falling back"
 	},
 
-	# Custodes Blade Champion — re-roll Charge rolls
+	# Swift Onslaught — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Swift Onslaught": {
-		"condition": "while_leading",
-		"effects": [{"type": "reroll_charge"}],
-		"target": "led_unit",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Re-roll Charge rolls for led unit"
+		"description": "This unit can re-roll advance rolls and charge rolls (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# ======================================================================
 	# ALWAYS-ON UNIT ABILITIES
 	# ======================================================================
 
-	# Custodes Custodian Guard — re-roll Wound rolls of 1; re-roll all Wounds while on controlled objective
+	# Stand Vigil — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Stand Vigil": {
-		"condition": "always",
-		"effects": [{"type": "reroll_wounds", "scope": "ones"}],
-		"objective_upgrade_effects": [{"type": "reroll_wounds", "scope": "all"}],
-		"target": "unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Re-roll Wound rolls of 1. While within range of controlled objective, re-roll all Wound rolls instead."
-	},
-
-	# Ork Battlewagon — worsen AP of incoming attacks by 1
-	"Ramshackle": {
-		"condition": "always",
-		"effects": [{"type": "worsen_ap", "value": 1}],
-		"target": "unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Worsen AP of incoming attacks by 1"
-	},
-
-	# Ork Boyz — sticky objectives
-	# At end of Command phase, if unit is within range of a controlled objective,
-	# that objective remains under your control until opponent controls it.
-	# Resolved by MissionManager.apply_sticky_objectives() — not a combat effect.
-	"Get Da Good Bitz": {
-		"condition": "end_of_command",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Sticky objectives — resolved by MissionManager at end of Command phase"
+		"description": "While this unit or its target is within range of an objective, its attacks have [LETHAL HITS: non-MONSTER/VEHICLE] (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
-	# Custodes Witchseekers — FNP 3+ vs Psychic/mortal wounds only
-	"Daughters of the Abyss": {
-		"condition": "always",
-		"effects": [{"type": "grant_fnp_psychic_mortal", "value": 3}],
+	# Vengeful Surge — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Vengeful Surge": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Feel No Pain 3+ against Psychic Attacks and mortal wounds only"
+		"description": "Once per battle, in your opponent's Shooting phase, when an enemy unit has shot and a model in this unit lost a wound: a surge move of up to D6+2\" (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Praesidium Shield — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Praesidium Shield": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Shield-Captain: attacks allocated to this model have -1 D. Sentinel Guard Sodality: attacks that target this unit with S greater than its T have -1 to wound (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Archeotech Teleport-shunter — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Archeotech Teleport-shunter": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle, in your Movement phase, if unengaged and not selected to move: strategic reserves, and it must make an ingress move this phase (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Living Fortress — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Living Fortress": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target this unit have -1 AP (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Vexilla — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Vexilla": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit has +1 OC (army list) and can ignore modifiers to its Ld (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Slayer of Tyrants — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Slayer of Tyrants": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "This unit's melee attacks that target a unit with a higher T have +1 to wound (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Unyielding Ancient — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Unyielding Ancient": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target this unit with S greater than its T have -1 to wound (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Destructor Optics — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Destructor Optics": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "This unit's ranged attacks that target a non-MONSTER/VEHICLE unit have +1 AP (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Repulsor Suspensor Technology — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Repulsor Suspensor Technology": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per phase, in your opponent's Shooting phase, when an enemy unit has shot and this unit lost a wound: a normal move of up to D6\" (unengaged) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Assault Vehicle — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Assault Vehicle": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": false,  # WP-C7: no shock disembark move in the core rules (custodes_abilities_audit.md)
+		"description": "In your Movement phase, when this unit ends an advance move, units embarked within it can make a shock disembark move (not implemented: the core rules in docs/ define no shock disembark move) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Mobile Hunter — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Mobile Hunter": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Shooting phase, when this unit has shot: a normal move of up to D6\"; not eligible to declare a charge until the end of the turn (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Assault Dropship — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Assault Dropship": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "A friendly ADEPTUS CUSTODES unit that tactical-disembarks from this unit can advance and still declare a charge (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Infernus Firebombs — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Infernus Firebombs": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "End of your opponent's Fight phase: one visible enemy unit within 24\" — ranged attacks vs it [IGNORES COVER] until the end of your next turn; D6 per model, 6 = 1 mortal wound (max 6) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Sword of the Throne — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Sword of the Throne": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "At the start of the first battle round (and each time it is destroyed) select one enemy unit as this model's mark: its attacks vs the mark have +1 to wound (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Seeker's Instincts — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Seeker's Instincts": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit has +2\" M and can re-roll advance rolls and charge rolls (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Corner the Quarry — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Corner the Quarry": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Enemy non-MONSTER/VEHICLE units engaged with this unit must use desperate escape to fall back (-1 to those hazard rolls while battle-shocked) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Impenetrable Defence — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Impenetrable Defence": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While this unit or its target is within range of an objective, its attacks have [SUSTAINED HITS 1: non-MONSTER/VEHICLE] (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Take Wing — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Take Wing": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "End of your opponent's Fight phase, if unengaged: place this unit in strategic reserves (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Neutronium Cascade Mine — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Neutronium Cascade Mine": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle, at the start of any phase: one enemy unit within 3\" — D6, on a 2+ D3 mortal wounds (2D3 vs VEHICLE/MONSTER) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Swift Ruin — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Swift Ruin": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per phase, per army: Rapid Ingress can target this unit regardless of other uses, at -1 CP, without blocking other uses (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Death Blow — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Death Blow": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "If this unit made a charge move this turn, its melee attacks have +1 AP (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Deft Parry — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Deft Parry": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Melee attacks that target this unit have -1 to hit (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Reap a Terrible Tally — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Reap a Terrible Tally": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit's attacks that target an INFANTRY unit can re-roll hit rolls of 1 and wound rolls of 1 (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Strike from the Skies — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Strike from the Skies": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "In your Shooting phase, if this unit made an ingress move this turn, its ranged attacks can re-roll hit rolls (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# SUPREME COMMANDER — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"SUPREME COMMANDER": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "If this model is in your army, it must be your WARLORD (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Codex: Adeptus Custodes (11e) ARMY RULES — resolved by
+	# scripts/codex/custodes/CustodesKatah.gd (WP-C3), not by flags from this
+	# table: Daughters of the Abyss / Psychic Null and Aegis of the Emperor are
+	# read by RulesEngine.get_unit_fnp_vs on every damage / mortal-wound path,
+	# Martial Ka'tah + Master of Ka'tahs ride the stratagem windows, Aquila
+	# Commander resolves at the start of the battle round.
+	"Daughters of the Abyss": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Feel No Pain 3+ against psychic attacks; Psychic Null (Aura): friendly ADEPTUS CUSTODES units within 6\" have Feel No Pain 5+ against psychic attacks (CustodesKatah.gd)"
+	},
+	"Aegis of the Emperor": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Feel No Pain 5+ against mortal wounds (CustodesKatah.gd)"
+	},
+	"Martial Ka'tah": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Readied at the start of your Command phase; one ka'tah ability per readying, offered in its window (CustodesKatah.gd)"
+	},
+	"Master of Ka'tahs": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle round, per unit: if this unit is not readied, it is readied — offered on the ka'tah cards (CustodesKatah.gd)"
+	},
+	"Aquila Commander": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Start of the battle round: +1CP if this model is your WARLORD (CustodesKatah.gd)"
 	},
 
 	# Custodes Trajann Valoris — Feel No Pain 5+ (permanent, unconditional)
@@ -239,17 +501,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Feel No Pain 5+ — each time this model would lose a wound, roll D6: on 5+ that wound is not lost"
 	},
 
-	# Custodes Blade Champion — once per battle advance and charge
-	"Martial Inspiration": {
-		"condition": "while_leading",
-		"effects": [{"type": "advance_and_charge"}],
-		"target": "led_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: charge after advancing"
-	},
-
 	# Vertus Praetors, Outrider Squad, etc. — skip advance roll, auto +6" to Move
 	"Turbo-boost": {
 		"condition": "always",
@@ -260,14 +511,15 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "When advancing, do not roll — add 6\" to Move instead"
 	},
 
-	# Deffkilla Wartrike — skip advance roll, auto +6" to Move
+	# Fuel-mixa Grot — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Fuel-mixa Grot": {
-		"condition": "always",
-		"effects": [{"type": "auto_advance_6"}],
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "When advancing, do not roll — add 6\" to Move instead"
+		"description": "This unit has +1 to advance rolls (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# Warboss on Warbike — skip advance roll, auto +6" to Move
@@ -291,14 +543,15 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "End of Fight phase: Fall Back D6\" if in engagement. End of opponent's turn: vanish if not within 3\" of enemies, reappear next Movement phase >9\" from enemies."
 	},
 
-	# Ork Stormboyz — eligible to charge after Advancing or Falling Back
+	# Full Throttle — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Full Throttle": {
-		"condition": "always",
-		"effects": [{"type": "advance_and_charge"}, {"type": "fall_back_and_charge"}],
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Unit is eligible to charge in a turn in which it Advanced or Fell Back"
+		"description": "Command phase: select one Throttlerokkit Shokka Engine ability (Turbo Engine / Shokk Attack Engine); this unit has it until the start of your next Command phase (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# OA-23: Boss Zagstruk — re-roll Charge rolls when arriving from Reserves this turn
@@ -311,25 +564,26 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Re-roll Charge rolls if this unit was set up from Reserves this turn"
 	},
 
-	# OA-24: Boss Snikrot — once per battle, redeploy unit instead of Normal move
+	# Kunnin' Infiltrator — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Kunnin' Infiltrator": {
-		"condition": "instead_of_normal_move",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: instead of Normal move, remove unit and redeploy 9\"+ from all enemies"
+		"description": "End of your opponent's Fight phase: if each model in this unit is hidden and unengaged, place it in strategic reserves (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
-	# OA-25: Deffkoptas — mortal wounds after Normal move over enemy units
+	# Deff from Above — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Deff from Above": {
-		"condition": "after_normal_move",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
 		"effects": [],
-		"target": "enemy_moved_over",
-		"attack_type": "all",
+		"target": "unit",
+		"attack_type": "ranged",
 		"implemented": true,
-		"description": "After Normal move, select one enemy unit moved over — roll D6 per model, 4+ = 1 mortal wound"
+		"description": "In your Shooting phase, if this unit made an ingress move this turn, its ranged attacks have +1 to hit (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# OA-42: Grot Tanks — reactive 6" Normal move when enemy ends move within 9"
@@ -343,25 +597,15 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per turn, when an enemy unit ends a Normal, Advance or Fall Back move within 9\" of this unit, if not within Engagement Range, can make a Normal move of up to 6\""
 	},
 
-	# Custodes Custodian Guard — once per battle shoot again after shooting
-	"Sentinel Storm": {
-		"condition": "always",
+	# Sanctified Flames — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Sanctified Flames": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "ranged",
 		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: shoot again after this unit has shot"
-	},
-
-	# Custodes Witchseekers — force Battle-shock test after shooting
-	"Sanctified Flames": {
-		"condition": "after_shooting",
-		"effects": [],
-		"target": "enemy_hit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "After shooting, one enemy unit hit must take a Battle-shock test"
+		"description": "Your Shooting phase, when this unit has shot: select one enemy unit hit — it makes a battle-shock roll (-1 if PSYKER) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# Deadly Demise — mortal wounds when destroyed (Battlewagon D6, Caladius D3, Telemon D3, Contemptor-Achillus 1)
@@ -396,49 +640,38 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Enemy units cannot use Fire Overwatch to shoot at this unit"
 	},
 
-	# Ork Kommandos — unit splitting at deployment (T-026, same mechanic as
-	# Combat Squads). Data-layer helper in GameState.split_unit_at_deployment.
-	"Patrol Squad": {
+	# Ork Kommandos — Taktikal Know-wotz (Codex: Orks 11e; re-key of the
+	# pre-codex Patrol Squad): split into two 5-model units (one keeps Bomb
+	# Squig, the other Found 'Em!). GameState.split_unit_at_deployment.
+	"Taktikal Know-wotz": {
 		"condition": "deployment",
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "At deployment, can split into two 5-model units via GameState.split_unit_at_deployment"
+		"description": "Split into two 5-model units: one has Bomb Squig, the other Found 'Em! (GameState.split_unit_at_deployment)"
 	},
 
-	# Ork Kommandos wargear — once per battle 5+ invuln save
-	"Distraction Grot": {
-		"condition": "opponent_shooting",
-		"effects": [{"type": "grant_invuln", "value": 5}],
-		"target": "unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: 5+ invulnerable save when targeted in opponent's Shooting phase"
-	},
-
-	# Ork wargear — once per battle per squig, mortal wounds after normal move
-	# OA-30: Kommandos have 1 squig, Tankbustas have 2 (tracked independently)
+	# Bomb Squigs — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Bomb Squigs": {
-		"condition": "after_normal_move",
-		"effects": [],
-		"target": "enemy_within_12",
-		"attack_type": "all",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle per squig: after Normal move, select enemy within 12\" — on 3+, D3 mortal wounds"
-	},
-
-	# Custodes Shield-captain On Dawneagle Jetbike — once per battle move at end of fight phase
-	"Sweeping Advance": {
-		"condition": "end_of_fight_phase",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: at end of Fight phase, if unit fought — Fall Back (if in engagement) or Normal Move (if not)"
+		"description": "Once per turn, twice per battle: after a normal move, one visible enemy unit within 12\" — D6, on a 3+ it suffers D3 mortal wounds (Codex: Orks 11e — OrkAbilities11e)."
+	},
+
+	# Sweeping Advance — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Sweeping Advance": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle, at the end of the Fight phase, if this unit was eligible to fight: a normal move (unengaged) or a fall-back move (engaged) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# Damaged Profile — -1 to hit when at low wounds (Battlewagon, Caladius, Telemon)
@@ -454,97 +687,61 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "-1 to Hit rolls when at low wounds (checked directly in RulesEngine)"
 	},
 
-	# Custodes Caladius Grav-tank — conditional Lethal Hits by weapon/target type
+	# Advanced Firepower — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Advanced Firepower": {
-		"condition": "always",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "ranged",
-		"implemented": true,
-		"description": "Twin iliastus accelerator cannon: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus heavy blaze cannon: Lethal Hits vs MONSTER/VEHICLE. Checked directly in RulesEngine."
+		"implemented": false,  # WP-C7: not implemented yet (single-die re-rolls; see custodes_abilities_audit.md)
+		"description": "This unit's ranged attacks that target a MONSTER/VEHICLE unit can re-roll one hit roll, one wound roll and one damage roll (Codex: Adeptus Custodes 11e) — NOT IMPLEMENTED yet."
 	},
 
-	# Custodes Shield-Captain — once per battle, both Ka'tah stances active simultaneously
-	# Resolved in FightPhase when unit is selected to fight (during Ka'tah stance selection).
-	# When activated, sets BOTH effect_sustained_hits AND effect_lethal_hits flags.
-	"Master of the Stances": {
-		"condition": "on_fight_selection",
-		"effects": [],
-		"target": "unit",
-		"attack_type": "melee",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: both Ka'tah stances active simultaneously during this fight"
-	},
-
-	# Custodes Shield-Captain — once per battle round, reduce stratagem CP cost by 1
-	# Resolved in StratagemManager when a stratagem targets this unit.
-	# The CP discount is applied automatically when the Shield-Captain's unit is targeted.
-	"Strategic Mastery": {
-		"condition": "passive",
-		"effects": [],
-		"target": "unit",
-		"attack_type": "all",
-		"implemented": true,
-		"once_per_battle_round": true,
-		"description": "Once per battle round: reduce CP cost of a Stratagem targeting this unit by 1"
-	},
-
-	# Custodes Trajann Valoris — ignore hit/wound modifiers while leading
-	# Resolved directly in RulesEngine.has_captain_general() during hit modifier assembly.
+	# Captain-General — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Captain-General": {
-		"condition": "while_leading",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
-		"target": "led_unit",
+		"target": "unit",
 		"attack_type": "all",
+		"aura_range": 6.0,
+		"aura_target": "friendly",
 		"implemented": true,
-		"description": "While leading, ignore any/all modifiers to BS/WS and Hit roll"
+		"description": "Aura: friendly ADEPTUS CUSTODES units (excluding MONSTER/VEHICLE) within 6\" can re-roll hit rolls of 1 and wound rolls of 1 (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
-	# Custodes Trajann Valoris — once per battle, 12 attacks OR 2+ invuln
-	# Resolved directly in FightPhase at start of Fight phase.
+	# Moment Shackle — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Moment Shackle": {
-		"condition": "start_of_fight",
-		"effects": [],
-		"target": "unit",
-		"attack_type": "melee",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle at start of Fight: Watcher's Axe gets 12 Attacks OR model gets 2+ invuln"
-	},
-
-	# Custodes Allarus — re-roll wounds vs CHARACTER/MONSTER/VEHICLE
-	# Resolved directly in RulesEngine.has_slayers_of_tyrants_vs_target().
-	"Slayers of Tyrants": {
-		"condition": "always",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Re-roll Wound rolls when targeting CHARACTER, MONSTER or VEHICLE units"
+		"description": "Once per battle, per army, at the start of any phase: until the end of the phase the Watcher's Axe has +3 A, or this model has a 3+ invulnerable save (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
-	# Custodes Prosecutors — Precision + Devastating Wounds vs PSYKER (ranged only)
-	# Resolved directly in RulesEngine.has_purity_of_execution_vs_target().
+	# Purity of Execution — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Purity of Execution": {
-		"condition": "always",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "ranged",
 		"implemented": true,
-		"description": "Ranged attacks vs PSYKER have [PRECISION] and [DEVASTATING WOUNDS]"
+		"description": "Your Shooting phase: select one visible enemy unit within 18\" — it is detected (+3\" detection range) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
-	# Custodes Vertus Praetors — once per battle, mortal wounds on fly-over
-	# Resolved directly in MovementPhase after Normal/Advance move.
+	# Quicksilver Execution — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Quicksilver Execution": {
-		"condition": "after_normal_move",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
-		"target": "enemy_moved_over",
-		"attack_type": "all",
+		"target": "unit",
+		"attack_type": "melee",
 		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: after Normal/Advance move, select enemy unit moved over (excl. MONSTER/VEHICLE) — each model rolls D6, 2+ = 2 mortal wounds"
+		"description": "If this unit made a charge move this turn, its melee attacks have [SUSTAINED HITS 1] (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# Callidus Assassin — aura: +1 CP to enemy stratagems within 12"
@@ -594,51 +791,26 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "While leading, can embark in any TRANSPORT the bodyguard can. N/A: no transports in current list."
 	},
 
-	# Custodes Telemon Heavy Dreadnought — +2 Attacks in melee.
-	# 40kdc 11e models this as a "dual-melee" conditional (+2 A, attack_type
-	# melee); the dual-melee wargear keyword isn't modeled in rosters yet, so
-	# the melee bonus applies unconditionally (matches the shipped card text).
-	"Devoted to Destruction": {
-		"condition": "always",
-		"effects": [{"type": "plus_attacks", "value": 2}],
-		"target": "unit",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "Add 2 to the Attacks characteristic of this model's melee weapons"
-	},
-
-	# Custodes Contemptor-Achillus Dreadnought — mortal wounds on fight selection
-	# Resolved directly in FightPhase when unit is selected to fight.
-	# Roll 1D6 (+2 if charged): on 4-5, target suffers D3 mortal wounds; on 6+, 3 mortal wounds.
+	# Dread Foe — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
 	"Dread Foe": {
-		"condition": "on_fight_selection",
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
-		"target": "enemy_in_engagement",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "When selected to fight, select one enemy in Engagement Range and roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW"
-	},
-
-	# OA-36: Ork Deff Dread — mortal wounds after completing a Charge move
-	# Resolved directly in ChargePhase after charge move completes.
-	# Roll 1D6: on 2-5, target suffers D3 mortal wounds; on 6, target suffers D3+3 mortal wounds.
-	"Piston-driven Brutality": {
-		"condition": "on_charge_end",
-		"effects": [],
-		"target": "enemy_in_engagement",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "After Charge move, select one enemy in Engagement Range and roll D6: 2-5 = D3 MW, 6 = D3+3 MW"
-	},
-
-	# Custodes Telemon Heavy Dreadnought — -1 Damage to incoming attacks
-	"Guardian Eternal": {
-		"condition": "always",
-		"effects": [{"type": "minus_damage", "value": 1}],
 		"target": "unit",
-		"attack_type": "all",
+		"attack_type": "melee",
 		"implemented": true,
-		"description": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack."
+		"description": "This unit's melee attacks that target a non-MONSTER/VEHICLE unit have +1 AP (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+	},
+
+	# Guardian Eternal — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
+	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	"Guardian Eternal": {
+		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Ranged attacks that target this unit have -1 D (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# Space Marines Intercessor Squad — sticky objectives
@@ -703,174 +875,73 @@ const ABILITY_EFFECTS: Dictionary = {
 	# These trigger at specific phase boundaries and require active resolution.
 	# ======================================================================
 
-	# Ork Painboss — heal friendly BEAST SNAGGA CHARACTER 3 wounds at end of Movement phase
-	"Sawbonez": {
-		"condition": "end_of_movement",
-		"effects": [],
-		"target": "friendly_beast_snagga_character",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "At end of Movement phase, select one friendly BEAST SNAGGA CHARACTER within 3\" — regain up to 3 lost wounds"
-	},
-
-	# Ork Trukk — regain 1 lost wound at start of Command phase
-	"Grot Riggers": {
-		"condition": "start_of_command",
+	# Fix Dat Armour Up — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
+	"Fix Dat Armour Up": {
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "At the start of your Command phase, this model regains 1 lost wound"
-	},
-
-	# Ork Painboss wargear — once per battle return D3 destroyed Bodyguard models at start of Command phase
-	"Grot Orderly": {
-		"condition": "start_of_command",
-		"effects": [],
-		"target": "led_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: at start of Command phase, if bearer's unit is below Starting Strength, return up to D3 destroyed Bodyguard models"
-	},
-
-	# Ork Big Mek in Mega Armour — return 1 destroyed Bodyguard model each Command phase while leading
-	"Fix Dat Armour Up": {
-		"condition": "start_of_command",
-		"effects": [],
-		"target": "led_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "While this model is leading a unit, in your Command phase, you can return 1 destroyed Bodyguard model to that unit"
+		"description": "Once per battle, in your Command phase: this unit heals 3 wounds (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# ======================================================================
 	# PHASE-TRIGGERED ABILITIES (Movement phase etc.)
 	# ======================================================================
 
-	# Ork Mek / Big Mek on Warbike / Meka-dread — heal D3 + grant +1 Hit to friendly Orks Vehicle
-	# at end of Movement phase. Once per vehicle per turn.
-	"Mekaniak": {
-		"condition": "end_of_movement",
-		"effects": [],
-		"target": "friendly_orks_vehicle",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "At end of Movement phase, select one friendly Orks Vehicle within 3\" — regain up to D3 lost wounds and +1 to Hit until start of next Movement phase. Once per vehicle per turn."
-	},
-
-	# Ork Weirdboy — teleport unit at end of Movement phase
-	# Once per turn, roll D6: on 1, unit suffers D6 mortal wounds;
-	# on 2+, remove unit and redeploy 9"+ from enemies.
-	# Requires MovementPhase integration for prompt and resolution.
+	# Da Jump — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Da Jump": {
-		"condition": "end_of_movement",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"once_per_turn": true,
-		"description": "Once per turn: at end of Movement phase, roll D6: on 1, unit suffers D6 mortal wounds; on 2+, teleport unit 9\"+ from enemies (USE_DA_JUMP / PLACE_DA_JUMP actions)"
+		"description": "Psychic (level 1, once per army per battle round), Movement phase: psychic roll — on a 1 battle-shocked; place this unit in strategic reserves, it has Deep Strike (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# ======================================================================
 	# LEADER ABILITIES — Weapon modifiers based on unit size
 	# ======================================================================
 
-	# Ork Weirdboy — 'Eadbanger gains +1 S and +1 D per 5 models in led unit
-	# Hazardous at 10+ models. Requires dynamic weapon stat modification
-	# based on attached unit model count. Not auto-applied via flag system.
+	# Waaagh! Energy — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Waaagh! Energy": {
-		"condition": "while_leading",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
 		"effects": [],
-		"target": "model",
-		"attack_type": "ranged",
+		"target": "unit",
+		"attack_type": "all",
 		"implemented": true,
-		"description": "+1 S and +1 D to 'Eadbanger per 5 models in led unit; HAZARDOUS at 10+ models — UnitAbilityManager.get_waaagh_energy_eadbanger_bonus(weirdboy_id)"
+		"description": "Psyker level 1: this model has the psychic abilities Da Jump and Warpath (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# ======================================================================
 	# COMBAT ABILITIES — Weapon stat modifiers based on targeting conditions
 	# ======================================================================
 
-	# Ork Flash Gitz — snazzgun Attacks = 4 when targeting closest eligible enemy
-	# Handled directly in RulesEngine._resolve_ranged_assignment() and _resolve_assignment():
-	# checks if weapon is a snazzgun and target is closest eligible, then overrides attacks to 4.
-	"Gun-crazy Show-offs": {
-		"condition": "always",
-		"effects": [],
-		"target": "unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "Snazzgun Attacks = 4 when targeting closest eligible enemy — checked directly in RulesEngine"
-	},
-
 	# ======================================================================
 	# WARGEAR ABILITIES — Ammo Runt (OA-10)
 	# ======================================================================
-
-	# Ork Nobz / Flash Gitz — once per battle per ammo runt, Lethal Hits on ranged weapons
-	# Nobz can have up to 2 ammo runts; Flash Gitz have 1.
-	# Triggered when unit is selected to shoot — prompt offered in ShootingPhase.
-	# The ammo runt count is stored in ability dict as "count" field (default 1).
-	"Ammo Runt": {
-		"condition": "on_shooting_selection",
-		"effects": [{"type": "grant_lethal_hits"}],
-		"target": "unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle per ammo runt: ranged weapons gain [LETHAL HITS] for the phase"
-	},
 
 	# ======================================================================
 	# WARGEAR ABILITIES — Pulsa Rokkit (OA-31), Grot Oiler (OA-32)
 	# ======================================================================
 
-	# Ork Tankbustas — once per battle, when unit is selected to shoot:
-	# +1 Strength and +1 AP to all ranged weapons for the phase.
-	# Triggered when unit is selected to shoot — prompt offered in ShootingPhase.
+	# Pulsa Rokkit — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Pulsa Rokkit": {
-		"condition": "on_shooting_selection",
-		"effects": [{"type": "improve_strength"}, {"type": "improve_ap"}],
-		"target": "unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: +1 Strength and +1 AP to ranged weapons for the phase"
-	},
-
-	# Ork Big Mek / Mek — once per battle, at the end of your Movement phase:
-	# One model in the bearer's unit regains D3 lost wounds.
-	# Triggered at end of Movement phase — prompt offered in MovementPhase.
-	# OA-32: Grot Oiler wargear ability
-	"Grot Oiler": {
-		"condition": "end_of_movement",
-		"effects": [{"type": "heal_d3"}],
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: one model in bearer's unit regains D3 lost wounds at end of Movement phase"
+		"description": "Once per battle, when selected to shoot: select one enemy MONSTER/VEHICLE unit within 24\" — this unit's attacks that target it have +1 AP and [LETHAL HITS] (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# ======================================================================
 	# WARGEAR ABILITIES — Shooty Power Trip (OA-37)
 	# ======================================================================
-
-	# Ork Killa Kans — each time this unit is selected to shoot, player may roll D6:
-	# 1-2: Unit suffers D3 mortal wounds.
-	# 3-4: +1 Strength to ranged weapons for the phase.
-	# 5-6: +1 Attacks to ranged weapons for the phase.
-	# Not once per battle — can be used every time the unit shoots.
-	"Shooty Power Trip": {
-		"condition": "on_shooting_selection",
-		"effects": [{"type": "random_d6_effect"}],
-		"target": "unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "When selected to shoot, roll D6: 1-2 = D3 mortal wounds to self, 3-4 = +1 Strength, 5-6 = +1 Attacks to ranged weapons"
-	},
 
 	# ======================================================================
 	# TARGET-CONDITIONAL ABILITIES — bonuses based on target keywords
@@ -907,51 +978,15 @@ const ABILITY_EFFECTS: Dictionary = {
 	# These are checked directly in RulesEngine where both attacker and target are known.
 	# ======================================================================
 
-	# Ork Big Gunz — re-roll Hit rolls of 1 when targeting units with 10+ models.
-	# Ork Mek Gunz — re-roll Hit rolls of 1 when at Starting Strength and targeting
-	# non-MONSTER/VEHICLE units.
-	# The specific condition is determined by the unit's meta.name in RulesEngine.
-	"Splat!": {
-		"condition": "target_conditional",
-		"effects": [{"type": "reroll_hits", "scope": "ones"}],
-		"target": "unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "Big Gunz: re-roll Hit rolls of 1 vs 10+ model targets. Mek Gunz: re-roll Hit rolls of 1 at Starting Strength vs non-MONSTER/VEHICLE — checked directly in RulesEngine"
-	},
-
-	# Ork Wazbom Blastajet — re-roll Hit rolls of 1 when targeting non-FLY units (OA-40)
-	# The FLY keyword check is performed directly in RulesEngine.
-	"Blastajet Attack Run": {
-		"condition": "target_conditional",
-		"effects": [{"type": "reroll_hits", "scope": "ones"}],
-		"target": "unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "Re-roll Hit rolls of 1 when targeting non-FLY units — checked directly in RulesEngine"
-	},
-
-	# Ork Wazbom Blastajet — kustom force field wargear: 4+ invulnerable save.
-	# 40kdc 11e: {"type": "invulnerable-save", "modifier": {"invuln_sv": 4}} —
-	# unconditional 4++ (statline carries 6++; save resolution takes the better).
+	# Blastajet Force Field — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Blastajet Force Field": {
-		"condition": "always",
-		"effects": [{"type": "grant_invuln", "value": 4}],
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "This model has a 4+ invulnerable save"
-	},
-
-	# Ork Warbikers / Wartrakks — improve AP by 1 for ranged attacks vs targets within 9"
-	"Drive-by Dakka": {
-		"condition": "target_within_range",
-		"range_inches": 9.0,
-		"effects": [{"type": "improve_ap", "value": 1}],
-		"target": "unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "Improve AP by 1 for ranged attacks against targets within 9\" — checked directly in RulesEngine save resolution"
+		"description": "This unit has a 5+ invulnerable save (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# Ork Nobz On Warbikes — Consolidation distance is 6" instead of 3" (OA-26)
@@ -963,28 +998,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "melee",
 		"implemented": true,
 		"description": "Consolidation distance is 6\" instead of 3\" — checked directly in FightPhase"
-	},
-
-	# Ork Morkanaut/Gorkanaut — can move over non-MONSTER/VEHICLE enemy models and terrain ≤4" (OA-28)
-	# Checked directly in MovementPhase movement validation.
-	"Clankin' Forward": {
-		"condition": "always",
-		"effects": [{"type": "move_over_non_monster_vehicle"}, {"type": "move_over_short_terrain", "max_height": 4.0}],
-		"target": "unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Can move over enemy models (excluding MONSTER/VEHICLE) and terrain ≤4\" height during Normal, Advance, or Fall Back moves"
-	},
-
-	# Ork Stompa — can move over all non-TITANIC models and terrain ≤4" (OA-29)
-	# Checked directly in MovementPhase movement validation.
-	"Stompin' Forward": {
-		"condition": "always",
-		"effects": [{"type": "move_over_non_titanic"}, {"type": "move_over_short_terrain", "max_height": 4.0}],
-		"target": "unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Can move over all non-TITANIC models and terrain ≤4\" height during Normal, Advance, or Fall Back moves"
 	},
 
 	# Ork Warbuggies — can deploy in opponent's deployment zone from Strategic Reserves (OA-27)
@@ -1010,18 +1023,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Every successful Hit roll scores a Critical Hit (ranged attacks only) — checked directly in RulesEngine"
 	},
 
-	# Ork Nobz — subtract 1 from incoming Wound rolls when attack S > unit T,
-	# but only while a Warboss model is leading the unit.
-	# Checked directly in RulesEngine wound modifier collection (all 4 paths).
-	"Da Boss' Ladz": {
-		"condition": "while_warboss_leading",
-		"effects": [{"type": "minus_one_wound_incoming", "requirement": "strength_gt_toughness"}],
-		"target": "unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "While a Warboss leads this unit, subtract 1 from incoming Wound rolls when attack S > unit T — checked directly in RulesEngine"
-	},
-
 	# Ork Burna Boyz / Skorchas — re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6"
 	# Full Wound re-roll if target is also within range of an objective marker.
 	# Checked directly in RulesEngine where both weapon type and board are available.
@@ -1042,38 +1043,15 @@ const ABILITY_EFFECTS: Dictionary = {
 	# These are tracked but not auto-applied; they require game state conditions.
 	# ======================================================================
 
-	# Ork Warboss — +4 attacks while Waaagh! active
-	# Handled directly in RulesEngine._resolve_melee_assignment() when waaagh_active flag is set
-	"Da Biggest and da Best": {
-		"condition": "waaagh_active",
-		"effects": [],
-		"target": "model",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "+4 melee Attacks while Waaagh! active — applied in RulesEngine melee resolution"
-	},
-
-	# Ork Warboss in Mega Armour — weapon damage 3 while Waaagh! active
-	# Handled directly in RulesEngine._resolve_melee_assignment() when waaagh_active flag is set
-	"Dead Brutal": {
-		"condition": "waaagh_active",
-		"effects": [],
-		"target": "model",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "Weapon damage = 3 while Waaagh! active — applied in RulesEngine melee resolution"
-	},
-
-	# Ork Meganobz — Feel No Pain 5+ while Waaagh! is active (OA-17)
-	# Applied/cleared by FactionAbilityManager._apply_waaagh_effects / _clear_waaagh_effects
-	# Does not stack with other FNP sources — get_unit_fnp() uses the better (lower) value
+	# Krumpin' Time — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Krumpin' Time": {
-		"condition": "waaagh_active",
-		"effects": [{"type": "grant_fnp", "value": 5}],
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
 		"target": "unit",
-		"attack_type": "all",
+		"attack_type": "melee",
 		"implemented": true,
-		"description": "Feel No Pain 5+ while Waaagh! is active — applied via FactionAbilityManager Waaagh! activation"
+		"description": "In the Fight phase, while this unit is riled up, its attacks have +1 to hit (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# OA-46: Nob with Waaagh! Banner — once per battle, unit gains Waaagh! effects for one round
@@ -1100,194 +1078,52 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "While Waaagh! active: 4+ invuln save and OC 5 — applied via FactionAbilityManager"
 	},
 
-	# Ork Morkanaut — +1 to Hit for ranged attacks while Waaagh! active (OA-41)
-	# Applied via FactionAbilityManager._apply_waaagh_effects, checked in RulesEngine shooting paths
+	# Big an' Shooty — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Big an' Shooty": {
-		"condition": "waaagh_active",
-		"effects": [{"type": "plus_one_hit"}],
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
 		"target": "unit",
 		"attack_type": "ranged",
 		"implemented": true,
-		"description": "+1 to Hit for ranged attacks while Waaagh! active — applied via FactionAbilityManager Waaagh! activation, checked in RulesEngine"
+		"description": "In your Shooting phase, this unit's ranged attacks can re-roll hit rolls of 1 (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
-	# Ork Gorkanaut — +1 to Hit for melee attacks while Waaagh! active (OA-41)
-	# Applied via FactionAbilityManager._apply_waaagh_effects, checked in RulesEngine melee path
+	# Big an' Stompy — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Big an' Stompy": {
-		"condition": "waaagh_active",
-		"effects": [{"type": "plus_one_hit"}],
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
 		"target": "unit",
 		"attack_type": "melee",
 		"implemented": true,
-		"description": "+1 to Hit for melee attacks while Waaagh! active — applied via FactionAbilityManager Waaagh! activation, checked in RulesEngine"
-	},
-
-	# Ork Painboy — D6 mortal wounds on Critical Wound with 'urty syringe vs non-VEHICLE (OA-19)
-	# Checked in RulesEngine._resolve_melee_assignment() after wound rolls.
-	# Only triggers for the 'urty syringe weapon, not other Painboy attacks.
-	"Hold Still and Say 'Aargh!'": {
-		"condition": "on_critical_wound",
-		"effects": [{"type": "mortal_wounds_d6"}],
-		"target": "attacked_enemy",
-		"attack_type": "melee",
-		"weapon_restriction": "'urty syringe",
-		"exclude_keywords": ["VEHICLE"],
-		"implemented": true,
-		"description": "On Critical Wound with 'urty syringe, target suffers D6 mortal wounds (excludes VEHICLE)"
+		"description": "This unit's melee attacks can re-roll hit rolls of 1 (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# ======================================================================
-	# Issue #374 — P0 enhancements (Custodes Shield Host + Ork War Horde).
+	# Issue #374 — P0 enhancements. The 10e Custodes Shield Host entries
+	# (Auric Mantle, Castellan's Mark, From the Hall of Armouries,
+	# Panoptispex) were retired with that detachment in WP-C46 (the codex
+	# enhancements live in scripts/codex/custodes/CustodesEnhancements.gd);
+	# the Ork War Horde rows moved to OrkEnhancements11e.gd with WP-O5.
 	# Registered with `condition: "enhancement"` so the existing
 	# _apply_enhancement_abilities pipeline picks them up via
 	# unit.meta.enhancements[]. Each enhancement bearer must be a CHARACTER
 	# (validated at army-build).
 	# ======================================================================
 
-	# Shield Host: Auric Mantle — "Add 2 to bearer's Wounds characteristic."
-	# Wounds is a list-build characteristic mutation (similar to Praesidium
-	# Shield), not a runtime flag. Marked implemented:false because the
-	# army-builder handles the +2 wound bump at army instantiation; this
-	# entry exists so the StatsCardPopup can show the rule text.
-	"Auric Mantle": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.PLUS_WOUNDS, "value": 2}],
-		"target": "bearer_model",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Shield-Captain or Blade Champion only. +2 Wounds on the bearer. ArmyListManager._apply_enhancement_stat_bonuses applies at army instantiation."
-	},
-
-	# Shield Host: Castellan's Mark — pure deployment-phase action (redeploy
-	# up to 2 units, optionally into Strategic Reserves). No combat flag;
-	# DeploymentPhase needs to recognise the bearer's enhancement to enable
-	# the redeploy UI. Marked implemented:false.
-	"Castellan's Mark": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Shield-Captain only. After deployment, redeploy up to 2 friendly Adeptus Custodes units (excluding Anathema Psykana); they can be placed into Strategic Reserves regardless of count limit. DeploymentPhase.execute_castellan_redeploy provides the resolution-side API; UI prompt to be wired by DeploymentPhase end-hook."
-	},
-
-	# Shield Host: From the Hall of Armouries — "+1 to Strength and Damage
-	# characteristics of the bearer's melee weapons."
-	"From the Hall of Armouries": {
-		"condition": "enhancement",
-		"effects": [
-			{"type": EffectPrimitivesData.PLUS_STRENGTH_MELEE, "value": 1},
-			{"type": EffectPrimitivesData.PLUS_DAMAGE, "value": 1}
-		],
-		"target": "bearer_model",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "Shield-Captain only. +1 Strength and +1 Damage on the bearer's melee weapons (sets effect_plus_strength_melee and effect_plus_damage on the bearer's unit)"
-	},
-
-	# Shield Host: Panoptispex — "While bearer is leading a unit, ranged
-	# weapons in that unit have [IGNORES COVER]."
-	"Panoptispex": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.GRANT_IGNORES_COVER}],
-		"target": "bearer_unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "Shield-Captain or Blade Champion only. While leading a unit, ranged weapons in that unit have IGNORES COVER (effect_ignores_cover)"
-	},
-
-	# War Horde: Follow Me Ladz — "While the bearer is leading a unit, add 2\"
-	# to the Move characteristic of models in that unit."
-	"Follow Me Ladz": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.PLUS_MOVE, "value": 2}],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "ORKS only. While leading a unit, +2\" Move on models in that unit (sets effect_plus_move=2; MovementPhase reads it)"
-	},
-
-	# War Horde: Headwoppa's Killchoppa — "Melee weapons (excluding Extra
-	# Attacks weapons) have the [DEVASTATING WOUNDS] ability."
-	"Headwoppa's Killchoppa": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.GRANT_DEVASTATING_WOUNDS}],
-		"target": "bearer_model",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "ORKS only. Bearer's melee weapons (excluding Extra Attacks) gain DEVASTATING WOUNDS (effect_devastating_wounds)"
-	},
-
-	# War Horde: Kunnin' But Brutal — "While bearer is leading a unit, that
-	# unit is eligible to shoot and declare a charge in a turn it Fell Back."
-	"Kunnin' But Brutal": {
-		"condition": "enhancement",
-		"effects": [
-			{"type": EffectPrimitivesData.FALL_BACK_AND_SHOOT},
-			{"type": EffectPrimitivesData.FALL_BACK_AND_CHARGE}
-		],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "ORKS only. While leading, the unit is eligible to shoot and charge after Fall Back (sets effect_fall_back_and_shoot + effect_fall_back_and_charge)"
-	},
-
-	# War Horde: Supa-Cybork Body — "The bearer has Feel No Pain 4+."
-	"Supa-Cybork Body": {
-		"condition": "enhancement",
-		"effects": [{"type": "set_effect_fnp", "value": 4}],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "ORKS only. Bearer has Feel No Pain 4+ (sets effect_fnp=4)"
-	},
-
 	# ======================================================================
-	# TAKTIKAL BRIGADE ENHANCEMENT ABILITIES
-	# These are checked via unit.meta.enhancements[] rather than abilities[].
+	# Codex: Orks (11e) ENHANCEMENTS (WP-O5) — the 38 codex enhancements of
+	# the 15 codex detachments (War Horde ... Wurrband) are implemented in
+	# scripts/codex/orks/OrkEnhancements11e.gd; _apply_enhancement_abilities
+	# skips them. The 10e enhancements those detachments no longer have
+	# (Supa-Cybork Body, Skwad Leader, Mek Kaptin, Gob Boomer, Raucous
+	# Warcaller, Bloodthirsty Belligerence, Skrag Every Stash!, Fasta Than
+	# Yooz, Speed Makes Right, Squig-hide Tyres, Wazblasta, Gitfinder Googlez,
+	# Press It Fasta!, Runnin' Boots, Blitzkaptin, Supercharged Squig Oil,
+	# Tuff Git, ...) are gone. The rows below serve the non-codex detachments
+	# the engine still has (More Dakka!, Rollin' Deff, Freebooter Krew).
 	# ======================================================================
-
-	# Skwad Leader — "During the Declare Battle Formations step, the bearer can
-	# be attached to a Kommandos unit. While leading a Kommandos unit, it has
-	# the Infiltrators and Stealth abilities." Stealth = effect_stealth flag on
-	# the led unit (gated on the bodyguard being KOMMANDOS); Infiltrators is
-	# deployment-time and handled by GameState.unit_has_infiltrators. The
-	# attach permission itself comes from
-	# CharacterAttachmentManager.get_enhancement_can_lead_extras.
-	"Skwad Leader": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.GRANT_STEALTH}],
-		"target": "bearer_unit",
-		"requires_bodyguard_keyword": "KOMMANDOS",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Warboss Infantry only. While leading a Kommandos unit, it has Infiltrators and Stealth (effect_stealth; Infiltrators via GameState.unit_has_infiltrators)"
-	},
-
-	# Mek Kaptin — "Each time a model in the bearer's unit makes a ranged
-	# attack, you can re-roll the Hit roll." No unit flag: the shooting
-	# hit-modifier paths in RulesEngine check the enhancement live via
-	# RulesEngine.unit_has_mek_kaptin_reroll.
-	"Mek Kaptin": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "Big Mek only. Can be attached to a Flash Gitz unit; ranged attacks from the bearer's unit re-roll the Hit roll (RulesEngine.unit_has_mek_kaptin_reroll)"
-	},
-
-	# Gob Boomer — the bearer issues Taktiks (Lissen 'Ere) to friendly Orks
-	# Infantry/Mounted units within 18" instead of 6". Live check in
-	# FactionAbilityManager._taktik_range_inches.
-	"Gob Boomer": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Orks model only. The bearer issues Taktiks to friendly Orks Infantry/Mounted units within 18\" instead of 6\" (FactionAbilityManager._taktik_range_inches)"
-	},
 
 	# ======================================================================
 	# MORE DAKKA! ENHANCEMENT ABILITIES
@@ -1336,259 +1172,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "ranged",
 		"implemented": true,
 		"description": "ORKS only. The bearer's unit is eligible to shoot in a turn in which it Fell Back (effect_fall_back_and_shoot)"
-	},
-
-	# ======================================================================
-	# GREEN TIDE ENHANCEMENT ABILITIES
-	# ======================================================================
-
-	# Raucous Warcaller — "While the bearer is leading a unit, that unit always
-	# counts as containing 10 or more models for the purposes of your
-	# Detachment rule and any Stratagems you use."
-	"Raucous Warcaller": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.COUNTS_AS_10}],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Orks Infantry only. While leading, the unit counts as 10+ models (effect_counts_as_10; read by FactionAbilityManager.unit_counts_as_10)"
-	},
-
-	# Bloodthirsty Belligerence — "While the bearer is leading a unit, you can
-	# re-roll Advance rolls made for that unit. While that unit contains 10 or
-	# more models, you can re-roll Charge rolls made for that unit as well."
-	# The charge re-roll is a live check in ChargePhase
-	# (FactionAbilityManager.unit_has_green_tide_charge_reroll).
-	"Bloodthirsty Belligerence": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.REROLL_ADVANCE}],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Orks Infantry only. While leading: re-roll Advance rolls (effect_reroll_advance); re-roll Charge rolls while 10+ models (live check)"
-	},
-
-	# Ferocious Show Off — +1 S on the bearer's melee attacks (+3 while the
-	# unit counts as 10+ models). Live check in RulesEngine melee resolution
-	# (FactionAbilityManager.ferocious_show_off_strength_bonus).
-	"Ferocious Show Off": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "Orks Infantry only. +1 S melee for the bearer, +3 while the unit counts as 10+ models (live check in RulesEngine)"
-	},
-
-	# Brutal But Kunnin' — Command-phase D6 (+2 while 10+ models): 5+ = 1 CP.
-	# Resolved by FactionAbilityManager.process_command_phase_cp_enhancements.
-	"Brutal But Kunnin'": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Orks Infantry only. Command phase: D6 (+2 if 10+ models), 5+ = gain 1 CP (FactionAbilityManager hook)"
-	},
-
-	# ======================================================================
-	# DA BIG HUNT ENHANCEMENT ABILITIES
-	# ======================================================================
-
-	# Glory Hog — models in the bearer's unit have Scouts 9". Live hooks in
-	# GameState.unit_has_scout / get_scout_distance (deployment-time rule).
-	"Glory Hog": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Beastboss on Squigosaur only. Bearer's unit has Scouts 9\" (GameState.unit_has_scout / get_scout_distance)"
-	},
-
-	# Proper Killy — +1 Damage on the bearer's melee weapons. Same unit-wide
-	# approximation as Headwoppa's Killchoppa / Da Gobshot Thunderbuss
-	# (per-model weapon scoping is a future refactor).
-	"Proper Killy": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.PLUS_DAMAGE, "value": 1}],
-		"target": "bearer_model",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "Beast Snagga model only. +1 Damage on the bearer's melee weapons (effect_plus_damage, Fight phase)"
-	},
-
-	# Skrag Every Stash! — end-of-Command-phase sticky objective. Resolved by
-	# FactionAbilityManager.process_skrag_every_stash (CommandPhase exit hook).
-	"Skrag Every Stash!": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Beast Snagga model only. End of your Command phase: the objective the bearer is on stays yours until the opponent controls it (sticky lock)"
-	},
-
-	# Surly as a Squiggoth — while the bearer is leading a unit, attacks with
-	# S > T against that unit get -1 to wound. Live check in the four
-	# RulesEngine wound-modifier sites (get_s_gt_t_wound_penalty).
-	"Surly as a Squiggoth": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Beastboss on Squigosaur only. While leading: -1 to incoming Wound rolls when attack S > unit T (live check)"
-	},
-
-	# ======================================================================
-	# KULT OF SPEED ENHANCEMENT ABILITIES
-	# ======================================================================
-
-	# Fasta Than Yooz — still eligible to charge after disembarking from a
-	# transport that made a Normal move (live hook in TransportManager).
-	"Fasta Than Yooz": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Orks Infantry only. Bearer's unit can still charge after disembarking from a transport that made a Normal move (TransportManager hook)"
-	},
-
-	# Speed Makes Right — Command-phase D6 if the bearer is within 9" of an
-	# enemy: 3+ = 1 CP (FactionAbilityManager.process_command_phase_cp_enhancements).
-	"Speed Makes Right": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Orks model only. Command phase: D6 if bearer within 9\" of an enemy, 3+ = gain 1 CP (FactionAbilityManager hook; embarked-bearer case not modelled)"
-	},
-
-	# Squig-hide Tyres — 6" Consolidation moves for the bearer's unit (live
-	# hook in FightPhase._get_consolidation_distance).
-	"Squig-hide Tyres": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Deffkilla Wartrike only. Bearer's unit consolidates up to 6\" instead of 3\" (FightPhase hook)"
-	},
-
-	# Wazblasta — post-shooting 6" Normal move if unengaged; no charge after.
-	# Offered by ShootingPhase (USE_WAZBLASTA / DECLINE_WAZBLASTA).
-	"Wazblasta": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Deffkilla Wartrike only. After the bearer's unit shoots (unengaged): 6\" Normal move, then cannot charge this turn (ShootingPhase offer)"
-	},
-
-	# ======================================================================
-	# DREAD MOB ENHANCEMENT ABILITIES
-	# ======================================================================
-
-	# Gitfinder Googlez — bearer's unit ranged weapons gain [IGNORES COVER]
-	# (Git-spotter Squig clone).
-	"Gitfinder Googlez": {
-		"condition": "enhancement",
-		"effects": [{"type": "grant_ignores_cover"}],
-		"target": "bearer_unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "Mek model only. Bearer's unit ranged weapons have [IGNORES COVER]"
-	},
-
-	# Smoky Gubbinz — models in the bearer's unit have the Stealth ability.
-	"Smoky Gubbinz": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.GRANT_STEALTH}],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Mek model only. Bearer's unit has Stealth (effect_stealth: -1 to be hit by ranged attacks)"
-	},
-
-	# Supa-glowy Fing — Command-phase D6 vs the nearest visible enemy within
-	# 18": 1-2 Battle-shock test, 3-4 D3 mortal wounds, 5-6 -1 to its Hit
-	# rolls until your next Command phase. Resolved by
-	# FactionAbilityManager.process_supa_glowy_fing.
-	"Supa-glowy Fing": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Mek model only. Command phase: D6 vs nearest visible enemy within 18\" — 1-2 Battle-shock, 3-4 D3 MW, 5-6 -1 to hit (FactionAbilityManager hook)"
-	},
-
-	# Press It Fasta! — the bearer's unit rolls one additional Try Dat
-	# Button! die and gains both Button Effects (duplicates add nothing).
-	# Resolved by FactionAbilityManager.process_try_dat_button.
-	"Press It Fasta!": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Mek model only. Bearer's unit rolls an extra Try Dat Button! die and gains both Button Effects (FactionAbilityManager hook)"
-	},
-
-	# ======================================================================
-	# BLITZ BRIGADE ENHANCEMENT ABILITIES
-	# ======================================================================
-
-	# Runnin' Boots — +1 to Charge rolls while the bearer's unit disembarked
-	# from a Transport this turn (live check in ChargePhase via
-	# FactionAbilityManager.runnin_boots_charge_bonus).
-	"Runnin' Boots": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Orks Infantry Character only. +1 to Charge rolls if the bearer's unit disembarked this turn (ChargePhase live check)"
-	},
-
-	# Blitzkaptin — after deployment, redeploy up to three ORKS VEHICLE units
-	# (optionally into Strategic Reserves). Mork's Kunnin' machinery, VEHICLE
-	# filtered (FactionAbilityManager.has_blitzkaptin).
-	"Blitzkaptin": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Orks Character only. Redeploy up to three ORKS VEHICLE units after deployment, any of them into Strategic Reserves"
-	},
-
-	# Supercharged Squig Oil — when the bearer uses Mekaniak on a VEHICLE,
-	# that vehicle's unit re-rolls Charge rolls until end of turn
-	# (MovementPhase Mekaniak hook, cleared with the Mekaniak buff).
-	"Supercharged Squig Oil": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Mek model only. Mekaniak target's unit re-rolls Charge rolls until end of turn (MovementPhase hook)"
-	},
-
-	# Tuff Git — the bearer's unit stops being Battle-shocked when it
-	# disembarks from a Transport (TransportManager hook; end-of-phase timing
-	# simplified to on-disembark).
-	"Tuff Git": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Orks Infantry Character only. Clears Battle-shock when the bearer's unit disembarks (TransportManager hook)"
 	},
 
 	# ======================================================================
@@ -1694,40 +1277,15 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Telemon equipped with two Telemon Caestus gains +2 melee attacks"
 	},
 
-	# T-075: Talons of the Emperor faction auras. Implemented via direct query
-	# helpers (get_null_aegis_fnp / get_deadly_unity_hit_bonus) rather than
-	# stamping flags — the bonus is checked at FNP / hit-roll resolution time.
-	"Null Aegis (Aura)": {
-		"condition": "aura",
-		"effects": [],
-		"aura_range": 6.0,
-		"aura_target": "friendly",
-		"target": "friendly_adeptus_custodes_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Friendly ADEPTUS CUSTODES units within 6\" of an ANATHEMA PSYKANA model gain FNP 5+ vs Psychic Attacks and mortal wounds — checked at FNP resolution"
-	},
-
-	"Deadly Unity (Aura)": {
-		"condition": "aura",
-		"effects": [],
-		"aura_range": 6.0,
-		"aura_target": "friendly",
-		"target": "friendly_adeptus_custodes_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Friendly ADEPTUS CUSTODES units within 6\" of an ANATHEMA PSYKANA model gain +1 to hit rolls — checked at hit-roll resolution"
-	},
-
+	# Waaagh! Effigy (Aura) — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Waaagh! Effigy (Aura)": {
-		"condition": "aura",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
 		"effects": [],
-		"aura_range": 12.0,
-		"aura_target": "friendly",
-		"target": "friendly_orks_unit",
+		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Friendly ORKS units within 12\" get +1 to Battle-shock tests — checked directly in CommandPhase"
+		"description": "This unit is riled up (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# ======================================================================
@@ -1773,36 +1331,9 @@ const ABILITY_EFFECTS: Dictionary = {
 	# CONDITIONAL TOUGHNESS ABILITIES — Unit composition (OA-48)
 	# ======================================================================
 
-	# OA-48: Gretchin/Runtherd — While the unit contains Gretchin models, Runtherd models
-	# use T2 (same as unit base T — no change). When all Gretchin die, Runtherd models
-	# revert to T4 from their model_profile stats_override.
-	# Not a combat flag applied via EffectPrimitives — enforced directly in RulesEngine
-	# via get_runtherd_toughness_override(). Effects are empty because toughness is modified
-	# at wound resolution time, conditioned on unit composition (alive Gretchin count).
-	"Runtherd": {
-		"condition": "unit_composition",
-		"effects": [],
-		"target": "self",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "While unit contains Gretchin models, Runtherd models use T2. Reverts to T4 when all Gretchin die — checked directly in RulesEngine"
-	},
-
 	# ======================================================================
 	# BEAST SNAGGA SUB-FACTION ABILITIES (OA-49)
 	# ======================================================================
-
-	# Beastboss — +1 to melee Hit rolls for led unit
-	# While this model is leading a unit, each time a model in that unit makes a
-	# melee attack, add 1 to the Hit roll. Same mechanic as "Might is Right".
-	"Beastboss": {
-		"condition": "while_leading",
-		"effects": [{"type": "plus_one_hit"}],
-		"target": "led_unit",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "+1 to melee Hit rolls for led unit"
-	},
 
 	# Beastboss — melee weapons gain [DEVASTATING WOUNDS] after charging
 	# Each time this model makes a Charge move, until the end of the turn, melee weapons
@@ -1819,18 +1350,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "After charging, this model's melee weapons gain [DEVASTATING WOUNDS] until end of turn"
 	},
 
-	# Squighog Boyz — ignore modifiers to Move characteristic and Advance/Charge rolls
-	# You can ignore any or all modifiers to this unit's Move characteristic and to
-	# Advance and Charge rolls made for this unit.
-	"Wild Ride": {
-		"condition": "always",
-		"effects": [],
-		"target": "unit",
-		"attack_type": "all",
-		"implemented": false,
-		"description": "Ignore any or all modifiers to Move characteristic and Advance/Charge rolls — requires MovementPhase/ChargePhase integration"
-	},
-
 	# Kill Rig / Hunta Rig — +2 to Charge rolls and block Fire Overwatch vs hit MONSTER/VEHICLE
 	# Each time this weapon scores a hit against a MONSTER or VEHICLE unit, until the end
 	# of the turn, if the bearer selects that unit as a target of a charge, add 2 to Charge
@@ -1843,45 +1362,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "melee",
 		"implemented": false,
 		"description": "After hitting MONSTER or VEHICLE, +2 to Charge rolls vs that unit and cannot be targeted by Fire Overwatch — requires ShootingPhase/ChargePhase integration"
-	},
-
-	# Kill Rig — Psychic: start of Fight phase, buff friendly Orks unit within 12"
-	# At the start of the Fight phase, select one friendly Orks unit within 12":
-	# D6 roll — 1: this model suffers D3 mortal wounds; 2-5: +1 Strength to melee weapons;
-	# 6: +1 Strength AND [LETHAL HITS] to melee weapons until end of phase.
-	"Spirit of Gork (Psychic)": {
-		"condition": "start_of_fight_phase",
-		"effects": [],
-		"target": "friendly_orks_unit_within_12",
-		"attack_type": "melee",
-		"implemented": false,
-		"description": "Start of Fight phase: select friendly Orks unit within 12\" — roll D6: 1=D3 MW to self, 2-5=+1S to melee weapons, 6=+1S and LETHAL HITS — requires FightPhase integration"
-	},
-
-	# Hunta Rig — +1 Attacks per embarked model to butcha boyz weapon (max +6)
-	# For each model embarked within this TRANSPORT, add 1 to the Attacks characteristic
-	# of this model's butcha boyz weapon (to a maximum of +6).
-	"On Da Hunt": {
-		"condition": "always",
-		"effects": [],
-		"target": "unit",
-		"attack_type": "melee",
-		"implemented": false,
-		"description": "+1 Attacks to butcha boyz per model embarked in this TRANSPORT (max +6) — requires TransportManager and dynamic weapon modification"
-	},
-
-	# Beast Snagga Boyz — re-roll Hit rolls when making melee attacks vs MONSTER or VEHICLE
-	# Each time a model in this unit makes an attack that targets a MONSTER or VEHICLE unit,
-	# you can re-roll the Hit roll.
-	# Checked directly in RulesEngine.has_monster_hunters_vs_target() — same pattern as Tank Hunters.
-	"Monster Hunters": {
-		"condition": "target_has_keyword",
-		"target_keywords": ["MONSTER", "VEHICLE"],
-		"effects": [],
-		"target": "unit",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "Re-roll Hit rolls when making melee attacks against MONSTER or VEHICLE units — checked directly in RulesEngine"
 	},
 
 	# Wurrboy — Eyez of Mork weapon scales with led unit size; Hazardous at 10+ models
@@ -1910,59 +1390,37 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Opponent's Command phase: select enemy within 18\" — roll D6: 1=D3 MW to self, 2+=confrazzled (−2 to Battle-shock/Leadership tests) — requires CommandPhase integration"
 	},
 
-	# Zodgrod Wortsnagga — led unit has Scouts 9", +1 Hit, +1 Wound, -1 incoming Wound
-	# While this model is leading a unit:
-	# - Models in that unit have the Scouts 9" ability (deployment, not a combat flag).
-	# - Each time a model in that unit makes an attack, add 1 to the Hit roll and Wound roll.
-	# - Each time an attack targets that unit, subtract 1 from the Wound roll.
-	# Combat effects (+1 Hit, +1 Wound) are applied via the flag system on the led unit.
-	# Scouts 9" is enforced at deployment. -1 incoming Wound requires RulesEngine integration.
+	# Super Runts — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"Super Runts": {
-		"condition": "while_leading",
-		"effects": [{"type": "plus_one_hit"}, {"type": "plus_one_wound"}],
-		"target": "led_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Led unit: +1 to Hit rolls, +1 to Wound rolls when attacking. Scouts 9\" handled at deployment. -1 incoming Wound requires RulesEngine integration — checked directly in RulesEngine for full effect"
-	},
-
-	# Zodgrod Wortsnagga — +6\" to Move of led unit while Waaagh! is active
-	# While the Waaagh! is active for your army, add 6\" to the Move characteristic of
-	# models in this model's unit.
-	"Special Dose": {
-		"condition": "waaagh_active",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
 		"effects": [],
-		"target": "led_unit",
-		"attack_type": "all",
+		"target": "unit",
+		"attack_type": "melee",
 		"implemented": true,
-		"description": "While Waaagh! active, add 6\" to Move characteristic of models in this model's unit — applied via special_dose_active flag in FactionAbilityManager/MovementPhase"
+		"description": "This unit is riled up; its Scavenged Shivs have +1 A, WS and S (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
-	# Mozrog Skragbad — led unit models can fight before dying when destroyed by melee (4+)
-	# While this model is leading a unit, each time a model in that unit is destroyed by
-	# a melee attack, if it has not fought this phase, roll one D6: on a 4+, do not remove
-	# it from play. It can fight after the attacking unit has finished making its attacks,
-	# then is removed from play.
+	# One Last Kill — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
 	"One Last Kill": {
-		"condition": "while_leading",
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
 		"effects": [],
-		"target": "led_unit",
-		"attack_type": "melee",
-		"implemented": false,
-		"description": "While leading: when led unit model destroyed by melee, on 4+ it fights before removal — requires FightPhase model destruction integration"
-	},
-
-	# Mozrog Skragbad — +1 Damage vs MONSTER/VEHICLE, +2 Damage vs TITANIC (melee)
-	# Each time this model makes a melee attack that targets a MONSTER or VEHICLE unit,
-	# add 1 to the Damage characteristic of that attack. Against TITANIC: add 2 instead.
-	"Da Bigger Dey iz...": {
-		"condition": "target_has_keyword",
-		"target_keywords": ["MONSTER", "VEHICLE"],
-		"effects": [],
-		"target": "model",
+		"target": "unit",
 		"attack_type": "melee",
 		"implemented": true,
-		"description": "+1 Damage to melee attacks vs MONSTER or VEHICLE; +2 Damage vs TITANIC — checked directly in RulesEngine.get_da_bigger_damage_bonus()"
+		"description": "This model's Fight on Death rolls succeed on a 2+ (Codex: Orks 11e — OrkAbilities11e)."
+	},
+
+	# Da Bigger Dey iz... — Codex: Orks (11e) datasheet ability; the rule is in
+	# OrkAbilities11e.gd (WP-O6), this row only describes it.
+	"Da Bigger Dey iz...": {
+		"condition": "ork11e",  # WP-O6: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "This unit's melee attacks that target a MONSTER/VEHICLE unit can re-roll the wound roll (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# ======================================================================
@@ -2086,13 +1544,10 @@ var _once_per_battle_order: Array = []
 # Key: "unit_id:ability_name", Value: {"round": int, "phase": int, "player": int}
 var _gilded_champion_block: Dictionary = {}
 
-# Track once-per-battle-round ability usage (e.g., Strategic Mastery)
+# Track once-per-battle-round ability usage
 # Key: "player:ability_name", Value: battle_round_number (last used round)
 var _once_per_round_used: Dictionary = {}
 
-# OA-34: Track which vehicles have been selected for Mekaniak this turn
-# Key: vehicle_unit_id, Value: true
-var _mekaniak_used_this_turn: Dictionary = {}
 
 # OA-42: Track which units have used Scatter! this turn
 # Key: unit_id, Value: true
@@ -2383,6 +1838,12 @@ func _apply_enhancement_abilities(phase: int) -> void:
 
 		for enhancement_name in enhancements:
 			if enhancement_name == "":
+				continue
+			# WP-O5: a Codex: Orks (11e) enhancement of the unit's codex
+			# detachment is resolved by OrkEnhancements11e, never by a 10e row
+			# of the same name (More Dakka! / Rollin' Deff keep theirs).
+			if GameConstants.edition >= 11 and enhancement_name is String \
+					and load("res://scripts/codex/orks/OrkEnhancements11e.gd").owns_name(unit, enhancement_name):
 				continue
 
 			var effect_def = ABILITY_EFFECTS.get(enhancement_name, {})
@@ -2823,143 +2284,12 @@ func find_enemy_units_within_aura(source_unit_id: String, aura_range: float) -> 
 
 	return results
 
-# OA-43: Waaagh! Effigy (Aura) — Battle-shock bonus
-func get_battle_shock_bonus(unit_id: String) -> int:
-	"""Check if a unit benefits from the Waaagh! Effigy (Aura) ability on a nearby Stompa.
-	Returns +1 if the unit has the ORKS keyword and is within 12\" edge-to-edge of a
-	friendly unit with the 'Waaagh! Effigy (Aura)' ability. Returns 0 otherwise.
-	Per 10th Edition: same aura from multiple sources does not stack — returns 1 at most."""
-	var units = GameState.state.get("units", {})
-	var target_unit = units.get(unit_id, {})
-	if target_unit.is_empty():
-		return 0
-
-	# Only ORKS keyword units benefit from this aura
-	var target_keywords = target_unit.get("meta", {}).get("keywords", [])
-	var has_orks_keyword = false
-	for kw in target_keywords:
-		if kw.to_upper() == "ORKS":
-			has_orks_keyword = true
-			break
-	if not has_orks_keyword:
-		return 0
-
-	var target_owner = target_unit.get("owner", 0)
-	# T-029a: normalise null → "" so downstream `!= ""` checks behave correctly.
-	var target_embarked_raw = target_unit.get("embarked_in", "")
-	var target_embarked = "" if target_embarked_raw == null else target_embarked_raw
-
-	# Check all friendly units for Waaagh! Effigy (Aura) ability
-	for source_unit_id in units:
-		var source_unit = units[source_unit_id]
-
-		# Must be a friendly unit owned by the same player
-		if source_unit.get("owner", 0) != target_owner:
-			continue
-
-		# Must be alive and on the board
-		if not _has_alive_models(source_unit):
-			continue
-		# T-029a: defensive null-safe embarked check.
-		var src_embk_effigy = source_unit.get("embarked_in", "")
-		if src_embk_effigy != null and src_embk_effigy != "":
-			continue
-
-		# Check if this unit has the Waaagh! Effigy (Aura) ability
-		var source_abilities = source_unit.get("meta", {}).get("abilities", [])
-		var has_effigy = false
-		for ability in source_abilities:
-			if ability.get("name", "") == "Waaagh! Effigy (Aura)":
-				has_effigy = true
-				break
-		if not has_effigy:
-			continue
-
-		# Per 10th Ed rules, a model is always within range of its own aura.
-		# If the source and target are the same unit (Stompa taking its own test), apply bonus.
-		if source_unit_id == unit_id:
-			print("UnitAbilityManager: Waaagh! Effigy aura — %s is source unit, bonus applies (self-aura)" % unit_id)
-			return 1
-
-		# Skip range check if target is embarked (positions not meaningful on-board)
-		if target_embarked != "":
-			continue
-
-		# Calculate closest model-to-model distance (edge-to-edge)
-		var dist = _closest_model_distance(target_unit, source_unit)
-		if dist <= 12.0:
-			print("UnitAbilityManager: Waaagh! Effigy aura — %s within 12\" of %s (%.1f\"), Battle-shock bonus +1 applies" % [
-				unit_id, source_unit_id, dist])
-			return 1
-
+## Battle-shock test roll bonus for `unit_id` (CommandPhase adds it to the
+## 2D6). The only source was the pre-codex Waaagh! Effigy (Aura) +1 within 12";
+## the Codex: Orks (11e) Waaagh! Effigy makes the Stompa riled up instead
+## (OrkAbilities11e), so no ability grants a bonus here now (WP-O6).
+func get_battle_shock_bonus(_unit_id: String) -> int:
 	return 0
-
-# ============================================================================
-# T-075: Talons of the Emperor faction auras (Null Aegis, Deadly Unity)
-# ============================================================================
-# Custodes models within 6" of a friendly ANATHEMA PSYKANA model gain:
-#   - Null Aegis: Feel No Pain 5+ vs Psychic Attacks and mortal wounds.
-#   - Deadly Unity: +1 to ranged + melee hit rolls.
-# Same query approach as Waaagh! Effigy: check at use-time, no flag stamping.
-
-func _is_within_friendly_anathema_psykana(target_unit_id: String, range_inches: float) -> bool:
-	var units = GameState.state.get("units", {})
-	var target_unit = units.get(target_unit_id, {})
-	if target_unit.is_empty():
-		return false
-	var target_owner = target_unit.get("owner", 0)
-	# Target must have ADEPTUS CUSTODES keyword to be a beneficiary.
-	var target_keywords = target_unit.get("meta", {}).get("keywords", [])
-	var has_custodes = false
-	for kw in target_keywords:
-		if str(kw).to_upper() == "ADEPTUS CUSTODES":
-			has_custodes = true
-			break
-	if not has_custodes:
-		return false
-	var target_embk_raw = target_unit.get("embarked_in", "")
-	var target_embk = "" if target_embk_raw == null else target_embk_raw
-	for src_unit_id in units:
-		if src_unit_id == target_unit_id:
-			continue
-		var src_unit = units[src_unit_id]
-		if src_unit.get("owner", 0) != target_owner:
-			continue
-		if not _has_alive_models(src_unit):
-			continue
-		var src_embk_raw = src_unit.get("embarked_in", "")
-		if src_embk_raw != null and src_embk_raw != "":
-			continue
-		var src_keywords = src_unit.get("meta", {}).get("keywords", [])
-		var has_psykana = false
-		for kw in src_keywords:
-			if str(kw).to_upper() == "ANATHEMA PSYKANA":
-				has_psykana = true
-				break
-		if not has_psykana:
-			continue
-		# If target is embarked, distance is undefined for board purposes.
-		if target_embk != "":
-			continue
-		var dist = _closest_model_distance(target_unit, src_unit)
-		if dist <= range_inches:
-			return true
-	return false
-
-
-func get_null_aegis_fnp(target_unit_id: String) -> int:
-	# Returns 5 if Null Aegis applies (FNP 5+ vs Psychic / Mortal Wounds), else 0.
-	if _is_within_friendly_anathema_psykana(target_unit_id, 6.0):
-		return 5
-	return 0
-
-
-func get_deadly_unity_hit_bonus(target_unit_id: String) -> int:
-	# Returns +1 if Deadly Unity applies (Custodes within 6" of Anathema Psykana).
-	if _is_within_friendly_anathema_psykana(target_unit_id, 6.0):
-		return 1
-	return 0
-
 
 # Issue #386 Big Booms (Kannonwagon supa-kannon).
 # Wahapedia: "In your Shooting phase, just after selecting a target for this
@@ -3065,63 +2395,6 @@ func roll_big_booms_concussive_wave(actor_unit_id: String, target_unit_id: Strin
 		game_event_log.add_player_entry(owner,
 			"Big Booms supa-kannon concussive wave: rolls=%s struck=%s" % [str(results), str(struck_ids)])
 	return results
-
-
-# Issue #387 Waaagh! Energy (Weirdboy 'Eadbanger size scaling).
-# Wahapedia text (Datasheets_abilities.csv unit 000000004):
-# "While this model is leading a unit, add 1 to the Strength and Damage
-# characteristics of this model's 'Eadbanger weapon for every 5 models in that
-# unit (rounding down), but while that unit contains 10 or more models, that
-# weapon has the [HAZARDOUS] ability."
-# Returns {strength_bonus: int, damage_bonus: int, hazardous: bool} — applies
-# only when the weirdboy is leading a unit (attached_to set) and only to the
-# 'Eadbanger weapon. Caller must gate on weapon name.
-func get_waaagh_energy_eadbanger_bonus(weirdboy_unit_id: String) -> Dictionary:
-	var zero = {"strength_bonus": 0, "damage_bonus": 0, "hazardous": false, "led_unit_model_count": 0}
-	var units = GameState.state.get("units", {})
-	var weirdboy = units.get(weirdboy_unit_id, {})
-	if weirdboy.is_empty():
-		return zero
-	# Verify ability present.
-	var has_ability = false
-	for ab in weirdboy.get("abilities", []):
-		var ab_name = ""
-		if typeof(ab) == TYPE_DICTIONARY:
-			ab_name = String(ab.get("name", ""))
-		elif typeof(ab) == TYPE_STRING:
-			ab_name = String(ab)
-		if ab_name == "Waaagh! Energy":
-			has_ability = true
-			break
-	if not has_ability:
-		return zero
-	# Must be leading a unit.
-	var bodyguard_id = weirdboy.get("attached_to", null)
-	if bodyguard_id == null or String(bodyguard_id) == "":
-		return zero
-	var bodyguard = units.get(bodyguard_id, {})
-	if bodyguard.is_empty():
-		return zero
-	# Count alive models in the led unit + alive attached characters (the unit
-	# is the combined entity in 10e).
-	var count = 0
-	for m in bodyguard.get("models", []):
-		if m.get("alive", true):
-			count += 1
-	var attached = bodyguard.get("attachment_data", {}).get("attached_characters", [])
-	for cid in attached:
-		var c = units.get(cid, {})
-		for cm in c.get("models", []):
-			if cm.get("alive", true):
-				count += 1
-	var bonus = int(count / 5)  # +1 per 5 models, rounded down
-	var hazardous = count >= 10
-	return {
-		"strength_bonus": bonus,
-		"damage_bonus": bonus,
-		"hazardous": hazardous,
-		"led_unit_model_count": count,
-	}
 
 
 func _apply_eligibility_effects() -> void:
@@ -3379,38 +2652,6 @@ func is_once_per_round_used(player: int, ability_name: String) -> bool:
 	var current_round = GameState.get_battle_round()
 	return last_used_round >= current_round
 
-func has_shoot_again_ability(unit_id: String) -> bool:
-	"""Check if a unit has an unused once-per-battle shoot-again ability (e.g. Sentinel Storm).
-	Used by ShootingPhase to offer the shoot-again option after a unit completes shooting."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Sentinel Storm":
-			if not is_once_per_battle_used(unit_id, "Sentinel Storm"):
-				print("UnitAbilityManager: Unit %s has unused Sentinel Storm — shoot-again available" % unit_id)
-				return true
-			else:
-				print("UnitAbilityManager: Unit %s has Sentinel Storm but already used this battle" % unit_id)
-	return false
-
-func has_sanctified_flames_ability(unit_id: String) -> bool:
-	"""Check if a unit has the Sanctified Flames ability (e.g. Witchseekers).
-	Used by ShootingPhase to trigger a forced Battle-shock test after shooting."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Sanctified Flames":
-			print("UnitAbilityManager: Unit %s has Sanctified Flames ability" % unit_id)
-			return true
-	return false
 
 func has_throat_slittas_ability(unit_id: String) -> bool:
 	"""Check if a unit has the Throat Slittas ability (e.g. Kommandos).
@@ -3427,131 +2668,6 @@ func has_throat_slittas_ability(unit_id: String) -> bool:
 			return true
 	return false
 
-func has_hold_still_ability(unit_id: String) -> bool:
-	"""Check if a unit has the 'Hold Still and Say Aargh!' ability (e.g. Painboy).
-	Used by RulesEngine to trigger D6 mortal wounds on Critical Wound with 'urty syringe."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Hold Still and Say 'Aargh!'":
-			print("UnitAbilityManager: Unit %s has Hold Still and Say 'Aargh!' ability" % unit_id)
-			return true
-	return false
-
-func has_dread_foe(unit_id: String) -> bool:
-	"""Check if a unit has the Dread Foe ability (e.g. Contemptor-Achillus Dreadnought).
-	Used by FightPhase to trigger mortal wounds on fight selection."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Dread Foe":
-			print("UnitAbilityManager: Unit %s has Dread Foe ability" % unit_id)
-			return true
-	return false
-
-func has_piston_driven_brutality(unit_id: String) -> bool:
-	"""OA-36: Check if a unit has the Piston-driven Brutality ability (e.g. Deff Dread).
-	Used by ChargePhase to trigger mortal wounds after a Charge move."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Piston-driven Brutality":
-			print("UnitAbilityManager: Unit %s has Piston-driven Brutality ability" % unit_id)
-			return true
-	return false
-
-func has_master_of_the_stances(unit_id: String) -> bool:
-	"""Check if a unit has an unused Master of the Stances ability (Shield-Captain).
-	Used by FightPhase to offer both Ka'tah stances simultaneously.
-	Checks attached leaders for the ability (since Shield-Captain is a leader)."""
-	# First check the unit itself
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	# Check the unit's own abilities
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Master of the Stances":
-			if not is_once_per_battle_used(unit_id, "Master of the Stances"):
-				print("UnitAbilityManager: Unit %s has unused Master of the Stances" % unit_id)
-				return true
-			else:
-				print("UnitAbilityManager: Unit %s has Master of the Stances but already used this battle" % unit_id)
-				return false
-
-	# Check attached leaders (Shield-Captain leading Custodian Guard)
-	var attachment_data = unit.get("attachment_data", {})
-	var attached_characters = attachment_data.get("attached_characters", [])
-	var units = GameState.state.get("units", {})
-
-	for char_id in attached_characters:
-		var char_unit = units.get(char_id, {})
-		if char_unit.is_empty():
-			continue
-		if not _has_alive_models(char_unit):
-			continue
-
-		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
-		for ability in char_abilities:
-			var ability_name = _get_ability_name(ability)
-			if ability_name == "Master of the Stances":
-				# Use the bodyguard unit's ID for tracking (since it's the unit fighting)
-				if not is_once_per_battle_used(unit_id, "Master of the Stances"):
-					print("UnitAbilityManager: Unit %s has leader with unused Master of the Stances" % unit_id)
-					return true
-				else:
-					print("UnitAbilityManager: Unit %s has leader with Master of the Stances but already used this battle" % unit_id)
-					return false
-
-	return false
-
-func has_strategic_mastery(unit_id: String) -> bool:
-	"""Check if a unit or its attached leaders have Strategic Mastery (Shield-Captain).
-	Used by StratagemManager to offer CP discount when targeting this unit."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	# Check the unit's own abilities
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Strategic Mastery":
-			return true
-
-	# Check attached leaders
-	var attachment_data = unit.get("attachment_data", {})
-	var attached_characters = attachment_data.get("attached_characters", [])
-	var units = GameState.state.get("units", {})
-
-	for char_id in attached_characters:
-		var char_unit = units.get(char_id, {})
-		if char_unit.is_empty():
-			continue
-		if not _has_alive_models(char_unit):
-			continue
-
-		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
-		for ability in char_abilities:
-			var ability_name = _get_ability_name(ability)
-			if ability_name == "Strategic Mastery":
-				return true
-
-	return false
 
 func has_sticky_objectives_ability(unit_id: String) -> bool:
 	"""Check if a unit has a sticky objectives ability (e.g. Get Da Good Bitz, Objective Secured).
@@ -3563,7 +2679,7 @@ func has_sticky_objectives_ability(unit_id: String) -> bool:
 	var abilities = unit.get("meta", {}).get("abilities", [])
 	for ability in abilities:
 		var ability_name = _get_ability_name(ability)
-		if ability_name in ["Get Da Good Bitz", "Objective Secured"]:
+		if ability_name in ["Objective Secured"]:  # WP-O6: "Get Da Good Bitz" is on no Codex: Orks (11e) datasheet
 			return true
 	return false
 
@@ -3597,548 +2713,6 @@ func has_sneaky_surprise(unit_id: String) -> bool:
 			return true
 	return false
 
-func has_distraction_grot(unit_id: String) -> bool:
-	"""Check if a unit has the Distraction Grot wargear ability (e.g. Kommandos).
-	Used by ShootingPhase to offer once-per-battle 5+ invuln save when targeted."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Distraction Grot":
-			if not is_once_per_battle_used(unit_id, "Distraction Grot"):
-				print("UnitAbilityManager: Unit %s has unused Distraction Grot" % unit_id)
-				return true
-			else:
-				print("UnitAbilityManager: Unit %s has Distraction Grot but already used this battle" % unit_id)
-	return false
-
-func has_ammo_runt(unit_id: String) -> bool:
-	"""OA-10: Check if a unit has at least one unused Ammo Runt wargear ability.
-	Used by ShootingPhase to offer Lethal Hits when unit is selected to shoot."""
-	return get_ammo_runts_remaining(unit_id) > 0
-
-func get_ammo_runt_count(unit_id: String) -> int:
-	"""OA-10: Get the total number of ammo runts a unit has.
-	Reads count from ability dict (default 1). Nobz can have up to 2."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return 0
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Ammo Runt":
-			# Count stored in ability dict, default 1 (Flash Gitz), can be 2 (Nobz)
-			if ability is Dictionary:
-				return ability.get("count", 1)
-			return 1
-	return 0
-
-func get_ammo_runts_remaining(unit_id: String) -> int:
-	"""OA-10: Get the number of unused ammo runts for a unit.
-	Each runt is tracked independently via 'unit_id:Ammo Runt:N' keys."""
-	var total = get_ammo_runt_count(unit_id)
-	if total == 0:
-		return 0
-
-	var remaining = 0
-	for i in range(total):
-		var usage_key = unit_id + ":Ammo Runt:" + str(i)
-		if not _once_per_battle_used.get(usage_key, false):
-			remaining += 1
-
-	print("UnitAbilityManager: Unit %s has %d/%d ammo runts remaining" % [unit_id, remaining, total])
-	return remaining
-
-func mark_ammo_runt_used(unit_id: String) -> int:
-	"""OA-10: Mark the next unused ammo runt as used for a unit.
-	Returns the index of the runt that was marked, or -1 if none available."""
-	var total = get_ammo_runt_count(unit_id)
-	for i in range(total):
-		var usage_key = unit_id + ":Ammo Runt:" + str(i)
-		if not _once_per_battle_used.get(usage_key, false):
-			_once_per_battle_used[usage_key] = true
-			var remaining = get_ammo_runts_remaining(unit_id)
-			print("UnitAbilityManager: Marked Ammo Runt #%d as used for unit %s (%d remaining)" % [i, unit_id, remaining])
-			return i
-	print("UnitAbilityManager: No unused ammo runts for unit %s" % unit_id)
-	return -1
-
-func has_pulsa_rokkit(unit_id: String) -> bool:
-	"""OA-31: Check if a unit has an unused Pulsa Rokkit wargear ability.
-	Used by ShootingPhase to offer +1S/+1AP when unit is selected to shoot."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Pulsa Rokkit":
-			if not is_once_per_battle_used(unit_id, "Pulsa Rokkit"):
-				print("UnitAbilityManager: Unit %s has unused Pulsa Rokkit" % unit_id)
-				return true
-			else:
-				print("UnitAbilityManager: Unit %s has Pulsa Rokkit but already used this battle" % unit_id)
-				return false
-	return false
-
-func mark_pulsa_rokkit_used(unit_id: String) -> void:
-	"""OA-31: Mark Pulsa Rokkit as used for a unit."""
-	mark_once_per_battle_used(unit_id, "Pulsa Rokkit")
-	print("UnitAbilityManager: Marked Pulsa Rokkit as used for unit %s" % unit_id)
-
-func has_shooty_power_trip(unit_id: String) -> bool:
-	"""OA-37: Check if a unit has the Shooty Power Trip ability (Killa Kans).
-	Not once per battle — can be used every time the unit is selected to shoot.
-	Used by ShootingPhase to offer the D6 roll when unit is selected to shoot."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Shooty Power Trip":
-			print("UnitAbilityManager: Unit %s has Shooty Power Trip" % unit_id)
-			return true
-	return false
-
-func has_grot_oiler(unit_id: String) -> bool:
-	"""OA-32: Check if a unit has an unused Grot Oiler wargear ability.
-	Used by MovementPhase at end of movement to offer D3 wound healing."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Grot Oiler":
-			if not is_once_per_battle_used(unit_id, "Grot Oiler"):
-				print("UnitAbilityManager: Unit %s has unused Grot Oiler" % unit_id)
-				return true
-			else:
-				print("UnitAbilityManager: Unit %s has Grot Oiler but already used this battle" % unit_id)
-				return false
-	return false
-
-func mark_grot_oiler_used(unit_id: String) -> void:
-	"""OA-32: Mark Grot Oiler as used for a unit."""
-	mark_once_per_battle_used(unit_id, "Grot Oiler")
-	print("UnitAbilityManager: Marked Grot Oiler as used for unit %s" % unit_id)
-
-func get_grot_oiler_targets(bearer_unit_id: String) -> Array:
-	"""OA-32: Get eligible healing targets for Grot Oiler wargear ability.
-	Returns array of { unit_id, unit_name, model_id, model_index, current_wounds, max_wounds }
-	for models in the bearer's unit (including bodyguard models if attached) that have lost wounds."""
-	var targets = []
-	var bearer_unit = GameState.state.get("units", {}).get(bearer_unit_id, {})
-	if bearer_unit.is_empty():
-		return targets
-
-	# Collect all unit IDs that form the bearer's unit (character + bodyguard if attached)
-	var unit_ids_to_check = [bearer_unit_id]
-
-	# If the bearer is attached to a bodyguard, include the bodyguard unit
-	var attached_to = bearer_unit.get("attached_to", null)
-	if attached_to != null and attached_to != "":
-		unit_ids_to_check.append(attached_to)
-
-	# If the bearer has attached characters (unlikely for Mek but handle generically),
-	# include those units too
-	var attached_chars = bearer_unit.get("attachment_data", {}).get("attached_characters", [])
-	for char_id in attached_chars:
-		if char_id != bearer_unit_id and char_id not in unit_ids_to_check:
-			unit_ids_to_check.append(char_id)
-
-	# Find models with lost wounds in all units in the combined Attached unit
-	for unit_id in unit_ids_to_check:
-		var unit = GameState.state.get("units", {}).get(unit_id, {})
-		if unit.is_empty():
-			continue
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		var models = unit.get("models", [])
-		for i in range(models.size()):
-			var model = models[i]
-			if not model.get("alive", true):
-				continue
-			var max_wounds = model.get("wounds", 1)
-			var current_wounds = model.get("current_wounds", max_wounds)
-			if current_wounds >= max_wounds:
-				continue  # No wounds lost
-			targets.append({
-				"unit_id": unit_id,
-				"unit_name": unit_name,
-				"model_id": model.get("id", "m%d" % (i + 1)),
-				"model_index": i,
-				"current_wounds": current_wounds,
-				"max_wounds": max_wounds
-			})
-			print("UnitAbilityManager: Grot Oiler target — %s model %s (%d/%d wounds)" % [
-				unit_name, model.get("id", ""), current_wounds, max_wounds])
-
-	print("UnitAbilityManager: Grot Oiler found %d eligible targets for unit %s" % [targets.size(), bearer_unit_id])
-	return targets
-
-func get_bomb_squig_count(unit_id: String) -> int:
-	"""OA-30: Get the total number of bomb squigs a unit has.
-	Reads count from ability dict (default 1). Tankbustas have 2, Kommandos have 1."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return 0
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Bomb Squigs":
-			if ability is Dictionary:
-				return ability.get("count", 1)
-			return 1
-	return 0
-
-func get_bomb_squigs_remaining(unit_id: String) -> int:
-	"""OA-30: Get the number of unused bomb squigs for a unit.
-	Each squig is tracked independently via 'unit_id:Bomb Squigs:N' keys."""
-	var total = get_bomb_squig_count(unit_id)
-	if total == 0:
-		return 0
-
-	var remaining = 0
-	for i in range(total):
-		var usage_key = unit_id + ":Bomb Squigs:" + str(i)
-		if not _once_per_battle_used.get(usage_key, false):
-			remaining += 1
-
-	print("UnitAbilityManager: Unit %s has %d/%d bomb squigs remaining" % [unit_id, remaining, total])
-	return remaining
-
-func mark_bomb_squig_used(unit_id: String) -> int:
-	"""OA-30: Mark the next unused bomb squig as used for a unit.
-	Returns the index of the squig that was marked, or -1 if none available."""
-	var total = get_bomb_squig_count(unit_id)
-	for i in range(total):
-		var usage_key = unit_id + ":Bomb Squigs:" + str(i)
-		if not _once_per_battle_used.get(usage_key, false):
-			_once_per_battle_used[usage_key] = true
-			var remaining = get_bomb_squigs_remaining(unit_id)
-			print("UnitAbilityManager: Marked Bomb Squig #%d as used for unit %s (%d remaining)" % [i, unit_id, remaining])
-			return i
-	print("UnitAbilityManager: No unused bomb squigs for unit %s" % unit_id)
-	return -1
-
-func has_bomb_squigs(unit_id: String) -> bool:
-	"""Check if a unit has unused Bomb Squigs wargear ability.
-	Used by MovementPhase to offer once-per-battle mortal wounds after normal move.
-	OA-30: Supports multi-squig (Tankbustas have 2, Kommandos have 1)."""
-	var remaining = get_bomb_squigs_remaining(unit_id)
-	if remaining > 0:
-		print("UnitAbilityManager: Unit %s has %d unused Bomb Squig(s)" % [unit_id, remaining])
-		return true
-	return false
-
-func has_kunnin_infiltrator(unit_id: String) -> bool:
-	"""Check if a unit has the Kunnin' Infiltrator ability (Boss Snikrot).
-	Used by MovementPhase to offer once-per-battle redeployment instead of Normal move.
-	Also checks attached leader characters, since Boss Snikrot leads Kommandos."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	# Check unit's own abilities
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	print("UnitAbilityManager: has_kunnin_infiltrator(%s) — found %d abilities" % [unit_id, abilities.size()])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Kunnin' Infiltrator" or ability_name.find("unnin") != -1:
-			print("UnitAbilityManager:   Found ability match: '%s'" % ability_name)
-			if not is_once_per_battle_used(unit_id, "Kunnin' Infiltrator"):
-				print("UnitAbilityManager: Unit %s has unused Kunnin' Infiltrator" % unit_id)
-				return true
-			else:
-				print("UnitAbilityManager: Unit %s has Kunnin' Infiltrator but already used this battle" % unit_id)
-				return false
-
-	# Check attached leader characters' abilities (e.g. Boss Snikrot attached to Kommandos)
-	var attached_characters = unit.get("attachment_data", {}).get("attached_characters", [])
-	var all_units = GameState.state.get("units", {})
-	for char_id in attached_characters:
-		var char_unit = all_units.get(char_id, {})
-		if char_unit.is_empty() or not _has_alive_models(char_unit):
-			continue
-		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
-		for ability in char_abilities:
-			var ability_name = _get_ability_name(ability)
-			if ability_name == "Kunnin' Infiltrator":
-				if not is_once_per_battle_used(unit_id, "Kunnin' Infiltrator"):
-					print("UnitAbilityManager: Unit %s has unused Kunnin' Infiltrator via attached leader %s" % [unit_id, char_id])
-					return true
-				else:
-					print("UnitAbilityManager: Unit %s has Kunnin' Infiltrator (via %s) but already used this battle" % [unit_id, char_id])
-					return false
-
-	return false
-
-func has_deff_from_above(unit_id: String) -> bool:
-	"""Check if a unit has the Deff from Above ability (Deffkoptas).
-	Used by MovementPhase to offer mortal wounds after Normal move over enemies."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Deff from Above":
-			print("UnitAbilityManager: Unit %s has Deff from Above ability" % unit_id)
-			return true
-	return false
-
-func has_sawbonez(unit_id: String) -> bool:
-	"""Check if a unit has the Sawbonez ability (Painboss).
-	Used by MovementPhase at end of movement to offer healing."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Sawbonez":
-			print("UnitAbilityManager: Unit %s has Sawbonez ability" % unit_id)
-			return true
-	return false
-
-func get_sawbonez_targets(painboss_unit_id: String) -> Array:
-	"""Get eligible healing targets for Sawbonez ability.
-	Returns array of { unit_id, unit_name, model_id, model_index, wounds_lost } for BEAST SNAGGA CHARACTER
-	models within 3\" that have lost wounds."""
-	var targets = []
-	var painboss_unit = GameState.state.get("units", {}).get(painboss_unit_id, {})
-	if painboss_unit.is_empty():
-		return targets
-
-	# Get Painboss position (first alive model)
-	var painboss_pos = null
-	for model in painboss_unit.get("models", []):
-		if model.get("alive", true) and model.get("position", null) != null:
-			painboss_pos = model.get("position")
-			break
-
-	if painboss_pos == null:
-		print("UnitAbilityManager: Painboss %s has no position — cannot find Sawbonez targets" % painboss_unit_id)
-		return targets
-
-	var units = GameState.state.get("units", {})
-	var painboss_owner = painboss_unit.get("owner", 0)
-
-	for unit_id in units:
-		var unit = units[unit_id]
-		# Must be same owner (friendly)
-		if unit.get("owner", 0) != painboss_owner:
-			continue
-
-		# Must have BEAST SNAGGA and CHARACTER keywords
-		var keywords = unit.get("meta", {}).get("keywords", [])
-		var has_beast_snagga = false
-		var has_character = false
-		for kw in keywords:
-			if kw.to_upper() == "BEAST SNAGGA":
-				has_beast_snagga = true
-			if kw.to_upper() == "CHARACTER":
-				has_character = true
-		if not has_beast_snagga or not has_character:
-			continue
-
-		# Check each alive model for lost wounds and proximity
-		for i in range(unit.get("models", []).size()):
-			var model = unit.get("models", [])[i]
-			if not model.get("alive", true):
-				continue
-
-			var max_wounds = model.get("wounds", 1)
-			var current_wounds = model.get("current_wounds", max_wounds)
-			if current_wounds >= max_wounds:
-				continue  # No wounds lost
-
-			var model_pos = model.get("position", null)
-			if model_pos == null:
-				continue
-
-			# Check distance (3" = 3 * 25.4mm ~ 76.2mm, but the game uses inches for positions typically)
-			# Use the same distance calculation as elsewhere in the codebase
-			var dist = _calculate_distance(painboss_pos, model_pos)
-			if dist <= 3.0:
-				targets.append({
-					"unit_id": unit_id,
-					"unit_name": unit.get("meta", {}).get("name", unit_id),
-					"model_id": model.get("id", "m%d" % (i + 1)),
-					"model_index": i,
-					"current_wounds": current_wounds,
-					"max_wounds": max_wounds,
-					"wounds_lost": max_wounds - current_wounds
-				})
-				print("UnitAbilityManager: Sawbonez target found — %s model %s (%d/%d wounds)" % [
-					unit.get("meta", {}).get("name", unit_id), model.get("id", ""), current_wounds, max_wounds])
-
-	return targets
-
-func has_grot_riggers(unit_id: String) -> bool:
-	"""Check if a unit has the Grot Riggers ability (Trukk).
-	Used by CommandPhase at start of command for automatic wound regeneration."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Grot Riggers":
-			print("UnitAbilityManager: Unit %s has Grot Riggers" % unit_id)
-			return true
-	return false
-
-func get_grot_riggers_eligible(unit_id: String) -> Dictionary:
-	"""Check if a Trukk with Grot Riggers has lost wounds and is eligible to regain 1.
-	Returns { eligible: bool, unit_id, unit_name, current_wounds, max_wounds }."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return {"eligible": false}
-
-	# For vehicles, check the first (and usually only) model
-	var models = unit.get("models", [])
-	for i in range(models.size()):
-		var model = models[i]
-		if not model.get("alive", true):
-			continue
-		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
-		var max_wounds = model.get("wounds", 1)
-		if current_wounds < max_wounds:
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			print("UnitAbilityManager: Grot Riggers — %s has %d/%d wounds (eligible)" % [unit_name, current_wounds, max_wounds])
-			return {
-				"eligible": true,
-				"unit_id": unit_id,
-				"unit_name": unit_name,
-				"model_index": i,
-				"current_wounds": current_wounds,
-				"max_wounds": max_wounds
-			}
-
-	print("UnitAbilityManager: Grot Riggers — unit %s is at full wounds (not eligible)" % unit_id)
-	return {"eligible": false}
-
-func has_grot_orderly(unit_id: String) -> bool:
-	"""Check if a unit has an unused Grot Orderly wargear ability (Painboss).
-	Used by CommandPhase at start of command to offer model revival."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Grot Orderly":
-			if not is_once_per_battle_used(unit_id, "Grot Orderly"):
-				print("UnitAbilityManager: Unit %s has unused Grot Orderly" % unit_id)
-				return true
-			else:
-				print("UnitAbilityManager: Unit %s has Grot Orderly but already used this battle" % unit_id)
-	return false
-
-func get_grot_orderly_unit(painboss_unit_id: String) -> Dictionary:
-	"""Check if the Painboss's led unit is below starting strength for Grot Orderly.
-	Returns { eligible: bool, bodyguard_unit_id, destroyed_count, max_return } or empty dict."""
-	var units = GameState.state.get("units", {})
-
-	# Find the bodyguard unit the Painboss is leading
-	for unit_id in units:
-		var unit = units[unit_id]
-		var attachment_data = unit.get("attachment_data", {})
-		var attached_characters = attachment_data.get("attached_characters", [])
-		if painboss_unit_id in attached_characters:
-			# Found the bodyguard unit — check if below starting strength
-			var models = unit.get("models", [])
-			var alive_count = 0
-			var destroyed_count = 0
-			for model in models:
-				if model.get("alive", true):
-					alive_count += 1
-				else:
-					destroyed_count += 1
-
-			if destroyed_count > 0:
-				print("UnitAbilityManager: Grot Orderly — bodyguard unit %s is below starting strength (%d destroyed models)" % [unit_id, destroyed_count])
-				return {
-					"eligible": true,
-					"bodyguard_unit_id": unit_id,
-					"bodyguard_unit_name": unit.get("meta", {}).get("name", unit_id),
-					"destroyed_count": destroyed_count,
-					"alive_count": alive_count,
-					"total_models": models.size()
-				}
-			else:
-				print("UnitAbilityManager: Grot Orderly — bodyguard unit %s is at full strength" % unit_id)
-				return {"eligible": false}
-
-	print("UnitAbilityManager: Grot Orderly — Painboss %s is not leading any unit" % painboss_unit_id)
-	return {"eligible": false}
-
-func has_fix_dat_armour_up(unit_id: String) -> bool:
-	"""Check if a unit has the Fix Dat Armour Up ability (Big Mek in Mega Armour).
-	Used by CommandPhase to offer model revival each command phase while leading."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Fix Dat Armour Up":
-			print("UnitAbilityManager: Unit %s has Fix Dat Armour Up" % unit_id)
-			return true
-	return false
-
-func get_fix_dat_armour_up_unit(character_unit_id: String) -> Dictionary:
-	"""Check if the Big Mek's led unit has destroyed Bodyguard models for Fix Dat Armour Up.
-	Returns { eligible: bool, bodyguard_unit_id, bodyguard_unit_name, destroyed_count } or ineligible dict."""
-	var units = GameState.state.get("units", {})
-
-	# Find the bodyguard unit the Big Mek is leading
-	for unit_id in units:
-		var unit = units[unit_id]
-		var attachment_data = unit.get("attachment_data", {})
-		var attached_characters = attachment_data.get("attached_characters", [])
-		if character_unit_id in attached_characters:
-			# Found the bodyguard unit — check for destroyed models
-			var models = unit.get("models", [])
-			var alive_count = 0
-			var destroyed_count = 0
-			for model in models:
-				if model.get("alive", true):
-					alive_count += 1
-				else:
-					destroyed_count += 1
-
-			if destroyed_count > 0:
-				print("UnitAbilityManager: Fix Dat Armour Up — bodyguard unit %s has %d destroyed model(s)" % [unit_id, destroyed_count])
-				return {
-					"eligible": true,
-					"bodyguard_unit_id": unit_id,
-					"bodyguard_unit_name": unit.get("meta", {}).get("name", unit_id),
-					"destroyed_count": destroyed_count,
-					"alive_count": alive_count,
-					"total_models": models.size()
-				}
-			else:
-				print("UnitAbilityManager: Fix Dat Armour Up — bodyguard unit %s is at full strength" % unit_id)
-				return {"eligible": false}
-
-	print("UnitAbilityManager: Fix Dat Armour Up — Big Mek %s is not leading any unit" % character_unit_id)
-	return {"eligible": false}
 
 func _calculate_distance(pos_a, pos_b) -> float:
 	"""Calculate distance between two positions (in game inches).
@@ -4164,132 +2738,6 @@ func _calculate_distance(pos_a, pos_b) -> float:
 
 	return sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by))
 
-# ============================================================================
-# OA-34: MEKANIAK (Mek/Big Mek healing + hit buff at end of Movement phase)
-# ============================================================================
-
-func has_mekaniak(unit_id: String) -> bool:
-	"""Check if a unit has the Mekaniak ability.
-	Used by MovementPhase at end of movement to offer healing/buff."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Mekaniak":
-			print("UnitAbilityManager: Unit %s has Mekaniak ability" % unit_id)
-			return true
-	return false
-
-func get_mekaniak_targets(mek_unit_id: String) -> Array:
-	"""Get eligible vehicle targets for Mekaniak ability.
-	Returns array of { unit_id, unit_name, model_id, model_index, current_wounds, max_wounds, wounds_lost }
-	for friendly ORKS VEHICLE models within 3\" that haven't already been selected this turn."""
-	var targets = []
-	var mek_unit = GameState.state.get("units", {}).get(mek_unit_id, {})
-	if mek_unit.is_empty():
-		return targets
-
-	# Get Mek position (first alive model)
-	var mek_pos = null
-	for model in mek_unit.get("models", []):
-		if model.get("alive", true) and model.get("position", null) != null:
-			mek_pos = model.get("position")
-			break
-
-	if mek_pos == null:
-		print("UnitAbilityManager: Mek %s has no position — cannot find Mekaniak targets" % mek_unit_id)
-		return targets
-
-	var units = GameState.state.get("units", {})
-	var mek_owner = mek_unit.get("owner", 0)
-
-	for unit_id in units:
-		var unit = units[unit_id]
-		# Must be same owner (friendly)
-		if unit.get("owner", 0) != mek_owner:
-			continue
-
-		# Skip the Mek itself
-		if unit_id == mek_unit_id:
-			continue
-
-		# Must have ORKS and VEHICLE keywords
-		var keywords = unit.get("meta", {}).get("keywords", [])
-		var has_orks = false
-		var has_vehicle = false
-		for kw in keywords:
-			if kw.to_upper() == "ORKS":
-				has_orks = true
-			if kw.to_upper() == "VEHICLE":
-				has_vehicle = true
-		if not has_orks or not has_vehicle:
-			continue
-
-		# Once per vehicle per turn — skip if already selected
-		if is_mekaniak_used_this_turn(unit_id):
-			print("UnitAbilityManager: Mekaniak — vehicle %s already selected this turn, skipping" % unit_id)
-			continue
-
-		# Check each alive model for proximity
-		for i in range(unit.get("models", []).size()):
-			var model = unit.get("models", [])[i]
-			if not model.get("alive", true):
-				continue
-
-			var model_pos = model.get("position", null)
-			if model_pos == null:
-				continue
-
-			var dist = _calculate_distance(mek_pos, model_pos)
-			if dist <= 3.0:
-				var max_wounds = model.get("wounds", 1)
-				var current_wounds = model.get("current_wounds", max_wounds)
-				targets.append({
-					"unit_id": unit_id,
-					"unit_name": unit.get("meta", {}).get("name", unit_id),
-					"model_id": model.get("id", "m%d" % (i + 1)),
-					"model_index": i,
-					"current_wounds": current_wounds,
-					"max_wounds": max_wounds,
-					"wounds_lost": max_wounds - current_wounds
-				})
-				print("UnitAbilityManager: Mekaniak target found — %s model %s (%d/%d wounds)" % [
-					unit.get("meta", {}).get("name", unit_id), model.get("id", ""), current_wounds, max_wounds])
-
-	return targets
-
-func mark_mekaniak_used_this_turn(vehicle_unit_id: String) -> void:
-	"""Mark a vehicle as having been selected for Mekaniak this turn."""
-	_mekaniak_used_this_turn[vehicle_unit_id] = true
-	print("UnitAbilityManager: Marked vehicle %s as Mekaniak target this turn" % vehicle_unit_id)
-
-func is_mekaniak_used_this_turn(vehicle_unit_id: String) -> bool:
-	"""Check if a vehicle has already been selected for Mekaniak this turn."""
-	return _mekaniak_used_this_turn.get(vehicle_unit_id, false)
-
-func clear_mekaniak_turn_tracking() -> void:
-	"""Clear Mekaniak per-vehicle-per-turn tracking. Called at start of each player's Movement phase."""
-	if not _mekaniak_used_this_turn.is_empty():
-		print("UnitAbilityManager: Clearing Mekaniak turn tracking (%d vehicles tracked)" % _mekaniak_used_this_turn.size())
-	_mekaniak_used_this_turn.clear()
-
-static func has_mekaniak_buff(unit: Dictionary) -> bool:
-	"""Check if a unit has the Mekaniak +1 Hit buff active.
-	Used by RulesEngine when resolving hit rolls."""
-	return unit.get("flags", {}).get("mekaniak_buffed", false)
-
-static func has_big_an_shooty(unit: Dictionary) -> bool:
-	"""Check if a unit has Big an' Shooty +1 Hit (ranged) active during Waaagh!.
-	Used by RulesEngine when resolving ranged hit rolls."""
-	return unit.get("flags", {}).get("big_an_shooty_active", false)
-
-static func has_big_an_stompy(unit: Dictionary) -> bool:
-	"""Check if a unit has Big an' Stompy +1 Hit (melee) active during Waaagh!.
-	Used by RulesEngine when resolving melee hit rolls."""
-	return unit.get("flags", {}).get("big_an_stompy_active", false)
 
 func has_deadly_demise(unit_id: String) -> bool:
 	"""Check if a unit has a Deadly Demise ability (e.g. 'Deadly Demise D6', 'Deadly Demise D3', 'Deadly Demise 1').
@@ -4342,35 +2790,6 @@ func has_outflank(unit_id: String) -> bool:
 			return true
 	return false
 
-func has_clankin_forward(unit_id: String) -> bool:
-	"""Check if a unit has the Clankin' Forward ability (Morkanaut/Gorkanaut).
-	Used by MovementPhase to allow moving over non-MONSTER/VEHICLE enemies and terrain ≤4\"."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Clankin' Forward":
-			print("UnitAbilityManager: Unit %s has Clankin' Forward ability" % unit_id)
-			return true
-	return false
-
-func has_stompin_forward(unit_id: String) -> bool:
-	"""Check if a unit has the Stompin' Forward ability (Stompa).
-	Used by MovementPhase to allow moving over all non-TITANIC models and terrain ≤4\"."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Stompin' Forward":
-			print("UnitAbilityManager: Unit %s has Stompin' Forward ability" % unit_id)
-			return true
-	return false
 
 # ============================================================================
 # OA-42: SCATTER! — Grot Tanks reactive move
@@ -4612,7 +3031,6 @@ func get_state_for_save() -> Dictionary:
 		"once_per_battle_used": _once_per_battle_used.duplicate(true),
 		"once_per_round_used": _once_per_round_used.duplicate(true),
 		"active_aura_effects": _active_aura_effects.duplicate(true),
-		"mekaniak_used_this_turn": _mekaniak_used_this_turn.duplicate(true),
 		"scatter_used_this_turn": _scatter_used_this_turn.duplicate(true)
 	}
 
@@ -4623,7 +3041,6 @@ func load_state(data: Dictionary) -> void:
 	_once_per_battle_used = data.get("once_per_battle_used", {})
 	_once_per_round_used = data.get("once_per_round_used", {})
 	_active_aura_effects = data.get("active_aura_effects", {})
-	_mekaniak_used_this_turn = data.get("mekaniak_used_this_turn", {})
 	_scatter_used_this_turn = data.get("scatter_used_this_turn", {})
 	print("UnitAbilityManager: State loaded — %d active effects, %d aura effects, %d once-per-battle used, %d once-per-round used" % [_active_ability_effects.size(), _active_aura_effects.size(), _once_per_battle_used.size(), _once_per_round_used.size()])
 
@@ -4634,6 +3051,5 @@ func reset_for_new_game() -> void:
 	_once_per_battle_used.clear()
 	_once_per_round_used.clear()
 	_active_aura_effects.clear()
-	_mekaniak_used_this_turn.clear()
 	_scatter_used_this_turn.clear()
 	print("UnitAbilityManager: Reset for new game")

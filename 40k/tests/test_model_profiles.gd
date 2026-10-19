@@ -12,6 +12,9 @@ var _sm_data = {}
 var _ran_ma8 = false
 # Lootas model_profiles dict — set in _init, read by the MA-31 tests in _process.
 var mp = null
+# Pre-codex (40kdc-data 1.0.19) Boyz / Meganobz with hand-authored
+# model_profiles — see Test 1b.
+const PRE_CODEX_FIXTURE := "res://tests/fixtures/pre_codex_ork_profiled_units.json"
 
 func _init():
 	print("\n=== Test Model Profiles (MA-1, MA-5, MA-8, MA-10, MA-11, MA-24, MA-26, MA-30, MA-31) ===\n")
@@ -33,6 +36,41 @@ func _init():
 		else:
 			print("  FAIL: model_profiles not found in U_LOOTAS_A meta")
 			_failed += 1
+
+	# --- Test 1b: codex Boyz / Meganobz carry no hand-authored profiles; the
+	# pre-codex profiled copies drive the per-model profile checks below ---
+	# Codex: Orks (11e): the Wahapedia codex import (e704330a, PLAN C2/O2)
+	# rebuilt armies/orks.json's Boyz (U_BOYZ_F) and Meganobz (U_MEGANOBZ_L)
+	# from the codex datasheets. Their per-role kits now come from
+	# unit_composition + wargear (UnitLoadoutResolver; tests/test_loadout_
+	# resolution.gd), not from hand-authored meta.model_profiles, so the
+	# generated file no longer carries those profiles. Pre-codex saves still
+	# embed them and the engine still honours them, so the MA-11 / MA-12 /
+	# MA-18 / MA-24 / MA-30 / MA-31 checks below run on the frozen pre-codex
+	# copies of those two units (tests/fixtures/pre_codex_ork_profiled_units.json).
+	# The Lootas (no codex datasheet, kept unchanged by the import) and the
+	# no-profile U_BOYZ_E still come from orks.json.
+	print("\n--- Test 1b: codex units in orks.json vs the pre-codex profiled fixture ---")
+	var codex_units_ok = true
+	for codex_uid in ["U_BOYZ_F", "U_MEGANOBZ_L"]:
+		var codex_meta = _army_data.get("units", {}).get(codex_uid, {}).get("meta", {})
+		if codex_meta.has("model_profiles") or codex_meta.get("unit_composition", []).is_empty():
+			print("  FAIL: orks.json %s should be the codex datasheet (unit_composition, no model_profiles)" % codex_uid)
+			codex_units_ok = false
+	if codex_units_ok:
+		print("  PASS: orks.json U_BOYZ_F / U_MEGANOBZ_L are codex datasheets (unit_composition, no model_profiles)")
+		_passed += 1
+	else:
+		_failed += 1
+	var pre_codex_units = _load_pre_codex_profiled_units()
+	if pre_codex_units.has("U_BOYZ_F") and pre_codex_units.has("U_MEGANOBZ_L"):
+		for pre_uid in pre_codex_units:
+			_army_data["units"][pre_uid] = pre_codex_units[pre_uid]
+		print("  PASS: pre-codex profiled U_BOYZ_F / U_MEGANOBZ_L loaded from the fixture")
+		_passed += 1
+	else:
+		print("  FAIL: could not load %s" % PRE_CODEX_FIXTURE)
+		_failed += 1
 
 	# --- Test 2: model_profiles is a Dictionary ---
 	print("\n--- Test 2: model_profiles is a Dictionary ---")
@@ -696,7 +734,11 @@ func _process(_delta):
 	print("\n--- Test 30: MA-30 get_unit_weapons without model_profiles (U_BOYZ_E) ---")
 	var t30_weapons = _get_unit_ranged_weapons("U_BOYZ_E", ork_board)
 	var t30_ok = true
-	var t30_expected_ranged = ["big_shoota_ranged", "kombi_weapon_ranged", "rokkit_launcha_ranged", "shoota_ranged", "slugga_ranged"]
+	# Codex: Orks (11e) Boyz ranged profiles (orks/wahapedia Datasheets_wargear.csv):
+	# the 10e Kombi-weapon / Rokkit launcha became Kombi-skorcha (Shoota /
+	# Skorcha) and Rokkit Launcha (Blasta / Busta), one id per profile.
+	var t30_expected_ranged = ["big_shoota_ranged", "kombi_skorcha___shoota_ranged", "kombi_skorcha___skorcha_ranged",
+		"rokkit_launcha___blasta_ranged", "rokkit_launcha___busta_ranged", "shoota_ranged", "slugga_ranged"]
 	# All 20 models should get ALL ranged weapons (no profile restriction)
 	if t30_weapons.size() != 20:
 		print("  FAIL: Expected 20 model entries, got %d" % t30_weapons.size())
@@ -796,7 +838,12 @@ func _process(_delta):
 
 	# --- Test 33: Pistol filter with profiled unit (Boyz_F) ---
 	print("\n--- Test 33: MA-30 Pistol filter with profiled unit (Boyz_F) ---")
-	var t33_pistol = _filter_unit_weapons("U_BOYZ_F", "pistol", ork_board)
+	# The keyword helper resolves a weapon id board-wide (first unit that
+	# carries the name). The codex Boyz in orks.json share the "Slugga" id but
+	# print it CLOSE-QUARTERS (Codex: Orks 11e), so look the pre-codex Slugga
+	# (PISTOL) up on a board holding only the pre-codex profiled unit (Test 1b).
+	var t33_board = {"units": {"U_BOYZ_F": _army_data.get("units", {}).get("U_BOYZ_F", {})}}
+	var t33_pistol = _filter_unit_weapons("U_BOYZ_F", "pistol", t33_board)
 	var t33_ok = true
 	# boss_nob (m1) has Slugga (pistol) in profile
 	if not t33_pistol.has("m1") or "slugga_ranged" not in t33_pistol["m1"]:
@@ -1602,6 +1649,16 @@ func _load_army_json(army_name: String) -> Dictionary:
 		print("  ERROR: JSON parse error: %s" % json.get_error_message())
 		return {}
 	return json.data
+
+func _load_pre_codex_profiled_units() -> Dictionary:
+	if not FileAccess.file_exists(PRE_CODEX_FIXTURE):
+		print("  ERROR: File not found: %s" % PRE_CODEX_FIXTURE)
+		return {}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(PRE_CODEX_FIXTURE))
+	if not parsed is Dictionary:
+		print("  ERROR: JSON parse error in %s" % PRE_CODEX_FIXTURE)
+		return {}
+	return parsed.get("units", {})
 
 # ═══════════════════════════════════════════════════════════════════════
 # MA-30 Helper functions — mirror RulesEngine weapon assignment logic

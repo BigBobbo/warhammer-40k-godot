@@ -32,9 +32,6 @@ signal consolidate_required(unit_id: String, max_distance: float)
 signal subphase_transition(from_subphase: String, to_subphase: String)
 signal epic_challenge_opportunity(unit_id: String, player: int)
 signal counter_offensive_opportunity(player: int, eligible_units: Array)
-signal katah_stance_required(unit_id: String, player: int)
-signal moment_shackle_required(unit_id: String, player: int)  # Blade Champion Moment Shackle choice at start of Fight phase (human UI)
-signal dread_foe_resolved(unit_id: String, result: Dictionary)  # P1-17: Dread Foe mortal wounds result
 signal saves_required(save_data_list: Array)  # P0-58: Interactive wound allocation for defender
 signal sweeping_advance_available(unit_id: String, player: int, in_engagement: bool, move_distance: float)  # Sweeping Advance opportunity
 signal acrobatic_escape_available(unit_id: String, player: int, move_distance: float)  # Acrobatic Escape opportunity (Callidus Assassin)
@@ -107,9 +104,6 @@ var sweeping_advance_pending_units: Array = []  # Units eligible for Sweeping Ad
 var awaiting_acrobatic_escape: bool = false
 var acrobatic_escape_pending_units: Array = []  # Units eligible for Acrobatic Escape at end of fight phase
 
-# Moment Shackle tracking (Trajann Valoris)
-var _moment_shackle_pending_units: Array = []  # Unit IDs with Moment Shackle available this phase
-
 # 11e 12.07-12.08: the global end-of-phase CONSOLIDATE step (edition >= 11
 # only). NOT_STARTED while the Fight step runs; ACTIVE once END_FIGHT is
 # requested with every fight resolved — the active player consolidates all
@@ -143,11 +137,14 @@ var _pending_pile_in_step_data: Dictionary = {}
 # embark / strategic_reserves follow-ups and the shared 05.04.05 Fight On
 # Death mechanic of ORKS IS NEVER BEATEN / TOO ARROGANT TO DIE / CRAZED RAMPAGE.
 const OrkCodexFight = preload("res://scripts/stratagems/ork_codex/OrkCodexFight.gd")
+# Codex: Orks (11e) detachment rules (WP-O34): 'Ard as Nails, Try Dat Button!, Visions of Violence.
+const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
 var _ork11e_selected_to_fight: Dictionary = {}   # unit_id -> true once selected to fight this phase
 var _ork11e_fod_rolled: Dictionary = {}          # "unit_id:model_index" -> true (D6 rolled, or a removal)
 var _ork11e_fod_destroyer: Dictionary = {}       # unit_id -> enemy fighter whose attacks destroyed its kept models (event attribution)
 var _window_deferred_batch: Dictionary = {}      # {window_id, player, actions}: BATCH sub-actions held while a window waits
 var _fight_phase_end_window_opened: bool = false # the fight_phase_end window opens once per phase
+var _fight_phase_start_window_opened: bool = false # the fight_phase_start window opens once per phase (WP-C3)
 var _kill_reported_units: Dictionary = {}        # unit_id -> true once _check_kill_diffs processed its destruction
 
 func _init():
@@ -155,12 +152,7 @@ func _init():
 
 func _on_phase_enter() -> void:
 	log_phase_message("Entering Fight Phase")
-	# Big Gob (Bully Boyz enhancement): at the start of the Fight phase the
-	# bearer bellows at the nearest engaged enemy — Battle-shock test at -1.
-	var fam = get_node_or_null("/root/FactionAbilityManager")
-	if fam and fam.has_method("process_big_gob"):
-		fam.process_big_gob(1)
-		fam.process_big_gob(2)
+	_cus11e_step_asked.clear()
 	# Clear previous state
 	active_fighter_id = ""
 	pending_attacks.clear()
@@ -178,7 +170,6 @@ func _on_phase_enter() -> void:
 	sweeping_advance_pending_units.clear()
 	awaiting_acrobatic_escape = false
 	acrobatic_escape_pending_units.clear()
-	_moment_shackle_pending_units.clear()
 	consolidation_step_11e = ConsolidationStep11e.NOT_STARTED
 	consolidating_player_11e = 0
 	consolidation_done_players_11e.clear()
@@ -193,25 +184,14 @@ func _on_phase_enter() -> void:
 	_ork11e_fod_destroyer.clear()
 	_window_deferred_batch = {}
 	_fight_phase_end_window_opened = false
+	_fight_phase_start_window_opened = false
 	_kill_reported_units.clear()
 	# Clear stale eligibility stamps from a previous fight phase (e.g. a
 	# loaded save) before this phase re-stamps them.
 	_clear_fight_eligibility_stamps_11e()
 
-	# Detect Moment Shackle eligible units
-	var ms_units = GameState.state.get("units", {})
-	for ms_uid in ms_units:
-		var ms_unit = ms_units[ms_uid]
-		if ms_unit.get("owner", 0) != get_current_player():
-			continue
-		if ms_unit.get("flags", {}).get("moment_shackle_used", false):
-			continue
-		var ms_abilities = ms_unit.get("meta", {}).get("abilities", [])
-		for ms_ab in ms_abilities:
-			var ms_name = ms_ab.get("name", "") if ms_ab is Dictionary else str(ms_ab)
-			if ms_name == "Moment Shackle":
-				_moment_shackle_pending_units.append(ms_uid)
-				break
+	# (Codex: Adeptus Custodes (11e) Moment Shackle is a "start of any phase"
+	# ability card in the phase_start window — CustodesAbilities.gd, WP-C7.)
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -221,8 +201,22 @@ func _on_phase_enter() -> void:
 	# Refresh snapshot after ability effects mutated GameState flags
 	game_state_snapshot = GameState.create_snapshot()
 
+	# Codex: Orks (11e) Wurrband — Visions of Violence "at the start of the Fight
+	# phase" (WP-O34): decided before the FightSequencer / Pile In step begin.
+	var ork11e_fs: Array = Ork11eDetachments.fight_start_window_entries(GameState.get_active_player())
+	if not ork11e_fs.is_empty() and open_stratagem_windows(ork11e_fs, "_ork11e_resume_after_fight_start", {}):
+		log_phase_message("Waiting for the start-of-Fight-phase psychic ability decision (Visions of Violence)")
+		return
 	_initialize_fight_sequence()
 	_check_for_combats()
+
+## Codex: Orks (11e) start-of-Fight-phase window answered (WP-O34): build the
+## fight sequence (Fights First now includes Visions of Violence) and begin.
+func _ork11e_resume_after_fight_start(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	game_state_snapshot = GameState.create_snapshot()
+	_initialize_fight_sequence()
+	_check_for_combats()
+	return create_result(true, [])
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Fight Phase")
@@ -234,6 +228,7 @@ func _on_phase_exit() -> void:
 	if not fod_exit_diffs.is_empty():
 		PhaseManager.apply_state_changes(fod_exit_diffs)
 		_check_kill_diffs(fod_exit_diffs)
+	Ork11eDetachments.on_phase_end("fight")  # Codex: Orks (11e) Try Dat Button! / Visions of Violence / 'Ard as Nails flags (WP-O34)
 
 	# TRY DAT BUTTON! (Dread Mob): Button Effects last until end of phase
 	var fam_tdb_exit = get_node_or_null("/root/FactionAbilityManager")
@@ -299,30 +294,46 @@ func _initialize_fight_sequence() -> void:
 	emit_signal("fight_order_determined", combatants)
 	emit_signal("fight_sequence_updated", combatants)
 
-	# 11e: the Blade Champion's Moment Shackle is chosen at the START of the
-	# Fight phase, before any unit fights. Offer it first (gating the opening
-	# Pile In step); once every pending choice is resolved the pile-in begins.
-	# The AI resolves it via get_available_actions(); a human needs the dialog
-	# that moment_shackle_required drives — without this the phase soft-locked.
-	if _maybe_offer_moment_shackle():
-		return
-
-	# 11e 12.02: the fight phase OPENS with the global Pile In step — both
+	# 11e 12.01 start of the Fight phase (the fight_phase_start windows), then
+	# 12.02: the fight phase OPENS with the global Pile In step — both
 	# players pile in their eligible units (active player first) before any
 	# unit is selected to fight.
-	_begin_pile_in_step_11e()
+	_start_fight_phase_after_start_rules()
 
-# Offer the next pending Moment Shackle choice to the active player. Returns
-# true if a choice is now outstanding (caller must NOT proceed to pile-in yet),
-# false when there is nothing pending. Emits moment_shackle_required so the
-# human dialog appears; the AI reads the same choice from get_available_actions.
-func _maybe_offer_moment_shackle() -> bool:
-	if _moment_shackle_pending_units.is_empty():
-		return false
-	var uid = _moment_shackle_pending_units[0]
-	log_phase_message("MOMENT SHACKLE: offering choice for %s (player %d)" % [uid, get_current_player()])
-	emit_signal("moment_shackle_required", uid, get_current_player())
-	return true
+## 12.01 "Rules that are triggered at the start of the Fight phase are
+## resolved now": the fight_phase_start stratagem window (WP-C3 — the Codex:
+## Adeptus Custodes DACATARAI / KAPTARIS ka'tahs, CustodesKatah.gd, and the
+## stratagems that use it), active player first, then the non-active player,
+## once per phase; the Pile In step begins when it closes. Returns the phase
+## result (window diffs + the Pile In step's triggers).
+func _start_fight_phase_after_start_rules() -> Dictionary:
+	if not _fight_phase_start_window_opened:
+		_fight_phase_start_window_opened = true
+		var fps_ctx := {"phase": "fight"}
+		if _is_network_client():
+			# The HOST opens the window; when a human there has something to
+			# decide, the Pile In step starts from the host's answer (its result
+			# carries trigger_pile_in_selection) — not locally, beside the window.
+			var active := get_current_player()
+			for p in [active, 2 if active == 1 else 1]:
+				if not _is_ai_window_decider(p) and not _window_offers_for(p, "fight_phase_start", fps_ctx).is_empty():
+					log_phase_message("[11e 12.01] network client: P%d has fight_phase_start offers — the Pile In step follows the host's decision" % p)
+					return create_result(true, [])
+		if open_stratagem_window_both_players("fight_phase_start", fps_ctx, "_resume_after_fight_phase_start_window"):
+			log_phase_message("[11e 12.01] start of the Fight phase — waiting for Player %d's fight_phase_start decision" % get_pending_stratagem_window_decider())
+			return create_result(true, consume_window_diffs())
+	var start_diffs := consume_window_diffs()
+	var res := _begin_pile_in_step_11e()
+	if not start_diffs.is_empty():
+		start_diffs.append_array(res.get("changes", []))
+		res["changes"] = start_diffs
+	return res
+
+## Resume point for the fight_phase_start windows (BasePhase framework).
+func _resume_after_fight_phase_start_window(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	log_phase_message("[11e 12.01] fight_phase_start windows answered — the Pile In step begins")
+	return _begin_pile_in_step_11e()
+
 
 func _check_for_combats() -> void:
 	var combatants = _combatants_11e()
@@ -406,8 +417,8 @@ func _check_kill_diffs(changes: Array) -> void:
 					_resolve_transport_destruction_if_applicable(unit_id)
 					# P1-13: Check for Deadly Demise on destroyed unit
 					_resolve_deadly_demise_if_applicable(unit_id)
-						# Superior Creation (Lions enhancement): queue the end-of-phase revival roll
-					_record_superior_creation_if_applicable(unit_id)
+					# (Codex: Adeptus Custodes Superior Creation rolls at the end of the
+					# phase — PhaseManager -> CustodesEnhancements.gd, WP-C46.)
 					# P3-32: Check if destroyed unit is a transport with embarked units
 					_resolve_transport_destroyed_if_applicable(unit_id)
 
@@ -473,18 +484,6 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 
 		# Recursively check if transport destruction casualties caused further deaths
 		_check_kill_diffs(result.all_diffs)
-
-func _record_superior_creation_if_applicable(destroyed_unit_id: String) -> void:
-	"""Superior Creation (Lions of the Emperor): first bearer death queues a
-	2+ revival roll that PhaseManager resolves at the end of the phase."""
-	var result = RulesEngine.record_superior_creation_death(destroyed_unit_id, GameState.state)
-	if not result.get("applicable", false):
-		return
-	var diffs = result.get("diffs", [])
-	if not diffs.is_empty():
-		PhaseManager.apply_state_changes(diffs)
-	var _sc_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
-	log_phase_message("Superior Creation: %s destroyed — revival roll (2+) at end of phase" % _sc_meta.get("name", destroyed_unit_id))
 
 ## Deadly Demise is resolved by this phase's own kill detection
 ## (_check_kill_diffs), not by the BasePhase generic event path.
@@ -563,14 +562,16 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_counter_offensive(action)
 		"DECLINE_COUNTER_OFFENSIVE":
 			return {"valid": true}
-		"SELECT_KATAH_STANCE":
-			return _validate_select_katah_stance(action)
 		"END_FIGHT":
 			return _validate_end_fight(action)
 		"END_CONSOLIDATION":
 			return _validate_end_consolidation(action)
 		"END_PILE_IN":
 			return _validate_end_pile_in(action)
+		# Codex: Adeptus Custodes (CustodesCodex11e.gd): a unit chosen in the Pile In /
+		# Consolidate step opens unit_selected_to_pile_in / _to_consolidate first.
+		"CUS11E_SELECT_PILE_IN_UNIT", "CUS11E_SELECT_CONSOLIDATION_UNIT":
+			return _cus11e_validate_step_unit(action)
 		"SWEEPING_ADVANCE":
 			return _validate_sweeping_advance(action)
 		"DECLINE_SWEEPING_ADVANCE":
@@ -585,19 +586,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_apply_melee_saves(action)
 		"CONTINUE_TO_WOUNDS", "CONTINUE_TO_SAVES", "USE_FIGHT_REROLL":  # Staged sequential steps
 			return _validate_staged_fight_continue(action)
-		"USE_MOMENT_SHACKLE":
-			var ms_uid = action.get("unit_id", "")
-			if ms_uid not in _moment_shackle_pending_units:
-				return {"valid": false, "errors": ["Unit does not have Moment Shackle pending"]}
-			var ms_choice = action.get("choice", "")
-			if ms_choice not in ["attacks_12", "invuln_2"]:
-				return {"valid": false, "errors": ["Invalid Moment Shackle choice: %s" % ms_choice]}
-			return {"valid": true}
-		"DECLINE_MOMENT_SHACKLE":
-			var ms_uid2 = action.get("unit_id", "")
-			if ms_uid2 not in _moment_shackle_pending_units:
-				return {"valid": false, "errors": ["Unit does not have Moment Shackle pending"]}
-			return {"valid": true}
 		"USE_STRATAGEM":
 			return _validate_use_stratagem(action)
 		"END_CHARGE":
@@ -648,14 +636,14 @@ func _process_fight_action(action: Dictionary) -> Dictionary:
 			return _process_use_counter_offensive(action)
 		"DECLINE_COUNTER_OFFENSIVE":
 			return _process_decline_counter_offensive(action)
-		"SELECT_KATAH_STANCE":
-			return _process_select_katah_stance(action)
 		"END_FIGHT":
 			return _process_end_fight(action)
 		"END_CONSOLIDATION":
 			return _process_end_consolidation(action)
 		"END_PILE_IN":
 			return _process_end_pile_in(action)
+		"CUS11E_SELECT_PILE_IN_UNIT", "CUS11E_SELECT_CONSOLIDATION_UNIT":
+			return _cus11e_process_step_unit(action)
 		"SWEEPING_ADVANCE":
 			return _process_sweeping_advance(action)
 		"DECLINE_SWEEPING_ADVANCE":
@@ -674,10 +662,6 @@ func _process_fight_action(action: Dictionary) -> Dictionary:
 			return _staged_fight_continue_to_saves()
 		"USE_FIGHT_REROLL":  # Staged: Command Re-roll a hit or wound die
 			return _process_use_fight_reroll(action)
-		"USE_MOMENT_SHACKLE":
-			return _process_use_moment_shackle(action)
-		"DECLINE_MOMENT_SHACKLE":
-			return _process_decline_moment_shackle(action)
 		"USE_STRATAGEM":
 			return _process_use_stratagem(action)
 		"END_CHARGE":
@@ -982,7 +966,8 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 	# STRATAGEM WINDOW unit_selected_to_fight (design §3): "when a unit is
 	# selected to fight (either player's unit), before attacks" — the FIGHTER'S
 	# OWNER decides (HIT 'EM HARDER, MOW 'EM DOWN, UNBRIDLED CARNAGE, ARMED TO
-	# DA TEEF …). Opens before Epic Challenge / Ka'tah / Dread Foe so the
+	# DA TEEF …, and the Codex: Adeptus Custodes RENDAX ka'tah of a readied
+	# unit — CustodesKatah.gd). Opens before Epic Challenge so the
 	# chosen buff is in place for everything that follows the selection.
 	var fighter_owner := int(get_unit(active_fighter_id).get("owner", current_selecting_player))
 	var stf_ctx := {"phase": "fight", "unit_id": active_fighter_id}
@@ -1001,7 +986,7 @@ func _resume_after_selected_to_fight_window(ctx: Dictionary, _window_result: Dic
 	return _after_selected_to_fight_windows(str(ctx.get("unit_id", active_fighter_id)))
 
 ## Everything that follows "selected to fight" once the stratagem window has
-## closed: Epic Challenge → Martial Ka'tah → Dread Foe → fight moves/attacks.
+## closed: Epic Challenge → fight moves/attacks.
 func _after_selected_to_fight_windows(fighter_id: String) -> Dictionary:
 	active_fighter_id = fighter_id
 	# Check for Epic Challenge opportunity before pile-in
@@ -1017,8 +1002,8 @@ func _after_selected_to_fight_windows(fighter_id: String) -> Dictionary:
 		result["epic_challenge_player"] = current_selecting_player
 		return result
 
-	# No Epic Challenge available - check for Martial Ka'tah before pile-in
-	return _check_katah_or_proceed_to_pile_in(active_fighter_id)
+	# No Epic Challenge available - the fight itself
+	return _proceed_to_fight_moves(active_fighter_id)
 
 # ============================================================================
 # CANCEL_FIGHTER_SELECTION — back out of an activation before any attack lands
@@ -1813,7 +1798,7 @@ func _staged_fight_continue_to_wounds() -> Dictionary:
 	var interactive_saves = staged_fight_state.get("interactive_saves", false)
 
 	var rng = RulesEngine.make_rng()
-	# Hold Still MW ride on the interactive save_data; the auto tail rolls its own.
+	# interactive_saves: the human defender allocates via the save overlay.
 	var wres = RulesEngine.resolve_melee_wounds(hc, game_state_snapshot, rng, interactive_saves)
 
 	for db in wres.get("dice", []):
@@ -1884,8 +1869,8 @@ func _staged_fight_continue_to_saves() -> Dictionary:
 			"save_data_list": save_data_list
 		})
 
-	# Auto-allocate: run the save/damage tail synchronously (rolls Hold Still
-	# itself, exactly like the one-shot monolith path).
+	# Auto-allocate: run the save/damage tail synchronously (exactly like the
+	# one-shot monolith path).
 	var rng = RulesEngine.make_rng()
 	var sres = RulesEngine.resolve_melee_saves_auto(hc, wound_result, game_state_snapshot, rng)
 	var changes = sres.get("diffs", [])
@@ -2038,11 +2023,6 @@ func _process_use_fight_reroll(action: Dictionary) -> Dictionary:
 		# Rebuild the pending save list (may now have more/fewer wounds).
 		if new_wounds > 0:
 			var sd = rr.get("save_data", {})
-			if staged_fight_state.get("interactive_saves", false):
-				var hs_mw = RulesEngine.roll_hold_still_mortal_wounds(
-					staged_fight_state.get("hit_context", {}), int(rr.get("all_critical_wounds", 0)), rng)
-				if hs_mw > 0:
-					sd["hold_still_mortal_wounds"] = hs_mw
 			staged_fight_state.save_data_list = [sd]
 		else:
 			staged_fight_state.save_data_list = []
@@ -2412,23 +2392,6 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 		GameEventLog.add_combat_result("  Result: %d %s destroyed" % [total_casualties, _cas_label])
 	else:
 		GameEventLog.add_combat_result("  Result: No models destroyed")
-
-	# OA-19: Apply Hold Still and Say 'Aargh!' mortal wounds after saves
-	for sd in pending_melee_save_data:
-		var hs_mw = sd.get("hold_still_mortal_wounds", 0)
-		if hs_mw > 0:
-			var hs_target_id = sd.get("target_unit_id", "")
-			var hs_target_name = sd.get("target_unit_name", "Unknown")
-			DebugLogger.info(str("[FightPhase] OA-19: HOLD STILL AND SAY 'AARGH!' — applying %d mortal wounds to %s" % [hs_mw, hs_target_name]))
-			# Issue #329: honor action.payload.rng_seed
-			var hs_seed: int = action.get("payload", {}).get("rng_seed", -1)
-			var hs_rng = RulesEngine.RNGService.new(hs_seed)
-			var hs_result = RulesEngine.apply_mortal_wounds(hs_target_id, hs_mw, game_state_snapshot, hs_rng)
-			all_diffs.append_array(hs_result.get("diffs", []))
-			var hs_casualties = hs_result.get("casualties", 0)
-			total_casualties += hs_casualties
-			GameEventLog.add_combat_result("  Hold Still and Say 'Aargh!': %d mortal wounds → %s (%d slain)" % [hs_mw, hs_target_name, hs_casualties])
-			log_phase_message("Hold Still and Say 'Aargh!': %d mortal wounds → %s (%d casualties)" % [hs_mw, hs_target_name, hs_casualties])
 
 	# STAGED FIGHT: these saves belong to ONE weapon of a staged sequence —
 	# advance to the next weapon (or finish the activation) instead of ending
@@ -2848,8 +2811,8 @@ func _show_mathhammer_predictions() -> void:
 func _get_consolidation_distance(unit_id: String) -> float:
 	"""OA-26: Returns the consolidation distance for a unit.
 	Normally 3\", but 6\" for units with 'Drive-by Krumpin'' ability, and the
-	numeric effect_consolidate_max flag (ALWAYS LOOKIN' FER A FIGHT,
-	Squig-hide Tyres) overrides with its own cap when larger."""
+	numeric effect_consolidate_max flag (ALWAYS LOOKIN' FER A FIGHT)
+	overrides with its own cap when larger."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return 3.0
@@ -2865,20 +2828,19 @@ func _get_consolidation_distance(unit_id: String) -> float:
 			log_phase_message("[OA-26] Drive-by Krumpin': Consolidation distance 6\" for %s" % unit_id)
 			dist = 6.0
 			break
-	# Squig-hide Tyres (Kult of Speed): 6" consolidation for the bearer's unit
-	if dist < 6.0 and FactionAbilityManager._unit_or_attached_has_enhancement(unit, "Squig-hide Tyres", GameState.state.get("units", {})):
-		log_phase_message("Squig-hide Tyres: Consolidation distance 6\" for %s" % unit_id)
-		dist = 6.0
 	var flag_max = float(unit.get("flags", {}).get("effect_consolidate_max", 0.0))
 	if flag_max > dist:
 		log_phase_message("Consolidation distance %.0f\" for %s (effect_consolidate_max)" % [flag_max, unit_id])
 		dist = flag_max
+	# Codex: Adeptus Custodes (11e) Unstoppable Destroyer / Dacatarai (WP-C46).
+	if GameConstants.edition >= 11:
+		dist = float(_cus11e_det().fight_move_cap(unit_id, dist))
 	return dist
 
 # 11e: a unit's activation ends when its attacks are resolved — there is
 # NO per-fighter consolidation (that is the global 12.07 step at the end
 # of the phase). This performs the activation-completion bookkeeping that
-# _process_consolidate performs at edition 10 (has_fought, Ka'tah clear,
+# _process_consolidate performs at edition 10 (has_fought,
 # Counter-Offensive window, next-fighter handoff), then either offers the
 # next fight selection or — when the Fight step is over — waits for
 # END_FIGHT, or resumes the Consolidate step if a 12.08 forced fight just
@@ -2895,6 +2857,7 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	# unit has now fought, so the models IT kept that way are removed.
 	_ork11e_fod_intercept(changes)
 	changes.append_array(_ork11e_fod_remove(_fight_group_ids(unit_id), "has fought"))
+	changes.append_array(Ork11eDetachments.on_unit_has_fought(unit_id))  # Codex: Orks (11e) Try Dat Button! hazard roll + expiry (WP-O34)
 	final_result["changes"] = changes
 
 	# The attack-resolution diffs are normally applied by execute_action
@@ -2931,32 +2894,38 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	if not _of_unit.is_empty():
 		_of_unit.get("flags", {}).erase("selected_for_overrun_fight")
 
-	# Clear Martial Ka'tah stance — "active until the unit finishes attacking"
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if faction_mgr:
-		# Multiplayer: emit the flag removals as broadcast diffs, not just a
-		# local erase. The host cleared these flags in its live state while the
-		# client (which set them via the SELECT_KATAH_STANCE result) never
-		# removed them → permanent post-fight desync. Capture which flags are
-		# present BEFORE clear_katah_stance erases them (it mutates live state
-		# directly), so the remove diffs are actually emitted.
-		var live_flags = GameState.state.get("units", {}).get(unit_id, {}).get("flags", {})
-		for katah_flag in ["effect_sustained_hits", "effect_lethal_hits", "katah_stance", "katah_sustained_hits_value"]:
-			if live_flags.has(katah_flag):
-				changes.append({"op": "remove", "path": "units.%s.flags.%s" % [unit_id, katah_flag]})
-		final_result["changes"] = changes
-		faction_mgr.clear_katah_stance(unit_id)
-		if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
-			var snap_flags = game_state_snapshot.units[unit_id].get("flags", {})
-			snap_flags.erase("effect_sustained_hits")
-			snap_flags.erase("effect_lethal_hits")
-			snap_flags.erase("katah_stance")
-			snap_flags.erase("katah_sustained_hits_value")
-
 	# Units engaged mid-phase (pile-ins, overruns) become eligible to fight
 	# — keep the 12.08 consolidation-eligibility stamps cumulative.
 	_stamp_fight_eligibility_11e()
 
+	# Codex: Adeptus Custodes VIGIL UNENDING / IN AURAMITE CLAD end "until that
+	# enemy unit has attacked" (CustodesCodex11e.gd).
+	_cus11e_codex().on_unit_has_attacked(unit_id)
+	# Codex: Adeptus Custodes INDOMITABLE GUARDIANS (CustodesCodex11e.gd): the
+	# opponent's enemy_has_fought window ("Your opponent's Fight phase, when an
+	# enemy unit has fought") opens before the next selection / Counter-Offensive.
+	var fought_owner := int(get_unit(unit_id).get("owner", 0))
+	if GameConstants.edition >= 11 and fought_owner == GameState.get_active_player():
+		var ehf_decider := 2 if fought_owner == 1 else 1
+		var ehf_ctx := {"phase": "fight", "enemy_unit_id": unit_id, "attacker_unit_id": unit_id}
+		if open_stratagem_window(ehf_decider, "enemy_has_fought", ehf_ctx, "_cus11e_resume_after_enemy_has_fought"):
+			log_phase_message("Waiting for Player %d's enemy_has_fought stratagem decision (%s has fought)" % [ehf_decider, unit_id])
+			changes.append_array(consume_window_diffs())
+			final_result["changes"] = changes
+			return final_result
+		var ehf_sync := consume_window_diffs()
+		if not ehf_sync.is_empty():
+			changes.append_array(ehf_sync)
+			final_result["changes"] = changes
+	return _after_enemy_has_fought_window(unit_id, final_result)
+
+## Resume point for the enemy_has_fought window (BasePhase framework).
+func _cus11e_resume_after_enemy_has_fought(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _after_enemy_has_fought_window(str(ctx.get("enemy_unit_id", "")), create_result(true, []))
+
+## Everything after "this unit has fought" once the enemy_has_fought window
+## has closed: the Counter-Offensive offer, then the next fighter selection.
+func _after_enemy_has_fought_window(unit_id: String, final_result: Dictionary) -> Dictionary:
 	# Counter-Offensive window (11e 15.12) — "Fight step of your OPPONENT'S
 	# Fight phase, just after an enemy unit has resolved its attacks".
 	var fought_unit = get_unit(unit_id)
@@ -3043,6 +3012,7 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		return
 	var units: Dictionary = GameState.state.get("units", {})
 	var new_pending: Dictionary = {}  # unit_id -> Array[int]
+	var ork11e_ard_sources: Dictionary = {}  # 'Ard as Nails keeps (WP-O34): unit_id -> FOD source label
 	for diff in changes:
 		if typeof(diff) != TYPE_DICTIONARY or str(diff.get("op", "")) != "set":
 			continue
@@ -3056,6 +3026,10 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		var unit: Dictionary = units.get(uid, {})
 		var uflags: Dictionary = unit.get("flags", {})
 		var mode := str(uflags.get(OrkCodexFight.FLAG_FOD_MODE, ""))
+		# Codex: Orks (11e) Brute Bosses — 'Ard as Nails (WP-O34): a destroyed WARBOSS model fights on (3+, +1 riled up).
+		var ard := mode == "" and Ork11eDetachments.ard_as_nails_applies(unit)
+		if ard:
+			mode = Ork11eDetachments.ARD_AS_NAILS_MODE
 		if mode == "":
 			continue
 		var idx := int(parts[3])
@@ -3071,6 +3045,8 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		# later pass rolls for this model again.
 		diff["ork11e_fod_rolled"] = true
 		var source := str(uflags.get(OrkCodexFight.FLAG_FOD_SOURCE, "Fight On Death"))
+		if ard:
+			source = "'Ard as Nails"
 		var models: Array = unit.get("models", [])
 		var label := str(unit.get("meta", {}).get("name", uid))
 		if idx >= 0 and idx < models.size() and models.size() > 1:
@@ -3080,16 +3056,23 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 			continue
 		var rng = RulesEngine.make_rng()
 		var roll: int = int(rng.roll_d6(1)[0])
-		var mod_info: Dictionary = OrkCodexFight.fod_roll_modifier(uid)
+		var mod_info: Dictionary = Ork11eDetachments.ard_as_nails_roll_modifier(unit) if ard else OrkCodexFight.fod_roll_modifier(uid)
+		var fod_pass: int = Ork11eDetachments.ARD_AS_NAILS_PASS if ard else OrkCodexFight.FOD_PASS
+		# Codex: Adeptus Custodes DUTY UNTO DEATH (CustodesCodex11e.gd): same mechanic, 3+ (+1 for a CHARACTER model).
+		if not ard and _cus11e_codex().is_fod_mode(mode):
+			mod_info = _cus11e_codex().fod_roll(uid, idx)
+			fod_pass = int(mod_info.get("pass", fod_pass))
 		var mod := int(mod_info.get("mod", 0))
 		var total := roll + mod
-		var kept := total >= OrkCodexFight.FOD_PASS
+		var kept := total >= fod_pass
 		var msg := "%s: %s destroyed — D6 %d%s = %d (%d+ needed): %s" % [
-			source, label, roll, (" %s" % str(mod_info.get("note", ""))) if mod != 0 else "", total, OrkCodexFight.FOD_PASS,
+			source, label, roll, (" %s" % str(mod_info.get("note", ""))) if mod != 0 else "", total, fod_pass,
 			"NOT REMOVED — it stays on the battlefield until its unit has fought or the end of the phase" if kept else "removed"]
 		log_phase_message(msg)
 		DebugLogger.info(str("FightPhase: [ork11e FOD] " + msg))
-		var raw_needed := clampi(OrkCodexFight.FOD_PASS - mod, 1, 7)
+		var raw_needed := clampi(fod_pass - mod, 1, 7)
+		if kept and ard:
+			ork11e_ard_sources[uid] = source
 		var dice_block := {"context": "ork11e_fight_on_death", "stratagem": source, "unit_id": uid, "model_index": idx,
 			"rolls_raw": [roll], "rolls_modified": [total], "modifier": mod, "threshold": "%d+" % raw_needed,
 			"successes": 1 if kept else 0, "kept": kept, "message": msg}
@@ -3111,6 +3094,8 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 			new_pending[uid] = plist
 	for uid in new_pending:
 		changes.append({"op": "set", "path": "units.%s.flags.%s" % [uid, OrkCodexFight.FLAG_FOD_PENDING], "value": new_pending[uid]})
+	for uid in ork11e_ard_sources:
+		changes.append({"op": "set", "path": "units.%s.flags.%s" % [uid, OrkCodexFight.FLAG_FOD_SOURCE], "value": ork11e_ard_sources[uid]})
 
 ## Removal diffs for the models kept by Fight On Death in `unit_ids` (and
 ## their pending lists cleared). Returns [] when there is nothing to remove.
@@ -3262,15 +3247,12 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 		if not _sk_unit.is_empty():
 			_sk_unit.get("flags", {}).erase("selected_for_overrun_fight")
 
-	# Clear Martial Ka'tah stance if any — mirror the flag removal to the
-	# client via diffs (clear_katah_stance mutates live state directly).
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	var katah_remove_changes: Array = []
+	var skip_changes: Array = []
 	# The activation is over: record it for every component (synced to a
 	# multiplayer client, whose FightSequencer reads fight_done_turn).
 	for member_id in _fight_group_ids(str(action.unit_id)):
-		katah_remove_changes.append({"op": "set", "path": "units.%s.flags.has_fought" % member_id, "value": true})
-	katah_remove_changes.append_array(_fight_done_changes_11e(str(action.unit_id)))
+		skip_changes.append({"op": "set", "path": "units.%s.flags.has_fought" % member_id, "value": true})
+	skip_changes.append_array(_fight_done_changes_11e(str(action.unit_id)))
 	# Codex: Orks (11e) Fight On Death: an activation ended by SKIP_UNIT still
 	# means the unit has fought (#916: has_fought / fight_done above), so the
 	# models it kept on the battlefield are removed now — the same point as
@@ -3279,13 +3261,8 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	var sk_fod_changes := _ork11e_fod_remove(_fight_group_ids(str(action.unit_id)), "has fought")
 	if not sk_fod_changes.is_empty():
 		PhaseManager.apply_state_changes(sk_fod_changes)
-		katah_remove_changes.append_array(sk_fod_changes)
-	if faction_mgr:
-		var sk_flags = GameState.state.get("units", {}).get(action.unit_id, {}).get("flags", {})
-		for katah_flag in ["effect_sustained_hits", "effect_lethal_hits", "katah_stance", "katah_sustained_hits_value"]:
-			if sk_flags.has(katah_flag):
-				katah_remove_changes.append({"op": "remove", "path": "units.%s.flags.%s" % [action.unit_id, katah_flag]})
-		faction_mgr.clear_katah_stance(action.unit_id)
+		skip_changes.append_array(sk_fod_changes)
+	skip_changes.append_array(Ork11eDetachments.on_unit_has_fought(str(action.unit_id)))  # Codex: Orks (11e) Try Dat Button! (WP-O34)
 
 	# Switch to next player
 	_switch_selecting_player()
@@ -3294,7 +3271,7 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 
 	# Request next fight selection; when nobody is left and the 11e global
 	# Consolidate step is running (a forced fight was skipped), resume it.
-	var result = create_result(true, katah_remove_changes)
+	var result = create_result(true, skip_changes)
 	var dialog_data = _build_fight_selection_dialog_data()
 	if not dialog_data.is_empty():
 		_pending_fight_selection_data = dialog_data
@@ -3332,6 +3309,10 @@ func _get_fight_priority(unit: Dictionary) -> int:
 			if "fights_first" in ability_str:
 				has_fights_first = true
 				break
+	# Codex: Adeptus Custodes (11e) Heralds of the Throne (Emissaries
+	# Imperatus): friendly ADEPTUS CUSTODES units have Fights First (WP-C46).
+	if not has_fights_first and _cus11e_det().has_fights_first(unit):
+		has_fights_first = true
 
 	# Determine Fights Last status
 	var has_fights_last = unit.get("status_effects", {}).get("fights_last", false)
@@ -4045,16 +4026,88 @@ func _pile_in_eligible_units_11e(player: int) -> Array:
 		out.append(unit_id)
 	return out
 
+# ============================================================================
+# Codex: Adeptus Custodes (WP-C5, CustodesCodex11e.gd) — the unit chosen in the
+# Pile In / Consolidate step opens its stratagem window first:
+#   unit_selected_to_pile_in      LIGHTNING WRATH (pile-in move up to D3+3")
+#   unit_selected_to_consolidate  EMPEROR'S DOMAIN (objective mode)
+# The FightController sends CUS11E_SELECT_*_UNIT only when the unit's owner
+# has such a stratagem (CustodesCodex11e.player_has_window_stratagem) and
+# starts the move when cus11e_step_unit_ready fires (at once, or when the
+# window closes).
+# ============================================================================
+
+signal cus11e_step_unit_ready(kind: String, unit_id: String, max_inches: float)
+
+var _cus11e_step_asked: Dictionary = {}  # "<pile_in|consolidate>:<unit_id>" -> true: its window was opened this phase
+
+## Has this unit's step window already been opened this phase (AIDecisionMaker
+## asks before it computes the move; a re-selection skips the window).
+func cus11e_step_unit_asked(kind: String, unit_id: String) -> bool:
+	return _cus11e_step_asked.has("%s:%s" % [kind, unit_id])
+
+func _cus11e_validate_step_unit(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("unit_id", ""))
+	var unit := get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit %s not found" % unit_id]}
+	if str(action.get("type", "")) == "CUS11E_SELECT_PILE_IN_UNIT":
+		if pile_in_step_11e != PileInStep11e.ACTIVE:
+			return {"valid": false, "errors": ["Not in the Pile In step"]}
+		if int(unit.get("owner", 0)) != piling_in_player_11e:
+			return {"valid": false, "errors": ["Not your half of the Pile In step (Player %d piles in)" % piling_in_player_11e]}
+		if not unit_id in _pile_in_eligible_units_11e(piling_in_player_11e):
+			return {"valid": false, "errors": ["%s cannot pile in now" % unit_id]}
+	else:
+		if consolidation_step_11e != ConsolidationStep11e.ACTIVE:
+			return {"valid": false, "errors": ["Not in the Consolidate step"]}
+		if int(unit.get("owner", 0)) != consolidating_player_11e:
+			return {"valid": false, "errors": ["Not your half of the Consolidate step (Player %d consolidates)" % consolidating_player_11e]}
+		if not unit_id in _consolidation_eligible_units_11e(consolidating_player_11e):
+			return {"valid": false, "errors": ["%s cannot consolidate now" % unit_id]}
+	return {"valid": true, "errors": []}
+
+func _cus11e_process_step_unit(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("unit_id", ""))
+	var pile := str(action.get("type", "")) == "CUS11E_SELECT_PILE_IN_UNIT"
+	var window_id := "unit_selected_to_pile_in" if pile else "unit_selected_to_consolidate"
+	var owner := int(get_unit(unit_id).get("owner", 0))
+	var ctx := {"phase": "fight", "unit_id": unit_id, "step_kind": "pile_in" if pile else "consolidate"}
+	var asked_key := "%s:%s" % [str(ctx.step_kind), unit_id]
+	if _cus11e_step_asked.has(asked_key):
+		return _cus11e_step_unit_ready(str(ctx.step_kind), unit_id)
+	_cus11e_step_asked[asked_key] = true
+	if open_stratagem_window(owner, window_id, ctx, "_cus11e_resume_after_step_unit_window"):
+		log_phase_message("Waiting for Player %d's %s stratagem decision (%s)" % [owner, window_id, unit_id])
+		return create_result(true, consume_window_diffs())
+	var res := _cus11e_step_unit_ready(str(ctx.step_kind), unit_id)
+	var sync := consume_window_diffs()
+	if not sync.is_empty():
+		res["changes"] = sync
+	return res
+
+func _cus11e_resume_after_step_unit_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _cus11e_step_unit_ready(str(ctx.get("step_kind", "pile_in")), str(ctx.get("unit_id", "")))
+
+## The chosen unit may now make its move: tell the controller (signal + result).
+func _cus11e_step_unit_ready(kind: String, unit_id: String) -> Dictionary:
+	var inches := 3.0
+	if kind == "pile_in":
+		inches = maxf(3.0, float(_cus11e_codex().pile_in_inches(unit_id)))
+	log_phase_message("%s is ready to %s (up to %.0f\")" % [unit_id, "pile in" if kind == "pile_in" else "consolidate", inches])
+	emit_signal("cus11e_step_unit_ready", kind, unit_id, inches)
+	return create_result(true, [], "", {"cus11e_step_unit_ready": {"kind": kind, "unit_id": unit_id, "max_inches": inches}})
+
 # Enter the Pile In step (12.02) — the fight phase opens here at e11:
 # both players make pile-in moves with the eligible units they choose,
 # the player whose turn it is first.
-func _begin_pile_in_step_11e() -> void:
+func _begin_pile_in_step_11e() -> Dictionary:
 	pile_in_step_11e = PileInStep11e.ACTIVE
 	pile_in_done_players_11e = {}
 	piling_in_player_11e = GameState.get_active_player()
 	log_phase_message("[11e 12.02] PILE IN step begins — Player %d (active) first" % piling_in_player_11e)
 	emit_signal("subphase_transition", "START_OF_FIGHT_PHASE", "PILE_IN")
-	_advance_pile_in_step_11e(create_result(true, []))
+	return _advance_pile_in_step_11e(create_result(true, []))
 
 # Drive the Pile In step forward: offer the current player their remaining
 # eligible units, auto-pass a player with none left, and when both players
@@ -4303,30 +4356,6 @@ func get_available_actions() -> Array:
 
 	log_phase_message("=== get_available_actions DEBUG ===")
 	log_phase_message("active_fighter_id: '%s'" % active_fighter_id)
-
-	# Moment Shackle: offer choice before any fighting starts
-	if _moment_shackle_pending_units.size() > 0:
-		for ms_uid in _moment_shackle_pending_units:
-			var ms_unit = game_state_snapshot.get("units", {}).get(ms_uid, {})
-			var ms_name = ms_unit.get("meta", {}).get("name", ms_uid)
-			actions.append({
-				"type": "USE_MOMENT_SHACKLE",
-				"unit_id": ms_uid,
-				"choice": "attacks_12",
-				"description": "Moment Shackle (%s): Watcher's Axe gets 12 Attacks" % ms_name
-			})
-			actions.append({
-				"type": "USE_MOMENT_SHACKLE",
-				"unit_id": ms_uid,
-				"choice": "invuln_2",
-				"description": "Moment Shackle (%s): 2+ invulnerable save" % ms_name
-			})
-			actions.append({
-				"type": "DECLINE_MOMENT_SHACKLE",
-				"unit_id": ms_uid,
-				"description": "Decline Moment Shackle for %s" % ms_name
-			})
-		return actions
 
 	# P0-58: If awaiting melee saves, only allow APPLY_MELEE_SAVES
 	if awaiting_melee_saves:
@@ -4959,14 +4988,14 @@ func _process_use_epic_challenge(action: Dictionary) -> Dictionary:
 			"value": true})
 	PhaseManager.apply_state_changes(precision_changes)
 
-	# Check for Martial Ka'tah before proceeding to pile-in
-	var katah_result = _check_katah_or_proceed_to_pile_in(unit_id)
+	# The fight itself
+	var ec_result = _proceed_to_fight_moves(unit_id)
 	# Merge diffs from stratagem result
 	if not strat_result.get("diffs", []).is_empty():
 		var merged_changes = strat_result.get("diffs", [])
-		merged_changes.append_array(katah_result.get("changes", []))
-		katah_result["changes"] = merged_changes
-	return katah_result
+		merged_changes.append_array(ec_result.get("changes", []))
+		ec_result["changes"] = merged_changes
+	return ec_result
 
 func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", active_fighter_id)
@@ -4974,107 +5003,7 @@ func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Player declined EPIC CHALLENGE for %s" % unit_name)
 
-	# Check for Martial Ka'tah before proceeding to pile-in
-	return _check_katah_or_proceed_to_pile_in(unit_id)
-
-# ============================================================================
-# MARTIAL KA'TAH — Stance Selection
-# ============================================================================
-
-func _check_katah_or_proceed_to_pile_in(unit_id: String) -> Dictionary:
-	"""Check if unit has Martial Ka'tah. If so, emit stance dialog signal.
-	Otherwise, proceed directly to pile-in."""
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if faction_mgr and faction_mgr.unit_has_katah(unit_id):
-		# Check if Master of the Stances is available for this unit
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		var master_available = ability_mgr and ability_mgr.has_master_of_the_stances(unit_id)
-		if master_available:
-			log_phase_message("MARTIAL KA'TAH: %s has Ka'tah + Master of the Stances available — stance selection required" % unit_id)
-		else:
-			log_phase_message("MARTIAL KA'TAH: %s has Ka'tah — stance selection required" % unit_id)
-		emit_signal("katah_stance_required", unit_id, current_selecting_player)
-
-		var result = create_result(true, [])
-		result["trigger_katah_stance"] = true
-		result["katah_unit_id"] = unit_id
-		result["katah_player"] = current_selecting_player
-		result["master_of_the_stances_available"] = master_available
-		return result
-
-	# No Ka'tah — check for Dread Foe, then proceed to pile-in
-	return _resolve_dread_foe_then_pile_in(unit_id)
-
-# ============================================================================
-# P1-17: DREAD FOE — Mortal wounds on fight selection
-# ============================================================================
-
-func _resolve_dread_foe_then_pile_in(unit_id: String) -> Dictionary:
-	"""P1-17: Check if unit has Dread Foe ability. If so, auto-resolve mortal wounds
-	against one enemy within Engagement Range, then proceed to pile-in.
-	Dread Foe: Roll 1D6 (+2 if charged this turn). On 4-5, D3 MW. On 6+, 3 MW."""
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	# One trigger per phase: a unit is only ever "selected to fight" once, so a
-	# selection the player CANCELS and then re-makes must not deal the mortal
-	# wounds twice (same guard shape as Try Dat Button's try_dat_rolled_this_phase).
-	var _df_gs_unit = GameState.get_unit(unit_id)
-	var _df_already: bool = not _df_gs_unit.is_empty() and bool(_df_gs_unit.get("flags", {}).get("dread_foe_resolved_this_phase", false))
-	if _df_already:
-		log_phase_message("DREAD FOE: %s already resolved this phase — not re-triggering" % unit_id)
-	if ability_mgr and ability_mgr.has_dread_foe(unit_id) and not _df_already:
-		var unit = get_unit(unit_id)
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		if not _df_gs_unit.is_empty():
-			if not _df_gs_unit.has("flags"):
-				_df_gs_unit["flags"] = {}
-			_df_gs_unit["flags"]["dread_foe_resolved_this_phase"] = true
-
-		# Find enemy units within Engagement Range
-		var targets = _get_dread_foe_targets(unit_id)
-		if targets.is_empty():
-			log_phase_message("DREAD FOE: %s has Dread Foe but no enemies in Engagement Range" % unit_name)
-		else:
-			# Auto-select first target (highest priority: most models, or first found)
-			var target_id = targets[0].get("unit_id", "")
-			var target_name = targets[0].get("unit_name", target_id)
-			log_phase_message("DREAD FOE: %s targets %s within Engagement Range" % [unit_name, target_name])
-
-			# Check if this unit charged this turn
-			var flags = unit.get("flags", {})
-			var charged_this_turn = flags.get("charged_this_turn", false)
-
-			# Resolve Dread Foe via RulesEngine
-			var rng_service = RulesEngine.make_rng()
-			var dread_foe_result = RulesEngine.resolve_dread_foe(
-				unit_id, target_id, charged_this_turn, GameState.state, rng_service
-			)
-
-			# Apply state changes if mortal wounds were dealt
-			var dread_foe_diffs = dread_foe_result.get("diffs", [])
-			_ork11e_fod_intercept(dread_foe_diffs)  # Codex: Orks (11e) Fight On Death
-			if not dread_foe_diffs.is_empty():
-				PhaseManager.apply_state_changes(dread_foe_diffs)
-				# Also update our snapshot
-				game_state_snapshot = GameState.state.duplicate(true)
-				log_phase_message("DREAD FOE: Applied %d state change(s)" % dread_foe_diffs.size())
-
-			# Emit signal for UI/logging
-			emit_signal("dread_foe_resolved", unit_id, dread_foe_result)
-
-			log_phase_message("DREAD FOE: %s rolled %d (modified %d) — %d mortal wound(s) to %s, %d casualt(y/ies)" % [
-				unit_name,
-				dread_foe_result.get("roll", 0),
-				dread_foe_result.get("modified_roll", 0),
-				dread_foe_result.get("mortal_wounds", 0),
-				target_name,
-				dread_foe_result.get("casualties", 0)
-			])
-
-			# Check if Dread Foe killed any units (could trigger Deadly Demise)
-			if not dread_foe_diffs.is_empty():
-				_check_kill_diffs(dread_foe_diffs)
-
-	# Proceed to the activation's fight moves
+	# The fight itself
 	return _proceed_to_fight_moves(unit_id)
 
 # What happens between "selected to fight" and "assign attacks":
@@ -5112,120 +5041,6 @@ func _proceed_to_fight_moves(unit_id: String) -> Dictionary:
 	# Normal fight (12.05): straight to attack assignment.
 	return _request_attack_assignment(unit_id, create_result(true, []))
 
-func _get_dread_foe_targets(unit_id: String) -> Array:
-	"""P1-17: Get enemy units within Engagement Range of a unit for Dread Foe targeting.
-	Returns array of { unit_id, unit_name } dictionaries."""
-	var unit = get_unit(unit_id)
-	var unit_owner = unit.get("owner", 0)
-	var all_units = game_state_snapshot.get("units", {})
-	var targets: Array = []
-
-	for other_id in all_units:
-		var other = all_units[other_id]
-		# Only enemy units
-		if other.get("owner", 0) == unit_owner:
-			continue
-		# Must have alive models
-		var has_alive = false
-		for m in other.get("models", []):
-			if m.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-		# Must be within Engagement Range
-		if _units_in_engagement_range(unit, other):
-			targets.append({
-				"unit_id": other_id,
-				"unit_name": other.get("meta", {}).get("name", other_id)
-			})
-
-	return targets
-
-func _validate_select_katah_stance(action: Dictionary) -> Dictionary:
-	var errors = []
-	var unit_id = action.get("unit_id", "")
-	var stance = action.get("stance", "")
-
-	if unit_id.is_empty():
-		errors.append("Missing unit_id")
-		return {"valid": false, "errors": errors}
-
-	if unit_id != active_fighter_id:
-		errors.append("Unit is not the active fighter")
-		return {"valid": false, "errors": errors}
-
-	if stance != "dacatarai" and stance != "rendax" and stance != "both":
-		errors.append("Invalid stance: %s (must be 'dacatarai', 'rendax', or 'both')" % stance)
-		return {"valid": false, "errors": errors}
-
-	# "both" requires Master of the Stances (once per battle)
-	if stance == "both":
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		if not ability_mgr or not ability_mgr.has_master_of_the_stances(unit_id):
-			errors.append("Master of the Stances not available for this unit")
-			return {"valid": false, "errors": errors}
-
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if not faction_mgr or not faction_mgr.unit_has_katah(unit_id):
-		errors.append("Unit does not have Martial Ka'tah ability")
-		return {"valid": false, "errors": errors}
-
-	return {"valid": true}
-
-func _process_select_katah_stance(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	var stance = action.get("stance", "")
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-
-	# If "both" stance selected, mark Master of the Stances as used
-	if stance == "both":
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr:
-			ability_mgr.mark_once_per_battle_used(unit_id, "Master of the Stances")
-			log_phase_message("MASTER OF THE STANCES: %s activates both Ka'tah stances (once per battle)" % unit_name)
-
-	# Apply the stance via FactionAbilityManager
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	var stance_result = faction_mgr.apply_katah_stance(unit_id, stance)
-
-	if not stance_result.get("success", false):
-		return create_result(false, [], "Failed to apply Ka'tah stance: %s" % stance_result.get("error", "unknown"))
-
-	log_phase_message("MARTIAL KA'TAH: %s assumes %s stance" % [unit_name, stance_result.get("stance_display", stance)])
-
-	# ISS-024: apply through the pipeline (the snapshot is a live view).
-	var katah_diffs: Array = []
-	if true:
-		if stance == "both":
-			for kf in [["effect_sustained_hits", true], ["effect_lethal_hits", true],
-					["katah_stance", "both"], ["katah_sustained_hits_value", 1]]:
-				katah_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [unit_id, kf[0]], "value": kf[1]})
-		elif stance == "dacatarai":
-			for kf in [["effect_sustained_hits", true], ["katah_stance", "dacatarai"],
-					["katah_sustained_hits_value", 1]]:
-				katah_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [unit_id, kf[0]], "value": kf[1]})
-		elif stance == "rendax":
-			for kf in [["effect_lethal_hits", true], ["katah_stance", "rendax"]]:
-				katah_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [unit_id, kf[0]], "value": kf[1]})
-	if not katah_diffs.is_empty():
-		PhaseManager.apply_state_changes(katah_diffs)
-
-	# After Ka'tah — check for Dread Foe, then proceed to pile-in
-	var katah_result = _resolve_dread_foe_then_pile_in(unit_id)
-	# Multiplayer: the stance flags were applied locally above but the result
-	# is what travels to the other peer — without carrying the diffs the
-	# remote client never saw the stance (observed live: katah_stance /
-	# effect_sustained_hits present host-side only → state-hash desync).
-	# Idempotent set-ops, so the local re-apply through the pipeline is safe.
-	if not katah_diffs.is_empty() and katah_result.get("success", false):
-		var kr_changes: Array = katah_result.get("changes", katah_result.get("diffs", []))
-		var merged := katah_diffs.duplicate()
-		merged.append_array(kr_changes)
-		katah_result["changes"] = merged
-		if katah_result.has("diffs"):
-			katah_result["diffs"] = merged
-	return katah_result
 
 func _validate_use_counter_offensive(action: Dictionary) -> Dictionary:
 	var errors = []
@@ -5388,7 +5203,7 @@ func _validate_end_fight(action: Dictionary) -> Dictionary:
 	if consolidation_step_11e == ConsolidationStep11e.DONE or sequencer_11e == null:
 		return {"valid": true, "errors": []}
 	if pile_in_step_11e == PileInStep11e.NOT_STARTED:
-		return {"valid": false, "errors": ["Resolve the start-of-phase choices (e.g. Moment Shackle) first — the Pile In step (12.02) has not begun"]}
+		return {"valid": false, "errors": ["Resolve the start-of-phase choices first — the Pile In step (12.02) has not begun"]}
 
 	# The Fight step (12.04): "Players resolve the following sequence until
 	# all eligible units have been selected to fight and their attacks have
@@ -5433,8 +5248,8 @@ func get_end_fight_status() -> Dictionary:
 	if sequencer_11e == null or pile_in_step_11e == PileInStep11e.ACTIVE \
 			or consolidation_step_11e != ConsolidationStep11e.NOT_STARTED:
 		return status
-	# Before the global Pile In step has started (a start-of-phase choice such
-	# as the Blade Champion's Moment Shackle is pending) the Fight step has not
+	# Before the global Pile In step has started (a start-of-phase choice is
+	# still pending) the Fight step has not
 	# begun: nothing can end, and nobody can pass yet.
 	if pile_in_step_11e == PileInStep11e.NOT_STARTED:
 		return {"step_over": false, "selecting_player": 0, "can_pass": false, "owed_units": [], "pre_pile_in": true}
@@ -5698,44 +5513,16 @@ func _ork11e_strategic_reserves_followup_diffs(unit_id: String) -> Array:
 # ============================================================================
 
 func _get_sweeping_advance_eligible_units() -> Array:
-	"""Find units with the Sweeping Advance ability that fought this phase and haven't used it yet."""
+	"""Find units with the Sweeping Advance ability that were eligible to fight this phase and haven't used it yet."""
 	var eligible = []
 	var all_units = game_state_snapshot.get("units", {})
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 
-	for unit_id in units_that_fought:
+	# Codex: Adeptus Custodes (11e): "if this unit was ELIGIBLE TO FIGHT this
+	# phase" — not only the units that fought (CustodesAbilities.gd, WP-C7).
+	for unit_id in _cus11e_abilities().sweeping_advance_candidates(units_that_fought):
 		var unit = all_units.get(unit_id, {})
 		if unit.is_empty():
-			continue
-
-		# Check if unit or its attached characters have Sweeping Advance ability
-		var has_sweeping_advance = false
-		var abilities = unit.get("meta", {}).get("abilities", [])
-		for ability in abilities:
-			if ability is Dictionary and ability.get("name", "") == "Sweeping Advance":
-				has_sweeping_advance = true
-				break
-			elif ability is String and ability == "Sweeping Advance":
-				has_sweeping_advance = true
-				break
-
-		# Also check attached characters (e.g. Shield-Captain attached to Vertus Praetors)
-		if not has_sweeping_advance:
-			var attached_ids = unit.get("attachment_data", {}).get("attached_characters", [])
-			for char_id in attached_ids:
-				var char_unit = all_units.get(char_id, {})
-				var char_abilities = char_unit.get("meta", {}).get("abilities", [])
-				for ability in char_abilities:
-					if ability is Dictionary and ability.get("name", "") == "Sweeping Advance":
-						has_sweeping_advance = true
-						break
-					elif ability is String and ability == "Sweeping Advance":
-						has_sweeping_advance = true
-						break
-				if has_sweeping_advance:
-					break
-
-		if not has_sweeping_advance:
 			continue
 
 		# Check if already used this battle (once per battle)
@@ -6437,46 +6224,6 @@ func _process_use_stratagem(action: Dictionary) -> Dictionary:
 	DebugLogger.info(str("FightPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id]))
 	return create_result(true, result.get("diffs", []), "Used " + strat_name)
 
-func _process_use_moment_shackle(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	var choice = action.get("choice", "")
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	var diffs = []
-
-	diffs.append({"op": "set", "path": "units.%s.flags.moment_shackle_used" % unit_id, "value": true})
-	_moment_shackle_pending_units.erase(unit_id)
-
-	if choice == "attacks_12":
-		diffs.append({"op": "set", "path": "units.%s.flags.moment_shackle_attacks_12" % unit_id, "value": true})
-		log_phase_message("Moment Shackle: %s — Watcher's Axe gets 12 Attacks this phase" % unit_name)
-		DebugLogger.info("[10][INFO] Moment Shackle: %s chose 12 Attacks on Watcher's Axe" % unit_name)
-	elif choice == "invuln_2":
-		diffs.append({"op": "set", "path": "units.%s.flags.effect_invuln" % unit_id, "value": 2})
-		diffs.append({"op": "set", "path": "units.%s.flags.effect_invuln_source" % unit_id, "value": "Moment Shackle"})
-		log_phase_message("Moment Shackle: %s — 2+ invulnerable save this phase" % unit_name)
-		DebugLogger.info("[10][INFO] Moment Shackle: %s chose 2+ invulnerable save" % unit_name)
-
-	# Offer the next pending Moment Shackle choice, or open the Pile In step now
-	# that every choice is resolved (mirrors the fight-start gate).
-	if not _maybe_offer_moment_shackle():
-		_begin_pile_in_step_11e()
-
-	return create_result(true, diffs)
-
-func _process_decline_moment_shackle(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	_moment_shackle_pending_units.erase(unit_id)
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	log_phase_message("Moment Shackle: %s declined" % unit_name)
-
-	# Offer the next pending choice, or open the Pile In step (see above).
-	if not _maybe_offer_moment_shackle():
-		_begin_pile_in_step_11e()
-
-	return create_result(true, [])
-
 
 # ============================================================================
 # ISS-066 — 11e pile-in / consolidation wiring (12.02-12.08)
@@ -6512,16 +6259,27 @@ func _fight_pivot_cost_for_model(unit: Dictionary, model: Dictionary) -> float:
 		return 2.0
 	return 0.0
 
-func _fight_effective_move_cap(unit: Dictionary, model: Dictionary, rotations: Dictionary, key) -> float:
+func _fight_effective_move_cap(unit: Dictionary, model: Dictionary, rotations: Dictionary, key, base_cap: float = 3.0) -> float:
 	# The positional distance a model may move: 3" minus the pivot cost if the
 	# action pivots it (new facing differs from its current stored facing).
-	var cap := 3.0
+	# Codex: Adeptus Custodes (11e) — Unstoppable Destroyer (4") and Dread
+	# Host Favoured Dacatarai (-2" for an enemy engaged with that unit) change
+	# the base (CustodesDetachments.fight_move_cap, WP-C46); base_cap is the
+	# step's base (3", or LIGHTNING WRATH's D3+3" pile-in — WP-C5).
+	var cap: float = _fight_base_move_cap(str(unit.get("id", "")), base_cap)
 	var new_rot = _fight_rotation_for_key(rotations, key)
 	if new_rot != null:
 		var old_rot = float(model.get("rotation", 0.0))
 		if abs(float(new_rot) - old_rot) > 0.001:
 			cap -= _fight_pivot_cost_for_model(unit, model)
 	return max(0.0, cap)
+
+## The pile-in / consolidation base distance before pivot costs: 3", or the
+## Codex: Adeptus Custodes (11e) adjusted cap (WP-C46).
+func _fight_base_move_cap(unit_id: String, base: float = 3.0) -> float:
+	if unit_id == "" or GameConstants.edition < 11:
+		return base
+	return float(_cus11e_det().fight_move_cap(unit_id, base))
 
 func _fight_rotation_for_key(rotations: Dictionary, key):
 	# Rotations may be keyed by array index ("0") or model id ("m1"), matching
@@ -6629,12 +6387,16 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 		var dist = Measurement.distance_inches(old_pos, new_pos)
 		# A pivoted model spends part of its 3" on the pivot cost (Pariah Nexus).
 		var move_model = _resolve_fight_model(route.unit_id, route.model_key)
-		var cap = _fight_effective_move_cap(get_unit(route.unit_id), move_model, rotations, key)
+		# Codex: Adeptus Custodes LIGHTNING WRATH (CustodesCodex11e.gd): a D3+3" pile-in move.
+		var pile_base_cap := maxf(3.0, float(_cus11e_codex().pile_in_inches(unit_id))) if pile_in_step_11e == PileInStep11e.ACTIVE else 3.0
+		var cap = _fight_effective_move_cap(get_unit(route.unit_id), move_model, rotations, key, pile_base_cap)
 		if dist > cap + MOVEMENT_CAP_EPSILON:
-			if cap < 3.0:
+			if cap < _fight_base_move_cap(route.unit_id, pile_base_cap):
 				errors.append("Model %s pile in exceeds %.0f\" limit after pivot cost (%.1f\")" % [str(key), cap, dist])
+			elif cap != 3.0:
+				errors.append("Model %s pile in exceeds %.0f\" limit (%.1f\")" % [str(key), cap, dist])
 			else:
-				errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [str(key), dist])
+				errors.append("Model %s pile in exceeds %.0f\" limit (%.1f\")" % [str(key), pile_base_cap, dist])
 		if dist > 0.01:
 			var ok = tmpl.model_move_allowed(unit_id, move_model, {"x": new_pos.x, "y": new_pos.y}, GameState.state, ctx)
 			if not ok.allowed:
@@ -6686,7 +6448,9 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 	var el = tmpl.eligible(unit_id, folded_board)
 	if not el.eligible:
 		return {"valid": false, "errors": el.reasons}
-	var sel = tmpl.select_mode(unit_id, folded_board)
+	# Codex: Adeptus Custodes (11e) Unstoppable Destroyer: a free mode choice
+	# (action.chosen_mode) among the applicable modes (WP-C46).
+	var sel = tmpl.select_mode(unit_id, folded_board, {"chosen_mode": str(action.get("chosen_mode", ""))})
 	var mode = str(sel.mode)
 	# Per-model consolidation is optional (FAQ): an empty payload completes
 	# the mandatory step without moving. Only validate geometry when models
@@ -6725,8 +6489,10 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 		var move_model = _resolve_fight_model(route.unit_id, route.model_key)
 		var cap = _fight_effective_move_cap(get_unit(route.unit_id), move_model, rotations, key)
 		if dist > cap + MOVEMENT_CAP_EPSILON:
-			if cap < 3.0:
+			if cap < _fight_base_move_cap(route.unit_id):
 				errors.append("Model %s consolidation exceeds %.0f\" limit after pivot cost (%.1f\")" % [str(key), cap, dist])
+			elif cap != 3.0:
+				errors.append("Model %s consolidation exceeds %.0f\" limit (%.1f\")" % [str(key), cap, dist])
 			else:
 				errors.append("Model %s consolidation exceeds 3\" limit (%.1f\")" % [str(key), dist])
 		if dist > 0.01:
@@ -6770,13 +6536,17 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 # first) for the dialog's "Consolidate toward:" picker. `chosen_objective` is
 # the player's pick from that picker — 12.08 BEFORE lets them select any
 # objective the unit is within 3" of; an empty pick means "the closest".
-func get_consolidation_context_11e(unit_id: String, chosen_objective: String = "") -> Dictionary:
+func get_consolidation_context_11e(unit_id: String, chosen_objective: String = "", chosen_mode: String = "") -> Dictionary:
 	var empty := {"mode": "", "targets": [], "objective": "", "objective_options": []}
 	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
 	if tmpl == null or get_unit(unit_id).is_empty():
 		return empty
 	var folded_board = _fight_folded_board(unit_id, GameState.state)
-	var mode = str(tmpl.select_mode(unit_id, folded_board).mode)
+	# Unstoppable Destroyer (Codex: Adeptus Custodes 11e, WP-C46): when the
+	# mandatory order is lifted, `available_modes` lists the choices and
+	# `chosen_mode` picks one.
+	var sel_ctx = tmpl.select_mode(unit_id, folded_board, {"chosen_mode": chosen_mode})
+	var mode = str(sel_ctx.mode)
 	if mode == "":
 		return empty
 	# 12.08 BEFORE: Objective mode is "select ONE of those objectives" — pass the
@@ -6784,6 +6554,9 @@ func get_consolidation_context_11e(unit_id: String, chosen_objective: String = "
 	var ctx = tmpl.before_moving(unit_id, folded_board, null,
 		{"mode": mode, "chosen_objective": chosen_objective})
 	ctx["mode"] = mode
+	if str(sel_ctx.get("free_choice_source", "")) != "":
+		ctx["available_modes"] = sel_ctx.get("available", [mode])
+		ctx["free_choice_source"] = str(sel_ctx.free_choice_source)
 	if mode == "objective":
 		ctx["objective_position"] = consolidation_objective_position_11e(str(ctx.get("objective", "")))
 		ctx["objective_options"] = consolidation_objective_options_11e(ctx)

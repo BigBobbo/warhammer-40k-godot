@@ -135,7 +135,11 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 		reasons.append("AIRCRAFT/FORTIFICATION units cannot start actions")
 
 	var flags = unit.get("flags", {})
-	if flags.get("battle_shocked", false):
+	# Codex: Adeptus Custodes CONSERVAI ka'tah (CustodesKatah.gd): until the end
+	# of the turn, being engaged / battle-shocked does not prevent the unit
+	# from being eligible to start an action.
+	var conservai: bool = _cus11e_conservai(unit)
+	if flags.get("battle_shocked", false) and not conservai:
 		reasons.append("battle-shocked units are not eligible to start an action")
 
 	var oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
@@ -144,7 +148,10 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 
 	var titanic = "TITANIC" in keywords
 	var rules = Engine.get_main_loop().root.get_node("/root/RulesEngine")
-	if not titanic and rules.is_unit_engaged(unit_id, board):
+	# WP-O6 NEVER TOO BUSY TO FIGHT (Codex: Orks 11e, Boyz): "Being engaged
+	# does not prevent this unit from being eligible to start an action."
+	var never_too_busy: bool = load("res://scripts/codex/orks/OrkAbilities11e.gd").engaged_can_start_action(unit_id)
+	if not titanic and not conservai and not never_too_busy and rules.is_unit_engaged(unit_id, board):
 		reasons.append("engaged units cannot start actions (unless TITANIC)")
 
 	# Codex: Orks (11e) MIND MOSTLY ON THE MISSION: "That move does not prevent
@@ -152,6 +159,14 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 	# fall-back move made under it no longer bars the unit (MovementPhase also
 	# skips that move's cannot_start_action lock).
 	var mind_on_mission: bool = flags.get("ork11e_mind_on_mission", false)
+	# Codex: Orks (11e) Runt Swarm — Sneaky Little Gitz: a GRETCHIN unit's advance / fall back does not bar actions (WP-O34).
+	if not mind_on_mission:
+		mind_on_mission = load("res://scripts/codex/orks/OrkDetachments11e.gd").move_keeps_action_eligibility(unit)
+	# Codex: Adeptus Custodes (11e) Emissaries Imperatus — Favoured Conservai:
+	# "being selected to make an advance/fall-back move does not prevent your
+	# unit from being eligible to start an action" (WP-C46).
+	if not mind_on_mission:
+		mind_on_mission = load("res://scripts/codex/custodes/CustodesDetachments.gd").move_keeps_action_eligibility(unit)
 	if ((flags.get("advanced", false) or flags.get("fell_back", false)) and not mind_on_mission) \
 			or flags.get("cannot_start_action", false):
 		reasons.append("made an advance or fall-back move this turn")
@@ -197,10 +212,16 @@ static func start_action(unit_id: String, action_id: String, board: Dictionary, 
 		# 16.01: until end of turn — not eligible to declare a charge…
 		{"op": "set", "path": StateSchema.path_unit_flag(unit_id, "cannot_charge"), "value": true},
 	]
-	if not titanic:
-		# …and not eligible to shoot (TITANIC units may still shoot).
+	if not titanic and not _cus11e_conservai(unit):
+		# …and not eligible to shoot (TITANIC units may still shoot; so may a
+		# Codex: Adeptus Custodes unit under CONSERVAI — CustodesKatah.gd).
 		changes.append({"op": "set", "path": StateSchema.path_unit_flag(unit_id, "cannot_shoot"), "value": true})
 	return {"success": true, "errors": [], "changes": changes}
+
+## Codex: Adeptus Custodes CONSERVAI ka'tah is active on the unit
+## (CustodesKatah.gd; loaded lazily).
+static func _cus11e_conservai(unit: Dictionary) -> bool:
+	return load("res://scripts/codex/custodes/CustodesKatah.gd").conservai_active(unit)
 
 
 ## Movement cancels an in-progress action (16.01 Completing), except

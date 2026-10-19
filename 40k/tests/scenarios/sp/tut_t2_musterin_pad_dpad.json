@@ -373,6 +373,26 @@
     },
     {
       "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"/root/Main/RollOffDialog\")\nif d == null or not d.visible:\n\treturn \"gone\"\nvar f = d.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"null\"",
+      "multiline": true,
+      "equals": "DeployFirstButton",
+      "comment": "With the lesson seed the first roll ties and the re-roll goes to the player, so the dialog now offers the deploy choice - and the pad focus lands on 'Deploy first (Defender)', never on Exit Tutorial"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A picks 'Deploy first' - the same deployment order the lesson teaches"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
       "script": "var x = TutorialManager.current_step_id()\nreturn x",
       "multiline": true,
       "equals": "rotate_wagon",

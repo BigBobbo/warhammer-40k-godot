@@ -1,0 +1,123 @@
+{
+ "id": "ork11e_ab_da_jump",
+ "covers": [
+  "codex.orks.datasheet_abilities.da_jump",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.movement_phase_start",
+  "reserves.deep_strike"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) DA JUMP (Weirdboy psychic, once per army per battle round) through the real movement_phase_start window. Fixture ork11e_ab_move_start. Entering the Movement phase opens the window; 'Use on Weirdboy' makes the psychic roll and places the Weirdboy in strategic reserves with Deep Strike (GameState.unit_has_deep_strike); the re-opened window offers Makari but no second Da Jump (declined).",
+ "fixture": "ork11e_ab_move_start",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 7
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "movement_phase_start"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_da_jump/Buttons/Use_ork11e_ab_da_jump_U_WEIRDBOY_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_da_jump\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_da_jump_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_da_jump/Buttons/Use_ork11e_ab_da_jump_U_WEIRDBOY_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_WEIRDBOY_A.status",
+   "equals": 7
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.unit_has_deep_strike(\"U_WEIRDBOY_A\")",
+   "equals": true
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "movement_phase_start"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_da_jump\") == null",
+   "equals": true,
+   "comment": "once per army per battle round"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Da Jump\")",
+   "expect_min": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "02_da_jump_in_reserves"
+  }
+ ]
+}

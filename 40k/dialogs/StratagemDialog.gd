@@ -143,6 +143,9 @@ func _window_header_text() -> String:
 	var u_name := GameState.get_unit_display_name(uid) if uid != "" else ""
 	var enemy_id := str(window_ctx.get("attacker_unit_id", window_ctx.get("enemy_unit_id", "")))
 	var enemy_name := GameState.get_unit_display_name(enemy_id) if enemy_id != "" else ""
+	# Codex: Orks (11e) rule-only windows (WP-O34) name their own header.
+	if str(window_ctx.get("header", "")) != "":
+		return str(window_ctx.get("header", ""))
 	match window_id:
 		"unit_selected_to_fight":
 			if u_name != "":
@@ -192,8 +195,43 @@ func _window_header_text() -> String:
 		"enemy_unit_has_attacked":
 			if enemy_name != "":
 				return "%s has finished its attacks" % enemy_name
+		# Codex: Adeptus Custodes windows (WP-C3, CustodesKatah.gd)
+		"fight_phase_start":
+			return "The Fight phase is starting"
+		"command_phase_main":
+			return "Your Command phase"
+		# Codex: Adeptus Custodes windows (WP-C5, CustodesCodex11e.gd)
+		"phase_end":
+			return "The %s phase is ending" % str(window_ctx.get("phase", "")).capitalize()
+		"unit_ended_advance_move":
+			if u_name != "":
+				return "%s has ended an advance move" % u_name
+		"unit_selected_to_ingress":
+			if u_name != "":
+				return "%s has been selected to make an ingress move" % u_name
+		"unit_selected_to_pile_in":
+			if u_name != "":
+				return "%s has been selected to pile in" % u_name
+		"unit_selected_to_consolidate":
+			if u_name != "":
+				return "%s has been selected to consolidate" % u_name
+		"enemy_has_fought":
+			if enemy_name != "":
+				return "%s has fought" % enemy_name
+		"charge_phase_start":
+			return "Your opponent's Charge phase is starting"
+		"charge_phase_end":
+			return "Your opponent's Charge phase is ending"
 	var when := StratagemManager.window_when_text(window_id)
 	return "Stratagem opportunity: %s" % when
+
+## True when the window carries at least one Martial Ka'tah card
+## (CustodesKatah.gd offers: kind "katah", no CP cost).
+func _window_has_katah() -> bool:
+	for offer in window_offers:
+		if typeof(offer) == TYPE_DICTIONARY and str(offer.get("kind", "")) == "katah":
+			return true
+	return false
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
@@ -305,7 +343,21 @@ func _build_window_ui() -> void:
 	var display := str(GameState.get_player_display_name(defending_player))
 	if display != "" and display != who_name:
 		who_name = "%s (Player %d)" % [display, defending_player]
-	who.text = "%s — use a stratagem?   CP Available: %d" % [who_name, StratagemManager.get_player_cp(defending_player)]
+	# WP-O6: name abilities too when the window carries Codex: Orks datasheet
+	# abilities (is_ability); WP-C3: Martial Ka'tah cards (kind "katah").
+	var n_ab := 0
+	for o in window_offers:
+		if bool(o.get("is_ability", false)):
+			n_ab += 1
+	var ask := "use a stratagem?"
+	if _window_has_katah():
+		ask = "use a stratagem or ka'tah ability?"
+	elif n_ab > 0:
+		ask = "use an ability?" if n_ab == window_offers.size() else "use a stratagem or ability?"
+	# Codex: Orks (11e) rule-only windows (WP-O34) name their own prompt.
+	if str(window_ctx.get("decider_prompt", "")) != "":
+		ask = str(window_ctx.get("decider_prompt", ""))
+	who.text = "%s — %s   CP Available: %d" % [who_name, ask, StratagemManager.get_player_cp(defending_player)]
 	who.add_theme_font_size_override("font_size", 18)
 	who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -493,8 +545,18 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 	var spacer = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_hbox.add_child(spacer)
+	# Codex: Adeptus Custodes ka'tah card (CustodesKatah.gd): free — it costs
+	# the unit's readied state, not CP.
+	var is_katah: bool = str(offer.get("kind", "")) == "katah"
 	var cost_label = Label.new()
-	cost_label.text = "%d CP" % int(offer.get("cp_cost", 1))
+	cost_label.name = "Cost"
+	# Codex: Orks (11e) rule choices (WP-O34) are free abilities, not stratagems.
+	var is_rule := bool(offer.get("rule", false))
+	cost_label.text = "KA'TAH" if is_katah else ("FREE" if is_rule else "%d CP" % int(offer.get("cp_cost", 1)))
+	# WP-O6: Codex: Orks datasheet abilities share this dialog — they cost no CP.
+	var is_ability: bool = bool(offer.get("is_ability", false))
+	if is_ability:
+		cost_label.text = str(offer.get("cost_text", "Ability"))
 	cost_label.add_theme_font_size_override("font_size", 20)
 	cost_label.add_theme_color_override("font_color", Color.GOLD)
 	name_hbox.add_child(cost_label)
@@ -566,8 +628,13 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 			vb.name = "Use_%s_%s_%s" % [safe, uid_part, vid.validate_node_name()]
 			var v_cost := int(v.get("cp_cost", offer.get("cp_cost", 1)))
 			var v_text := variant_display_label(str(v.get("label", vid)))
-			if has_upgrade:
+			if is_katah:
+				# Master of Ka'tahs (CustodesKatah.gd): the label says it all, no CP.
+				vb.text = v_text
+			elif has_upgrade:
 				vb.text = ("Upgrade on %s (%d CP): %s" % [label, v_cost, v_text]) if uid != "" else ("Upgrade (%d CP): %s" % [v_cost, v_text])
+			elif is_ability or is_rule:
+				vb.text = v_text  # WP-O6 abilities / WP-O34 rule choices have no CP cost
 			else:
 				vb.text = "%s (%d CP)" % [v_text, v_cost]
 			vb.tooltip_text = vb.text

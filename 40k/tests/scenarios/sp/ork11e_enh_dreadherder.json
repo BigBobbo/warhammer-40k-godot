@@ -1,0 +1,454 @@
+{
+ "id": "ork11e_enh_dreadherder",
+ "covers": [
+  "codex.orks.enhancements.dreadherder",
+  "scripts.codex.orks.OrkEnhancements11e",
+  "stratagem.window.unit_selected_to_shoot",
+  "dialogs.StratagemDialog"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) DREADHERDER (Dread Mob enhancement, Big Mek model; once per Shooting phase: when a friendly ORKS WALKER within 3\" of this model is selected to shoot, until the end of the turn that WALKER re-rolls hit rolls of 1; while within 3\" of a friendly ORKS WALKER this model has Lone Operative). Fixture ork11e_enh_dread_shoot: the Big Mek stands next to the Deff Dread, Custodian Guard B ~11\" away. A real click on the Deff Dread opens the unit_selected_to_shoot window with the 0-CP enhancement card; a real click on 'Use on Deff Dread' flags the walker (re-roll 1s). The card is not offered again; the Deff Dread shoots (Big shoota + Kustom mega-blasta) and every hit roll of 1 is re-rolled. Setup privilege: auto wound allocation.",
+ "fixture": "ork11e_enh_dread_shoot",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 8,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 8
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.active_player",
+   "equals": 1
+  },
+  {
+   "act": "expect_state",
+   "path": "factions.1.detachment",
+   "equals": "Dread Mob"
+  },
+  {
+   "act": "execute_script",
+   "script": "return load(\"res://autoloads/RulesEngine.gd\").has_lone_operative(GameState.get_unit(\"U_BIG_MEK_A\"))",
+   "multiline": true,
+   "equals": true,
+   "comment": "passive half: the Big Mek is within 3\" of an ORKS WALKER — Lone Operative"
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege: auto wound allocation"
+  },
+  {
+   "act": "click_unit",
+   "unit_id": "U_DEFF_DREAD_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "unit_selected_to_shoot"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_enh_dreadherder/Buttons/Use_ork11e_ab_enh_dreadherder_U_DEFF_DREAD_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_enh_dreadherder\").find_child(\"Cost\", true, false).text",
+   "equals": "Enhancement"
+  },
+  {
+   "act": "execute_script",
+   "script": "return str(load(\"res://scripts/codex/orks/OrkAbilities11e.gd\").attack_mods(GameState.get_unit(\"U_DEFF_DREAD_A\"), GameState.get_unit(\"U_CUSTODIAN_GUARD_B\"), {\"name\": \"Big shoota\", \"type\": \"Ranged\"}, false, GameState.state, []).get(\"hit_reroll\", \"\"))",
+   "multiline": true,
+   "equals": "",
+   "comment": "before: the Deff Dread re-rolls nothing"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_dreadherder_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_enh_dreadherder/Buttons/Use_ork11e_ab_enh_dreadherder_U_DEFF_DREAD_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "enhancements cost no CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_DEFF_DREAD_A\").flags.has(\"ork11e_enh_dreadherder\")",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "return str(load(\"res://scripts/codex/orks/OrkAbilities11e.gd\").attack_mods(GameState.get_unit(\"U_DEFF_DREAD_A\"), GameState.get_unit(\"U_CUSTODIAN_GUARD_B\"), {\"name\": \"Big shoota\", \"type\": \"Ranged\"}, false, GameState.state, []).get(\"hit_reroll\", \"\"))",
+   "multiline": true,
+   "equals": "ones",
+   "comment": "after: the walker re-rolls hit rolls of 1 until the end of the turn"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Dreadherder\")",
+   "expect_min": 1
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "var dlg = tree.root.get_node_or_null(\"StratagemDialog\")\nif dlg == null or not dlg.visible:\n\treturn true\nreturn dlg.get_node_or_null(\"Content/StratScroll/StratList/Card_ork11e_ab_enh_dreadherder\") == null",
+   "multiline": true,
+   "equals": true,
+   "comment": "once per Shooting phase per Big Mek: no second Dreadherder card"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+   "equals": "U_DEFF_DREAD_A"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_dreadherder_used"
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "CLEAR_ALL_ASSIGNMENTS",
+    "player": 1
+   }
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "ASSIGN_TARGET",
+    "player": 1,
+    "payload": {
+     "weapon_id": "big_shoota_ranged",
+     "target_unit_id": "U_CUSTODIAN_GUARD_B",
+     "model_ids": [
+      "m1"
+     ]
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "ASSIGN_TARGET",
+    "player": 1,
+    "payload": {
+     "weapon_id": "kustom_mega_blasta_ranged",
+     "target_unit_id": "U_CUSTODIAN_GUARD_B",
+     "model_ids": [
+      "m1"
+     ]
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "ASSIGN_TARGET",
+    "player": 1,
+    "payload": {
+     "weapon_id": "rokkit_launcha___blasta_ranged",
+     "target_unit_id": "U_CUSTODIAN_GUARD_B",
+     "model_ids": [
+      "m1"
+     ]
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "ASSIGN_TARGET",
+    "player": 1,
+    "payload": {
+     "weapon_id": "rokkit_launcha___busta_ranged",
+     "target_unit_id": "U_CUSTODIAN_GUARD_B",
+     "model_ids": [
+      "m1"
+     ]
+    }
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "CONFIRM_TARGETS",
+    "player": 1
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nif sc and sc.resolution_dock and sc.resolution_dock.is_active():\n\tsc.resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.7
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.4
+  },
+  {
+   "act": "execute_script",
+   "script": "var p = PhaseManager.get_current_phase_instance()\nvar rows := []\nvar ones := 0\nvar rerolled := 0\nfor d in p.dice_log:\n\tif typeof(d) != TYPE_DICTIONARY or str(d.get(\"context\", \"\")) != \"to_hit\":\n\t\tcontinue\n\tfor r in d.get(\"rolls_raw\", []):\n\t\tif int(r) == 1:\n\t\t\tones += 1\n\tvar rr = d.get(\"rerolls\", [])\n\trerolled += (rr as Array).size() if rr is Array else 0\n\trows.append({\"raw\": d.get(\"rolls_raw\", []), \"rerolls\": rr})\nprint(\"[wp-o5] Dreadherder to_hit rows: \", rows)\nvar only_ones := true\nfor row in rows:\n\tfor r in row.rerolls:\n\t\tif int(r.get(\"original\", 0)) != 1:\n\t\t\tonly_ones = false\nreturn ones > 0 and ones == rerolled and only_ones",
+   "multiline": true,
+   "equals": true,
+   "comment": "every hit roll of 1 was re-rolled (and nothing else)"
+  },
+  {
+   "act": "screenshot",
+   "label": "03_dreadherder_hit_rolls"
+  }
+ ]
+}

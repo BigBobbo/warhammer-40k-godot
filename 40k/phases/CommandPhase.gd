@@ -2,6 +2,10 @@ extends BasePhase
 class_name CommandPhase
 
 const BasePhase = preload("res://phases/BasePhase.gd")
+# WP-O6: Codex: Orks (11e) datasheet abilities (Madcap Artillery 'zapped' Ld penalty).
+const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
+# Codex: Orks (11e) army rules (WP-O34): Da Boss, War Cry in the opponent's Command phase.
+const Ork11eArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
 
 
 # CommandPhase - Handles Command Phase including CP generation and Battle-shock tests
@@ -33,7 +37,6 @@ var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
 var _reroll_pending_roll: Dictionary = {}  # Stores {die1, die2, unit_id, leadership}
 var _newly_drawn_missions: Array = []  # Missions drawn this phase, for review dialog
-var _fix_dat_armour_up_used: Array = []  # Units that used Fix Dat Armour Up this command phase
 
 # battle_shock_step_start window (MOB MENTALITY): opened once, at the start of
 # the Battle-shock step (see _start_battle_shock_step).
@@ -43,6 +46,10 @@ var _bss_deferred_action: Dictionary = {}
 func _init():
 	# Issue #329: route through RNGService so static test_mode_seed applies
 	_rng = RulesEngine.make_rng()
+	# Known before BasePhase.enter_phase runs (like the other phases): the
+	# WP-C7 "start of any phase" ability window (CustodesAbilities
+	# .phase_start_entries) is queued there, BEFORE _on_phase_enter.
+	phase_type = GameStateData.Phase.COMMAND
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.COMMAND
@@ -50,9 +57,6 @@ func _on_phase_enter() -> void:
 	var battle_round = GameState.get_battle_round()
 	DebugLogger.info(str("CommandPhase: Entering command phase for player ", current_player))
 	DebugLogger.info(str("CommandPhase: Battle round ", battle_round))
-
-	# Reset per-command-phase tracking
-	_fix_dat_armour_up_used = []
 
 	# The start-of-Command steps below that CHANGE the game (round resets, CP
 	# gain, battle-shock clear, turn-start snapshots, the secondary draw) run
@@ -91,6 +95,12 @@ func _on_phase_enter() -> void:
 		var strat_manager_round = get_node_or_null("/root/StratagemManager")
 		if strat_manager_round:
 			strat_manager_round.on_battle_round_start(battle_round)
+		# Codex: Orks (11e) Da Boss — "At the start of the battle round, if a model
+		# with this ability is your WARLORD, gain 1CP" (WP-O34).
+		Ork11eArmyRules.on_battle_round_start(battle_round)
+		# Codex: Adeptus Custodes AQUILA COMMANDER — start of the battle round,
+		# +1CP if your WARLORD has it (bonus-CP cap respected; CustodesKatah.gd).
+		_cus11e_katah().on_battle_round_start(battle_round)
 
 	# Step 0b: Initialize secondary mission decks on first command phase
 	# Both players' decks are set up on the very first command phase entry,
@@ -177,14 +187,18 @@ func _on_phase_enter() -> void:
 	if faction_mgr:
 		faction_mgr.on_command_phase_start(current_player)
 
+	# Codex: Adeptus Custodes MARTIAL KA'TAH — readied step: the active
+	# player's units with the ability are readied (CustodesKatah.gd).
+	_cus11e_katah().on_command_phase_start(current_player)
+	# Codex: Adeptus Custodes (11e) detachments / enhancements — dreadful foe and
+	# Blinding Light expire, BATTLELINE grants refreshed (CustodesDetachments.gd, WP-C46).
+	_cus11e_det().on_command_phase_start(current_player)
+
 	# P3-106: Clear turn-scoped stratagem effects at start of new turn
 	# Per Core Rules, effects with "until the start of your next turn" duration expire here
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager:
 		strat_manager.on_turn_start(current_player)
-
-	# OA-35: Grot Riggers — automatically regain 1 wound for eligible units
-	_apply_grot_riggers(current_player)
 
 	if _units_needing_test.size() == 0:
 		DebugLogger.info("CommandPhase: No units need battle-shock tests")
@@ -223,7 +237,16 @@ func _start_battle_shock_step(deferred: Dictionary) -> Dictionary:
 			queued.append(unit_id)
 	var bss_ctx := {"phase": "command", "units_needing_test": queued}
 	_bss_deferred_action = deferred.duplicate(true)
-	if open_stratagem_window(player, "battle_shock_step_start", bss_ctx, "_resume_after_battle_shock_step_window"):
+	# command_phase_main (WP-C3): "your Command phase", after the readied step
+	# and the Command step's prompts — the Codex: Adeptus Custodes CONSERVAI
+	# ka'tah (CustodesKatah.gd) — opens just before battle_shock_step_start.
+	var bss_entries: Array = [{"player": player, "window_id": "command_phase_main", "ctx": {"phase": "command"}}]
+	# Codex: Orks (11e) War Cry "at the start of the Command phase" — not "your"
+	# (WP-O34): the opponent's War Cry window, after the active player's window
+	# (active player first — 11e sequencing), before the Battle-shock step.
+	bss_entries.append_array(Ork11eArmyRules.war_cry_window_entries(player))
+	bss_entries.append({"player": player, "window_id": "battle_shock_step_start", "ctx": bss_ctx})
+	if open_stratagem_windows(bss_entries, "_resume_after_battle_shock_step_window", bss_ctx):
 		DebugLogger.info("CommandPhase: Battle-shock step starts — waiting for Player %d's battle_shock_step_start stratagem decision (then %s)" % [
 			player, str(deferred.get("type", "the roll call"))])
 		var paused = create_result(true, consume_window_diffs())
@@ -298,12 +321,6 @@ func _on_phase_exit() -> void:
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager:
 		strat_manager.on_phase_end(GameStateData.Phase.COMMAND)
-
-	# Skrag Every Stash! (Da Big Hunt): "at the end of your Command phase" —
-	# lock the bearer's nearest controlled objective (sticky control).
-	var fam_exit = get_node_or_null("/root/FactionAbilityManager")
-	if fam_exit:
-		fam_exit.process_skrag_every_stash(get_current_player())
 
 	_units_needing_test.clear()
 	_units_tested.clear()
@@ -395,6 +412,16 @@ func _identify_units_needing_tests() -> void:
 			_units_needing_test.append(unit_id)
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			DebugLogger.info(str("CommandPhase: %s (%s) needs battle-shock test (below_half=%s at_half=%s shocked=%s)" % [unit_name, unit_id, below_half, at_half, is_shocked]))
+
+	# Codex: Adeptus Custodes (11e) Null Maiden Vigil — CREEPING DREAD (Aura): in the
+	# Battle-shock step of the opponent's Command phase, enemy PSYKER / below-starting-
+	# strength units within 12" of an ANATHEMA PSYKANA unit test at -1 (WP-C46).
+	for cd_uid in _cus11e_det().creeping_dread_units(current_player):
+		var cd_unit = units.get(cd_uid, {})
+		if cd_uid in _units_needing_test or _has_battle_shock_immunity(cd_unit.get("meta", {}).get("keywords", []), cd_unit.get("meta", {}).get("abilities", [])):
+			continue
+		_units_needing_test.append(cd_uid)
+		DebugLogger.info(str("CommandPhase: %s needs a battle-shock test — Creeping Dread (Null Maiden Vigil)" % cd_uid))
 
 static func _has_battle_shock_immunity(keywords: Array, abilities: Array) -> bool:
 	"""Check if a unit has FEARLESS or And They Shall Know No Fear keyword/ability,
@@ -573,16 +600,9 @@ func get_available_actions() -> Array:
 				"player": current_player
 			})
 
-	# Martial Mastery selection (Adeptus Custodes — Shield Host) (P2-27)
-	if faction_mgr and faction_mgr.is_martial_mastery_available(current_player):
-		var mastery_options = faction_mgr.get_mastery_options()
-		for option in mastery_options:
-			actions.append({
-				"type": "SELECT_MARTIAL_MASTERY",
-				"mastery_key": option.key,
-				"description": "%s — %s" % [option.display, option.description],
-				"player": current_player
-			})
+	# (The 10e Shield Host "Choose Martial Mastery" Command-phase step is gone:
+	# the codex Guardians of the Throne Martial Mastery is a Fight-phase choice
+	# when a unit is selected to fight — CustodesDetachments.gd, WP-C46.)
 
 	# Here Be Loot — Loot Objective selection (Orks — Freebooter Krew) (OA-1)
 	if faction_mgr and faction_mgr.is_loot_objective_available(current_player):
@@ -649,57 +669,6 @@ func get_available_actions() -> Array:
 							"description": "Grab and Bash: %s — Waaagh! active (5+ invuln, +1S/A melee, advance+charge) (1 CP)" % target.unit_name,
 							"player": current_player
 						})
-
-	# P3-29: Grot Orderly — once per battle, return D3 destroyed Bodyguard models
-	var ability_mgr_go = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr_go:
-		var all_units_go = GameState.state.get("units", {})
-		for unit_id in all_units_go:
-			var unit = all_units_go[unit_id]
-			if unit.get("owner", 0) != current_player:
-				continue
-			if not ability_mgr_go.has_grot_orderly(unit_id):
-				continue
-			# Check if the unit is deployed and alive
-			if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
-				continue
-			var go_info = ability_mgr_go.get_grot_orderly_unit(unit_id)
-			if go_info.get("eligible", false):
-				var painboss_name = unit.get("meta", {}).get("name", unit_id)
-				actions.append({
-					"type": "USE_GROT_ORDERLY",
-					"unit_id": unit_id,
-					"bodyguard_unit_id": go_info.bodyguard_unit_id,
-					"description": "Grot Orderly: %s returns up to D3 models to %s (%d destroyed)" % [
-						painboss_name, go_info.bodyguard_unit_name, go_info.destroyed_count],
-					"player": current_player
-				})
-
-	# OA-33: Fix Dat Armour Up — Big Mek in Mega Armour returns 1 destroyed Bodyguard model each Command phase
-	var ability_mgr_fda = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr_fda:
-		var all_units_fda = GameState.state.get("units", {})
-		for unit_id in all_units_fda:
-			var unit = all_units_fda[unit_id]
-			if unit.get("owner", 0) != current_player:
-				continue
-			if unit_id in _fix_dat_armour_up_used:
-				continue
-			if not ability_mgr_fda.has_fix_dat_armour_up(unit_id):
-				continue
-			if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
-				continue
-			var fda_info = ability_mgr_fda.get_fix_dat_armour_up_unit(unit_id)
-			if fda_info.get("eligible", false):
-				var mek_name = unit.get("meta", {}).get("name", unit_id)
-				actions.append({
-					"type": "USE_FIX_DAT_ARMOUR_UP",
-					"unit_id": unit_id,
-					"bodyguard_unit_id": fda_info.bodyguard_unit_id,
-					"description": "Fix Dat Armour Up: %s returns 1 model to %s (%d destroyed)" % [
-						mek_name, fda_info.bodyguard_unit_name, fda_info.destroyed_count],
-					"player": current_player
-				})
 
 	# UNLEASH THE LIONS (Lions of the Emperor stratagem): split Allarus/Aquilon into single-model units
 	var strat_mgr_utl = get_node_or_null("/root/StratagemManager")
@@ -814,18 +783,12 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
 			pass  # Always valid
-		"SELECT_MARTIAL_MASTERY":
-			errors = _validate_select_martial_mastery(action)
 		"SELECT_LOOT_OBJECTIVE":
 			errors = _validate_select_loot_objective(action)
 		"ISSUE_TAKTIK":
 			errors = _validate_issue_taktik(action)
 		"USE_DA_KAPTIN":
 			errors = _validate_use_da_kaptin(action)
-		"USE_GROT_ORDERLY":
-			errors = _validate_use_grot_orderly(action)
-		"USE_FIX_DAT_ARMOUR_UP":
-			errors = _validate_use_fix_dat_armour_up(action)
 		"USE_PSYCHIC_VEIL":
 			var pv_unit_id = action.get("unit_id", "")
 			if pv_unit_id == "":
@@ -945,18 +908,12 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
 			return _handle_skip_combat_doctrine(action)
-		"SELECT_MARTIAL_MASTERY":
-			return _handle_select_martial_mastery(action)
 		"SELECT_LOOT_OBJECTIVE":
 			return _handle_select_loot_objective(action)
 		"ISSUE_TAKTIK":
 			return _handle_issue_taktik(action)
 		"USE_DA_KAPTIN":
 			return _handle_use_da_kaptin(action)
-		"USE_GROT_ORDERLY":
-			return _handle_use_grot_orderly(action)
-		"USE_FIX_DAT_ARMOUR_UP":
-			return _handle_use_fix_dat_armour_up(action)
 		"USE_PSYCHIC_VEIL":
 			return _handle_use_psychic_veil(action)
 		"USE_UNLEASH_THE_LIONS":
@@ -1002,6 +959,10 @@ static func _get_effective_leadership(unit_id: String) -> int:
 	# HUGE SHOW-OFFS (More Dakka!): 'improve the Leadership characteristic by
 	# 1' — the test passes on roll >= Ld, so improving lowers the requirement.
 	ld -= int(unit.get("flags", {}).get("effect_improve_leadership", 0))
+	# MADCAP ARTILLERY (Codex: Orks 11e, Mek Gunz) 'zapped': worsen Leadership by 1
+	# — ignored by a Vexilla (Codex: Adeptus Custodes, CustodesAbilities.gd).
+	if GameConstants.edition >= 11 and not _cus11e_abilities().ignores_ld_modifiers(unit_id):
+		ld += OrkAbilities11eScript.leadership_penalty(unit_id)
 	return ld
 
 func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
@@ -1038,6 +999,8 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
 		battle_shock_bonus = ability_mgr.get_battle_shock_bonus(unit_id)
+	# Codex: Adeptus Custodes (11e) Creeping Dread: -1 to that battle-shock roll (WP-C46).
+	battle_shock_bonus += _cus11e_det().battle_shock_roll_modifier(unit_id)
 
 	var effective_roll = roll_total + battle_shock_bonus
 	var test_passed = effective_roll >= leadership
@@ -1136,6 +1099,8 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
 		battle_shock_bonus = ability_mgr.get_battle_shock_bonus(unit_id)
+	# Codex: Adeptus Custodes (11e) Creeping Dread: -1 to that battle-shock roll (WP-C46).
+	battle_shock_bonus += _cus11e_det().battle_shock_roll_modifier(unit_id)
 
 	var effective_roll = roll_total + battle_shock_bonus
 	var test_passed = effective_roll >= leadership
@@ -1730,64 +1695,6 @@ func _handle_skip_combat_doctrine(_action: Dictionary) -> Dictionary:
 	return {"success": true, "message": "No Combat Doctrine selected this round"}
 
 # ============================================================================
-# DETACHMENT ABILITIES — MARTIAL MASTERY (P2-27)
-# ============================================================================
-
-func _validate_select_martial_mastery(action: Dictionary) -> Array:
-	var errors = []
-	var current_player = get_current_player()
-	var mastery_key = action.get("mastery_key", "")
-
-	if mastery_key == "":
-		errors.append("Missing mastery_key for Martial Mastery selection")
-		return errors
-
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if not faction_mgr:
-		errors.append("FactionAbilityManager not available")
-		return errors
-
-	if not faction_mgr.is_martial_mastery_available(current_player):
-		errors.append("Martial Mastery is not available for player %d" % current_player)
-		return errors
-
-	var options = faction_mgr.get_mastery_options()
-	var found = false
-	for opt in options:
-		if opt.key == mastery_key:
-			found = true
-			break
-	if not found:
-		errors.append("Unknown Martial Mastery option: %s" % mastery_key)
-
-	return errors
-
-func _handle_select_martial_mastery(action: Dictionary) -> Dictionary:
-	var current_player = get_current_player()
-	var mastery_key = action.get("mastery_key", "")
-
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if not faction_mgr:
-		return {"success": false, "error": "FactionAbilityManager not available"}
-
-	var result = faction_mgr.select_martial_mastery(current_player, mastery_key)
-
-	if result.success:
-		log_phase_message("MARTIAL MASTERY: Player %d selects %s" % [
-			current_player, result.get("mastery_display", mastery_key)])
-
-		var log_entry = {
-			"type": "SELECT_MARTIAL_MASTERY",
-			"player": current_player,
-			"mastery": mastery_key,
-			"mastery_display": result.get("mastery_display", ""),
-			"turn": GameState.get_battle_round()
-		}
-		GameState.add_action_to_phase_log(log_entry)
-
-	return result
-
-# ============================================================================
 # HERE BE LOOT — LOOT OBJECTIVE SELECTION (OA-1)
 # ============================================================================
 
@@ -1970,293 +1877,6 @@ func _handle_use_da_kaptin(action: Dictionary) -> Dictionary:
 	return result
 
 # ============================================================================
-# OA-35: GROT RIGGERS (Trukk — regain 1 lost wound at start of Command phase)
-# ============================================================================
-
-func _apply_grot_riggers(current_player: int) -> void:
-	"""Auto-apply Grot Riggers: at start of Command phase, eligible units regain 1 wound."""
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr:
-		return
-
-	var all_units = GameState.state.get("units", {})
-	for unit_id in all_units:
-		var unit = all_units[unit_id]
-		if unit.get("owner", 0) != current_player:
-			continue
-		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
-			continue
-		if not ability_mgr.has_grot_riggers(unit_id):
-			continue
-
-		var gr_info = ability_mgr.get_grot_riggers_eligible(unit_id)
-		if not gr_info.get("eligible", false):
-			continue
-
-		# Regain 1 wound (capped at max)
-		var model_index = gr_info.model_index
-		var new_wounds = gr_info.current_wounds + 1
-		var max_wounds = gr_info.max_wounds
-		if new_wounds > max_wounds:
-			new_wounds = max_wounds
-
-		var changes = [{
-			"op": "set",
-			"path": "units.%s.models.%d.current_wounds" % [unit_id, model_index],
-			"value": new_wounds
-		}]
-		PhaseManager.apply_state_changes(changes)
-
-		var unit_name = gr_info.unit_name
-		DebugLogger.info(str("CommandPhase: Grot Riggers — %s regains 1 wound (%d → %d/%d)" % [unit_name, gr_info.current_wounds, new_wounds, max_wounds]))
-		log_phase_message("GROT RIGGERS: %s regains 1 wound (%d → %d)" % [unit_name, gr_info.current_wounds, new_wounds])
-
-		# Log to phase log
-		var log_entry = {
-			"type": "GROT_RIGGERS",
-			"player": current_player,
-			"unit_id": unit_id,
-			"wounds_before": gr_info.current_wounds,
-			"wounds_after": new_wounds,
-			"max_wounds": max_wounds,
-			"turn": GameState.get_battle_round()
-		}
-		GameState.add_action_to_phase_log(log_entry)
-
-# ============================================================================
-# P3-29: GROT ORDERLY (Painboss — return D3 destroyed Bodyguard models)
-# ============================================================================
-
-func _validate_use_grot_orderly(action: Dictionary) -> Array:
-	var errors = []
-	var unit_id = action.get("unit_id", "")
-	var bodyguard_unit_id = action.get("bodyguard_unit_id", "")
-	var current_player = get_current_player()
-
-	if unit_id == "":
-		errors.append("Missing unit_id for Grot Orderly")
-		return errors
-
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr:
-		errors.append("UnitAbilityManager not available")
-		return errors
-
-	if not ability_mgr.has_grot_orderly(unit_id):
-		errors.append("Unit %s does not have an available Grot Orderly ability" % unit_id)
-		return errors
-
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.get("owner", 0) != current_player:
-		errors.append("Unit %s does not belong to active player" % unit_id)
-
-	var go_info = ability_mgr.get_grot_orderly_unit(unit_id)
-	if not go_info.get("eligible", false):
-		errors.append("Painboss's unit is not below starting strength — no models to return")
-
-	return errors
-
-func _handle_use_grot_orderly(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	var bodyguard_unit_id = action.get("bodyguard_unit_id", "")
-	var current_player = get_current_player()
-
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr:
-		return {"success": false, "error": "UnitAbilityManager not available"}
-
-	var go_info = ability_mgr.get_grot_orderly_unit(unit_id)
-	if not go_info.get("eligible", false):
-		return {"success": false, "error": "Unit is not below starting strength"}
-
-	bodyguard_unit_id = go_info.bodyguard_unit_id
-
-	# Roll D3 to determine how many models to return
-	# Issue #329: route through RNGService so payload.rng_seed and test_mode_seed apply
-	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
-	var rng = RulesEngine.RNGService.new(rng_seed)
-	var d3_roll = rng.rng.randi_range(1, 3)
-	var destroyed_count = go_info.destroyed_count
-	var models_to_return = mini(d3_roll, destroyed_count)
-
-	DebugLogger.info(str("CommandPhase: Grot Orderly — rolled D3 = %d, returning %d model(s) to %s" % [d3_roll, models_to_return, bodyguard_unit_id]))
-
-	# Find destroyed models in the bodyguard unit and revive them
-	var bodyguard_unit = GameState.state.get("units", {}).get(bodyguard_unit_id, {})
-	var models = bodyguard_unit.get("models", [])
-	var changes = []
-	var returned = 0
-
-	for i in range(models.size()):
-		if returned >= models_to_return:
-			break
-		var model = models[i]
-		if not model.get("alive", true):
-			# Revive this model at full wounds
-			var max_wounds = model.get("wounds", 1)
-			changes.append({
-				"op": "set",
-				"path": "units.%s.models.%d.alive" % [bodyguard_unit_id, i],
-				"value": true
-			})
-			changes.append({
-				"op": "set",
-				"path": "units.%s.models.%d.current_wounds" % [bodyguard_unit_id, i],
-				"value": max_wounds
-			})
-			returned += 1
-			DebugLogger.info(str("CommandPhase: Grot Orderly — returned model %s (index %d) with %d wounds" % [model.get("id", ""), i, max_wounds]))
-
-	# Apply changes
-	if changes.size() > 0:
-		PhaseManager.apply_state_changes(changes)
-
-	# Mark Grot Orderly as used (once per battle)
-	ability_mgr.mark_once_per_battle_used(unit_id, "Grot Orderly")
-
-	var painboss_name = GameState.state.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
-	var bg_name = go_info.bodyguard_unit_name
-
-	log_phase_message("GROT ORDERLY: %s returns %d model(s) to %s (rolled D3 = %d)" % [
-		painboss_name, returned, bg_name, d3_roll])
-
-	# Log to phase log
-	var log_entry = {
-		"type": "USE_GROT_ORDERLY",
-		"player": current_player,
-		"painboss_unit_id": unit_id,
-		"bodyguard_unit_id": bodyguard_unit_id,
-		"d3_roll": d3_roll,
-		"models_returned": returned,
-		"turn": GameState.get_battle_round()
-	}
-	GameState.add_action_to_phase_log(log_entry)
-
-	return {
-		"success": true,
-		"unit_id": unit_id,
-		"bodyguard_unit_id": bodyguard_unit_id,
-		"d3_roll": d3_roll,
-		"models_returned": returned,
-		"message": "Grot Orderly: %s returned %d model(s) to %s (D3 = %d)" % [painboss_name, returned, bg_name, d3_roll]
-	}
-
-# ============================================================================
-# FIX DAT ARMOUR UP — Big Mek in Mega Armour (OA-33)
-# ============================================================================
-
-func _validate_use_fix_dat_armour_up(action: Dictionary) -> Array:
-	var errors = []
-	var unit_id = action.get("unit_id", "")
-	var current_player = get_current_player()
-
-	if unit_id == "":
-		errors.append("Missing unit_id for Fix Dat Armour Up")
-		return errors
-
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr:
-		errors.append("UnitAbilityManager not available")
-		return errors
-
-	if not ability_mgr.has_fix_dat_armour_up(unit_id):
-		errors.append("Unit %s does not have Fix Dat Armour Up ability" % unit_id)
-		return errors
-
-	if unit_id in _fix_dat_armour_up_used:
-		errors.append("Unit %s has already used Fix Dat Armour Up this command phase" % unit_id)
-		return errors
-
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.get("owner", 0) != current_player:
-		errors.append("Unit %s does not belong to active player" % unit_id)
-
-	var fda_info = ability_mgr.get_fix_dat_armour_up_unit(unit_id)
-	if not fda_info.get("eligible", false):
-		errors.append("Big Mek's unit has no destroyed Bodyguard models to return")
-
-	return errors
-
-func _handle_use_fix_dat_armour_up(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	var bodyguard_unit_id = action.get("bodyguard_unit_id", "")
-	var current_player = get_current_player()
-
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr:
-		return {"success": false, "error": "UnitAbilityManager not available"}
-
-	var fda_info = ability_mgr.get_fix_dat_armour_up_unit(unit_id)
-	if not fda_info.get("eligible", false):
-		return {"success": false, "error": "No destroyed Bodyguard models to return"}
-
-	bodyguard_unit_id = fda_info.bodyguard_unit_id
-
-	# Fix Dat Armour Up returns exactly 1 destroyed model
-	DebugLogger.info(str("CommandPhase: Fix Dat Armour Up — returning 1 model to %s" % bodyguard_unit_id))
-
-	var bodyguard_unit = GameState.state.get("units", {}).get(bodyguard_unit_id, {})
-	var models = bodyguard_unit.get("models", [])
-	var changes = []
-	var returned = 0
-
-	for i in range(models.size()):
-		if returned >= 1:
-			break
-		var model = models[i]
-		if not model.get("alive", true):
-			# Revive this model at full wounds
-			var max_wounds = model.get("wounds", 1)
-			changes.append({
-				"op": "set",
-				"path": "units.%s.models.%d.alive" % [bodyguard_unit_id, i],
-				"value": true
-			})
-			changes.append({
-				"op": "set",
-				"path": "units.%s.models.%d.current_wounds" % [bodyguard_unit_id, i],
-				"value": max_wounds
-			})
-			returned += 1
-			DebugLogger.info(str("CommandPhase: Fix Dat Armour Up — returned model %s (index %d) with %d wounds" % [model.get("id", ""), i, max_wounds]))
-
-	# Apply changes
-	if changes.size() > 0:
-		PhaseManager.apply_state_changes(changes)
-
-	# Track that this unit used Fix Dat Armour Up this command phase
-	_fix_dat_armour_up_used.append(unit_id)
-
-	var mek_name = GameState.state.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
-	var bg_name = fda_info.bodyguard_unit_name
-
-	log_phase_message("FIX DAT ARMOUR UP: %s returns %d model to %s" % [
-		mek_name, returned, bg_name])
-
-	# Log to phase log
-	var log_entry = {
-		"type": "USE_FIX_DAT_ARMOUR_UP",
-		"player": current_player,
-		"big_mek_unit_id": unit_id,
-		"bodyguard_unit_id": bodyguard_unit_id,
-		"models_returned": returned,
-		"turn": GameState.get_battle_round()
-	}
-	GameState.add_action_to_phase_log(log_entry)
-
-	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if game_event_log:
-		game_event_log.add_player_entry(current_player, "Fix Dat Armour Up: %s returned 1 model to %s" % [mek_name, bg_name])
-
-	return {
-		"success": true,
-		"unit_id": unit_id,
-		"bodyguard_unit_id": bodyguard_unit_id,
-		"models_returned": returned,
-		"message": "Fix Dat Armour Up: %s returned 1 model to %s" % [mek_name, bg_name]
-	}
-
-# ============================================================================
 # NEW ORDERS STRATAGEM
 # ============================================================================
 
@@ -2400,6 +2020,11 @@ func _handle_replace_secondary_mission(action: Dictionary) -> Dictionary:
 			"turn": GameState.get_battle_round()
 		}
 		GameState.add_action_to_phase_log(log_entry)
+		# One replacement per Command phase — the human review dialog clears
+		# the newly drawn list after its replacement (CommandController); the
+		# AI path, which keeps the list offered (no dialog), stops here too.
+		_newly_drawn_missions = []
+		DebugLogger.info("CommandPhase: newly drawn list cleared after the replacement (one per Command phase)")
 
 	return result
 
@@ -2829,12 +2454,21 @@ func get_battle_shock_queue(include_tested: bool = false) -> Array:
 		elif at_half:
 			reason = "at_half"
 			reason_text = "At Half-strength"
+		elif _cus11e_det().battle_shock_roll_modifier(unit_id) != 0:
+			# Codex: Adeptus Custodes (11e) Null Maiden Vigil — CREEPING DREAD:
+			# a PSYKER / below-starting-strength unit near ANATHEMA PSYKANA (WP-C46).
+			reason = "creeping_dread"
+			reason_text = "Creeping Dread (Null Maiden Vigil) — PSYKER / below starting strength within 12\" of Anathema Psykana"
 		else:
 			# Queued earlier this phase and has since been healed/reinforced. It
 			# still owes the test (it was taken at the start of the phase), but
 			# don't invent a reason that no longer holds.
 			reason = "queued"
 			reason_text = "Battle-shock test outstanding"
+		# Creeping Dread's -1 also applies to a unit testing for another reason.
+		var cus11e_cd_mod: int = _cus11e_det().battle_shock_roll_modifier(unit_id)
+		if cus11e_cd_mod != 0 and reason != "creeping_dread":
+			reason_text += " · Creeping Dread: %d to the roll" % cus11e_cd_mod
 
 		var insane_bravery_available := false
 		if strat_manager and not tested:
@@ -2846,7 +2480,11 @@ func get_battle_shock_queue(include_tested: bool = false) -> Array:
 			"unit_name": unit.get("meta", {}).get("name", unit_id),
 			"owner": int(unit.get("owner", 0)),
 			"leadership": _get_effective_leadership(unit_id),
-			"battle_shock_bonus": ability_mgr.get_battle_shock_bonus(unit_id) if ability_mgr else 0,
+			"battle_shock_bonus": (ability_mgr.get_battle_shock_bonus(unit_id) if ability_mgr else 0) + cus11e_cd_mod,
+			# The negative part of battle_shock_bonus and its source, so the roll
+			# card can name it (Codex: Adeptus Custodes 11e Creeping Dread, WP-C46).
+			"battle_shock_malus": cus11e_cd_mod,
+			"battle_shock_malus_source": "Creeping Dread" if cus11e_cd_mod != 0 else "",
 			"alive": alive,
 			"total": total,
 			"strength_text": strength_text,

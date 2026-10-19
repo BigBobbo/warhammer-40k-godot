@@ -230,8 +230,11 @@ func _run_tests():
 	_check("GameManager END_FIGHT while fights are owed is REJECTED (not a phase end)",
 		not r_gm2.get("success", false) and gs.get_current_phase() == 10, str(r_gm2))
 
-	print("\n-- I: no END_FIGHT before the Pile In step starts (Moment Shackle pending) --")
-	fp._moment_shackle_pending_units = ["U_ORK"]
+	print("\n-- I: no END_FIGHT before the Pile In step starts (a start-of-phase window pending) --")
+	# WP-C7: the 10e Moment Shackle queue is gone; what holds the Pile In step
+	# back now is a start-of-phase window (Codex: Adeptus Custodes Moment
+	# Shackle / Neutronium Cascade Mine, WP-O6 Visions of Violence) — modelled
+	# here by the step state itself.
 	fp.pile_in_step_11e = fp.PileInStep11e.NOT_STARTED
 	var st_pre = fp.get_end_fight_status()
 	_check("status reports pre_pile_in, nothing can end, nobody can pass",

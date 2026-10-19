@@ -31,6 +31,9 @@
 #   - PM-5 deployment recorder + plan round trip (record -> consume, both seats)
 #   - Codex: Orks (11e) data layer (curated stratagem rows, window column,
 #     apostrophe-folded detachment match, legacy 1.0.19 datasheet kits)
+#   - Wahapedia 11e codex import (Custodes + Orks): codex characteristics,
+#     unit sizes, points and weapons in every shipped army file; AC codex
+#     stratagem rows; pre-codex rosters keep their legacy kits
 #   - Codex: Orks (11e) movement stratagems (movement windows, reactive /
 #     assault-disembark follow-ups, MOBILE, desperate escape, objectives)
 #   - Codex: Orks (11e) OTHER group (MOB MENTALITY, BREAKIN' HEADS, IMPENDING
@@ -42,6 +45,18 @@
 #   - #916 x #917 merge interactions: Fight On Death on SKIP_UNIT, stale
 #     END_* no-ops, online Pile In / Consolidate half ownership, AFK timer vs
 #     stratagem windows / mid-activation, client Consolidate step close
+#   - Codex: Adeptus Custodes (11e) army rules (WP-C3): Martial Ka'tah readied
+#     state + the six ka'tah abilities in their windows, Master of Ka'tahs,
+#     Aegis of the Emperor, Aquila Commander, Daughters of the Abyss /
+#     Psychic Null, Anathema Psykana warlord restriction
+#   - Codex: Adeptus Custodes (11e) detachment rules (WP-C46): the 13
+#     detachment rules, Favoured Ka'tah riders, BATTLELINE grant, Creeping
+#     Dread, AI rule choices; the 10e Custodes detachment code is gone
+#   - Codex: Adeptus Custodes (11e) enhancements (WP-C46): all 29 codex
+#     enhancements + data-driven army-construction validation
+#   - per-model loadout resolution over every army file (MA-LOADOUT; codex
+#     kits per role, a weapon's profiles counted as one weapon — WP-O1b) and
+#     the transport audit (capacity / exclusions / space multipliers)
 #   - secondary deck draw terminates when only round-1 shuffle-back cards are
 #     left (was an infinite loop)
 #   - 14.02 per-model Objective Control (every model in range adds its OC;
@@ -224,6 +239,7 @@ TESTS=(
     "tests/test_fire_overwatch_15_08_11e.gd"
     "tests/test_command_phase_start_once.gd"
     "tests/test_ork_codex_11e_data.gd"
+    "tests/test_wahapedia_11e_import_data.gd"
     "tests/test_ork_codex_framework.gd"
     "tests/test_ork_codex_fight.gd"
     "tests/test_ork_codex_shooting.gd"
@@ -232,7 +248,18 @@ TESTS=(
     "tests/test_ork_codex_movement.gd"
     "tests/test_ork_codex_other.gd"
     "tests/test_ork_codex_framework_fixes.gd"
+    "tests/test_custodes_army_rules_11e.gd"
+    "tests/test_custodes_detachments_11e.gd"
+    "tests/test_custodes_enhancements_11e.gd"
+    "tests/test_custodes_codex_framework.gd"
+    "tests/test_custodes_codex_fight.gd"
+    "tests/test_custodes_codex_shooting.gd"
+    "tests/test_custodes_codex_movement.gd"
+    "tests/test_custodes_codex_other.gd"
+    "tests/test_custodes_abilities_11e.gd"
     "tests/test_ork_codex_turn_flow_fixes.gd"
+    "tests/test_ork_abilities_11e.gd"
+    "tests/test_ork_enhancements_11e.gd"
     "tests/test_keybinding_chord_no_pan.gd"
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"
@@ -255,6 +282,10 @@ TESTS=(
     "tests/test_core_rules_audit_e28e4f7.gd"
     "tests/test_merge_916_917_interactions.gd"
     "tests/test_fight_phase_scope_end_fight_11e.gd"
+    "tests/test_ork_army_rules_11e.gd"
+    "tests/test_ork_detachments_11e.gd"
+    "tests/test_loadout_resolution.gd"
+    "tests/test_transport_audit_2026_07.gd"
     "tests/test_secondary_draw_shuffle_back_terminates.gd"
 )
 

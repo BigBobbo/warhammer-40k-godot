@@ -524,6 +524,9 @@ func _populate_reroll_chips(stage: String, info: Dictionary) -> void:
 	if rolls.is_empty():
 		return
 	reroll_label.text = "Command Re-roll (1 CP) — click a %s die to re-roll it:" % ("hit" if stage == "hits" else "wound")
+	# Codex: Adeptus Custodes PRIME TARGET (CustodesCodex11e.gd): the phase names a free re-roll source.
+	if str(info.get("reroll_label", "")) != "":
+		reroll_label.text = str(info.get("reroll_label", ""))
 	reroll_label.visible = true
 	reroll_row.get_parent().visible = true
 	# Colour by threshold when the pause carries one (pass green / fail red);

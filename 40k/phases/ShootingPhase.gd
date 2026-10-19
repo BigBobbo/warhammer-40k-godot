@@ -2,6 +2,10 @@ extends BasePhase
 class_name ShootingPhase
 
 const BasePhase = preload("res://phases/BasePhase.gd")
+# WP-O6: Codex: Orks (11e) datasheet abilities (post-shot effects).
+const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
+# Codex: Orks (11e) detachment rules (WP-O34): Unpredictable Genius, Try Dat Button! lifecycle.
+const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
 
 
 # ShootingPhase - Full implementation of the Shooting phase following 10e rules
@@ -21,18 +25,8 @@ signal grenade_result(result: Dictionary)  # For grenade stratagem result displa
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)  # For Command Re-roll on save rolls (future expansion)
 signal shooting_damage_applied(shooter_id: String, diffs: Array)  # T7-53: For floating damage numbers after saves resolved
 signal ai_shooting_visual(shooter_id: String, target_data: Array, result_summary: Dictionary)  # T7-38: AI shooting targeting line + result text
-signal sentinel_storm_available(unit_id: String, player: int)  # P1-10: Sentinel Storm shoot-again prompt
-signal sanctified_flames_result(shooter_id: String, target_id: String, test_result: Dictionary)  # P1-11: Sanctified Flames battle-shock test result
 signal throat_slittas_available(unit_id: String, player: int, eligible_targets: Array)  # P1-12: Throat Slittas mortal wounds prompt
 signal throat_slittas_result(unit_id: String, results: Dictionary)  # P1-12: Throat Slittas resolution result
-signal distraction_grot_available(unit_id: String, player: int)  # P2-25: Distraction Grot invuln save prompt
-signal distraction_grot_result(unit_id: String, activated: bool)  # P2-25: Distraction Grot decision result
-signal ammo_runt_available(unit_id: String, player: int, remaining: int)  # OA-10: Ammo Runt Lethal Hits prompt
-signal ammo_runt_result(unit_id: String, activated: bool)  # OA-10: Ammo Runt decision result
-signal pulsa_rokkit_available(unit_id: String, player: int)  # OA-31: Pulsa Rokkit +1S/+1AP prompt
-signal pulsa_rokkit_result(unit_id: String, activated: bool)  # OA-31: Pulsa Rokkit decision result
-signal shooty_power_trip_available(unit_id: String, player: int)  # OA-37: Shooty Power Trip D6 roll prompt
-signal shooty_power_trip_result(unit_id: String, d6_roll: int, effect: String)  # OA-37: Shooty Power Trip result
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -51,17 +45,8 @@ var pending_save_data: Array = []  # Save data awaiting resolution
 var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing post-save hazardous check
 var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-shot weapons as fired
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
-var sentinel_storm_pending_unit: String = ""  # P1-10: Unit awaiting Sentinel Storm decision
 var throat_slittas_pending_unit: String = ""  # P1-12: Unit awaiting Throat Slittas decision
-var distraction_grot_pending_unit: String = ""  # P2-25: Defending unit awaiting Distraction Grot decision
-var awaiting_distraction_grot: bool = false  # P2-25: True when waiting for Distraction Grot response
-var ammo_runt_pending_unit: String = ""  # OA-10: Unit awaiting Ammo Runt decision
-var awaiting_ammo_runt: bool = false  # OA-10: True when waiting for Ammo Runt response
-var pulsa_rokkit_pending_unit: String = ""  # OA-31: Unit awaiting Pulsa Rokkit decision
-var awaiting_pulsa_rokkit: bool = false  # OA-31: True when waiting for Pulsa Rokkit response
-var shooty_power_trip_pending_unit: String = ""  # OA-37: Unit awaiting Shooty Power Trip decision
-var awaiting_shooty_power_trip: bool = false  # OA-37: True when waiting for Shooty Power Trip response
-var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
+var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count } (post-shot "hit by those attacks")
 var _rng = RulesEngine.make_rng()  # P1-11: RNG for battle-shock tests (issue #329: routes through test_mode_seed)
 # Issue #386 Big Booms: queued struck-unit IDs from a supa-kannon target selection.
 # Resolved after the supa-kannon's attacks against the chosen target finish; D3 MW per struck unit.
@@ -72,10 +57,8 @@ var awaiting_swift_as_eagle: bool = false
 # The reactive post-shooting-move scaffolding serves SWIFT AS THE EAGLE
 # (Lions of the Emperor) and GO GET 'EM! (Green Tide).
 var swift_as_eagle_pending_strat: String = "SWIFT AS THE EAGLE"
-# Wazblasta (Kult of Speed enhancement): after the bearer's unit shoots, if it
-# is unengaged it may make a 6" Normal move but cannot charge this turn.
-var wazblasta_pending_unit: String = ""
-var awaiting_wazblasta: bool = false
+# (WP-O5: the 10e Kult of Speed Wazblasta post-shooting move is gone — Codex:
+# Orks Kult of Speed has Smoky Gubbinz / Competitive Streak.)
 # Stratagem window unit_selected_to_shoot (design .llm/ork_codex_11e_design.md
 # §3): the unit the window has already been opened for in the CURRENT
 # selection, so re-entrant select calls (resume, Throat Slittas decline, the
@@ -225,21 +208,10 @@ func _on_phase_enter() -> void:
 	pending_hazardous_weapons.clear()
 	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
-	sentinel_storm_pending_unit = ""
 	throat_slittas_pending_unit = ""
-	distraction_grot_pending_unit = ""
-	awaiting_distraction_grot = false
-	ammo_runt_pending_unit = ""
-	awaiting_ammo_runt = false
-	pulsa_rokkit_pending_unit = ""
-	awaiting_pulsa_rokkit = false
-	shooty_power_trip_pending_unit = ""
-	awaiting_shooty_power_trip = false
 	swift_as_eagle_pending_unit = ""
 	swift_as_eagle_move_inches = 0
 	awaiting_swift_as_eagle = false
-	wazblasta_pending_unit = ""
-	awaiting_wazblasta = false
 	_targets_hit_by_shooter.clear()
 	_kill_reported_units.clear()
 
@@ -263,6 +235,7 @@ func _on_phase_exit() -> void:
 	var fam_exit = get_node_or_null("/root/FactionAbilityManager")
 	if fam_exit:
 		fam_exit.clear_try_dat_flags("ranged")
+	Ork11eDetachments.on_phase_end("shooting")  # Codex: Orks (11e) leftover Try Dat Button! / Unpredictable Genius flags (WP-O34)
 
 	# CRITICAL: Clear all shooting visuals BEFORE controller is freed
 	# This ensures range circles and other visuals are removed immediately
@@ -367,8 +340,8 @@ func _check_kill_diffs(changes: Array) -> void:
 					_resolve_transport_destruction_if_applicable(unit_id)
 					# P1-13: Check for Deadly Demise on destroyed unit
 					_resolve_deadly_demise_if_applicable(unit_id)
-						# Superior Creation (Lions enhancement): queue the end-of-phase revival roll
-					_record_superior_creation_if_applicable(unit_id)
+					# (Codex: Adeptus Custodes Superior Creation rolls at the end of the
+					# phase — PhaseManager -> CustodesEnhancements.gd, WP-C46.)
 					# P3-32: Check if destroyed unit is a transport with embarked units
 					_resolve_transport_destroyed_if_applicable(unit_id)
 
@@ -438,18 +411,6 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 
 		# Recursively check if transport destruction casualties caused further deaths
 		_check_kill_diffs(result.all_diffs)
-
-func _record_superior_creation_if_applicable(destroyed_unit_id: String) -> void:
-	"""Superior Creation (Lions of the Emperor): first bearer death queues a
-	2+ revival roll that PhaseManager resolves at the end of the phase."""
-	var result = RulesEngine.record_superior_creation_death(destroyed_unit_id, GameState.state)
-	if not result.get("applicable", false):
-		return
-	var diffs = result.get("diffs", [])
-	if not diffs.is_empty():
-		PhaseManager.apply_state_changes(diffs)
-	var _sc_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
-	log_phase_message("Superior Creation: %s destroyed — revival roll (2+) at end of phase" % _sc_meta.get("name", destroyed_unit_id))
 
 ## Deadly Demise is resolved by this phase's own kill detection
 ## (_check_kill_diffs), not by the BasePhase generic event path.
@@ -608,30 +569,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_grenade_stratagem(action)
 		"USE_STRATAGEM":  # Active player uses a proactive (non-grenade) stratagem with phase: "shooting"
 			return _validate_use_stratagem(action)
-		"USE_SENTINEL_STORM":  # P1-10: Player uses Sentinel Storm shoot-again
-			return _validate_use_sentinel_storm(action)
-		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
-			return _validate_decline_sentinel_storm(action)
 		"USE_THROAT_SLITTAS":  # P1-12: Player uses Throat Slittas mortal wounds
 			return _validate_use_throat_slittas(action)
 		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
 			return _validate_decline_throat_slittas(action)
-		"USE_DISTRACTION_GROT":  # P2-25: Defender activates Distraction Grot
-			return _validate_use_distraction_grot(action)
-		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
-			return _validate_decline_distraction_grot(action)
-		"USE_AMMO_RUNT":  # OA-10: Player activates Ammo Runt
-			return _validate_use_ammo_runt(action)
-		"DECLINE_AMMO_RUNT":  # OA-10: Player declines Ammo Runt
-			return _validate_decline_ammo_runt(action)
-		"USE_PULSA_ROKKIT":  # OA-31: Player activates Pulsa Rokkit
-			return _validate_use_pulsa_rokkit(action)
-		"DECLINE_PULSA_ROKKIT":  # OA-31: Player declines Pulsa Rokkit
-			return _validate_decline_pulsa_rokkit(action)
-		"USE_SHOOTY_POWER_TRIP":  # OA-37: Player activates Shooty Power Trip
-			return _validate_use_shooty_power_trip(action)
-		"DECLINE_SHOOTY_POWER_TRIP":  # OA-37: Player declines Shooty Power Trip
-			return _validate_decline_shooty_power_trip(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission (Establish Locus, Cleanse, Deploy Teleport Homer)
 			return _validate_perform_secondary_action(action)
 		"START_ACTION":  # B1 (16.01): start a generic 11e action (gives up shooting)
@@ -646,10 +587,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_swift_as_the_eagle(action)
 		"DECLINE_SWIFT_AS_THE_EAGLE":
 			return _validate_decline_swift_as_the_eagle(action)
-		"USE_WAZBLASTA":
-			return _validate_wazblasta_decision(action)
-		"DECLINE_WAZBLASTA":
-			return _validate_wazblasta_decision(action)
 		"END_MOVEMENT":
 			# Idempotent no-op: previous phase auto-advanced before END_MOVEMENT was dispatched.
 			return {"valid": true}
@@ -773,42 +710,12 @@ func _process_action_dispatch(action: Dictionary) -> Dictionary:
 		"USE_STRATAGEM":  # Active player uses a proactive (non-grenade) stratagem with phase: "shooting"
 			DebugLogger.info("ShootingPhase: Matched USE_STRATAGEM")
 			return _process_use_stratagem(action)
-		"USE_SENTINEL_STORM":  # P1-10: Player uses Sentinel Storm
-			DebugLogger.info("ShootingPhase: Matched USE_SENTINEL_STORM")
-			return _process_use_sentinel_storm(action)
-		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
-			DebugLogger.info("ShootingPhase: Matched DECLINE_SENTINEL_STORM")
-			return _process_decline_sentinel_storm(action)
 		"USE_THROAT_SLITTAS":  # P1-12: Player uses Throat Slittas
 			DebugLogger.info("ShootingPhase: Matched USE_THROAT_SLITTAS")
 			return _process_use_throat_slittas(action)
 		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
 			DebugLogger.info("ShootingPhase: Matched DECLINE_THROAT_SLITTAS")
 			return _process_decline_throat_slittas(action)
-		"USE_DISTRACTION_GROT":  # P2-25: Defender activates Distraction Grot
-			DebugLogger.info("ShootingPhase: Matched USE_DISTRACTION_GROT")
-			return _process_use_distraction_grot(action)
-		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
-			DebugLogger.info("ShootingPhase: Matched DECLINE_DISTRACTION_GROT")
-			return _process_decline_distraction_grot(action)
-		"USE_AMMO_RUNT":  # OA-10: Player activates Ammo Runt
-			DebugLogger.info("ShootingPhase: Matched USE_AMMO_RUNT")
-			return _process_use_ammo_runt(action)
-		"DECLINE_AMMO_RUNT":  # OA-10: Player declines Ammo Runt
-			DebugLogger.info("ShootingPhase: Matched DECLINE_AMMO_RUNT")
-			return _process_decline_ammo_runt(action)
-		"USE_PULSA_ROKKIT":  # OA-31: Player activates Pulsa Rokkit
-			DebugLogger.info("ShootingPhase: Matched USE_PULSA_ROKKIT")
-			return _process_use_pulsa_rokkit(action)
-		"DECLINE_PULSA_ROKKIT":  # OA-31: Player declines Pulsa Rokkit
-			DebugLogger.info("ShootingPhase: Matched DECLINE_PULSA_ROKKIT")
-			return _process_decline_pulsa_rokkit(action)
-		"USE_SHOOTY_POWER_TRIP":  # OA-37: Player activates Shooty Power Trip
-			DebugLogger.info("ShootingPhase: Matched USE_SHOOTY_POWER_TRIP")
-			return _process_use_shooty_power_trip(action)
-		"DECLINE_SHOOTY_POWER_TRIP":  # OA-37: Player declines Shooty Power Trip
-			DebugLogger.info("ShootingPhase: Matched DECLINE_SHOOTY_POWER_TRIP")
-			return _process_decline_shooty_power_trip(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission
 			DebugLogger.info("ShootingPhase: Matched PERFORM_SECONDARY_ACTION")
 			return _process_perform_secondary_action(action)
@@ -830,12 +737,6 @@ func _process_action_dispatch(action: Dictionary) -> Dictionary:
 		"DECLINE_SWIFT_AS_THE_EAGLE":
 			DebugLogger.info("ShootingPhase: Matched DECLINE_SWIFT_AS_THE_EAGLE")
 			return _process_decline_swift_as_the_eagle(action)
-		"USE_WAZBLASTA":
-			DebugLogger.info("ShootingPhase: Matched USE_WAZBLASTA")
-			return _process_use_wazblasta(action)
-		"DECLINE_WAZBLASTA":
-			DebugLogger.info("ShootingPhase: Matched DECLINE_WAZBLASTA")
-			return _process_decline_wazblasta(action)
 		"END_MOVEMENT":
 			DebugLogger.info("ShootingPhase: Matched END_MOVEMENT (no-op, phase already advanced)")
 			return create_result(true, [], "")
@@ -1020,15 +921,15 @@ func _validate_end_shooting(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _can_unit_perform_action(unit: Dictionary) -> bool:
-	"""Action eligibility — same requirements as shooting, EXCEPT that
-	SKIN-CRAWLING DISORIENTATION (Silent Hunters detachment rule) lets an
-	Advanced ANATHEMA PSYKANA unit perform Actions even when the Advance
-	blocks it from shooting (e.g. no Assault weapons)."""
+	"""Action eligibility — same requirements as shooting, EXCEPT that the
+	Codex: Adeptus Custodes Emissaries Imperatus Favoured CONSERVAI (WP-C46)
+	lets an Advanced unit perform Actions even when the Advance blocks it
+	from shooting (e.g. no Assault weapons)."""
 	if _can_unit_shoot(unit):
 		return true
 	if unit.get("flags", {}).get("advanced", false) \
 			and not unit.get("flags", {}).get("fell_back", false) \
-			and FactionAbilityManager.check_skin_crawling_disorientation(unit, GameState.state):
+			and _cus11e_det().move_keeps_action_eligibility(unit):
 		# Re-check the base requirements with the Advance restriction waived:
 		# destroyed/embarked/status/has_shot/cannot_shoot still apply.
 		if _is_unit_destroyed_check(unit):
@@ -1041,7 +942,7 @@ func _can_unit_perform_action(unit: Dictionary) -> bool:
 		var flags = unit.get("flags", {})
 		if flags.get("has_shot", false) or flags.get("cannot_shoot", false):
 			return false
-		log_phase_message("Skin-Crawling Disorientation: %s may perform an action despite Advancing" % unit.get("meta", {}).get("name", "?"))
+		log_phase_message("Favoured Conservai (Emissaries Imperatus): %s may perform an action despite Advancing" % unit.get("meta", {}).get("name", "?"))
 		return true
 	return false
 
@@ -1059,7 +960,7 @@ func _validate_perform_secondary_action(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 
 	# Same eligibility as shooting — deployed, not battle-shocked, hasn't shot
-	# (Skin-Crawling Disorientation waives the Advance restriction)
+	# (Favoured Conservai — Emissaries Imperatus — waives the Advance restriction)
 	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform an action (same requirements as shooting)"]}
 
@@ -1211,67 +1112,6 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 					"unit_id": unit_id,
 					"eligible_targets": ts_targets
 				})
-
-	# OA-10: Check for Ammo Runt — offer Lethal Hits for ranged weapons
-	if not action.get("payload", {}).get("skip_ammo_runt_check", false):
-		var ability_mgr_ar = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr_ar and ability_mgr_ar.has_ammo_runt(unit_id):
-			var remaining = ability_mgr_ar.get_ammo_runts_remaining(unit_id)
-			var total = ability_mgr_ar.get_ammo_runt_count(unit_id)
-			DebugLogger.info(str("ShootingPhase: OA-10 Ammo Runt: Unit %s has %d/%d runts remaining — prompting" % [unit_id, remaining, total]))
-			ammo_runt_pending_unit = unit_id
-			awaiting_ammo_runt = true
-
-			var current_player = get_current_player()
-			emit_signal("ammo_runt_available", unit_id, current_player, remaining)
-
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			log_phase_message("Ammo Runt available for %s (%d remaining) — awaiting decision" % [unit_name, remaining])
-
-			return create_result(true, [], "Ammo Runt available", {
-				"ammo_runt_available": true,
-				"unit_id": unit_id,
-				"remaining": remaining,
-				"total": total
-			})
-
-	# OA-31: Check for Pulsa Rokkit — offer +1S/+1AP for ranged weapons
-	if not action.get("payload", {}).get("skip_pulsa_rokkit_check", false):
-		var ability_mgr_pr = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr_pr and ability_mgr_pr.has_pulsa_rokkit(unit_id):
-			DebugLogger.info(str("ShootingPhase: OA-31 Pulsa Rokkit: Unit %s has unused Pulsa Rokkit — prompting" % unit_id))
-			pulsa_rokkit_pending_unit = unit_id
-			awaiting_pulsa_rokkit = true
-
-			var current_player = get_current_player()
-			emit_signal("pulsa_rokkit_available", unit_id, current_player)
-
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			log_phase_message("Pulsa Rokkit available for %s — awaiting decision" % unit_name)
-
-			return create_result(true, [], "Pulsa Rokkit available", {
-				"pulsa_rokkit_available": true,
-				"unit_id": unit_id
-			})
-
-	# OA-37: Check for Shooty Power Trip — offer D6 roll (Killa Kans)
-	if not action.get("payload", {}).get("skip_shooty_power_trip_check", false):
-		var ability_mgr_spt = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr_spt and ability_mgr_spt.has_shooty_power_trip(unit_id):
-			DebugLogger.info(str("ShootingPhase: OA-37 Shooty Power Trip: Unit %s has Shooty Power Trip — prompting" % unit_id))
-			shooty_power_trip_pending_unit = unit_id
-			awaiting_shooty_power_trip = true
-
-			var current_player = get_current_player()
-			emit_signal("shooty_power_trip_available", unit_id, current_player)
-
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			log_phase_message("Shooty Power Trip available for %s — awaiting decision" % unit_name)
-
-			return create_result(true, [], "Shooty Power Trip available", {
-				"shooty_power_trip_available": true,
-				"unit_id": unit_id
-			})
 
 	# Normal shooting flow
 	# Get eligible targets (PERF-LOS: cached — usually already computed by the
@@ -1590,37 +1430,47 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 	log_phase_message("Confirmed targets, ready to resolve shooting")
 	var _perf_t2 := Time.get_ticks_usec()
 
-	# P2-25: Check for Distraction Grot on targeted units
-	var distraction_grot_check = _check_distraction_grot()
+	# Codex: Orks (11e) Madcap Meks — Unpredictable Genius (WP-O34): rolled now
+	# that every target is known; a Hop Splat with several candidates pauses
+	# for the player's pick (resume: _ork11e_resume_after_hop_splat).
+	var ork11e_ug: Dictionary = Ork11eDetachments.ug_on_targets_confirmed(active_shooter_id, confirmed_assignments, int(action.get("payload", {}).get("rng_seed", -1)))
+	if not ork11e_ug.get("hop_splat_options", []).is_empty():
+		var hs_entry: Dictionary = Ork11eDetachments.hop_splat_window_entry(active_shooter_id, str(ork11e_ug.target), ork11e_ug.hop_splat_options)
+		if open_stratagem_windows([hs_entry], "_ork11e_resume_after_hop_splat", hs_entry.ctx):
+			return create_result(true, ork11e_ug.diffs + consume_window_diffs())
+		ork11e_ug.diffs.append_array(consume_window_diffs())
+	return _ork11e_merge_front(ork11e_ug.diffs, _confirm_targets_tail(_perf_t0, _perf_t1, _perf_t2))
+
+## Codex: Orks (11e) Hop Splat window answered (WP-O34): resolve it, then the
+## rest of CONFIRM_TARGETS.
+func _ork11e_resume_after_hop_splat(ctx: Dictionary, window_result: Dictionary) -> Dictionary:
+	var hs_diffs: Array = Ork11eDetachments.hop_splat_after_window(ctx, window_result)
+	var now := Time.get_ticks_usec()
+	return _ork11e_merge_front(hs_diffs, _confirm_targets_tail(now, now, now))
+
+func _ork11e_merge_front(diffs: Array, result: Dictionary) -> Dictionary:
+	if diffs.is_empty():
+		return result
+	var merged: Array = diffs.duplicate()
+	merged.append_array(result.get("changes", []))
+	result["changes"] = merged
+	return result
+
+## CONFIRM_TARGETS after the targets are merged (reactive stratagems, then
+## resolution) — split out for the Hop Splat pause. (WP-O6: the 10e Distraction
+## Grot check that came first is gone with the ability.)
+func _confirm_targets_tail(_perf_t0: int, _perf_t1: int, _perf_t2: int) -> Dictionary:
 	var _perf_t3 := Time.get_ticks_usec()
 	# Measured at ~3 ms total on a 26-unit board, so this normally stays quiet;
 	# it exists because the fight phase's equivalent confirm was the source of
 	# a multi-second stall and this is the path to check first if shooting ever
 	# develops the same symptom.
 	if (_perf_t3 - _perf_t0) / 1000.0 >= 5.0:
-		DebugLogger.info("[PERF] ShootingPhase.CONFIRM_TARGETS: inject=%.1fms shooting_begun=%.1fms distraction_grot=%.1fms" % [
+		DebugLogger.info("[PERF] ShootingPhase.CONFIRM_TARGETS: inject=%.1fms shooting_begun=%.1fms post=%.1fms" % [
 			(_perf_t1 - _perf_t0) / 1000.0,
 			(_perf_t2 - _perf_t1) / 1000.0,
 			(_perf_t3 - _perf_t2) / 1000.0
 		])
-	if distraction_grot_check.get("has_opportunity", false):
-		var dg_unit_id = distraction_grot_check.unit_id
-		var dg_player = distraction_grot_check.player
-		awaiting_distraction_grot = true
-		distraction_grot_pending_unit = dg_unit_id
-		resolution_state = {
-			"phase": "awaiting_distraction_grot",
-			"assignments": confirmed_assignments
-		}
-		var dg_name = get_unit(dg_unit_id).get("meta", {}).get("name", dg_unit_id)
-		log_phase_message("Distraction Grot available for %s — awaiting decision" % dg_name)
-		emit_signal("distraction_grot_available", dg_unit_id, dg_player)
-		return create_result(true, [], "Awaiting Distraction Grot decision", {
-			"distraction_grot_available": true,
-			"unit_id": dg_unit_id,
-			"player": dg_player
-		})
-
 	# REACTIVE STRATAGEMS: Check if defending player can use Go to Ground or Smokescreen
 	var _perf_t4 := Time.get_ticks_usec()
 	var reactive_check = _check_reactive_stratagems()
@@ -2168,7 +2018,7 @@ func _validate_burn_objective(action: Dictionary) -> Dictionary:
 	if unit.get("owner", 0) != get_current_player():
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 
-	# Same eligibility as shooting (Skin-Crawling Disorientation waives the
+	# Same eligibility as shooting (Favoured Conservai waives the
 	# Advance restriction)
 	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform burn action"]}
@@ -2269,7 +2119,7 @@ func _validate_perform_ritual_action(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 
 	# Same eligibility as shooting — deployed, not battle-shocked, hasn't shot
-	# (Skin-Crawling Disorientation waives the Advance restriction)
+	# (Favoured Conservai — Emissaries Imperatus — waives the Advance restriction)
 	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform ritual action"]}
 
@@ -2277,12 +2127,13 @@ func _validate_perform_ritual_action(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
 
 	# Units that Advanced or Fell Back cannot perform actions.
-	# SKIN-CRAWLING DISORIENTATION (Silent Hunters): ANATHEMA PSYKANA units
-	# can still perform Actions in a turn in which they Advanced.
+	# Codex: Adeptus Custodes (11e) Emissaries Imperatus Favoured CONSERVAI: being
+	# selected to advance does not prevent starting an action (WP-C46; replaces
+	# the 10e Silent Hunters Skin-Crawling Disorientation).
 	var flags = unit.get("flags", {})
 	if flags.get("advanced", false):
-		if FactionAbilityManager.check_skin_crawling_disorientation(unit, GameState.state):
-			log_phase_message("Skin-Crawling Disorientation: %s may perform actions despite Advancing" % unit.get("meta", {}).get("name", unit_id))
+		if _cus11e_det().move_keeps_action_eligibility(unit):
+			log_phase_message("Favoured Conservai (Emissaries Imperatus): %s may perform actions despite Advancing" % unit.get("meta", {}).get("name", unit_id))
 		else:
 			return {"valid": false, "errors": ["Unit Advanced this turn and cannot perform actions"]}
 	if flags.get("fell_back", false):
@@ -2362,10 +2213,11 @@ func _get_ritual_action_options(unit_id: String) -> Array:
 		return []
 
 	# Units that Advanced or Fell Back cannot perform actions.
-	# SKIN-CRAWLING DISORIENTATION (Silent Hunters): ANATHEMA PSYKANA units
-	# can still perform Actions in a turn in which they Advanced.
+	# Codex: Adeptus Custodes (11e) Emissaries Imperatus Favoured CONSERVAI: being
+	# selected to advance does not prevent starting an action (WP-C46; replaces
+	# the 10e Silent Hunters Skin-Crawling Disorientation).
 	if unit.get("flags", {}).get("advanced", false) \
-			and not FactionAbilityManager.check_skin_crawling_disorientation(unit, GameState.state):
+			and not _cus11e_det().move_keeps_action_eligibility(unit):
 		return []
 	if unit.get("flags", {}).get("fell_back", false):
 		return []
@@ -2390,7 +2242,7 @@ func _validate_perform_terraform_action(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 
 	# Same eligibility as shooting — deployed, not battle-shocked, hasn't shot
-	# (Skin-Crawling Disorientation waives the Advance restriction)
+	# (Favoured Conservai — Emissaries Imperatus — waives the Advance restriction)
 	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform terraform action"]}
 
@@ -2398,12 +2250,13 @@ func _validate_perform_terraform_action(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
 
 	# Units that Advanced or Fell Back cannot perform actions.
-	# SKIN-CRAWLING DISORIENTATION (Silent Hunters): ANATHEMA PSYKANA units
-	# can still perform Actions in a turn in which they Advanced.
+	# Codex: Adeptus Custodes (11e) Emissaries Imperatus Favoured CONSERVAI: being
+	# selected to advance does not prevent starting an action (WP-C46; replaces
+	# the 10e Silent Hunters Skin-Crawling Disorientation).
 	var flags = unit.get("flags", {})
 	if flags.get("advanced", false):
-		if FactionAbilityManager.check_skin_crawling_disorientation(unit, GameState.state):
-			log_phase_message("Skin-Crawling Disorientation: %s may perform actions despite Advancing" % unit.get("meta", {}).get("name", unit_id))
+		if _cus11e_det().move_keeps_action_eligibility(unit):
+			log_phase_message("Favoured Conservai (Emissaries Imperatus): %s may perform actions despite Advancing" % unit.get("meta", {}).get("name", unit_id))
 		else:
 			return {"valid": false, "errors": ["Unit Advanced this turn and cannot perform actions"]}
 	if flags.get("fell_back", false):
@@ -2487,10 +2340,11 @@ func _get_terraform_action_options(unit_id: String) -> Array:
 		return []
 
 	# Units that Advanced or Fell Back cannot perform actions.
-	# SKIN-CRAWLING DISORIENTATION (Silent Hunters): ANATHEMA PSYKANA units
-	# can still perform Actions in a turn in which they Advanced.
+	# Codex: Adeptus Custodes (11e) Emissaries Imperatus Favoured CONSERVAI: being
+	# selected to advance does not prevent starting an action (WP-C46; replaces
+	# the 10e Silent Hunters Skin-Crawling Disorientation).
 	if unit.get("flags", {}).get("advanced", false) \
-			and not FactionAbilityManager.check_skin_crawling_disorientation(unit, GameState.state):
+			and not _cus11e_det().move_keeps_action_eligibility(unit):
 		return []
 	if unit.get("flags", {}).get("fell_back", false):
 		return []
@@ -2661,6 +2515,12 @@ func _process_start_action(action: Dictionary) -> Dictionary:
 	# this turn (started = authoritative, even if the action later fails).
 	if action_id.begins_with("mission_") and MissionManager.has_method("on_mission_action_started_11e"):
 		MissionManager.on_mission_action_started_11e(action_id, unit_id, player)
+	var action_name = ActionsManager.get_action(action_id).get("name", action_id)
+	# Codex: Adeptus Custodes CONSERVAI ka'tah (CustodesKatah.gd): starting an
+	# action does not prevent the unit from being eligible to shoot.
+	if _cus11e_katah().conservai_active(unit):
+		log_phase_message("%s started action '%s' (CONSERVAI: the unit can still shoot this phase; cannot charge; completes end of turn)" % [unit_name, action_name])
+		return create_result(true, changes)
 	# 16.01: starting an action in the Shooting phase gives up shooting.
 	units_that_shot.append(unit_id)
 	changes.append({"op": "set", "path": "units.%s.flags.has_shot" % unit_id, "value": true})
@@ -2668,7 +2528,6 @@ func _process_start_action(action: Dictionary) -> Dictionary:
 		active_shooter_id = ""
 		pending_assignments.clear()
 		confirmed_assignments.clear()
-	var action_name = ActionsManager.get_action(action_id).get("name", action_id)
 	log_phase_message("%s started action '%s' (16.01: gives up shooting, cannot charge; completes end of turn)" % [unit_name, action_name])
 	return create_result(true, changes)
 
@@ -2818,10 +2677,7 @@ static func _friendly_objective_name(obj_id: String) -> String:
 
 func _process_end_shooting(action: Dictionary) -> Dictionary:
 	var changes = []
-	# P1-11: Check Sanctified Flames for the last shooter before ending phase
 	if active_shooter_id != "":
-		var sanctified_changes = _check_sanctified_flames(active_shooter_id)
-		changes.append_array(sanctified_changes)
 		_targets_hit_by_shooter.clear()
 		active_shooter_id = ""
 	log_phase_message("Ending Shooting Phase")
@@ -2878,99 +2734,6 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 				"casualties": ts_result.get("total_casualties", 0)
 			})
 
-	# OA-10: AI auto-use Ammo Runt if available
-	var ability_mgr_ai = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr_ai and ability_mgr_ai.has_ammo_runt(unit_id):
-		var ar_remaining = ability_mgr_ai.get_ammo_runts_remaining(unit_id)
-		DebugLogger.info(str("║ AI SHOOT: OA-10 Ammo Runt — auto-activating for %s (%d remaining)" % [unit_id, ar_remaining]))
-		var runt_idx = ability_mgr_ai.mark_ammo_runt_used(unit_id)
-
-		# Apply Lethal Hits flag
-		var ar_diffs = [{
-			"op": "set",
-			"path": "units.%s.flags.effect_lethal_hits" % unit_id,
-			"value": true
-		}]
-		PhaseManager.apply_state_changes(ar_diffs)
-		game_state_snapshot = GameState.create_snapshot()
-
-		var ai_unit_name_ar = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-		log_phase_message("AI: Ammo Runt activated for %s — Lethal Hits granted (runt #%d)" % [ai_unit_name_ar, runt_idx + 1])
-
-	# OA-31: AI auto-use Pulsa Rokkit if available
-	var ability_mgr_pr_ai = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr_pr_ai and ability_mgr_pr_ai.has_pulsa_rokkit(unit_id):
-		DebugLogger.info(str("║ AI SHOOT: OA-31 Pulsa Rokkit — auto-activating for %s" % unit_id))
-		ability_mgr_pr_ai.mark_pulsa_rokkit_used(unit_id)
-
-		# Apply Pulsa Rokkit flag (+1S/+1AP to ranged weapons for the phase)
-		var pr_diffs = [{
-			"op": "set",
-			"path": "units.%s.flags.effect_pulsa_rokkit_active" % unit_id,
-			"value": true
-		}]
-		PhaseManager.apply_state_changes(pr_diffs)
-		game_state_snapshot = GameState.create_snapshot()
-
-		var ai_unit_name_pr = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-		log_phase_message("AI: Pulsa Rokkit activated for %s — +1S/+1AP to ranged weapons" % ai_unit_name_pr)
-
-	# OA-37: AI auto-use Shooty Power Trip if available
-	var ability_mgr_spt_ai = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr_spt_ai and ability_mgr_spt_ai.has_shooty_power_trip(unit_id):
-		var ai_d6_roll = _rng.rng.randi_range(1, 6)
-		var ai_spt_unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-		DebugLogger.info(str("║ AI SHOOT: OA-37 Shooty Power Trip — auto-rolling for %s (D6 = %d)" % [unit_id, ai_d6_roll]))
-
-		if ai_d6_roll <= 2:
-			# 1-2: D3 mortal wounds to self
-			var ai_d3_roll = _rng.rng.randi_range(1, 6)
-			var ai_mortal_wounds = ((ai_d3_roll - 1) / 2) + 1
-			DebugLogger.info(str("║ AI SHOOT: OA-37 Shooty Power Trip — D3 mortal wounds to self (D3 = %d, MW = %d)" % [ai_d3_roll, ai_mortal_wounds]))
-
-			var ai_rng_service = RulesEngine.RNGService.new(ps_seed)  # Issue #329: forward seed
-			var ai_mw_result = RulesEngine.apply_mortal_wounds(unit_id, ai_mortal_wounds, game_state_snapshot, ai_rng_service)
-			var ai_mw_diffs = ai_mw_result.get("diffs", [])
-			if not ai_mw_diffs.is_empty():
-				PhaseManager.apply_state_changes(ai_mw_diffs)
-				game_state_snapshot = GameState.create_snapshot()
-
-			var ai_casualties = ai_mw_result.get("casualties", 0)
-			log_phase_message("AI: Shooty Power Trip — %s rolled %d, suffers %d mortal wounds (%d casualties)" % [ai_spt_unit_name, ai_d6_roll, ai_mortal_wounds, ai_casualties])
-
-			# Check if unit was destroyed
-			var ai_unit_after = get_unit(unit_id)
-			if ai_unit_after.is_empty() or RulesEngine.count_alive_models(ai_unit_after) <= 0:
-				DebugLogger.info(str("║ AI SHOOT: OA-37 Unit %s destroyed by Shooty Power Trip self-damage!" % unit_id))
-				log_phase_message("AI: Shooty Power Trip — %s destroyed by self-inflicted mortal wounds!" % ai_spt_unit_name)
-				return create_result(true, ai_mw_diffs, "AI: Shooty Power Trip — unit destroyed", {
-					"shooty_power_trip_used": true,
-					"d6_roll": ai_d6_roll,
-					"effect": "self_damage",
-					"unit_destroyed": true
-				})
-
-		elif ai_d6_roll <= 4:
-			# 3-4: +1 Strength to ranged weapons
-			var spt_s_diffs = [{
-				"op": "set",
-				"path": "units.%s.flags.effect_shooty_power_trip_strength" % unit_id,
-				"value": true
-			}]
-			PhaseManager.apply_state_changes(spt_s_diffs)
-			game_state_snapshot = GameState.create_snapshot()
-			log_phase_message("AI: Shooty Power Trip — %s rolled %d, ranged weapons gain +1 Strength" % [ai_spt_unit_name, ai_d6_roll])
-		else:
-			# 5-6: +1 Attacks to ranged weapons
-			var spt_a_diffs = [{
-				"op": "set",
-				"path": "units.%s.flags.effect_shooty_power_trip_attacks" % unit_id,
-				"value": true
-			}]
-			PhaseManager.apply_state_changes(spt_a_diffs)
-			game_state_snapshot = GameState.create_snapshot()
-			log_phase_message("AI: Shooty Power Trip — %s rolled %d, ranged weapons gain +1 Attacks" % [ai_spt_unit_name, ai_d6_roll])
-
 	# Step 2: Merge assignments into confirmed_assignments (inline, no signals)
 	var assignments = action.get("payload", {}).get("assignments", [])
 	var merged_assignments = {}
@@ -2995,6 +2758,9 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	pending_assignments.clear()
 
 	log_phase_message("AI: Confirmed %d weapon assignments for %s" % [confirmed_assignments.size(), unit_id])
+	# Codex: Orks (11e) Madcap Meks — Unpredictable Genius (WP-O34): the atomic SHOOT
+	# (AI / Shoot All Remaining) rolls it here and picks a Hop Splat victim itself.
+	var ork11e_ug_ai: Dictionary = Ork11eDetachments.ug_on_targets_confirmed(unit_id, confirmed_assignments, ps_seed, true)
 
 	# DEFENDER CONTROL: a HUMAN defender gets their reactive stratagem window
 	# (Go to Ground / Smokescreen / faction reactives) when the AI declares
@@ -3015,14 +2781,14 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 			ai_reactive_check.defending_player,
 			ai_reactive_check.available_stratagems,
 			ai_reactive_check.target_unit_ids)
-		return create_result(true, [], "Awaiting defender stratagem decision", {
+		return create_result(true, ork11e_ug_ai.diffs, "Awaiting defender stratagem decision", {
 			"reactive_stratagem_opportunity": true,
 			"defending_player": ai_reactive_check.defending_player,
 			"available_stratagems": ai_reactive_check.available_stratagems,
 			"target_unit_ids": ai_reactive_check.target_unit_ids
 		})
 
-	return _resolve_ai_shoot(action)
+	return _ork11e_merge_front(ork11e_ug_ai.diffs, _resolve_ai_shoot(action))
 
 # True when `player` is controlled by a human (no AI enabled, or the AI does
 # not own that player). Defender windows only pause for humans.
@@ -3231,10 +2997,6 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 				# Use total_hits as a proxy — hits are distributed across targets
 				# For accuracy, we just need to know which units were hit at all
 				_targets_hit_by_shooter[ai_tid] = _targets_hit_by_shooter.get(ai_tid, 0) + 1
-
-	# P1-11: Check for Sanctified Flames and apply Battle-shock if triggered
-	var sanctified_diffs = _check_sanctified_flames(unit_id)
-	all_changes.append_array(sanctified_diffs)
 
 	# Step 6: Mark unit as done
 	all_changes.append({
@@ -4274,10 +4036,6 @@ func _finish_weapon_resolution(current_assignment: Dictionary, weapon_id: String
 			})
 			units_that_shot.append(active_shooter_id)
 
-			# P1-11: Check for Sanctified Flames before clearing state
-			var sanctified_changes = _check_sanctified_flames(active_shooter_id)
-			auto_changes.append_array(sanctified_changes)
-
 			# T5-UX9: capture before clearing
 			_record_completed_weapons_to_phase_log(shooter_id)
 
@@ -4404,7 +4162,10 @@ func _finish_weapon_resolution(current_assignment: Dictionary, weapon_id: String
 # -> pause -> saves, with Command Re-roll (USE_SHOOTING_REROLL) at each pause.
 # ==========================================================================
 
-func _shooting_reroll_available() -> bool:
+func _shooting_reroll_available(stage: String = "") -> bool:
+	# Codex: Adeptus Custodes PRIME TARGET (CustodesCodex11e.gd): the shooter's free single re-roll of this stage.
+	if stage != "" and _cus11e_prime_target_reroll(stage):
+		return true
 	# A staged hit/wound Command Re-roll is offered when the active player has not
 	# already used Command Re-roll this phase and can pay the CP.
 	var sm = get_node_or_null("/root/StratagemManager")
@@ -4412,6 +4173,20 @@ func _shooting_reroll_available() -> bool:
 		return false
 	var chk = sm.is_command_reroll_available(get_current_player(), active_shooter_id)
 	return chk.get("available", false)
+
+## Codex: Adeptus Custodes PRIME TARGET (CustodesCodex11e.gd): does the active
+## shooter still have its free single re-roll for this stage ("hits"/"wounds",
+## or "hit"/"wound")?
+func _cus11e_prime_target_reroll(stage: String) -> bool:
+	if active_shooter_id == "":
+		return false
+	var st := "hit" if stage.begins_with("hit") else "wound"
+	return bool(_cus11e_codex().single_reroll_available(GameState.get_unit(active_shooter_id), st))
+
+func _cus11e_reroll_label(stage: String) -> String:
+	if _cus11e_prime_target_reroll(stage):
+		return "PRIME TARGET (free) — click a %s die to re-roll it:" % ("hit" if stage == "hits" else "wound")
+	return ""
 
 func _extract_staged_hit_wound(dice_data: Array) -> Array:
 	# Pull hit/wound summary dicts out of the emitted to_hit / to_wound blocks so
@@ -4500,7 +4275,7 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 		return _staged_continue_to_wounds(false)
 
 	var hc = hres.get("hit_context", {})
-	var can_reroll = _shooting_reroll_available() and not hc.get("is_torrent", false) \
+	var can_reroll = _shooting_reroll_available("hits") and not hc.get("is_torrent", false) \
 			and not hc.get("no_hit_rerolls", false) and not (hc.get("hit_rolls", []) as Array).is_empty()
 
 	# Tell the attacker's dialog we are paused after the hit roll (show a
@@ -4511,6 +4286,7 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 		"current_index": current_index,
 		"total_weapons": weapon_order.size(),
 		"reroll_available": can_reroll,
+		"reroll_label": _cus11e_reroll_label("hits"),
 		"hit_rolls": hc.get("hit_rolls", []),
 		"modified_rolls": hc.get("modified_rolls", []),
 		"hits": hc.get("hits", 0),
@@ -4592,11 +4368,12 @@ func _staged_continue_to_wounds(pause: bool = true) -> Dictionary:
 	if not pause:
 		return _staged_continue_to_saves()
 	var wc = resolution_state.get("staged_wound_context", {})
-	var can_reroll = _shooting_reroll_available() and not (wc.get("wound_evals", []) as Array).is_empty()
+	var can_reroll = _shooting_reroll_available("wounds") and not (wc.get("wound_evals", []) as Array).is_empty()
 	emit_signal("shooting_stage_paused", "wounds", {
 		"current_index": current_index,
 		"total_weapons": weapon_order.size(),
 		"reroll_available": can_reroll,
+		"reroll_label": _cus11e_reroll_label("wounds"),
 		"wound_rolls": wc.get("wound_rolls", []),
 		"wounds": save_data_list[0].get("wounds_to_save", 0) if not save_data_list.is_empty() else 0,
 		"target_name": target_name,
@@ -4655,14 +4432,24 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 	if stage == "hits" and rr_ctx.get("no_hit_rerolls", false):
 		return create_result(false, [], "Indirect shooting: hit rolls cannot be re-rolled (10.07)")
 
-	# Spend the CP + record the once-per-phase Command Re-roll usage.
-	var sm = get_node_or_null("/root/StratagemManager")
-	if sm == null or not sm.has_method("execute_command_reroll"):
-		return create_result(false, [], "Command Re-roll unavailable")
-	var player = get_current_player()
-	var strat_result = sm.execute_command_reroll(player, active_shooter_id, {"roll_type": stage + "_roll"})
-	if not strat_result.get("success", false):
-		return create_result(false, [], str(strat_result.get("reason", "Cannot use Command Re-roll")))
+	# Codex: Adeptus Custodes PRIME TARGET (CustodesCodex11e.gd): the free single
+	# re-roll of this stage is spent first; otherwise the Command Re-roll.
+	var reroll_source := "Command Re-roll (1 CP)"
+	var cus11e_pt_diffs: Array = []
+	if _cus11e_prime_target_reroll(stage):
+		cus11e_pt_diffs = _cus11e_codex().single_reroll_spend_diffs(active_shooter_id, "hit" if stage == "hits" else "wound")
+		PhaseManager.apply_state_changes(cus11e_pt_diffs)
+		reroll_source = "PRIME TARGET (free)"
+		GameEventLog.add_player_entry(get_current_player(), "PRIME TARGET: %s re-rolls one %s roll" % [GameState.get_unit_display_name(active_shooter_id), "hit" if stage == "hits" else "wound"])
+	else:
+		# Spend the CP + record the once-per-phase Command Re-roll usage.
+		var sm = get_node_or_null("/root/StratagemManager")
+		if sm == null or not sm.has_method("execute_command_reroll"):
+			return create_result(false, [], "Command Re-roll unavailable")
+		var player = get_current_player()
+		var strat_result = sm.execute_command_reroll(player, active_shooter_id, {"roll_type": stage + "_roll"})
+		if not strat_result.get("success", false):
+			return create_result(false, [], str(strat_result.get("reason", "Cannot use Command Re-roll")))
 
 	var rng = RulesEngine.make_rng()
 	if stage == "hits":
@@ -4671,7 +4458,7 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 		if not rr.get("success", false):
 			return create_result(false, [], str(rr.get("error", "Re-roll failed")))
 		emit_signal("dice_rolled", {"context": "reroll_note",
-			"message": "Command Re-roll (1 CP): hit die %d → %d" % [rr.get("old_display", rr.get("old_value", 0)), rr.get("new_display", rr.get("new_value", 0))]})
+			"message": "%s: hit die %d → %d" % [reroll_source, rr.get("old_display", rr.get("old_value", 0)), rr.get("new_display", rr.get("new_value", 0))]})
 		emit_signal("dice_rolled", rr.get("dice_block", {}))
 		_replace_staged_dice_block("to_hit", rr.get("dice_block", {}))
 		var uhc = rr.get("hit_context", {})
@@ -4682,7 +4469,7 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 			"hits": uhc.get("hits", 0),
 			"modifier_ledger": uhc.get("modifier_ledger", [])
 		})
-		return create_result(true, [], "Hit die re-rolled", {
+		return create_result(true, cus11e_pt_diffs, "Hit die re-rolled", {
 			"staged_pause": "hits", "reroll_used": true, "reroll_available": false,
 			"dice_block": rr.get("dice_block", {}), "hits": rr.get("hit_context", {}).get("hits", 0)
 		})
@@ -4700,7 +4487,7 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 		else:
 			resolution_state.staged_save_data_list = []
 		emit_signal("dice_rolled", {"context": "reroll_note",
-			"message": "Command Re-roll (1 CP): wound die %d → %d" % [rr.get("old_value", 0), rr.get("new_value", 0)]})
+			"message": "%s: wound die %d → %d" % [reroll_source, rr.get("old_value", 0), rr.get("new_value", 0)]})
 		emit_signal("dice_rolled", rr.get("dice_block", {}))
 		_replace_staged_dice_block("to_wound", rr.get("dice_block", {}))
 		emit_signal("shooting_stage_paused", "wounds", {
@@ -4709,7 +4496,7 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 			"wounds": new_wounds,
 			"modifier_ledger": rr.get("wound_context", {}).get("modifier_ledger", [])
 		})
-		return create_result(true, [], "Wound die re-rolled", {
+		return create_result(true, cus11e_pt_diffs, "Wound die re-rolled", {
 			"staged_pause": "wounds", "reroll_used": true, "reroll_available": false,
 			"dice_block": rr.get("dice_block", {}), "wounds": new_wounds
 		})
@@ -4823,7 +4610,9 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 			DebugLogger.info(str("ShootingPhase: Unit %s advanced but has advance_and_shoot effect — eligible to shoot with all weapons" % unit.get("id", "unknown")))
 		else:
 			# Unit advanced - can only shoot if it has Assault weapons
-			return _unit_has_assault_weapons(unit)
+			# (Codex: Adeptus Custodes ADVANCED STABILISERS gives a GRAV-ASSAULT
+			# unit's ranged weapons [ASSAULT] — CustodesCodex11e.gd).
+			return _unit_has_assault_weapons(unit) or _cus11e_codex().may_select_advanced_unit_to_shoot(unit)
 
 	# Units that Fell Back cannot shoot (unless special rules — the
 	# fall_back_and_shoot effect or Kult of Speed's Adrenaline Junkies)
@@ -4909,7 +4698,7 @@ func unit_has_shooting_phase_activity(unit_id: String) -> bool:
 		return false
 	# Gate: the unit must at least be able to participate this phase (alive,
 	# deployed, hasn't shot, not embarked — and, for Advanced units, able to
-	# shoot with Assault weapons or act via Skin-Crawling Disorientation).
+	# shoot with Assault weapons or act via Favoured Conservai).
 	if not _can_unit_perform_action(unit):
 		return false
 	# Can it shoot at something right now?
@@ -5246,10 +5035,9 @@ func _process_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
 #                   hit_unit_ids, wounded_unit_ids (lost >= 1 wound)}
 # Both open (active player's first — 01.03.02 rules sequencing) from
 # process_action() after ANY action that completed a shooter's activation
-# (single weapon / sequential / staged / atomic AI SHOOT / Sentinel Storm
-# decline …) — one hook instead of one per completion branch. They wait while
-# the Sentinel Storm shoot-again prompt, a reactive window or a save batch is
-# still open, and open once it resolves. They do NOT wait for the legacy
+# (single weapon / sequential / staged / atomic AI SHOOT …) — one hook
+# instead of one per completion branch. They wait while a reactive window or
+# a save batch is still open, and open once it resolves. They do NOT wait for the legacy
 # Swift as the Eagle / Go Get 'Em! / Wazblasta prompts (AI-only, no human UI):
 # the window opens first (01.03.02 — the active player's triggers resolve
 # first) and blocks every other action, and the legacy prompt stays pending
@@ -5341,8 +5129,7 @@ func _ork11e_queue_post_shot(a_type: String, shot_before: int, result: Dictionar
 
 func _ork11e_post_shot_blocked() -> bool:
 	return has_pending_stratagem_window() or _window_followup_pending or not _ork11e_followup.is_empty() \
-		or awaiting_reactive_stratagem or not pending_save_data.is_empty() \
-		or sentinel_storm_pending_unit != "" or awaiting_distraction_grot
+		or awaiting_reactive_stratagem or not pending_save_data.is_empty()
 
 ## Open the post-shot windows for every queued shooter (result = the result of
 ## the action that completed the activation; window/AI diffs are merged in).
@@ -5350,10 +5137,9 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 	if _ork11e_post_shot_queue.is_empty():
 		return result
 	if _ork11e_post_shot_blocked():
-		DebugLogger.info("ShootingPhase: [StratagemWindow] post-shot windows for %s deferred (window=%s followup=%s/%s reactive=%s saves=%d sentinel='%s' dgrot=%s)" % [
+		DebugLogger.info("ShootingPhase: [StratagemWindow] post-shot windows for %s deferred (window=%s followup=%s/%s reactive=%s saves=%d)" % [
 			str(_ork11e_post_shot_queue), str(has_pending_stratagem_window()), str(_window_followup_pending),
-			str(not _ork11e_followup.is_empty()), str(awaiting_reactive_stratagem), pending_save_data.size(),
-			sentinel_storm_pending_unit, str(awaiting_distraction_grot)])
+			str(not _ork11e_followup.is_empty()), str(awaiting_reactive_stratagem), pending_save_data.size()])
 		return result
 	# Offers (wounds lost, unengaged, still on the battlefield …) are judged on
 	# the state AFTER this action: apply its changes now — idempotent 'set'
@@ -5364,13 +5150,25 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 	var merged: Array = changes.duplicate()
 	while not _ork11e_post_shot_queue.is_empty():
 		var shooter_id := str(_ork11e_post_shot_queue.pop_front())
+		# Codex: Orks (11e) "when this unit has attacked" (WP-O34): Try Dat Button!'s
+		# two-dice hazard roll; its effects and Unpredictable Genius's end.
+		merged.append_array(Ork11eDetachments.on_unit_has_shot(shooter_id))
 		var shot := _ork11e_post_shot_ctx(shooter_id)
 		var active := get_current_player()
 		var other := 2 if active == 1 else 1
 		log_phase_message("[StratagemWindow] %s has shot — unit_has_shot (P%d) then enemy_has_shot (P%d); hit=%s wounded=%s" % [
 			shooter_id, active, other, str(shot.hit_unit_ids), str(shot.wounded_unit_ids)])
+		# Codex: Adeptus Custodes VIGIL UNENDING / IN AURAMITE CLAD end "until
+		# that enemy unit has attacked" (CustodesCodex11e.gd).
+		_cus11e_codex().on_unit_has_attacked(shooter_id)
+		# WP-O6: Codex: Orks (11e) "when this unit has shot, select one enemy
+		# unit hit" abilities (Rokkit Barrage, Squig Barrage, Bust 'Em, Madcap
+		# Artillery) resolve here when exactly one unit was hit; with 2+ hit
+		# units they are offered in the unit_has_shot window below.
+		merged.append_array(OrkAbilities11eScript.after_unit_shot(shooter_id, shot.hit_unit_ids))
 		var paused := open_stratagem_windows([
-			{"player": active, "window_id": "unit_has_shot", "ctx": {"phase": "shooting", "unit_id": shooter_id}},
+			{"player": active, "window_id": "unit_has_shot", "ctx": {"phase": "shooting", "unit_id": shooter_id,
+				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}},
 			{"player": other, "window_id": "enemy_has_shot", "ctx": {"phase": "shooting", "attacker_unit_id": shooter_id,
 				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}}],
 			"_ork11e_resume_after_post_shot_windows", {"unit_id": shooter_id})
@@ -5446,8 +5244,8 @@ func _ork11e_start_reactive_move(player: int, kind: String, followup: Dictionary
 	if kind == "surge":
 		fu.surge_target = ReactiveMove11eLib.surge_target(unit_id, GameState.state)
 		fu.roll = _ork11e_roll_d6()
-		fu.max_inches = float(fu.roll)
-		var msg := "%s: %s rolls D6 = %d — surge move of up to %d\" toward %s" % [fu.source, unit_name, fu.roll, fu.roll,
+		fu.max_inches = float(fu.roll + int(followup.get("roll_bonus", 0)))  # WP-C7 Vengeful Surge: D6+2"
+		var msg := "%s: %s rolls D6 = %d — surge move of up to %d\" toward %s" % [fu.source, unit_name, fu.roll, int(fu.max_inches),
 			GameState.get_unit_display_name(fu.surge_target) if fu.surge_target != "" else "(no enemy unit)"]
 		log_phase_message(msg)
 		GameEventLog.add_player_entry(player, msg)
@@ -6163,118 +5961,6 @@ func get_available_actions() -> Array:
 		})
 		return actions
 
-	# Wazblasta pending — offer use/decline (shooter owner's choice)
-	if awaiting_wazblasta and wazblasta_pending_unit != "":
-		var wb_unit = get_unit(wazblasta_pending_unit)
-		var wb_name = wb_unit.get("meta", {}).get("name", wazblasta_pending_unit) if not wb_unit.is_empty() else wazblasta_pending_unit
-		var wb_player = int(wb_unit.get("owner", 0))
-		actions.append({
-			"type": "USE_WAZBLASTA",
-			"actor_unit_id": wazblasta_pending_unit,
-			"player": wb_player,
-			"description": "Wazblasta — %s makes a 6\" Normal move (cannot charge this turn)" % wb_name
-		})
-		actions.append({
-			"type": "DECLINE_WAZBLASTA",
-			"actor_unit_id": wazblasta_pending_unit,
-			"player": wb_player,
-			"description": "Decline Wazblasta — %s" % wb_name
-		})
-		return actions
-
-	# P2-25: Distraction Grot pending — offer use/decline (defender's choice)
-	if awaiting_distraction_grot and distraction_grot_pending_unit != "":
-		var dg_unit = get_unit(distraction_grot_pending_unit)
-		var dg_name = dg_unit.get("meta", {}).get("name", distraction_grot_pending_unit) if not dg_unit.is_empty() else distraction_grot_pending_unit
-		var dg_player = int(dg_unit.get("owner", 0))
-		actions.append({
-			"type": "USE_DISTRACTION_GROT",
-			"actor_unit_id": distraction_grot_pending_unit,
-			"player": dg_player,
-			"description": "Activate Distraction Grot — %s gains 5+ invuln" % dg_name
-		})
-		actions.append({
-			"type": "DECLINE_DISTRACTION_GROT",
-			"actor_unit_id": distraction_grot_pending_unit,
-			"player": dg_player,
-			"description": "Decline Distraction Grot — %s" % dg_name
-		})
-		return actions  # Block other actions until resolved
-
-	# OA-10: Ammo Runt pending — offer use/decline (active player's choice)
-	if awaiting_ammo_runt and ammo_runt_pending_unit != "":
-		var ar_unit = get_unit(ammo_runt_pending_unit)
-		var ar_name = ar_unit.get("meta", {}).get("name", ammo_runt_pending_unit) if not ar_unit.is_empty() else ammo_runt_pending_unit
-		var ar_player = int(ar_unit.get("owner", 0))
-		var ability_mgr_ar = get_node_or_null("/root/UnitAbilityManager")
-		var ar_remaining = ability_mgr_ar.get_ammo_runts_remaining(ammo_runt_pending_unit) if ability_mgr_ar else 0
-		actions.append({
-			"type": "USE_AMMO_RUNT",
-			"actor_unit_id": ammo_runt_pending_unit,
-			"player": ar_player,
-			"description": "Use Ammo Runt — %s gains Lethal Hits (%d remaining)" % [ar_name, ar_remaining]
-		})
-		actions.append({
-			"type": "DECLINE_AMMO_RUNT",
-			"actor_unit_id": ammo_runt_pending_unit,
-			"player": ar_player,
-			"description": "Decline Ammo Runt — %s" % ar_name
-		})
-		# When Ammo Runt is pending, only these actions should be available
-		actions.append({
-			"type": "END_SHOOTING",
-			"description": "End Shooting Phase"
-		})
-		return actions
-
-	# OA-31: Pulsa Rokkit pending — offer use/decline (active player's choice)
-	if awaiting_pulsa_rokkit and pulsa_rokkit_pending_unit != "":
-		var pr_unit = get_unit(pulsa_rokkit_pending_unit)
-		var pr_name = pr_unit.get("meta", {}).get("name", pulsa_rokkit_pending_unit) if not pr_unit.is_empty() else pulsa_rokkit_pending_unit
-		var pr_player = int(pr_unit.get("owner", 0))
-		actions.append({
-			"type": "USE_PULSA_ROKKIT",
-			"actor_unit_id": pulsa_rokkit_pending_unit,
-			"player": pr_player,
-			"description": "Use Pulsa Rokkit — %s gains +1S/+1AP on ranged weapons" % pr_name
-		})
-		actions.append({
-			"type": "DECLINE_PULSA_ROKKIT",
-			"actor_unit_id": pulsa_rokkit_pending_unit,
-			"player": pr_player,
-			"description": "Decline Pulsa Rokkit — %s" % pr_name
-		})
-		# When Pulsa Rokkit is pending, only these actions should be available
-		actions.append({
-			"type": "END_SHOOTING",
-			"description": "End Shooting Phase"
-		})
-		return actions
-
-	# OA-37: Shooty Power Trip pending — offer use/decline (active player's choice)
-	if awaiting_shooty_power_trip and shooty_power_trip_pending_unit != "":
-		var spt_unit = get_unit(shooty_power_trip_pending_unit)
-		var spt_name = spt_unit.get("meta", {}).get("name", shooty_power_trip_pending_unit) if not spt_unit.is_empty() else shooty_power_trip_pending_unit
-		var spt_player = int(spt_unit.get("owner", 0))
-		actions.append({
-			"type": "USE_SHOOTY_POWER_TRIP",
-			"actor_unit_id": shooty_power_trip_pending_unit,
-			"player": spt_player,
-			"description": "Use Shooty Power Trip — %s rolls D6 (risk: 1-2 = D3 MW to self)" % spt_name
-		})
-		actions.append({
-			"type": "DECLINE_SHOOTY_POWER_TRIP",
-			"actor_unit_id": shooty_power_trip_pending_unit,
-			"player": spt_player,
-			"description": "Decline Shooty Power Trip — %s" % spt_name
-		})
-		# When Shooty Power Trip is pending, only these actions should be available
-		actions.append({
-			"type": "END_SHOOTING",
-			"description": "End Shooting Phase"
-		})
-		return actions
-
 	# P1-12: Throat Slittas pending — offer use/decline
 	if throat_slittas_pending_unit != "":
 		var ts_unit = get_unit(throat_slittas_pending_unit)
@@ -6290,27 +5976,6 @@ func get_available_actions() -> Array:
 			"description": "Decline Throat Slittas — %s shoots normally" % ts_name
 		})
 		# When Throat Slittas is pending, only these actions should be available
-		actions.append({
-			"type": "END_SHOOTING",
-			"description": "End Shooting Phase"
-		})
-		return actions
-
-	# P1-10: Sentinel Storm pending — offer use/decline
-	if sentinel_storm_pending_unit != "":
-		var ss_unit = get_unit(sentinel_storm_pending_unit)
-		var ss_name = ss_unit.get("meta", {}).get("name", sentinel_storm_pending_unit) if not ss_unit.is_empty() else sentinel_storm_pending_unit
-		actions.append({
-			"type": "USE_SENTINEL_STORM",
-			"actor_unit_id": sentinel_storm_pending_unit,
-			"description": "Activate Sentinel Storm — %s shoots again" % ss_name
-		})
-		actions.append({
-			"type": "DECLINE_SENTINEL_STORM",
-			"actor_unit_id": sentinel_storm_pending_unit,
-			"description": "Decline Sentinel Storm for %s" % ss_name
-		})
-		# When Sentinel Storm is pending, only these actions should be available
 		actions.append({
 			"type": "END_SHOOTING",
 			"description": "End Shooting Phase"
@@ -6750,7 +6415,7 @@ func _validate_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
-	"""Mark shooter as done and clear state. Checks for Sentinel Storm shoot-again ability first."""
+	"""Mark shooter as done and clear state."""
 	var unit_id = action.get("actor_unit_id", "")
 
 	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
@@ -6758,42 +6423,6 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	DebugLogger.info(str("║ Unit ID: ", unit_id))
 	DebugLogger.info("║ This is triggered when user views final weapon results")
 	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# P1-10: Check for Sentinel Storm shoot-again ability before completing
-	# Skip this check if the unit is already in its shoot-again round (already used Sentinel Storm)
-	# P1-59: Also skip if out-of-phase action is active (e.g. Fire Overwatch) — cannot use
-	# phase-specific abilities during out-of-phase actions per core rules
-	var strat_mgr_for_oop = get_node_or_null("/root/StratagemManager")
-	var is_out_of_phase = strat_mgr_for_oop and strat_mgr_for_oop.is_out_of_phase_active()
-	if not action.get("payload", {}).get("skip_sentinel_storm_check", false) and not is_out_of_phase:
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr and ability_mgr.has_shoot_again_ability(unit_id):
-			DebugLogger.info(str("║ SENTINEL STORM: Unit %s has unused Sentinel Storm — prompting player" % unit_id))
-			sentinel_storm_pending_unit = unit_id
-
-			# Clear resolution state but keep active_shooter_id for the decision
-			confirmed_assignments.clear()
-			resolution_state.clear()
-			pending_save_data.clear()
-
-			# Emit signal for UI to show prompt
-			var current_player = get_current_player()
-			emit_signal("sentinel_storm_available", unit_id, current_player)
-
-			log_phase_message("Sentinel Storm available for unit %s — awaiting player decision" % unit_id)
-
-			return create_result(true, [], "Sentinel Storm available", {
-				"sentinel_storm_available": true,
-				"unit_id": unit_id
-			})
-	elif is_out_of_phase:
-		DebugLogger.info(str("║ SENTINEL STORM: Blocked for %s — out-of-phase action active (P1-59)" % unit_id))
-
-	# P1-11: Check for Sanctified Flames — force Battle-shock test on hit enemy
-	# P1-59: Also skip if out-of-phase action is active
-	var sanctified_changes = _check_sanctified_flames(unit_id) if not is_out_of_phase else []
-	if is_out_of_phase:
-		DebugLogger.info("ShootingPhase: Sanctified Flames check skipped — out-of-phase action active (P1-59)")
 
 	# 24.14: the firing-deck weapon loan lasts for this activation only.
 	_clear_firing_deck_loan(unit_id)
@@ -6809,7 +6438,6 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	# Hidden. The give-up-shooting action paths (16.01 etc.) correctly do
 	# NOT stamp.
 	changes.append(_hidden_shot_stamp(unit_id))
-	changes.append_array(sanctified_changes)
 
 	# Issue #386 Big Booms: apply D3 MW per struck unit after supa-kannon attacks finish.
 	if not _big_booms_pending.is_empty():
@@ -6851,7 +6479,6 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	confirmed_assignments.clear()
 	resolution_state.clear()
 	pending_save_data.clear()
-	sentinel_storm_pending_unit = ""
 	_targets_hit_by_shooter.clear()
 
 	log_phase_message("Shooting complete for unit %s" % unit_id)
@@ -6878,235 +6505,11 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 			"strat_name": swift_as_eagle_pending_strat
 		})
 
-	# Wazblasta (Kult of Speed): after the bearer's unit has shot, if it is
-	# not in Engagement Range it can make a 6" Normal move (then cannot
-	# charge). Offered to the SHOOTER's owner. Skipped when a defender-side
-	# reactive move (Swift as the Eagle / Go Get 'Em!) already triggered.
-	if _check_wazblasta(shooter_id):
-		PhaseManager.apply_state_changes(changes)
-		awaiting_wazblasta = true
-		wazblasta_pending_unit = shooter_id
-		var wb_name = get_unit(shooter_id).get("meta", {}).get("name", shooter_id)
-		log_phase_message("WAZBLASTA available for %s — 6\" Normal move after shooting (no charge this turn)" % wb_name)
-		return create_result(true, changes, "Wazblasta available", {
-			"wazblasta_available": true,
-			"unit_id": shooter_id,
-			"unit_name": wb_name
-		})
-
 	return create_result(true, changes, "Shooting complete")
 
-# ============================================================================
-# P1-10: SENTINEL STORM — SHOOT AGAIN MECHANIC
-# ============================================================================
-
-func _validate_use_sentinel_storm(action: Dictionary) -> Dictionary:
-	"""Validate activating Sentinel Storm shoot-again ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if sentinel_storm_pending_unit == "" or sentinel_storm_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Sentinel Storm pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_sentinel_storm(action: Dictionary) -> Dictionary:
-	"""Validate declining Sentinel Storm shoot-again ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if sentinel_storm_pending_unit == "" or sentinel_storm_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Sentinel Storm pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_sentinel_storm(action: Dictionary) -> Dictionary:
-	"""Player activates Sentinel Storm — unit shoots again.
-	Mark the ability as used, then reset the unit's shooting state so it can shoot again."""
-	var unit_id = action.get("actor_unit_id", "")
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ SENTINEL STORM: ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("║ Unit will shoot again this phase")
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Mark Sentinel Storm as used (once per battle)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_once_per_battle_used(unit_id, "Sentinel Storm")
-
-	# Clear the pending state
-	sentinel_storm_pending_unit = ""
-
-	# Reset the unit's shooting state so it can be selected again
-	# The unit is NOT added to units_that_shot, and has_shot flag stays false
-	# active_shooter_id was already set to this unit
-	active_shooter_id = ""
-	pending_assignments.clear()
-	confirmed_assignments.clear()
-	resolution_state.clear()
-
-	log_phase_message("Sentinel Storm activated! %s will shoot again" % unit_id)
-
-	return create_result(true, [], "Sentinel Storm activated — unit shoots again")
-
-func _process_decline_sentinel_storm(action: Dictionary) -> Dictionary:
-	"""Player declines Sentinel Storm — complete shooting normally."""
-	var unit_id = action.get("actor_unit_id", "")
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ SENTINEL STORM: DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("║ Completing shooting normally")
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	sentinel_storm_pending_unit = ""
-
-	# P1-11: Check for Sanctified Flames — force Battle-shock test on hit enemy
-	var sanctified_changes = _check_sanctified_flames(unit_id)
-
-	# Now complete shooting normally — set has_shot flag and add to units_that_shot
-	var changes = [{
-		"op": "set",
-		"path": "units.%s.flags.has_shot" % unit_id,
-		"value": true
-	}]
-	changes.append_array(sanctified_changes)
-
-	units_that_shot.append(unit_id)
-
-	# Clear state
-	var shooter_id = active_shooter_id  # Store before clearing
-	active_shooter_id = ""
-	confirmed_assignments.clear()
-	resolution_state.clear()
-	pending_save_data.clear()
-	_targets_hit_by_shooter.clear()
-
-	log_phase_message("Sentinel Storm declined — shooting complete for unit %s" % unit_id)
-
-	# Emit signal to clear visuals
-	emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
-
-	return create_result(true, changes, "Shooting complete (Sentinel Storm declined)")
-
-# ============================================================================
-# P1-11: SANCTIFIED FLAMES — FORCED BATTLE-SHOCK TEST AFTER SHOOTING
-# ============================================================================
-
-func _check_sanctified_flames(shooter_unit_id: String) -> Array:
-	"""Check if the shooter has Sanctified Flames and trigger a Battle-shock test
-	on one enemy unit that was hit. Returns state-change diffs (empty if not applicable).
-
-	Sanctified Flames (Witchseekers): "In your Shooting phase, after this unit has shot,
-	select one enemy unit hit by one or more of those attacks. That enemy unit must take
-	a Battle-shock test."
-	"""
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr or not ability_mgr.has_sanctified_flames_ability(shooter_unit_id):
-		return []
-
-	# Get the list of enemy units that were hit
-	var hit_targets = _targets_hit_by_shooter.duplicate()
-	if hit_targets.is_empty():
-		DebugLogger.info("ShootingPhase: P1-11 Sanctified Flames: No enemy units were hit — no Battle-shock test triggered")
-		return []
-
-	# Filter out already-destroyed units
-	var valid_targets: Array = []
-	for target_id in hit_targets:
-		var target_unit = get_unit(target_id)
-		if target_unit.is_empty():
-			continue
-		var has_alive = false
-		for model in target_unit.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if has_alive:
-			valid_targets.append(target_id)
-
-	if valid_targets.is_empty():
-		DebugLogger.info("ShootingPhase: P1-11 Sanctified Flames: All hit targets destroyed — no Battle-shock test triggered")
-		return []
-
-	# Select target: if only one valid target, auto-select. Otherwise select the one
-	# most likely to fail (lowest Leadership) for AI benefit, or first one for player.
-	var selected_target_id = valid_targets[0]
-	if valid_targets.size() > 1:
-		# Select the target with the lowest Leadership (most likely to fail)
-		var lowest_ld = 99
-		for tid in valid_targets:
-			var t_unit = get_unit(tid)
-			var t_ld = t_unit.get("meta", {}).get("stats", {}).get("leadership", 7)
-			if t_ld < lowest_ld:
-				lowest_ld = t_ld
-				selected_target_id = tid
-		DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames: Multiple targets hit, selecting %s (Ld %d)" % [selected_target_id, lowest_ld]))
-
-	# Perform the Battle-shock test on the selected target
-	return _resolve_sanctified_flames_battle_shock(shooter_unit_id, selected_target_id)
-
-func _resolve_sanctified_flames_battle_shock(shooter_unit_id: String, target_unit_id: String) -> Array:
-	"""Roll a forced Battle-shock test for Sanctified Flames.
-	Returns state-change diffs to set battle_shocked flag if failed."""
-	var target_unit = get_unit(target_unit_id)
-	if target_unit.is_empty():
-		return []
-
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-	var leadership = target_unit.get("meta", {}).get("stats", {}).get("leadership", 7)
-	var shooter_unit = get_unit(shooter_unit_id)
-	var shooter_name = shooter_unit.get("meta", {}).get("name", shooter_unit_id)
-
-	# Check if already battle-shocked (no need to re-test)
-	var already_shocked = target_unit.get("flags", {}).get("battle_shocked", false)
-	if already_shocked:
-		DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames: %s is already Battle-shocked — skipping test" % target_name))
-		log_phase_message("Sanctified Flames: %s already Battle-shocked — no additional test" % target_name)
-		return []
-
-	# Roll 2D6 for Battle-shock test
-	var die1 = _rng.rng.randi_range(1, 6)
-	var die2 = _rng.rng.randi_range(1, 6)
-	var roll_total = die1 + die2
-	var test_passed = roll_total >= leadership
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ P1-11: SANCTIFIED FLAMES — Battle-shock Test")
-	DebugLogger.info(str("║ Shooter: %s" % shooter_name))
-	DebugLogger.info(str("║ Target: %s (Ld %d)" % [target_name, leadership]))
-	DebugLogger.info(str("║ Roll: 2D6 = %d + %d = %d (need %d+)" % [die1, die2, roll_total, leadership]))
-	DebugLogger.info(str("║ Result: %s" % ("PASSED" if test_passed else "FAILED — Battle-shocked!")))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	log_phase_message("Sanctified Flames (%s): %s takes Battle-shock test — 2D6 = %d (%d+%d) vs Ld %d — %s" % [
-		shooter_name, target_name, roll_total, die1, die2, leadership,
-		"PASSED" if test_passed else "FAILED (Battle-shocked!)"
-	])
-
-	# Emit signal for UI/log display
-	var test_result = {
-		"target_unit_id": target_unit_id,
-		"target_name": target_name,
-		"die1": die1,
-		"die2": die2,
-		"roll_total": roll_total,
-		"leadership": leadership,
-		"test_passed": test_passed,
-		"battle_shocked": not test_passed
-	}
-	emit_signal("sanctified_flames_result", shooter_unit_id, target_unit_id, test_result)
-
-	# If test failed, apply battle_shocked flag
-	if not test_passed:
-		return [{
-			"op": "set",
-			"path": "units.%s.flags.battle_shocked" % target_unit_id,
-			"value": true
-		}]
-
-	return []
+# (P1-10 Sentinel Storm and the 10e P1-11 automatic Sanctified Flames test
+# are gone: no Codex: Adeptus Custodes (11e) datasheet has Sentinel Storm, and
+# Sanctified Flames is a unit_has_shot ability card — CustodesAbilities.gd.)
 
 # ============================================================================
 # P1-12: THROAT SLITTAS — MORTAL WOUNDS INSTEAD OF SHOOTING (Kommandos)
@@ -7338,564 +6741,6 @@ func _resolve_throat_slittas(unit_id: String) -> Dictionary:
 	emit_signal("throat_slittas_result", unit_id, result)
 
 	return result
-
-# ============================================================================
-# DISTRACTION GROT (P2-25)
-# ============================================================================
-# "Once per battle, in your opponent's Shooting phase, when this unit is selected
-# as the target of a ranged attack, until the end of the phase, models in this
-# unit have a 5+ invulnerable save."
-
-func _check_distraction_grot() -> Dictionary:
-	"""Check if any targeted unit has an unused Distraction Grot ability.
-	Returns { has_opportunity: bool, unit_id: String, player: int }."""
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr:
-		return {"has_opportunity": false}
-
-	var active_player = get_current_player()
-
-	# Collect unique target unit IDs from confirmed assignments
-	var target_unit_ids = []
-	for assignment in confirmed_assignments:
-		var target_id = assignment.get("target_unit_id", "")
-		if target_id != "" and target_id not in target_unit_ids:
-			target_unit_ids.append(target_id)
-
-	for target_id in target_unit_ids:
-		var target_unit = get_unit(target_id)
-		var target_owner = int(target_unit.get("owner", 0))
-
-		# Only the defending player's units can use Distraction Grot
-		if target_owner == active_player:
-			continue
-
-		if ability_mgr.has_distraction_grot(target_id):
-			DebugLogger.info(str("ShootingPhase: P2-25 Distraction Grot available for %s (%s)" % [
-				target_unit.get("meta", {}).get("name", target_id), target_id
-			]))
-			return {
-				"has_opportunity": true,
-				"unit_id": target_id,
-				"player": target_owner
-			}
-
-	return {"has_opportunity": false}
-
-func _validate_use_distraction_grot(action: Dictionary) -> Dictionary:
-	"""Validate activating Distraction Grot ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_distraction_grot:
-		return {"valid": false, "errors": ["Not awaiting Distraction Grot decision"]}
-	if distraction_grot_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Distraction Grot pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_distraction_grot(action: Dictionary) -> Dictionary:
-	"""Validate declining Distraction Grot ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_distraction_grot:
-		return {"valid": false, "errors": ["Not awaiting Distraction Grot decision"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_distraction_grot(action: Dictionary) -> Dictionary:
-	"""Defender activates Distraction Grot — unit gains 5+ invulnerable save for the phase."""
-	var unit_id = action.get("actor_unit_id", distraction_grot_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ P2-25: DISTRACTION GROT — ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("║ Unit gains 5+ invulnerable save until end of phase")
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_distraction_grot = false
-	distraction_grot_pending_unit = ""
-
-	# Mark as used (once per battle)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_once_per_battle_used(unit_id, "Distraction Grot")
-
-	# Apply 5+ invulnerable save flag to the unit
-	var diffs = []
-	diffs.append({
-		"op": "set",
-		"path": "units.%s.flags.effect_invuln" % unit_id,
-		"value": 5
-	})
-	diffs.append({
-		"op": "set",
-		"path": "units.%s.flags.effect_invuln_source" % unit_id,
-		"value": "Distraction Grot"
-	})
-	PhaseManager.apply_state_changes(diffs)
-
-	# Refresh snapshot so RulesEngine sees the invuln
-	game_state_snapshot = GameState.create_snapshot()
-
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	log_phase_message("Distraction Grot: %s gains 5+ invulnerable save" % unit_name)
-
-	emit_signal("distraction_grot_result", unit_id, true)
-
-	# Now continue to check reactive stratagems
-	var reactive_check = _check_reactive_stratagems()
-	if reactive_check.has_opportunities:
-		awaiting_reactive_stratagem = true
-		resolution_state = {
-			"phase": "awaiting_reactive_stratagem",
-			"assignments": confirmed_assignments
-		}
-		log_phase_message("Opponent may use reactive stratagems...")
-		emit_signal("reactive_stratagem_opportunity",
-			reactive_check.defending_player,
-			reactive_check.available_stratagems,
-			reactive_check.target_unit_ids)
-		return create_result(true, diffs, "Distraction Grot activated, awaiting stratagem decision", {
-			"reactive_stratagem_opportunity": true,
-			"defending_player": reactive_check.defending_player,
-			"available_stratagems": reactive_check.available_stratagems,
-			"target_unit_ids": reactive_check.target_unit_ids,
-			"distraction_grot_used": true,
-			"distraction_grot_unit_id": unit_id
-		})
-
-	# No reactive stratagems — continue to resolution
-	var resolution_result = _continue_after_reactive_stratagems()
-	resolution_result["distraction_grot_used"] = true
-	resolution_result["distraction_grot_unit_id"] = unit_id
-	return resolution_result
-
-func _process_decline_distraction_grot(action: Dictionary) -> Dictionary:
-	"""Defender declines Distraction Grot — proceed with normal shooting."""
-	var unit_id = action.get("actor_unit_id", distraction_grot_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ P2-25: DISTRACTION GROT — DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_distraction_grot = false
-	distraction_grot_pending_unit = ""
-
-	emit_signal("distraction_grot_result", unit_id, false)
-
-	# Continue to check reactive stratagems
-	var reactive_check = _check_reactive_stratagems()
-	if reactive_check.has_opportunities:
-		awaiting_reactive_stratagem = true
-		resolution_state = {
-			"phase": "awaiting_reactive_stratagem",
-			"assignments": confirmed_assignments
-		}
-		log_phase_message("Opponent may use reactive stratagems...")
-		emit_signal("reactive_stratagem_opportunity",
-			reactive_check.defending_player,
-			reactive_check.available_stratagems,
-			reactive_check.target_unit_ids)
-		return create_result(true, [], "Awaiting defender stratagem decision", {
-			"reactive_stratagem_opportunity": true,
-			"defending_player": reactive_check.defending_player,
-			"available_stratagems": reactive_check.available_stratagems,
-			"target_unit_ids": reactive_check.target_unit_ids
-		})
-
-	return _continue_after_reactive_stratagems()
-
-# ============================================================================
-# OA-10: AMMO RUNT — Lethal Hits on ranged weapons when selected to shoot
-# ============================================================================
-# "Once per battle for each ammo runt this unit has, when this unit is selected
-# to shoot, it can use this ability. If it does, until the end of the phase,
-# ranged weapons equipped by models in this unit have the [LETHAL HITS] ability."
-
-func _validate_use_ammo_runt(action: Dictionary) -> Dictionary:
-	"""Validate activating Ammo Runt ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_ammo_runt:
-		return {"valid": false, "errors": ["Not awaiting Ammo Runt decision"]}
-	if ammo_runt_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Ammo Runt pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_ammo_runt(action: Dictionary) -> Dictionary:
-	"""Validate declining Ammo Runt ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_ammo_runt:
-		return {"valid": false, "errors": ["Not awaiting Ammo Runt decision"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_ammo_runt(action: Dictionary) -> Dictionary:
-	"""Player activates Ammo Runt — unit's ranged weapons gain Lethal Hits for the phase."""
-	var unit_id = action.get("actor_unit_id", ammo_runt_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-10: AMMO RUNT — ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_ammo_runt = false
-	ammo_runt_pending_unit = ""
-
-	# Mark one ammo runt as used (independently tracked)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	var runt_index = -1
-	if ability_mgr:
-		runt_index = ability_mgr.mark_ammo_runt_used(unit_id)
-
-	# Apply Lethal Hits flag to the unit for this phase
-	var diffs = []
-	diffs.append({
-		"op": "set",
-		"path": "units.%s.flags.effect_lethal_hits" % unit_id,
-		"value": true
-	})
-	PhaseManager.apply_state_changes(diffs)
-
-	# Refresh snapshot
-	game_state_snapshot = GameState.create_snapshot()
-
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	var remaining = ability_mgr.get_ammo_runts_remaining(unit_id) if ability_mgr else 0
-	log_phase_message("Ammo Runt: %s gains Lethal Hits (runt #%d used, %d remaining)" % [unit_name, runt_index + 1, remaining])
-
-	emit_signal("ammo_runt_result", unit_id, true)
-
-	# Log ability activation to GameEventLog
-	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if game_event_log:
-		var owner = int(get_unit(unit_id).get("owner", 0))
-		game_event_log.add_player_entry(owner,
-			"Ammo Runt activated: %s gains [LETHAL HITS] on ranged weapons (%d runts remaining)" % [unit_name, remaining])
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	return create_result(true, diffs, "Ammo Runt activated — Lethal Hits granted", {
-		"ammo_runt_used": true,
-		"ammo_runt_unit_id": unit_id,
-		"ammo_runt_index": runt_index,
-		"remaining": remaining
-	})
-
-func _process_decline_ammo_runt(action: Dictionary) -> Dictionary:
-	"""Player declines Ammo Runt — proceed with normal shooting."""
-	var unit_id = action.get("actor_unit_id", ammo_runt_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-10: AMMO RUNT — DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_ammo_runt = false
-	ammo_runt_pending_unit = ""
-
-	emit_signal("ammo_runt_result", unit_id, false)
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	log_phase_message("Ammo Runt declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
-
-	return create_result(true, [], "Ammo Runt declined")
-
-# ============================================================================
-# OA-31: PULSA ROKKIT — +1 Strength and +1 AP to ranged weapons when selected to shoot
-# ============================================================================
-# "Once per battle, when the bearer's unit is selected to shoot in your Shooting phase,
-# the bearer can use its pulsa rokkit. If it does, until the end of the phase, improve
-# the Strength and Armour Penetration characteristics of ranged weapons equipped by
-# models in the bearer's unit by 1."
-
-func _validate_use_pulsa_rokkit(action: Dictionary) -> Dictionary:
-	"""Validate activating Pulsa Rokkit ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_pulsa_rokkit:
-		return {"valid": false, "errors": ["Not awaiting Pulsa Rokkit decision"]}
-	if pulsa_rokkit_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Pulsa Rokkit pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_pulsa_rokkit(action: Dictionary) -> Dictionary:
-	"""Validate declining Pulsa Rokkit ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_pulsa_rokkit:
-		return {"valid": false, "errors": ["Not awaiting Pulsa Rokkit decision"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_pulsa_rokkit(action: Dictionary) -> Dictionary:
-	"""Player activates Pulsa Rokkit — unit's ranged weapons gain +1S/+1AP for the phase."""
-	var unit_id = action.get("actor_unit_id", pulsa_rokkit_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-31: PULSA ROKKIT — ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_pulsa_rokkit = false
-	pulsa_rokkit_pending_unit = ""
-
-	# Mark Pulsa Rokkit as used (once per battle)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_pulsa_rokkit_used(unit_id)
-
-	# Apply Pulsa Rokkit flag to the unit for this phase
-	var diffs = []
-	diffs.append({
-		"op": "set",
-		"path": "units.%s.flags.effect_pulsa_rokkit_active" % unit_id,
-		"value": true
-	})
-	PhaseManager.apply_state_changes(diffs)
-
-	# Refresh snapshot
-	game_state_snapshot = GameState.create_snapshot()
-
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	log_phase_message("Pulsa Rokkit: %s gains +1 Strength and +1 AP on ranged weapons" % unit_name)
-
-	emit_signal("pulsa_rokkit_result", unit_id, true)
-
-	# Log ability activation to GameEventLog
-	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if game_event_log:
-		var owner = int(get_unit(unit_id).get("owner", 0))
-		game_event_log.add_player_entry(owner,
-			"Pulsa Rokkit activated: %s gains [+1 STRENGTH] [+1 AP] on ranged weapons" % unit_name)
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	return create_result(true, diffs, "Pulsa Rokkit activated — +1S/+1AP granted", {
-		"pulsa_rokkit_used": true,
-		"pulsa_rokkit_unit_id": unit_id
-	})
-
-func _process_decline_pulsa_rokkit(action: Dictionary) -> Dictionary:
-	"""Player declines Pulsa Rokkit — proceed with normal shooting."""
-	var unit_id = action.get("actor_unit_id", pulsa_rokkit_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-31: PULSA ROKKIT — DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_pulsa_rokkit = false
-	pulsa_rokkit_pending_unit = ""
-
-	emit_signal("pulsa_rokkit_result", unit_id, false)
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	log_phase_message("Pulsa Rokkit declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
-
-	return create_result(true, [], "Pulsa Rokkit declined")
-
-# ============================================================================
-# OA-37: SHOOTY POWER TRIP — Killa Kans D6 roll when selected to shoot
-# ============================================================================
-# "Each time this unit is selected to shoot, you can roll one D6:
-# On a 1-2, this unit suffers D3 mortal wounds.
-# On a 3-4, until the end of the phase, add 1 to the Strength characteristic
-#   of ranged weapons equipped by models in this unit.
-# On a 5-6, until the end of the phase, add 1 to the Attacks characteristic
-#   of ranged weapons equipped by models in this unit."
-
-func _validate_use_shooty_power_trip(action: Dictionary) -> Dictionary:
-	"""Validate activating Shooty Power Trip ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_shooty_power_trip:
-		return {"valid": false, "errors": ["Not awaiting Shooty Power Trip decision"]}
-	if shooty_power_trip_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Shooty Power Trip pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_shooty_power_trip(action: Dictionary) -> Dictionary:
-	"""Validate declining Shooty Power Trip ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_shooty_power_trip:
-		return {"valid": false, "errors": ["Not awaiting Shooty Power Trip decision"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
-	"""Player activates Shooty Power Trip — roll D6 and apply effect."""
-	var unit_id = action.get("actor_unit_id", shooty_power_trip_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-37: SHOOTY POWER TRIP — ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_shooty_power_trip = false
-	shooty_power_trip_pending_unit = ""
-
-	# Roll D6 to determine effect
-	# Issue #329: honor payload.rng_seed; fall back to persistent _rng
-	var spt_seed: int = action.get("payload", {}).get("rng_seed", -1)
-	var spt_rng = RulesEngine.RNGService.new(spt_seed) if spt_seed >= 0 else _rng
-	var d6_roll = spt_rng.rng.randi_range(1, 6)
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	var diffs = []
-	var effect_name = ""
-
-	DebugLogger.info(str("║ OA-37: Shooty Power Trip D6 roll = %d" % d6_roll))
-
-	if d6_roll <= 2:
-		# 1-2: D3 mortal wounds to self
-		effect_name = "self_damage"
-		var d3_roll = spt_rng.rng.randi_range(1, 6)
-		var mortal_wounds = ((d3_roll - 1) / 2) + 1  # 1-2→1, 3-4→2, 5-6→3
-		DebugLogger.info(str("║ OA-37: Result 1-2 — D3 mortal wounds to self (D3 roll = %d, MW = %d)" % [d3_roll, mortal_wounds]))
-
-		# Apply mortal wounds to the unit
-		var board = game_state_snapshot
-		var rng_service = RulesEngine.RNGService.new(spt_seed)
-		var mw_result = RulesEngine.apply_mortal_wounds(unit_id, mortal_wounds, board, rng_service)
-		diffs.append_array(mw_result.get("diffs", []))
-
-		var casualties = mw_result.get("casualties", 0)
-		log_phase_message("Shooty Power Trip: %s rolled %d — suffers %d mortal wounds! (%d casualties)" % [unit_name, d6_roll, mortal_wounds, casualties])
-
-		# Apply diffs to game state
-		if not diffs.is_empty():
-			PhaseManager.apply_state_changes(diffs)
-			game_state_snapshot = GameState.create_snapshot()
-
-		# Log to GameEventLog
-		var game_event_log = get_node_or_null("/root/GameEventLog")
-		if game_event_log:
-			var owner = int(get_unit(unit_id).get("owner", 0))
-			game_event_log.add_player_entry(owner,
-				"Shooty Power Trip: %s rolled [%d] — suffers %d mortal wounds (%d casualties)" % [unit_name, d6_roll, mortal_wounds, casualties])
-
-		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "self_damage")
-
-		# Check if unit was destroyed by self-damage
-		var unit_after = get_unit(unit_id)
-		if unit_after.is_empty() or RulesEngine.count_alive_models(unit_after) <= 0:
-			DebugLogger.info(str("║ OA-37: Unit %s destroyed by Shooty Power Trip self-damage!" % unit_id))
-			log_phase_message("Shooty Power Trip: %s destroyed by self-inflicted mortal wounds!" % unit_name)
-			return create_result(true, diffs, "Shooty Power Trip — unit destroyed by self-damage", {
-				"shooty_power_trip_used": true,
-				"d6_roll": d6_roll,
-				"effect": "self_damage",
-				"mortal_wounds": mortal_wounds,
-				"unit_destroyed": true
-			})
-
-	elif d6_roll <= 4:
-		# 3-4: +1 Strength to ranged weapons
-		effect_name = "plus_one_strength"
-		DebugLogger.info("║ OA-37: Result 3-4 — +1 Strength to ranged weapons for the phase")
-
-		diffs.append({
-			"op": "set",
-			"path": "units.%s.flags.effect_shooty_power_trip_strength" % unit_id,
-			"value": true
-		})
-		PhaseManager.apply_state_changes(diffs)
-		game_state_snapshot = GameState.create_snapshot()
-
-		log_phase_message("Shooty Power Trip: %s rolled %d — ranged weapons gain +1 Strength" % [unit_name, d6_roll])
-
-		var game_event_log = get_node_or_null("/root/GameEventLog")
-		if game_event_log:
-			var owner = int(get_unit(unit_id).get("owner", 0))
-			game_event_log.add_player_entry(owner,
-				"Shooty Power Trip: %s rolled [%d] — ranged weapons gain [+1 STRENGTH]" % [unit_name, d6_roll])
-
-		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "plus_one_strength")
-
-	else:
-		# 5-6: +1 Attacks to ranged weapons
-		effect_name = "plus_one_attacks"
-		DebugLogger.info("║ OA-37: Result 5-6 — +1 Attacks to ranged weapons for the phase")
-
-		diffs.append({
-			"op": "set",
-			"path": "units.%s.flags.effect_shooty_power_trip_attacks" % unit_id,
-			"value": true
-		})
-		PhaseManager.apply_state_changes(diffs)
-		game_state_snapshot = GameState.create_snapshot()
-
-		log_phase_message("Shooty Power Trip: %s rolled %d — ranged weapons gain +1 Attacks" % [unit_name, d6_roll])
-
-		var game_event_log = get_node_or_null("/root/GameEventLog")
-		if game_event_log:
-			var owner = int(get_unit(unit_id).get("owner", 0))
-			game_event_log.add_player_entry(owner,
-				"Shooty Power Trip: %s rolled [%d] — ranged weapons gain [+1 ATTACKS]" % [unit_name, d6_roll])
-
-		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "plus_one_attacks")
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	return create_result(true, diffs, "Shooty Power Trip activated — rolled %d (%s)" % [d6_roll, effect_name], {
-		"shooty_power_trip_used": true,
-		"d6_roll": d6_roll,
-		"effect": effect_name
-	})
-
-func _process_decline_shooty_power_trip(action: Dictionary) -> Dictionary:
-	"""Player declines Shooty Power Trip — proceed with normal shooting."""
-	var unit_id = action.get("actor_unit_id", shooty_power_trip_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-37: SHOOTY POWER TRIP — DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_shooty_power_trip = false
-	shooty_power_trip_pending_unit = ""
-
-	emit_signal("shooty_power_trip_result", unit_id, 0, "declined")
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	log_phase_message("Shooty Power Trip declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
-
-	return create_result(true, [], "Shooty Power Trip declined")
 
 # Defender-side save Command Re-roll (1 CP): the AllocationGroupOverlay
 # re-rolls one save die locally and stamps `command_reroll` on its summary;
@@ -8439,10 +7284,6 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				# every remaining target) — stamp the turn index.
 				all_diffs.append(_hidden_shot_stamp(active_shooter_id))
 				units_that_shot.append(active_shooter_id)
-
-				# P1-11: Check for Sanctified Flames before clearing state
-				var sanctified_changes = _check_sanctified_flames(active_shooter_id)
-				all_diffs.append_array(sanctified_changes)
 
 				# T5-UX9: capture before clearing
 				_record_completed_weapons_to_phase_log(shooter_id)
@@ -9161,61 +8002,3 @@ func _process_decline_swift_as_the_eagle(action: Dictionary) -> Dictionary:
 	swift_as_eagle_move_inches = 0
 	return create_result(true, [], "Swift as the Eagle declined")
 
-# ============================================================================
-# WAZBLASTA (Kult of Speed enhancement) — post-shooting 6" Normal move
-# ============================================================================
-
-func _check_wazblasta(shooter_id: String) -> bool:
-	"""Wazblasta: the bearer's unit, after it has shot, can make a 6\" Normal
-	move if it is not within Engagement Range of any enemy unit."""
-	var unit = get_unit(shooter_id)
-	if unit.is_empty():
-		return false
-	# Only on the shooter owner's own Shooting phase (always true here, but
-	# guard against out-of-phase shooting like overwatch resolution).
-	if int(unit.get("owner", 0)) != get_current_player():
-		return false
-	if not FactionAbilityManager._unit_or_attached_has_enhancement(unit, "Wazblasta", GameState.state.get("units", {})):
-		return false
-	if RulesEngine.is_unit_engaged(shooter_id, GameState.create_snapshot()):
-		return false
-	return true
-
-func _validate_wazblasta_decision(_action: Dictionary) -> Dictionary:
-	if not awaiting_wazblasta or wazblasta_pending_unit == "":
-		return {"valid": false, "errors": ["No Wazblasta decision pending"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_wazblasta(_action: Dictionary) -> Dictionary:
-	var unit_id = wazblasta_pending_unit
-	var unit_name = GameState.get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	# Reuse the post-shooting reactive-move flags (same affordance as Swift as
-	# the Eagle / Go Get 'Em!) with a fixed 6" cap; the unit cannot charge.
-	var changes: Array = [{
-		"op": "set",
-		"path": "units.%s.flags.effect_swift_as_the_eagle" % unit_id,
-		"value": true
-	}, {
-		"op": "set",
-		"path": "units.%s.flags.swift_eagle_move_remaining" % unit_id,
-		"value": 6
-	}, {
-		"op": "set",
-		"path": "units.%s.flags.cannot_charge" % unit_id,
-		"value": true
-	}, {
-		"op": "set",
-		"path": "units.%s.flags.wazblasta_no_charge" % unit_id,
-		"value": true
-	}]
-	log_phase_message("WAZBLASTA: %s can make a Normal move of up to 6\" — not eligible to charge this turn" % unit_name)
-	awaiting_wazblasta = false
-	wazblasta_pending_unit = ""
-	return create_result(true, changes, "Wazblasta activated — 6\" move, no charge")
-
-func _process_decline_wazblasta(_action: Dictionary) -> Dictionary:
-	var unit_name = GameState.get_unit(wazblasta_pending_unit).get("meta", {}).get("name", wazblasta_pending_unit)
-	log_phase_message("WAZBLASTA: %s declines the post-shooting move" % unit_name)
-	awaiting_wazblasta = false
-	wazblasta_pending_unit = ""
-	return create_result(true, [], "Wazblasta declined")

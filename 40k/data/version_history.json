@@ -2,6 +2,32 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.46.0",
+      "date": "2026-10-18",
+      "summary": "Codex: Adeptus Custodes and Codex: Orks: every Custodes and Ork unit uses its 11th-edition codex datasheet, and the codex army rules, detachments, stratagems, enhancements and datasheet abilities are playable.",
+      "changes": [
+        "Codex: Adeptus Custodes (released 17 Oct): all 27 codex datasheets (+2 Forge World) with codex stats (e.g. Shield-Captain M8\" T7 W8), points and unit sizes (Custodian Wardens 2-3 models, Custodian Guard Sodality 3). New datasheets: Custodian Guard Sodality, Sentinel Guard Sodality, Gyrfalcon Jetbike Sodality, the two Aquilon Terminator and Venatari squads, Caladius Annihilator Grav-Tank; Prosecutors, Vigilators and Witchseekers are now Squads.",
+        "Custodes army rules: codex Martial Ka'tah (units become readied each Command phase and spend it on one ka'tah through a free KA'TAH card; Shield-Captains' Master of Ka'tahs), Aegis of the Emperor (Feel No Pain 5+ against mortal wounds), Daughters of the Abyss (psychic Feel No Pain) and Aquila Commander (+1 CP each battle round).",
+        "Custodes: all 13 codex detachments with their rules and all 29 enhancements; the army builder offers them per detachment and army validation checks bearers, one-per-army and the points cap. Shield Host, Solar Spearhead, Talons of the Emperor, Silent Hunters and Tharanatoi Hammerblow are gone from the codex.",
+        "Custodes: all 41 codex stratagems can be used in their windows (by you and by the AI).",
+        "Custodes datasheet abilities as printed: Praesidium Shield gives -1 Damage to attacks allocated to the bearer (shown in the dice log), Moment Shackle, Vexilla, Vengeful Surge, Sword of the Throne and more; abilities you choose to use appear as free Ability cards, including at the start of a phase. Not yet implemented: Assault Vehicle and Advanced Firepower.",
+        "Codex: Orks: codex profiles, points and weapons (e.g. Battlewagon T11 and 160 pts, Warboss in Mega Armour T7, Morkanaut 2+ save); Tankbustas (Busta Rokkit Launcha, Gitstikka), Warbikers (Dual Dakkagun, Dual Kombi-rokkit), Runtherd and Nazdreg carry their codex weapons; Boyz now fire only the weapons each model carries, and a 20-model mob has 2 Nobs.",
+        "Ork army rules and the 15 codex detachments: free Waaagh! advance re-roll, War Cry in either Command phase, Da Boss (+1 CP), Unstable Energies psychic budget, and every detachment rule (Get Stuck In, Unpredictable Genius, Try Dat Button!, Dakka! Dakka! Dakka! ...).",
+        "Ork datasheet abilities as printed (e.g. Da Jump, Burna Bomb, That'll Learn Ya, Might is Right), with abilities you choose to use offered as free Ability cards; all 38 Ork codex enhancements with their codex costs (Targetin' Gizmos 25, Dreadherder 30).",
+        "Codex Stompa, Gorkanaut and Morkanaut use the Super-heavy Walker ability the codex gives them in place of Stompin' / Clankin' Forward: on a normal, advance or fall-back move they step over terrain 4\" or less in height and move through other models (Monsters and Vehicles too, not Titanic models), and can take the MOBILE gamble.",
+        "Transports follow the codex: a Battlewagon counts each Mega Armour / Jump Pack model as 2 and Ghazghkull as 4, and four Ork transports have corrected capacities.",
+        "Shooting phase: \"Start Action (units not shooting)\" lets a unit that cannot be selected to shoot (e.g. Gretchin that advanced under Runt Swarm) start an action such as Hold Position.",
+        "The web army builder uses the same codex data as the game, so a list built there loads with codex stats and points (e.g. Shield-Captain W8, 205 pts with Praesidium Shield).",
+        "Units sold in fixed sizes are snapped to a codex size (an 11-model Gretchin mob is now 10). Repeat copies of a datasheet cost the codex's higher price.",
+        "Shipped army lists updated to the codex: the default Custodes army (Lions of the Emperor) drops two Custodian Guard units to stay at 2000 points; Shield Host lists now use Guardians of the Throne; Ork 2000-point lists drop a unit where codex costs pushed them over, and pre-codex enhancements (e.g. Mork's Kunnin') are removed.",
+        "Saved games and lists built before the codex keep working: their units keep the weapons they were built with.",
+        "Fire Overwatch at its 11th-edition timing (end of the opponent's Movement phase) now respects the codex rules that block it: Golden Light of the Moiraides and Combat Deployment (Custodes units cannot be snap-shot) and Drive-by Skorchin' (the Orks' target cannot Fire Overwatch). Moritoi Ancients' +2 OC is added per model under the new per-model Objective Control.",
+        "Fixed: an AI army whose unit fit nowhere in its deployment zone while the reserves limits were full froze the Deployment phase; the unit now goes to Strategic Reserves past the limits (the same rule as the deployment timer running out) and deployment finishes.",
+        "Fixed: the AI sometimes lost its option to replace a newly drawn secondary mission (1 CP) depending on screen timing; it now always has it, once per Command phase like a human player.",
+        "Tutorial (Musterin' da Boyz): the deployment roll-off prompt now covers both outcomes - if you win, pick Deploy first or Deploy second; if the AI wins, click Continue (it used to always say Continue, which was wrong whenever you won the roll)."
+      ]
+    },
+    {
       "version": "1.45.6",
       "date": "2026-10-17",
       "summary": "Loading a save made during the Command phase no longer hands out extra Command Points or secondary cards.",

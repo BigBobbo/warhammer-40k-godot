@@ -1,37 +1,19 @@
 extends SceneTree
 
-# Lions of the Emperor + Silent Hunters (Adeptus Custodes) regression test.
+# Lions of the Emperor + Silent Hunters (Adeptus Custodes) — 10e regression test,
+# RETIRED / REWRITTEN in WP-C46 (Codex: Adeptus Custodes 11e).
 #
-# Policy (user ruling 2026-07-10): the game implements the 40kdc 11e dataset
-# where published (all of Silent Hunters), and the official 10e wording as an
-# EXPLICIT provisional stopgap where 11e is not published yet (all Lions
-# stratagems + enhancements, whose CSV rows carry a PROVISIONAL note).
+# The 10e Lions of the Emperor stopgaps (Against All Odds, Fierce Conqueror,
+# Superior Creation's 10e path, Praesidius, Admonimortis) and the Silent
+# Hunters detachment (Skin-Crawling Disorientation, Encircling Hunter,
+# Psyk-out Grenades) are deleted; their groups now PIN the removal so the 10e
+# code cannot silently return (.llm/codex_11e_wahapedia/RETIRED_TESTS.md). The
+# codex rules are covered by tests/test_custodes_detachments_11e.gd and
+# tests/test_custodes_enhancements_11e.gd.
 #
-# Covers the engine half of "both Custodes detachments are mechanically
-# implemented":
-#   1. Stratagem load: all 6 Lions of the Emperor + all 3 Silent Hunters
-#      stratagems load mechanically implemented (curated effects_json +
-#      custom handlers marked by StratagemManager).
-#   2. Against All Odds: detachment-gated (Lions only), +1 to hit applies in
-#      MELEE as well as ranged, VEHICLE and non-isolated units excluded.
-#   3. Effect-granted LANCE (Deathsong Scythes): +1 to wound when the unit
-#      charged, for weapons without the native keyword.
-#   4. plus_attacks_vs_psyker (Deathsong Scythes): melee attack count rises
-#      only against PSYKER targets.
-#   5. grant_rapid_fire (Umbral Prosecution): extra attacks inside half range.
-#   6. grant_blast (Synchronised Inferno): blast bonus attacks vs big units.
-#   7. improve_ap scoped flags (Umbral Prosecution): ranged-only AP bonus.
-#   8. Fierce Conqueror: +2 melee Attacks per 5 enemy models within 6".
-#   9. Superior Creation: first-death revival roll at end of phase (2+),
-#      once per battle, placement outside Engagement Range.
-#  10. Praesidius: grants Lone Operative + Stealth at army load.
-#  11. Psyk-out Grenades: grants EXPLOSIVES/GRENADES keywords at army load.
-#  12. Encircling Hunter: redeploy-enhancement eligibility (Anathema Psykana
-#      INFANTRY, bearer excluded, 3 slots).
-#  13. Skin-Crawling Disorientation: Anathema Psykana may perform actions
-#      after Advancing (Silent Hunters only).
-#  14. Gilded Champion: restores a spent once-per-battle ability, blocked in
-#      the same phase, once per battle per model.
+# Still live (generic EffectPrimitives the 10e stratagems introduced and other
+# rules reuse): effect-granted LANCE, plus_attacks_vs_psyker, grant_rapid_fire,
+# grant_blast, scoped improve_ap.
 #
 # Usage: godot --headless --path . -s tests/test_custodes_lions_silent_hunters.gd
 
@@ -62,7 +44,11 @@ func _run_tests() -> void:
 
 	print("\n===== Custodes Lions of the Emperor + Silent Hunters tests =====")
 
-	_test_stratagem_loading()
+	# _test_stratagem_loading / _test_gilded_champion retired with Codex:
+	# Adeptus Custodes (11e): the 10e Lions of the Emperor stratagems and the
+	# Silent Hunters detachment no longer exist; the codex Lions / Auric
+	# Champions stratagems are WP-C5's (.llm/codex_11e_wahapedia/RETIRED_TESTS.md).
+	# The remaining groups exercise 10e engine code that WP-C46 replaces.
 	_test_against_all_odds()
 	_test_effect_lance()
 	_test_plus_attacks_vs_psyker()
@@ -75,7 +61,6 @@ func _run_tests() -> void:
 	_test_admonimortis_stopgap()
 	_test_encircling_hunter()
 	_test_skin_crawling_disorientation()
-	_test_gilded_champion()
 
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(1 if failed > 0 else 0)
@@ -247,166 +232,14 @@ func _test_stratagem_loading() -> void:
 # 2. Against All Odds
 # ----------------------------------------------------------------------------
 func _test_against_all_odds() -> void:
-	print("\n-- Against All Odds: detachment gate + melee hit/wound --")
+	# RETIRED (WP-C46): the 10e Lions of the Emperor "Against All Odds" (+1 hit /
+	# +1 wound while isolated) is gone — the codex Lions rule is On Gilded Wings
+	# (tests/test_custodes_detachments_11e.gd). Pin the removal.
+	print("\n-- Against All Odds (RETIRED, WP-C46) --")
 	var fam = root.get_node("FactionAbilityManager")
-
-	# Isolated AC unit under Lions → buff active
-	var board = _make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": _lions_factions(1),
-	})
-	var unit = board.units["U_SHOOTER"]
-	_check("isolated Lions AC unit gets AAO", fam.check_against_all_odds(unit, board))
-
-	# Same unit under Shield Host → NO buff (detachment gate)
-	var board_sh = _make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": {"1": {"name": "Adeptus Custodes", "detachment": "Shield Host"}},
-	})
-	_check("Shield Host army does NOT get AAO", not fam.check_against_all_odds(board_sh.units["U_SHOOTER"], board_sh))
-
-	# NBSP detachment name still matches (issue #366 rosters)
-	var board_nbsp = _make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": {"1": {"name": "Adeptus Custodes", "detachment": "Lions of the Emperor"}},
-	})
-	_check("NBSP detachment name still gets AAO", fam.check_against_all_odds(board_nbsp.units["U_SHOOTER"], board_nbsp))
-
-	# VEHICLE excluded
-	var board_v = _make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "VEHICLE"],
-		"factions": _lions_factions(1),
-	})
-	_check("VEHICLE excluded from AAO", not fam.check_against_all_odds(board_v.units["U_SHOOTER"], board_v))
-
-	# Friendly unit within 6" → no buff
-	var board_f = _make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": _lions_factions(1),
-	})
-	board_f.units["U_FRIEND"] = {
-		"id": "U_FRIEND", "owner": 1,
-		"meta": {"name": "Friend", "keywords": ["INFANTRY"], "stats": {}, "abilities": []},
-		"flags": {},
-		"models": [{"id": "mf0", "position": {"x": 80.0, "y": 0.0}, "base_mm": 32, "alive": true, "wounds": 1, "current_wounds": 1}]
-	}
-	_check("friendly within 6\" blocks AAO", not fam.check_against_all_odds(board_f.units["U_SHOOTER"], board_f))
-
-	# Attached leader (Leader rules: one unit) must NOT block the buff — in
-	# either direction (bodyguard attacking, or the attached character attacking).
-	var board_led = _make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": _lions_factions(1),
-	})
-	board_led.units["U_SHOOTER"]["attachment_data"] = {"attached_characters": ["U_LEADER"]}
-	board_led.units["U_LEADER"] = {
-		"id": "U_LEADER", "owner": 1, "attached_to": "U_SHOOTER",
-		"meta": {"name": "Leader", "keywords": ["ADEPTUS CUSTODES", "CHARACTER", "INFANTRY"], "stats": {}, "abilities": []},
-		"flags": {},
-		"models": [{"id": "ml0", "position": {"x": 0.0, "y": 150.0}, "base_mm": 32, "alive": true, "wounds": 6, "current_wounds": 6}]
-	}
-	_check("attached leader does not block AAO (bodyguard attacks)", fam.check_against_all_odds(board_led.units["U_SHOOTER"], board_led))
-	_check("bodyguard does not block AAO (attached leader attacks)", fam.check_against_all_odds(board_led.units["U_LEADER"], board_led))
-
-	# ...but a leader's models ARE part of the unit: a friendly within 6" of the
-	# LEADER model (though beyond 6" of every bodyguard model) still blocks.
-	var board_led2 = _make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": _lions_factions(1),
-	})
-	board_led2.units["U_SHOOTER"]["attachment_data"] = {"attached_characters": ["U_LEADER"]}
-	board_led2.units["U_LEADER"] = {
-		"id": "U_LEADER", "owner": 1, "attached_to": "U_SHOOTER",
-		"meta": {"name": "Leader", "keywords": ["ADEPTUS CUSTODES", "CHARACTER", "INFANTRY"], "stats": {}, "abilities": []},
-		"flags": {},
-		"models": [{"id": "ml0", "position": {"x": 0.0, "y": 400.0}, "base_mm": 32, "alive": true, "wounds": 6, "current_wounds": 6}]
-	}
-	# Friend ~4.7" edge-to-edge from the leader model (y=560 → 160px gap), but
-	# ~10" from the nearest bodyguard model (y=105 → 455px gap).
-	board_led2.units["U_FRIEND"] = {
-		"id": "U_FRIEND", "owner": 1,
-		"meta": {"name": "Friend", "keywords": ["INFANTRY"], "stats": {}, "abilities": []},
-		"flags": {},
-		"models": [{"id": "mf0", "position": {"x": 0.0, "y": 560.0}, "base_mm": 32, "alive": true, "wounds": 1, "current_wounds": 1}]
-	}
-	_check("friendly near the attached leader still blocks AAO", not fam.check_against_all_odds(board_led2.units["U_SHOOTER"], board_led2))
-
-	# Embarked friendly (stale battlefield position) must NOT block — an
-	# embarked unit is not on the battlefield.
-	var board_e = _make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": _lions_factions(1),
-	})
-	board_e.units["U_FRIEND"] = {
-		"id": "U_FRIEND", "owner": 1, "embarked_in": "U_TRANSPORT",
-		"meta": {"name": "Friend", "keywords": ["INFANTRY"], "stats": {}, "abilities": []},
-		"flags": {},
-		"models": [{"id": "mf0", "position": {"x": 80.0, "y": 0.0}, "base_mm": 32, "alive": true, "wounds": 1, "current_wounds": 1}]
-	}
-	_check("embarked friendly does not block AAO", fam.check_against_all_odds(board_e.units["U_SHOOTER"], board_e))
-
-	# Friendly in Strategic Reserves (stale position) must NOT block.
-	var board_r = _make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": _lions_factions(1),
-	})
-	board_r.units["U_FRIEND"] = {
-		"id": "U_FRIEND", "owner": 1,
-		"status": load("res://autoloads/GameState.gd").UnitStatus.IN_RESERVES,
-		"meta": {"name": "Friend", "keywords": ["INFANTRY"], "stats": {}, "abilities": []},
-		"flags": {},
-		"models": [{"id": "mf0", "position": {"x": 80.0, "y": 0.0}, "base_mm": 32, "alive": true, "wounds": 1, "current_wounds": 1}]
-	}
-	_check("friendly in reserves does not block AAO", fam.check_against_all_odds(board_r.units["U_SHOOTER"], board_r))
-
-	# base_mm must be honoured: a 60mm-base friendly at 7.5" centre-to-centre is
-	# ~5.7" edge-to-edge (blocks); assuming 32mm would put it at ~6.2" (no block).
-	var board_b = _make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": _lions_factions(1),
-	})
-	board_b.units["U_FRIEND"] = {
-		"id": "U_FRIEND", "owner": 1,
-		"meta": {"name": "Friend", "keywords": ["INFANTRY"], "stats": {}, "abilities": []},
-		"flags": {},
-		"models": [{"id": "mf0", "position": {"x": 300.0, "y": 0.0}, "base_mm": 60, "alive": true, "wounds": 1, "current_wounds": 1}]
-	}
-	_check("60mm base friendly at 5.7\" edge-to-edge blocks AAO", not fam.check_against_all_odds(board_b.units["U_SHOOTER"], board_b))
-
-	# Melee: same seed, Lions vs Shield Host — Lions must land at least as many
-	# hits and wounds (+1 to hit AND +1 to wound; seed chosen so the delta shows)
-	var melee_lions = _melee(_make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": _lions_factions(1),
-		"distance_inches": 0.5,
-	}), 1234)
-	var melee_shield = _melee(_make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": {"1": {"name": "Adeptus Custodes", "detachment": "Shield Host"}},
-		"distance_inches": 0.5,
-	}), 1234)
-	var hits_lions = _count_successes(melee_lions, "hit_roll_melee")
-	var hits_shield = _count_successes(melee_shield, "hit_roll_melee")
-	_check("AAO melee +1 to hit (lions %d > shield %d)" % [hits_lions, hits_shield], hits_lions > hits_shield)
-	var wounds_lions = _count_successes(melee_lions, "wound_roll_melee")
-	var wounds_shield = _count_successes(melee_shield, "wound_roll_melee")
-	_check("AAO melee +1 to wound (lions %d > shield %d)" % [wounds_lions, wounds_shield], wounds_lions > wounds_shield)
-
-	# Ranged: same seed and 60 attacks — +1 to hit and +1 to wound must both show
-	var shoot_lions = _shoot(_make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": _lions_factions(1),
-	}), 4321, "bolt_rifle", 60)
-	var shoot_shield = _shoot(_make_board({
-		"shooter_keywords": ["ADEPTUS CUSTODES", "INFANTRY"],
-		"factions": {"1": {"name": "Adeptus Custodes", "detachment": "Shield Host"}},
-	}), 4321, "bolt_rifle", 60)
-	var rhits_lions = _count_successes(shoot_lions, "to_hit")
-	var rhits_shield = _count_successes(shoot_shield, "to_hit")
-	_check("AAO ranged +1 to hit (lions %d > shield %d)" % [rhits_lions, rhits_shield], rhits_lions > rhits_shield)
-	var rwounds_lions = _count_successes(shoot_lions, "to_wound")
-	var rwounds_shield = _count_successes(shoot_shield, "to_wound")
-	_check("AAO ranged +1 to wound (lions %d > shield %d)" % [rwounds_lions, rwounds_shield], rwounds_lions > rwounds_shield)
+	_check("retired: check_against_all_odds removed", not fam.has_method("check_against_all_odds"))
+	_check("retired: evaluate_against_all_odds removed", not fam.has_method("evaluate_against_all_odds"))
+	_check("retired: is_against_all_odds_active removed", not fam.has_method("is_against_all_odds_active"))
 
 # ----------------------------------------------------------------------------
 # 3. Effect-granted LANCE
@@ -513,268 +346,67 @@ func _test_improve_ap_scoped() -> void:
 # 8. Fierce Conqueror
 # ----------------------------------------------------------------------------
 func _test_fierce_conqueror() -> void:
-	print("\n-- Fierce Conqueror: +2 melee Attacks per 5 enemy models within 6\" --")
+	# RETIRED (WP-C46): Fierce Conqueror was a 10e Lions stopgap; Codex: Adeptus
+	# Custodes 11e has no such enhancement.
+	print("\n-- Fierce Conqueror (RETIRED, WP-C46) --")
 	var rules = root.get_node("RulesEngine")
-
-	# 8 enemy models at 2" → floor(8/5)*2 = +2
-	var board = _make_board({
-		"shooter_models": 1,
-		"shooter_enhancements": ["Fierce Conqueror"],
-		"target_models": 8,
-	})
-	_check("+2 per 5 enemies (8 within 6\")", rules.get_fierce_conqueror_bonus_attacks(board.units["U_SHOOTER"], board) == 2)
-
-	# 12 enemy models → floor(12/5)*2 = +4
-	var board12 = _make_board({
-		"shooter_models": 1,
-		"shooter_enhancements": ["Fierce Conqueror"],
-		"target_models": 12,
-		"target_spacing_px": 18.0,
-	})
-	_check("+4 per 5 enemies (12 within 6\")", rules.get_fierce_conqueror_bonus_attacks(board12.units["U_SHOOTER"], board12) == 4)
-
-	# 4 enemy models → 0
-	var board4 = _make_board({
-		"shooter_models": 1,
-		"shooter_enhancements": ["Fierce Conqueror"],
-		"target_models": 4,
-	})
-	_check("no bonus below 5 enemies", rules.get_fierce_conqueror_bonus_attacks(board4.units["U_SHOOTER"], board4) == 0)
-
-	# No enhancement → 0
-	var board_none = _make_board({"shooter_models": 1, "target_models": 8})
-	_check("no bonus without the enhancement", rules.get_fierce_conqueror_bonus_attacks(board_none.units["U_SHOOTER"], board_none) == 0)
-
-	# Enemies out of range → 0
-	var board_far = _make_board({
-		"shooter_models": 1,
-		"shooter_enhancements": ["Fierce Conqueror"],
-		"target_models": 8,
-		"distance_inches": 10.0,
-	})
-	_check("no bonus when enemies beyond 6\"", rules.get_fierce_conqueror_bonus_attacks(board_far.units["U_SHOOTER"], board_far) == 0)
-
-	# End-to-end: melee attack count rises by the bonus (1 model, choppa A3 → 3+2=5 rolls)
-	var m_with = _melee(board, 31)
-	var m_none = _melee(board_none, 31)
-	_check("melee rolls include Fierce Conqueror bonus (%d = %d + 2)" % [_count_rolls(m_with, "hit_roll_melee"), _count_rolls(m_none, "hit_roll_melee")],
-		_count_rolls(m_with, "hit_roll_melee") == _count_rolls(m_none, "hit_roll_melee") + 2)
+	_check("retired: get_fierce_conqueror_bonus_attacks removed", not rules.has_method("get_fierce_conqueror_bonus_attacks"))
 
 # ----------------------------------------------------------------------------
 # 9. Superior Creation
 # ----------------------------------------------------------------------------
 func _test_superior_creation() -> void:
-	print("\n-- Superior Creation: first-death revival at end of phase --")
+	# RETIRED (WP-C46): the 10e Lions Superior Creation path is replaced by the
+	# codex Auric Champions enhancement (CustodesEnhancements.resolve_superior_creation,
+	# tests/test_custodes_enhancements_11e.gd).
+	print("\n-- Superior Creation, 10e path (RETIRED, WP-C46) --")
 	var rules = root.get_node("RulesEngine")
-
-	var board = _make_board({
-		"shooter_models": 1,
-		"shooter_enhancements": ["Superior Creation"],
-	})
-	# Kill the bearer (position stays on the dead model)
-	board.units["U_SHOOTER"].models[0]["alive"] = false
-	board.units["U_SHOOTER"].models[0]["current_wounds"] = 0
-
-	var rec = rules.record_superior_creation_death("U_SHOOTER", board)
-	_check("death recorded as applicable", rec.get("applicable", false))
-	# Apply the diffs by hand (flags on the unit)
-	board.units["U_SHOOTER"].flags["superior_creation_used"] = true
-	board.units["U_SHOOTER"].flags["superior_creation_pending"] = {"x": 0.0, "y": 0.0}
-
-	# Second death attempt — once per battle
-	var rec2 = rules.record_superior_creation_death("U_SHOOTER", board)
-	_check("revival is once per battle", not rec2.get("applicable", false))
-
-	# Scan seeds: both outcomes must occur, and revived placement must be legal
-	var revived_count := 0
-	var failed_count := 0
-	for seed_val in range(1, 13):
-		var b = _make_board({
-			"shooter_models": 1,
-			"shooter_enhancements": ["Superior Creation"],
-			"distance_inches": 0.75,  # enemy inside Engagement Range of the death spot
-		})
-		b.units["U_SHOOTER"].models[0]["alive"] = false
-		b.units["U_SHOOTER"].models[0]["current_wounds"] = 0
-		b.units["U_SHOOTER"].flags["superior_creation_pending"] = {"x": 0.0, "y": 0.0}
-		b.units["U_SHOOTER"].flags["superior_creation_used"] = true
-		rules.set_test_seed(seed_val)
-		var rng = rules.RNGService.new()
-		var res = rules.resolve_superior_creation_revivals(b, rng)
-		var cleared := false
-		var revived := false
-		var new_pos = null
-		for d in res.get("diffs", []):
-			var path: String = d.get("path", "")
-			if path.ends_with("superior_creation_pending") and d.get("value") == null:
-				cleared = true
-			if path.ends_with("models.0.alive") and d.get("value") == true:
-				revived = true
-			if path.ends_with("models.0.position"):
-				new_pos = d.get("value")
-		_check("seed %d: pending flag consumed" % seed_val, cleared)
-		if revived:
-			revived_count += 1
-			# Placement: must be at least 1" edge-to-edge from the enemy at 0.75"
-			var meas = root.get_node("Measurement")
-			var enemy_pos = Vector2(0.75 * 40.0, 0.0)
-			var p = Vector2(float(new_pos.get("x", 0)), float(new_pos.get("y", 0)))
-			var radius = meas.base_radius_px(32)
-			var closest := INF
-			for i in range(8):
-				var ep2 = Vector2(0.75 * 40.0, float(i * 35))
-				var edge = meas.px_to_inches(p.distance_to(ep2) - radius * 2.0)
-				closest = min(closest, edge)
-			_check("seed %d: revived outside Engagement Range (%.2f\" ≥ 1\")" % [seed_val, closest], closest >= 1.0)
-		else:
-			failed_count += 1
-	_check("some revivals succeed across seeds (2+)", revived_count > 0, "0/12 revived")
-	_check("some revivals fail across seeds (roll of 1)", failed_count > 0, "0/12 failed")
+	_check("retired: RulesEngine.record_superior_creation_death removed", not rules.has_method("record_superior_creation_death"))
 
 # ----------------------------------------------------------------------------
 # 10/11. Praesidius + Psyk-out Grenades army-load grants
 # ----------------------------------------------------------------------------
 func _test_praesidius_and_psyk_out() -> void:
-	print("\n-- Praesidius / Psyk-out Grenades: army-load grants --")
+	# RETIRED (WP-C46): Praesidius (10e Lions) and Psyk-out Grenades (Silent
+	# Hunters) are not Codex: Adeptus Custodes 11e enhancements.
+	print("\n-- Praesidius / Psyk-out Grenades (RETIRED, WP-C46) --")
 	var alm = root.get_node("ArmyListManager")
-	var rules = root.get_node("RulesEngine")
-
-	var unit = {
-		"id": "U_P", "owner": 1,
-		"meta": {
-			"name": "Praesidius Bearer",
-			"keywords": ["ADEPTUS CUSTODES", "CHARACTER"],
-			"abilities": [],
-			"enhancements": ["Praesidius"],
-		},
-		"flags": {}, "models": []
-	}
-	alm._apply_enhancement_granted_abilities("U_P", unit)
-	_check("Praesidius grants Lone Operative", rules.has_lone_operative(unit))
-	_check("Praesidius grants Stealth", rules.has_stealth_ability(unit))
-	# Idempotent
-	alm._apply_enhancement_granted_abilities("U_P", unit)
-	_check("grants are idempotent", unit.meta.abilities.size() == 2, str(unit.meta.abilities))
-
-	var sos = {
-		"id": "U_S", "owner": 1,
-		"meta": {
-			"name": "Prosecutors",
-			"keywords": ["ADEPTUS CUSTODES", "ANATHEMA PSYKANA", "PROSECUTORS"],
-			"abilities": [],
-			"enhancements": ["Psyk-out Grenades"],
-		},
-		"flags": {}, "models": []
-	}
-	alm._apply_enhancement_granted_abilities("U_S", sos)
-	_check("Psyk-out grants EXPLOSIVES (11e dataset keyword)", rules.unit_has_keyword(sos, "EXPLOSIVES"))
-	_check("Psyk-out does not add extra keywords", not rules.unit_has_keyword(sos, "GRENADES"))
+	_check("retired: Praesidius grant table entry removed", not alm.ENHANCEMENT_GRANTED_ABILITIES.has("Praesidius"))
+	_check("retired: Psyk-out Grenades keyword grant removed", not alm.ENHANCEMENT_GRANTED_KEYWORDS.has("Psyk-out Grenades"))
 
 # ----------------------------------------------------------------------------
 # 11b. Admonimortis (10e stopgap): +3S / +1AP / +1D on the bearer's melee weapons
 # ----------------------------------------------------------------------------
 func _test_admonimortis_stopgap() -> void:
-	print("\n-- Admonimortis (10e stopgap): melee +3 Strength, +1 AP, +1 Damage --")
+	# RETIRED (WP-C46): Admonimortis was a 10e Lions stopgap.
+	print("\n-- Admonimortis (RETIRED, WP-C46) --")
 	var rules = root.get_node("RulesEngine")
-	_check("has_admonimortis detects the enhancement",
-		rules.has_admonimortis({"meta": {"enhancements": ["Admonimortis"]}}))
-	_check("has_admonimortis false without it",
-		not rules.has_admonimortis({"meta": {"enhancements": []}}))
-
-	# choppa is S4 vs T4 (4+ to wound); +3 S makes it S7 ≥ 2T? no — 7 < 8, but
-	# S7 > T4 wounds on 3+. Same seed: wound successes must rise, save
-	# successes must fall (AP -1 → -2), casualties/damage must not decrease.
-	var m_plain = _melee(_make_board({"shooter_models": 4, "distance_inches": 0.5}), 2024)
-	var m_admon = _melee(_make_board({
-		"shooter_models": 4, "distance_inches": 0.5,
-		"shooter_enhancements": ["Admonimortis"],
-	}), 2024)
-	var w_plain = _count_successes(m_plain, "wound_roll_melee")
-	var w_admon = _count_successes(m_admon, "wound_roll_melee")
-	_check("+3 Strength raises melee wounds (%d > %d)" % [w_admon, w_plain], w_admon > w_plain)
-	var ap_plain = _count_field(m_plain, "save_roll_melee", "ap")
-	var ap_admon = _count_field(m_admon, "save_roll_melee", "ap")
-	_check("+1 AP applied to melee saves (ap %d → %d)" % [ap_plain, ap_admon], ap_admon == ap_plain + 1)
+	_check("retired: has_admonimortis removed", not rules.has_method("has_admonimortis"))
 
 # ----------------------------------------------------------------------------
 # 12. Encircling Hunter
 # ----------------------------------------------------------------------------
 func _test_encircling_hunter() -> void:
-	print("\n-- Encircling Hunter: redeploy-enhancement eligibility --")
+	# RETIRED (WP-C46): Encircling Hunter (Silent Hunters) is gone with that
+	# detachment; the generic redeploy table now carries the codex Castellan's
+	# Mark (Guardians of the Throne) instead.
+	print("\n-- Encircling Hunter (RETIRED, WP-C46) --")
 	var fam = root.get_node("FactionAbilityManager")
-
-	# Build a small GameState army: bearer + 2 Anathema Psykana INFANTRY + 1 other
-	# load() at runtime — a compile-time GameStateData reference makes the
-	# -s test script pull the DeploymentZoneData/FactionPalettes chain before
-	# the autoloads register (transient "Identifier not found" stderr noise).
-	var deployed = load("res://autoloads/GameState.gd").UnitStatus.DEPLOYED
-	gs.state["units"] = {
-		"U_BEARER": {"id": "U_BEARER", "owner": 1, "status": deployed,
-			"meta": {"name": "Knight-Centura", "keywords": ["ADEPTUS CUSTODES", "ANATHEMA PSYKANA", "INFANTRY", "CHARACTER"],
-				"abilities": [], "enhancements": ["Encircling Hunter"]},
-			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 0, "y": 0}}]},
-		"U_SOS_A": {"id": "U_SOS_A", "owner": 1, "status": deployed,
-			"meta": {"name": "Prosecutors", "keywords": ["ADEPTUS CUSTODES", "ANATHEMA PSYKANA", "INFANTRY"], "abilities": []},
-			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 40, "y": 0}}]},
-		"U_SOS_B": {"id": "U_SOS_B", "owner": 1, "status": deployed,
-			"meta": {"name": "Witchseekers", "keywords": ["ADEPTUS CUSTODES", "ANATHEMA PSYKANA", "INFANTRY"], "abilities": []},
-			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 80, "y": 0}}]},
-		"U_GUARD": {"id": "U_GUARD", "owner": 1, "status": deployed,
-			"meta": {"name": "Custodian Guard", "keywords": ["ADEPTUS CUSTODES", "INFANTRY"], "abilities": []},
-			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 120, "y": 0}}]},
-	}
-	if fam.has_method("reset_all"):
-		pass
-	fam._razgit_redeploys_used = {"1": 0, "2": 0}
-
-	_check("has_razgit_magik_map true via Encircling Hunter", fam.has_razgit_magik_map(1))
-	_check("enhancement name reported", fam.get_redeploy_enhancement_name(1) == "Encircling Hunter")
-	var eligible = fam.get_razgit_eligible_units(1)
-	var ids := []
-	for e in eligible:
-		ids.append(e.get("unit_id", ""))
-	_check("both Anathema Psykana units eligible", "U_SOS_A" in ids and "U_SOS_B" in ids, str(ids))
-	_check("bearer excluded", not ("U_BEARER" in ids), str(ids))
-	_check("non-Anathema unit excluded", not ("U_GUARD" in ids), str(ids))
-	_check("3 redeploy slots", fam.get_razgit_redeploys_remaining(1) == 3)
-	fam.mark_razgit_redeploy_used(1)
-	_check("slot consumed", fam.get_razgit_redeploys_remaining(1) == 2)
-	fam._razgit_redeploys_used = {"1": 0, "2": 0}
-
-	var redeploy_units = gs.get_redeploy_units_for_player(1)
-	_check("GameState offers the eligible units for redeployment",
-		"U_SOS_A" in redeploy_units and "U_SOS_B" in redeploy_units, str(redeploy_units))
+	var names: Array = []
+	for e in fam.REDEPLOY_ENHANCEMENTS:
+		names.append(str(e.get("name", "")))
+	_check("retired: Encircling Hunter not a redeploy enhancement", not ("Encircling Hunter" in names), str(names))
+	_check("codex Castellan's Mark is a redeploy enhancement", "Castellan's Mark" in names, str(names))
 
 # ----------------------------------------------------------------------------
 # 13. Skin-Crawling Disorientation
 # ----------------------------------------------------------------------------
 func _test_skin_crawling_disorientation() -> void:
-	print("\n-- Skin-Crawling Disorientation: actions after Advancing --")
+	# RETIRED (WP-C46): Skin-Crawling Disorientation was the Silent Hunters rule.
+	print("\n-- Skin-Crawling Disorientation (RETIRED, WP-C46) --")
 	var fam = root.get_node("FactionAbilityManager")
-
-	var board = {
-		"factions": {"1": {"name": "Adeptus Custodes", "detachment": "Silent Hunters"}},
-		"units": {}
-	}
-	var sos = {"id": "U_S", "owner": 1,
-		"meta": {"keywords": ["ADEPTUS CUSTODES", "ANATHEMA PSYKANA", "INFANTRY"], "abilities": []},
-		"flags": {"advanced": true}, "models": []}
-	_check("Silent Hunters Anathema unit may act after Advance", fam.check_skin_crawling_disorientation(sos, board))
-
-	var custodian = {"id": "U_C", "owner": 1,
-		"meta": {"keywords": ["ADEPTUS CUSTODES", "INFANTRY"], "abilities": []},
-		"flags": {"advanced": true}, "models": []}
-	_check("non-Anathema unit does not benefit", not fam.check_skin_crawling_disorientation(custodian, board))
-
-	var board_lions = {
-		"factions": {"1": {"name": "Adeptus Custodes", "detachment": "Lions of the Emperor"}},
-		"units": {}
-	}
-	_check("other detachments do not benefit", not fam.check_skin_crawling_disorientation(sos, board_lions))
-
-	_check("DETACHMENT_ABILITIES has Silent Hunters entry",
-		fam.DETACHMENT_ABILITIES.has("Silent Hunters")
-		and fam.DETACHMENT_ABILITIES["Silent Hunters"].get("ability_name", "") == "Skin-Crawling Disorientation")
+	_check("retired: check_skin_crawling_disorientation removed", not fam.has_method("check_skin_crawling_disorientation"))
+	_check("retired: no Silent Hunters detachment ability", not fam.DETACHMENT_ABILITIES.has("Silent Hunters"))
 
 # ----------------------------------------------------------------------------
 # 14. Gilded Champion
