@@ -36,6 +36,7 @@ bash 40k/tests/run_scenario.sh tests/scenarios/sp/<id>.json
 | `rng_seed` | no | int | If present and ≥0, sets `RulesEngine.RNGService.test_mode_seed`. -1 disables. |
 | `transition_to_phase` | no | int | After fixture load + scene swap, drive `PhaseManager.transition_to_phase(N)`. See enum below. |
 | `martial_katah` | no | bool | Codex: Adeptus Custodes (11e) Martial Ka'tah. Default false: the runner clears `flags.cus11e_readied` right after every Command phase entry (logged `martial_katah policy: ...`), so no ka'tah window interrupts a scenario that is not about them. `true` keeps the readied state — the `cus11e_*` ka'tah scenarios set it. |
+| `builder_e2e` | no | string | Repo-relative path of a browser Army Builder end-to-end script (e.g. `server/tests/e2e-orks-codex.mjs`). `run_scenarios.sh` starts a throwaway relay server, runs the script against it (Playwright saves the army to the cloud) and writes `40k/server_config.json` pointing at the relay for this scenario only. Needs node, the server's npm deps and a Playwright Chromium (CI installs them). |
 | `steps` | yes | array | Ordered list of step objects. |
 | `multiplayer` | no | bool | If true, requires `peers: { host: { steps }, client: { steps } }` instead of top-level `steps`. |
 

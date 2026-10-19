@@ -1,5 +1,6 @@
 {
  "id": "ork11e_enh_builder_cloud_army",
+ "builder_e2e": "server/tests/e2e-orks-codex.mjs",
  "covers": [
   "codex.orks.enhancements.kill_kommanda",
   "codex.orks.enhancements.throat_slittas",

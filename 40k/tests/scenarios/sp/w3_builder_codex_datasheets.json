@@ -1,5 +1,6 @@
 {
   "id": "w3_builder_codex_datasheets",
+  "builder_e2e": "server/tests/e2e-codex-datasheets.mjs",
   "covers": [
     "army_builder.codex_datasheets",
     "army_builder.codex_wargear_points",

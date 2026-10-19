@@ -1,5 +1,6 @@
 {
   "id": "cus11e_enh_builder_cloud_army",
+  "builder_e2e": "server/tests/e2e-custodes-codex.mjs",
   "covers": [
     "codex.custodes.enhancement.eagles_eye.list_build",
     "army_builder.codex_enhancements",

@@ -26,11 +26,13 @@ on:
     branches: [ '**' ]
     paths:
       - '40k/**'
+      - 'server/**'
       - '.github/workflows/scenarios.yml'
   pull_request:
     branches: [ main, develop ]
     paths:
       - '40k/**'
+      - 'server/**'
   schedule:
     - cron: '17 5 * * *'   # nightly full windowed sweep
   workflow_dispatch:
@@ -287,6 +289,22 @@ jobs:
           done
           [ -s .godot/global_script_class_cache.cfg ] || { echo "::error::import left no .godot/global_script_class_cache.cfg"; exit 1; }
 
+      - name: Setup Node (builder e2e scenarios)
+        # Scenarios that declare "builder_e2e" (the game half of a browser Army
+        # Builder end-to-end) need the relay server and a Playwright browser:
+        # run_scenarios.sh starts both for those scenarios only.
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install relay server deps + Playwright Chromium
+        run: |
+          cd server
+          npm ci
+          npx playwright install --with-deps chromium
+
       - name: Run scenarios touched by this change
         env:
           SCENARIO_SHARD: "${{ matrix.shard }}/4"
@@ -393,6 +411,22 @@ jobs:
             [ "$rc" -ne 124 ] || { echo "::error::godot --import timed out (pass $pass)"; exit 1; }
           done
           [ -s .godot/global_script_class_cache.cfg ] || { echo "::error::import left no .godot/global_script_class_cache.cfg"; exit 1; }
+
+      - name: Setup Node (builder e2e scenarios)
+        # Scenarios that declare "builder_e2e" (the game half of a browser Army
+        # Builder end-to-end) need the relay server and a Playwright browser:
+        # run_scenarios.sh starts both for those scenarios only.
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install relay server deps + Playwright Chromium
+        run: |
+          cd server
+          npm ci
+          npx playwright install --with-deps chromium
 
       - name: Run windowed scenarios
         env:

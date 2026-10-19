@@ -193,6 +193,69 @@ echo "================================================"
 echo "Batch scenario run: ${#SCENARIOS[@]} scenario(s)"
 echo "================================================"
 
+# BUILDER-E2E: a scenario with "builder_e2e": "server/tests/<script>.mjs" is
+# the game half of a browser Army Builder end-to-end. Before it runs, start a
+# throwaway relay server, run that builder half against it (Playwright drives
+# the builder page and saves the army to the cloud), and point
+# res://server_config.json at the relay for this scenario only — every other
+# scenario keeps the default CloudStorage endpoint. Needs node, the server's
+# npm deps and a Playwright Chromium (CI installs them; see scenarios.yml).
+# Env: E2E_PORT (default 19690), E2E_SHOT_DIR (builder screenshots + log).
+E2E_CFG="server_config.json"
+E2E_SRV_PID=""
+E2E_DIR=""
+builder_e2e_stop() {
+    if [ -n "$E2E_SRV_PID" ]; then
+        kill "$E2E_SRV_PID" 2>/dev/null || true
+        wait "$E2E_SRV_PID" 2>/dev/null || true
+    fi
+    if [ -n "$E2E_DIR" ]; then
+        rm -f "$E2E_CFG"
+        rm -rf "$E2E_DIR"
+    fi
+    E2E_SRV_PID=""
+    E2E_DIR=""
+}
+builder_e2e_start() {
+    local script="$1" sid="$2"
+    local port="${E2E_PORT:-19690}"
+    local shots="${E2E_SHOT_DIR:-$HOME/.local/share/godot/app_userdata/40k/test_results/scenarios}"
+    if [ -e "$E2E_CFG" ]; then
+        echo "    builder_e2e: refusing to overwrite an existing 40k/$E2E_CFG"
+        return 1
+    fi
+    if ! command -v node > /dev/null 2>&1; then
+        echo "    builder_e2e: node not found (needs node + server npm deps + Playwright Chromium)"
+        return 1
+    fi
+    mkdir -p "$shots"
+    E2E_DIR="$(mktemp -d)"
+    (cd ../server && PORT="$port" DB_PATH="$E2E_DIR/e2e.db" exec node relay-server.js) > "$E2E_DIR/relay.log" 2>&1 &
+    E2E_SRV_PID=$!
+    local up=0
+    for _ in $(seq 1 50); do
+        if curl -sf "http://localhost:$port/api/health" > /dev/null 2>&1; then
+            up=1
+            break
+        fi
+        sleep 0.2
+    done
+    if [ $up -eq 0 ]; then
+        echo "    builder_e2e: relay server did not come up on :$port"
+        tail -20 "$E2E_DIR/relay.log" | sed 's/^/      /'
+        return 1
+    fi
+    echo "    builder_e2e: $script against http://localhost:$port"
+    if ! (cd .. && E2E_BASE="http://localhost:$port" E2E_SHOT_DIR="$shots" node "$script") > "$shots/${sid}_builder.log" 2>&1; then
+        echo "    builder_e2e: builder half FAILED (log: $shots/${sid}_builder.log)"
+        tail -20 "$shots/${sid}_builder.log" | sed 's/^/      /'
+        return 1
+    fi
+    tail -3 "$shots/${sid}_builder.log" | sed 's/^/      /'
+    printf '{"api_url": "http://localhost:%s"}\n' "$port" > "$E2E_CFG"
+}
+trap builder_e2e_stop EXIT
+
 PASSED=0
 FAILED=0
 FAILED_IDS=()
@@ -215,11 +278,19 @@ for s in "${SCENARIOS[@]}"; do
     # 2-3 minutes (several script `wait_seconds` in a row), so the cap is
     # generous — it exists to bound a hang, not to police pace. Raise it with
     # SCENARIO_TIMEOUT for a deliberately long scenario.
-    if timeout "${SCENARIO_TIMEOUT:-600}" godot --path . --scenario-file="$s" 2>&1 | tee /tmp/scenario_run_${SCENARIO_ID}.log | grep -E "^\[ScenarioRunner\]|PASS|FAIL|=== "; then
+    BUILDER_E2E=$(grep -oE '"builder_e2e"[[:space:]]*:[[:space:]]*"[^"]*"' "$s" | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)"$/\1/')
+    E2E_SETUP_OK=1
+    if [ -n "$BUILDER_E2E" ] && ! builder_e2e_start "$BUILDER_E2E" "$SCENARIO_ID"; then
+        E2E_SETUP_OK=0
+    fi
+    if [ $E2E_SETUP_OK -eq 0 ]; then
+        EXIT_CODE=1
+    elif timeout "${SCENARIO_TIMEOUT:-600}" godot --path . --scenario-file="$s" 2>&1 | tee /tmp/scenario_run_${SCENARIO_ID}.log | grep -E "^\[ScenarioRunner\]|PASS|FAIL|=== "; then
         EXIT_CODE=${PIPESTATUS[0]}
     else
         EXIT_CODE=${PIPESTATUS[0]}
     fi
+    builder_e2e_stop
     # The pipeline's own status is grep's, so a hang that printed some lines
     # used to be reported as a plain FAIL — check godot's status either way.
     if [ "$EXIT_CODE" = "124" ]; then
