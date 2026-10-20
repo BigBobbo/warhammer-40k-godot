@@ -1,0 +1,134 @@
+{
+  "id": "multi_detachment_builder_cloud_army",
+  "builder_e2e": "server/tests/e2e-multi-detachment.mjs",
+  "covers": [
+    "army_builder.multi_detachment",
+    "army_builder.detachment_points",
+    "army_list.cloud_load.detachments",
+    "codex.enhancement_rules.multi_detachment"
+  ],
+  "description": "11e multi-detachment army building (Detachment Points pool). server/tests/e2e-multi-detachment.mjs drives the browser Army Builder: Custodes 2000 pts, primary Lions of the Emperor + Solar Watch + Null Maiden Vigil (3 / 3 DP; the 3 DP Guardians of the Throne is refused), a warlord Shield-Captain with Sally Forth (Solar Watch), saved to the cloud as MULTI_DET_E2E_Custodes. This scenario loads it through the main menu (Refresh Cloud Armies -> Start Game): the army carries all three detachments and their DP, 11e construction validation raises no DP or foreign-enhancement warning, the Shield-Captain carries Sally Forth and its datasheet shows it, and the primary detachment is the active one in game.",
+  "edition": 11,
+  "rng_seed": 42,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_script().resource_path",
+      "equals": "res://scripts/MainMenu.gd"
+    },
+    {
+      "act": "execute_script",
+      "script": "CloudStorage.base_url.begins_with(\"http://localhost:\") and CloudStorage.base_url != \"http://localhost:9080\"",
+      "equals": true,
+      "comment": "the driver's temporary server_config.json points at the e2e relay server"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ArmySection/ArmyBuilderContainer/RefreshCloudArmiesButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the builder-made army is listed (Cloud)",
+      "script": "var main = tree.current_scene\nfor i in range(main.army_options.size()):\n\tif str(main.army_options[i].id) == \"MULTI_DET_E2E_Custodes\":\n\t\treturn i\nreturn -1",
+      "expect_min": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Player 1 picks the cloud army in the dropdown; both seats human",
+      "script": "var main = tree.current_scene\nvar idx := -1\nfor i in range(main.army_options.size()):\n\tif str(main.army_options[i].id) == \"MULTI_DET_E2E_Custodes\":\n\t\tidx = i\nmain.player1_dropdown.select(idx)\nmain.player1_dropdown.item_selected.emit(idx)\nmain.player1_type_dropdown.select(0)\nmain.player1_type_dropdown.item_selected.emit(0)\nmain.player2_type_dropdown.select(0)\nmain.player2_type_dropdown.item_selected.emit(0)\nreturn main.player1_dropdown.get_item_text(main.player1_dropdown.selected).contains(\"Cloud\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_main_menu_multi_detachment_army_selected"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.current_scene.get_script().resource_path",
+      "equals": "res://scripts/Main.gd"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the downloaded cloud army carries all three detachments + their DP (3 / 3)",
+      "script": "var raw = ArmyListManager.cloud_army_cache.get(\"MULTI_DET_E2E_Custodes\", {})\nvar f = raw.get(\"faction\", {})\nvar dp := 0\nfor d in raw.get(\"detachments\", []):\n\tdp += int(d.get(\"dp_cost\", 0))\nprint(\"[multi-det] faction=\", f.get(\"detachment\"), \" all=\", f.get(\"detachments\"), \" dp=\", dp)\nreturn str(f.get(\"detachment\")) == \"Lions of the Emperor\" and f.get(\"detachments\", []) == [\"Lions of the Emperor\", \"Solar Watch\", \"Null Maiden Vigil\"] and dp == 3",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "11e construction validation: no DP-pool warning and the Solar Watch enhancement is NOT flagged as foreign to the (primary) Lions of the Emperor detachment",
+      "script": "var raw = ArmyListManager.cloud_army_cache.get(\"MULTI_DET_E2E_Custodes\", {})\nvar v: Dictionary = ArmyListManager.validate_army_construction_11e(raw)\nprint(\"[multi-det] construction warnings=\", v.warnings)\nfor w in v.warnings:\n\tif str(w).contains(\"DP\") or str(w).contains(\"is not a\"):\n\t\treturn str(w)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the Shield-Captain in game carries Sally Forth (a Solar Watch enhancement)",
+      "script": "for uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 1 and str(u.meta.get(\"name\", \"\")) == \"Shield-Captain\":\n\t\tGameState.state.meta[\"_mdet_sc\"] = uid\n\t\tprint(\"[multi-det] \", uid, \" enh=\", u.meta.get(\"enhancements\", []))\n\t\treturn str(u.meta.get(\"enhancements\", [])).contains(\"Sally Forth\")\nreturn \"no Shield-Captain\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the primary detachment is the game's active detachment",
+      "script": "return str(GameState.state.get(\"factions\", {}).get(\"1\", {}).get(\"detachment\", \"\"))",
+      "equals": "Lions of the Emperor"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "screenshot framing only: the Battle Formations dialog (an exclusive popup) is hidden so the datasheet is readable; it is shown again after the screenshot",
+      "script": "var fd = tree.current_scene.formations_dialog\nif fd == null or not is_instance_valid(fd) or not fd.visible:\n\treturn 0\nfd.set_meta(\"_mdet_hidden\", true)\nfd.hide()\nreturn 1",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "open the Shield-Captain's datasheet (the I-key card)",
+      "script": "return tree.current_scene.get_node(\"DatasheetModal\").open_for(str(GameState.state.meta[\"_mdet_sc\"]))",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ds = tree.current_scene.get_node(\"DatasheetModal\")\nfor l in ds.find_children(\"*\", \"Label\", true, false):\n\tif str(l.text).begins_with(\"Enhancement:\"):\n\t\treturn l.text.contains(\"Sally\")\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_datasheet_sally_forth_from_second_detachment"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "restore the Battle Formations dialog",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").close()\nvar fd = tree.current_scene.formations_dialog\nif fd != null and is_instance_valid(fd) and fd.has_meta(\"_mdet_hidden\"):\n\tfd.remove_meta(\"_mdet_hidden\")\n\tfd.show()\nreturn true",
+      "equals": true
+    }
+  ]
+}

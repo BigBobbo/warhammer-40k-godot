@@ -1666,8 +1666,8 @@ const STANDARD_GAME_SIZES: Array = [500, 1000, 1500, 2000, 3000]
 ## count capped at 2 per 1000 pts (2 @ 1000 / 4 @ 2000); Upgrade-tagged
 ## enhancements may sit on up to three non-CHARACTER units while counting
 ## as one choice; Detachment Points pool is 3 at 2000 pts (only checked
-## when the army data declares detachment DP costs — current army JSONs
-## carry a single detachment with no cost, which passes trivially).
+## when the army data declares detachment DP costs — the army builder
+## exports detachments[{name, dp_cost}] for multi-detachment lists).
 func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 	var result = {"valid": true, "errors": [], "warnings": []}
 	if not army_data.get("faction", null) is Dictionary:
@@ -1726,7 +1726,8 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 		for det in detachments:
 			if det is Dictionary:
 				dp_total += int(det.get("dp_cost", 1))
-		var dp_pool = 3 if points_limit >= 2000 else maxi(1, int(floor(points_limit / 2000.0 * 3)))
+		# Incursion (1000) = 2 DP, Strike Force (2000) = 3 DP.
+		var dp_pool = 3 if points_limit > 1000 else 2
 		if dp_total > dp_pool:
 			result.warnings.append("11e: detachments cost %d DP, pool is %d at %d pts" % [dp_total, dp_pool, points_limit])
 

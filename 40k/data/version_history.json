@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.47.0",
+      "date": "2026-10-20",
+      "summary": "Army builder: take several detachments in one list, as long as their Detachment Points fit the pool (3 DP at 2000 pts, 2 DP at 1000).",
+      "changes": [
+        "The army builder's Detachment picker now sets your primary detachment, and \"+ add detachment\" adds more; a DP counter shows e.g. 3 / 3 DP, detachments that don't fit are greyed out, and each extra detachment has a \u00d7 to remove it.",
+        "Enhancements from every detachment you take are offered (each labelled with its detachment); removing a detachment drops its enhancements.",
+        "Multi-detachment lists save to the cloud and load in game without false \"not a ... enhancement\" warnings; the DP check at 1000 pts now uses the correct 2 DP pool.",
+        "In game, the primary detachment's rules and stratagems are active; rules of additional detachments are not automated yet."
+      ]
+    },
+    {
       "version": "1.46.0",
       "date": "2026-10-18",
       "summary": "Codex: Adeptus Custodes and Codex: Orks: every Custodes and Ork unit uses its 11th-edition codex datasheet, and the codex army rules, detachments, stratagems, enhancements and datasheet abilities are playable.",

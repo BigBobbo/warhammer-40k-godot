@@ -781,17 +781,25 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     }
     const factionName = factionDisplayName(armyFactionId);
 
-    const det = roster.detachments?.[0]?.ref;
-    let detachmentName = '';
-    if (det?.id) {
-      const d = findDetachment(armyFactionId, det.id);
-      detachmentName = d?.name ?? det.raw_name ?? '';
-    } else if (det?.raw_name) {
-      detachmentName = det.raw_name;
-      warnings.push(`detachment "${det.raw_name}" unresolved — name kept as-is`);
+    // 11e: several detachments within the DP pool. The first is the primary
+    // (faction.detachment — what the game's single-detachment rule hooks
+    // read); all of them go out as faction.detachments + detachments[] (DP).
+    const detsOut = [];
+    for (const rd of roster.detachments ?? []) {
+      const det = rd?.ref;
+      if (det?.id) {
+        const d = findDetachment(armyFactionId, det.id);
+        detsOut.push({ name: d?.name ?? det.raw_name ?? '', dp_cost: d?.detachment_points ?? rd.dp_cost ?? 1, record: d });
+      } else if (det?.raw_name) {
+        warnings.push(`detachment "${det.raw_name}" unresolved — name kept as-is`);
+        detsOut.push({ name: det.raw_name, dp_cost: rd.dp_cost ?? 1, record: findDetachment(armyFactionId, det.raw_name) });
+      }
     }
-    const detachment = findDetachment(armyFactionId, det?.id ?? detachmentName);
-    const detEnh = detachmentEnhancements(detachment);
+    const detachmentName = detsOut[0]?.name ?? '';
+    const detEnh = new Map();
+    for (const d of detsOut) {
+      for (const [k, e] of detachmentEnhancements(d.record)) if (!detEnh.has(k)) detEnh.set(k, e);
+    }
 
     const unitsOut = {};
     const suffixCounters = new Map();
@@ -872,6 +880,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         name: factionName,
         points: declaredPoints ?? (totalPoints > 1000 ? 2000 : 1000),
         detachment: detachmentName,
+        detachments: detsOut.map(d => d.name),
         player_name: playerName,
         team_name: teamName,
         created_date: createdDate,
@@ -879,6 +888,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         edition: 11,
         data_source: dataSource,
       },
+      detachments: detsOut.map(d => ({ name: d.name, dp_cost: d.dp_cost })),
       units: unitsOut,
     });
     return { army, warnings, totalPoints };
@@ -900,11 +910,25 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     const armyFactionId = factionIdForName(factionBlock.name);
     if (!armyFactionId) warnings.push(`faction "${factionBlock.name ?? ''}" not recognized`);
 
-    const detachment = armyFactionId ? findDetachment(armyFactionId, factionBlock.detachment ?? '') : null;
-    if (factionBlock.detachment && armyFactionId && !detachment) {
-      warnings.push(`detachment "${factionBlock.detachment}" not found for ${armyFactionId}`);
+    // Primary detachment first, then any further 11e detachments
+    // (faction.detachments names, or top-level detachments[{name, dp_cost}]).
+    const detNames = [];
+    for (const n of [factionBlock.detachment,
+      ...(Array.isArray(factionBlock.detachments) ? factionBlock.detachments : []),
+      ...(Array.isArray(gameJson?.detachments) ? gameJson.detachments.map(d => d?.name) : [])]) {
+      const nm = typeof n === 'string' ? n.trim() : '';
+      if (nm && !detNames.some(x => normName(x) === normName(nm))) detNames.push(nm);
     }
-    const detEnh = detachment ? detachmentEnhancements(detachment) : new Map();
+    const detRecords = detNames.map(nm => {
+      const d = armyFactionId ? findDetachment(armyFactionId, nm) : null;
+      if (armyFactionId && !d) warnings.push(`detachment "${nm}" not found for ${armyFactionId}`);
+      return { name: nm, record: d };
+    });
+    const resolvedDets = detRecords.map(d => d.record).filter(Boolean);
+    const detEnh = new Map();
+    for (const d of resolvedDets) {
+      for (const [k, e] of detachmentEnhancements(d)) if (!detEnh.has(k)) detEnh.set(k, e);
+    }
 
     const rosterUnits = [];
     let computed = 0;
@@ -1011,7 +1035,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         const match = detEnh.get(normName(ename)) ??
           detEnh.get(normName(bareEnhancementName(ename))) ??
           enhancementsAll.find(x => normName(bareEnhancementName(x.name)) === normName(bareEnhancementName(ename)) &&
-            (!detachment || (detachment.enhancement_ids ?? []).includes(x.id)));
+            (!resolvedDets.length || resolvedDets.some(d => (d.enhancement_ids ?? []).includes(x.id))));
         if (match) {
           enhancement = { id: match.id, raw_name: match.name, resolved: true, candidates: [] };
           enhancementPoints = match.cost ?? 0;
@@ -1043,11 +1067,9 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
       name: name || (factionBlock.name ? `${factionBlock.name} ${declared ?? ''}`.trim() : 'Imported army'),
       source: { format: 'roster-json', generated_by: 'w40k-game-json' },
       faction_id: armyFactionId,
-      detachments: detachment
-        ? [{ ref: { id: detachment.id, raw_name: detachment.name, resolved: true, candidates: [] }, dp_cost: detachment.detachment_points ?? 1 }]
-        : (factionBlock.detachment
-          ? [{ ref: { id: null, raw_name: factionBlock.detachment, resolved: false, candidates: [] }, dp_cost: null }]
-          : []),
+      detachments: detRecords.map(({ name: nm, record: d }) => d
+        ? { ref: { id: d.id, raw_name: d.name, resolved: true, candidates: [] }, dp_cost: d.detachment_points ?? 1 }
+        : { ref: { id: null, raw_name: nm, resolved: false, candidates: [] }, dp_cost: null }),
       battle_size: declared == null ? null : (declared <= 1000 ? 'incursion' : 'strike-force'),
       force_disposition: null,
       points: {
