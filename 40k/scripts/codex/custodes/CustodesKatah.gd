@@ -597,18 +597,25 @@ static func psychic_null_source(u: Dictionary) -> String:
 # ===========================================================================
 
 ## "" when the model may be the player's WARLORD, else the reason it may not.
-## detachment: the army's detachment name (Null Maiden Vigil allows it).
-static func warlord_block_reason(u: Dictionary, detachment: String) -> String:
+## detachment: the army's detachment name, or (11e multi-detachment armies)
+## the Array of every detachment it took — Null Maiden Vigil among them allows it.
+static func warlord_block_reason(u: Dictionary, detachment) -> String:
 	if not Common.has_keyword(u, KW_ANATHEMA):
 		return ""
-	if anathema_psykana_warlord_allowed(detachment):
-		return ""
+	var dets: Array = detachment if detachment is Array else [str(detachment)]
+	for d in dets:
+		if anathema_psykana_warlord_allowed(str(d)):
+			return ""
 	var meta: Dictionary = u.get("meta", {})
 	var nm := str(meta.get("display_name", meta.get("name", u.get("id", "this model"))))
 	return "Anathema Psykana: an ANATHEMA PSYKANA model cannot be your WARLORD (%s)" % nm
 
 static func player_detachment(player: int) -> String:
 	return str(Common.state().get("factions", {}).get(str(player), {}).get("detachment", ""))
+
+## Every detachment the player took (11e multi-detachment armies), primary first.
+static func player_detachments(player: int) -> Array:
+	return load("res://scripts/codex/ArmyDetachments11e.gd").player_detachments(player, Common.state())
 
 # ===========================================================================
 # FAVOURED KA'TAH API (WP-C46 fills it in through CustodesDetachments.gd)

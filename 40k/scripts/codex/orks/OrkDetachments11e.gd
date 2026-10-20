@@ -43,6 +43,7 @@ extends RefCounted
 ## Rulings are listed in .llm/codex_11e_wahapedia/RULINGS.md (WP-O34).
 
 const Common = preload("res://scripts/stratagems/ork_codex/OrkCodexCommon.gd")
+const ArmyDets = preload("res://scripts/codex/ArmyDetachments11e.gd")
 const ArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
 
 # ---------------------------------------------------------------------------
@@ -175,6 +176,27 @@ static func unit_detachment(u: Dictionary, board: Dictionary = {}) -> String:
 	if u.is_empty():
 		return ""
 	return detachment_of(int(u.get("owner", 0)), board)
+
+## 11e multi-detachment armies: EVERY detachment `player` selected is active
+## (ArmyDetachments11e) — normalised keys, primary first.
+static func detachments_of(player: int, board: Dictionary = {}) -> Array:
+	if not enabled() or player <= 0:
+		return []
+	return ArmyDets.player_detachment_keys(player, _board_or_state(board))
+
+static func has_det(player: int, det: String, board: Dictionary = {}) -> bool:
+	return det in detachments_of(player, board)
+
+## Is `det` one of the detachments of the unit's owner?
+static func unit_has_det(u: Dictionary, det: String, board: Dictionary = {}) -> bool:
+	if u.is_empty():
+		return false
+	return has_det(int(u.get("owner", 0)), det, board)
+
+static func unit_detachments(u: Dictionary, board: Dictionary = {}) -> Array:
+	if u.is_empty():
+		return []
+	return detachments_of(int(u.get("owner", 0)), board)
 
 static func rule_name(det: String) -> String:
 	return str(RULE_NAMES.get(det, ""))
@@ -348,9 +370,14 @@ static func _battle_shock_diffs(u: Dictionary) -> Array:
 ## loaded and at the start of each of the player's Command phases.
 static func apply_keyword_grants(player: int) -> Array:
 	var diffs: Array = []
-	var det := detachment_of(player)
-	if not BATTLELINE_GRANTS.has(det):
-		return diffs
+	# Every selected detachment grants its BATTLELINE (11e multi-detachment).
+	for det in detachments_of(player):
+		if BATTLELINE_GRANTS.has(det):
+			diffs.append_array(_apply_grant(player, det))
+	return diffs
+
+static func _apply_grant(player: int, det: String) -> Array:
+	var diffs: Array = []
 	var kw := str(BATTLELINE_GRANTS[det])
 	var units: Dictionary = Common.state().get("units", {})
 	for uid in units:
@@ -380,23 +407,26 @@ static func apply_keyword_grants(player: int) -> Array:
 ## Returns {value, source}; the caller only applies it when the weapon has no
 ## SUSTAINED HITS of its own (duplicates do not stack).
 static func melee_sustained_hits(attacker: Dictionary, board: Dictionary = {}) -> Dictionary:
-	match unit_detachment(attacker, board):
-		WAR_HORDE:
-			if group_kw(attacker, "ORKS", board):
-				return {"value": 1, "source": "Get Stuck In (War Horde)"}
-		BULLY_BOYZ:
-			if group_any_kw(attacker, ["MEGANOBZ", "NOBZ"], board):
-				return {"value": 1, "source": "Displays of Savagery (Bully Boyz)"}
-		GREEN_TIDE:
-			if group_kw(attacker, "BOYZ", board):
-				return {"value": 1, "source": "Mob-handed Brutality (Green Tide)"}
+	# Several detachments can grant it — the first that applies is the source
+	# (duplicates do not stack).
+	for det in unit_detachments(attacker, board):
+		match det:
+			WAR_HORDE:
+				if group_kw(attacker, "ORKS", board):
+					return {"value": 1, "source": "Get Stuck In (War Horde)"}
+			BULLY_BOYZ:
+				if group_any_kw(attacker, ["MEGANOBZ", "NOBZ"], board):
+					return {"value": 1, "source": "Displays of Savagery (Bully Boyz)"}
+			GREEN_TIDE:
+				if group_kw(attacker, "BOYZ", board):
+					return {"value": 1, "source": "Mob-handed Brutality (Green Tide)"}
 	return {"value": 0, "source": ""}
 
 ## Mob-handed Brutality: an ORKS INFANTRY unit that made a charge move this
 ## turn has melee [LETHAL HITS] against non-MONSTER/VEHICLE targets. Returns
 ## the source name or "".
 static func melee_lethal_hits_source(attacker: Dictionary, target: Dictionary, board: Dictionary = {}) -> String:
-	if unit_detachment(attacker, board) != GREEN_TIDE:
+	if not unit_has_det(attacker, GREEN_TIDE, board):
 		return ""
 	if not (group_kw(attacker, "ORKS", board) and group_kw(attacker, "INFANTRY", board)):
 		return ""
@@ -411,7 +441,7 @@ static func melee_lethal_hits_source(attacker: Dictionary, target: Dictionary, b
 ## RulesEngine.get_prey_ap_bonus at edition 11.
 static func attack_ap_bonus(attacker: Dictionary, target: Dictionary, board: Dictionary = {}) -> int:
 	var bonus := 0
-	if unit_detachment(attacker, board) == DA_BIG_HUNT and group_kw(attacker, "BEAST SNAGGA", board) \
+	if unit_has_det(attacker, DA_BIG_HUNT, board) and group_kw(attacker, "BEAST SNAGGA", board) \
 			and _group_is_mv(target, board) and int(attacker.get("owner", 0)) != int(target.get("owner", -1)):
 		bonus += 1
 	bonus += int(_tdb(attacker).get("ap", 0))
@@ -427,7 +457,7 @@ static func strength_bonus(attacker: Dictionary, weapon_id: String, board: Dicti
 	if tdb_s > 0:
 		value += tdb_s
 		sources.append("Try Dat Button! +%d S" % tdb_s)
-	if unit_detachment(attacker, board) == WURRBAND and group_kw(attacker, "ORKS", board) \
+	if unit_has_det(attacker, WURRBAND, board) and group_kw(attacker, "ORKS", board) \
 			and group_kw(attacker, "PSYKER", board) and weapon_id != "":
 		var re = Common.rules()
 		if re and re.has_method("is_psychic_weapon") and re.is_psychic_weapon(weapon_id, _board_or_state(board)):
@@ -458,7 +488,7 @@ static func attacks_bonus_per_model(attacker: Dictionary) -> int:
 static func hit_plus_one_source(attacker: Dictionary, target: Dictionary, is_melee: bool, board: Dictionary = {}) -> String:
 	if is_melee:
 		return ""
-	if unit_detachment(attacker, board) == FLYBOYZ and group_kw(attacker, "ORKS", board) \
+	if unit_has_det(attacker, FLYBOYZ, board) and group_kw(attacker, "ORKS", board) \
 			and group_any_kw(attacker, ["AIRCRAFT", "DEFFKOPTAS"], board) and group_riled_up(attacker, board):
 		return "Skyborne Loons (riled up)"
 	var ug := _ug(attacker)
@@ -470,7 +500,7 @@ static func hit_plus_one_source(attacker: Dictionary, target: Dictionary, is_mel
 ## Breaka Boyz / Flash Gitz / Tankbustas unit within range of an objective, or
 ## shooting a target within range of one. Returns the source name or "".
 static func hit_reroll_ones_source(attacker: Dictionary, target: Dictionary, is_melee: bool, board: Dictionary = {}) -> String:
-	if is_melee or unit_detachment(attacker, board) != WRECKAS:
+	if is_melee or not unit_has_det(attacker, WRECKAS, board):
 		return ""
 	if not group_any_kw(attacker, ["BREAKA BOYZ", "FLASH GITZ", "TANKBUSTAS"], board):
 		return ""
@@ -538,7 +568,7 @@ static func attacks_deny_cover(attacker: Dictionary) -> bool:
 ## Dakka! Dakka! Dakka!: +3" Range for a riled-up ORKS INFANTRY unit's
 ## ranged weapons (the Range characteristic, so half range follows).
 static func range_bonus_inches(actor: Dictionary, weapon_profile: Dictionary = {}) -> float:
-	if actor.is_empty() or unit_detachment(actor) != SHOOTA_BOYZ:
+	if actor.is_empty() or not unit_has_det(actor, SHOOTA_BOYZ):
 		return 0.0
 	if not weapon_profile.is_empty():
 		var wtype := str(weapon_profile.get("type", "Ranged")).to_lower()
@@ -557,13 +587,16 @@ static func range_bonus_inches(actor: Dictionary, weapon_profile: Dictionary = {
 ## back this turn — "until the end of the turn"). EffectPrimitives
 ## .has_effect_advance_and_shoot hook.
 static func ranged_attacks_have_assault(u: Dictionary) -> bool:
-	match unit_detachment(u):
-		SHOOTA_BOYZ:
-			return group_kw(u, "ORKS") and group_kw(u, "INFANTRY")
-		KULT_OF_SPEED:
-			if group_kw(u, "SPEED FREEKS"):
-				var flags: Dictionary = u.get("flags", {})
-				return bool(flags.get("advanced", false)) or bool(flags.get("fell_back", false))
+	for det in unit_detachments(u):
+		match det:
+			SHOOTA_BOYZ:
+				if group_kw(u, "ORKS") and group_kw(u, "INFANTRY"):
+					return true
+			KULT_OF_SPEED:
+				if group_kw(u, "SPEED FREEKS"):
+					var flags: Dictionary = u.get("flags", {})
+					if bool(flags.get("advanced", false)) or bool(flags.get("fell_back", false)):
+						return true
 	return false
 
 ## Every [ASSAULT] grant the Codex: Orks (11e) rules give a unit's ranged
@@ -581,7 +614,7 @@ static func unit_ranged_assault_11e(u: Dictionary) -> bool:
 ## declare a charge" — Adrenaline Junkies (SPEED FREEKS). Riled up is the
 ## Waaagh! flag. EffectPrimitives.has_effect_advance_and_charge hook.
 static func advance_allows_charge(u: Dictionary) -> bool:
-	return unit_detachment(u) == KULT_OF_SPEED and group_kw(u, "SPEED FREEKS")
+	return unit_has_det(u, KULT_OF_SPEED) and group_kw(u, "SPEED FREEKS")
 
 ## Fall back and still charge — Adrenaline Junkies (SPEED FREEKS) and
 ## Suspiciously Well Organised (BOYZ / KOMMANDOS / STORMBOYZ).
@@ -589,23 +622,26 @@ static func advance_allows_charge(u: Dictionary) -> bool:
 static func fall_back_allows_charge(u: Dictionary) -> bool:
 	if _enh().fall_back_allows_charge(u):  # WP-O5 Kunnin' But Brutal / Glory Hog
 		return true
-	match unit_detachment(u):
-		KULT_OF_SPEED:
-			return group_kw(u, "SPEED FREEKS")
-		TAKTIKAL_BRIGADE:
-			return group_any_kw(u, ["BOYZ", "KOMMANDOS", "STORMBOYZ"])
+	for det in unit_detachments(u):
+		match det:
+			KULT_OF_SPEED:
+				if group_kw(u, "SPEED FREEKS"):
+					return true
+			TAKTIKAL_BRIGADE:
+				if group_any_kw(u, ["BOYZ", "KOMMANDOS", "STORMBOYZ"]):
+					return true
 	return false
 
 ## Sneaky Little Gitz: a GRETCHIN unit's advance / fall-back move does not
 ## prevent it from being eligible to start an action.
 static func move_keeps_action_eligibility(u: Dictionary) -> bool:
-	return unit_detachment(u) == RUNT_SWARM and group_kw(u, "GRETCHIN")
+	return unit_has_det(u, RUNT_SWARM) and group_kw(u, "GRETCHIN")
 
 ## Unstoppable Momentum: "When a friendly WAGON unit is selected to make an
 ## advance move, that unit can change advance rolls to a 6." Returns 6 when it
 ## applies (the change is always taken: the roll is a maximum), else 0.
 static func advance_roll_override(u: Dictionary) -> int:
-	if unit_detachment(u) == BLITZ_BRIGADE and group_kw(u, "WAGON"):
+	if unit_has_det(u, BLITZ_BRIGADE) and group_kw(u, "WAGON"):
 		return 6
 	return 0
 
@@ -616,7 +652,7 @@ static func report_advance_roll_changed(unit_id: String, old_roll: int) -> void:
 
 ## Unstoppable Momentum: "Friendly Wagon units can re-roll charge rolls."
 static func charge_reroll_source(u: Dictionary) -> String:
-	if unit_detachment(u) == BLITZ_BRIGADE and group_kw(u, "WAGON"):
+	if unit_has_det(u, BLITZ_BRIGADE) and group_kw(u, "WAGON"):
 		return "Unstoppable Momentum"
 	return str(_enh().charge_reroll_source(u))  # WP-O5 Competitive Streak
 
@@ -624,7 +660,7 @@ static func charge_reroll_source(u: Dictionary) -> String:
 ## combined points value of your strategic reserves units."
 static func reserves_points_value(u: Dictionary) -> int:
 	var pts := int(u.get("meta", {}).get("points", 0))
-	if unit_detachment(u) == FLYBOYZ and Common.has_keyword(u, "ORKS") and Common.has_keyword(u, "AIRCRAFT"):
+	if unit_has_det(u, FLYBOYZ) and Common.has_keyword(u, "ORKS") and Common.has_keyword(u, "AIRCRAFT"):
 		return 0
 	return pts
 
@@ -637,7 +673,7 @@ static func reserves_points_value(u: Dictionary) -> int:
 ## remove this WARBOSS model..." — FightPhase._ork11e_fod_intercept hook (the
 ## selected-to-fight gate and the removal live there).
 static func ard_as_nails_applies(u: Dictionary) -> bool:
-	return unit_detachment(u) == BRUTE_BOSSES and Common.has_keyword(u, "WARBOSS")
+	return unit_has_det(u, BRUTE_BOSSES) and Common.has_keyword(u, "WARBOSS")
 
 static func ard_as_nails_roll_modifier(u: Dictionary) -> Dictionary:
 	if group_riled_up(u):
@@ -653,7 +689,7 @@ static func _tdb(u: Dictionary) -> Dictionary:
 	return v if typeof(v) == TYPE_DICTIONARY else {}
 
 static func try_dat_eligible(u: Dictionary) -> bool:
-	return unit_detachment(u) == DREAD_MOB and group_kw(u, "ORKS") and group_kw(u, "WALKER") \
+	return unit_has_det(u, DREAD_MOB) and group_kw(u, "ORKS") and group_kw(u, "WALKER") \
 		and not group_kw(u, "TITANIC") and Common.is_on_battlefield(u)
 
 static func _try_dat_offers(player: int, window_id: String, ctx: Dictionary) -> Array:
@@ -778,7 +814,7 @@ static func _ug(u: Dictionary) -> Dictionary:
 	return v if typeof(v) == TYPE_DICTIONARY else {}
 
 static func ug_eligible(u: Dictionary) -> bool:
-	return unit_detachment(u) == MADCAP_MEKS \
+	return unit_has_det(u, MADCAP_MEKS) \
 		and group_any_kw(u, ["BIG MEK", "MEK GUNZ", "MORKANAUT", "WAZBOM BLASTAJET"])
 
 ## Other enemy units within 3" of the Unpredictable Genius target (Hop Splat).
@@ -967,7 +1003,7 @@ static func _finish_ug(shooter_id: String, reason: String) -> Array:
 
 static func _wurrband_psykers(player: int) -> Array:
 	var out: Array = []
-	if detachment_of(player) != WURRBAND:
+	if not has_det(player, WURRBAND):
 		return out
 	var units: Dictionary = Common.state().get("units", {})
 	for uid in units:

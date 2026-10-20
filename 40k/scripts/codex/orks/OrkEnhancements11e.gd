@@ -44,6 +44,7 @@ extends RefCounted
 const Common = preload("res://scripts/stratagems/ork_codex/OrkCodexCommon.gd")
 const Ab = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 const Det = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
+const ArmyDets = preload("res://scripts/codex/ArmyDetachments11e.gd")
 
 const PX_PER_INCH := 40.0
 const PH_COMMAND := 6
@@ -194,17 +195,25 @@ static func slug_of_name(enh_name: String) -> String:
 
 ## True when `u` carries the codex enhancement `slug` and it is in force:
 ## edition 11+, an ORKS unit, the owner's detachment is the one listing it.
-## `det` overrides the owner's detachment (list-build, before the faction
-## block is in GameState).
-static func has(u: Dictionary, slug: String, det: String = "") -> bool:
+## `det` overrides the owner's detachments (list-build, before the faction
+## block is in GameState): one name, or the Array of every detachment the
+## army took (11e multi-detachment armies — any of them may list it).
+static func has(u: Dictionary, slug: String, det = "") -> bool:
 	if not enabled() or u.is_empty() or not NAMES.has(slug):
 		return false
 	if not str(NAMES[slug]) in _enh_names(u):
 		return false
 	if not Common.has_keyword(u, "ORKS"):
 		return false
-	var d := Det.det_key(det) if det != "" else Det.detachment_of(int(u.get("owner", 0)))
-	return d == str(DETACHMENT[slug])
+	var dets: Array = []
+	if det is Array:
+		for d in det:
+			dets.append(Det.det_key(str(d)))
+	elif str(det) != "":
+		dets.append(Det.det_key(str(det)))
+	else:
+		dets = Det.detachments_of(int(u.get("owner", 0)))
+	return str(DETACHMENT[slug]) in dets
 
 static func has_id(unit_id: String, slug: String) -> bool:
 	return has(Common.unit(unit_id), slug)
@@ -357,7 +366,7 @@ static func record(det: String, enh_name: String) -> Dictionary:
 #   Thunderbuss (the printed weapon is added to the bearer).
 # Idempotent: meta[F_LIST_BUILD] records what was applied.
 
-static func apply_list_build(unit_id: String, unit: Dictionary, detachment: String) -> Array:
+static func apply_list_build(unit_id: String, unit: Dictionary, detachment) -> Array:
 	var applied: Array = []
 	if not enabled() or unit.is_empty() or not unit.has("meta"):
 		return applied
@@ -417,8 +426,9 @@ static func _grant_deadly_demise_d6(meta: Dictionary, unit_id: String) -> void:
 ## The printed enhancement weapon (record.granted_weapon) in the army-file
 ## weapon shape; its name is unique, so the global by-name profile lookup
 ## (RulesEngine.get_weapon_profile) can only ever find this bearer's copy.
-static func _grant_weapon(meta: Dictionary, unit_id: String, slug: String, detachment: String) -> void:
-	var rec := record(detachment, display(slug))
+static func _grant_weapon(meta: Dictionary, unit_id: String, slug: String, _detachment) -> void:
+	# The enhancement's own detachment (any of a multi-detachment army's).
+	var rec := record(str(DETACHMENT[slug]), display(slug))
 	var gw: Dictionary = rec.get("granted_weapon", {})
 	if gw.is_empty():
 		Common.log_error("OrkEnhancements11e: %s has no granted_weapon profile in %s — weapon not added to %s" % [display(slug), DATA_ENHANCEMENTS, unit_id])
@@ -492,7 +502,10 @@ static func owns_army_validation(army_data: Dictionary) -> bool:
 	var fac: Dictionary = army_data.faction
 	if Det.det_key(str(fac.get("name", ""))) != "orks":
 		return false
-	return codex_records().has(Det.det_key(str(fac.get("detachment", ""))))
+	for d in ArmyDets.names_from_army(army_data):
+		if codex_records().has(Det.det_key(str(d))):
+			return true
+	return false
 
 static func _unit_kw_set(u: Dictionary) -> Array:
 	var out: Array = []
@@ -533,7 +546,9 @@ static func validate_army(army_data: Dictionary) -> Dictionary:
 	if not owns_army_validation(army_data):
 		return res
 	var fac: Dictionary = army_data.faction
-	var det := str(fac.get("detachment", ""))
+	# 11e multi-detachment armies: an enhancement may come from ANY of them.
+	var det_names: Array = ArmyDets.names_from_army(army_data)
+	var det := " / ".join(PackedStringArray(det_names.map(func(x): return str(x))))
 	var points := int(fac.get("points", 2000))
 	var units: Dictionary = army_data.get("units", {})
 	var counts := {}       # folded name -> copies
@@ -557,7 +572,11 @@ static func validate_army(army_data: Dictionary) -> Dictionary:
 		if names.size() > 1:
 			res.warnings.append("11e Codex: Orks — %s (%s) carries %d enhancements; each enhancement goes on a different unit" % [uname, unit_id, names.size()])
 		for n in names:
-			var rec := record(det, n)
+			var rec: Dictionary = {}
+			for dn in det_names:
+				rec = record(str(dn), n)
+				if not rec.is_empty():
+					break
 			if rec.is_empty():
 				res.warnings.append("11e Codex: Orks — enhancement '%s' on %s (%s) is not one of %s's enhancements" % [n, uname, unit_id, det])
 				continue

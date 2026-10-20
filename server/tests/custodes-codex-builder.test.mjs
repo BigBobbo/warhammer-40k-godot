@@ -164,3 +164,121 @@ test('applyDataPatches stays idempotent with the Custodes records', () => {
   assert.equal(S.dc.RAW_DATA.enhancements.length, n);
   assert.equal(S.dc.RAW_DATA.detachments.length, d);
 });
+
+// 11e army construction: several detachments while their DP total fits the
+// pool (3 DP at 2000 pts, 2 DP at 1000).
+test('multiple detachments up to the DP pool', () => {
+  freshRoster('lions-of-the-emperor');
+  assert.equal(S.detachmentPointsUsed(), 1);
+  assert.equal(S.detachmentPointsCap(), 3);
+  assert.ok(S.addDetachment('solar-watch'));
+  assert.ok(S.addDetachment('null-maiden-vigil'));
+  assert.equal(S.detachmentPointsUsed(), 3);
+  assert.ok(!S.addDetachment('shadowkeepers'), 'a 4th DP is refused');
+  assert.ok(!S.addDetachment('solar-watch'), 'no duplicates');
+  assert.ok(S.addableDetachments().every(d => !d.fits));
+  // Guardians of the Throne costs 3 DP — only on its own; as the new primary
+  // it trims the extras that no longer fit.
+  S.setDetachment('guardians-of-the-throne');
+  assert.deepEqual(S.state.roster.detachments.map(d => d.ref.id), ['guardians-of-the-throne']);
+  assert.ok(!S.addDetachment('solar-watch'));
+});
+
+test('enhancements come from every selected detachment; removal drops orphans', () => {
+  freshRoster('solar-watch');
+  S.addDetachment('null-maiden-vigil');
+  S.addUnit('shield-captain');
+  const all = S.enhancementChoices(0);
+  assert.ok(all.some(c => c.detachment === 'Solar Watch'));
+  assert.ok(all.some(c => c.detachment === 'Null Maiden Vigil'));
+  const swEnh = all.find(c => c.detachment === 'Solar Watch' && c.eligible);
+  S.setEnhancement(0, swEnh.id);
+  S.removeDetachment('null-maiden-vigil');
+  assert.equal(S.state.roster.units[0].enhancement?.id, swEnh.id, 'kept — still in a selected detachment');
+  S.setDetachment('lions-of-the-emperor'); // replace the primary (Solar Watch)
+  assert.equal(S.state.roster.units[0].enhancement, null, 'dropped with its detachment');
+  assert.ok(!S.removeDetachment('lions-of-the-emperor'), 'the primary is changed, not removed');
+});
+
+test('1000 pts trims detachments to a 2 DP pool', () => {
+  freshRoster('lions-of-the-emperor');
+  S.addDetachment('solar-watch');
+  S.addDetachment('null-maiden-vigil');
+  S.setPointsLimit(1000);
+  assert.equal(S.detachmentPointsCap(), 2);
+  assert.deepEqual(S.state.roster.detachments.map(d => d.ref.id), ['lions-of-the-emperor', 'solar-watch']);
+  S.setPointsLimit(2000);
+});
+
+test('multi-detachment export + import round-trip', () => {
+  freshRoster('lions-of-the-emperor');
+  S.addDetachment('solar-watch');
+  S.addUnit('shield-captain');
+  const sw = S.enhancementChoices(0).find(c => c.detachment === 'Solar Watch' && c.eligible);
+  S.setEnhancement(0, sw.id);
+  const { army } = S.conv.rosterToGame(S.state.roster, { createdDate: '2026-10-20' });
+  assert.equal(army.faction.detachment, 'Lions of the Emperor', 'primary first');
+  assert.deepEqual(army.faction.detachments, ['Lions of the Emperor', 'Solar Watch']);
+  assert.deepEqual(army.detachments, [{ name: 'Lions of the Emperor', dp_cost: 1 }, { name: 'Solar Watch', dp_cost: 1 }]);
+  const unit = Object.values(army.units)[0];
+  assert.deepEqual(unit.meta.enhancements, [sw.name], 'second-detachment enhancement exported');
+  const { roster } = S.conv.gameToRoster(army);
+  assert.deepEqual(roster.detachments.map(d => d.ref.id), ['lions-of-the-emperor', 'solar-watch']);
+  assert.equal(roster.units[0].enhancement?.id, sw.id);
+});
+
+test('Unique: Shield Host — two Shield Host detachments cannot be combined', () => {
+  freshRoster('solar-watch');
+  const sk = S.addableDetachments().find(d => d.id === 'shadowkeepers');
+  assert.ok(!sk.fits && /Shield Host/.test(sk.reason), sk.reason);
+  assert.ok(!S.addDetachment('shadowkeepers'));
+  assert.ok(S.addDetachment('lions-of-the-emperor'), 'a non-Shield Host detachment still joins');
+  // Making a Shield Host detachment the primary drops a conflicting extra.
+  S.addDetachment('null-maiden-vigil');
+  S.setDetachment('dread-host');
+  assert.ok(S.state.roster.detachments.every(d => d.ref.id !== 'solar-watch'));
+  assert.deepEqual(S.detachmentProblems(), []);
+});
+
+test('Incursion: a 3 DP detachment may be the only detachment', () => {
+  freshRoster('lions-of-the-emperor');
+  S.setPointsLimit(1000);
+  S.setDetachment('guardians-of-the-throne');
+  assert.deepEqual(S.state.roster.detachments.map(d => d.ref.id), ['guardians-of-the-throne']);
+  assert.deepEqual(S.detachmentProblems(), [], 'legal');
+  assert.ok(S.detachmentLoneException());
+  assert.ok(S.addableDetachments().every(d => !d.fits), 'nothing joins it');
+  // ...but it cannot be ADDED next to another detachment at Incursion.
+  S.setDetachment('lions-of-the-emperor');
+  const got = S.addableDetachments().find(d => d.id === 'guardians-of-the-throne');
+  assert.ok(!got.fits && /only detachment/.test(got.reason), got.reason);
+  S.setPointsLimit(2000);
+});
+
+test('Force Disposition: only those the detachments give; defaults to the primary\'s', () => {
+  freshRoster('lions-of-the-emperor');
+  assert.equal(S.state.roster.force_disposition, 'disruption');
+  const allowed = () => S.forceDispositions().filter(f => f.allowed).map(f => f.id);
+  assert.deepEqual(allowed(), ['disruption']);
+  S.setForceDisposition('reconnaissance');
+  assert.equal(S.state.roster.force_disposition, 'disruption', 'refused');
+  S.addDetachment('solar-watch');
+  assert.deepEqual(allowed().sort(), ['disruption', 'reconnaissance']);
+  S.setForceDisposition('reconnaissance');
+  assert.equal(S.state.roster.force_disposition, 'reconnaissance');
+  S.removeDetachment('solar-watch');
+  assert.equal(S.state.roster.force_disposition, 'disruption', 'reset when its detachment goes');
+  S.addDetachment('solar-watch');
+  S.setForceDisposition('reconnaissance');
+  const { army } = S.conv.rosterToGame(S.state.roster, { createdDate: '2026-10-20' });
+  assert.equal(army.faction.force_disposition, 'reconnaissance', 'exported');
+  assert.equal(S.conv.gameToRoster(army).roster.force_disposition, 'reconnaissance', 'imported');
+});
+
+test('legality footer: no DP error for a lone 3 DP detachment at Incursion', () => {
+  freshRoster('lions-of-the-emperor');
+  S.setPointsLimit(1000);
+  S.setDetachment('guardians-of-the-throne');
+  assert.ok(!S.legality().army.some(i => i.code === 'detachment-points-over'), JSON.stringify(S.legality().army));
+  S.setPointsLimit(2000);
+});

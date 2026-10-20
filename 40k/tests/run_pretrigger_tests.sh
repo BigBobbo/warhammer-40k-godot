@@ -251,6 +251,7 @@ TESTS=(
     "tests/test_custodes_army_rules_11e.gd"
     "tests/test_custodes_detachments_11e.gd"
     "tests/test_custodes_enhancements_11e.gd"
+    "tests/test_multi_detachment_11e.gd"
     "tests/test_custodes_codex_framework.gd"
     "tests/test_custodes_codex_fight.gd"
     "tests/test_custodes_codex_shooting.gd"

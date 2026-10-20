@@ -4,6 +4,7 @@ extends Node
 # 10e-era Ork detachment code below is gated off and these modules decide.
 const Ork11eArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
 const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
+const ArmyDetachments11e = preload("res://scripts/codex/ArmyDetachments11e.gd")
 
 # FactionAbilityManager - Handles faction-wide abilities triggered during the Command Phase
 #
@@ -449,7 +450,7 @@ func is_boss_watchin_waaagh_available(player: int) -> bool:
 	# 10e Bully Boyz rule — the 11e rule is Displays of Savagery (WP-O34).
 	if GameConstants.edition >= 11:
 		return false
-	if get_player_detachment(player) != "Bully Boyz":
+	if not player_has_detachment(player, "Bully Boyz"):
 		return false
 	var player_key = str(player)
 	if not _waaagh_used.get(player_key, false):
@@ -821,20 +822,45 @@ func detect_player_detachment(player: int) -> String:
 	return detachment
 
 func get_player_detachment(player: int) -> String:
-	"""Get cached detachment for a player."""
+	"""Get cached detachment for a player (the PRIMARY one — 11e armies may
+	take several; use player_has_detachment / get_player_detachments)."""
 	return _player_detachment.get(str(player), "")
 
+func get_player_detachments(player: int) -> Array:
+	"""Every detachment the player took (11e multi-detachment armies), primary
+	first — all of them are active."""
+	var names: Array = ArmyDetachments11e.player_detachments(player)
+	# The cached primary (detect_player_detachment) owns the primary slot, as
+	# it did before multi-detachment armies; extras come from the faction block.
+	var cached := get_player_detachment(player)
+	if cached != "":
+		if names.is_empty():
+			names = [cached]
+		elif ArmyDetachments11e.det_key(str(names[0])) != ArmyDetachments11e.det_key(cached):
+			var rest: Array = names.slice(1).filter(func(n): return ArmyDetachments11e.det_key(str(n)) != ArmyDetachments11e.det_key(cached))
+			names = [cached] + rest
+	return names
+
+func player_has_detachment(player: int, detachment_name: String) -> bool:
+	"""Did the player take this detachment (any of their detachments)?"""
+	var key := ArmyDetachments11e.det_key(detachment_name)
+	for d in get_player_detachments(player):
+		if ArmyDetachments11e.det_key(str(d)) == key:
+			return true
+	return false
+
 func has_detachment_ability(player: int) -> bool:
-	"""Check if a player's detachment has a known detachment ability."""
-	var detachment = get_player_detachment(player)
-	return detachment in DETACHMENT_ABILITIES
+	"""Check if any of a player's detachments has a known detachment ability."""
+	for d in get_player_detachments(player):
+		if d in DETACHMENT_ABILITIES:
+			return true
+	return false
 
 # ---- COMBAT DOCTRINES (Space Marines — Gladius Task Force) ----
 
 func get_available_doctrines(player: int) -> Array:
 	"""Get list of Combat Doctrines that haven't been used yet this battle."""
-	var detachment = get_player_detachment(player)
-	if detachment != "Gladius Task Force":
+	if not player_has_detachment(player, "Gladius Task Force"):
 		return []
 
 	var used = _doctrines_used.get(str(player), [])
@@ -856,9 +882,8 @@ func get_active_doctrine(player: int) -> String:
 func select_combat_doctrine(player: int, doctrine_key: String) -> Dictionary:
 	"""Select a Combat Doctrine for this Command Phase. Once per battle each."""
 	var player_key = str(player)
-	var detachment = get_player_detachment(player)
 
-	if detachment != "Gladius Task Force":
+	if not player_has_detachment(player, "Gladius Task Force"):
 		return {"success": false, "error": "Player %d is not using Gladius Task Force detachment" % player}
 
 	var options = DETACHMENT_ABILITIES["Gladius Task Force"]["options"]
@@ -966,7 +991,7 @@ func _clear_doctrine_effects(player: int) -> void:
 
 func is_get_stuck_in_active(player: int) -> bool:
 	"""Check if player has War Horde detachment (Get Stuck In is always active)."""
-	return get_player_detachment(player) == "War Horde"
+	return player_has_detachment(player, "War Horde")
 
 static func unit_has_get_stuck_in(unit: Dictionary) -> bool:
 	"""Static query: Check if a unit has the Get Stuck In detachment buff active."""
@@ -1065,12 +1090,11 @@ func unit_has_detachment_assault(unit: Dictionary) -> bool:
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
-	var detachment = get_player_detachment(owner)
-	if detachment == "More Dakka!":
-		return _unit_has_keyword(unit, "ORKS") \
-			and (_unit_has_keyword(unit, "INFANTRY") or _unit_has_keyword(unit, "WALKER"))
-	if detachment == "Kult of Speed":
-		return _unit_has_keyword(unit, "SPEED FREEKS")
+	if player_has_detachment(owner, "More Dakka!") and _unit_has_keyword(unit, "ORKS") \
+			and (_unit_has_keyword(unit, "INFANTRY") or _unit_has_keyword(unit, "WALKER")):
+		return true
+	if player_has_detachment(owner, "Kult of Speed") and _unit_has_keyword(unit, "SPEED FREEKS"):
+		return true
 	return false
 
 func unit_has_adrenaline_junkies(unit: Dictionary) -> bool:
@@ -1083,13 +1107,13 @@ func unit_has_adrenaline_junkies(unit: Dictionary) -> bool:
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
-	return get_player_detachment(owner) == "Kult of Speed" and _unit_has_keyword(unit, "SPEED FREEKS")
+	return player_has_detachment(owner, "Kult of Speed") and _unit_has_keyword(unit, "SPEED FREEKS")
 
 func unit_has_more_dakka_waaagh_sustained(unit: Dictionary) -> bool:
 	"""More Dakka! — while the Waaagh! is active, ranged weapons on ORKS
 	INFANTRY/WALKER models also have SUSTAINED HITS 1."""
 	var owner = int(unit.get("owner", 0))
-	if owner <= 0 or get_player_detachment(owner) != "More Dakka!":
+	if owner <= 0 or not player_has_detachment(owner, "More Dakka!"):
 		return false
 	if not (_unit_has_keyword(unit, "ORKS") and (_unit_has_keyword(unit, "INFANTRY") or _unit_has_keyword(unit, "WALKER"))):
 		return false
@@ -1110,11 +1134,10 @@ func unit_has_detachment_charge_reroll(unit: Dictionary) -> bool:
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
-	var detachment = get_player_detachment(owner).replace("’", "'")
-	if detachment == "Blitz Brigade":
-		return unit.get("disembarked_this_phase", false) and _unit_has_keyword(unit, "ORKS")
-	if detachment == "Rollin' Deff":
-		return _unit_is_thundering_wagon(unit)
+	if player_has_detachment(owner, "Blitz Brigade") and unit.get("disembarked_this_phase", false) and _unit_has_keyword(unit, "ORKS"):
+		return true
+	if player_has_detachment(owner, "Rollin' Deff") and _unit_is_thundering_wagon(unit):
+		return true
 	return false
 
 func unit_has_detachment_advance_reroll(unit: Dictionary) -> bool:
@@ -1126,7 +1149,7 @@ func unit_has_detachment_advance_reroll(unit: Dictionary) -> bool:
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
-	return get_player_detachment(owner) == "Blitz Brigade" \
+	return player_has_detachment(owner, "Blitz Brigade") \
 		and unit.get("disembarked_this_phase", false) and _unit_has_keyword(unit, "ORKS")
 
 func get_thundering_wagons_advance_override(unit: Dictionary) -> int:
@@ -1135,7 +1158,7 @@ func get_thundering_wagons_advance_override(unit: Dictionary) -> int:
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return 0
-	if get_player_detachment(owner).replace("’", "'") != "Rollin' Deff":
+	if not player_has_detachment(owner, "Rollin' Deff"):
 		return 0
 	return 6 if _unit_is_thundering_wagon(unit) else 0
 
@@ -1148,7 +1171,7 @@ func unit_can_turbo_boost(unit: Dictionary) -> bool:
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
-	if get_player_detachment(owner) != "Speedwaaagh!":
+	if not player_has_detachment(owner, "Speedwaaagh!"):
 		return false
 	if _unit_has_keyword(unit, "AIRCRAFT"):
 		return false
@@ -1171,7 +1194,7 @@ func process_try_dat_button(unit_id: String, scope: String) -> void:
 	if unit.is_empty():
 		return
 	var owner = int(unit.get("owner", 0))
-	if owner <= 0 or get_player_detachment(owner) != "Dread Mob":
+	if owner <= 0 or not player_has_detachment(owner, "Dread Mob"):
 		return
 	if not (_unit_has_keyword(unit, "MEK") or _unit_has_keyword(unit, "WALKER")
 			or (_unit_has_keyword(unit, "GROTS") and _unit_has_keyword(unit, "VEHICLE"))):
@@ -1246,7 +1269,7 @@ func get_taktik_issuers(player: int) -> Array:
 	# 10e Taktikal Brigade rule — the 11e rule is Suspiciously Well Organised (WP-O34).
 	if GameConstants.edition >= 11:
 		return []
-	if get_player_detachment(player) != "Taktikal Brigade":
+	if not player_has_detachment(player, "Taktikal Brigade"):
 		return []
 	var round_no = GameState.get_battle_round()
 	var out: Array = []
@@ -1285,7 +1308,7 @@ func can_issue_taktik(issuer_id: String, taktik: String, target_id: String) -> D
 	if issuer.is_empty() or target.is_empty():
 		return {"can": false, "reason": "issuer or target not found"}
 	var player = int(issuer.get("owner", 0))
-	if get_player_detachment(player) != "Taktikal Brigade":
+	if not player_has_detachment(player, "Taktikal Brigade"):
 		return {"can": false, "reason": "Lissen 'Ere requires the Taktikal Brigade detachment"}
 	if not TAKTIKS.has(taktik):
 		return {"can": false, "reason": "unknown Taktik '%s'" % taktik}
@@ -1442,8 +1465,7 @@ func _clear_taktik_effects(player: int) -> void:
 
 func is_loot_objective_available(player: int) -> bool:
 	"""Check if loot objective selection is needed (new battle round, Freebooter Krew player)."""
-	var detachment = get_player_detachment(player)
-	if detachment != "Freebooter Krew":
+	if not player_has_detachment(player, "Freebooter Krew"):
 		return false
 	var current_round = GameState.get_battle_round()
 	var last_selected = _loot_objective_round.get(str(player), 0)
@@ -1475,9 +1497,8 @@ func get_eligible_loot_objectives() -> Array:
 func set_loot_objective(player: int, objective_id: String) -> Dictionary:
 	"""Set the loot objective for a player. Returns result dict."""
 	var player_key = str(player)
-	var detachment = get_player_detachment(player)
 
-	if detachment != "Freebooter Krew":
+	if not player_has_detachment(player, "Freebooter Krew"):
 		return {"success": false, "error": "Player %d is not using Freebooter Krew detachment" % player}
 
 	# Validate objective exists
@@ -1686,8 +1707,7 @@ func get_grab_and_bash_eligible_units(player: int) -> Array:
 	Requirements: non-Gretchin ORKS unit, deployed, alive, within range of loot objective.
 	Returns array of { unit_id: String, unit_name: String }."""
 	var eligible = []
-	var detachment = get_player_detachment(player)
-	if detachment != "Freebooter Krew":
+	if not player_has_detachment(player, "Freebooter Krew"):
 		return eligible
 
 	var player_key = str(player)
@@ -1864,7 +1884,7 @@ func has_enhancement(player: int, enhancement_name: String) -> bool:
 
 func is_da_kaptin_available(player: int) -> bool:
 	"""Check if Da Kaptin can be used this battle round."""
-	if get_player_detachment(player) != "Freebooter Krew":
+	if not player_has_detachment(player, "Freebooter Krew"):
 		return false
 	# Check once-per-round
 	var current_round = GameState.get_battle_round()
@@ -2563,12 +2583,11 @@ func on_command_phase_start(player: int) -> void:
 	# Apply passive detachment abilities (Get Stuck In)
 	# (10e rules — at 11e the Codex: Orks detachment rules are read live by
 	# OrkDetachments11e, WP-O34.)
-	var detachment = get_player_detachment(player)
-	if detachment == "War Horde" and GameConstants.edition < 11:
+	if player_has_detachment(player, "War Horde") and GameConstants.edition < 11:
 		_apply_get_stuck_in(player)
 
 	# Green Tide — Mob Mentality: refresh the BOYZ 6+/5+ invulnerable save
-	if detachment == "Green Tide" and GameConstants.edition < 11:
+	if player_has_detachment(player, "Green Tide") and GameConstants.edition < 11:
 		_apply_mob_mentality(player)
 
 	# 11e detachment keyword grants (Dread Mob Gretchin / Taktikal Stormboyz
@@ -2576,18 +2595,19 @@ func on_command_phase_start(player: int) -> void:
 	if GameConstants.edition >= 11:
 		Ork11eDetachments.apply_keyword_grants(player)  # Kult of Speed / Taktikal Brigade / Runt Swarm BATTLELINE (WP-O34)
 	else:
-		_apply_detachment_keyword_grants(player, detachment)
+		for det_name in get_player_detachments(player):
+			_apply_detachment_keyword_grants(player, str(det_name))
 
 	# Clear loot objective from previous round (Freebooter Krew — OA-1)
 	# Loot objective resets each battle round; selection happens via action in CommandPhase
-	if detachment == "Freebooter Krew":
+	if player_has_detachment(player, "Freebooter Krew"):
 		_clear_loot_objective(player)
 		print("FactionAbilityManager: Player %d has Freebooter Krew — awaiting loot objective selection" % player)
 
 	# Da Big Hunt — Prey (detachment rule): (re-)select an enemy MONSTER/
 	# VEHICLE/CHARACTER unit as this player's Prey until their next Command
 	# phase.
-	if detachment == "Da Big Hunt" and GameConstants.edition < 11:  # 10e Prey (WP-O34: 11e is Da Hunt is On)
+	if player_has_detachment(player, "Da Big Hunt") and GameConstants.edition < 11:  # 10e Prey (WP-O34: 11e is Da Hunt is On)
 		_select_prey_for_player(player)
 
 	# Lissen 'Ere — Taktiks (Taktikal Brigade): effects last until the start of
@@ -2596,7 +2616,7 @@ func on_command_phase_start(player: int) -> void:
 	_clear_taktik_effects(player)
 
 	# Bionik Workshop — resolve on first Command Phase (start of battle) (OA-2)
-	if detachment == "Freebooter Krew" and not _bionik_workshop_resolved:
+	if player_has_detachment(player, "Freebooter Krew") and not _bionik_workshop_resolved:
 		if has_enhancement(player, "Bionik Workshop"):
 			var bw_result = resolve_bionik_workshop(player)
 			if bw_result.success:

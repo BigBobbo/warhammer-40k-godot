@@ -174,11 +174,29 @@ func get_faction_name(faction_code: String) -> String:
 # STRATAGEM LOADING FROM CSV
 # ============================================================================
 
-func load_faction_stratagems(faction_name: String, detachment_name: String, stratagems_csv_path: String = "res://data/Stratagems.csv") -> Array:
+func load_faction_stratagems(faction_name: String, detachment_name, stratagems_csv_path: String = "res://data/Stratagems.csv") -> Array:
 	"""
 	Load all stratagems for a given faction and detachment from CSV.
+	`detachment_name` is one name, or (11e multi-detachment armies) the Array
+	of every detachment the army took — the stratagems of all of them load.
 	Returns array of stratagem dictionaries in StratagemManager format.
 	"""
+	if detachment_name is Array:
+		var merged: Array = []
+		var seen_ids := {}
+		var names: Array = detachment_name.filter(func(n): return str(n).strip_edges() != "")
+		if names.is_empty():
+			return load_faction_stratagems(faction_name, "", stratagems_csv_path)
+		for n in names:
+			for strat in load_faction_stratagems(faction_name, str(n), stratagems_csv_path):
+				var sid := str(strat.get("id", ""))
+				if sid == "" or seen_ids.has(sid):
+					continue
+				seen_ids[sid] = true
+				merged.append(strat)
+		print("FactionStratagemLoader: Loaded %d stratagems for %s across %d detachments %s" % [merged.size(), faction_name, names.size(), str(names)])
+		return merged
+	detachment_name = str(detachment_name)
 	var faction_code = get_faction_code(faction_name)
 	if faction_code == "":
 		print("FactionStratagemLoader: Cannot load stratagems — unknown faction: '%s'" % faction_name)

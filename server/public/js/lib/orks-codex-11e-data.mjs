@@ -28,7 +28,8 @@ export const ORKS_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "take-and-hold"
-    ]
+    ],
+    "tags": []
   },
   {
     "id": "brute-bosses",

@@ -12,6 +12,7 @@ import { GAME_NAME_CANON_ENTRIES } from '../lib/canon.mjs';
 import { createConverter, ALLIED_FACTIONS, FACTION_DISPLAY_OVERRIDES } from '../lib/gameformat.mjs';
 import { applyDataPatches, bearerKeywords, CODEX_OVERLAY_BASE_VERSION } from '../lib/data-patches.mjs';
 import { canBear, maxHolders, isUpgrade } from '../lib/enhancement-rules.mjs';
+import * as DR from '../lib/detachment-rules.mjs';
 
 // Inject local dataset corrections (the Wahapedia codex datasheets for
 // Adeptus Custodes / Orks — WP-W3 — and the codex detachments/enhancements)
@@ -184,9 +185,11 @@ export function detachmentList(fid) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Every Force Disposition; `allowed` = given by a selected detachment. */
 export function forceDispositions() {
   const fds = DC.RAW_DATA.forceDispositions ?? [];
-  return fds.map(fd => ({ id: fd.id, name: fd.name ?? fd.id }));
+  const allowed = allowedDispositionIds();
+  return fds.map(fd => ({ id: fd.id, name: fd.name ?? fd.id, allowed: !allowed.length || allowed.includes(fd.id) }));
 }
 
 /** Raw 40kdc unit + composition + wargear options for a roster unit.
@@ -395,40 +398,174 @@ export function setFaction(fid) {
   r.units = [];
   state.selectedUnit = -1;
   const dets = detachmentList(fid);
-  r.detachments = dets.length
-    ? [{ ref: { id: dets[0].id, raw_name: dets[0].name, resolved: true, candidates: [] }, dp_cost: dets[0].detachment_points ?? 1 }]
-    : [];
+  r.detachments = dets.length ? [detachmentEntry(dets[0])] : [];
+  r.force_disposition = null;
+  syncForceDisposition();
   repriceAll();
   notify();
 }
 
-export function setDetachment(detId) {
+function detachmentEntry(det) {
+  return { ref: { id: det.id, raw_name: det.name, resolved: true, candidates: [] }, dp_cost: det.detachment_points ?? 1 };
+}
+
+/** 11e: an army may take several detachments while their Detachment Points
+ * total stays within the pool (lib/detachment-rules.mjs). */
+export function detachmentPointsUsed() {
+  return state.roster.detachments.reduce((s, d) => s + (d.dp_cost ?? 1), 0);
+}
+
+export function detachmentPointsCap() {
   const r = state.roster;
-  const det = conv.findDetachment(r.faction_id, detId);
-  r.detachments = det
-    ? [{ ref: { id: det.id, raw_name: det.name, resolved: true, candidates: [] }, dp_cost: det.detachment_points ?? 1 }]
-    : [];
-  // Enhancements belong to a detachment — drop ones the new detachment lacks.
-  const valid = new Set(det?.enhancement_ids ?? []);
+  return r.points.detachment_cap ?? DR.dpCap(r.points.declared_limit);
+}
+
+/** Selected detachment records (resolved ones only). */
+export function selectedDetachments() {
+  const r = state.roster;
+  return r.detachments
+    .map(d => d.ref?.id ? conv.findDetachment(r.faction_id, d.ref.id) : null)
+    .filter(Boolean);
+}
+
+/** DP / tag rules the current selection breaks ([] when legal). */
+export function detachmentProblems() {
+  return DR.selectionProblems(selectedDetachments(), state.roster.points.declared_limit);
+}
+
+/** A lone 3 DP detachment at Incursion — legal over the 2 DP pool. */
+export function detachmentLoneException() {
+  const dets = selectedDetachments();
+  return DR.isLoneIncursionException(dets, state.roster.points.declared_limit) && DR.dpUsed(dets) > detachmentPointsCap();
+}
+
+// Enhancements belong to a detachment — drop ones no selected detachment has.
+function dropOrphanEnhancements(contextName) {
+  const r = state.roster;
+  const valid = new Set(selectedDetachments().flatMap(d => d.enhancement_ids ?? []));
   let dropped = 0;
   for (const ru of r.units) {
     const eid = ru.enhancement?.id ?? ru.enhancement?.ref?.id;
     if (eid && !valid.has(eid)) { ru.enhancement = null; ru.enhancement_points = null; dropped++; }
   }
-  if (dropped) setStatus('info', `${dropped} enhancement(s) removed — not in ${det?.name ?? 'the new detachment'}`);
+  if (dropped) setStatus('info', `${dropped} enhancement(s) removed — not in ${contextName}`);
+}
+
+/** Force Dispositions the selected detachments give (all when none resolve). */
+export function allowedDispositionIds() {
+  return DR.allowedDispositions(selectedDetachments());
+}
+
+// The army's Force Disposition must be one its detachments give: keep the
+// current pick while it still is, otherwise default to the primary's.
+function syncForceDisposition() {
+  const r = state.roster;
+  const allowed = allowedDispositionIds();
+  if (!allowed.length) return;
+  if (r.force_disposition && allowed.includes(r.force_disposition)) return;
+  const before = r.force_disposition;
+  r.force_disposition = allowed[0];
+  console.log(`[builder] force disposition ${before ?? '(none)'} -> ${r.force_disposition} (allowed: ${allowed.join(', ')})`);
+}
+
+// After the selection changes: enhancements, disposition, prices, redraw.
+function afterDetachmentChange(contextName) {
+  dropOrphanEnhancements(contextName);
+  syncForceDisposition();
   repriceAll();
   notify();
+}
+
+/** Set the primary detachment (the first). Additional detachments are kept
+ * while they can still join it (DP pool, tags). */
+export function setDetachment(detId) {
+  const r = state.roster;
+  const det = conv.findDetachment(r.faction_id, detId);
+  if (!det) {
+    r.detachments = [];
+  } else {
+    const kept = [det];
+    const dropped = [];
+    for (const rd of r.detachments.slice(1)) {
+      const x = rd.ref?.id ? conv.findDetachment(r.faction_id, rd.ref.id) : null;
+      if (x && x.id !== det.id && !DR.addProblem(kept, x, r.points.declared_limit)) kept.push(x);
+      else if (x && x.id !== det.id) dropped.push(x.name);
+    }
+    if (dropped.length) setStatus('info', `Removed ${dropped.join(', ')} — can't be combined with ${det.name}`);
+    r.detachments = kept.map(detachmentEntry);
+  }
+  console.log(`[builder] primary detachment: ${det?.name ?? '(none)'} — ${detachmentPointsUsed()}/${detachmentPointsCap()} DP`);
+  afterDetachmentChange(det?.name ?? 'the new detachment');
+}
+
+/** Add a detachment if it can join the selection. Returns true on add. */
+export function addDetachment(detId) {
+  const r = state.roster;
+  const det = conv.findDetachment(r.faction_id, detId);
+  if (!det) return false;
+  const problem = DR.addProblem(selectedDetachments(), det, r.points.declared_limit);
+  if (problem) {
+    setStatus('err', `Can't add ${det.name}: ${problem}`);
+    return false;
+  }
+  r.detachments.push(detachmentEntry(det));
+  console.log(`[builder] detachment added: ${det.name} (${DR.dpOf(det)} DP) — ${detachmentPointsUsed()}/${detachmentPointsCap()} DP`);
+  afterDetachmentChange(det.name);
+  return true;
+}
+
+/** Remove an additional detachment (the primary is changed, not removed). */
+export function removeDetachment(detId) {
+  const r = state.roster;
+  const idx = r.detachments.findIndex(d => d.ref?.id === detId);
+  if (idx < 1) return false;
+  const [gone] = r.detachments.splice(idx, 1);
+  console.log(`[builder] detachment removed: ${gone.ref?.raw_name} — ${detachmentPointsUsed()}/${detachmentPointsCap()} DP`);
+  afterDetachmentChange('the remaining detachments');
+  return true;
+}
+
+/** Every other detachment, each with `fits` and the `reason` it can't join. */
+export function addableDetachments() {
+  const r = state.roster;
+  if (!r.faction_id) return [];
+  const sel = selectedDetachments();
+  const have = new Set(r.detachments.map(d => d.ref?.id));
+  return detachmentList(r.faction_id)
+    .filter(d => !have.has(d.id))
+    .map(d => {
+      const reason = DR.addProblem(sel, d, r.points.declared_limit);
+      return { ...d, fits: !reason, reason: reason ?? '' };
+    });
 }
 
 export function setPointsLimit(points) {
   const r = state.roster;
   r.points.declared_limit = points;
   r.battle_size = points <= 1000 ? 'incursion' : 'strike-force';
-  r.points.detachment_cap = points <= 1000 ? 2 : 3;
+  r.points.detachment_cap = DR.dpCap(points);
+  // A smaller pool keeps detachments in selection order while they still fit
+  // (a lone 3 DP detachment stays — legal at Incursion).
+  const sel = selectedDetachments();
+  if (sel.length > 1) {
+    const kept = [sel[0]];
+    for (const d of sel.slice(1)) if (!DR.addProblem(kept, d, points)) kept.push(d);
+    if (kept.length < sel.length) {
+      r.detachments = kept.map(detachmentEntry);
+      setStatus('info', `Detachments trimmed to fit ${r.points.detachment_cap} DP`);
+      afterDetachmentChange('the detachments that fit the DP pool');
+      return;
+    }
+  }
   notify();
 }
 
 export function setForceDisposition(id) {
+  const allowed = allowedDispositionIds();
+  if (id && allowed.length && !allowed.includes(id)) {
+    setStatus('err', 'That Force Disposition is not given by any of your detachments');
+    return;
+  }
   state.roster.force_disposition = id || null;
   notify();
 }
@@ -672,9 +809,8 @@ export function eligibleBodyguards(ru) {
  * With a roster index, each choice also says whether THAT unit may bear it
  * (printed restriction from rules_text, CHARACTER vs Upgrade — WP-C46). */
 export function enhancementChoices(forIndex = null) {
-  const det = state.roster.detachments[0];
-  const d = det?.ref?.id ? conv.findDetachment(state.roster.faction_id, det.ref.id) : null;
-  if (!d) return [];
+  const dets = selectedDetachments();
+  if (!dets.length) return [];
   const taken = new Map();
   const holders = new Map();
   state.roster.units.forEach((u, idx) => {
@@ -687,10 +823,10 @@ export function enhancementChoices(forIndex = null) {
   });
   const ru = forIndex === null ? null : state.roster.units[forIndex];
   const rawUnit = ru ? unitData(ru.ref.id, ru._unit_faction_id)?.raw : null;
-  return (d.enhancement_ids ?? [])
-    .map(eid => (DC.RAW_DATA.enhancements ?? []).find(x => x.id === eid))
-    .filter(Boolean)
-    .map(e => {
+  return dets.flatMap(d => (d.enhancement_ids ?? []).map(eid => ({ eid, det: d })))
+    .map(({ eid, det }) => ({ e: (DC.RAW_DATA.enhancements ?? []).find(x => x.id === eid), det }))
+    .filter(x => x.e)
+    .map(({ e, det }) => {
       const hs = holders.get(e.id) ?? [];
       const others = forIndex === null ? hs : hs.filter(i => i !== forIndex);
       const full = others.length >= maxHolders(e);
@@ -702,6 +838,7 @@ export function enhancementChoices(forIndex = null) {
         upgrade: isUpgrade(e),
         keyword_restrictions: e.keyword_restrictions ?? [],
         rules_text: e.rules_text ?? '',
+        detachment: det.name,
         takenBy: full ? (others[0] ?? null) : null,
         holders: hs,
         eligible: bear.ok,
@@ -746,7 +883,17 @@ export function repriceAll() {
 
 export function legality() {
   try {
-    return DC.checkRoster(state.roster, ds);
+    const res = DC.checkRoster(state.roster, ds);
+    // Core rules the package checker does not know (lib/detachment-rules.mjs):
+    // a lone 3 DP detachment is legal at Incursion; detachments sharing a tag
+    // ("Unique: Shield Host") cannot be combined.
+    if (detachmentLoneException()) {
+      res.army = res.army.filter(i => i.code !== 'detachment-points-over');
+    }
+    for (const msg of detachmentProblems().filter(m => /share the Unique/.test(m))) {
+      res.army.push({ code: 'detachment-tag-shared', id: 'roster', message: msg, unitIndex: null, severity: 'error' });
+    }
+    return res;
   } catch (e) {
     return { units: [], army: [{ code: 'checker-error', id: 'roster', message: String(e), unitIndex: null, severity: 'warn' }] };
   }

@@ -7,6 +7,8 @@ signal army_loaded(army_data: Dictionary)
 signal army_load_failed(error: String)
 signal cloud_armies_loaded(armies: Array)
 signal cloud_army_fetched(army_name: String, army_data: Dictionary)
+## Any cloud army download landed in cloud_army_cache (incl. prefetch_cloud_army).
+signal cloud_army_cached(army_name: String)
 signal cloud_army_fetch_failed(army_name: String, error: String)
 
 var current_army_data: Dictionary = {}
@@ -274,7 +276,7 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 
 			# WP-O5: Codex: Orks (11e) enhancement list-build effects ('Ardboyz,
 			# It Came from da Drops, Flyboss, Warphead, enhancement weapons).
-			_ork11e_enh().apply_list_build(unit_id, unit, str(army_data.get("faction", {}).get("detachment", "")))
+			_ork11e_enh().apply_list_build(unit_id, unit, load("res://scripts/codex/ArmyDetachments11e.gd").names_from_army(army_data))
 
 			# MA-1: Log model_profiles if present
 			if unit.has("meta") and unit.meta.has("model_profiles"):
@@ -365,6 +367,16 @@ func apply_army_to_game_state(army_data: Dictionary, player: int) -> void:
 		if not GameState.state.has("factions"):
 			GameState.state["factions"] = {}
 		GameState.state["factions"][str(player)] = army_data.faction
+		# 11e multi-detachment armies: every selected detachment (primary first)
+		# is active — normalise the list onto the faction block the rule hooks
+		# read (ArmyDetachments11e.player_detachments), from faction.detachments
+		# or the top-level detachments[{name, dp_cost}].
+		if army_data.faction is Dictionary:
+			var det_names: Array = load("res://scripts/codex/ArmyDetachments11e.gd").names_from_army(army_data)
+			army_data.faction["detachments"] = det_names
+			if str(army_data.faction.get("detachment", "")) == "" and not det_names.is_empty():
+				army_data.faction["detachment"] = det_names[0]
+			print("Set detachments for player %d: %s" % [player, str(det_names)])
 		print("Set faction for player ", player, ": ", army_data.faction.get("name", "Unknown"))
 
 	# Load faction stratagems for this player
@@ -498,6 +510,35 @@ func fetch_cloud_army(army_name: String, player: int = 1) -> void:
 	print("ArmyListManager: Fetching cloud army '%s' for player %d" % [army_name, player])
 	CloudStorage.get_army(army_name)
 
+func prefetch_cloud_army(army_name: String) -> void:
+	## Download a cloud army into cloud_army_cache WITHOUT the game-start
+	## cloud_army_fetched signal (the main menu reads its detachments to offer
+	## only the Force Dispositions they give). cloud_army_cached fires on arrival.
+	if army_name in cloud_army_cache or army_name in _pending_cloud_fetches or not CloudStorage:
+		return
+	if not _cloud_armies_connected:
+		CloudStorage.armies_list_received.connect(_on_cloud_armies_list_received)
+		CloudStorage.army_downloaded.connect(_on_cloud_army_downloaded)
+		CloudStorage.request_failed.connect(_on_cloud_request_failed)
+		_cloud_armies_connected = true
+	print("ArmyListManager: Prefetching cloud army '%s' (detachments for the menu)" % army_name)
+	CloudStorage.get_army(army_name)
+
+func peek_army_raw(army_name: String) -> Dictionary:
+	## The army JSON as stored (local file, else the cloud cache) — no unit
+	## processing, no GameState writes. {} when unknown / not downloaded yet.
+	for file_path in ["res://armies/%s.json" % army_name, "user://armies/%s.json" % army_name]:
+		if FileAccess.file_exists(file_path):
+			var f = FileAccess.open(file_path, FileAccess.READ)
+			if f == null:
+				return {}
+			var parsed = JSON.parse_string(f.get_as_text())
+			f.close()
+			return parsed if parsed is Dictionary else {}
+	if army_name in cloud_army_cache:
+		return cloud_army_cache[army_name]
+	return {}
+
 func load_army_for_game(army_name: String, player: int) -> Dictionary:
 	## Load army from local file or cloud cache. Returns empty dict if not found locally
 	## and not cached. For cloud armies not yet cached, use fetch_cloud_army() instead.
@@ -533,6 +574,8 @@ func _on_cloud_army_downloaded(army_name: String, army_data: Dictionary) -> void
 	print("ArmyListManager: Cloud army downloaded: %s" % army_name)
 	# Cache the raw army data
 	cloud_army_cache[army_name] = army_data
+
+	cloud_army_cached.emit(army_name)
 
 	# If this was a pending fetch, process and emit
 	if _pending_cloud_fetches.has(army_name):
@@ -684,7 +727,7 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 
 		# WP-O5: Codex: Orks (11e) enhancement list-build effects (cloud /
 		# browser-builder armies take this path, not load_army_list).
-		_ork11e_enh().apply_list_build(unit_id, unit, str(army_data.get("faction", {}).get("detachment", "")))
+		_ork11e_enh().apply_list_build(unit_id, unit, load("res://scripts/codex/ArmyDetachments11e.gd").names_from_army(army_data))
 		# Codex: Adeptus Custodes (11e) enhancements' list-build effects for an
 		# army built in the browser builder and loaded from the cloud (WP-C46;
 		# idempotent — the same call as load_army_list's).
@@ -1665,9 +1708,9 @@ const STANDARD_GAME_SIZES: Array = [500, 1000, 1500, 2000, 3000]
 ## appendix): Warlord must share the army's Faction keyword; enhancement
 ## count capped at 2 per 1000 pts (2 @ 1000 / 4 @ 2000); Upgrade-tagged
 ## enhancements may sit on up to three non-CHARACTER units while counting
-## as one choice; Detachment Points pool is 3 at 2000 pts (only checked
-## when the army data declares detachment DP costs — current army JSONs
-## carry a single detachment with no cost, which passes trivially).
+## as one choice; detachments fit the Detachment Points pool (2 at 1000 /
+## 3 at 2000, a lone 3 DP detachment allowed at 1000) without sharing a tag,
+## and the Force Disposition comes from them (ArmyDetachments11e).
 func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 	var result = {"valid": true, "errors": [], "warnings": []}
 	if not army_data.get("faction", null) is Dictionary:
@@ -1696,7 +1739,7 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 		# allows it (Null Maiden Vigil hook; CustodesKatah.gd).
 		var ap_unit: Dictionary = units[unit_id].duplicate()
 		ap_unit["id"] = unit_id
-		var ap_reason: String = load("res://scripts/codex/custodes/CustodesKatah.gd").warlord_block_reason(ap_unit, str(faction.get("detachment", "")))
+		var ap_reason: String = load("res://scripts/codex/custodes/CustodesKatah.gd").warlord_block_reason(ap_unit, load("res://scripts/codex/ArmyDetachments11e.gd").names_from_army(army_data))
 		if ap_reason != "":
 			result.warnings.append("11e: Warlord %s — %s" % [unit_id, ap_reason])
 	if not warlord_found:
@@ -1719,16 +1762,16 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 	if _ork11e_enh().owns_army_validation(army_data):
 		result.warnings.append_array(_ork11e_enh().validate_army(army_data).warnings)
 
-	# --- Detachment Points: pool of 3 at 2000 pts ---
-	var detachments = army_data.get("detachments", [])
-	if detachments is Array and detachments.size() > 0:
-		var dp_total = 0
-		for det in detachments:
-			if det is Dictionary:
-				dp_total += int(det.get("dp_cost", 1))
-		var dp_pool = 3 if points_limit >= 2000 else maxi(1, int(floor(points_limit / 2000.0 * 3)))
-		if dp_total > dp_pool:
-			result.warnings.append("11e: detachments cost %d DP, pool is %d at %d pts" % [dp_total, dp_pool, points_limit])
+	# --- Detachments (core rules 25.03/25.04): DP pool (Incursion 2, Strike
+	# Force 3; a lone 3 DP detachment is allowed at Incursion), no two sharing
+	# a tag, and the Force Disposition must be one the detachments give. ---
+	var army_dets = load("res://scripts/codex/ArmyDetachments11e.gd")
+	for problem in army_dets.construction_problems(army_data):
+		result.warnings.append("11e: %s" % problem)
+	var declared_fd: String = army_dets.declared_disposition(army_data)
+	var allowed_fd: Array = army_dets.allowed_dispositions(army_data)
+	if declared_fd != "" and not allowed_fd.is_empty() and not declared_fd in allowed_fd:
+		result.warnings.append("11e: Force Disposition %s is not given by the army's detachments (%s)" % [declared_fd, ", ".join(PackedStringArray(allowed_fd))])
 
 	result.valid = result.errors.is_empty()
 	return result

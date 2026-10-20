@@ -25,7 +25,7 @@ DATA = ROOT / "40k" / "data" / "40kdc"
 OUT = ROOT / "server" / "public" / "js" / "lib" / "orks-codex-11e-data.mjs"
 
 DET_FIELDS = ["id", "name", "faction_id", "detachment_rule_id", "enhancement_ids", "stratagem_ids",
-              "game_version", "detachment_points", "force_dispositions"]
+              "game_version", "detachment_points", "force_dispositions", "tags"]
 ENH_FIELDS = ["id", "name", "detachment_id", "cost", "keyword_restrictions", "keyword_restriction_groups",
               "exclusion_keywords", "bearer_scope", "ability_id", "is_unique", "game_version",
               "points_provisional", "upgrade_tag", "max_targets", "rules_text"]

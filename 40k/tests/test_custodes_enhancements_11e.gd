@@ -956,6 +956,18 @@ func _section_army_construction() -> void:
 	_check("'(one per army)' Upgrade on two units is flagged", _warned(memento, "max 1"), str(memento.warnings))
 	var cap: Dictionary = R.validate_army(_army("Guardians of the Throne", {"A": _u("Shield-Captain", sc_kw, ["Eagle's Eye"]), "B": _u("Shield-Captain", sc_kw, ["Bane of Abominations"]), "C": _u("Blade Champion", ["ADEPTUS CUSTODES", "CHARACTER", "INFANTRY"], ["Emperor's Light"])}, 1000))
 	_check("2 per 1000 pts cap", _warned(cap, "exceed the cap of 2"), str(cap.warnings))
+	# 11e multi-detachment lists (DP pool): an enhancement from ANY selected
+	# detachment is legal (army builder exports faction.detachments + detachments[]).
+	var multi := _army("Lions of the Emperor", {"A": _u("Shield-Captain", sc_kw, ["Sally Forth"])})
+	multi.faction["detachments"] = ["Lions of the Emperor", "Solar Watch"]
+	multi["detachments"] = [{"name": "Lions of the Emperor", "dp_cost": 1}, {"name": "Solar Watch", "dp_cost": 1}]
+	var multi_v: Dictionary = R.validate_army(multi)
+	_check("multi-detachment: a second-detachment enhancement is legal", multi_v.warnings.is_empty(), str(multi_v.warnings))
+	_check("multi-detachment: names primary-first, deduped", R.army_detachment_names(multi) == ["Lions of the Emperor", "Solar Watch"], str(R.army_detachment_names(multi)))
+	var multi_bad := _army("Lions of the Emperor", {"A": _u("Shield-Captain", sc_kw, ["Eagle's Eye"])})
+	multi_bad.faction["detachments"] = ["Lions of the Emperor", "Solar Watch"]
+	var multi_bad_v: Dictionary = R.validate_army(multi_bad)
+	_check("multi-detachment: an enhancement from an unselected detachment is still flagged", _warned(multi_bad_v, "not a Lions of the Emperor / Solar Watch enhancement"), str(multi_bad_v.warnings))
 	var epic: Dictionary = R.validate_army(_army("Guardians of the Throne", {"A": _u("Trajann Valoris", ["ADEPTUS CUSTODES", "CHARACTER", "EPIC HERO", "INFANTRY"], ["Eagle's Eye"])}))
 	_check("no enhancement on an EPIC HERO", _warned(epic, "EPIC HERO"), str(epic.warnings))
 	var alm = root.get_node("ArmyListManager")

@@ -47,6 +47,7 @@ extends RefCounted
 ## hooks ("Codex: Adeptus Custodes (11e) … (CustodesDetachments.gd, WP-C46)").
 
 const Common = preload("res://scripts/codex/custodes/CustodesCommon.gd")
+const ArmyDets = preload("res://scripts/codex/ArmyDetachments11e.gd")
 const GameStateData = preload("res://autoloads/GameState.gd")
 
 const ENHANCEMENTS_PATH := "res://scripts/codex/custodes/CustodesEnhancements.gd"
@@ -176,6 +177,30 @@ static func unit_detachment(u: Dictionary, board: Dictionary = {}) -> String:
 	if u.is_empty():
 		return ""
 	return detachment_of(int(u.get("owner", 0)), board)
+
+## 11e multi-detachment armies: EVERY detachment `player` selected is active
+## (ArmyDetachments11e) — normalised keys, primary first.
+static func detachments_of(player: int, board: Dictionary = {}) -> Array:
+	if not enabled() or player <= 0:
+		return []
+	return ArmyDets.player_detachment_keys(player, _board_or_state(board))
+
+static func has_det(player: int, det: String, board: Dictionary = {}) -> bool:
+	return det in detachments_of(player, board)
+
+## Is `det` one of the detachments of the unit's owner?
+static func unit_has_det(u: Dictionary, det: String, board: Dictionary = {}) -> bool:
+	if u.is_empty():
+		return false
+	return has_det(int(u.get("owner", 0)), det, board)
+
+## The player's 'Unique: Shield Host' detachment (the one stating a Favoured
+## Ka'tah) — at most one: two detachments sharing a tag cannot be combined.
+static func shield_host_of(player: int) -> String:
+	for det in detachments_of(player):
+		if FAVOURED.has(det):
+			return det
+	return ""
 
 static func rule_name(det: String) -> String:
 	return str(RULE_NAMES.get(det, ""))
@@ -316,10 +341,10 @@ static func below_half_strength(u: Dictionary) -> bool:
 # ===========================================================================
 
 static func favoured_katah(player: int) -> String:
-	return str(FAVOURED.get(detachment_of(player), ""))
+	return str(FAVOURED.get(shield_host_of(player), ""))
 
 static func favoured_katah_text(player: int, katah_id: String) -> String:
-	var det := detachment_of(player)
+	var det := shield_host_of(player)
 	if str(FAVOURED.get(det, "")) != katah_id:
 		return ""
 	return "%s — %s" % [rule_name(det), str(FAVOURED_TEXT.get(det, ""))]
@@ -328,7 +353,7 @@ static func favoured_katah_text(player: int, katah_id: String) -> String:
 ## already selected for this effect this phase). Emperor's Chosen RENDAX: one
 ## engaged enemy MONSTER / VEHICLE unit. {} when there is nothing to pick.
 static func favoured_katah_secondary(player: int, katah_id: String, unit_id: String, _ctx: Dictionary) -> Dictionary:
-	var det := detachment_of(player)
+	var det := shield_host_of(player)
 	var opts: Array = []
 	if det == SHADOWKEEPERS and katah_id == "kaptaris":
 		for eid in Common.engaged_enemy_ids(unit_id):
@@ -357,7 +382,7 @@ static func favoured_katah_secondary(player: int, katah_id: String, unit_id: Str
 ## The additional effect of the Favoured Ka'tah, right after the ka'tah's own
 ## effect is applied. Returns the diffs (CustodesKatah applies them).
 static func favoured_katah_extra_effect(player: int, katah_id: String, unit_id: String, ctx: Dictionary) -> Array:
-	var det := detachment_of(player)
+	var det := shield_host_of(player)
 	if str(FAVOURED.get(det, "")) != katah_id:
 		return []
 	var uname := Common.unit_name(unit_id)
@@ -460,7 +485,7 @@ static func hit_effects(attacker: Dictionary, target: Dictionary, is_melee: bool
 	if not enabled() or attacker.is_empty():
 		return out
 	# Might of the Moritoi: DREADNOUGHT below starting strength re-rolls hit 1s.
-	if unit_detachment(attacker, board) == MORITOI and Common.has_keyword(attacker, "ADEPTUS CUSTODES") \
+	if unit_has_det(attacker, MORITOI, board) and Common.has_keyword(attacker, "ADEPTUS CUSTODES") \
 			and Common.has_keyword(attacker, "DREADNOUGHT") and below_starting_strength(attacker):
 		out.append({"kind": "reroll_ones", "source": "Moritoi Ancients", "note": "DREADNOUGHT below its starting strength"})
 	var e = enh()
@@ -474,20 +499,19 @@ static func wound_effects(attacker: Dictionary, target: Dictionary, is_melee: bo
 	var out: Array = []
 	if not enabled() or attacker.is_empty():
 		return out
-	var tdet := unit_detachment(target, board)
 	if int(attacker.get("owner", 0)) != int(target.get("owner", -1)) and strength > toughness \
 			and is_custodes(target, board) and not group_is_mv(target, board):
-		if tdet == AQUILAN and not is_melee and within_objective_range(target, board):
+		# Aquilan Shield and Shadowkeepers are both 'Unique: Shield Host' — never together.
+		if unit_has_det(target, AQUILAN, board) and not is_melee and within_objective_range(target, board):
 			out.append({"kind": "minus_one", "source": "Gilded Guardians (Aquilan Shield)", "note": "S %d > T %d, target within range of an objective" % [strength, toughness]})
-		elif tdet == SHADOWKEEPERS and is_melee and within_objective_range(target, board):
+		elif unit_has_det(target, SHADOWKEEPERS, board) and is_melee and within_objective_range(target, board):
 			out.append({"kind": "minus_one", "source": "Wardens of the Dark Cells (Shadowkeepers)", "note": "S %d > T %d, target within range of an objective" % [strength, toughness]})
-	var adet := unit_detachment(attacker, board)
-	if adet == HONOURED and group_kw(attacker, "TRUSTED SENTINEL", board) and within_objective_range(attacker, board):
+	if unit_has_det(attacker, HONOURED, board) and group_kw(attacker, "TRUSTED SENTINEL", board) and within_objective_range(attacker, board):
 		out.append({"kind": "reroll_ones", "source": "Companion's Watch (Honoured Companions)", "note": "TRUSTED SENTINEL within range of an objective"})
-	if adet == AURIC_CHAMPIONS and Common.has_keyword(attacker, "ADEPTUS CUSTODES") and is_dreadful_foe_of(target, int(attacker.get("owner", 0)), board) \
+	if unit_has_det(attacker, AURIC_CHAMPIONS, board) and Common.has_keyword(attacker, "ADEPTUS CUSTODES") and is_dreadful_foe_of(target, int(attacker.get("owner", 0)), board) \
 			and _attacks_by_character(attacker, board, ctx):
 		out.append({"kind": "plus_one", "source": "Assemblage of Might (Auric Champions)", "note": "CHARACTER model's attack vs a dreadful foe"})
-	if adet == MORITOI and Common.has_keyword(attacker, "ADEPTUS CUSTODES") and Common.has_keyword(attacker, "DREADNOUGHT") \
+	if unit_has_det(attacker, MORITOI, board) and Common.has_keyword(attacker, "ADEPTUS CUSTODES") and Common.has_keyword(attacker, "DREADNOUGHT") \
 			and below_half_strength(attacker):
 		out.append({"kind": "reroll_ones", "source": "Moritoi Ancients", "note": "DREADNOUGHT below half-strength"})
 	var e = enh()
@@ -557,7 +581,7 @@ static func melee_weapon_grants(attacker: Dictionary, target: Dictionary, board:
 static func magna_imperator_available(attacker: Dictionary, kind: String, board: Dictionary = {}) -> bool:
 	if not enabled() or attacker.is_empty():
 		return false
-	if unit_detachment(attacker, board) != EMPERORS_CHOSEN or not Common.has_keyword(attacker, "ADEPTUS CUSTODES"):
+	if not unit_has_det(attacker, EMPERORS_CHOSEN, board) or not Common.has_keyword(attacker, "ADEPTUS CUSTODES"):
 		return false
 	return not _magna_used.has(_magna_key(attacker, kind, board))
 
@@ -597,7 +621,7 @@ static func range_bonus_inches(actor: Dictionary, weapon_profile: Dictionary = {
 		var wtype := str(weapon_profile.get("type", "Ranged")).to_lower()
 		if wtype == "melee" or str(weapon_profile.get("range", "")).to_lower() == "melee":
 			return 0.0
-	if unit_detachment(actor) == AQUILAN and katah_active(actor, "salvus"):
+	if unit_has_det(actor, AQUILAN) and katah_active(actor, "salvus"):
 		return 6.0
 	return 0.0
 
@@ -607,7 +631,7 @@ static func invuln_save(target: Dictionary, is_melee: bool, board: Dictionary = 
 	var best := 0
 	if not enabled() or target.is_empty():
 		return 0
-	if not is_melee and unit_detachment(target, board) == GRAV_ASSAULT and Common.has_keyword(target, "GRAV-ASSAULT"):
+	if not is_melee and unit_has_det(target, GRAV_ASSAULT, board) and Common.has_keyword(target, "GRAV-ASSAULT"):
 		best = 4
 	var e = enh()
 	if e:
@@ -636,20 +660,20 @@ static func better_invuln(current: int, target: Dictionary, is_melee: bool, boar
 static func oc_bonus(u: Dictionary) -> int:
 	if not enabled() or u.is_empty():
 		return 0
-	if unit_detachment(u) == MORITOI and Common.has_keyword(u, "ADEPTUS CUSTODES") and Common.has_keyword(u, "DREADNOUGHT") \
+	if unit_has_det(u, MORITOI) and Common.has_keyword(u, "ADEPTUS CUSTODES") and Common.has_keyword(u, "DREADNOUGHT") \
 			and Common.is_alive(u) and not below_starting_strength(u):
 		return 2
 	return 0
 
 ## Heralds of the Throne: friendly ADEPTUS CUSTODES units have Fights First.
 static func has_fights_first(u: Dictionary) -> bool:
-	return enabled() and unit_detachment(u) == EMISSARIES and Common.has_keyword(u, "ADEPTUS CUSTODES")
+	return enabled() and unit_has_det(u, EMISSARIES) and Common.has_keyword(u, "ADEPTUS CUSTODES")
 
 ## Charge re-roll source ("" = none): Dread Host + Combat Deployment.
 static func charge_reroll_source(u: Dictionary) -> String:
 	if not enabled() or u.is_empty():
 		return ""
-	if unit_detachment(u) == DREAD_HOST and is_custodes(u):
+	if unit_has_det(u, DREAD_HOST) and is_custodes(u):
 		return "Instruments of the Emperor's Wrath (Dread Host)"
 	var e = enh()
 	if e:
@@ -659,7 +683,7 @@ static func charge_reroll_source(u: Dictionary) -> String:
 ## Talon Sortie: an ADEPTUS CUSTODES unit's fall-back move does not prevent
 ## it from being eligible to charge.
 static func fall_back_allows_charge(u: Dictionary) -> bool:
-	return enabled() and unit_detachment(u) == SOLAR_WATCH and is_custodes(u)
+	return enabled() and unit_has_det(u, SOLAR_WATCH) and is_custodes(u)
 
 ## Fall back and still shoot: Anti-gravitic Mobility (enhancement).
 static func fall_back_allows_shoot(u: Dictionary) -> bool:
@@ -675,7 +699,7 @@ static func advance_allows_charge(u: Dictionary) -> bool:
 static func move_bonus_inches(u: Dictionary) -> float:
 	if not enabled() or u.is_empty():
 		return 0.0
-	if unit_detachment(u) == SOLAR_WATCH and katah_active(u, "calistus"):
+	if unit_has_det(u, SOLAR_WATCH) and katah_active(u, "calistus"):
 		return 2.0
 	return 0.0
 
@@ -704,7 +728,7 @@ static func fight_move_cap(unit_id: String, base_cap: float, board: Dictionary =
 		var eu := Common.unit(str(eid))
 		if int(eu.get("owner", 0)) == owner:
 			continue
-		if unit_detachment(eu) == DREAD_HOST and katah_active(eu, "dacatarai"):
+		if unit_has_det(eu, DREAD_HOST) and katah_active(eu, "dacatarai"):
 			var before := cap
 			cap = maxf(0.0, cap - 2.0)
 			_log("Dread Host Favoured Dacatarai: %s is engaged with %s — pile-in / consolidation %.0f\" -> %.0f\"" % [unit_id, str(eid), before, cap])
@@ -715,7 +739,7 @@ static func fight_move_cap(unit_id: String, base_cap: float, board: Dictionary =
 ## advance / fall-back move does not prevent the unit from being eligible to
 ## start an action (until the end of the turn — the Conservai flag's life).
 static func move_keeps_action_eligibility(u: Dictionary) -> bool:
-	return enabled() and unit_detachment(u) == EMISSARIES and katah_active(u, "conservai")
+	return enabled() and unit_has_det(u, EMISSARIES) and katah_active(u, "conservai")
 
 # --- Enhancement hooks the engine reaches through this facade ---------------
 
@@ -759,7 +783,7 @@ static func any_consolidation_mode(unit_id: String) -> bool:
 ## the start of each of the player's Command phases. Returns the diffs.
 static func apply_keyword_grants(player: int) -> Array:
 	var diffs: Array = []
-	if detachment_of(player) != NULL_MAIDEN:
+	if not has_det(player, NULL_MAIDEN):
 		return diffs
 	var units: Dictionary = Common.state().get("units", {})
 	for uid in units:
@@ -797,7 +821,7 @@ static func creeping_dread_units(active_player: int) -> Array:
 	if not enabled():
 		return out
 	var opponent := 2 if active_player == 1 else 1
-	if detachment_of(opponent) != NULL_MAIDEN:
+	if not has_det(opponent, NULL_MAIDEN):
 		return out
 	var units: Dictionary = Common.state().get("units", {})
 	var sources: Array = []
@@ -942,7 +966,7 @@ static func _martial_mastery_offers(player: int, ctx: Dictionary) -> Array:
 		return []
 	var head := Common.head_id(uid)
 	var u := Common.unit(head)
-	if u.is_empty() or int(u.get("owner", 0)) != player or detachment_of(player) != GUARDIANS:
+	if u.is_empty() or int(u.get("owner", 0)) != player or not has_det(player, GUARDIANS):
 		return []
 	if not is_custodes(u) or int(Common.current_phase()) != int(GameStateData.Phase.FIGHT):
 		return []
@@ -1000,7 +1024,7 @@ static func _ai_martial_mastery_variant(unit_id: String) -> String:
 # --- Assemblage of Might (Auric Champions) ---------------------------------
 
 static func _dreadful_foe_offers(player: int, _ctx: Dictionary) -> Array:
-	if detachment_of(player) != AURIC_CHAMPIONS or Common.active_player() != player:
+	if not has_det(player, AURIC_CHAMPIONS) or Common.active_player() != player:
 		return []
 	if int(Common.current_phase()) != int(GameStateData.Phase.COMMAND):
 		return []
@@ -1074,7 +1098,7 @@ static func _ai_dreadful_foe_pick(player: int, targets: Array) -> String:
 # --- On Gilded Wings (Lions of the Emperor) ---------------------------------
 
 static func _gilded_wings_offers(player: int, _ctx: Dictionary) -> Array:
-	if detachment_of(player) != LIONS or Common.active_player() == player:
+	if not has_det(player, LIONS) or Common.active_player() == player:
 		return []  # "At the end of your opponent's Fight phase"
 	var units: Dictionary = Common.state().get("units", {})
 	var targets: Array = []

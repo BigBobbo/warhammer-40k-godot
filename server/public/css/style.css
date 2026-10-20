@@ -101,6 +101,20 @@ body {
   white-space: nowrap;
 }
 
+.det-picker { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--text-dim); }
+.det-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg-raised); border: 1px solid var(--border); color: var(--text);
+  border-radius: 12px; padding: 2px 4px 2px 10px; white-space: nowrap;
+}
+.det-chip-remove {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 0 4px;
+}
+.det-chip-remove:hover { color: var(--red); }
+.dp-badge { color: var(--gold); font-weight: 600; white-space: nowrap; }
+.dp-badge.over { color: var(--red); }
+
 .support-note { color: var(--amber); font-size: 12px; }
 
 select, input[type="text"], input:not([type]), textarea {

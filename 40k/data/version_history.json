@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.47.0",
+      "date": "2026-10-20",
+      "summary": "Multiple detachments: build an army from several detachments within the Detachment Points pool (3 DP at 2000 pts, 2 DP at 1000), and every one of them is active in game.",
+      "changes": [
+        "Army builder: the Detachment picker sets your primary detachment and \"+ add detachment\" adds more; a DP counter shows e.g. 3 / 3 DP and each extra detachment has a \u00d7 to remove it.",
+        "Army builder follows the core rules: a 3 DP detachment can be your only detachment at 1000 pts, two detachments sharing a tag (e.g. the Custodes 'Unique: Shield Host' detachments) cannot be combined, and greyed-out options say why.",
+        "Force Disposition: the builder and the game's main menu / multiplayer lobbies only offer the dispositions your detachments give, and default to the one you picked in the builder.",
+        "Enhancements from every detachment you take are offered (each labelled with its detachment); removing a detachment drops its enhancements.",
+        "In game, every detachment you took is active: all their detachment rules, stratagems, enhancements and BATTLELINE grants (e.g. Lions of the Emperor + Solar Watch gives you both stratagem lists and Solar Watch's Favoured Ka'tah).",
+        "Army validation checks the DP pool (now 2 DP at 1000 pts), shared tags and the Force Disposition, without false \"not a ... enhancement\" warnings for a second detachment's enhancements."
+      ]
+    },
+    {
       "version": "1.46.0",
       "date": "2026-10-18",
       "summary": "Codex: Adeptus Custodes and Codex: Orks: every Custodes and Ork unit uses its 11th-edition codex datasheet, and the codex army rules, detachments, stratagems, enhancements and datasheet abilities are playable.",

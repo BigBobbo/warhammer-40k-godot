@@ -256,6 +256,31 @@ static func _enh_name(enh) -> String:
 	return ""
 
 
+## Every detachment the army takes, primary (faction.detachment) first, then
+## faction.detachments / top-level detachments[{name, dp_cost}] (11e DP pool).
+static func army_detachment_names(army_data: Dictionary) -> Array:
+	var out: Array = []
+	var faction = army_data.get("faction", {})
+	var raw: Array = []
+	if faction is Dictionary:
+		raw.append(faction.get("detachment", ""))
+		var fd = faction.get("detachments", [])
+		if fd is Array:
+			raw.append_array(fd)
+	var top = army_data.get("detachments", [])
+	if top is Array:
+		for d in top:
+			raw.append(d.get("name", "") if d is Dictionary else d)
+	var seen := {}
+	for n in raw:
+		var nm := str(n).strip_edges()
+		if nm == "" or seen.has(norm(nm)):
+			continue
+		seen[norm(nm)] = true
+		out.append(nm)
+	return out
+
+
 ## Validate every enhancement in `army_data` (units: {id: {meta: {...}}}).
 ## Returns {"errors": [], "warnings": []} — rule violations are warnings,
 ## matching the rest of the 11e construction checks (they never block a load).
@@ -264,7 +289,9 @@ static func validate_army(army_data: Dictionary) -> Dictionary:
 	var faction = army_data.get("faction", {})
 	if not faction is Dictionary:
 		return out
-	var detachment := str(faction.get("detachment", ""))
+	# 11e: an army may take several detachments (DP pool) — an enhancement is
+	# legal when ANY of them lists it. faction.detachment is the primary.
+	var det_names := army_detachment_names(army_data)
 	var points_limit := int(faction.get("points", 2000))
 	var units = army_data.get("units", {})
 	if not units is Dictionary:
@@ -283,10 +310,19 @@ static func validate_army(army_data: Dictionary) -> Dictionary:
 			var name := _enh_name(enh)
 			if name == "":
 				continue
-			var rec := find_enhancement(detachment, name)
+			var rec: Dictionary = {}
+			var any_known_det := false
+			for dn in det_names:
+				if not find_detachment(dn).is_empty():
+					any_known_det = true
+				rec = find_enhancement(dn, name)
+				if not rec.is_empty():
+					break
+			if det_names.is_empty():
+				rec = find_enhancement("", name)
 			var upgrade: bool = is_upgrade(rec) if not rec.is_empty() else (enh is Dictionary and bool(enh.get("upgrade", false)))
-			if rec.is_empty() and detachment != "" and not find_detachment(detachment).is_empty() and enhancement_exists(name):
-				out.warnings.append("11e: enhancement '%s' on %s is not a %s enhancement" % [name, unit_id, detachment])
+			if rec.is_empty() and any_known_det and enhancement_exists(name):
+				out.warnings.append("11e: enhancement '%s' on %s is not a %s enhancement" % [name, unit_id, " / ".join(det_names)])
 			var problem := bearer_problem(rec, unit, upgrade)
 			if problem != "":
 				out.warnings.append("11e: %senhancement '%s' on %s — %s" % ["Upgrade " if upgrade else "", name, unit_id, problem])

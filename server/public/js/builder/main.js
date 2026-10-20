@@ -48,8 +48,6 @@ function renderTopbar() {
     ...factions.map(f => ({ value: f.id, label: f.supported ? f.name : `${f.name} ◦` })),
   ];
 
-  const detachments = r.faction_id ? S.detachmentList(r.faction_id) : [];
-  const currentDet = r.detachments[0]?.ref?.id ?? '';
 
   return h('header.topbar', {},
     h('div.topbar-row', {},
@@ -70,30 +68,69 @@ function renderTopbar() {
     h('div.topbar-row.topbar-config', {},
       h('label', {}, 'Faction',
         select(factionOptions, r.faction_id ?? '', onFactionChange)),
-      h('label', {}, 'Detachment',
-        select(
-          detachments.length
-            ? detachments.map(d => ({ value: d.id, label: `${d.name} (${d.detachment_points ?? 1} DP)` }))
-            : [{ value: '', label: '—' }],
-          currentDet,
-          (v) => S.setDetachment(v),
-          { disabled: !detachments.length })),
+      renderDetachmentPicker(r),
       h('label', {}, 'Points',
         select([
           { value: '1000', label: '1000 (Incursion)' },
           { value: '2000', label: '2000 (Strike Force)' },
         ], String(r.points.declared_limit ?? 2000), (v) => S.setPointsLimit(parseInt(v, 10)))),
-      h('label', {}, 'Disposition',
+      h('label', { title: 'Your army picks one Force Disposition from those its detachments give' }, 'Disposition',
         select([
           { value: '', label: '— none —' },
-          ...S.forceDispositions().map(fd => ({ value: fd.id, label: fd.name })),
-        ], r.force_disposition ?? '', (v) => S.setForceDisposition(v))),
+          ...S.forceDispositions().map(fd => ({
+            value: fd.id,
+            label: fd.allowed ? fd.name : `${fd.name} — not from your detachments`,
+            disabled: !fd.allowed,
+          })),
+        ], r.force_disposition ?? '', (v) => S.setForceDisposition(v), { id: 'disposition-select' })),
       r.faction_id && !S.FULLY_SUPPORTED_FACTIONS.has(r.faction_id)
         ? h('span.support-note', { title: 'Datasheets, weapons and core abilities work in-game; this faction\'s army rule, detachment rules and stratagems are not automated yet.' },
           '◦ limited in-game rules automation')
         : null,
     ),
   );
+}
+
+// 11e: several detachments may be taken while their DP total fits the pool
+// (3 DP at Strike Force). The first select is the primary detachment (its
+// rules run in-game); additional ones show as chips plus an "add" select.
+function renderDetachmentPicker(r) {
+  const detachments = r.faction_id ? S.detachmentList(r.faction_id) : [];
+  const primary = r.detachments[0]?.ref?.id ?? '';
+  const used = S.detachmentPointsUsed();
+  const cap = S.detachmentPointsCap();
+  const lone = S.detachmentLoneException();
+  const problems = S.detachmentProblems();
+  const addable = S.addableDetachments();
+  const fitting = addable.filter(d => d.fits);
+  const chips = r.detachments.slice(1).map(d =>
+    h('span.det-chip', { title: `${d.ref?.raw_name ?? '?'} — ${d.dp_cost ?? 1} DP`, dataset: { detId: d.ref?.id ?? '' } },
+      `+ ${d.ref?.raw_name ?? '?'} (${d.dp_cost ?? 1} DP)`,
+      h('button.det-chip-remove', { title: 'Remove detachment', onclick: () => S.removeDetachment(d.ref?.id) }, '×')));
+  return h('div.det-picker#detachment-picker', {},
+    h('label', { title: 'Primary detachment — its rules and stratagems are used in-game' }, 'Detachment',
+      select(
+        detachments.length
+          ? detachments.map(d => ({ value: d.id, label: `${d.name} (${d.detachment_points ?? 1} DP)` }))
+          : [{ value: '', label: '—' }],
+        primary,
+        (v) => S.setDetachment(v),
+        { disabled: !detachments.length })),
+    chips,
+    r.faction_id
+      ? select([
+          { value: '', label: fitting.length ? '+ add detachment' : (addable.length ? (used >= cap ? 'DP pool full' : 'none can be added') : 'no more detachments') },
+          ...addable.map(d => ({
+            value: d.id,
+            label: `${d.name} (${d.detachment_points ?? 1} DP)` + (d.fits ? '' : ` — ${d.reason}`),
+            disabled: !d.fits,
+          })),
+        ], '', (v) => { if (v) S.addDetachment(v); }, { id: 'add-detachment-select', disabled: !fitting.length })
+      : null,
+    h('span', {
+      class: problems.length ? 'dp-badge over' : 'dp-badge', id: 'dp-badge',
+      title: problems.length ? problems.join('\n') : (lone ? 'Incursion: a 3 DP detachment may be your only detachment' : ''),
+    }, lone ? `${used} DP (only detachment)` : `${used} / ${cap} DP`));
 }
 
 function onNew() {
@@ -376,7 +413,7 @@ function renderEnhancementRow(i, ru, raw) {
       { value: '', label: '— none —' },
       ...choices.map(c => ({
         value: c.id,
-        label: `${c.name} (${c.cost} pts)` + (c.upgrade ? ' — Upgrade' : '') + (c.takenBy !== null && c.takenBy !== i ? ' — taken' : '')
+        label: `${c.name} (${c.cost} pts)` + (S.state.roster.detachments.length > 1 ? ` — ${c.detachment}` : '') + (c.upgrade ? ' — Upgrade' : '') + (c.takenBy !== null && c.takenBy !== i ? ' — taken' : '')
           + (!c.eligible ? ` — ${c.reason}` : ''),
         disabled: (c.takenBy !== null && c.takenBy !== i) || !c.eligible,
       })),

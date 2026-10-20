@@ -230,7 +230,7 @@ func _build_warlord_section() -> void:
 	# Codex: Adeptus Custodes — Anathema Psykana: ANATHEMA PSYKANA models
 	# cannot be the Warlord unless the detachment allows it (CustodesKatah.gd).
 	var cus11e_katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
-	var cus11e_det: String = cus11e_katah.player_detachment(declaring_player)
+	var cus11e_det: Array = cus11e_katah.player_detachments(declaring_player)
 	characters = characters.filter(func(cid):
 		var cu: Dictionary = GameState.get_unit(str(cid)).duplicate()
 		cu["id"] = str(cid)

@@ -561,14 +561,16 @@ func load_faction_stratagems_for_player(player: int) -> void:
 	var faction_data = GameState.state.get("factions", {}).get(str(player), {})
 	var faction_name = faction_data.get("name", "")
 	var detachment_name = faction_data.get("detachment", "")
+	# 11e multi-detachment armies: every selected detachment's stratagems.
+	var detachment_names: Array = load("res://scripts/codex/ArmyDetachments11e.gd").names_from_faction(faction_data) if faction_data is Dictionary else []
 
 	if faction_name == "" or faction_name == "Unknown":
 		print("StratagemManager: No faction data for player %d, skipping faction stratagems" % player)
 		return
 
-	print("StratagemManager: Loading faction stratagems for player %d — %s / %s" % [player, faction_name, detachment_name])
+	print("StratagemManager: Loading faction stratagems for player %d — %s / %s" % [player, faction_name, " + ".join(PackedStringArray(detachment_names.map(func(x): return str(x)))) if not detachment_names.is_empty() else detachment_name])
 
-	var faction_strats = _faction_loader.load_faction_stratagems(faction_name, detachment_name)
+	var faction_strats = _faction_loader.load_faction_stratagems(faction_name, detachment_names if detachment_names.size() > 1 else detachment_name)
 
 	# Clear any previously loaded faction stratagems for this player
 	_clear_player_faction_stratagems(player)

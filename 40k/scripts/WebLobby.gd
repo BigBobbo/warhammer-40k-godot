@@ -197,17 +197,46 @@ func _format_army_name(army_id: String) -> String:
 		formatted_parts.append(part.capitalize())
 	return " ".join(formatted_parts)
 
+## 11e (core rules 25.04): a seat's Force Disposition must be one its army's
+## detachments give (ArmyDetachments11e) — grey out the others and default to
+## the army's own pick. Cloud armies are prefetched; cloud_army_cached re-runs it.
+func _apply_army_dispositions_11e(player: int, army_id: String) -> void:
+	var dropdown: OptionButton = p1_disposition_dropdown if player == 1 else p2_disposition_dropdown
+	if dropdown == null or not ArmyListManager or army_id == "":
+		return
+	var raw: Dictionary = ArmyListManager.peek_army_raw(army_id)
+	if raw.is_empty() and ArmyListManager.is_cloud_army(army_id):
+		if not ArmyListManager.cloud_army_cached.is_connected(_on_cloud_army_cached_11e):
+			ArmyListManager.cloud_army_cached.connect(_on_cloud_army_cached_11e)
+		ArmyListManager.prefetch_cloud_army(army_id)
+		return
+	var target: String = load("res://scripts/codex/ArmyDetachments11e.gd").restrict_disposition_dropdown(
+		dropdown, raw, PrimaryMissionData11e.DISPOSITIONS, true)
+	print("%s: P%d army '%s' -> disposition %s" % [name, player, army_id, target if target != "" else "(kept)"])
+	if target != "":
+		var idx := PrimaryMissionData11e.DISPOSITIONS.find(target)
+		dropdown.select(idx)
+		_on_disposition_changed(idx, player)
+
+func _on_cloud_army_cached_11e(army_name: String) -> void:
+	if army_name == selected_player1_army:
+		_apply_army_dispositions_11e(1, army_name)
+	if army_name == selected_player2_army:
+		_apply_army_dispositions_11e(2, army_name)
+
 func _on_player1_army_changed(index: int) -> void:
 	if index < 0 or index >= army_options.size():
 		return
 	selected_player1_army = army_options[index].id
 	print("WebLobby: Player 1 army changed to ", selected_player1_army)
+	_apply_army_dispositions_11e(1, selected_player1_army)
 
 func _on_player2_army_changed(index: int) -> void:
 	if index < 0 or index >= army_options.size():
 		return
 	selected_player2_army = army_options[index].id
 	print("WebLobby: Player 2 army changed to ", selected_player2_army)
+	_apply_army_dispositions_11e(2, selected_player2_army)
 
 func _setup_deployment_selection() -> void:
 	# Populate deployment dropdown

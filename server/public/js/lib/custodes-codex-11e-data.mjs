@@ -25,6 +25,9 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "take-and-hold"
+    ],
+    "tags": [
+      "shield-host"
     ]
   },
   {
@@ -48,7 +51,8 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "purge-the-foe"
-    ]
+    ],
+    "tags": []
   },
   {
     "id": "dread-host",
@@ -71,6 +75,9 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "purge-the-foe"
+    ],
+    "tags": [
+      "shield-host"
     ]
   },
   {
@@ -94,6 +101,9 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "priority-assets"
+    ],
+    "tags": [
+      "shield-host"
     ]
   },
   {
@@ -117,6 +127,9 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "priority-assets"
+    ],
+    "tags": [
+      "shield-host"
     ]
   },
   {
@@ -140,7 +153,8 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "reconnaissance"
-    ]
+    ],
+    "tags": []
   },
   {
     "id": "guardians-of-the-throne",
@@ -168,7 +182,8 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 3,
     "force_dispositions": [
       "priority-assets"
-    ]
+    ],
+    "tags": []
   },
   {
     "id": "honoured-companions",
@@ -191,7 +206,8 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "take-and-hold"
-    ]
+    ],
+    "tags": []
   },
   {
     "id": "lions-of-the-emperor",
@@ -214,7 +230,8 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "disruption"
-    ]
+    ],
+    "tags": []
   },
   {
     "id": "might-of-the-moritoi",
@@ -237,7 +254,8 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "take-and-hold"
-    ]
+    ],
+    "tags": []
   },
   {
     "id": "null-maiden-vigil",
@@ -260,7 +278,8 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "disruption"
-    ]
+    ],
+    "tags": []
   },
   {
     "id": "shadowkeepers",
@@ -283,6 +302,9 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "purge-the-foe"
+    ],
+    "tags": [
+      "shield-host"
     ]
   },
   {
@@ -306,6 +328,9 @@ export const CUSTODES_CODEX_DETACHMENTS = [
     "detachment_points": 1,
     "force_dispositions": [
       "reconnaissance"
+    ],
+    "tags": [
+      "shield-host"
     ]
   }
 ];
