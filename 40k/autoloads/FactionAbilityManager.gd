@@ -830,8 +830,15 @@ func get_player_detachments(player: int) -> Array:
 	"""Every detachment the player took (11e multi-detachment armies), primary
 	first — all of them are active."""
 	var names: Array = ArmyDetachments11e.player_detachments(player)
-	if names.is_empty() and get_player_detachment(player) != "":
-		names = [get_player_detachment(player)]
+	# The cached primary (detect_player_detachment) owns the primary slot, as
+	# it did before multi-detachment armies; extras come from the faction block.
+	var cached := get_player_detachment(player)
+	if cached != "":
+		if names.is_empty():
+			names = [cached]
+		elif ArmyDetachments11e.det_key(str(names[0])) != ArmyDetachments11e.det_key(cached):
+			var rest: Array = names.slice(1).filter(func(n): return ArmyDetachments11e.det_key(str(n)) != ArmyDetachments11e.det_key(cached))
+			names = [cached] + rest
 	return names
 
 func player_has_detachment(player: int, detachment_name: String) -> bool:
