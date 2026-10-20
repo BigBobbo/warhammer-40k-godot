@@ -582,7 +582,7 @@ func get_available_actions() -> Array:
 				})
 
 	# Combat Doctrines selection (Space Marines — Gladius Task Force) (P2-27)
-	if faction_mgr and faction_mgr.get_player_detachment(current_player) == "Gladius Task Force":
+	if faction_mgr and faction_mgr.player_has_detachment(current_player, "Gladius Task Force"):
 		var available_doctrines = faction_mgr.get_available_doctrines(current_player)
 		var active_doctrine = faction_mgr.get_active_doctrine(current_player)
 		if available_doctrines.size() > 0 and active_doctrine == "":
@@ -619,7 +619,7 @@ func get_available_actions() -> Array:
 	# Lissen 'Ere — Taktiks (Orks — Taktikal Brigade): each Boss Snikrot / Mek /
 	# Warboss unit can issue one Taktik per battle round to a friendly ORKS unit
 	# within 6" (18" with Gob Boomer for Infantry/Mounted)
-	if faction_mgr and faction_mgr.get_player_detachment(current_player) == "Taktikal Brigade":
+	if faction_mgr and faction_mgr.player_has_detachment(current_player, "Taktikal Brigade"):
 		for issuer_id in faction_mgr.get_taktik_issuers(current_player):
 			var issuer_name = GameState.state.get("units", {}).get(issuer_id, {}).get("meta", {}).get("name", issuer_id)
 			for taktik in faction_mgr.TAKTIKS:
@@ -648,7 +648,7 @@ func get_available_actions() -> Array:
 			})
 
 	# Grab and Bash — per-unit Waaagh! for non-Gretchin ORKS unit near loot objective (OA-4)
-	if faction_mgr and faction_mgr.get_player_detachment(current_player) == "Freebooter Krew":
+	if faction_mgr and faction_mgr.player_has_detachment(current_player, "Freebooter Krew"):
 		var strat_manager_gab = get_node_or_null("/root/StratagemManager")
 		if strat_manager_gab:
 			# Find the Grab and Bash stratagem ID from loaded faction stratagems
@@ -1636,7 +1636,7 @@ func _validate_select_combat_doctrine(action: Dictionary) -> Array:
 		errors.append("FactionAbilityManager not available")
 		return errors
 
-	if faction_mgr.get_player_detachment(current_player) != "Gladius Task Force":
+	if not faction_mgr.player_has_detachment(current_player, "Gladius Task Force"):
 		errors.append("Player %d is not using Gladius Task Force detachment" % current_player)
 		return errors
 

@@ -48,6 +48,8 @@ var _p2_fixed_mission_ids: Array = []
 var disposition_container: VBoxContainer = null
 var p1_disposition_dropdown: OptionButton = null
 var p2_disposition_dropdown: OptionButton = null
+# Army id each seat's disposition options were last built for (_refresh_disposition_options).
+var _disposition_army_ids := {1: "", 2: ""}
 # 11e: at 11th edition the primary mission and deployment zone are DERIVED from
 # the Force Disposition matchup (+ chosen terrain variant), not player choices.
 # Their dropdowns are hidden and replaced with read-only value labels that show
@@ -199,6 +201,8 @@ func _ready() -> void:
 
 	# Set default army selections based on available armies
 	_set_default_army_selections()
+	_refresh_disposition_options(1)
+	_refresh_disposition_options(2)
 
 	# Fetch cloud armies asynchronously
 	_load_cloud_armies()
@@ -1160,6 +1164,58 @@ func _apply_layout_deployment_default() -> void:
 		deployment_dropdown.selected = idx
 		print("MainMenu: deployment defaulted to %s (official pattern for %s)" % [recs[0], layout_id])
 
+## 11e (core rules 25.04): an army picks ONE Force Disposition from those its
+## detachments give (ArmyDetachments11e). Grey out the others for this seat and,
+## when the seat's army changes, default to the army's own pick (army builder
+## export) or its primary detachment's disposition. Armies whose detachments
+## the dataset does not know keep every disposition.
+func _refresh_disposition_options(player: int) -> void:
+	var dropdown: OptionButton = p1_disposition_dropdown if player == 1 else p2_disposition_dropdown
+	var army_dropdown: OptionButton = player1_dropdown if player == 1 else player2_dropdown
+	if dropdown == null or army_dropdown == null or not ArmyListManager:
+		return
+	var army_id := ""
+	if army_dropdown.selected >= 0 and army_dropdown.selected < army_options.size():
+		army_id = str(army_options[army_dropdown.selected].id)
+	var raw: Dictionary = ArmyListManager.peek_army_raw(army_id) if army_id != "" else {}
+	if raw.is_empty() and army_id != "" and _is_cloud_selection(army_id):
+		ArmyListManager.prefetch_cloud_army(army_id)  # cloud_army_cached re-runs this
+	var army_dets = load("res://scripts/codex/ArmyDetachments11e.gd")
+	var allowed: Array = army_dets.allowed_dispositions(raw)
+	var declared: String = army_dets.declared_disposition(raw)
+	var det_names: Array = army_dets.names_from_army(raw)
+	for i in range(mini(dropdown.item_count, PrimaryMissionData11e.DISPOSITIONS.size())):
+		var disp_id: String = PrimaryMissionData11e.DISPOSITIONS[i]
+		dropdown.set_item_disabled(i, not allowed.is_empty() and not disp_id in allowed)
+	if allowed.is_empty():
+		dropdown.tooltip_text = "Force Disposition"
+	else:
+		dropdown.tooltip_text = "Given by %s: %s" % [" + ".join(PackedStringArray(det_names.map(func(x): return str(x)))),
+			", ".join(PackedStringArray(allowed.map(func(x): return PrimaryMissionData11e.get_disposition_name(str(x)))))]
+	var current := _get_selected_disposition(dropdown)
+	var target := current
+	var army_changed: bool = str(_disposition_army_ids.get(player, "")) != army_id
+	_disposition_army_ids[player] = army_id
+	if army_changed and declared != "" and (allowed.is_empty() or declared in allowed):
+		target = declared
+	elif not allowed.is_empty() and not current in allowed:
+		target = declared if declared in allowed else str(allowed[0])
+	print("MainMenu: P%d disposition options for '%s' (%s): allowed %s, declared '%s' -> %s" % [
+		player, army_id, str(det_names), str(allowed), declared, target])
+	if target != current:
+		var idx := PrimaryMissionData11e.DISPOSITIONS.find(target)
+		if idx >= 0:
+			dropdown.select(idx)
+			_on_disposition_changed(idx)
+
+func _on_cloud_army_cached_for_dispositions(army_name: String) -> void:
+	for player in [1, 2]:
+		var army_dropdown: OptionButton = player1_dropdown if player == 1 else player2_dropdown
+		if army_dropdown and army_dropdown.selected >= 0 and army_dropdown.selected < army_options.size() \
+				and str(army_options[army_dropdown.selected].id) == army_name:
+			_disposition_army_ids[player] = ""  # re-default from the downloaded army
+			_refresh_disposition_options(player)
+
 func _get_selected_disposition(dropdown: OptionButton) -> String:
 	if dropdown == null or dropdown.selected < 0 or dropdown.selected >= PrimaryMissionData11e.DISPOSITIONS.size():
 		return "take_and_hold"
@@ -1523,6 +1579,11 @@ func _connect_signals() -> void:
 	# change the derived deployment zone already routes through.
 	player1_dropdown.item_selected.connect(func(_i): _refresh_plan_dropdowns())
 	player2_dropdown.item_selected.connect(func(_i): _refresh_plan_dropdowns())
+	# 11e: each seat's Force Disposition comes from its army's detachments.
+	player1_dropdown.item_selected.connect(func(_i): _refresh_disposition_options(1))
+	player2_dropdown.item_selected.connect(func(_i): _refresh_disposition_options(2))
+	if ArmyListManager and not ArmyListManager.cloud_army_cached.is_connected(_on_cloud_army_cached_for_dispositions):
+		ArmyListManager.cloud_army_cached.connect(_on_cloud_army_cached_for_dispositions)
 	start_button.pressed.connect(_on_start_button_pressed)
 	plan_editor_button.pressed.connect(_on_plan_editor_button_pressed)
 	plan_browser_button.pressed.connect(_on_plan_browser_button_pressed)

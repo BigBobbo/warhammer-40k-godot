@@ -56,7 +56,7 @@ A full P1 turn was played as a user (Adeptus Custodes vs Orks, 11th Edition):
 | Battle-shock **OC → "-"** (unmodifiable) | ✅ | `CommandPhase`/`GameState` set unmodifiable OC at e11. |
 | Battle-shock **at** half-strength (2-model units test) | ✅ | `GameState.is_at_half_strength_combined`; validated `iss065`. |
 | Battle-shock **no auto-recovery** (re-test next command) | ✅ | Recovery test in `CommandPhase`; Insane Bravery can't auto-pass a recovering unit. |
-| **Detachment Points** (pool, 3 @ 2000pts) | 🔴 | Army construction still 10e single-detachment; no DP pool. |
+| **Detachment Points** (pool, 3 @ 2000pts) | ✅ | Multi-detachment armies (2026-10-20): DP pool 2 @ 1000 / 3 @ 2000 (lone 3 DP allowed at Incursion), shared tags refused, Force Disposition from the detachments; every selected detachment active in game (`scripts/codex/ArmyDetachments11e.gd`, builder `server/public/js/lib/detachment-rules.mjs`). |
 | Leaders attach at **army construction** | ✅ | Attach happens in the pre-deploy Formations step; permanent for the game. |
 | **Support characters** (2nd attach slot, must attach) | 🟡 | Engine + FormationsPhase per-role slots wired; the Bannernob (orks.json) now ships `Support` + `leader_data` and attaches alongside a Leader through the live Formations dialog (windowed `iss059b_support_attach_11e`, 30/30). Remaining: "must attach" not enforced; no other Support datasheets authored. |
 | **Enhancement after attach, 1/unit** | 🟡 | Enhancement validation exists (1/char) but not re-sequenced after attach; no post-attach UI gate. |

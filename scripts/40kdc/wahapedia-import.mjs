@@ -1207,7 +1207,12 @@ function importDetachments(snap, data, factionId, SOURCE, unitIdByWahaId, log) {
       game_version: { edition: '11th', dataslate: 'codex' },
       detachment_points: parseInt(d.dp, 10) || 1,
       force_dispositions: d.force_disposition ? [slug(d.force_disposition)] : [],
-      tags: /Shield Host/i.test(stripHtml(d.legend) + stripHtml(d.type)) ? ['shield-host'] : [],
+      // Codex: Adeptus Custodes — "All detachments tagged 'Unique: Shield Host'
+      // state a Favoured Ka'tah": the Favoured Ka'tah in the detachment rule
+      // marks the tag (the export has no tag column). An army cannot take two
+      // detachments sharing a tag.
+      tags: (/Shield Host/i.test(stripHtml(d.legend) + stripHtml(d.type)) ||
+        /favoured ka.tah/i.test(stripHtml(rule?.description ?? ''))) ? ['shield-host'] : [],
       source: SOURCE,
     };
     if (old?.external_refs) rec.external_refs = old.external_refs;

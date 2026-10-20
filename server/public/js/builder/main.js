@@ -74,11 +74,15 @@ function renderTopbar() {
           { value: '1000', label: '1000 (Incursion)' },
           { value: '2000', label: '2000 (Strike Force)' },
         ], String(r.points.declared_limit ?? 2000), (v) => S.setPointsLimit(parseInt(v, 10)))),
-      h('label', {}, 'Disposition',
+      h('label', { title: 'Your army picks one Force Disposition from those its detachments give' }, 'Disposition',
         select([
           { value: '', label: '— none —' },
-          ...S.forceDispositions().map(fd => ({ value: fd.id, label: fd.name })),
-        ], r.force_disposition ?? '', (v) => S.setForceDisposition(v))),
+          ...S.forceDispositions().map(fd => ({
+            value: fd.id,
+            label: fd.allowed ? fd.name : `${fd.name} — not from your detachments`,
+            disabled: !fd.allowed,
+          })),
+        ], r.force_disposition ?? '', (v) => S.setForceDisposition(v), { id: 'disposition-select' })),
       r.faction_id && !S.FULLY_SUPPORTED_FACTIONS.has(r.faction_id)
         ? h('span.support-note', { title: 'Datasheets, weapons and core abilities work in-game; this faction\'s army rule, detachment rules and stratagems are not automated yet.' },
           '◦ limited in-game rules automation')
@@ -95,6 +99,8 @@ function renderDetachmentPicker(r) {
   const primary = r.detachments[0]?.ref?.id ?? '';
   const used = S.detachmentPointsUsed();
   const cap = S.detachmentPointsCap();
+  const lone = S.detachmentLoneException();
+  const problems = S.detachmentProblems();
   const addable = S.addableDetachments();
   const fitting = addable.filter(d => d.fits);
   const chips = r.detachments.slice(1).map(d =>
@@ -113,15 +119,18 @@ function renderDetachmentPicker(r) {
     chips,
     r.faction_id
       ? select([
-          { value: '', label: fitting.length ? '+ add detachment' : (addable.length ? 'DP pool full' : 'no more detachments') },
+          { value: '', label: fitting.length ? '+ add detachment' : (addable.length ? (used >= cap ? 'DP pool full' : 'none can be added') : 'no more detachments') },
           ...addable.map(d => ({
             value: d.id,
-            label: `${d.name} (${d.detachment_points ?? 1} DP)` + (d.fits ? '' : ' — not enough DP'),
+            label: `${d.name} (${d.detachment_points ?? 1} DP)` + (d.fits ? '' : ` — ${d.reason}`),
             disabled: !d.fits,
           })),
         ], '', (v) => { if (v) S.addDetachment(v); }, { id: 'add-detachment-select', disabled: !fitting.length })
       : null,
-    h('span', { class: used > cap ? 'dp-badge over' : 'dp-badge', id: 'dp-badge' }, `${used} / ${cap} DP`));
+    h('span', {
+      class: problems.length ? 'dp-badge over' : 'dp-badge', id: 'dp-badge',
+      title: problems.length ? problems.join('\n') : (lone ? 'Incursion: a 3 DP detachment may be your only detachment' : ''),
+    }, lone ? `${used} DP (only detachment)` : `${used} / ${cap} DP`));
 }
 
 function onNew() {

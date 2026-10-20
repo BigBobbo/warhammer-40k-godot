@@ -1267,7 +1267,7 @@ func _build_preview_data() -> Dictionary:
 
 		preview.players[player_id] = {
 			"faction": faction_data.get("name", "Unknown"),
-			"detachment": faction_data.get("detachment", ""),
+			"detachment": " + ".join(load("res://scripts/codex/ArmyDetachments11e.gd").names_from_faction(faction_data)) if faction_data is Dictionary else "",
 			"points": faction_data.get("points", 0),
 			"vp": player_data.get("vp", 0),
 			"primary_vp": player_data.get("primary_vp", 0),
@@ -1342,7 +1342,7 @@ func extract_preview_from_save(file_path: String) -> Dictionary:
 
 		preview.players[player_id] = {
 			"faction": faction_data.get("name", "Unknown"),
-			"detachment": faction_data.get("detachment", ""),
+			"detachment": " + ".join(load("res://scripts/codex/ArmyDetachments11e.gd").names_from_faction(faction_data)) if faction_data is Dictionary else "",
 			"points": faction_data.get("points", 0),
 			"vp": player_data.get("vp", 0),
 			"primary_vp": player_data.get("primary_vp", 0),

@@ -697,12 +697,12 @@ func _create_detachment_ability_section(unit_data: Dictionary, abilities_contain
 	if not faction_ability_mgr:
 		return
 
-	var detachment = faction_ability_mgr.get_player_detachment(owner)
-	if detachment == "":
-		return
-
-	var ability_info = faction_ability_mgr.DETACHMENT_ABILITIES.get(detachment, {})
-	if ability_info.is_empty():
+	# 11e armies may take several detachments — show each one's ability.
+	var shown: Array = []
+	for det_name in faction_ability_mgr.get_player_detachments(owner):
+		if not faction_ability_mgr.DETACHMENT_ABILITIES.get(str(det_name), {}).is_empty():
+			shown.append(str(det_name))
+	if shown.is_empty():
 		return
 
 	# Separator before detachment section
@@ -713,11 +713,16 @@ func _create_detachment_ability_section(unit_data: Dictionary, abilities_contain
 	abilities_container.add_child(separator)
 
 	var det_header = Label.new()
-	det_header.text = "DETACHMENT ABILITY"
+	det_header.text = "DETACHMENT ABILITY" if shown.size() == 1 else "DETACHMENT ABILITIES"
 	det_header.add_theme_font_size_override("font_size", 18)
 	det_header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	abilities_container.add_child(det_header)
 
+	for detachment in shown:
+		_add_detachment_ability_entry(faction_ability_mgr, owner, detachment, abilities_container)
+
+func _add_detachment_ability_entry(faction_ability_mgr: Node, owner: int, detachment: String, abilities_container: VBoxContainer) -> void:
+	var ability_info = faction_ability_mgr.DETACHMENT_ABILITIES.get(detachment, {})
 	var ability_container = VBoxContainer.new()
 
 	var name_label = Label.new()

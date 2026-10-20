@@ -2,12 +2,15 @@
   "id": "multi_detachment_builder_cloud_army",
   "builder_e2e": "server/tests/e2e-multi-detachment.mjs",
   "covers": [
-    "army_builder.multi_detachment",
     "army_builder.detachment_points",
+    "army_builder.multi_detachment",
     "army_list.cloud_load.detachments",
-    "codex.enhancement_rules.multi_detachment"
+    "codex.custodes.favoured_katah.multi_detachment",
+    "codex.enhancement_rules.multi_detachment",
+    "stratagems.multi_detachment",
+    "ui.main_menu.force_disposition"
   ],
-  "description": "11e multi-detachment army building (Detachment Points pool). server/tests/e2e-multi-detachment.mjs drives the browser Army Builder: Custodes 2000 pts, primary Lions of the Emperor + Solar Watch + Null Maiden Vigil (3 / 3 DP; the 3 DP Guardians of the Throne is refused), a warlord Shield-Captain with Sally Forth (Solar Watch), saved to the cloud as MULTI_DET_E2E_Custodes. This scenario loads it through the main menu (Refresh Cloud Armies -> Start Game): the army carries all three detachments and their DP, 11e construction validation raises no DP or foreign-enhancement warning, the Shield-Captain carries Sally Forth and its datasheet shows it, and the primary detachment is the active one in game.",
+  "description": "11e multi-detachment army building (Detachment Points pool). server/tests/e2e-multi-detachment.mjs drives the browser Army Builder: Custodes 2000 pts, primary Lions of the Emperor + Solar Watch + Null Maiden Vigil (3 / 3 DP; the 3 DP Guardians of the Throne is refused), a warlord Shield-Captain with Sally Forth (Solar Watch), saved to the cloud as MULTI_DET_E2E_Custodes. This scenario loads it through the main menu (Refresh Cloud Armies; P1's Force Disposition dropdown follows the army \u2014 Reconnaissance, the army's pick, selected and the dispositions no selected detachment gives greyed out; Start Game): the army carries all three detachments and their DP, 11e construction validation raises no DP or foreign-enhancement warning, the Shield-Captain carries Sally Forth and its datasheet shows it, the primary is faction.detachment, all three detachments are active (FactionAbilityManager), the stratagems of all three load, and Solar Watch (taken second) gives the Favoured Ka'tah Calistus.",
   "edition": 11,
   "rng_seed": 42,
   "steps": [
@@ -50,8 +53,37 @@
       "equals": true
     },
     {
+      "act": "wait_seconds",
+      "seconds": 2.0,
+      "comment": "the menu prefetches the cloud army to read its detachments"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "P1 Force Disposition follows the army: its own pick (Reconnaissance) selected; Take and Hold / Purge the Foe / Priority Assets greyed out (none of Lions / Solar Watch / Null Maiden Vigil gives them)",
+      "script": "var main = tree.current_scene\nvar dd: OptionButton = main.p1_disposition_dropdown\nvar D = PrimaryMissionData11e.DISPOSITIONS\nvar sel := str(D[dd.selected])\nvar off: Array = []\nfor i in range(dd.item_count):\n\tif dd.is_item_disabled(i):\n\t\toff.append(str(D[i]))\nprint(\"[multi-det] P1 disposition=\", sel, \" disabled=\", off, \" tooltip=\", dd.tooltip_text)\nreturn sel == \"reconnaissance\" and \"take_and_hold\" in off and \"purge_the_foe\" in off and \"priority_assets\" in off and not \"disruption\" in off",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "screenshot framing: open the P1 disposition dropdown popup so the greyed-out items are visible",
+      "script": "var dd: OptionButton = tree.current_scene.p1_disposition_dropdown\ndd.show_popup()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
       "act": "screenshot",
-      "label": "01_main_menu_multi_detachment_army_selected"
+      "label": "01_menu_disposition_limited_to_detachments"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene.p1_disposition_dropdown.get_popup().hide()\nreturn true",
+      "equals": true
     },
     {
       "act": "click_node",
@@ -94,6 +126,27 @@
       "comment": "the primary detachment is the game's active detachment",
       "script": "return str(GameState.state.get(\"factions\", {}).get(\"1\", {}).get(\"detachment\", \"\"))",
       "equals": "Lions of the Emperor"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "every selected detachment is active in game (faction block + FactionAbilityManager)",
+      "script": "var f = GameState.state.factions[\"1\"]\nvar fam = tree.root.get_node(\"FactionAbilityManager\")\nprint(\"[multi-det] factions[1].detachments=\", f.get(\"detachments\"), \" fam=\", fam.get_player_detachments(1))\nreturn f.get(\"detachments\", []) == [\"Lions of the Emperor\", \"Solar Watch\", \"Null Maiden Vigil\"] and fam.player_has_detachment(1, \"Solar Watch\") and fam.player_has_detachment(1, \"Null Maiden Vigil\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "stratagems of all three detachments are loaded for P1",
+      "script": "var sm = tree.root.get_node(\"StratagemManager\")\nvar names: Array = []\nfor sid in sm._player_faction_stratagems.get(\"1\", []):\n\tnames.append(str(sm.stratagems.get(sid, {}).get(\"name\", \"\")).to_upper())\nprint(\"[multi-det] P1 faction stratagems: \", names)\nreturn \"UNLEASH THE LIONS\" in names and \"INEXORABLE\" in names and \"PURGATION SWEEP\" in names",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Solar Watch (a Shield Host detachment taken second) gives the Favoured Ka'tah: Calistus",
+      "script": "var k = load(\"res://scripts/codex/custodes/CustodesKatah.gd\")\nprint(\"[multi-det] favoured ka'tah P1 = \", k.favoured_katah(1))\nreturn k.favoured_katah(1)",
+      "equals": "calistus"
     },
     {
       "act": "execute_script",

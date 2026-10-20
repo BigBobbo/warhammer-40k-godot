@@ -1198,7 +1198,9 @@
   "force_dispositions": [
    "purge-the-foe"
   ],
-  "tags": [],
+  "tags": [
+   "shield-host"
+  ],
   "source": "wahapedia-11e@2026-10-16"
  },
  {
@@ -1278,7 +1280,9 @@
   "force_dispositions": [
    "reconnaissance"
   ],
-  "tags": [],
+  "tags": [
+   "shield-host"
+  ],
   "source": "wahapedia-11e@2026-10-16"
  },
  {
@@ -1330,7 +1334,9 @@
   "force_dispositions": [
    "priority-assets"
   ],
-  "tags": [],
+  "tags": [
+   "shield-host"
+  ],
   "source": "wahapedia-11e@2026-10-16"
  },
  {
@@ -1355,7 +1361,9 @@
   "force_dispositions": [
    "take-and-hold"
   ],
-  "tags": [],
+  "tags": [
+   "shield-host"
+  ],
   "source": "wahapedia-11e@2026-10-16"
  },
  {
@@ -1405,7 +1413,9 @@
   "force_dispositions": [
    "purge-the-foe"
   ],
-  "tags": [],
+  "tags": [
+   "shield-host"
+  ],
   "source": "wahapedia-11e@2026-10-16"
  },
  {

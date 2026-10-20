@@ -93,6 +93,18 @@ try {
 
   await add.selectOption('solar-watch');
   check('Solar Watch added — 2 / 3 DP', (await badge.textContent()) === '2 / 3 DP', await badge.textContent());
+  // Unique: Shield Host — Solar Watch and Shadowkeepers cannot be combined.
+  const skOpt = add.locator('option[value="shadowkeepers"]');
+  check('Shadowkeepers disabled (shares the Shield Host tag)', await skOpt.isDisabled());
+  check('…with the reason in its label', /Shield Host/.test(await skOpt.textContent()), await skOpt.textContent());
+  // Force Disposition: only those the detachments give.
+  const disp = page.locator('#disposition-select');
+  check('disposition defaulted to the primary\'s (Disruption)', (await disp.inputValue()) === 'disruption', await disp.inputValue());
+  const optDisabled = (v) => disp.locator(`option[value="${v}"]`).evaluate(o => o.disabled);
+  check('Take and Hold disabled (no selected detachment gives it)', await optDisabled('take-and-hold'),
+    await disp.evaluate(s => [...s.options].map(o => `${o.value}:${o.disabled}`).join(' ')));
+  check('Reconnaissance (Solar Watch) selectable', !(await optDisabled('reconnaissance')));
+  await disp.selectOption('reconnaissance');
   await add.selectOption('null-maiden-vigil');
   check('Null Maiden Vigil added — 3 / 3 DP', (await badge.textContent()) === '3 / 3 DP', await badge.textContent());
   check('two additional-detachment chips', await page.locator('.det-chip').count() === 2);
@@ -133,6 +145,7 @@ try {
   check('primary detachment exported', army.faction.detachment === 'Lions of the Emperor');
   check('all detachments exported', JSON.stringify(army.faction.detachments) === JSON.stringify(['Lions of the Emperor', 'Solar Watch', 'Null Maiden Vigil']));
   check('DP costs exported', (army.detachments ?? []).reduce((s, d) => s + d.dp_cost, 0) === 3);
+  check('Force Disposition exported', army.faction.force_disposition === 'reconnaissance', army.faction.force_disposition);
   const sc = Object.values(army.units).find(u => u.meta.name === 'Shield-Captain');
   check('second-detachment enhancement exported', JSON.stringify(sc?.meta?.enhancements) === '["Sally Forth"]', JSON.stringify(sc?.meta?.enhancements));
 
@@ -141,6 +154,17 @@ try {
   await page.locator('.modal button', { hasText: /Close|Cancel/ }).first().click().catch(() => {});
   await page.locator('.det-chip', { hasText: 'Null Maiden Vigil' }).locator('.det-chip-remove').click();
   check('chip removed — 2 / 3 DP', (await badge.textContent()) === '2 / 3 DP', await badge.textContent());
+
+  // Incursion: the pool drops to 2 DP; a 3 DP detachment may be the only one.
+  await page.locator('.topbar-config select', { has: page.locator('option[value="1000"]') }).selectOption('1000');
+  check('1000 pts trims to 2 / 2 DP', (await badge.textContent()) === '2 / 2 DP', await badge.textContent());
+  await primary.selectOption('guardians-of-the-throne');
+  check('Guardians of the Throne alone at Incursion: legal badge', (await badge.textContent()) === '3 DP (only detachment)', await badge.textContent());
+  check('…not flagged over the pool', !(await badge.getAttribute('class')).includes('over'));
+  check('…no additional detachments', await page.locator('.det-chip').count() === 0);
+  check('…nothing else can be added', await add.isDisabled());
+  check('…and the legality footer raises no DP error', !(await page.locator('body').innerText()).includes('over the 2 budget'));
+  await shot(page, 'multi_det_03_incursion_lone_3dp.png');
 
   check('no uncaught page errors', pageErrors.length === 0, pageErrors.join(' | '));
   await browser.close();

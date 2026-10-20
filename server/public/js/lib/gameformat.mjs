@@ -881,6 +881,8 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         points: declaredPoints ?? (totalPoints > 1000 ? 2000 : 1000),
         detachment: detachmentName,
         detachments: detsOut.map(d => d.name),
+        // 11e: the one Force Disposition the army picked (from its detachments).
+        force_disposition: roster.force_disposition ?? '',
         player_name: playerName,
         team_name: teamName,
         created_date: createdDate,
@@ -1071,7 +1073,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         ? { ref: { id: d.id, raw_name: d.name, resolved: true, candidates: [] }, dp_cost: d.detachment_points ?? 1 }
         : { ref: { id: null, raw_name: nm, resolved: false, candidates: [] }, dp_cost: null }),
       battle_size: declared == null ? null : (declared <= 1000 ? 'incursion' : 'strike-force'),
-      force_disposition: null,
+      force_disposition: factionBlock.force_disposition || null,
       points: {
         declared_limit: declared,
         detachment_cap: declared == null ? null : (declared <= 1000 ? 2 : 3),

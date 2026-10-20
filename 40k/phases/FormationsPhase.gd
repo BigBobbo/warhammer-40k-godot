@@ -961,7 +961,7 @@ func _validate_army_construction_points(player: int) -> void:
 
 	var declared_points = faction.get("points", -1)
 	var faction_name = faction.get("name", "Unknown")
-	var detachment = faction.get("detachment", "")
+	var detachment = " + ".join(load("res://scripts/codex/ArmyDetachments11e.gd").names_from_faction(faction)) if faction is Dictionary else ""
 
 	# Calculate total unit points for this player
 	var total_unit_points: int = 0
@@ -1005,7 +1005,7 @@ func _cus11e_warlord_block_reason(unit_id: String, player: int) -> String:
 	var katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
 	var u: Dictionary = get_unit(unit_id).duplicate()
 	u["id"] = unit_id
-	return str(katah.warlord_block_reason(u, katah.player_detachment(player)))
+	return str(katah.warlord_block_reason(u, katah.player_detachments(player)))
 
 func _cus11e_warlord_eligible(character_ids: Array, player: int) -> Array:
 	var out: Array = []
