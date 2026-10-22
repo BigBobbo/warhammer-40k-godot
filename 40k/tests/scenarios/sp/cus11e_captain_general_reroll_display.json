@@ -1,0 +1,178 @@
+{
+  "id": "cus11e_captain_general_reroll_display",
+  "covers": [
+    "scripts.ResolutionDockBase.reroll_chips",
+    "scripts.GameLogPanel.dice_row",
+    "codex.custodes.datasheet_abilities.captain_general",
+    "rules.aura.reroll_ones"
+  ],
+  "description": "Captain-General (Trajann, aura) re-rolls hit 1s — and the player can SEE it. Fixture cus11e_c7_shoot: the Custodian Guard (within 6\" of Trajann) fire Guardian spears at the Meganobz; at the staged hit pause the dock status line reads 'Re-rolled: 1→N', the re-rolled die chip shows its re-rolled face locked with '↻' (a dice can't be re-rolled twice, so it is not offered for Command Re-roll), and the game log Hit row ends '(re-rolled 1→N)'. Before this, both surfaces showed the ORIGINAL 1 as a red die, so an applied re-roll looked like it never happened. Setup privileges: auto wound allocation; P1 3 CP, P2 0 CP; Meganobz wounds inflated.",
+  "fixture": "cus11e_c7_shoot",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "custodes_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nSettingsService.shooting_pause_policy = \"every_step\"\nGameState.state.players[\"1\"][\"cp\"] = 3\nGameState.state.players[\"2\"][\"cp\"] = 0\nfor m in GameState.state.units[\"U_MEGANOBZ_A\"].models:\n\tm[\"wounds\"] = 99\n\tm[\"current_wounds\"] = 99\nreturn true",
+      "multiline": true,
+      "comment": "setup privilege: auto wound allocation; P1 3 CP (so the Command Re-roll chips render), P2 0 CP; Meganobz wounds inflated (see description); pause policy 'every step' (the player's setting in the screenshot)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var A = load(\"res://scripts/codex/custodes/CustodesAbilities.gd\")\nreturn A.captain_general_source(\"U_GUARD_A\")",
+      "multiline": true,
+      "comment": "the Custodian Guard are within 6\" of Trajann",
+      "equals": "U_TRAJANN_A"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GUARD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_GUARD_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline P1's windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CLEAR_ALL_ASSIGNMENTS",
+        "player": 1
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_GUARD_A",
+        "payload": {
+          "weapon_id": "guardian_spear___ranged_ranged",
+          "target_unit_id": "U_MEGANOBZ_A",
+          "model_ids": [
+            "m1",
+            "m2",
+            "m3"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline only the opponent's (P2) reactive windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.state",
+      "equals": "staged_hits"
+    },
+    {
+      "act": "execute_script",
+      "script": "var hc = PhaseManager.get_current_phase_instance().resolution_state.get(\"staged_hit_context\", {})\nvar n := 0\nfor e in hc.get(\"hit_evals\", []):\n\tif e.get(\"rerolled\", false):\n\t\tn += 1\nreturn n > 0",
+      "multiline": true,
+      "comment": "this seed rolls at least one 1, which Captain-General re-rolls",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.status_label.text.contains(\"Re-rolled: 1→\")",
+      "comment": "the dock status line names the automatic re-roll",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"Main\").get_node(\"ShootingController\").resolution_dock\nfor c in d.reroll_row.get_children():\n\tif c.disabled and c.get_node_or_null(\"RerolledMark\") != null and c.tooltip_text.begins_with(\"Already re-rolled (1→\"):\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "comment": "the re-rolled die chip shows its re-rolled face, locked (can't be re-rolled twice)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"Main\").get_node(\"ShootingController\").resolution_dock\nvar hc = PhaseManager.get_current_phase_instance().resolution_state.get(\"staged_hit_context\", {})\nvar evals = hc.get(\"hit_evals\", [])\nvar kids = d.reroll_row.get_children()\nfor i in range(evals.size()):\n\tif evals[i].get(\"rerolled\", false) and int(evals[i].get(\"reroll_to\", 0)) > 1 and not kids[i].tooltip_text.ends_with(\"→%d) — a dice can never be re-rolled more than once\" % int(evals[i].reroll_to)):\n\t\treturn false\nreturn true",
+      "multiline": true,
+      "comment": "chips show the re-rolled value, not the original 1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var panel = null\nfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\tif n.get(\"_tab_dice_button\") != null:\n\t\tpanel = n\n\t\tbreak\nif panel == null:\n\treturn \"panel not found\"\nfor l in panel.find_children(\"*\", \"Label\", true, false):\n\tif l.text.contains(\"(re-rolled 1→\"):\n\t\treturn true\nfor r in panel.find_children(\"*\", \"RichTextLabel\", true, false):\n\tif r.get_parsed_text().contains(\"(re-rolled 1→\"):\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "comment": "the game log's Hit row lists the re-roll",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var found := false\nfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\tif n.get(\"_context_label\") != null and n.visible and str(n._context_label).begins_with(\"Hit Rolls\") and str(n._context_label).contains(\"re-rolled 1→\"):\n\t\tfound = true\nreturn found",
+      "multiline": true,
+      "comment": "the dice tray labels the re-rolls and settles those dice on their re-rolled face",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_captain_general_reroll_visible_in_dock_tray_and_log"
+    }
+  ]
+}

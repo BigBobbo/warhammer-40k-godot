@@ -57,7 +57,7 @@ func _click_through_terminal_states() -> Array:
 func _chip_rolls(_stage: String, info: Dictionary) -> Array:
 	var rolls: Array = info.get("modified_rolls", [])
 	if rolls.is_empty():
-		rolls = info.get("hit_rolls", info.get("wound_rolls", []))
+		rolls = super._chip_rolls(_stage, info)  # raw rolls with re-rolled faces swapped in
 	return rolls
 
 # ---------------------------------------------------------------------------

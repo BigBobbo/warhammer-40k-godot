@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.47.1",
+      "date": "2026-10-22",
+      "summary": "Automatic re-rolls (e.g. Trajann's Captain-General re-roll of 1s) are now visible: re-rolled dice show their new result instead of the original 1.",
+      "changes": [
+        "Attack dock: the status line lists every automatic re-roll (\"Re-rolled: 1→5, 1→2\"), and re-rolled dice show their new face with a blue outline.",
+        "Re-rolled dice are locked out of Command Re-roll (a dice can never be re-rolled twice) instead of being offered and refused.",
+        "Dice tray and Game Log hit/wound rows name the re-rolls (\"re-rolled 1→5\"), so a re-roll that came up 1 again is no longer mistaken for one that never happened."
+      ]
+    },
+    {
       "version": "1.47.0",
       "date": "2026-10-20",
       "summary": "Multiple detachments: build an army from several detachments within the Detachment Points pool (3 DP at 2000 pts, 2 DP at 1000), and every one of them is active in game.",
