@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.47.1",
+      "date": "2026-10-22",
+      "summary": "Fix: using 'Examine Board' on your own stratagem decision no longer soft-locks the game after you go back and decline.",
+      "changes": [
+        "Toggling 'Examine Board' on a stratagem popup during your own turn, returning to the decision and choosing No used to leave a 'Waiting for opponent's stratagem decision...' banner blocking the board forever. The banner is now cleared as soon as you return, and the game carries on after you decide."
+      ]
+    },
+    {
       "version": "1.47.0",
       "date": "2026-10-20",
       "summary": "Multiple detachments: build an army from several detachments within the Detachment Points pool (3 DP at 2000 pts, 2 DP at 1000), and every one of them is active in game.",
