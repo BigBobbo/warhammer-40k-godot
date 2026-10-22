@@ -12732,26 +12732,21 @@
   "id": "saga-of-the-beastslayer",
   "name": "Saga of the Beastslayer",
   "faction_id": "space-wolves",
-  "detachment_rule_id": null,
+  "detachment_rule_id": "legendary-slayers-saga-of-the-beastslayer",
   "enhancement_ids": [
-   "wolf-touched-saga-of-the-beastslayer",
    "hunters-guile-saga-of-the-beastslayer",
-   "elders-guidance-saga-of-the-beastslayer",
-   "helm-of-the-beastslayer-saga-of-the-beastslayer"
+   "wolf-touched-saga-of-the-beastslayer"
   ],
   "stratagem_ids": [
    "unbridled-ferocity-saga-of-the-beastslayer",
-   "shock-cavalry-saga-of-the-beastslayer",
-   "pinning-fire-saga-of-the-beastslayer",
-   "thunderous-pursuit-saga-of-the-beastslayer",
-   "impetuosity-saga-of-the-beastslayer",
-   "coordinated-strike-saga-of-the-beastslayer"
+   "co-ordinated-strike-saga-of-the-beastslayer",
+   "impetuosity-saga-of-the-beastslayer"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "detachment_points": 2,
+  "detachment_points": 1,
   "force_dispositions": [
    "purge-the-foe"
   ],
@@ -12760,25 +12755,26 @@
     "namespace": "mfm",
     "id": "41547c19-336b-4ea9-8161-bdbc8cb68343"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "champions-of-fenris",
   "name": "Champions of Fenris",
   "faction_id": "space-wolves",
-  "detachment_rule_id": null,
+  "detachment_rule_id": "the-great-wolf-watches-champions-of-fenris",
   "enhancement_ids": [
-   "a-giant-amongst-giants-champions-of-fenris",
-   "preyslayer-champions-of-fenris"
+   "preyslayer-champions-of-fenris",
+   "a-giant-amongst-giants-champions-of-fenris"
   ],
   "stratagem_ids": [
-   "wolf-totems-champions-of-fenris",
-   "runes-of-claiming-champions-of-fenris",
-   "stalk-between-worlds-champions-of-fenris"
+   "birth-of-a-saga-champions-of-fenris",
+   "heroic-resolve-champions-of-fenris",
+   "champions-guidance-champions-of-fenris"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
   "detachment_points": 1,
   "force_dispositions": [
@@ -12789,7 +12785,8 @@
     "namespace": "mfm",
     "id": "cbfdd62b-fa52-4689-835b-0b881bb978fb"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "saga-of-the-hunter",
@@ -12823,31 +12820,31 @@
     "namespace": "mfm",
     "id": "a6359296-90bd-4ec0-a70d-87813eaf9da9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "saga-of-the-great-wolf",
   "name": "Saga of the Great Wolf",
   "faction_id": "space-wolves",
-  "detachment_rule_id": null,
+  "detachment_rule_id": "master-of-wolves-saga-of-the-great-wolf",
   "enhancement_ids": [
-   "grimnars-mark-saga-of-the-great-wolf",
-   "howling-onslaught-saga-of-the-great-wolf",
    "howlmaw-saga-of-the-great-wolf",
+   "grimnars-mark-saga-of-the-great-wolf",
    "chariots-of-the-storm-saga-of-the-great-wolf",
    "skjalds-foretelling-saga-of-the-great-wolf"
   ],
   "stratagem_ids": [
-   "the-foe-foreseen-saga-of-the-great-wolf",
-   "unrelenting-hunters-saga-of-the-great-wolf",
-   "grimnars-command-saga-of-the-great-wolf",
-   "eye-of-the-pack-saga-of-the-great-wolf",
    "battle-instincts-saga-of-the-great-wolf",
-   "fenrisian-ferocity-saga-of-the-great-wolf"
+   "grimnars-command-saga-of-the-great-wolf",
+   "fenrisian-ferocity-saga-of-the-great-wolf",
+   "fangs-of-the-pack-saga-of-the-great-wolf",
+   "wolf-totems-saga-of-the-great-wolf",
+   "eye-of-the-pack-saga-of-the-great-wolf"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
   "detachment_points": 2,
   "force_dispositions": [
@@ -12858,7 +12855,8 @@
     "namespace": "mfm",
     "id": "d8b12845-85b4-48db-8565-4771287a2fa7"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "saga-of-the-bold",
@@ -12892,7 +12890,8 @@
     "namespace": "mfm",
     "id": "fc3194f8-b96f-4158-9380-693ae00db4db"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "legends-of-saga-and-song",
@@ -12921,7 +12920,8 @@
     "namespace": "mfm",
     "id": "0bb425be-1dff-4825-96ba-704523da27c4"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "veterans-of-the-fang",
@@ -12950,7 +12950,8 @@
     "namespace": "mfm",
     "id": "74c4b04a-de7a-41a5-b015-97803080bf87"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "1st-company-task-force",

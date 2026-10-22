@@ -790,8 +790,9 @@
    }
   ],
   "faction_rule_ids": [
-   "oath-of-moment"
-  ]
+   "combat-doctrines"
+  ],
+  "source_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "tau-empire",

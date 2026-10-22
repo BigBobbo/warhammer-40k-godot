@@ -103,7 +103,7 @@ export const ALLIED_FACTIONS = {
 // this constant, so the two stamps cannot drift apart. Update it when the
 // bundle version or the Wahapedia snapshot changes
 // (server/tests/codex-builder-parity.test.mjs checks it against both).
-export const DEFAULT_DATA_SOURCE = '40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes)';
+export const DEFAULT_DATA_SOURCE = '40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes) + Wahapedia 11e codex import 2026-10-21 (Codex: Space Marines, Space Wolves)';
 
 // ---------------------------------------------------------------------------
 // Weapon conversion
@@ -571,13 +571,22 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
   // Praesidium Shield) on the datasheet; a unit only has the ability when it
   // took the wargear, and ArmyListManager applies wargear stat bonuses from
   // meta.abilities. Without a predicate every listed ability is emitted.
-  function unitAbilities(dcUnit, factionId, factionName, warnings, hasWargear = null) {
+  // armyFactionId: the army's faction when it is a chapter of the unit's
+  // faction (Space Wolves -> adeptus-astartes datasheets). A chapter whose
+  // record carries its own army rules (Codex: Space Marines: Combat
+  // Doctrines, not the index Oath of Moment) gives those to every unit.
+  function unitAbilities(dcUnit, factionId, factionName, warnings, hasWargear = null, armyFactionId = null) {
     const abilitiesOut = [];
-    for (const rule of factionRuleAbilities(factionId)) {
+    const army = armyFactionId ? factions.find(f => f.id === armyFactionId) : null;
+    const ruleFaction = army && army.parent_faction_id === factionId && army.source_codex ? armyFactionId : factionId;
+    const ruleNames = new Set();
+    for (const rule of factionRuleAbilities(ruleFaction)) {
       abilitiesOut.push({ name: canonicalName(rule.name), type: 'Faction', description: safeDescribe(rule) });
+      ruleNames.add(normName(rule.name));
     }
     for (const aid of dcUnit.ability_ids ?? []) {
       const rec = ares.resolve(factionId, aid);
+      if (rec && ruleNames.has(normName(rec.name))) continue; // the army rule, listed once
       if (hasWargear && rec?.ability_type === 'wargear' && !hasWargear(rec.name)) continue;
       const conv = convertAbility(factionId, dcUnit, aid, warnings);
       if (conv) abilitiesOut.push(conv);
@@ -732,7 +741,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     // A wargear ability (Vexilla, Praesidium Shield) only when the loadout
     // holds that wargear — the game applies e.g. Vexilla's +1 OC from it.
     const hasWargear = items.size ? (n => held.has(looseName(n))) : null;
-    const abilitiesOut = unitAbilities(dcUnit, unitFactionId, factionName, warnings, hasWargear);
+    const abilitiesOut = unitAbilities(dcUnit, unitFactionId, factionName, warnings, hasWargear, armyFactionId);
 
     const enhancementPoints = enhancements.reduce((s, e) => s + (e.cost ?? 0), 0);
     const points = pointsFor(dcUnit, modelCount, ordinal) +

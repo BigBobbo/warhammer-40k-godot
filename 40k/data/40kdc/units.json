@@ -16335,7 +16335,6 @@
     "T": 9,
     "W": 8,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 3
    }
@@ -16343,28 +16342,28 @@
   "points": [
    {
     "models": 1,
-    "cost": 125,
+    "cost": 130,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 135,
+    "cost": 140,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Dreadnought",
-   "Imperium",
    "Smoke",
+   "Imperium",
+   "Dreadnought",
+   "Walker",
    "Vehicle",
-   "Venerable",
-   "Walker"
+   "Venerable Dreadnought"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Space Wolves"
+   "Space Wolves",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -16375,24 +16374,23 @@
    "max": 1
   },
   "weapon_ids": [
-   "assault-cannon",
+   "assault-cannon-venerable-dreadnought",
+   "heavy-flamer-venerable-dreadnought",
+   "helfrost-cannon-venerable-dreadnought",
+   "multi-melta-venerable-dreadnought",
+   "storm-bolter-venerable-dreadnought",
    "dreadnought-combat-weapon",
-   "heavy-flamer",
-   "multi-melta",
-   "storm-bolter",
-   "fenrisian-great-axe",
-   "helfrost-cannon"
+   "fenrisian-great-axe"
   ],
   "ability_ids": [
-   "blizzard-shield",
    "deadly-demise-1",
+   "combat-doctrines",
    "fervour-of-the-ancients-aura",
-   "guidance-of-the-ancients-psychic",
-   "wisdom-of-the-ancients-aura"
+   "blizzard-shield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16425,7 +16423,8 @@
     "namespace": "mfm",
     "id": "f0cad002-36f8-4d07-82ba-0d49e4ae2104"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ragnar-blackmane",
@@ -16436,7 +16435,7 @@
    {
     "name": "Ragnar Blackmane",
     "M": 7,
-    "T": 4,
+    "T": 5,
     "W": 5,
     "Sv": 3,
     "invuln_sv": 4,
@@ -16447,17 +16446,17 @@
   "points": [
    {
     "models": 1,
-    "cost": 90
+    "cost": 100
    }
   ],
   "keywords": [
+   "Imperium",
    "Infantry",
+   "Captain",
    "Character",
    "Epic Hero",
-   "Imperium",
-   "Grenades",
+   "Explosives",
    "Tacticus",
-   "Captain",
    "Ragnar Blackmane"
   ],
   "faction_keywords": [
@@ -16477,13 +16476,15 @@
    "frostfang"
   ],
   "ability_ids": [
-   "battle-lust",
    "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
+   "battle-lust",
    "war-howl"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16501,7 +16502,8 @@
     "namespace": "mfm",
     "id": "47b8725f-328d-4100-adf8-28680b6d45aa"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "thunderwolf-cavalry",
@@ -16514,7 +16516,15 @@
     "T": 6,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
+    "name": "Thunderwolf Cavalry Pack Leader",
+    "M": 12,
+    "T": 6,
+    "W": 4,
+    "Sv": 3,
     "Ld": 6,
     "OC": 2
    }
@@ -16522,34 +16532,32 @@
   "points": [
    {
     "models": 3,
-    "cost": 100,
+    "cost": 115,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
-    "models": 4,
-    "models_max": 6,
-    "cost": 200,
+    "models": 6,
+    "cost": 230,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 3,
-    "cost": 130,
+    "cost": 145,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 4,
-    "models_max": 6,
-    "cost": 230,
+    "models": 6,
+    "cost": 260,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
    "Mounted",
-   "Grenades",
+   "Explosives",
    "Imperium",
    "Thunderwolf Cavalry"
   ],
@@ -16566,18 +16574,20 @@
    "max": 6
   },
   "weapon_ids": [
-   "bolt-pistol",
-   "boltgun",
+   "bolt-pistol-thunderwolf-cavalry",
    "plasma-pistol-thunderwolf-cavalry",
+   "boltgun-thunderwolf-cavalry",
    "teeth-and-claws",
    "wolf-guard-weapon"
   ],
   "ability_ids": [
-   "thunderous-charge"
+   "combat-doctrines",
+   "thunderous-charge",
+   "storm-shield-thunderwolf-cavalry"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16609,7 +16619,14 @@
     "namespace": "mfm",
     "id": "1fe84e8c-ef82-4b4c-91ee-d91ebc82d0a7"
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Storm Shield",
+    "cost": 5
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "grey-hunters",
@@ -16620,10 +16637,18 @@
    {
     "name": "Grey Hunter",
     "M": 7,
-    "T": 4,
+    "T": 5,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 3
+   },
+   {
+    "name": "Grey Hunter Pack Leader",
+    "M": 7,
+    "T": 5,
+    "W": 2,
+    "Sv": 3,
     "Ld": 6,
     "OC": 3
    }
@@ -16631,20 +16656,20 @@
   "points": [
    {
     "models": 10,
-    "cost": 165
+    "cost": 180
    }
   ],
   "keywords": [
-   "Infantry",
-   "Battleline",
-   "Grenades",
+   "Explosives",
    "Imperium",
    "Tacticus",
+   "Battleline",
+   "Infantry",
    "Grey Hunters"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Space Wolves"
+   "Space Wolves",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -16655,19 +16680,21 @@
    "max": 10
   },
   "weapon_ids": [
-   "astartes-chainsword-grey-hunters",
    "bolt-carbine-grey-hunters",
-   "bolt-pistol",
+   "bolt-pistol-grey-hunters",
    "plasma-pistol-grey-hunters",
-   "power-fist",
-   "power-weapon"
+   "chainsword",
+   "power-weapon",
+   "power-fist"
   ],
   "ability_ids": [
+   "combat-doctrines",
+   "old-greymanes",
    "cunning-hunters"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16684,7 +16711,8 @@
     "namespace": "mfm",
     "id": "e2253101-0c6c-4716-a309-5ba4d9ce03a2"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fenrisian-wolves",
@@ -16692,12 +16720,11 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
-    "name": "Fenrisian Wolves",
+    "name": "Fenrisian Wolf",
     "M": 10,
     "T": 4,
     "W": 1,
     "Sv": 6,
-    "invuln_sv": null,
     "Ld": 8,
     "OC": 0
    }
@@ -16710,8 +16737,7 @@
     "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
+    "models": 10,
     "cost": 75,
     "unit_count_min": 1,
     "unit_count_max": 2
@@ -16723,16 +16749,15 @@
     "unit_count_max": null
    },
    {
-    "models": 6,
-    "models_max": 10,
+    "models": 10,
     "cost": 80,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Beasts",
    "Imperium",
+   "Beasts",
    "Fenrisian Wolves"
   ],
   "faction_keywords": [
@@ -16751,12 +16776,13 @@
    "teeth-and-claws-fenrisian-wolves"
   ],
   "ability_ids": [
-   "hunting-hounds",
-   "predatory-instinct"
+   "combat-doctrines",
+   "predatory-instinct",
+   "hunting-hounds"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16773,7 +16799,8 @@
     "namespace": "mfm",
     "id": "3b736e89-e3f2-433f-9016-eab60e59303d"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "wolf-priest",
@@ -16784,7 +16811,7 @@
    {
     "name": "Wolf Priest",
     "M": 7,
-    "T": 4,
+    "T": 5,
     "W": 4,
     "Sv": 3,
     "invuln_sv": 4,
@@ -16795,14 +16822,14 @@
   "points": [
    {
     "models": 1,
-    "cost": 70
+    "cost": 75
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
    "Imperium",
+   "Character",
    "Tacticus",
+   "Infantry",
    "Wolf Priest"
   ],
   "faction_keywords": [
@@ -16818,15 +16845,18 @@
    "max": 1
   },
   "weapon_ids": [
-   "absolvor-bolt-pistol",
+   "absolvor-bolt-pistol-wolf-priest",
    "crozius-arcanum"
   ],
   "ability_ids": [
-   "healing-balms"
+   "leader",
+   "combat-doctrines",
+   "healing-balms",
+   "litany-of-hate"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16844,7 +16874,8 @@
     "namespace": "mfm",
     "id": "c67303fc-f9f6-40d1-b4c7-0f1c06f23fba"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "wolf-guard-headtakers",
@@ -16854,20 +16885,18 @@
    {
     "name": "Wolf Guard Headtaker",
     "M": 7,
-    "T": 4,
+    "T": 5,
     "W": 3,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    },
    {
-    "name": "Hunting Wolves",
+    "name": "Hunting Wolf",
     "M": 10,
     "T": 4,
     "W": 1,
     "Sv": 6,
-    "invuln_sv": null,
     "Ld": 8,
     "OC": 0
    }
@@ -16875,58 +16904,92 @@
   "points": [
    {
     "models": 3,
-    "cost": 85
+    "cost": 85,
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
     "models": 6,
-    "cost": 170
+    "cost": 115,
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
     "models": 6,
-    "cost": 110
+    "cost": 170,
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
     "models": 12,
-    "cost": 220
+    "cost": 230,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 95,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 125,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 180,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 12,
+    "cost": 240,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
    "Imperium",
-   "Tacticus",
-   "Wolf Guard",
-   "Headtakers",
    "Beasts",
-   "Hunting Wolves"
+   "Infantry",
+   "Tacticus",
+   "Wolf Guard Headtakers"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
    "Space Wolves"
   ],
   "base_size_mm": {
-   "shape": "round",
-   "diameter": 40
+   "shape": "oval",
+   "width": 60,
+   "length": 35.5
   },
   "model_count": {
-   "min": 3,
+   "min": 6,
    "max": 12
   },
   "weapon_ids": [
-   "heavy-bolt-pistol",
+   "heavy-bolt-pistol-wolf-guard-headtakers",
    "master-crafted-power-weapon-wolf-guard-headtakers",
    "paired-master-crafted-power-weapons",
    "teeth-and-claws-wolf-guard-headtakers"
   ],
   "ability_ids": [
+   "combat-doctrines",
    "headhunters",
-   "let-loose-the-wolves"
+   "let-loose-the-wolves",
+   "hunting-hounds-wolf-guard-headtakers",
+   "storm-shield-wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
   "is_legend": false,
-  "points_provisional": true,
+  "points_provisional": false,
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -16952,7 +17015,8 @@
     "namespace": "mfm",
     "id": "966dd7c1-7db6-47a4-ad41-fabaa1c0f053"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "iron-priest",
@@ -16963,10 +17027,9 @@
    {
     "name": "Iron Priest",
     "M": 7,
-    "T": 4,
+    "T": 5,
     "W": 4,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -16974,19 +17037,19 @@
   "points": [
    {
     "models": 1,
-    "cost": 50
+    "cost": 60
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
    "Imperium",
    "Techmarine",
+   "Character",
+   "Infantry",
    "Iron Priest"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Space Wolves"
+   "Space Wolves",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -17001,14 +17064,15 @@
    "tempest-hammer-and-servo-arm"
   ],
   "ability_ids": [
+   "leader",
+   "combat-doctrines",
    "gift-of-the-iron-wolf",
    "iron-priest",
-   "judgement-of-the-omnissiah",
-   "leader"
+   "judgement-of-the-omnissiah"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17026,7 +17090,8 @@
     "namespace": "mfm",
     "id": "79db442b-77b7-4244-86ca-0c9d3798318e"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "njal-stormcaller",
@@ -17037,7 +17102,7 @@
    {
     "name": "Njal Stormcaller",
     "M": 7,
-    "T": 4,
+    "T": 5,
     "W": 4,
     "Sv": 3,
     "invuln_sv": 4,
@@ -17048,21 +17113,21 @@
   "points": [
    {
     "models": 1,
-    "cost": 75
+    "cost": 100
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
-   "Epic Hero",
    "Psyker",
    "Imperium",
    "Tacticus",
+   "Infantry",
+   "Character",
+   "Epic Hero",
    "Njal Stormcaller"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Space Wolves"
+   "Space Wolves",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -17073,18 +17138,22 @@
    "max": 1
   },
   "weapon_ids": [
-   "bolt-pistol",
+   "bolt-pistol-njal-stormcaller",
    "living-lightning",
    "staff-of-the-stormcaller"
   ],
   "ability_ids": [
    "leader",
-   "tempest-s-wrath-psychic",
-   "wind-walker-psychic"
+   "combat-doctrines",
+   "wind-walker-psychic",
+   "high-rune-priest",
+   "murderous-hurricane",
+   "storm-caller",
+   "tempest-s-wrath-psychic"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17102,7 +17171,8 @@
     "namespace": "mfm",
     "id": "a66189e5-5ec5-4dd6-9a09-b4a465115668"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "blood-claws",
@@ -17113,10 +17183,18 @@
    {
     "name": "Blood Claw",
     "M": 7,
-    "T": 4,
+    "T": 5,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
+    "name": "Blood Claw Pack Leader",
+    "M": 7,
+    "T": 5,
+    "W": 2,
+    "Sv": 3,
     "Ld": 6,
     "OC": 2
    }
@@ -17124,25 +17202,24 @@
   "points": [
    {
     "models": 10,
-    "cost": 135
+    "cost": 150
    },
    {
-    "models": 11,
-    "models_max": 20,
-    "cost": 270
+    "models": 20,
+    "cost": 290
    }
   ],
   "keywords": [
-   "Infantry",
-   "Battleline",
-   "Grenades",
-   "Imperium",
    "Tacticus",
+   "Imperium",
+   "Explosives",
+   "Battleline",
+   "Infantry",
    "Blood Claws"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Space Wolves"
+   "Space Wolves",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -17153,17 +17230,18 @@
    "max": 20
   },
   "weapon_ids": [
-   "astartes-chainsword-blood-claws",
-   "bolt-pistol",
+   "bolt-pistol-blood-claws",
    "plasma-pistol-blood-claws",
+   "chainsword",
    "power-weapon"
   ],
   "ability_ids": [
+   "combat-doctrines",
    "berserk-charge"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17180,7 +17258,8 @@
     "namespace": "mfm",
     "id": "567ac9f4-d173-49f4-bbb4-99bb63bea0f5"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ulrik-the-slayer",
@@ -17191,7 +17270,7 @@
    {
     "name": "Ulrik the Slayer",
     "M": 7,
-    "T": 4,
+    "T": 5,
     "W": 4,
     "Sv": 3,
     "invuln_sv": 4,
@@ -17202,17 +17281,17 @@
   "points": [
    {
     "models": 1,
-    "cost": 70
+    "cost": 90
    }
   ],
   "keywords": [
    "Infantry",
    "Character",
    "Epic Hero",
-   "Grenades",
-   "Imperium",
    "Wolf Priest",
-   "Ulrik the Slayer"
+   "Explosives",
+   "Imperium",
+   "Ulrik The Slayer"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -17227,18 +17306,19 @@
    "max": 1
   },
   "weapon_ids": [
-   "artificer-crozius-arcanum",
-   "plasma-pistol"
+   "plasma-pistol-ulrik-the-slayer",
+   "artificer-crozius-arcanum"
   ],
   "ability_ids": [
+   "feel-no-pain-6",
    "leader",
-   "oathbound",
+   "combat-doctrines",
    "slayer-s-oath",
-   "feel-no-pain-6"
+   "oathbound"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17256,7 +17336,8 @@
     "namespace": "mfm",
     "id": "896e1a38-bb75-4ce6-a631-fa727b870cb1"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "logan-grimnar",
@@ -17267,7 +17348,7 @@
    {
     "name": "Logan Grimnar",
     "M": 6,
-    "T": 5,
+    "T": 6,
     "W": 8,
     "Sv": 2,
     "invuln_sv": 4,
@@ -17278,16 +17359,16 @@
   "points": [
    {
     "models": 1,
-    "cost": 100
+    "cost": 150
    }
   ],
   "keywords": [
    "Infantry",
-   "Character",
-   "Epic Hero",
-   "Imperium",
    "Terminator",
    "Chapter Master",
+   "Character",
+   "Imperium",
+   "Epic Hero",
    "Logan Grimnar"
   ],
   "faction_keywords": [
@@ -17303,20 +17384,21 @@
    "max": 1
   },
   "weapon_ids": [
-   "axe-morkai",
    "storm-bolter-logan-grimnar",
+   "axe-morkai",
    "tyrnak-and-fenrir"
   ],
   "ability_ids": [
-   "embarking-within-transports",
-   "guile-of-the-wolf-aura",
-   "high-king-of-fenris",
    "leader",
-   "deep-strike"
+   "deep-strike",
+   "combat-doctrines",
+   "transhuman-strategist",
+   "high-king-of-fenris",
+   "guile-of-the-wolf-aura"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17334,7 +17416,8 @@
     "namespace": "mfm",
     "id": "3786f037-dab8-4c69-9173-3946fe7044b3"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "wolf-guard-terminators",
@@ -17344,7 +17427,17 @@
    {
     "name": "Wolf Guard Terminator",
     "M": 6,
-    "T": 5,
+    "T": 6,
+    "W": 3,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
+    "name": "Wolf Guard Terminator Pack Leader",
+    "M": 6,
+    "T": 6,
     "W": 3,
     "Sv": 2,
     "invuln_sv": 4,
@@ -17355,36 +17448,33 @@
   "points": [
    {
     "models": 5,
-    "cost": 155,
+    "cost": 180,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 310,
+    "models": 10,
+    "cost": 365,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 5,
-    "cost": 195,
+    "cost": 220,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 350,
+    "models": 10,
+    "cost": 405,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
    "Imperium",
+   "Infantry",
    "Terminator",
-   "Wolf Guard",
    "Wolf Guard Terminators"
   ],
   "faction_keywords": [
@@ -17401,19 +17491,21 @@
   },
   "weapon_ids": [
    "assault-cannon-wolf-guard-terminators",
+   "storm-bolter-wolf-guard-terminators",
    "master-crafted-power-weapon-wolf-guard-terminators",
    "power-fist",
    "relic-greataxe",
-   "storm-bolter-wolf-guard-terminators",
    "twin-lightning-claws-wolf-guard-terminators"
   ],
   "ability_ids": [
+   "deep-strike",
+   "combat-doctrines",
    "rugged-resilience",
-   "deep-strike"
+   "storm-shield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17446,7 +17538,14 @@
     "namespace": "mfm",
     "id": "70485a61-879a-4bcf-b69b-66ce195b9c9e"
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Storm Shield",
+    "cost": 5
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "wulfen-dreadnought",
@@ -17459,7 +17558,6 @@
     "T": 9,
     "W": 8,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 0
    }
@@ -17467,23 +17565,24 @@
   "points": [
    {
     "models": 1,
-    "cost": 135,
+    "cost": 140,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 145,
+    "cost": 150,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Walker",
    "Imperium",
+   "Vehicle",
+   "Dreadnought",
    "Wulfen",
-   "Dreadnought"
+   "Walker",
+   "Wulfen Dreadnought"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -17498,20 +17597,23 @@
    "max": 1
   },
   "weapon_ids": [
-   "fenrisian-great-axe",
+   "heavy-flamer-wulfen-dreadnought",
+   "storm-bolter-wulfen-dreadnought",
    "great-wolf-claw",
-   "heavy-flamer",
-   "storm-bolter"
+   "fenrisian-great-axe"
   ],
   "ability_ids": [
-   "bestial-rage",
-   "violent-fury",
+   "deadly-demise-1",
    "feel-no-pain-6",
-   "deadly-demise-1"
+   "curse-of-the-wulfen",
+   "combat-doctrines",
+   "violent-fury",
+   "bestial-rage",
+   "blizzard-shield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17528,7 +17630,8 @@
     "namespace": "mfm",
     "id": "6a88fb5f-9a97-4ceb-a25c-1990c09eb2c0"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "wulfen-with-storm-shields",
@@ -17536,7 +17639,7 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
-    "name": "Wulfen with Storm Shields",
+    "name": "Wulfen with Storm Shield",
     "M": 9,
     "T": 6,
     "W": 2,
@@ -17549,40 +17652,38 @@
   "points": [
    {
     "models": 5,
-    "cost": 100,
+    "cost": 125,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 200,
+    "models": 10,
+    "cost": 250,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 5,
-    "cost": 110,
+    "cost": 155,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 210,
+    "models": 10,
+    "cost": 280,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
    "Infantry",
-   "Imperium",
    "Wulfen",
+   "Imperium",
    "Wulfen with Storm Shields"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Space Wolves"
+   "Space Wolves",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -17597,12 +17698,14 @@
    "thunder-hammer-wulfen-with-storm-shields"
   ],
   "ability_ids": [
-   "death-totem",
-   "hammer-blow"
+   "combat-doctrines",
+   "curse-of-the-wulfen",
+   "hammer-blow",
+   "death-totem"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17619,7 +17722,8 @@
     "namespace": "mfm",
     "id": "6b5acbd0-f884-4c6e-81e5-d48bef177d26"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bjorn-the-fell-handed",
@@ -17628,9 +17732,9 @@
   "role": "epic-hero",
   "profiles": [
    {
-    "name": "Bjorn the Fell-Handed",
+    "name": "Bjorn the Fell-handed",
     "M": 9,
-    "T": 9,
+    "T": 10,
     "W": 8,
     "Sv": 2,
     "invuln_sv": 5,
@@ -17646,17 +17750,17 @@
   ],
   "keywords": [
    "Vehicle",
-   "Walker",
-   "Character",
-   "Epic Hero",
    "Smoke",
    "Imperium",
    "Dreadnought",
-   "Bjorn the Fell-Handed"
+   "Epic Hero",
+   "Character",
+   "Walker",
+   "Bjorn The Fell-handed"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Space Wolves"
+   "Space Wolves",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -17668,20 +17772,21 @@
   },
   "weapon_ids": [
    "assault-cannon-bjorn-the-fell-handed",
-   "heavy-flamer",
+   "heavy-flamer-bjorn-the-fell-handed",
    "helfrost-cannon",
    "multi-melta-bjorn-the-fell-handed",
    "trueclaw"
   ],
   "ability_ids": [
-   "ancient-tactician",
-   "legendary-tenacity",
    "deadly-demise-1",
-   "feel-no-pain-5"
+   "feel-no-pain-5",
+   "combat-doctrines",
+   "legendary-tenacity",
+   "ancient-tactician"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17698,7 +17803,8 @@
     "namespace": "mfm",
     "id": "c5acd20b-d9dc-4ba1-800e-1f9157533cda"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "arjac-rockfist",
@@ -17709,7 +17815,7 @@
    {
     "name": "Arjac Rockfist",
     "M": 6,
-    "T": 5,
+    "T": 6,
     "W": 6,
     "Sv": 2,
     "invuln_sv": 4,
@@ -17720,20 +17826,20 @@
   "points": [
    {
     "models": 1,
-    "cost": 95
+    "cost": 105
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
-   "Epic Hero",
    "Imperium",
    "Terminator",
+   "Character",
+   "Infantry",
+   "Epic Hero",
    "Arjac Rockfist"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Space Wolves"
+   "Space Wolves",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -17747,14 +17853,15 @@
    "foehammer"
   ],
   "ability_ids": [
-   "anvil-of-endurance",
-   "champion-of-the-kingsguard",
    "leader",
-   "deep-strike"
+   "deep-strike",
+   "combat-doctrines",
+   "champion-of-the-kingsguard",
+   "anvil-of-endurance"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17772,7 +17879,8 @@
     "namespace": "mfm",
     "id": "a8dc6d02-1303-4d45-bbca-4ddb1406451c"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "wolf-guard-battle-leader",
@@ -17783,7 +17891,7 @@
    {
     "name": "Wolf Guard Battle Leader",
     "M": 7,
-    "T": 4,
+    "T": 5,
     "W": 5,
     "Sv": 3,
     "invuln_sv": 4,
@@ -17794,16 +17902,15 @@
   "points": [
    {
     "models": 1,
-    "cost": 65
+    "cost": 80
    }
   ],
   "keywords": [
-   "Infantry",
+   "Tacticus",
    "Character",
    "Imperium",
-   "Tacticus",
-   "Wolf Guard",
-   "Battle Leader"
+   "Infantry",
+   "Wolf Guard Battle Leader"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -17818,20 +17925,20 @@
    "max": 1
   },
   "weapon_ids": [
-   "master-crafted-bolt-carbine-wolf-guard-battle-leader",
-   "master-crafted-heavy-bolt-pistol",
-   "master-crafted-power-weapon-wolf-guard-battle-leader",
    "plasma-pistol-wolf-guard-battle-leader",
+   "master-crafted-power-weapon-wolf-guard-battle-leader",
    "thunder-hammer-wolf-guard-battle-leader"
   ],
   "ability_ids": [
-   "heroic-last-stand",
    "leader",
-   "tempered-ferocity"
+   "combat-doctrines",
+   "tempered-ferocity",
+   "heroic-last-stand",
+   "storm-shield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17849,7 +17956,8 @@
     "namespace": "mfm",
     "id": "27e2604f-8c2c-404c-a711-5e36d0512e7c"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "wolf-scouts",
@@ -17858,11 +17966,19 @@
   "profiles": [
    {
     "name": "Wolf Scout",
-    "M": 7,
+    "M": 8,
     "T": 4,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
+    "name": "Wolf Scout Pack Leader",
+    "M": 8,
+    "T": 4,
+    "W": 2,
+    "Sv": 3,
     "Ld": 6,
     "OC": 1
    },
@@ -17872,7 +17988,6 @@
     "T": 4,
     "W": 1,
     "Sv": 6,
-    "invuln_sv": null,
     "Ld": 8,
     "OC": 0
    }
@@ -17880,19 +17995,35 @@
   "points": [
    {
     "models": 6,
-    "cost": 90
+    "cost": 95,
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
     "models": 12,
-    "cost": 180
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 105,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 12,
+    "cost": 200,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
    "Infantry",
-   "Grenades",
-   "Smoke",
    "Imperium",
    "Phobos",
+   "Smoke",
+   "Explosives",
    "Wolf Scouts"
   ],
   "faction_keywords": [
@@ -17900,33 +18031,35 @@
    "Space Wolves"
   ],
   "base_size_mm": {
-   "shape": "oval",
-   "width": 60,
-   "length": 35.5
+   "shape": "round",
+   "diameter": 32
   },
   "model_count": {
    "min": 6,
    "max": 12
   },
   "weapon_ids": [
-   "bolt-pistol",
-   "combat-blade",
-   "instigator-bolt-carbine",
+   "bolt-pistol-wolf-scouts",
+   "instigator-bolt-carbine-wolf-scouts",
    "plasma-gun",
    "plasma-pistol-wolf-scouts",
+   "thunderclap",
+   "combat-knife-wolf-scouts",
    "power-weapon",
    "runic-stave",
-   "teeth-and-claws-wolf-scouts",
-   "thunderclap"
+   "teeth-and-claws-wolf-scouts"
   ],
   "ability_ids": [
+   "scouts-8",
+   "infiltrators",
+   "combat-doctrines",
    "deadly-stalkers",
-   "scouts-7",
-   "infiltrators"
+   "hunting-hounds-wolf-scouts",
+   "haywire-mine"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -17943,7 +18076,8 @@
     "namespace": "mfm",
     "id": "f21a10ef-9b8b-4735-9d72-30000c0e92b1"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "wulfen",
@@ -17956,7 +18090,6 @@
     "T": 6,
     "W": 2,
     "Sv": 4,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 0
    }
@@ -17964,35 +18097,33 @@
   "points": [
    {
     "models": 5,
-    "cost": 85,
+    "cost": 90,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 170,
+    "models": 10,
+    "cost": 180,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 5,
-    "cost": 95,
+    "cost": 105,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 180,
+    "models": 10,
+    "cost": 195,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
    "Imperium",
-   "Wulfen"
+   "Wulfen",
+   "Infantry"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -18011,12 +18142,14 @@
    "wulfen-weapons"
   ],
   "ability_ids": [
-   "death-totem",
-   "savage-frenzy"
+   "combat-doctrines",
+   "curse-of-the-wulfen",
+   "savage-frenzy",
+   "death-totem"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -18037,7 +18170,8 @@
     "namespace": "mfm",
     "id": "e769d914-d77d-4974-ba44-9239d933fb0f"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "murderfang",
@@ -18051,7 +18185,6 @@
     "T": 9,
     "W": 8,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 0
    }
@@ -18063,13 +18196,13 @@
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Walker",
+   "Dreadnought",
    "Character",
    "Epic Hero",
-   "Imperium",
-   "Dreadnought",
    "Wulfen",
+   "Vehicle",
+   "Imperium",
+   "Walker",
    "Murderfang"
   ],
   "faction_keywords": [
@@ -18085,20 +18218,22 @@
    "max": 1
   },
   "weapon_ids": [
-   "heavy-flamer",
-   "murderclaws",
-   "storm-bolter"
+   "heavy-flamer-murderfang",
+   "storm-bolter-murderfang",
+   "murderclaws"
   ],
   "ability_ids": [
-   "bestial-fury",
-   "force-of-untamed-destruction",
-   "murder-maker",
+   "deadly-demise-1",
    "feel-no-pain-6",
-   "deadly-demise-1"
+   "combat-doctrines",
+   "curse-of-the-wulfen",
+   "murder-maker",
+   "bestial-fury",
+   "force-of-untamed-destruction"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -18115,7 +18250,8 @@
     "namespace": "mfm",
     "id": "084406d6-188c-4a7b-a783-a45599ea6f0e"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "eradicator-squad-with-heavy-bolters",

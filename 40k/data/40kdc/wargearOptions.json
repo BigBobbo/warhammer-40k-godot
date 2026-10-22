@@ -6821,662 +6821,541 @@
   }
  },
  {
-  "id": "venerable-dreadnought-wgo-mfm-1",
+  "id": "venerable-dreadnought-wgo-wh-1",
   "unit_id": "venerable-dreadnought",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "assault-cannon",
-   "storm-bolter",
-   "dreadnought-combat-weapon"
-  ],
-  "replacement": [
-   "fenrisian-great-axe",
-   "heavy-flamer",
-   "blizzard-shield"
-  ],
+  "rules_text": "This model's Assault Cannon can be replaced with one of the following: 1 Helfrost Cannon, 1 Multi-melta",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "venerable-dreadnought-wgo-mfm-2",
-  "unit_id": "venerable-dreadnought",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1
   },
-  "is_free": true,
   "replaces": [
-   "storm-bolter"
-  ],
-  "replacement": [
-   "heavy-flamer"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "venerable-dreadnought-wgo-mfm-3",
-  "unit_id": "venerable-dreadnought",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "assault-cannon",
-   "storm-bolter"
+   "assault-cannon-venerable-dreadnought"
   ],
   "replacement_choice": [
    [
-    "heavy-flamer",
-    "helfrost-cannon"
-   ],
-   [
-    "multi-melta",
-    "heavy-flamer"
+    "helfrost-cannon-venerable-dreadnought",
+    "multi-melta-venerable-dreadnought"
    ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "venerable-dreadnought-wgo-mfm-4",
+  "id": "venerable-dreadnought-wgo-wh-2",
   "unit_id": "venerable-dreadnought",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model's Storm Bolter can be replaced with 1 Heavy Flamer.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
-   "assault-cannon",
+   "storm-bolter-venerable-dreadnought"
+  ],
+  "replacement": [
+   "heavy-flamer-venerable-dreadnought"
+  ]
+ },
+ {
+  "id": "venerable-dreadnought-wgo-wh-3",
+  "unit_id": "venerable-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model's Assault Cannon and Dreadnought Combat Weapon can be replaced with 1 Fenrisian Great Axe and 1 Blizzard Shield.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "assault-cannon-venerable-dreadnought",
    "dreadnought-combat-weapon"
   ],
   "replacement": [
    "fenrisian-great-axe",
    "blizzard-shield"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "venerable-dreadnought-wgo-mfm-5",
-  "unit_id": "venerable-dreadnought",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "assault-cannon"
-  ],
-  "replacement_choice": [
-   [
-    "multi-melta"
-   ],
-   [
-    "helfrost-cannon"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "thunderwolf-cavalry-wgo-mfm-1",
+  "id": "thunderwolf-cavalry-wgo-wh-1",
   "unit_id": "thunderwolf-cavalry",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "bolt-pistol"
-  ],
-  "replacement_choice": [
-   [
-    "storm-shield"
-   ],
-   [
-    "boltgun"
-   ],
-   [
-    "plasma-pistol-thunderwolf-cavalry"
-   ]
-  ],
+  "rules_text": "For every 3 models in this unit, 1 model can have their Bolt Pistol replaced with 1 Plasma Pistol.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "model_name": "Thunderwolf Cavalry Pack Leader",
-   "any_number": true
-  }
+   "per_n_models": 3,
+   "max": 1
+  },
+  "replaces": [
+   "bolt-pistol-thunderwolf-cavalry"
+  ],
+  "replacement": [
+   "plasma-pistol-thunderwolf-cavalry"
+  ]
  },
  {
-  "id": "thunderwolf-cavalry-wgo-mfm-2",
+  "id": "thunderwolf-cavalry-wgo-wh-2",
   "unit_id": "thunderwolf-cavalry",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "bolt-pistol"
-  ],
-  "replacement_choice": [
-   [
-    "plasma-pistol-thunderwolf-cavalry"
-   ],
-   [
-    "storm-shield"
-   ],
-   [
-    "boltgun"
-   ]
-  ],
+  "rules_text": "Any number of models can each have their Bolt Pistol replaced with 1 Boltgun and 1 Storm Shield.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "model_name": "Thunderwolf Cavalry",
    "any_number": true
-  }
+  },
+  "replaces": [
+   "bolt-pistol-thunderwolf-cavalry"
+  ],
+  "replacement": [
+   "boltgun-thunderwolf-cavalry",
+   "storm-shield-thunderwolf-cavalry"
+  ]
  },
  {
-  "id": "grey-hunters-wgo-mfm-1",
+  "id": "grey-hunters-wgo-wh-1",
   "unit_id": "grey-hunters",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Grey Hunter Pack Leader can have their Chainsword replaced with one of the following: 1 Power Fist, 1 Power Weapon",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Grey Hunter Pack Leader"
+  },
   "replaces": [
-   "astartes-chainsword-grey-hunters"
+   "chainsword"
   ],
   "replacement_choice": [
    [
-    "power-fist"
-   ],
-   [
+    "power-fist",
     "power-weapon"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Grey Hunter Pack Leader",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "grey-hunters-wgo-mfm-2",
+  "id": "grey-hunters-wgo-wh-2",
   "unit_id": "grey-hunters",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Grey Hunter Pack Leader can have their Bolt Pistol replaced with 1 Plasma Pistol.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Grey Hunter Pack Leader"
+  },
   "replaces": [
-   "bolt-carbine-grey-hunters"
+   "bolt-pistol-grey-hunters"
   ],
   "replacement": [
    "plasma-pistol-grey-hunters"
-  ],
-  "model_constraint": {
-   "model_name": "Grey Hunter Pack Leader",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "wolf-guard-headtakers-wgo-mfm-1",
+  "id": "wolf-guard-headtakers-wgo-wh-1",
   "unit_id": "wolf-guard-headtakers",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "Any number of Wolf Guard Headtaker models can each have their Paired Master-crafted Power Weapons replaced with 1 Master-crafted Power Weapon and 1 Storm Shield.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "any_number": true,
+   "model_name": "Wolf Guard Headtaker"
+  },
   "replaces": [
-   "master-crafted-power-weapon-wolf-guard-headtakers",
-   "storm-shield"
-  ],
-  "replacement": [
    "paired-master-crafted-power-weapons"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "blood-claws-wgo-mfm-1",
-  "unit_id": "blood-claws",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "bolt-pistol"
-  ],
   "replacement": [
-   "plasma-pistol-blood-claws"
-  ],
-  "model_constraint": {
-   "model_name": "Blood Claw Pack Leader",
-   "any_number": true
-  }
+   "master-crafted-power-weapon-wolf-guard-headtakers",
+   "storm-shield-wolf-guard-headtakers"
+  ]
  },
  {
-  "id": "blood-claws-wgo-mfm-2",
+  "id": "blood-claws-wgo-wh-1",
   "unit_id": "blood-claws",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Blood Claw Pack Leader can have their Chainsword replaced with 1 Power Weapon.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Blood Claw Pack Leader"
+  },
   "replaces": [
-   "astartes-chainsword-blood-claws"
+   "chainsword"
   ],
   "replacement": [
    "power-weapon"
-  ],
-  "model_constraint": {
-   "model_name": "Blood Claw Pack Leader",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "wolf-guard-terminators-wgo-mfm-1",
-  "unit_id": "wolf-guard-terminators",
+  "id": "blood-claws-wgo-wh-2",
+  "unit_id": "blood-claws",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Blood Claw Pack Leader can have their Bolt Pistol replaced with 1 Plasma Pistol.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Blood Claw Pack Leader"
+  },
   "replaces": [
-   "storm-bolter-wolf-guard-terminators"
+   "bolt-pistol-blood-claws"
   ],
   "replacement": [
-   "storm-shield"
-  ],
-  "model_constraint": {
-   "model_name": "Wolf Guard Terminator",
-   "any_number": true
-  }
+   "plasma-pistol-blood-claws"
+  ]
  },
  {
-  "id": "wolf-guard-terminators-wgo-mfm-2",
+  "id": "wolf-guard-terminators-wgo-wh-1",
   "unit_id": "wolf-guard-terminators",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "storm-bolter-wolf-guard-terminators",
-   "master-crafted-power-weapon-wolf-guard-terminators"
-  ],
-  "replacement": [
-   "power-fist",
-   "assault-cannon-wolf-guard-terminators"
-  ],
+  "rules_text": "The Wolf Guard Terminator Pack Leader can have their Storm Bolter and Master-crafted Power Weapon replaced with one of the following: 1 Relic Greataxe, 1 Twin Lightning Claws",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "model_name": "Wolf Guard Terminator",
-   "any_number": true
-  }
- },
- {
-  "id": "wolf-guard-terminators-wgo-mfm-3",
-  "unit_id": "wolf-guard-terminators",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1,
+   "model_name": "Wolf Guard Terminator Pack Leader"
   },
-  "is_free": true,
   "replaces": [
    "storm-bolter-wolf-guard-terminators",
    "master-crafted-power-weapon-wolf-guard-terminators"
   ],
   "replacement_choice": [
    [
+    "relic-greataxe",
     "twin-lightning-claws-wolf-guard-terminators"
-   ],
-   [
-    "relic-greataxe"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Wolf Guard Terminator Pack Leader",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "wolf-guard-terminators-wgo-mfm-4",
+  "id": "wolf-guard-terminators-wgo-wh-2",
   "unit_id": "wolf-guard-terminators",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "Any number of models can each have their Storm Bolter replaced with 1 Storm Shield.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "any_number": true
+  },
   "replaces": [
    "storm-bolter-wolf-guard-terminators"
   ],
   "replacement": [
    "storm-shield"
-  ],
-  "model_constraint": {
-   "model_name": "Wolf Guard Terminator Pack Leader",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "wulfen-dreadnought-wgo-mfm-1",
-  "unit_id": "wulfen-dreadnought",
+  "id": "wolf-guard-terminators-wgo-wh-3",
+  "unit_id": "wolf-guard-terminators",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "For every 5 models in this unit, 1 Wolf Guard Terminator model can have their Storm Bolter and Master-crafted Power Weapon replaced with 1 Assault Cannon and 1 Power Fist.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 5,
+   "max": 1,
+   "model_name": "Wolf Guard Terminator"
+  },
   "replaces": [
-   "storm-bolter",
-   "great-wolf-claw"
+   "storm-bolter-wolf-guard-terminators",
+   "master-crafted-power-weapon-wolf-guard-terminators"
   ],
   "replacement": [
-   "heavy-flamer",
-   "blizzard-shield"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+   "assault-cannon-wolf-guard-terminators",
+   "power-fist"
+  ]
  },
  {
-  "id": "wulfen-dreadnought-wgo-mfm-2",
+  "id": "wulfen-dreadnought-wgo-wh-1",
   "unit_id": "wulfen-dreadnought",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model's Storm Bolter can be replaced with 1 Heavy Flamer.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "storm-bolter-wulfen-dreadnought"
+  ],
+  "replacement": [
+   "heavy-flamer-wulfen-dreadnought"
+  ]
+ },
+ {
+  "id": "wulfen-dreadnought-wgo-wh-2",
+  "unit_id": "wulfen-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model's Fenrisian Great Axe can be replaced with 1 Blizzard Shield.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "fenrisian-great-axe"
   ],
-  "replacement_choice": [
-   [
-    "storm-bolter",
-    "blizzard-shield"
-   ],
-   [
-    "blizzard-shield",
-    "heavy-flamer"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "wulfen-dreadnought-wgo-mfm-3",
-  "unit_id": "wulfen-dreadnought",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "storm-bolter"
-  ],
-  "replacement": [
-   "heavy-flamer"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "wulfen-dreadnought-wgo-mfm-4",
-  "unit_id": "wulfen-dreadnought",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "great-wolf-claw"
-  ],
   "replacement": [
    "blizzard-shield"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "wulfen-dreadnought-wgo-mfm-5",
-  "unit_id": "wulfen-dreadnought",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "storm-bolter",
-   "fenrisian-great-axe"
-  ],
-  "replacement": [
-   "blizzard-shield",
-   "heavy-flamer",
-   "heavy-flamer"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "wulfen-with-storm-shields-wgo-mfm-1",
+  "id": "wulfen-with-storm-shields-wgo-wh-1",
   "unit_id": "wulfen-with-storm-shields",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "death-totem"
-  ],
-  "replacement": [
-   "stormfrag-auto-launcher"
-  ],
+  "rules_text": "Any number of models can each have their Stormfrag Auto-launcher replaced with 1 Death Totem.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "replaces": [
+   "stormfrag-auto-launcher"
+  ],
+  "replacement": [
+   "death-totem"
+  ]
  },
  {
-  "id": "bjorn-the-fell-handed-wgo-mfm-1",
+  "id": "bjorn-the-fell-handed-wgo-wh-1",
   "unit_id": "bjorn-the-fell-handed",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model's Assault Cannon can be replaced with one of the following: 1 Helfrost Cannon, 1 Multi-melta",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "assault-cannon-bjorn-the-fell-handed"
   ],
   "replacement_choice": [
    [
+    "helfrost-cannon",
     "multi-melta-bjorn-the-fell-handed"
-   ],
-   [
-    "helfrost-cannon"
    ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "wolf-guard-battle-leader-wgo-mfm-1",
+  "id": "wolf-guard-battle-leader-wgo-wh-1",
   "unit_id": "wolf-guard-battle-leader",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model's Master-crafted Power Weapon can be replaced with 1 Thunder Hammer.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "master-crafted-power-weapon-wolf-guard-battle-leader"
   ],
   "replacement": [
    "thunder-hammer-wolf-guard-battle-leader"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "wolf-guard-battle-leader-wgo-mfm-2",
+  "id": "wolf-guard-battle-leader-wgo-wh-2",
   "unit_id": "wolf-guard-battle-leader",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "storm-shield"
-  ],
-  "replacement_choice": [
-   [
-    "master-crafted-heavy-bolt-pistol"
-   ],
-   [
-    "master-crafted-bolt-carbine-wolf-guard-battle-leader"
-   ],
-   [
-    "plasma-pistol-wolf-guard-battle-leader"
-   ]
-  ],
+  "rules_text": "This model's Plasma Pistol can be replaced with 1 Storm Shield.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
+   "max": 1
+  },
+  "replaces": [
+   "plasma-pistol-wolf-guard-battle-leader"
+  ],
+  "replacement": [
+   "storm-shield"
+  ]
  },
  {
-  "id": "wolf-scouts-wgo-mfm-1",
+  "id": "wolf-scouts-wgo-wh-1",
   "unit_id": "wolf-scouts",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "1 Wolf Scout model can have their Plasma Pistol and Combat Knife replaced with one of the following: 1 Bolt Pistol, 1 Runic Stave, 1 Thunderclap",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Wolf Scout"
+  },
+  "replaces": [
+   "plasma-pistol-wolf-scouts",
+   "combat-knife-wolf-scouts"
+  ],
+  "replacement_choice": [
+   [
+    "bolt-pistol-wolf-scouts",
+    "runic-stave",
+    "thunderclap"
+   ]
+  ]
+ },
+ {
+  "id": "wolf-scouts-wgo-wh-2",
+  "unit_id": "wolf-scouts",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "For every 12 models in this unit, 1 Wolf Scout model can have their Plasma Pistol replaced with 1 Instigator Bolt Carbine.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 12,
+   "max": 1,
+   "model_name": "Wolf Scout"
+  },
+  "replaces": [
+   "plasma-pistol-wolf-scouts"
+  ],
+  "replacement": [
+   "instigator-bolt-carbine-wolf-scouts"
+  ]
+ },
+ {
+  "id": "wolf-scouts-wgo-wh-3",
+  "unit_id": "wolf-scouts",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "1 model equipped with 1 Plasma Pistol can be equipped with 1 Haywire Mine",
+  "source": "wahapedia-11e@2026-10-21",
+  "replaces": [],
+  "replacement": [
+   "haywire-mine"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "wolf-scouts-wgo-wh-4",
+  "unit_id": "wolf-scouts",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "1 Wolf Scout model can have their Plasma Pistol replaced with 1 Plasma Gun.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Wolf Scout"
+  },
   "replaces": [
    "plasma-pistol-wolf-scouts"
   ],
   "replacement": [
    "plasma-gun"
-  ],
-  "model_constraint": {
-   "model_name": "Wolf Scout",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "wolf-scouts-wgo-mfm-2",
-  "unit_id": "wolf-scouts",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "plasma-pistol-wolf-scouts"
-  ],
-  "replacement": [
-   "instigator-bolt-carbine"
-  ],
-  "model_constraint": {
-   "model_name": "Wolf Scout",
-   "per_n_models": 12
-  }
- },
- {
-  "id": "wolf-scouts-wgo-mfm-3",
-  "unit_id": "wolf-scouts",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "haywire-mine"
-  ],
-  "model_constraint": {
-   "model_name": "Wolf Scout",
-   "any_number": true
-  }
- },
- {
-  "id": "wolf-scouts-wgo-mfm-4",
-  "unit_id": "wolf-scouts",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "plasma-pistol-wolf-scouts",
-   "combat-blade"
-  ],
-  "replacement": [
-   "thunderclap",
-   "runic-stave",
-   "bolt-pistol"
-  ],
-  "model_constraint": {
-   "model_name": "Wolf Scout",
-   "any_number": true
-  }
- },
- {
-  "id": "wulfen-wgo-mfm-1",
+  "id": "wulfen-wgo-wh-1",
   "unit_id": "wulfen",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "Any number of models can each have their death totem replaced with 1 stormfrag auto-launcher.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "any_number": true
+  },
   "replaces": [
    "death-totem"
   ],
   "replacement": [
    "stormfrag-auto-launcher"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "land-speeder-wgo-mfm-1",

@@ -143,6 +143,32 @@ func _counts_by_role(unit: Dictionary, per_model: Dictionary, type_filter: Strin
 		out[r] = arr
 	return out
 
+# True when some role's models carry different weapon SETS of this type (each
+# took a different wargear option) — then their profile counts may differ.
+func _mixed_options_per_role(unit: Dictionary, per_model: Dictionary, type_filter: String) -> bool:
+	var id_to_name := {}
+	for w in unit.get("meta", {}).get("weapons", []):
+		if typeof(w) == TYPE_DICTIONARY and str(w.get("type", "")).to_lower() == type_filter.to_lower():
+			id_to_name[RE._generate_weapon_id(str(w.get("name", "")), str(w.get("type", "")))] = str(w.get("name", ""))
+	var roles = _model_roles(unit)
+	var models = unit.get("models", [])
+	var sets_by_role := {}
+	for i in range(models.size()):
+		if not models[i].get("alive", true):
+			continue
+		var bases := {}
+		for e in per_model.get(str(models[i].get("id", "")), []):
+			bases[UnitLoadoutResolver.base_weapon_name(str(id_to_name.get(str(e), str(e))))] = true
+		var keys: Array = bases.keys()
+		keys.sort()
+		var sets: Dictionary = sets_by_role.get(str(roles[i]), {})
+		sets[str(keys)] = true
+		sets_by_role[str(roles[i])] = sets
+	for r in sets_by_role:
+		if (sets_by_role[r] as Dictionary).size() > 1:
+			return true
+	return false
+
 # True when every role's models carry the same count, every count is >= 1 —
 # or 0 for a lone model whose roster took no weapon of this type (a codex
 # Battlewagon is equipped with only Crushin' Bulk; its big shootas are add-ons).
@@ -258,7 +284,11 @@ func _run():
 					"weapons per model by role: %s" % _fmt_roles(k_weapons))
 				# INVARIANT 3 (generalized): within a role every model reports the
 				# same number of weapon PROFILES too (total == k × alive per role),
-				# and every alive model reports.
+				# and every alive model reports. Exception (WP-S1, Codex: Space
+				# Marines): models of one role that took DIFFERENT options carry
+				# the same number of weapons (invariant 2) but not of profiles —
+				# a Thunderwolf with a plasma pistol (Standard / Supercharge) next
+				# to one with a bolt pistol.
 				var k_profiles = _counts_by_role(unit, mw, "Ranged", false)
 				var alive := 0
 				for m in models:
@@ -268,7 +298,8 @@ func _run():
 				for r in k_profiles:
 					reporting += (k_profiles[r] as Array).size()
 				_check("resolved-total==k*alive %s/%s" % [fname, uid],
-					reporting == alive and _uniform_per_role(unit, k_profiles, "Ranged"),
+					reporting == alive and (_uniform_per_role(unit, k_profiles, "Ranged") or
+						(_uniform_per_role(unit, k_weapons, "Ranged") and _mixed_options_per_role(unit, mw, "Ranged"))),
 					"profiles per model by role: %s (alive=%d)" % [_fmt_roles(k_profiles), alive])
 				# INVARIANT 5 (Task C): every stamped gun is one the model_type may
 				# actually take — never invent a weapon a model can't have.

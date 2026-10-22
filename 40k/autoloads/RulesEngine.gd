@@ -8118,14 +8118,27 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 			for s in bundle:
 				grant_counts[s] = int(grant_counts.get(s, 0)) + 1
 
-	# Apply the swaps the roster took.
-	var swapped := {}  # model index -> true, so two options never claim one model
+	# Apply the swaps the roster took. A model can take several options as long
+	# as each one still finds the weapons it replaces (a Grey Hunter Pack Leader
+	# swaps his chainsword for a power fist AND his bolt pistol for a plasma
+	# pistol); two options replacing the same weapon never claim one model.
+	var swapped := {}  # model index -> true once any option changed its kit
 	for option in options:
 		var role_filter = str(option.get("role", ""))
+		var replaces: Array = option.get("replaces", [])
 		var candidates: Array = []
 		for i in range(models.size()):
-			if swapped.has(i):
-				continue
+			if replaces.is_empty():
+				if swapped.has(i):
+					continue
+			else:
+				var still_has := true
+				for gone in replaces:
+					if gone not in kits[i]:
+						still_has = false
+						break
+				if not still_has:
+					continue
 			if role_filter != "" and str(role_of[i]) != role_filter:
 				continue
 			candidates.append(i)

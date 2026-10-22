@@ -29,6 +29,13 @@ const SNAP = join(HERE, '..', '..', '.llm', 'codex_11e_wahapedia');
 const FACTIONS = {
   'adeptus-custodes': { dir: 'custodes', full: true, detachments: 13, stratagems: 41, enhancements: 29 },
   'orks': { dir: 'orks', full: false, enhancements: 38 },
+  // Codex: Space Marines, scoped to the Space Wolves datasheets and the three
+  // Space Wolves detachments (filed under the space-wolves chapter faction).
+  'adeptus-astartes': {
+    dir: 'space-marines', full: false, enhancements: 8, sources: ['Space Wolves'],
+    detachmentFaction: 'space-wolves', detachmentNames: ['Champions of Fenris', 'Saga of the Beastslayer', 'Saga of the Great Wolf'],
+    stratagems: 12,
+  },
 };
 
 // Independent pipe-CSV reader (quotes: "" escapes; quoted fields may hold |).
@@ -63,7 +70,8 @@ function verify(factionId) {
   const dir = join(SNAP, cfg.dir, 'wahapedia');
   const R = n => csv(join(dir, `${n}.csv`));
   const sources = new Map(R('Source').map(s => [s.id, s.name]));
-  const sheets = R('Datasheets').filter(d => !/Legends/i.test(sources.get(d.source_id) ?? ''));
+  const sheets = R('Datasheets').filter(d => !/Legends/i.test(sources.get(d.source_id) ?? '') &&
+    (!cfg.sources || cfg.sources.includes(sources.get(d.source_id) ?? '')));
   const by = (rows, k) => rows.reduce((m, r) => (m.get(r[k]) ?? m.set(r[k], []).get(r[k])).push(r) && m, new Map());
   const models = by(R('Datasheets_models'), 'datasheet_id');
   const costs = by(R('Datasheets_models_cost'), 'datasheet_id');
@@ -150,7 +158,13 @@ function verify(factionId) {
   // leader pairings
   let pairs = 0;
   for (const l of leader) {
-    const a = unitByWaha.get(l.leader_id), b = unitByWaha.get(l.attached_id);
+    let a = unitByWaha.get(l.leader_id), b = unitByWaha.get(l.attached_id);
+    if (cfg.sources && (!!a !== !!b)) {
+      // scoped: a pairing between an in-scope datasheet and any other codex one
+      const other = R('Datasheets').find(d => d.id === (a ? l.attached_id : l.leader_id));
+      const ou = other && units.find(x => normName(x.name) === normName(other.name));
+      if (a) b = ou; else a = ou;
+    }
     if (!a || !b) continue;
     const la = leaders.find(x => x.leader_id === a.id);
     if (!la || !la.eligible_bodyguard_ids.includes(b.id)) err(a.name, `leader pairing -> ${b.name} missing`);
@@ -163,10 +177,11 @@ function verify(factionId) {
     const BOARDING = new Set(['voyagers in darkness', 'black ship guardians', 'ramship raiders', 'kaptin killers']);
     const enhKey = n => normName(String(n).replace(/\s*\([^)]*\)\s*$/, '')).replace(/\s+upgrade$/, '').replace(/\s+/g, '');
     const allEnh = new Map(J('enhancements').map(e => [e.id, e]));
-    const dataDets = J('detachments').filter(d => d.faction_id === factionId);
+    const dataDets = J('detachments').filter(d => d.faction_id === (cfg.detachmentFaction ?? factionId));
     const snapEnh = R('Enhancements');
     let n = 0;
-    for (const sd of R('Detachments').filter(d => !BOARDING.has(normName(d.name)))) {
+    const inScope = d => !cfg.detachmentNames || cfg.detachmentNames.some(n => normName(n) === normName(text(d.name)));
+    for (const sd of R('Detachments').filter(d => !BOARDING.has(normName(d.name)) && inScope(d))) {
       const dd = dataDets.find(d => normName(d.name) === normName(text(sd.name)));
       if (!dd) { errors.push(`${factionId}: detachment ${text(sd.name)} missing`); continue; }
       const want = snapEnh.filter(e => e.detachment_id === sd.id)
@@ -183,6 +198,17 @@ function verify(factionId) {
     }
     if (cfg.enhancements != null && n !== cfg.enhancements) errors.push(`${factionId}: ${n} codex enhancements checked, expected ${cfg.enhancements}`);
     checked.enhancements = n;
+  }
+  if (cfg.detachmentNames) {
+    const dets = J('detachments').filter(d => d.faction_id === cfg.detachmentFaction &&
+      cfg.detachmentNames.some(n => normName(n) === normName(d.name)));
+    if (dets.length !== cfg.detachmentNames.length) errors.push(`${factionId}: ${dets.length} scoped detachments found`);
+    for (const d of dets) {
+      if (d.superseded_by_codex) errors.push(`${factionId}: ${d.id} superseded`);
+      if (!d.detachment_rule_id) errors.push(`${factionId}: ${d.id} has no detachment rule`);
+    }
+    const st = dets.flatMap(d => d.stratagem_ids);
+    if (st.length !== cfg.stratagems) errors.push(`${factionId}: ${st.length} stratagems, expected ${cfg.stratagems}`);
   }
   if (cfg.full) {
     const dets = J('detachments').filter(d => d.faction_id === factionId && !d.superseded_by_codex);

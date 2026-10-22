@@ -240,6 +240,7 @@ TESTS=(
     "tests/test_command_phase_start_once.gd"
     "tests/test_ork_codex_11e_data.gd"
     "tests/test_wahapedia_11e_import_data.gd"
+    "tests/test_sw11e_codex_data.gd"
     "tests/test_ork_codex_framework.gd"
     "tests/test_ork_codex_fight.gd"
     "tests/test_ork_codex_shooting.gd"

@@ -16713,8 +16713,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -16724,8 +16726,7 @@
     "namespace": "mfm",
     "id": "6c14fd63-31c2-4fbf-95ac-89732ceda1a8"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "teeth-and-claws",
@@ -16751,23 +16752,24 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "mfm",
     "id": "4f1588d8-ba3d-495f-afd2-6edcab3d26df"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "wolf-guard-weapon",
-  "name": "Wolf Guard weapon",
+  "name": "Wolf Guard Weapon",
   "type": "melee",
   "profiles": [
    {
-    "name": "Wolf Guard weapon",
+    "name": "Wolf Guard Weapon",
     "range": "Melee",
     "stats": {
      "A": 4,
@@ -16781,8 +16783,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -16792,16 +16796,15 @@
     "namespace": "mfm",
     "id": "c0ad8e41-6bc2-4aca-84f5-1e71d375c3c4"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "paired-master-crafted-power-weapons",
-  "name": "Paired master‑crafted power weapons",
+  "name": "Paired Master-crafted Power Weapons",
   "type": "melee",
   "profiles": [
    {
-    "name": "Paired master‑crafted power weapons",
+    "name": "Paired Master-crafted Power Weapons",
     "range": "Melee",
     "stats": {
      "A": 6,
@@ -16815,8 +16818,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -16826,27 +16831,26 @@
     "namespace": "mfm",
     "id": "9a4d0fcb-1e84-40a2-9413-4322fb1c0e13"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "helfrost-pistol",
-  "name": "Helfrost pistol",
+  "name": "Helfrost Pistol",
   "type": "ranged",
   "profiles": [
    {
     "name": "Dispersed",
     "range": 12,
     "stats": {
-     "A": "D6",
+     "A": 3,
      "S": 4,
      "AP": -1,
      "D": 1,
-     "BS": null
+     "BS": 7
     },
     "keywords": [
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
      },
      {
       "keyword_id": "torrent"
@@ -16865,15 +16869,17 @@
     },
     "keywords": [
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -16883,16 +16889,15 @@
     "namespace": "mfm",
     "id": "5918ad43-043f-4127-9be6-4f0e2a9c8011"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "tempest-hammer-and-servo-arm",
-  "name": "Tempest hammer and servo-arm",
+  "name": "Tempest Hammer and Servo-arm",
   "type": "melee",
   "profiles": [
    {
-    "name": "Tempest hammer and servo-arm",
+    "name": "Tempest Hammer and Servo-arm",
     "range": "Melee",
     "stats": {
      "A": 4,
@@ -16906,8 +16911,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -16917,8 +16924,7 @@
     "namespace": "mfm",
     "id": "31892003-1ee8-473c-b16f-260841af7ba4"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "living-lightning",
@@ -16926,21 +16932,21 @@
   "type": "ranged",
   "profiles": [
    {
-    "name": "Focused witchfire",
+    "name": "Focused Witchfire",
     "range": 24,
     "stats": {
-     "A": "2D6",
+     "A": "D6+6",
      "S": 7,
-     "AP": -1,
+     "AP": -2,
      "D": 1,
      "BS": 3
     },
     "keywords": [
      {
-      "keyword_id": "hazardous"
+      "keyword_id": "psychic"
      },
      {
-      "keyword_id": "psychic"
+      "keyword_id": "hazardous"
      },
      {
       "keyword_id": "sustained-hits",
@@ -16954,7 +16960,7 @@
     "name": "Witchfire",
     "range": 24,
     "stats": {
-     "A": "D6",
+     "A": "D3+3",
      "S": 7,
      "AP": -1,
      "D": 1,
@@ -16962,21 +16968,23 @@
     },
     "keywords": [
      {
-      "keyword_id": "psychic"
-     },
-     {
       "keyword_id": "sustained-hits",
       "parameters": {
        "value": 2
       }
+     },
+     {
+      "keyword_id": "psychic"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -16986,8 +16994,7 @@
     "namespace": "mfm",
     "id": "0e86fd85-01da-4a28-bf73-3dab44002b8d"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "staff-of-the-stormcaller",
@@ -17001,26 +17008,28 @@
      "A": 4,
      "S": 7,
      "AP": -1,
-     "D": "D3",
+     "D": 2,
      "WS": 3
     },
     "keywords": [
-     {
-      "keyword_id": "psychic"
-     },
      {
       "keyword_id": "sustained-hits",
       "parameters": {
        "value": 2
       }
+     },
+     {
+      "keyword_id": "psychic"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17030,16 +17039,15 @@
     "namespace": "mfm",
     "id": "4b517cda-f7e4-4083-adb4-a1bc60908bb6"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "artificer-crozius-arcanum",
-  "name": "Artificer crozius arcanum",
+  "name": "Artificer Crozius Arcanum",
   "type": "melee",
   "profiles": [
    {
-    "name": "Artificer crozius arcanum",
+    "name": "Artificer Crozius Arcanum",
     "range": "Melee",
     "stats": {
      "A": 5,
@@ -17053,7 +17061,20 @@
       "keyword_id": "anti",
       "parameters": {
        "target_keyword": "Monster",
-       "threshold": 4
+       "threshold": 4,
+       "required_target_keywords_any": [
+        "Monster"
+       ]
+      }
+     },
+     {
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Vehicle",
+       "threshold": 4,
+       "required_target_keywords_any": [
+        "Vehicle"
+       ]
       }
      }
     ]
@@ -17061,21 +17082,34 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "mfm",
     "id": "3f33a4ab-d5c9-4456-8591-62be8905fc51"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "axe-morkai",
   "name": "Axe Morkai",
   "type": "melee",
   "profiles": [
+   {
+    "name": "Strike",
+    "range": "Melee",
+    "stats": {
+     "A": 6,
+     "S": 10,
+     "AP": -2,
+     "D": 3,
+     "WS": 2
+    },
+    "keywords": []
+   },
    {
     "name": "Sweep",
     "range": "Melee",
@@ -17086,25 +17120,22 @@
      "D": 1,
      "WS": 2
     },
-    "keywords": []
-   },
-   {
-    "name": "Strike",
-    "range": "Melee",
-    "stats": {
-     "A": 6,
-     "S": 8,
-     "AP": -2,
-     "D": 3,
-     "WS": 2
-    },
-    "keywords": []
+    "keywords": [
+     {
+      "keyword_id": "cleave",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17114,8 +17145,7 @@
     "namespace": "mfm",
     "id": "e9360c0c-a68b-47a5-bad6-9f75fcf4f3ac"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "tyrnak-and-fenrir",
@@ -17141,8 +17171,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17152,20 +17184,19 @@
     "namespace": "mfm",
     "id": "e485d00a-b4a0-455f-baa8-2d61099ea5b7"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "relic-greataxe",
-  "name": "Relic greataxe",
+  "name": "Relic Greataxe",
   "type": "melee",
   "profiles": [
    {
-    "name": "Relic greataxe",
+    "name": "Relic Greataxe",
     "range": "Melee",
     "stats": {
      "A": 3,
-     "S": 7,
+     "S": 8,
      "AP": -2,
      "D": 3,
      "WS": 3
@@ -17179,8 +17210,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "mfm",
@@ -17190,14 +17223,25 @@
     "namespace": "mfm",
     "id": "e8b5a501-8690-4b0b-89f2-495fab3bc4e2"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "fenrisian-great-axe",
-  "name": "Fenrisian great axe",
+  "name": "Fenrisian Great Axe",
   "type": "melee",
   "profiles": [
+   {
+    "name": "Strike",
+    "range": "Melee",
+    "stats": {
+     "A": 6,
+     "S": 10,
+     "AP": -2,
+     "D": "D3+3",
+     "WS": 3
+    },
+    "keywords": []
+   },
    {
     "name": "Sweep",
     "range": "Melee",
@@ -17209,24 +17253,14 @@
      "WS": 3
     },
     "keywords": []
-   },
-   {
-    "name": "Strike",
-    "range": "Melee",
-    "stats": {
-     "A": 6,
-     "S": 10,
-     "AP": -2,
-     "D": "D6+1",
-     "WS": 3
-    },
-    "keywords": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17236,16 +17270,15 @@
     "namespace": "mfm",
     "id": "82a4e822-3502-4c75-839c-2ed2d7587b7e"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "great-wolf-claw",
-  "name": "Great wolf claw",
+  "name": "Great Wolf Claw",
   "type": "melee",
   "profiles": [
    {
-    "name": "Great wolf claw",
+    "name": "Great Wolf Claw",
     "range": "Melee",
     "stats": {
      "A": 6,
@@ -17259,8 +17292,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17270,38 +17305,42 @@
     "namespace": "mfm",
     "id": "e1375126-e3b3-4723-a556-86838f897d7e"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "stormfrag-auto-launcher",
-  "name": "Stormfrag auto-launcher",
+  "name": "Stormfrag Auto-launcher",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Stormfrag auto-launcher",
+    "name": "Stormfrag Auto-launcher",
     "range": 12,
     "stats": {
-     "A": "D3",
+     "A": 2,
      "S": 4,
-     "AP": 0,
+     "AP": -1,
      "D": 1,
      "BS": 4
     },
     "keywords": [
      {
-      "keyword_id": "assault"
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
      },
      {
-      "keyword_id": "blast"
+      "keyword_id": "assault"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17315,19 +17354,18 @@
     "namespace": "mfm",
     "id": "cc383735-ef5c-4353-9c36-99da0a6b55cb"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "helfrost-cannon",
-  "name": "Helfrost cannon",
+  "name": "Helfrost Cannon",
   "type": "ranged",
   "profiles": [
    {
     "name": "Dispersed",
     "range": 12,
     "stats": {
-     "A": "D6",
+     "A": 3,
      "S": 6,
      "AP": -1,
      "D": 2,
@@ -17354,8 +17392,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17369,8 +17409,7 @@
     "namespace": "mfm",
     "id": "71ca3b65-754b-4fc4-a285-09938b07765f"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "trueclaw",
@@ -17396,8 +17435,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17407,8 +17448,7 @@
     "namespace": "mfm",
     "id": "e1f11543-8b73-430e-be65-3284c9ce9319"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "foehammer",
@@ -17417,24 +17457,37 @@
   "profiles": [
    {
     "name": "Ranged",
-    "range": 6,
+    "range": 9,
     "stats": {
      "A": 1,
-     "S": 8,
+     "S": 10,
      "AP": -2,
      "D": 3,
      "BS": 2
     },
     "keywords": [
      {
+      "keyword_id": "assault"
+     },
+     {
       "keyword_id": "anti",
       "parameters": {
        "target_keyword": "Monster",
-       "threshold": 3
+       "threshold": 3,
+       "required_target_keywords_any": [
+        "Monster"
+       ]
       }
      },
      {
-      "keyword_id": "assault"
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Vehicle",
+       "threshold": 3,
+       "required_target_keywords_any": [
+        "Vehicle"
+       ]
+      }
      }
     ]
    },
@@ -17443,7 +17496,7 @@
     "range": "Melee",
     "stats": {
      "A": 5,
-     "S": 8,
+     "S": 10,
      "AP": -2,
      "D": 3,
      "WS": 2
@@ -17453,7 +17506,20 @@
       "keyword_id": "anti",
       "parameters": {
        "target_keyword": "Monster",
-       "threshold": 3
+       "threshold": 3,
+       "required_target_keywords_any": [
+        "Monster"
+       ]
+      }
+     },
+     {
+      "keyword_id": "anti",
+      "parameters": {
+       "target_keyword": "Vehicle",
+       "threshold": 3,
+       "required_target_keywords_any": [
+        "Vehicle"
+       ]
       }
      },
      {
@@ -17464,8 +17530,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17475,8 +17543,7 @@
     "namespace": "mfm",
     "id": "69305a5f-b1dc-4774-b8b7-7f0ef60d5e9a"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "master-crafted-heavy-bolt-pistol",
@@ -17525,7 +17592,7 @@
     "name": "Thunderclap",
     "range": 12,
     "stats": {
-     "A": "D3",
+     "A": 2,
      "S": 5,
      "AP": -1,
      "D": 2,
@@ -17533,7 +17600,10 @@
     },
     "keywords": [
      {
-      "keyword_id": "blast"
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 1
+      }
      },
      {
       "keyword_id": "psychic"
@@ -17543,8 +17613,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17554,8 +17626,7 @@
     "namespace": "mfm",
     "id": "bae60d43-13b0-4c63-9aa7-48f33818466c"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "combat-blade",
@@ -17593,17 +17664,17 @@
  },
  {
   "id": "runic-stave",
-  "name": "Runic stave",
+  "name": "Runic Stave",
   "type": "melee",
   "profiles": [
    {
-    "name": "Runic stave",
+    "name": "Runic Stave",
     "range": "Melee",
     "stats": {
      "A": 3,
      "S": 6,
      "AP": -1,
-     "D": "D3",
+     "D": 2,
      "WS": 3
     },
     "keywords": [
@@ -17615,8 +17686,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17626,20 +17699,19 @@
     "namespace": "mfm",
     "id": "5c3bcbf8-748f-4acb-bfd6-248ff3d8d383"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "wulfen-weapons",
-  "name": "Wulfen weapons",
+  "name": "Wulfen Weapons",
   "type": "melee",
   "profiles": [
    {
-    "name": "Wulfen weapons",
+    "name": "Wulfen Weapons",
     "range": "Melee",
     "stats": {
      "A": 3,
-     "S": 5,
+     "S": 6,
      "AP": -2,
      "D": 2,
      "WS": 3
@@ -17656,8 +17728,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17671,8 +17745,7 @@
     "namespace": "mfm",
     "id": "2de611f0-3bee-45c8-9847-403ac6cafc96"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "murderclaws",
@@ -17691,21 +17764,23 @@
     },
     "keywords": [
      {
+      "keyword_id": "twin-linked"
+     },
+     {
       "keyword_id": "sustained-hits",
       "parameters": {
        "value": 1
       }
-     },
-     {
-      "keyword_id": "twin-linked"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -17715,8 +17790,7 @@
     "namespace": "mfm",
     "id": "b99e6917-0f37-45e1-95f9-9b332c15bb72"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "stormfury-missile-launcher",
@@ -18196,30 +18270,35 @@
  },
  {
   "id": "assault-cannon-bjorn-the-fell-handed",
-  "name": "Assault cannon",
+  "name": "Assault Cannon",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Assault cannon",
+    "name": "Assault Cannon",
     "range": 24,
     "stats": {
      "A": 6,
      "S": 6,
-     "AP": 0,
+     "AP": -2,
      "D": 1,
      "BS": 2
     },
     "keywords": [
      {
-      "keyword_id": "devastating-wounds"
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1
+      }
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -18229,35 +18308,39 @@
     "namespace": "mfm",
     "id": "2475d9bb-5a25-40aa-9662-4e05ee2b2b49"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "assault-cannon-wolf-guard-terminators",
-  "name": "Assault cannon",
+  "name": "Assault Cannon",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Assault cannon",
+    "name": "Assault Cannon",
     "range": 24,
     "stats": {
      "A": 6,
      "S": 6,
-     "AP": 0,
+     "AP": -2,
      "D": 1,
-     "BS": 2
+     "BS": 3
     },
     "keywords": [
      {
-      "keyword_id": "devastating-wounds"
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1
+      }
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -18267,8 +18350,7 @@
     "namespace": "mfm",
     "id": "2475d9bb-5a25-40aa-9662-4e05ee2b2b49"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "astartes-chainsword-assault-intercessor-squad",
@@ -18977,16 +19059,16 @@
  },
  {
   "id": "bolt-carbine-grey-hunters",
-  "name": "Bolt carbine",
+  "name": "Bolt Carbine",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Bolt carbine",
+    "name": "Bolt Carbine",
     "range": 24,
     "stats": {
-     "A": 2,
-     "S": 4,
-     "AP": 0,
+     "A": 3,
+     "S": 5,
+     "AP": -1,
      "D": 1,
      "BS": 3
     },
@@ -18996,14 +19078,19 @@
       "parameters": {
        "value": 1
       }
+     },
+     {
+      "keyword_id": "assault"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -19017,8 +19104,7 @@
     "namespace": "mfm",
     "id": "83d21ef1-0ca8-4de1-9331-1c6a6aea367d"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "bolt-pistol-captain",
@@ -19454,22 +19540,20 @@
     "range": 12,
     "stats": {
      "A": 1,
-     "S": 4,
-     "AP": 0,
+     "S": 5,
+     "AP": -1,
      "D": 1,
      "BS": 2
     },
-    "keywords": [
-     {
-      "keyword_id": "pistol"
-     }
-    ]
+    "keywords": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -19479,8 +19563,7 @@
     "namespace": "mfm",
     "id": "32dc85ab-06e6-4673-b59f-5697c1128f79"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "bolt-pistol-sammael",
@@ -22725,15 +22808,15 @@
  },
  {
   "id": "master-crafted-power-weapon-wolf-guard-battle-leader",
-  "name": "Master‑crafted power weapon",
+  "name": "Master-crafted Power Weapon",
   "type": "melee",
   "profiles": [
    {
-    "name": "Master‑crafted power weapon",
+    "name": "Master-crafted Power Weapon",
     "range": "Melee",
     "stats": {
      "A": 7,
-     "S": 5,
+     "S": 6,
      "AP": -2,
      "D": 2,
      "WS": 2
@@ -22743,8 +22826,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -22754,16 +22839,15 @@
     "namespace": "mfm",
     "id": "8bbfe72d-c5bd-49de-81ab-052b9608941b"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "master-crafted-power-weapon-wolf-guard-headtakers",
-  "name": "Master-crafted power weapon",
+  "name": "Master-crafted Power Weapon",
   "type": "melee",
   "profiles": [
    {
-    "name": "Master-crafted power weapon",
+    "name": "Master-crafted Power Weapon",
     "range": "Melee",
     "stats": {
      "A": 4,
@@ -22777,8 +22861,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -22788,16 +22874,15 @@
     "namespace": "mfm",
     "id": "f790b705-845e-4cdf-b534-2ce987d3cb90"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "master-crafted-power-weapon-wolf-guard-terminators",
-  "name": "Master-crafted power weapon",
+  "name": "Master-crafted Power Weapon",
   "type": "melee",
   "profiles": [
    {
-    "name": "Master-crafted power weapon",
+    "name": "Master-crafted Power Weapon",
     "range": "Melee",
     "stats": {
      "A": 4,
@@ -22811,8 +22896,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -22834,8 +22921,7 @@
     "namespace": "mfm",
     "id": "f790b705-845e-4cdf-b534-2ce987d3cb90"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "missile-launcher-devastator-squad",
@@ -23021,16 +23107,16 @@
     "range": 18,
     "stats": {
      "A": 2,
-     "S": 9,
-     "AP": -4,
-     "D": "D6",
+     "S": 10,
+     "AP": -3,
+     "D": "D3+2",
      "BS": 2
     },
     "keywords": [
      {
       "keyword_id": "melta",
       "parameters": {
-       "value": 2
+       "value": 3
       }
      }
     ]
@@ -23038,8 +23124,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -23049,8 +23137,7 @@
     "namespace": "mfm",
     "id": "0be65028-8c16-40b6-a213-30e6547251fb"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "multi-melta-devastator-squad",
@@ -23769,7 +23856,7 @@
  },
  {
   "id": "plasma-pistol-blood-claws",
-  "name": "Plasma pistol",
+  "name": "Plasma Pistol",
   "type": "ranged",
   "profiles": [
    {
@@ -23784,7 +23871,7 @@
     },
     "keywords": [
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
      }
     ]
    },
@@ -23800,18 +23887,20 @@
     },
     "keywords": [
      {
-      "keyword_id": "hazardous"
+      "keyword_id": "close-quarters"
      },
      {
-      "keyword_id": "pistol"
+      "keyword_id": "hazardous"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -23821,8 +23910,7 @@
     "namespace": "mfm",
     "id": "2e9b7c68-3bb3-4693-a62a-cf03795652b2"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "plasma-pistol-chaplain-with-jump-pack",
@@ -24229,25 +24317,9 @@
  },
  {
   "id": "plasma-pistol-grey-hunters",
-  "name": "Plasma pistol",
+  "name": "Plasma Pistol",
   "type": "ranged",
   "profiles": [
-   {
-    "name": "Standard",
-    "range": 12,
-    "stats": {
-     "A": 1,
-     "S": 7,
-     "AP": -2,
-     "D": 1,
-     "BS": 3
-    },
-    "keywords": [
-     {
-      "keyword_id": "pistol"
-     }
-    ]
-   },
    {
     "name": "Supercharge",
     "range": 12,
@@ -24260,18 +24332,36 @@
     },
     "keywords": [
      {
-      "keyword_id": "hazardous"
+      "keyword_id": "close-quarters"
      },
      {
-      "keyword_id": "pistol"
+      "keyword_id": "hazardous"
+     }
+    ]
+   },
+   {
+    "name": "Standard",
+    "range": 12,
+    "stats": {
+     "A": 1,
+     "S": 7,
+     "AP": -2,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -24281,8 +24371,7 @@
     "namespace": "mfm",
     "id": "2e9b7c68-3bb3-4693-a62a-cf03795652b2"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "plasma-pistol-hellblaster-squad",
@@ -24571,7 +24660,7 @@
  },
  {
   "id": "plasma-pistol-thunderwolf-cavalry",
-  "name": "Plasma pistol",
+  "name": "Plasma Pistol",
   "type": "ranged",
   "profiles": [
    {
@@ -24586,7 +24675,7 @@
     },
     "keywords": [
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
      }
     ]
    },
@@ -24602,18 +24691,20 @@
     },
     "keywords": [
      {
-      "keyword_id": "hazardous"
+      "keyword_id": "close-quarters"
      },
      {
-      "keyword_id": "pistol"
+      "keyword_id": "hazardous"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -24623,8 +24714,7 @@
     "namespace": "mfm",
     "id": "2e9b7c68-3bb3-4693-a62a-cf03795652b2"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "plasma-pistol-vanguard-veteran-squad-with-jump-packs",
@@ -24685,7 +24775,7 @@
  },
  {
   "id": "plasma-pistol-wolf-guard-battle-leader",
-  "name": "Plasma pistol",
+  "name": "Plasma Pistol",
   "type": "ranged",
   "profiles": [
    {
@@ -24700,7 +24790,7 @@
     },
     "keywords": [
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
      }
     ]
    },
@@ -24719,15 +24809,17 @@
       "keyword_id": "hazardous"
      },
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -24737,12 +24829,11 @@
     "namespace": "mfm",
     "id": "2e9b7c68-3bb3-4693-a62a-cf03795652b2"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "plasma-pistol-wolf-scouts",
-  "name": "Plasma pistol",
+  "name": "Plasma Pistol",
   "type": "ranged",
   "profiles": [
    {
@@ -24757,7 +24848,7 @@
     },
     "keywords": [
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
      }
     ]
    },
@@ -24776,15 +24867,17 @@
       "keyword_id": "hazardous"
      },
      {
-      "keyword_id": "pistol"
+      "keyword_id": "close-quarters"
      }
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -24794,8 +24887,7 @@
     "namespace": "mfm",
     "id": "2e9b7c68-3bb3-4693-a62a-cf03795652b2"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "power-fist-ancient-in-terminator-armour",
@@ -25858,16 +25950,16 @@
  },
  {
   "id": "storm-bolter-logan-grimnar",
-  "name": "Storm bolter",
+  "name": "Storm Bolter",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Storm bolter",
+    "name": "Storm Bolter",
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 4,
-     "AP": 0,
+     "S": 5,
+     "AP": -1,
      "D": 1,
      "BS": 2
     },
@@ -25883,8 +25975,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -25894,23 +25988,22 @@
     "namespace": "mfm",
     "id": "16ea02ec-fed3-4322-8651-890b5f46ef58"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "storm-bolter-wolf-guard-terminators",
-  "name": "Storm bolter",
+  "name": "Storm Bolter",
   "type": "ranged",
   "profiles": [
    {
-    "name": "Storm bolter",
+    "name": "Storm Bolter",
     "range": 24,
     "stats": {
      "A": 2,
-     "S": 4,
-     "AP": 0,
+     "S": 5,
+     "AP": -1,
      "D": 1,
-     "BS": 2
+     "BS": 3
     },
     "keywords": [
      {
@@ -25924,8 +26017,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -25935,16 +26030,15 @@
     "namespace": "mfm",
     "id": "16ea02ec-fed3-4322-8651-890b5f46ef58"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "teeth-and-claws-fenrisian-wolves",
-  "name": "Teeth and claws",
+  "name": "Teeth and Claws",
   "type": "melee",
   "profiles": [
    {
-    "name": "Teeth and claws",
+    "name": "Teeth and Claws",
     "range": "Melee",
     "stats": {
      "A": 3,
@@ -25958,8 +26052,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -25969,16 +26065,15 @@
     "namespace": "mfm",
     "id": "5dc0a370-563d-4387-b946-334f8c6262e0"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "teeth-and-claws-wolf-guard-headtakers",
-  "name": "Teeth and claws",
+  "name": "Teeth and Claws",
   "type": "melee",
   "profiles": [
    {
-    "name": "Teeth and claws",
+    "name": "Teeth and Claws",
     "range": "Melee",
     "stats": {
      "A": 3,
@@ -25992,8 +26087,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -26003,16 +26100,15 @@
     "namespace": "mfm",
     "id": "5dc0a370-563d-4387-b946-334f8c6262e0"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "teeth-and-claws-wolf-scouts",
-  "name": "Teeth and claws",
+  "name": "Teeth and Claws",
   "type": "melee",
   "profiles": [
    {
-    "name": "Teeth and claws",
+    "name": "Teeth and Claws",
     "range": "Melee",
     "stats": {
      "A": 2,
@@ -26026,8 +26122,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -26041,8 +26139,7 @@
     "namespace": "mfm",
     "id": "10eeed4e-9699-4bbc-a1c5-2ca0f1721c5d"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "thunder-hammer-ancient-in-terminator-armour",
@@ -26430,17 +26527,17 @@
  },
  {
   "id": "thunder-hammer-wolf-guard-battle-leader",
-  "name": "Thunder hammer",
+  "name": "Thunder Hammer",
   "type": "melee",
   "profiles": [
    {
-    "name": "Thunder hammer",
+    "name": "Thunder Hammer",
     "range": "Melee",
     "stats": {
      "A": 5,
      "S": 8,
      "AP": -2,
-     "D": 2,
+     "D": 3,
      "WS": 3
     },
     "keywords": [
@@ -26452,8 +26549,10 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -26463,39 +26562,70 @@
     "namespace": "mfm",
     "id": "0f931617-2dd9-4bfd-a1e0-81946b995edd"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "thunder-hammer-wulfen-with-storm-shields",
-  "name": "Thunder hammer",
+  "name": "Thunder Hammer",
   "type": "melee",
   "profiles": [
    {
-    "name": "Thunder hammer",
+    "name": "Melee",
     "range": "Melee",
     "stats": {
      "A": 2,
-     "S": 5,
+     "S": 8,
      "AP": -2,
      "D": 3,
      "WS": 3
     },
     "keywords": [
      {
-      "keyword_id": "anti",
-      "parameters": {
-       "target_keyword": "Monster",
-       "threshold": 3
-      }
+      "keyword_id": "devastating-wounds"
      }
     ]
+   },
+   {
+    "name": "Hunter",
+    "range": "Melee",
+    "stats": {
+     "A": 3,
+     "S": 10,
+     "AP": -3,
+     "D": 3,
+     "WS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "devastating-wounds"
+     },
+     {
+      "keyword_id": "hunter",
+      "parameters": {
+       "target_keyword": "Monster"
+      }
+     },
+     {
+      "keyword_id": "hunter",
+      "parameters": {
+       "target_keyword": "Vehicle"
+      }
+     }
+    ],
+    "target_restrictions": {
+     "required_keywords_any": [
+      "Monster",
+      "Vehicle"
+     ]
+    }
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "bsdata",
@@ -26509,8 +26639,7 @@
     "namespace": "mfm",
     "id": "40dff9da-40cf-4c7e-a843-7a283081a0c6"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "twin-assault-cannon-baal-predator",
@@ -26714,11 +26843,11 @@
  },
  {
   "id": "twin-lightning-claws-wolf-guard-terminators",
-  "name": "Twin lightning claws",
+  "name": "Twin Lightning Claws",
   "type": "melee",
   "profiles": [
    {
-    "name": "Twin lightning claws",
+    "name": "Twin Lightning Claws",
     "range": "Melee",
     "stats": {
      "A": 6,
@@ -26736,15 +26865,16 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "mfm",
     "id": "0c5f0247-6518-4e1f-9e2f-0628a19ac913"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "twin-storm-bolter-ballistus-dreadnought",
@@ -26843,8 +26973,8 @@
     "name": "Chainsword",
     "range": "Melee",
     "stats": {
-     "A": 5,
-     "S": 4,
+     "A": 4,
+     "S": 5,
      "AP": -1,
      "D": 1,
      "WS": 3
@@ -26854,15 +26984,16 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21",
   "external_refs": [
    {
     "namespace": "mfm",
     "id": "7c42fe18-2233-4ae4-bf34-504232a1b61e"
    }
-  ],
-  "faction_id": "adeptus-astartes"
+  ]
  },
  {
   "id": "knives-and-fists",
@@ -32288,6 +32419,693 @@
    "dataslate": "launch"
   },
   "faction_id": "adeptus-astartes"
+ },
+ {
+  "id": "bolt-pistol-njal-stormcaller",
+  "name": "Bolt Pistol",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Bolt Pistol",
+    "range": 12,
+    "stats": {
+     "A": 1,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "plasma-pistol-ulrik-the-slayer",
+  "name": "Plasma Pistol",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Supercharge",
+    "range": 12,
+    "stats": {
+     "A": 1,
+     "S": 8,
+     "AP": -3,
+     "D": 2,
+     "BS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "hazardous"
+     },
+     {
+      "keyword_id": "close-quarters"
+     }
+    ]
+   },
+   {
+    "name": "Standard",
+    "range": 12,
+    "stats": {
+     "A": 1,
+     "S": 7,
+     "AP": -2,
+     "D": 1,
+     "BS": 2
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "heavy-flamer-bjorn-the-fell-handed",
+  "name": "Heavy Flamer",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Heavy Flamer",
+    "range": 12,
+    "stats": {
+     "A": 3,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "torrent"
+     },
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "bolt-pistol-blood-claws",
+  "name": "Bolt Pistol",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Bolt Pistol",
+    "range": 12,
+    "stats": {
+     "A": 1,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "bolt-pistol-grey-hunters",
+  "name": "Bolt Pistol",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Bolt Pistol",
+    "range": 12,
+    "stats": {
+     "A": 1,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "heavy-flamer-murderfang",
+  "name": "Heavy Flamer",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Heavy Flamer",
+    "range": 12,
+    "stats": {
+     "A": 3,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 7
+    },
+    "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     },
+     {
+      "keyword_id": "torrent"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "storm-bolter-murderfang",
+  "name": "Storm Bolter",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Storm Bolter",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "bolt-pistol-thunderwolf-cavalry",
+  "name": "Bolt Pistol",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Bolt Pistol",
+    "range": 12,
+    "stats": {
+     "A": 1,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "boltgun-thunderwolf-cavalry",
+  "name": "Boltgun",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Boltgun",
+    "range": 24,
+    "stats": {
+     "A": 1,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "assault-cannon-venerable-dreadnought",
+  "name": "Assault Cannon",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Assault Cannon",
+    "range": 24,
+    "stats": {
+     "A": 6,
+     "S": 6,
+     "AP": -2,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "sustained-hits",
+      "parameters": {
+       "value": 1
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "heavy-flamer-venerable-dreadnought",
+  "name": "Heavy Flamer",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Heavy Flamer",
+    "range": 12,
+    "stats": {
+     "A": 3,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "torrent"
+     },
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "helfrost-cannon-venerable-dreadnought",
+  "name": "Helfrost Cannon",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Dispersed",
+    "range": 12,
+    "stats": {
+     "A": 3,
+     "S": 6,
+     "AP": -1,
+     "D": 2,
+     "BS": null
+    },
+    "keywords": [
+     {
+      "keyword_id": "torrent"
+     }
+    ]
+   },
+   {
+    "name": "Focused",
+    "range": 36,
+    "stats": {
+     "A": 1,
+     "S": 10,
+     "AP": -3,
+     "D": 5,
+     "BS": 3
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "multi-melta-venerable-dreadnought",
+  "name": "Multi-melta",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Multi-melta",
+    "range": 18,
+    "stats": {
+     "A": 2,
+     "S": 10,
+     "AP": -3,
+     "D": "D3+2",
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "melta",
+      "parameters": {
+       "value": 3
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "storm-bolter-venerable-dreadnought",
+  "name": "Storm Bolter",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Storm Bolter",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "absolvor-bolt-pistol-wolf-priest",
+  "name": "Absolvor Bolt Pistol",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Absolvor Bolt Pistol",
+    "range": 18,
+    "stats": {
+     "A": 1,
+     "S": 5,
+     "AP": -2,
+     "D": 2,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "heavy-bolt-pistol-wolf-guard-headtakers",
+  "name": "Heavy Bolt Pistol",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Heavy Bolt Pistol",
+    "range": 18,
+    "stats": {
+     "A": 1,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "heavy-flamer-wulfen-dreadnought",
+  "name": "Heavy Flamer",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Heavy Flamer",
+    "range": 12,
+    "stats": {
+     "A": 3,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 7
+    },
+    "keywords": [
+     {
+      "keyword_id": "blast",
+      "parameters": {
+       "value": 2
+      }
+     },
+     {
+      "keyword_id": "torrent"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "storm-bolter-wulfen-dreadnought",
+  "name": "Storm Bolter",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Storm Bolter",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "rapid-fire",
+      "parameters": {
+       "value": 2
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "bolt-pistol-wolf-scouts",
+  "name": "Bolt Pistol",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Bolt Pistol",
+    "range": 12,
+    "stats": {
+     "A": 1,
+     "S": 5,
+     "AP": -1,
+     "D": 1,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "close-quarters"
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "instigator-bolt-carbine-wolf-scouts",
+  "name": "Instigator Bolt Carbine",
+  "type": "ranged",
+  "profiles": [
+   {
+    "name": "Instigator Bolt Carbine",
+    "range": 24,
+    "stats": {
+     "A": 2,
+     "S": 5,
+     "AP": -2,
+     "D": 2,
+     "BS": 3
+    },
+    "keywords": [
+     {
+      "keyword_id": "precision"
+     },
+     {
+      "keyword_id": "lethal-hits",
+      "parameters": {
+       "excluded_target_keywords": [
+        "Monster",
+        "Vehicle"
+       ]
+      }
+     }
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "combat-knife-wolf-scouts",
+  "name": "Combat Knife",
+  "type": "melee",
+  "profiles": [
+   {
+    "name": "Combat Knife",
+    "range": "Melee",
+    "stats": {
+     "A": 4,
+     "S": 4,
+     "AP": -1,
+     "D": 1,
+     "WS": 3
+    },
+    "keywords": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "spiculus-bolt-launcher",

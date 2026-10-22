@@ -38866,11 +38866,11 @@
  },
  {
   "id": "wolf-touched-saga-of-the-beastslayer",
-  "name": "Wolf-touched",
+  "name": "Wolf-Touched",
   "detachment_id": "saga-of-the-beastslayer",
   "cost": 15,
   "keyword_restrictions": [
-   "Space Wolves"
+   "Adeptus Astartes"
   ],
   "ability_id": null,
   "is_unique": true,
@@ -38894,11 +38894,20 @@
     "namespace": "mfm",
     "id": "ad4dadc7-2b9d-4fae-ae4e-9fc6a747fb0d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This unit has: • Wulfen. • +2\" M.",
+  "legend": "Whilst the Canis Helix has yet to overcome this champion fully, it is stirred to life by the thrill of battle and the scent of blood.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-guile-saga-of-the-beastslayer",
-  "name": "Hunter’s Guile",
+  "name": "Hunter's Guile",
   "detachment_id": "saga-of-the-beastslayer",
   "cost": 20,
   "keyword_restrictions": [
@@ -38922,7 +38931,16 @@
     "namespace": "mfm",
     "id": "1b8f5c94-2ce4-465b-8c3d-6aaf2bf638fb"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. When both players have deployed their armies, you can redeploy up to three friendly Blood Claws/Thunderwolf Cavalry/Wulfen units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "legend": "Adeptus Astartes model only. When both players have deployed their armies, you can redeploy up to three friendly Blood Claws/Thunderwolf Cavalry/Wulfen units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "elders-guidance-saga-of-the-beastslayer",
@@ -38950,7 +38968,8 @@
     "namespace": "mfm",
     "id": "02dfd50a-9607-4ee7-894f-801322ead37b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "helm-of-the-beastslayer-saga-of-the-beastslayer",
@@ -38978,7 +38997,8 @@
     "namespace": "mfm",
     "id": "0b345598-9c76-440b-9356-88da3aeb4e6a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "a-giant-amongst-giants-champions-of-fenris",
@@ -39007,7 +39027,17 @@
     "namespace": "mfm",
     "id": "14e6c085-26e1-4a1d-9b1c-1f784e12c24e"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Infantry"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Adeptus Astartes Infantry model only. • This model has +2 W. • This model’s melee attacks have +1 S.",
+  "legend": "Likened to a walking pinnacle of Fenrisian granite come to life, this hulking champion is an echo of Russ himself.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "preyslayer-champions-of-fenris",
@@ -39036,13 +39066,23 @@
     "namespace": "mfm",
     "id": "f19ddd9a-ee17-4abb-af26-a2d1b967d2dd"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Infantry"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Adeptus Astartes Infantry model only. This unit can re-roll charge rolls.",
+  "legend": "Possessed of a ferocious predatory instinct, this warrior leads swift and deadly encirclements and ambushes with peerless skill.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "grimnars-mark-saga-of-the-great-wolf",
-  "name": "Grimnar’s Mark",
+  "name": "Grimnar's Mark",
   "detachment_id": "saga-of-the-great-wolf",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes",
    "Captain",
@@ -39069,7 +39109,18 @@
     "namespace": "mfm",
     "id": "afbaac37-76ad-44c7-beca-a5362b8d10d0"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Captain",
+    "Terminator"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Adeptus Astartes Terminator Captain model only. (Once per battle round, per army) You can target this unit with the Rapid Ingress/Heroic Intervention stratagem, regardless of any other uses of that stratagem this phase. If you do: • That use is -1CP. • That use does not prevent any uses of that stratagem on other units this phase.",
+  "legend": "This moonsilver wolf-talisman is bestowed by the Great Wolf himself before battle, a mark of favour that fills the bearer with an eagerness to slay the foe.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "howling-onslaught-saga-of-the-great-wolf",
@@ -39087,7 +39138,8 @@
   },
   "points_provisional": true,
   "upgrade_tag": false,
-  "max_targets": 1
+  "max_targets": 1,
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "howlmaw-saga-of-the-great-wolf",
@@ -39115,7 +39167,16 @@
     "namespace": "mfm",
     "id": "f2f3143d-49b8-4105-96ed-2d4fb63e3fba"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Wolf Priest"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Wolf Priest model only. (Once per turn, per unit) At the start of the fight phase, you can select one enemy unit within 6\" of this model. That unit makes a battle-shock roll with -1 to that battle-shock roll.",
+  "legend": "An ancient hunting horn with a built-in vox amplification unit, this relic’s stirring howl can be heard even through the wild clangour of battle.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "chariots-of-the-storm-saga-of-the-great-wolf",
@@ -39143,16 +39204,24 @@
     "namespace": "mfm",
     "id": "86377267-dffb-4f8c-a64a-df1d9ad006ed"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. When both players have deployed their armies, you can redeploy up to three friendly ADEPTUS ASTARTES units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "legend": "This dedicated flight of gunships attends the Great Wolf and his packs, and can be called in to rapidly reposition his forces in the moments before battle is joined.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "skjalds-foretelling-saga-of-the-great-wolf",
-  "name": "Skjald’s Foretelling",
+  "name": "Skjald's Foretelling",
   "detachment_id": "saga-of-the-great-wolf",
-  "cost": 25,
+  "cost": 20,
   "keyword_restrictions": [
-   "Battle Leader",
-   "Wolf Guard"
+   "Wolf Guard Battle Leader"
   ],
   "ability_id": null,
   "is_unique": true,
@@ -39172,7 +39241,16 @@
     "namespace": "mfm",
     "id": "aa4fc796-1ecd-49c1-8b30-fd0d09f4292e"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Wolf Guard Battle Leader"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Wolf Guard Battle Leader model only. This unit’s melee attacks have [Lance].",
+  "legend": "Great deeds have been prophesied for this champion, such that those who fight alongside him do so all the harder as they play out the self-fulfilling prophecy.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "thirst-for-glory-upgrade-legends-of-saga-and-song",

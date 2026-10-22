@@ -362,10 +362,30 @@ static func _base_kit_slugs(unit: Dictionary, meta: Dictionary, weapons: Array, 
 		var t := str(type_of.get(s, ""))
 		defaults_by_type[t] = int(defaults_by_type.get(t, 0)) + 1
 
+	# A picked weapon that a wargear OPTION swaps in replaces exactly what that
+	# option names — across weapon types (Venerable Dreadnought: the Fenrisian
+	# Great Axe replaces the Assault Cannon AND the Dreadnought combat weapon;
+	# its Heavy Flamer replaces the Storm Bolter).
+	_ensure_options_loaded()
+	var replaced := {}
+	for opt in _options_by_unit.get(unit_slug, []):
+		var taken := false
+		for bundle in opt.get("bundles", []):
+			for b in bundle:
+				if selected.has(b) and not defaults.has(b):
+					taken = true
+		if taken:
+			for r in opt.get("replaces", []):
+				if not selected.has(r):
+					replaced[r] = true
+
 	var kept: Array = []
 	for s in defaults:
 		if selected.has(s):
 			continue  # already allowed via wargear
+		if replaced.has(s):
+			print("[LOADOUT-UI] %s: base '%s' replaced by a wargear option the roster took" % [str(meta.get("name", "?")), s])
+			continue
 		var t := str(type_of.get(s, ""))
 		var n_sel := int(selected_by_type.get(t, 0))
 		if n_sel > 0 and n_sel == int(defaults_by_type.get(t, 0)):

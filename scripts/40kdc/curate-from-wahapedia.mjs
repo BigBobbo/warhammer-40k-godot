@@ -22,13 +22,18 @@ import { readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { argValue, normName } from './lib.mjs';
-import { parseCsv, stripHtml, slug } from './wahapedia-import.mjs';
+import { parseCsv, stripHtml, slug, stratagemName } from './wahapedia-import.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..');
 const FACTIONS = {
   'adeptus-custodes': { dir: 'custodes', name: 'Adeptus Custodes' },
   'orks': { dir: 'orks', name: 'Orks' },
+  // Codex: Space Marines (11e), Space Wolves chapter detachments only.
+  'space-wolves': {
+    dir: 'space-marines', name: 'Space Marines', out: 'space_wolves',
+    detachments: ['Champions of Fenris', 'Saga of the Beastslayer', 'Saga of the Great Wolf'],
+  },
 };
 const BOARDING = new Set(['voyagers in darkness', 'black ship guardians', 'ramship raiders', 'kaptin killers']);
 
@@ -109,6 +114,12 @@ const CONFIRMED_WINDOWS = {
   'golden-light-of-the-moiraides-dread-host': ['unit_selected_to_ingress'],
   'preternatural-rapidity-dread-host': ['unit_ended_advance_move'],
   'lightning-wrath-dread-host': ['unit_selected_to_pile_in'],
+  // Codex: Space Marines — Space Wolves detachments (WP-S1 data pass; the
+  // stratagem pass confirms or revises these).
+  'impetuosity-saga-of-the-beastslayer': ['enemy_has_shot'],
+  'battle-instincts-saga-of-the-great-wolf': ['enemy_has_shot'],
+  'co-ordinated-strike-saga-of-the-beastslayer': ['fight_phase_end'],
+  'eye-of-the-pack-saga-of-the-great-wolf': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
 };
 
 // Editorial duration phrases (see orks_codex_11e.json): where the printed
@@ -137,17 +148,35 @@ function parseDescription(html) {
 
 const straight = s => String(s).replace(/[‘’]/g, "'");
 
+// Detachment rules the CSV export carries without text (the faction page
+// prints them) — same text as wahapedia-import.mjs PAGE_ONLY_DETACHMENT_RULES.
+const PAGE_ONLY_RULES = {
+  'saga of the great wolf': {
+    name: 'Master of Wolves',
+    description: 'Friendly ADEPTUS ASTARTES units (excluding MONSTER / VEHICLE units) with this ability have the following abilities: ' +
+      'Encircling Jaws: If the assault doctrine is active for your unit, your unit has +1 to advance rolls and charge rolls. ' +
+      'Hunter’s Eye: If the devastator doctrine is active for your unit, your unit’s ranged attacks can re-roll hit rolls of 1. ' +
+      'Ferocious Strike: If the tactical doctrine is active for your unit, your unit’s attacks that target an enemy unit within 9" have [Sustained Hits 1]. ' +
+      'Friendly LOGAN GRIMNAR units have the following ability: Howling Onslaught: (Once per battle, per army) In your command phase, you can use this ability. ' +
+      'If you do, friendly ADEPTUS ASTARTES MONSTER / VEHICLE units benefit from the Master of Wolves rule until the start of your next command phase. ' +
+      'Restrictions: Your army can include SPACE WOLVES units, but it cannot include any ADEPTUS ASTARTES units drawn from any other Chapter.',
+  },
+};
+
 function build(factionId) {
   const cfg = FACTIONS[factionId];
   const dir = join(REPO, '.llm', 'codex_11e_wahapedia', cfg.dir, 'wahapedia');
   const read = n => parseCsv(readFileSync(join(dir, `${n}.csv`), 'utf8'));
   const stamp = read('Last_update')[0]?.last_update ?? 'unknown';
-  const dets = read('Detachments').filter(d => !BOARDING.has(normName(d.name)));
+  const only = cfg.detachments ? new Set(cfg.detachments.map(normName)) : null;
+  const dets = read('Detachments').filter(d => !BOARDING.has(normName(d.name)) &&
+    (!only || only.has(normName(stripHtml(d.name)))));
   const rules = read('Detachment_abilities');
   const strats = read('Stratagems');
   const review = [];
   const detachments = dets.map(d => {
-    const rule = rules.find(r => r.detachment_id === d.id);
+    const pageRule = PAGE_ONLY_RULES[normName(stripHtml(d.name))] ?? null;
+    const rule = rules.find(r => r.detachment_id === d.id) ?? pageRule;
     const legend = stripHtml(d.legend);
     return {
       name: stripHtml(d.name),
@@ -164,9 +193,9 @@ function build(factionId) {
   for (const d of dets) {
     const did = slug(d.name);
     for (const s of strats.filter(x => x.detachment_id === d.id)) {
-      const name = straight(stripHtml(s.name)).toUpperCase();
+      const name = straight(stratagemName(s.name)).toUpperCase();
       const parts = parseDescription(s.description);
-      const csvId = `${slug(stripHtml(s.name))}-${did}`;
+      const csvId = `${slug(stratagemName(s.name))}-${did}`;
       const inferred = inferWindows(parts.when);
       const confirmed = Object.prototype.hasOwnProperty.call(CONFIRMED_WINDOWS, csvId);
       const windows = confirmed ? CONFIRMED_WINDOWS[csvId] : inferred;
@@ -174,7 +203,7 @@ function build(factionId) {
       stratagems.push({
         csv_id: csvId,
         name,
-        printed_name: straight(stripHtml(s.name)),
+        printed_name: straight(stratagemName(s.name)),
         detachment: stripHtml(d.name),
         detachment_id: did,
         cp_cost: parseInt(s.cp_cost, 10),
@@ -233,7 +262,7 @@ function diff(doc, curatedPath) {
 
 const factionId = argValue('faction');
 if (!FACTIONS[factionId]) {
-  console.error('usage: node curate-from-wahapedia.mjs --faction adeptus-custodes|orks [--out file] [--diff curated-file]');
+  console.error('usage: node curate-from-wahapedia.mjs --faction adeptus-custodes|orks|space-wolves [--out file] [--diff curated-file]');
   process.exit(2);
 }
 const doc = build(factionId);
@@ -242,7 +271,7 @@ if (diffPath) {
   const d = diff(doc, resolve(HERE, diffPath));
   console.log(d.length ? d.join('\n') : 'no differences');
 } else {
-  const out = resolve(HERE, argValue('out') || `curated/${FACTIONS[factionId].dir}_codex_11e.json`);
+  const out = resolve(HERE, argValue('out') || `curated/${FACTIONS[factionId].out ?? FACTIONS[factionId].dir}_codex_11e.json`);
   writeFileSync(out, JSON.stringify(doc, null, 2) + '\n');
   console.log(`wrote ${out}: ${doc.detachments.length} detachments, ${doc.stratagems.length} stratagems`);
   console.log(doc._window_review.join('\n'));

@@ -9759,27 +9759,18 @@
      "diameter": 60
     },
     "default_weapon_ids": [
-     "storm-bolter",
+     "assault-cannon-venerable-dreadnought",
      "dreadnought-combat-weapon",
-     "assault-cannon"
-    ]
+     "storm-bolter-venerable-dreadnought"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Venerable Dreadnought",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "ragnar-blackmane",
@@ -9797,24 +9788,15 @@
     "default_weapon_ids": [
      "bolt-pistol-ragnar-blackmane",
      "frostfang"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Ragnar Blackmane",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "thunderwolf-cavalry",
@@ -9824,16 +9806,17 @@
     "name": "Thunderwolf Cavalry Pack Leader",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 60
     },
     "default_weapon_ids": [
-     "bolt-pistol",
+     "bolt-pistol-thunderwolf-cavalry",
      "teeth-and-claws",
      "wolf-guard-weapon"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Thunderwolf Cavalry",
@@ -9845,46 +9828,18 @@
      "diameter": 60
     },
     "default_weapon_ids": [
+     "bolt-pistol-thunderwolf-cavalry",
      "teeth-and-claws",
-     "wolf-guard-weapon",
-     "bolt-pistol"
-    ]
+     "wolf-guard-weapon"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Thunderwolf Cavalry Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Thunderwolf Cavalry",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Thunderwolf Cavalry Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Thunderwolf Cavalry",
-      "min": 3,
-      "max": 5
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "grey-hunters",
@@ -9894,16 +9849,17 @@
     "name": "Grey Hunter Pack Leader",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
     },
     "default_weapon_ids": [
-     "bolt-pistol",
      "bolt-carbine-grey-hunters",
-     "astartes-chainsword-grey-hunters"
-    ]
+     "bolt-pistol-grey-hunters",
+     "chainsword"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Grey Hunter",
@@ -9915,32 +9871,18 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "astartes-chainsword-grey-hunters",
      "bolt-carbine-grey-hunters",
-     "bolt-pistol"
-    ]
+     "bolt-pistol-grey-hunters",
+     "chainsword"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Grey Hunter Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Grey Hunter",
-      "min": 9,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "fenrisian-wolves",
@@ -9957,33 +9899,15 @@
     },
     "default_weapon_ids": [
      "teeth-and-claws-fenrisian-wolves"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Fenrisian Wolf",
-      "min": 5,
-      "max": 5
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Fenrisian Wolf",
-      "min": 6,
-      "max": 10
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wolf-priest",
@@ -9999,49 +9923,40 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "absolvor-bolt-pistol",
+     "absolvor-bolt-pistol-wolf-priest",
      "crozius-arcanum"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wolf Priest",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wolf-guard-headtakers",
   "faction_id": "adeptus-astartes",
   "models": [
    {
-    "name": "Wolf Guard Headtaker",
+    "name": "Hunting Wolf",
     "min": 3,
     "max": 6,
-    "default_weapon_ids": [
-     "heavy-bolt-pistol",
-     "master-crafted-power-weapon-wolf-guard-headtakers",
-     "storm-shield"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
-     "shape": "round",
-     "diameter": 40
-    }
+     "shape": "oval",
+     "width": 60,
+     "length": 35.5
+    },
+    "default_weapon_ids": [
+     "teeth-and-claws-wolf-guard-headtakers"
+    ],
+    "default_wargear": []
    },
    {
-    "name": "Hunting Wolves",
-    "min": 0,
+    "name": "Wolf Guard Headtaker",
+    "min": 3,
     "max": 6,
     "is_leader_model": false,
     "base_size_mm": {
@@ -10049,62 +9964,17 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "teeth-and-claws-wolf-guard-headtakers"
-    ]
+     "heavy-bolt-pistol-wolf-guard-headtakers",
+     "paired-master-crafted-power-weapons"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Headtaker",
-      "min": 3,
-      "max": 3
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Headtaker",
-      "min": 3,
-      "max": 3
-     },
-     {
-      "name": "Hunting Wolves",
-      "min": 3,
-      "max": 3
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Headtaker",
-      "min": 6,
-      "max": 6
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Headtaker",
-      "min": 6,
-      "max": 6
-     },
-     {
-      "name": "Hunting Wolves",
-      "min": 6,
-      "max": 6
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "iron-priest",
@@ -10120,26 +9990,17 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "tempest-hammer-and-servo-arm",
-     "helfrost-pistol"
-    ]
+     "helfrost-pistol",
+     "tempest-hammer-and-servo-arm"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Iron Priest",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "njal-stormcaller",
@@ -10155,27 +10016,18 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "bolt-pistol",
-     "staff-of-the-stormcaller",
-     "living-lightning"
-    ]
+     "bolt-pistol-njal-stormcaller",
+     "living-lightning",
+     "staff-of-the-stormcaller"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Njal Stormcaller",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "blood-claws",
@@ -10185,15 +10037,16 @@
     "name": "Blood Claw Pack Leader",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
     },
     "default_weapon_ids": [
-     "bolt-pistol",
-     "astartes-chainsword-blood-claws"
-    ]
+     "bolt-pistol-blood-claws",
+     "chainsword"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Blood Claw",
@@ -10205,45 +10058,17 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "bolt-pistol",
-     "astartes-chainsword-blood-claws"
-    ]
+     "bolt-pistol-blood-claws",
+     "chainsword"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Blood Claw Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Blood Claw",
-      "min": 9,
-      "max": 9
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Blood Claw Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Blood Claw",
-      "min": 10,
-      "max": 19
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "ulrik-the-slayer",
@@ -10259,26 +10084,17 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "plasma-pistol",
-     "artificer-crozius-arcanum"
-    ]
+     "artificer-crozius-arcanum",
+     "plasma-pistol-ulrik-the-slayer"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Ulrik the Slayer",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "logan-grimnar",
@@ -10294,27 +10110,18 @@
      "diameter": 80
     },
     "default_weapon_ids": [
-     "storm-bolter-logan-grimnar",
      "axe-morkai",
+     "storm-bolter-logan-grimnar",
      "tyrnak-and-fenrir"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Logan Grimnar",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wolf-guard-terminators",
@@ -10324,15 +10131,16 @@
     "name": "Wolf Guard Terminator Pack Leader",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
     },
     "default_weapon_ids": [
-     "storm-bolter-wolf-guard-terminators",
-     "master-crafted-power-weapon-wolf-guard-terminators"
-    ]
+     "master-crafted-power-weapon-wolf-guard-terminators",
+     "storm-bolter-wolf-guard-terminators"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Wolf Guard Terminator",
@@ -10347,80 +10155,14 @@
      "master-crafted-power-weapon-wolf-guard-terminators",
      "storm-bolter-wolf-guard-terminators"
     ],
-    "loadout_variants": [
-     {
-      "name": "Wolf Guard Terminator w/ storm bolter",
-      "weapon_ids": [
-       "master-crafted-power-weapon-wolf-guard-terminators",
-       "storm-bolter-wolf-guard-terminators"
-      ],
-      "max_count": 9
-     },
-     {
-      "name": "Wolf Guard Terminator w/ Assault Cannon",
-      "weapon_ids": [
-       "power-fist",
-       "assault-cannon-wolf-guard-terminators"
-      ],
-      "max_count": 2
-     },
-     {
-      "name": "Wolf Guard Terminator w/ storm shield",
-      "weapon_ids": [
-       "storm-shield",
-       "master-crafted-power-weapon-wolf-guard-terminators"
-      ],
-      "max_count": 9
-     }
-    ],
-    "loadout_variant_budgets": [
-     {
-      "variant_names": [
-       "Wolf Guard Terminator w/ storm bolter",
-       "Wolf Guard Terminator w/ Assault Cannon",
-       "Wolf Guard Terminator w/ storm shield"
-      ],
-      "count": 9,
-      "per_models": 0,
-      "scope": "model-row"
-     }
-    ]
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Terminator Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Wolf Guard Terminator",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Terminator Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Wolf Guard Terminator",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wulfen-dreadnought",
@@ -10437,33 +10179,24 @@
     },
     "default_weapon_ids": [
      "fenrisian-great-axe",
-     "storm-bolter",
-     "great-wolf-claw"
-    ]
+     "great-wolf-claw",
+     "storm-bolter-wulfen-dreadnought"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wulfen Dreadnought",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wulfen-with-storm-shields",
   "faction_id": "adeptus-astartes",
   "models": [
    {
-    "name": "Wulfen",
+    "name": "Wulfen with Storm Shield",
     "min": 5,
     "max": 10,
     "is_leader_model": false,
@@ -10472,42 +10205,24 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "death-totem",
+     "stormfrag-auto-launcher",
      "thunder-hammer-wulfen-with-storm-shields"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wulfen",
-      "min": 5,
-      "max": 5
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wulfen",
-      "min": 6,
-      "max": 10
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "bjorn-the-fell-handed",
   "faction_id": "adeptus-astartes",
   "models": [
    {
-    "name": "Bjorn the Fell-Handed",
+    "name": "Bjorn the Fell-handed",
     "min": 1,
     "max": 1,
     "is_leader_model": false,
@@ -10516,27 +10231,18 @@
      "diameter": 60
     },
     "default_weapon_ids": [
-     "heavy-flamer",
-     "trueclaw",
-     "assault-cannon-bjorn-the-fell-handed"
-    ]
+     "assault-cannon-bjorn-the-fell-handed",
+     "heavy-flamer-bjorn-the-fell-handed",
+     "trueclaw"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Bjorn the Fell-Handed",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "arjac-rockfist",
@@ -10553,24 +10259,15 @@
     },
     "default_weapon_ids": [
      "foehammer"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Arjac Rockfist",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wolf-guard-battle-leader",
@@ -10587,25 +10284,16 @@
     },
     "default_weapon_ids": [
      "master-crafted-power-weapon-wolf-guard-battle-leader",
-     "storm-shield"
-    ]
+     "plasma-pistol-wolf-guard-battle-leader"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Battle Leader",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wolf-scouts",
@@ -10613,94 +10301,55 @@
   "models": [
    {
     "name": "Wolf Scout Pack Leader",
-    "profile_name": "Wolf Scout",
     "min": 1,
     "max": 1,
-    "default_weapon_ids": [
-     "power-weapon",
-     "plasma-pistol-wolf-scouts"
-    ],
-    "is_leader_model": true,
-    "base_size_mm": {
-     "shape": "oval",
-     "width": 60,
-     "length": 35.5
-    }
-   },
-   {
-    "name": "Wolf Scout",
-    "min": 4,
-    "max": 9,
-    "default_weapon_ids": [
-     "combat-blade",
-     "plasma-pistol-wolf-scouts"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
-     "shape": "oval",
-     "width": 60,
-     "length": 35.5
-    }
+     "shape": "round",
+     "diameter": 32
+    },
+    "default_weapon_ids": [
+     "plasma-pistol-wolf-scouts",
+     "power-weapon"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Hunting Wolf",
     "min": 1,
     "max": 2,
-    "default_weapon_ids": [
-     "teeth-and-claws-wolf-scouts"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "oval",
      "width": 60,
      "length": 35.5
-    }
+    },
+    "default_weapon_ids": [
+     "teeth-and-claws-wolf-scouts"
+    ],
+    "default_wargear": []
+   },
+   {
+    "name": "Wolf Scout",
+    "min": 4,
+    "max": 9,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 32
+    },
+    "default_weapon_ids": [
+     "combat-knife-wolf-scouts",
+     "plasma-pistol-wolf-scouts"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wolf Scout Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Wolf Scout",
-      "min": 4,
-      "max": 4
-     },
-     {
-      "name": "Hunting Wolf",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wolf Scout Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Wolf Scout",
-      "min": 9,
-      "max": 9
-     },
-     {
-      "name": "Hunting Wolf",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wulfen",
@@ -10716,35 +10365,18 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "wulfen-weapons",
-     "death-totem"
+     "wulfen-weapons"
+    ],
+    "default_wargear": [
+     "Death Totem"
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wulfen",
-      "min": 5,
-      "max": 5
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wulfen",
-      "min": 6,
-      "max": 10
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "murderfang",
@@ -10760,27 +10392,18 @@
      "diameter": 60
     },
     "default_weapon_ids": [
-     "storm-bolter",
-     "heavy-flamer",
-     "murderclaws"
-    ]
+     "heavy-flamer-murderfang",
+     "murderclaws",
+     "storm-bolter-murderfang"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Murderfang",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "eradicator-squad-with-heavy-bolters",

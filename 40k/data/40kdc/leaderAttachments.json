@@ -224,12 +224,14 @@
    "deathwing-knights",
    "deathwing-terminator-squad",
    "terminator-assault-squad",
-   "terminator-squad"
+   "terminator-squad",
+   "wolf-guard-terminators"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "apothecary",
@@ -275,12 +277,15 @@
  {
   "leader_id": "arjac-rockfist",
   "eligible_bodyguard_ids": [
+   "terminator-assault-squad",
+   "terminator-squad",
    "wolf-guard-terminators"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "asmodai",
@@ -436,12 +441,14 @@
    "infiltrator-squad",
    "reiver-squad",
    "scout-squad",
-   "spectrus-kill-team"
+   "spectrus-kill-team",
+   "wolf-scouts"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "captain-in-terminator-armour",
@@ -449,7 +456,8 @@
    "deathwatch-terminator-squad",
    "deathwing-knights",
    "deathwing-terminator-squad",
-   "terminator-assault-squad"
+   "terminator-assault-squad",
+   "wolf-guard-terminators"
   ],
   "eligible_bodyguard_keywords": [
    "Terminator Squad"
@@ -457,7 +465,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "captain-titus",
@@ -565,7 +574,8 @@
    "deathwatch-terminator-squad",
    "deathwing-knights",
    "deathwing-terminator-squad",
-   "terminator-assault-squad"
+   "terminator-assault-squad",
+   "wolf-guard-terminators"
   ],
   "eligible_bodyguard_keywords": [
    "Terminator Squad"
@@ -573,7 +583,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "chaplain-on-bike",
@@ -751,14 +762,17 @@
  {
   "leader_id": "iron-priest",
   "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
    "blood-claws",
    "grey-hunters",
+   "intercessor-squad",
    "wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "judiciar",
@@ -869,12 +883,14 @@
    "incursor-squad",
    "infiltrator-squad",
    "reiver-squad",
-   "spectrus-kill-team"
+   "spectrus-kill-team",
+   "wolf-scouts"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "librarian-in-terminator-armour",
@@ -882,7 +898,8 @@
    "deathwatch-terminator-squad",
    "deathwing-knights",
    "deathwing-terminator-squad",
-   "terminator-assault-squad"
+   "terminator-assault-squad",
+   "wolf-guard-terminators"
   ],
   "eligible_bodyguard_keywords": [
    "Terminator Squad"
@@ -890,7 +907,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "lieutenant",
@@ -923,12 +941,14 @@
    "incursor-squad",
    "infiltrator-squad",
    "reiver-squad",
-   "spectrus-kill-team"
+   "spectrus-kill-team",
+   "wolf-scouts"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "lieutenant-in-reiver-armour",
@@ -943,12 +963,15 @@
  {
   "leader_id": "logan-grimnar",
   "eligible_bodyguard_ids": [
+   "terminator-assault-squad",
+   "terminator-squad",
    "wolf-guard-terminators"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "marneus-calgar-in-armour-of-antilochus",
@@ -995,14 +1018,18 @@
  {
   "leader_id": "njal-stormcaller",
   "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
    "blood-claws",
    "grey-hunters",
+   "intercessor-squad",
    "wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "pedro-kantor",
@@ -1028,7 +1055,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "ravenwing-command-squad",
@@ -1117,14 +1145,18 @@
  {
   "leader_id": "ulrik-the-slayer",
   "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
    "blood-claws",
    "grey-hunters",
+   "intercessor-squad",
    "wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "uriel-ventris",
@@ -1199,26 +1231,34 @@
  {
   "leader_id": "wolf-guard-battle-leader",
   "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
    "blood-claws",
    "grey-hunters",
+   "intercessor-squad",
    "wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "wolf-priest",
   "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
    "blood-claws",
    "grey-hunters",
+   "intercessor-squad",
    "wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "aleya",

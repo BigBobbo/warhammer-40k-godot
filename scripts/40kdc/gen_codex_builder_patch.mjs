@@ -54,6 +54,10 @@ export const OUT = join(ROOT, 'server', 'public', 'js', 'lib', 'codex-11e-datash
 export const CODEX_FACTIONS = {
   'adeptus-custodes': { codex: 'Codex: Adeptus Custodes (11th edition)', full: true },
   'orks': { codex: 'Codex: Orks (11th edition)', full: false },
+  // Codex: Space Marines — the Space Wolves datasheets only so far (scoped
+  // import); points / detachments / enhancements come from sm-codex-11e-data.mjs.
+  'adeptus-astartes': { codex: 'Codex: Space Marines (11th edition)', full: false },
+  'space-wolves': { codex: 'Codex: Space Marines (11th edition)', full: false },
 };
 
 // Record keys. Shared ids are per-faction copies in 40kdc (close-combat-weapon,

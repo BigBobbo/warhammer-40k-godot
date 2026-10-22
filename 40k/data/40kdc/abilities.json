@@ -10743,11 +10743,15 @@
   },
   "unit_ids": [
    "deathwatch-terminator-squad",
-   "terminator-assault-squad"
+   "terminator-assault-squad",
+   "wolf-guard-terminators",
+   "wolf-guard-battle-leader"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has +1 W.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "fortis-doctrines",
@@ -14663,11 +14667,14 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "chaplain-in-terminator-armour"
+   "chaplain-in-terminator-armour",
+   "wolf-priest"
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s melee attacks have [LANCE].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "recitation-of-faith",
@@ -14846,11 +14853,15 @@
    "duration": "one-use"
   },
   "unit_ids": [
-   "incursor-squad"
+   "incursor-squad",
+   "wolf-scouts"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, select up to one visible enemy unit within 6\" of this unit and roll one D6. On a 2+:\n• That enemy unit suffers D3 mortal wounds.\n• Or: If that enemy unit is a VEHICLE unit, that enemy unit suffers 2D3 mortal wounds.",
+  "usage": "Once per battle, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "hammer-of-wrath",
@@ -16540,7 +16551,7 @@
  },
  {
   "ability_id": "fervour-of-the-ancients-aura",
-  "name": "Fervour of the Ancients (Aura)",
+  "name": "Fervour of the Ancients",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -16566,7 +16577,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Friendly Space Wolves units within 6\" of this unit:\n• Have +1 to advance rolls.\n• Have +1 to charge rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "blizzard-shield",
@@ -16590,11 +16603,14 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "venerable-dreadnought"
+   "venerable-dreadnought",
+   "wulfen-dreadnought"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has 4+ InSv",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "even-in-death-i-serve",
@@ -17641,7 +17657,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• While this model is attached to a Blood Claws unit, this unit’s melee attacks have +1 S and [SUSTAINED HITS 1].\n• While this model is attached to a Wolf Guard Headtakers unit, when this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "battle-lust",
@@ -17671,7 +17689,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this unit made a charge move this turn, this model’s melee attacks have +2 A.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "thunderous-charge",
@@ -17718,7 +17738,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this unit made a charge move this turn, this unit’s melee attacks have:\n• +1 S.\n• +1 D.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "cunning-hunters",
@@ -17747,7 +17769,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, if this unit is within range of an objective, this unit’s melee attacks:\n• Have +1 S.\n• Have +1 AP.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "predatory-instinct",
@@ -17780,10 +17804,10 @@
    "subject": "enemy-unit",
    "optional": true
   },
-  "usage": {
-   "frequency": "once-per-turn"
-  },
-  "faction_id": "adeptus-astartes"
+  "usage": "Once per battle round, per unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your opponent’s Movement phase, when an enemy unit ends a move within 8\" of this unit, if this unit is unengaged, this unit can make a normal move of up to D6\".",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "hunting-hounds",
@@ -17825,7 +17849,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is within 6\" of a friendly Space Wolves Character model (excluding Wulfen), if this unit is not battle-shocked, this unit has +1 OC.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "healing-balms",
@@ -17859,7 +17885,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Command phase, this unit heals D3+1 wounds.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "let-loose-the-wolves",
@@ -17897,7 +17925,9 @@
   "ability_type": "unit",
   "behavior": "reactive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of the Declare Battle Formations step, you can split this unit into two units, one containing all Wolf Guard Headtaker models and all leader/support models, the other containing all Hunting Wolves models, with new starting strengths accordingly.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "headhunters",
@@ -17942,7 +17972,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "auto-generated, partial",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of the first battle round, select up to one enemy unit to be this unit’s quarry:\n• This unit’s attacks that target this unit’s quarry have [DEVASTATING WOUNDS] and [PRECISION].\n• Each time this unit’s quarry is destroyed, select one enemy unit to be this unit’s quarry.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "iron-priest",
@@ -17970,7 +18002,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this model is within 3\" of a friendly Space Wolves Vehicle unit, this model has Lone Operative.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "gift-of-the-iron-wolf",
@@ -17999,7 +18033,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, at the start or end of this unit’s move, select up to one friendly Space Wolves Vehicle model within 3\" of this model:\n• That VEHICLE model heals D3 wounds.\n• That VEHICLE model’s attacks can ignore modifiers to hit rolls and wound rolls until the start of your next Movement phase.\nYou cannot select the same VEHICLE model for this ability more than once per phase.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "judgement-of-the-omnissiah",
@@ -18028,11 +18064,13 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model’s attacks that target an enemy unit engaged with a friendly Space Wolves Vehicle can re-roll wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "wind-walker-psychic",
-  "name": "Wind Walker (Psychic)",
+  "name": "Wind Walker",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -18064,11 +18102,13 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• This unit’s ranged attacks have [ASSAULT].\n• When this unit is selected to make an advance move, this unit can change advance rolls to a 6.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "tempest-s-wrath-psychic",
-  "name": "Tempest’s Wrath (Psychic)",
+  "name": "Tempest's Wrath",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -18101,7 +18141,10 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• Select one visible enemy unit within 18\". That enemy unit is suppressed until the start of your next turn:\n• While a unit is suppressed, that unit’s attacks have -1 to hit rolls.",
+  "usage": "psychic level 1",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "berserk-charge",
@@ -18129,11 +18172,13 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "slayer-s-oath",
-  "name": "Slayer’s Oath",
+  "name": "Slayer's Oath",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -18216,7 +18261,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "[APPROX] fires the first time this model's unit destroys a unit with the chosen Slayer's Oath keyword; if the Detachment rule has a Saga, the unit receives that rule's benefits as if the Saga were completed",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of the first battle round, you select up to one enemy CHARACTER/MONSTER/VEHICLE unit to be this unit’s slayer’s oath:\n• This unit’s attacks that target this unit’s slayer’s oath can ignore modifiers to your unit’s:\n• BS and WS.\n• Hit rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "oathbound",
@@ -18286,7 +18333,9 @@
   "community_notes": "auto-generated, partial",
   "disputed": true,
   "dispute_notes": "Dangling reference: condition gates on keyword \"A\", which no unit in the dataset has, so the gate never fires and the effect is dead; the intended keyword is unrecoverable from the encoding.",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• This unit’s melee attacks have +1 to hit rolls.\n• Or: This unit’s melee attacks that target this unit’s slayer’s oath have +1 to hit rolls and wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "high-king-of-fenris",
@@ -18314,11 +18363,14 @@
   ],
   "ability_type": "unit",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, select up to one friendly Space Wolves unit in strategic reserves. If you do, when that unit makes an ingress move, treat the current battle round number as being one higher than it actually is.",
+  "usage": "Once per battle round, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "guile-of-the-wolf-aura",
-  "name": "Guile of the Wolf (Aura)",
+  "name": "Guile of the Wolf",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -18355,7 +18407,9 @@
   "behavior": "passive",
   "disputed": true,
   "dispute_notes": "Dangling reference: condition gates on keyword \"A\", which no unit in the dataset has, so the gate never fires and the effect is dead; the intended keyword is unrecoverable from the encoding.",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of each phase, the assault doctrine, devastator doctrine and tactical doctrine are active for this unit.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "embarking-within-transports",
@@ -18413,7 +18467,9 @@
   ],
   "ability_type": "unit",
   "behavior": "reactive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Attacks that target this unit with a S greater than this unit’s T have -1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "bestial-rage",
@@ -18462,7 +18518,9 @@
   "ability_type": "unit",
   "behavior": "reactive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your opponent’s Shooting phase, when an enemy unit has shot, if this unit lost a wound as a result of those attacks, this unit can make a surge move of up to D6+1\".",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "violent-fury",
@@ -18492,7 +18550,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this model is equipped with two melee weapons, melee attacks made by this unit have [TWIN-LINKED].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "hammer-blow",
@@ -18531,7 +18591,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, when this unit has fought, select up to one enemy MONSTER/VEHICLE unit hit by those attacks. If you do, that enemy unit is suppressed until the start of your next turn:\n• While a unit is suppressed, that unit’s attacks have -1 to hit rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "death-totem",
@@ -18568,9 +18630,11 @@
    "wulfen",
    "wulfen-with-storm-shields"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s melee attacks can re-roll hit rolls of 1.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "legendary-tenacity",
@@ -18600,7 +18664,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Attacks that target this unit with a S greater than this unit’s T have -1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "ancient-tactician",
@@ -18628,7 +18694,10 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When you target this unit with a stratagem, that use is -1CP",
+  "usage": "Once per turn, per army",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "anvil-of-endurance",
@@ -18671,7 +18740,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, when a model in this unit is destroyed, if this unit has not been selected to fight this phase, roll one D6:\n• On a 4+, do not remove that model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), that model is then removed from the battlefield.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "champion-of-the-kingsguard",
@@ -18734,7 +18805,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "auto-generated, partial",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model’s attacks that target a CHARACTER unit:\n• Can re-roll hit rolls of 1.\n• Can re-roll wound rolls of 1.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "tempered-ferocity",
@@ -18784,7 +18857,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "auto-generated, partial",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• This unit’s attacks have [SUSTAINED HITS 1].\n• This unit’s attacks that target an enemy unit within 6\" of this unit can re-roll hit rolls of 1.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "heroic-last-stand",
@@ -18819,7 +18894,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, when this model is destroyed, if this unit has not been selected to fight this phase, roll one D6:\n• On a 2+, do not remove this model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), this model is removed from the battlefield.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "scouts-7",
@@ -18878,7 +18955,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s attacks that target an enemy unit more than 6\" from any other enemy units have +1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "savage-frenzy",
@@ -18908,7 +18987,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When an enemy unit engaged with your unit (excluding MONSTER/VEHICLE units) makes a fall-back move that enemy unit must use the desperate escape mode. If that enemy unit is battle-shocked, -1 from those hazard rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "murder-maker",
@@ -18943,7 +19024,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, when a friendly Wulfen model within 6\" of this unit is destroyed, if that model’s unit has not been selected to fight this phase, roll one D6:\n• On a 4+, do not remove that model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), that model is removed from the battlefield.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "bestial-fury",
@@ -18972,7 +19055,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit:\n• Can re-roll advance rolls.\n• Can re-roll charge rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "force-of-untamed-destruction",
@@ -19000,7 +19085,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model cannot be your WARLORD.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "templar-vows",
@@ -19336,7 +19423,9 @@
   "faction_id": "adeptus-astartes",
   "ability_type": "faction",
   "behavior": "passive",
-  "unit_ids": []
+  "unit_ids": [],
+  "rules_text": "While this unit is within 6\" of a friendly SPACE WOLVES CHARACTER model (excluding WULFEN models) or within 12\" of a friendly WOLF PRIEST model, if this unit is not battle-shocked:\n• If this unit has INFANTRY, this unit has +1 OC.\n• If this unit has VEHICLE, this unit has +3 OC.\nBestial Forms: For the purposes of transport capacity, each WULFEN model takes up the space of 2 models.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "sagas",
@@ -19666,7 +19755,9 @@
    "range": "unit",
    "duration": "battle-round"
   },
-  "community_notes": "[APPROX] Consumable army-wide stance selected at the start of your Command phase (each Doctrine once per battle). Each Doctrine's 'eligible to shoot/declare a charge in a turn it Advanced or Fell Back' effect is captured as an opaque eligibility grant. Full rule in raw-text store."
+  "community_notes": "[APPROX] Consumable army-wide stance selected at the start of your Command phase (each Doctrine once per battle). Each Doctrine's 'eligible to shoot/declare a charge in a turn it Advanced or Fell Back' effect is captured as an opaque eligibility grant. Full rule in raw-text store.",
+  "rules_text": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit’s ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n• You can only select each combat doctrine once per battle.\n• Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "lightning-assault",
@@ -26342,6 +26433,192 @@
   },
   "community_notes": "While this unit is within Engagement Range of one or more enemy units, it has +2 OC",
   "faction_id": "adeptus-astartes"
+ },
+ {
+  "ability_id": "transhuman-strategist",
+  "name": "Transhuman Strategist",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "faction",
+  "rules_text": "At the start of the battle round, if a model with this ability is your WARLORD, gain 1CP.",
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "high-rune-priest",
+  "name": "High Rune Priest",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has the psychic abilities listed in the Runic Abilities section.",
+  "usage": "psyker level 3",
+  "unit_ids": [
+   "njal-stormcaller"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "murderous-hurricane",
+  "name": "Murderous Hurricane",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• Select one visible enemy unit within 12\". That enemy unit cannot make Snap shooting attacks.",
+  "usage": "psychic level 1",
+  "unit_ids": [
+   "njal-stormcaller"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "storm-caller",
+  "name": "Storm Caller",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When an enemy unit targets this unit, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• This unit has -3\" detection range until the end of the phase.",
+  "usage": "psychic level 1",
+  "unit_ids": [
+   "njal-stormcaller"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "old-greymanes",
+  "name": "Old Greymanes",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Declare Battle Formations step, you can split this unit into two units, each containing as equal a number of models as possible (when splitting a unit in this way, make a note of which models form each of the two new units).",
+  "unit_ids": [
+   "grey-hunters"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "storm-shield-thunderwolf-cavalry",
+  "name": "Storm Shield",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "wargear",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has a 4+ InSv.",
+  "unit_ids": [
+   "thunderwolf-cavalry"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "hunting-hounds-wolf-guard-headtakers",
+  "name": "Hunting Hounds",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is within 6\" of a friendly Space Wolves Character model (excluding Wulfen), if this unit is not battle-shocked, Hunting Wolf models have +1 OC.",
+  "unit_ids": [
+   "wolf-guard-headtakers"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "storm-shield-wolf-guard-headtakers",
+  "name": "Storm Shield",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "wargear",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has a 4+ InSv.",
+  "unit_ids": [
+   "wolf-guard-headtakers"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "hunting-hounds-wolf-scouts",
+  "name": "Hunting Hounds",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is within 6\" of a friendly Space Wolves Character model (excluding Wulfen), if this unit is not battle-shocked, Hunting Wolf models have +1 OC.",
+  "unit_ids": [
+   "wolf-scouts"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "the-great-wolf-watches-champions-of-fenris",
+  "name": "The Great Wolf Watches",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Friendly Adeptus Astartes Character units have the following ability:\nCountercharge: (Once per battle round, per unit) When you target this unit with the Heroic Intervention stratagem, that use is -1CP.",
+  "faction_id": "space-wolves",
+  "detachment_id": "champions-of-fenris",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "legendary-slayers-saga-of-the-beastslayer",
+  "name": "Legendary Slayers",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Attacks made by friendly Blood Claws/Thunderwolf Cavalry/Wulfen units have [Lethal Hits: Character/Monster/Vehicle].",
+  "faction_id": "space-wolves",
+  "detachment_id": "saga-of-the-beastslayer",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "master-of-wolves-saga-of-the-great-wolf",
+  "name": "Master of Wolves",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Friendly ADEPTUS ASTARTES units (excluding MONSTER / VEHICLE units) with this ability have the following abilities: Encircling Jaws: If the assault doctrine is active for your unit, your unit has +1 to advance rolls and charge rolls. Hunter’s Eye: If the devastator doctrine is active for your unit, your unit’s ranged attacks can re-roll hit rolls of 1. Ferocious Strike: If the tactical doctrine is active for your unit, your unit’s attacks that target an enemy unit within 9\" have [Sustained Hits 1]. Friendly LOGAN GRIMNAR units have the following ability: Howling Onslaught: (Once per battle, per army) In your command phase, you can use this ability. If you do, friendly ADEPTUS ASTARTES MONSTER / VEHICLE units benefit from the Master of Wolves rule until the start of your next command phase. Restrictions: Your army can include SPACE WOLVES units, but it cannot include any ADEPTUS ASTARTES units drawn from any other Chapter.",
+  "faction_id": "space-wolves",
+  "detachment_id": "saga-of-the-great-wolf",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "deadly-demise-d3",
