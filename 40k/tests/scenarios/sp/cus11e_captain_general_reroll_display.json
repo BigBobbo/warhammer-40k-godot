@@ -42,8 +42,17 @@
       "equals": "U_TRAJANN_A"
     },
     {
-      "act": "click_unit",
-      "unit_id": "U_GUARD_A"
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_GUARD_A"
+      },
+      "comment": "select the shooter via the phase action (token-click selection is not under test and hit a neighbouring token on one CI runner)"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
     },
     {
       "act": "wait_seconds",
