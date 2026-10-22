@@ -2,13 +2,24 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.47.1",
+      "version": "1.48.1",
       "date": "2026-10-22",
       "summary": "Automatic re-rolls (e.g. Trajann's Captain-General re-roll of 1s) are now visible: re-rolled dice show their new result instead of the original 1.",
       "changes": [
         "Attack dock: the status line lists every automatic re-roll (\"Re-rolled: 1→5, 1→2\"), and re-rolled dice show their new face with a blue outline.",
         "Re-rolled dice are locked out of Command Re-roll (a dice can never be re-rolled twice) instead of being offered and refused.",
         "Dice tray and Game Log hit/wound rows name the re-rolls (\"re-rolled 1→5\"), so a re-roll that came up 1 again is no longer mistaken for one that never happened."
+      ]
+    },
+    {
+      "version": "1.48.0",
+      "date": "2026-10-22",
+      "summary": "Secondary missions: you now choose whether to Score or Hold an achieved Tactical secondary at the end of your turn (11th edition rule).",
+      "changes": [
+        "When a Tactical secondary's conditions are met at the end of your turn it is no longer scored automatically: the mission card in the Scoring panel shows \"Score N VP\" and \"Hold\" buttons.",
+        "Hold keeps the card active without scoring it, so you can score it later \u2014 e.g. hold Display of Might (2 VP) to score its 5 VP at the end of your opponent's turn.",
+        "The End Turn prompt shows your Score / Hold choice for each achieved mission; anything left on Score is scored (and discarded) when you end the turn.",
+        "A held card can still be discarded for CP as normal. AI players keep scoring immediately."
       ]
     },
     {

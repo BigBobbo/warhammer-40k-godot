@@ -1,0 +1,154 @@
+{
+  "id": "secondary_score_or_hold_11e",
+  "covers": [
+    "rules.secondaries.score_or_hold",
+    "autoloads.SecondaryMissionManager.score_or_hold",
+    "phases.ScoringPhase.hold_secondary",
+    "dialogs.MissionDiscardDialog.score_hold",
+    "scripts.ScoringController.score_hold_buttons"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 6,
+  "description": "11e End of Turn: 'if you met the conditions on one or more Secondary Missions, you CAN gain the VP ... If you do ... discard that Secondary Mission'. Scoring is optional. Player 1 meets Display of Might (2 VP end of own turn / 5 VP end of opponent's). Entering Scoring must only OFFER it (no VP, card kept); the right panel shows Score 2 VP / Hold. The player clicks Hold, the End Turn dialog reflects it, End Turn scores nothing and keeps the card; at the end of the opponent's turn the held card pays 5 VP and is discarded.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mgr = SecondaryMissionManager\nvar p = GameState.get_active_player()\nvar opp = 2 if p == 1 else 1\nEngine.set_meta(\"soh_player\", p)\nGameState.state[\"meta\"][\"game_config\"][\"player%d_type\" % p] = \"HUMAN\"\nGameState.state[\"meta\"][\"game_config\"][\"player%d_type\" % opp] = \"HUMAN\"\nfor k in [p, opp]:\n\tif not mgr.is_initialized(k):\n\t\tmgr.setup_tactical_deck(k)\n\tmgr._player_state[str(k)][\"mode\"] = \"tactical\"\n\tmgr._player_state[str(k)][\"active\"] = []\nvar st = mgr._player_state[str(p)]\nfor mid in [\"display_of_might\", \"assassination\"]:\n\tst[\"active\"].append(mgr._create_active_mission(SecondaryMissionData.get_mission_by_id(mid)))\nvar z1 = mgr._get_deployment_zone_polygon(1)\nvar z2 = mgr._get_deployment_zone_polygon(2)\nvar opp_zone = z2 if opp == 2 else z1\nvar opp_c = Vector2.ZERO\nfor v in opp_zone:\n\topp_c += v\nopp_c /= max(1, opp_zone.size())\n# Own units: points between the zones (No Man's Land), found by scanning the\n# board for 3 spaced points outside BOTH deployment zones.\nvar bw = Measurement.inches_to_px(float(GameState.state.get(\"board\", {}).get(\"size\", {}).get(\"width\", 44)))\nvar bh = Measurement.inches_to_px(float(GameState.state.get(\"board\", {}).get(\"size\", {}).get(\"height\", 60)))\nvar spots = []\nvar step = Measurement.inches_to_px(6.0)\nvar y = bh * 0.5\nvar x = bw * 0.2\nwhile x < bw * 0.85 and spots.size() < 3:\n\tvar ok = true\n\tfor dx in [0.0, Measurement.inches_to_px(3.0)]:\n\t\tfor dy in [0.0, Measurement.inches_to_px(3.0)]:\n\t\t\tvar q = Vector2(x + dx, y + dy)\n\t\t\tif Geometry2D.is_point_in_polygon(q, z1) or Geometry2D.is_point_in_polygon(q, z2):\n\t\t\t\tok = false\n\tif ok:\n\t\tspots.append(Vector2(x, y))\n\tx += step\nvar placed = 0\nvar enemy_i = 0\nfor uid in GameState.state[\"units\"].keys():\n\tvar u = GameState.state[\"units\"][uid]\n\tvar models = u.get(\"models\", [])\n\tif models.size() == 0:\n\t\tcontinue\n\tif int(u.get(\"owner\", 0)) == p:\n\t\tif placed >= spots.size():\n\t\t\tcontinue\n\t\tvar c = spots[placed]\n\t\tvar mi = 0\n\t\tfor m in models:\n\t\t\tm[\"position\"] = {\"x\": c.x + Measurement.inches_to_px((mi % 3) * 1.3), \"y\": c.y + Measurement.inches_to_px(int(mi / 3) * 1.3)}\n\t\t\tm[\"alive\"] = true\n\t\t\tmi += 1\n\t\tplaced += 1\n\telse:\n\t\t# Enemy units: inside their own deployment zone (never NML)\n\t\tfor m in models:\n\t\t\tm[\"position\"] = {\"x\": opp_c.x + Measurement.inches_to_px((enemy_i % 5) * 0.5), \"y\": opp_c.y}\n\t\tenemy_i += 1\nvar nml_own = mgr._count_units_wholly_in_nml(p, [])\nvar nml_opp = mgr._count_units_wholly_in_nml(opp, [])\nreturn \"own_more_in_nml=%s opp_nml=%d\" % [str(nml_own > nml_opp), nml_opp]",
+      "equals": "own_more_in_nml=true opp_nml=0"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(11)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = GameState.get_active_player()\nvar pend = SecondaryMissionManager.get_pending_secondary_scores(p)\nreturn str(pend)",
+      "equals": "[{ \"mission_id\": \"display_of_might\", \"mission_name\": \"Display of Might\", \"vp\": 2, \"held\": false }]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Offer only — nothing scored, card still in hand\nvar p = GameState.get_active_player()\nvar st = SecondaryMissionManager._player_state[str(p)]\nreturn \"vp=%d ids=%s\" % [int(st[\"secondary_vp\"]), str(st[\"active\"].map(func(m): return m[\"id\"]))]",
+      "equals": "vp=0 ids=[\"display_of_might\", \"assassination\"]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node_or_null(\"Main/HUD_Right/VBoxContainer/ScoringScrollContainer\")\nvar hold = sc.find_child(\"HoldSecondaryButton\", true, false)\nvar score = sc.find_child(\"ScoreSecondaryButton\", true, false)\nsc.ensure_control_visible(score)\nreturn \"%s|%s|%s\" % [score.text, str(score.button_pressed), str(hold.button_pressed)]",
+      "equals": "Score 2 VP|true|false"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_panel_score_or_hold_offered"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node_or_null(\"Main/HUD_Right/VBoxContainer/ScoringScrollContainer\")\nsc.find_child(\"HoldSecondaryButton\", true, false).pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = GameState.get_active_player()\nreturn bool(SecondaryMissionManager.get_pending_secondary_scores(p)[0][\"held\"])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node_or_null(\"Main/HUD_Right/VBoxContainer/ScoringScrollContainer\")\nvar lbl = sc.find_child(\"ScoreChoiceLabel\", true, false)\nvar hold = sc.find_child(\"HoldSecondaryButton\", true, false)\nsc.ensure_control_visible(hold)\nreturn \"%s|%s\" % [lbl.text.begins_with(\"HOLDING\"), str(hold.button_pressed)]",
+      "equals": "true|true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "02_panel_card_held"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null('MissionDiscardDialog')\nif d == null:\n\treturn \"no dialog\"\nvar pair = d._score_hold_buttons.get(\"display_of_might\", [])\nreturn \"%s|%s|%s|%s\" % [d.title, pair[0].text, str(pair[0].button_pressed), str(pair[1].button_pressed)]",
+      "equals": "Score or Hold Secondary Missions|Score 2 VP|false|true"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_end_turn_dialog_shows_hold"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node('MissionDiscardDialog')\nd._skip_button.pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Turn ended with the card HELD: no VP, card still active, offer cleared\nvar st = SecondaryMissionManager._player_state[str(Engine.get_meta(\"soh_player\"))]\nreturn \"vp=%d ids=%s pending=%d\" % [int(st[\"secondary_vp\"]), str(st[\"active\"].map(func(m): return m[\"id\"])), SecondaryMissionManager.get_pending_secondary_scores(int(Engine.get_meta(\"soh_player\"))).size()]",
+      "equals": "vp=0 ids=[\"display_of_might\", \"assassination\"] pending=0"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_active_player() != int(Engine.get_meta(\"soh_player\"))",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(11)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# End of the OPPONENT's turn: the held Display of Might pays the big 5 VP\nvar st = SecondaryMissionManager._player_state[str(Engine.get_meta(\"soh_player\"))]\nreturn \"vp=%d ids=%s\" % [int(st[\"secondary_vp\"]), str(st[\"active\"].map(func(m): return m[\"id\"]))]",
+      "equals": "vp=5 ids=[\"assassination\"]"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_held_card_scored_5vp_on_opponent_turn"
+    }
+  ]
+}
