@@ -661,9 +661,24 @@ func score_secondary_missions_for_player(player: int, final_turn: bool = false) 
 	player, who otherwise gets no further opponent-turn end.
 	Returns array of scoring results.
 	"""
-	var player_key = str(player)
-	var state = _player_state[player_key]
+	var state = _player_state[str(player)]
 	var results = []
+	for candidate in _collect_scorable_missions(player, final_turn):
+		var result = _award_mission_vp(player, candidate["mission"], int(candidate["vp"]))
+		if not result.is_empty():
+			results.append(result)
+
+	# Discard achieved missions (only in tactical mode — fixed missions stay active)
+	if state.get("mode", "tactical") != "fixed":
+		_discard_achieved_missions(player)
+
+	return results
+
+func _collect_scorable_missions(player: int, final_turn: bool = false) -> Array:
+	"""Active missions whose end-of-turn conditions are met right now, with
+	the VP each would award: [{mission (live ref), vp}]. Awards nothing."""
+	var state = _player_state[str(player)]
+	var candidates = []
 	var active_player = GameState.get_active_player()
 	var battle_round = GameState.get_battle_round()
 
@@ -715,28 +730,110 @@ func score_secondary_missions_for_player(player: int, final_turn: bool = false) 
 					print("SecondaryMissionManager: Player %d fixed mission %s already at %dVP cap" % [player, mission["name"], MAX_FIXED_MISSION_VP])
 					continue
 				vp_earned = mini(vp_earned, mission_remaining)
+			candidates.append({"mission": mission, "vp": vp_earned})
 
-			var actual_vp = _award_secondary_vp(player, vp_earned, mission["id"])
-			if actual_vp > 0:
-				mission["vp_scored"] += actual_vp
-				mission["vp_scored_this_turn"] = int(mission.get("vp_scored_this_turn", 0)) + actual_vp
-				# In tactical mode, mark as achieved for discard; in fixed mode, keep active
-				if state.get("mode", "tactical") != "fixed":
-					mission["achieved"] = true
-				results.append({
-					"mission_id": mission["id"],
-					"mission_name": mission["name"],
-					"vp_earned": actual_vp,
-				})
-				emit_signal("secondary_vp_scored", player, actual_vp, mission["id"])
-				emit_signal("mission_achieved", player, mission["id"], actual_vp)
-				print("SecondaryMissionManager: Player %d scored %d VP from %s" % [player, actual_vp, mission["name"]])
+	return candidates
 
-	# Discard achieved missions (only in tactical mode — fixed missions stay active)
+func _award_mission_vp(player: int, mission: Dictionary, vp_earned: int) -> Dictionary:
+	"""Award a met card's VP (respecting caps) and mark it achieved in tactical
+	mode. Returns the scoring result, or {} if nothing was awarded."""
+	var state = _player_state[str(player)]
+	var actual_vp = _award_secondary_vp(player, vp_earned, mission["id"])
+	if actual_vp <= 0:
+		return {}
+	mission["vp_scored"] += actual_vp
+	mission["vp_scored_this_turn"] = int(mission.get("vp_scored_this_turn", 0)) + actual_vp
+	# In tactical mode, mark as achieved for discard; in fixed mode, keep active
+	if state.get("mode", "tactical") != "fixed":
+		mission["achieved"] = true
+	emit_signal("secondary_vp_scored", player, actual_vp, mission["id"])
+	emit_signal("mission_achieved", player, mission["id"], actual_vp)
+	print("SecondaryMissionManager: Player %d scored %d VP from %s" % [player, actual_vp, mission["name"]])
+	return {
+		"mission_id": mission["id"],
+		"mission_name": mission["name"],
+		"vp_earned": actual_vp,
+	}
+
+# ============================================================================
+# SCORE-OR-HOLD CHOICE (11e Tactical)
+# ============================================================================
+# 11e Event Companion, End of Turn: "if you met the conditions on one or more
+# Secondary Missions, you CAN gain the VP specified on that card. If you do,
+# and if you are using Tactical Secondary Missions, discard that Secondary
+# Mission – it is achieved." Scoring is optional: a player may keep (hold) a
+# met card to score it later — e.g. Display of Might pays 2 VP at the end of
+# your turn but 5 VP at the end of your opponent's. The offer is recorded on
+# the card itself ("pending_score_vp" / "score_held") so it rides the save
+# and the multiplayer sync. Undecided cards score by default when the turn
+# ends.
+
+func offer_secondary_scoring_choices(player: int, final_turn: bool = false) -> Array:
+	"""Evaluate the player's met cards WITHOUT awarding them, marking each as
+	awaiting a score/hold decision. Returns [{mission_id, mission_name, vp}]."""
+	clear_pending_secondary_scores(player)
+	var offers = []
+	for candidate in _collect_scorable_missions(player, final_turn):
+		var mission = candidate["mission"]
+		mission["pending_score_vp"] = int(candidate["vp"])
+		mission["score_held"] = false
+		offers.append({"mission_id": mission["id"], "mission_name": mission["name"], "vp": int(candidate["vp"])})
+		print("SecondaryMissionManager: [SCORE-OR-HOLD] P%d '%s' can score %d VP — awaiting player choice" % [player, mission["name"], int(candidate["vp"])])
+	return offers
+
+func get_pending_secondary_scores(player: int) -> Array:
+	"""Cards currently awaiting a score/hold decision:
+	[{mission_id, mission_name, vp, held}]."""
+	var pending = []
+	if not _player_state.has(str(player)):
+		return pending
+	for mission in _player_state[str(player)]["active"]:
+		if int(mission.get("pending_score_vp", 0)) > 0:
+			pending.append({
+				"mission_id": mission["id"],
+				"mission_name": mission["name"],
+				"vp": int(mission["pending_score_vp"]),
+				"held": bool(mission.get("score_held", false)),
+			})
+	return pending
+
+func set_secondary_score_held(player: int, mission_id: String, hold: bool) -> Dictionary:
+	"""Hold (don't score this turn) or release a pending card."""
+	for mission in _player_state[str(player)]["active"]:
+		if mission.get("id", "") == mission_id and int(mission.get("pending_score_vp", 0)) > 0:
+			mission["score_held"] = hold
+			print("SecondaryMissionManager: [SCORE-OR-HOLD] P%d %s '%s' (%d VP)" % [
+				player, "HOLDS" if hold else "will SCORE", mission["name"], int(mission["pending_score_vp"])])
+			return {"success": true, "mission_name": mission["name"], "vp": int(mission["pending_score_vp"]), "held": hold}
+	return {"success": false, "error": "%s has no score pending" % mission_id}
+
+func resolve_pending_secondary_scores(player: int) -> Array:
+	"""End of turn: award every pending card the player did not hold, discard
+	the achieved ones (tactical), and clear the offer. Held cards stay active.
+	Returns the scoring results (same shape as score_secondary_missions_for_player)."""
+	var state = _player_state[str(player)]
+	var results = []
+	for mission in state["active"]:
+		var vp = int(mission.get("pending_score_vp", 0))
+		if vp <= 0:
+			continue
+		if bool(mission.get("score_held", false)):
+			print("SecondaryMissionManager: [SCORE-OR-HOLD] P%d held '%s' — %d VP not scored, card stays active" % [player, mission["name"], vp])
+			continue
+		var result = _award_mission_vp(player, mission, vp)
+		if not result.is_empty():
+			results.append(result)
+	clear_pending_secondary_scores(player)
 	if state.get("mode", "tactical") != "fixed":
 		_discard_achieved_missions(player)
-
 	return results
+
+func clear_pending_secondary_scores(player: int) -> void:
+	if not _player_state.has(str(player)):
+		return
+	for mission in _player_state[str(player)]["active"]:
+		mission.erase("pending_score_vp")
+		mission.erase("score_held")
 
 func _evaluate_mission_conditions(player: int, mission: Dictionary) -> int:
 	"""
@@ -1799,6 +1896,9 @@ func on_turn_start(player: int) -> void:
 		# discard-for-1CP step (see _create_active_mission) — new turn, new slate.
 		for mission in _player_state[pk].get("active", []):
 			mission["vp_scored_this_turn"] = 0
+			# Stale score-or-hold offers never carry into a new turn.
+			mission.erase("pending_score_vp")
+			mission.erase("score_held")
 	_while_active_vp_this_window.clear()
 	_objective_control_at_turn_start = MissionManager.objective_control_state.duplicate()
 	# Clear completed actions from previous turn

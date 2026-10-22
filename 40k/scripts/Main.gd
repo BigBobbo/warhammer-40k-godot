@@ -1597,9 +1597,16 @@ func end_board_examine() -> void:
 		_board_examine_bar.modulate = Color(1, 1, 1, 1)
 	if _reactive_stratagem_overlay:
 		_reactive_stratagem_overlay.color = REACTIVE_OVERLAY_DIM
+		# begin_board_examine() forces the overlay visible even when no MA-42
+		# "waiting" block was up (e.g. the human's OWN window vs the AI). Only
+		# keep it up if a waiting block is genuinely pending — otherwise the
+		# input-blocking overlay (with its stale "Waiting for opponent's
+		# stratagem decision..." banner) outlived the decision and soft-locked
+		# the game (2026-10-22 report).
+		_reactive_stratagem_overlay.visible = _reactive_stratagem_pending
 	if _reactive_stratagem_overlay_panel:
 		_reactive_stratagem_overlay_panel.visible = true
-	print("Main: board-examine mode OFF")
+	print("Main: board-examine mode OFF (blocking overlay %s)" % ("kept" if _reactive_stratagem_pending else "hidden"))
 
 
 func is_board_examining() -> bool:
@@ -12589,6 +12596,10 @@ func _on_phase_action_pressed() -> void:
 					active_missions[i]["_discard_reason"] = gate["reason"]
 					if gate["allowed"]:
 						any_discardable = true
+				# 11e score-or-hold: a met Tactical card always needs the prompt
+				# so the player sees (and can change) whether it scores.
+				if not secondary_mgr.get_pending_secondary_scores(active_player).is_empty():
+					any_discardable = true
 				if active_missions.size() > 0 and any_discardable:
 					print("Main: Player %d has %d active secondary missions, showing discard dialog" % [active_player, active_missions.size()])
 					_show_mission_discard_dialog(active_missions, active_player)
@@ -13364,6 +13375,7 @@ func _show_mission_discard_dialog(active_missions: Array, active_player: int) ->
 	var dialog = dialog_script.create(active_missions, can_gain_cp)
 	dialog.mission_discard_requested.connect(_on_mission_discard_from_dialog.bind(active_player))
 	dialog.end_turn_without_discard.connect(_on_end_scoring_without_discard.bind(active_player))
+	dialog.mission_hold_toggled.connect(_on_mission_hold_toggled_from_dialog.bind(active_player))
 	get_tree().root.add_child(dialog)
 	# Centered: this is the last stop before the turn passes to the opponent.
 	DialogUtils.popup_phase_end_prompt(dialog, DialogConstants.MEDIUM)
@@ -13390,6 +13402,18 @@ func _on_mission_discard_from_dialog(mission_index: int, active_player: int) -> 
 		if not NetworkManager.is_networked():
 			print("Main: Falling back to local phase advance")
 			PhaseManager.advance_to_next_phase()
+
+func _on_mission_hold_toggled_from_dialog(mission_id: String, hold: bool, active_player: int) -> void:
+	"""11e score-or-hold toggle from the end-turn dialog"""
+	var result = NetworkIntegration.route_action({
+		"type": "HOLD_SECONDARY",
+		"mission_id": mission_id,
+		"hold": hold,
+		"player": active_player,
+	})
+	print("Main: HOLD_SECONDARY %s hold=%s -> %s" % [mission_id, str(hold), str(result.get("success", false))])
+	if scoring_controller:
+		scoring_controller._refresh_ui()
 
 func _on_end_scoring_without_discard(active_player: int) -> void:
 	"""Player chose to end turn without discarding any mission"""

@@ -1,0 +1,134 @@
+Gaelcon Awoo (2000 points)
+
+Space Marines
+Space Wolves
+Assault Brethren, Saga of the Beastslayer and Stormlance Task Force (3 Detachment Points)
+Take and Hold
+Strike Force (2000 points)
+
+Attached Units
+Attached Unit 1
+
+Logan Grimnar (150 points)
+•⁠  ⁠Attached as: Leader (Character)
+  • Warlord
+  • 1x Axe Morkai
+    1x Storm Bolter
+    1x Tyrnak and Fenrir
+
+Ancient in Terminator Armour (75 points)
+•⁠  ⁠Attached as: Support (Character)
+  • 1x Master-crafted Power Weapon
+    1x Storm Bolter
+
+Terminator Assault Squad (395 points)
+•⁠  ⁠Attached as: Bodyguard
+  • Enhancement: Furious Assault (Upgrade)
+  • 1x Terminator Sergeant
+    • 1x Storm Shield
+      1x Thunder Hammer
+  • 9x Terminator
+    • 8x Storm Shield
+      8x Thunder Hammer
+      1x Twin Lightning Claws
+
+Attached Unit 2
+
+Chaplain on Bike (95 points)
+•⁠  ⁠Attached as: Leader (Character)
+  • 1x Absolvor Bolt Pistol
+    1x Crozius Arcanum
+    1x Twin Bolt Rifle
+  • Enhancement: Imperium’s Sword
+
+Outrider Squad (80 points)
+•⁠  ⁠Attached as: Bodyguard
+  • 2x Outrider
+    • 2x Chainsword
+      2x Heavy Bolt Pistol
+      2x Twin Bolt Rifle
+  • 1x Outrider Sergeant
+    • 1x Plasma Pistol
+      1x Thunder Hammer
+      1x Twin Bolt Rifle
+
+Attached Unit 3
+
+Captain on Bike (125 points)
+•⁠  ⁠Attached as: Leader (Character)
+  • 1x Plasma Pistol
+    1x Thunder Hammer
+    1x Twin Bolt Rifle
+  • Enhancement: Wolf-Touched
+
+Wulfen with Storm Shields (250 points)
+•⁠  ⁠Attached as: Bodyguard
+  • 10x Wulfen with Storm Shield
+    • 1x Death Totem
+      9x Stormfrag Auto-launcher
+      10x Thunder Hammer
+
+
+BATTLELINE
+
+Grey Hunters (180 points)
+  • 1x Grey Hunter Pack Leader
+    • 1x Bolt Carbine
+      1x Plasma Pistol
+      1x Power Fist
+  • 9x Grey Hunter
+    • 9x Bolt Carbine
+      9x Bolt Pistol
+      9x Chainsword
+
+OTHER DATASHEETS
+
+Scout Squad (65 points)
+  • 1x Scout Sergeant
+    • 1x Bolt Pistol
+      1x Chainsword
+      1x Shotgun
+  • 4x Scout
+    • 4x Bolt Pistol
+      4x Combat Knife
+      1x Missile Launcher
+      2x Shotgun
+      1x Sniper Rifle
+
+Scout Squad (65 points)
+  • 1x Scout Sergeant
+    • 1x Bolt Pistol
+      1x Chainsword
+      1x Shotgun
+  • 4x Scout
+    • 4x Bolt Pistol
+      4x Combat Knife
+      1x Missile Launcher
+      2x Shotgun
+      1x Sniper Rifle
+
+Thunderwolf Cavalry (260 points)
+  • 1x Thunderwolf Cavalry Pack Leader
+    • 1x Boltgun
+      1x Storm Shield
+      1x Teeth and Claws
+      1x Wolf Guard Weapon
+  • 5x Thunderwolf Cavalry
+    • 5x Boltgun
+      5x Storm Shield
+      5x Teeth and Claws
+      5x Wolf Guard Weapon
+
+Thunderwolf Cavalry (260 points)
+  • 1x Thunderwolf Cavalry Pack Leader
+    • 1x Boltgun
+      1x Storm Shield
+      1x Teeth and Claws
+      1x Wolf Guard Weapon
+  • 5x Thunderwolf Cavalry
+    • 5x Boltgun
+      5x Storm Shield
+      5x Teeth and Claws
+      5x Wolf Guard Weapon
+
+Exported with App Version: v2.8.1 (149), Data Version: v995

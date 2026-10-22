@@ -159,7 +159,11 @@ export function factionList() {
     if (!seen.has(u.faction_id)) { seen.add(u.faction_id); }
   }
   for (const f of DC.RAW_DATA.factions) {
-    if (!seen.has(f.id)) continue; // factions without units aren't buildable
+    // Factions without units aren't buildable — except the Space Marine
+    // chapters (Space Wolves, Blood Angels, ...), which build from their
+    // parent's datasheets (chapterUnitAllowed). Leaving them out made an
+    // imported Space Wolves list show the first faction in the dropdown.
+    if (!seen.has(f.id) && !seen.has(f.parent_faction_id)) continue;
     out.push({
       id: f.id,
       name: FACTION_DISPLAY_OVERRIDES[f.id] ?? f.name,
@@ -183,6 +187,28 @@ export function detachmentList(fid) {
     .filter(d => !d.superseded_by_codex)
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Parent faction of a chapter faction (space-wolves -> adeptus-astartes), else null. */
+export function parentFactionId(fid) {
+  return DC.RAW_DATA.factions.find(f => f.id === fid)?.parent_faction_id ?? null;
+}
+
+/**
+ * May a chapter-faction army (fid has a parent) take this parent datasheet?
+ * Yes when every faction keyword it carries is the parent's or this
+ * chapter's: Space Wolves take Intercessors and Grey Hunters, not Death
+ * Company Marines.
+ */
+export function chapterUnitAllowed(fid, raw) {
+  const f = DC.RAW_DATA.factions.find(x => x.id === fid);
+  const parent = f?.parent_faction_id ? DC.RAW_DATA.factions.find(x => x.id === f.parent_faction_id) : null;
+  if (!parent) return true;
+  const ok = new Set([...(parent.keywords ?? []), ...(f.keywords ?? []), parent.name, f.name]
+    .map(k => String(k).toLowerCase()));
+  const chapters = new Set(DC.RAW_DATA.factions.filter(x => x.parent_faction_id === parent.id)
+    .map(x => x.name.toLowerCase()));
+  return (raw.faction_keywords ?? []).every(k => ok.has(String(k).toLowerCase()) || !chapters.has(String(k).toLowerCase()));
 }
 
 /** Every Force Disposition; `allowed` = given by a selected detachment. */
@@ -265,10 +291,14 @@ export function unitBrowserGroups(query = '') {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(raw);
   };
+  // A chapter (Space Wolves) builds from its parent's datasheets (40kdc keeps
+  // every Space Marine datasheet under adeptus-astartes).
+  const parent = parentFactionId(fid);
   for (const u of DC.RAW_DATA.units) {
     if (u.faction_id === fid) push(u);
+    else if (parent && u.faction_id === parent && chapterUnitAllowed(fid, u)) push(u);
   }
-  for (const af of ALLIED_FACTIONS[fid] ?? []) {
+  for (const af of ALLIED_FACTIONS[fid] ?? ALLIED_FACTIONS[parent] ?? []) {
     for (const u of DC.RAW_DATA.units) {
       if (u.faction_id === af) push(u, af);
     }
@@ -781,7 +811,7 @@ export function setLeaderAttachment(i, bodyguardUnitId) {
         resolved: !!target,
         candidates: [],
       },
-      role: 'leader',
+      role: unitData(ru.ref.id, ru._unit_faction_id)?.raw.attachment_role === 'support' ? 'support' : 'leader',
       provisional: false,
     };
   }
@@ -791,8 +821,12 @@ export function setLeaderAttachment(i, bodyguardUnitId) {
 /** Eligible bodyguard squads (in this roster) for a leader roster-unit. */
 export function eligibleBodyguards(ru) {
   const la = (DC.RAW_DATA.leaderAttachments ?? []).find(x => x.leader_id === ru.ref.id);
-  if (!la) return [];
-  const eligible = new Set(la.eligible_bodyguard_ids);
+  // An enhancement can add Leader targets ("LEADER: Wulfen with Storm
+  // Shields" on Wolf-Touched), as the package's legality check allows.
+  const enhId = ru.enhancement?.id ?? ru.enhancement?.ref?.id;
+  const granted = enhId ? (DC.RAW_DATA.enhancements ?? []).find(x => x.id === enhId)?.attachment_bodyguard_ids ?? [] : [];
+  if (!la && !granted.length) return [];
+  const eligible = new Set([...(la?.eligible_bodyguard_ids ?? []), ...granted]);
   const seen = new Set();
   const out = [];
   for (const u of state.roster.units) {

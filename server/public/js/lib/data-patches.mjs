@@ -125,6 +125,7 @@ export function applyDataPatches(rawData) {
     }
   }
   applyCustodesCodex(rawData);
+  applySmCodex(rawData);
   return rawData;
 }
 
@@ -255,6 +256,89 @@ export function applyCodexDatasheets(rawData) {
     if (!u) continue;
     u.superseded_by_codex = s.codex;
     if (s.superseded_by) u.superseded_by = s.superseded_by;
+  }
+  return rawData;
+}
+
+// ---------------------------------------------------------------------------
+// Codex: Space Marines (11e). The bundle carries the pre-codex index data for
+// Space Marines and every chapter: index points (no points at all for Captain
+// on Bike), index detachments at index DP and none of the codex ones
+// (Assault Brethren, Tactical Brethren, ...), index Leader lists. A GW-app
+// list built on the codex imported with unresolved detachments and wrong
+// points. sm-codex-11e-data.mjs (generated from a Wahapedia export by
+// scripts/40kdc/gen_sm_codex_builder_patch.mjs) holds the codex points,
+// Support roles, Leader lists, detachments and enhancements; datasheet
+// profiles / kits are NOT refreshed. Nothing is deleted (decision D1): index
+// detachments and datasheets the codex dropped are flagged
+// superseded_by_codex (hidden from the pickers, still resolvable).
+import {
+  SM_CODEX_NAME,
+  SM_CODEX_UNIT_PATCHES,
+  SM_CODEX_SUPERSEDED_UNIT_IDS,
+  SM_CODEX_LEADER_ATTACHMENTS,
+  SM_CODEX_DETACHMENTS,
+  SM_CODEX_ENHANCEMENTS,
+  SM_CODEX_SUPERSEDED_DETACHMENTS,
+} from './sm-codex-11e-data.mjs';
+
+export { SM_CODEX_UNIT_PATCHES, SM_CODEX_LEADER_ATTACHMENTS };
+
+export function applySmCodex(rawData) {
+  if (!rawData) return rawData;
+  const units = rawData.units ?? [];
+  const smUnit = new Map(units.filter(u => u.faction_id === 'adeptus-astartes').map(u => [u.id, u]));
+  for (const p of SM_CODEX_UNIT_PATCHES) {
+    const u = smUnit.get(p.id);
+    if (!u) continue;
+    u.points = cloneRecord(p.points);
+    u.points_provisional = false;
+    if (p.wargear_points) u.wargear_points = cloneRecord(p.wargear_points);
+    if (p.attachment_role) u.attachment_role = p.attachment_role;
+  }
+  for (const id of SM_CODEX_SUPERSEDED_UNIT_IDS) {
+    const u = smUnit.get(id);
+    if (u) u.superseded_by_codex = SM_CODEX_NAME;
+  }
+
+  const las = rawData.leaderAttachments ?? (rawData.leaderAttachments = []);
+  for (const la of SM_CODEX_LEADER_ATTACHMENTS) {
+    let hit = false;
+    for (const x of las) {
+      if (x.leader_id === la.leader_id) { x.eligible_bodyguard_ids = [...la.eligible_bodyguard_ids]; hit = true; }
+    }
+    if (!hit) las.push({ ...cloneRecord(la), game_version: { edition: '11th', dataslate: 'codex' } });
+  }
+
+  // Enhancement ids are shared by the chapter copies of a detachment: every
+  // record with the id is replaced.
+  const enhancements = rawData.enhancements ?? (rawData.enhancements = []);
+  for (const e of SM_CODEX_ENHANCEMENTS) {
+    let hit = false;
+    enhancements.forEach((x, i) => { if (x.id === e.id) { enhancements[i] = cloneRecord(e); hit = true; } });
+    if (!hit) enhancements.push(cloneRecord(e));
+  }
+
+  const detachments = rawData.detachments ?? (rawData.detachments = []);
+  const detAt = new Map();
+  detachments.forEach((d, i) => { const k = `${d.faction_id}::${d.id}`; if (!detAt.has(k)) detAt.set(k, i); });
+  for (const d of SM_CODEX_DETACHMENTS) {
+    const i = detAt.get(`${d.faction_id}::${d.id}`);
+    if (i !== undefined) detachments[i] = cloneRecord(d);
+    else detachments.splice(afterFactionBlock(detachments, d.faction_id), 0, cloneRecord(d));
+  }
+  // Kit errors in the bundle (checked against the codex datasheet): the Grey
+  // Hunter Pack Leader swaps the Bolt Pistol, not the Bolt Carbine, for a
+  // Plasma Pistol.
+  for (const o of rawData.wargearOptions ?? []) {
+    if (o.id === 'grey-hunters-wgo-mfm-2' && (o.replaces ?? []).includes('bolt-carbine-grey-hunters')) {
+      o.replaces = ['bolt-pistol'];
+    }
+  }
+
+  const superseded = new Set(SM_CODEX_SUPERSEDED_DETACHMENTS);
+  for (const d of detachments) {
+    if (superseded.has(`${d.faction_id}::${d.id}`)) d.superseded_by_codex = SM_CODEX_NAME;
   }
   return rawData;
 }

@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.47.2",
+      "version": "1.49.3",
       "date": "2026-10-22",
       "summary": "Fix: a unit with an attached CHARACTER shoots as one unit, in one activation.",
       "changes": [
@@ -13,12 +13,43 @@
       ]
     },
     {
-      "version": "1.47.1",
+      "version": "1.49.2",
       "date": "2026-10-22",
       "summary": "Fix: when a unit with an attached CHARACTER performs an action, the whole attached unit gives up shooting.",
       "changes": [
         "Starting or performing an action in the Shooting phase (Hold Position, Cleanse, mission actions, etc.) with a bodyguard unit now also marks its attached CHARACTER(s) as having acted — they can no longer be selected to shoot separately, and they cannot charge that turn.",
         "The same applies the other way round: if the CHARACTER starts the action, its bodyguard unit gives up shooting too, and the attached unit can only start one action per turn."
+      ]
+    },
+    {
+      "version": "1.49.1",
+      "date": "2026-10-22",
+      "summary": "Fix: using 'Examine Board' on your own stratagem decision no longer soft-locks the game after you go back and decline.",
+      "changes": [
+        "Toggling 'Examine Board' on a stratagem popup during your own turn, returning to the decision and choosing No used to leave a 'Waiting for opponent's stratagem decision...' banner blocking the board forever. The banner is now cleared as soon as you return, and the game carries on after you decide."
+      ]
+    },
+    {
+      "version": "1.49.0",
+      "date": "2026-10-22",
+      "summary": "Army builder: Codex: Space Marines points and detachments, and GW app list imports for Space Wolves and other chapters now work.",
+      "changes": [
+        "Space Marines and every chapter use the Codex: Space Marines points (e.g. Logan Grimnar 150, Captain on Bike 110, Storm Shields +5 each) and codex detachments at their codex Detachment Points: Assault Brethren, Tactical Brethren, Saga of the Beastslayer (1 DP) and the rest. Index detachments the codex dropped are no longer offered.",
+        "Space Wolves, Blood Angels, Dark Angels and the other chapters can be picked as the army faction; they build from the Space Marine datasheets plus their own chapter's.",
+        "GW app imports: several detachments on one line are all added, \"Attached Unit\" blocks attach each Leader / Support character to its bodyguard, \"(Upgrade)\" enhancements resolve, and squads no longer gain a phantom extra model.",
+        "Enhancements resolve against your own detachments (Imperium's Sword from Assault Brethren) and enhancement-granted Leader targets (Wolf-Touched lets a Captain lead Wulfen) are offered.",
+        "Imported weapons named differently by the GW app (\"Chainsword\" vs \"Astartes chainsword\") no longer show up twice; the Grey Hunter Pack Leader's Plasma Pistol now replaces the Bolt Pistol."
+      ]
+    },
+    {
+      "version": "1.48.0",
+      "date": "2026-10-22",
+      "summary": "Secondary missions: you now choose whether to Score or Hold an achieved Tactical secondary at the end of your turn (11th edition rule).",
+      "changes": [
+        "When a Tactical secondary's conditions are met at the end of your turn it is no longer scored automatically: the mission card in the Scoring panel shows \"Score N VP\" and \"Hold\" buttons.",
+        "Hold keeps the card active without scoring it, so you can score it later \u2014 e.g. hold Display of Might (2 VP) to score its 5 VP at the end of your opponent's turn.",
+        "The End Turn prompt shows your Score / Hold choice for each achieved mission; anything left on Score is scored (and discarded) when you end the turn.",
+        "A held card can still be discarded for CP as normal. AI players keep scoring immediately."
       ]
     },
     {
