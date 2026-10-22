@@ -148,6 +148,19 @@ const FIXTURES := {
 		"wounds": {"U_BLOOD_CLAWS_A": 1},
 		"offers": [[1, "phase_start", 6, 1, ["healing_balms"]]],
 	},
+	# Storm Shield / Blizzard Shield bearers on the table (P1 Command phase):
+	# the wound chips and invulnerable saves the army load gave them.
+	"shields": {
+		"sw": 1, "active": 1,
+		"sws": [
+			["U_WOLF_GUARD_TERMINATORS_B", 14.0, 40.0, 5],
+			["U_THUNDERWOLF_CAVALRY_B", 32.0, 40.0, 3],
+			["U_VENERABLE_DREADNOUGHT_B", 22.0, 50.0, 1],
+		],
+		"orks": [
+			["U_BOYZ_B", 20.0, 14.0, 5],
+		],
+	},
 	# Declare Battle Formations, the Space Wolves (P1) declare: Old Greymanes
 	# (Grey Hunters) and Let Loose the Wolves (Wolf Guard Headtakers).
 	"formations": {
