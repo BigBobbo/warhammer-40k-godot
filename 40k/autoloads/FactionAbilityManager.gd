@@ -1130,7 +1130,8 @@ func unit_has_detachment_charge_reroll(unit: Dictionary) -> bool:
 	# Codex: Adeptus Custodes (11e) Dread Host / Combat Deployment (CustodesDetachments.gd, WP-C46).
 	if GameConstants.edition >= 11:
 		return Ork11eDetachments.charge_reroll_source(unit) != "" \
-			or load("res://scripts/codex/custodes/CustodesDetachments.gd").charge_reroll_source(unit) != ""
+			or load("res://scripts/codex/custodes/CustodesDetachments.gd").charge_reroll_source(unit) != "" \
+			or load("res://scripts/codex/space_wolves/SWDetachments11e.gd").charge_reroll_source(unit) != ""  # Codex: Space Marines (11e) Preyslayer (WP-S2)
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
@@ -2134,6 +2135,11 @@ func get_redeploy_enhancement(player: int) -> Dictionary:
 	var o5_hat: Dictionary = load("res://scripts/codex/orks/OrkEnhancements11e.gd").redeploy_enhancement(player)
 	if not o5_hat.is_empty():
 		return o5_hat
+	# Codex: Space Marines (11e) Hunter's Guile / Chariots of the Storm (SWEnhancements11e.gd, WP-S2).
+	if GameConstants.edition >= 11:
+		var sw11e_rd: Dictionary = load("res://scripts/codex/space_wolves/SWEnhancements11e.gd").redeploy_enhancement(player)
+		if not sw11e_rd.is_empty():
+			return sw11e_rd
 	for entry in REDEPLOY_ENHANCEMENTS:
 		if has_enhancement(player, entry.name):
 			return entry
@@ -2185,6 +2191,15 @@ func get_razgit_eligible_units(player: int) -> Array:
 				break
 		if not matches_keywords:
 			continue
+		# "any_keywords": one of them (Codex: Space Marines (11e) Hunter's Guile —
+		# Blood Claws / Thunderwolf Cavalry / Wulfen units, WP-S2).
+		if entry.has("any_keywords"):
+			var any_kw := false
+			for akw in entry.any_keywords:
+				if _unit_has_keyword(unit, str(akw)):
+					any_kw = true
+			if not any_kw:
+				continue
 		# Must have alive models
 		var has_alive = false
 		for model in unit.get("models", []):

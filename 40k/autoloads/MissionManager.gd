@@ -558,6 +558,13 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 		# "has +2 OC" — every model of it (WP-C46). Same order as above: only
 		# a model that already has OC gets it.
 		oc += _custodes_11e_oc_bonus(unit)
+	# Codex: Space Marines (11e) CURSE OF THE WULFEN: +1 OC (INFANTRY) / +3 OC
+	# (VEHICLE) near a Space Wolves CHARACTER / WOLF PRIEST (SWArmyRules11e.gd,
+	# WP-S2). Outside the "already has OC" gate: the Wulfen datasheets print
+	# OC 0 and the curse is what gives them OC (battle-shocked: no bonus, and
+	# _unit_oc_in_range zeroes a battle-shocked unit anyway).
+	if GameConstants.edition >= 11 and int(flags.get("effect_oc_override", 0)) == 0:
+		oc += int(load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").oc_bonus(unit))
 	return maxi(oc, 0)
 
 ## Codex: Adeptus Custodes (11e) Moritoi Ancients OC bonus for `unit` (0 at 10e

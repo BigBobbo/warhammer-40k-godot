@@ -1,0 +1,166 @@
+{
+  "id": "sw11e_enh_skjalds_foretelling",
+  "covers": [
+    "codex.space_wolves.enhancements.skjalds_foretelling",
+    "codex.space_wolves.SWEnhancements11e",
+    "rules.melee.lance",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Saga of the Great Wolf enhancement SKJALD'S FORETELLING (WP-S2): the Wolf Guard Battle Leader's unit's melee attacks have [LANCE] (11e: +1 to wound if the unit made a charge move this turn). Fixture sw11e_s2_wolves_active (the Battle Leader carries it). Setup privileges (in the Command phase, before the Fight phase starts): CP 0 for both, auto wound allocation, and the Battle Leader is placed in base contact with the Meganobz as if it had charged them this turn (charged_this_turn); then straight to the Fight phase (P1 active). The fight_phase_start window (Howlmaw, not under test) is declined; both players end their pile-in; a real click selects the Battle Leader to fight; its attacks go at the Meganobz; the melee wound rolls carry +1 from [LANCE] (the modifier ledger names it; none of its weapons has [LANCE] natively).",
+  "fixture": "sw11e_s2_wolves_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privileges (see description), then straight to the Fight phase",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nH.move_to(\"U_WOLF_GUARD_BATTLE_LEADER_A\", 35.83, 30.15)\nGameState.state.units[\"U_WOLF_GUARD_BATTLE_LEADER_A\"].flags[\"charged_this_turn\"] = true\nPhaseManager.transition_to_phase(10)\nreturn RulesEngine.is_unit_engaged(\"U_WOLF_GUARD_BATTLE_LEADER_A\", GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "fight_phase_start (Howlmaw) — not under test"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WOLF_GUARD_BATTLE_LEADER_A",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WOLF_GUARD_BATTLE_LEADER_A",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "unit_selected_to_fight (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the melee wound roll's modifier ledger names [LANCE] (+1, the unit charged this turn)",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nfor d in ph.dice_log:\n\tif typeof(d) != TYPE_DICTIONARY:\n\t\tcontinue\n\tfor e in d.get(\"modifier_ledger\", []):\n\t\tif str(e.get(\"source\", \"\")).contains(\"LANCE\"):\n\t\t\tprint(\"[sw11e skjald] \", d.get(\"context\", \"\"), \" ledger: \", e)\n\t\t\treturn true\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_skjalds_foretelling_lance_resolved"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "show the Dice Log tab",
+      "script": "var panel = tree.root.get_node(\"Main\").get_node_or_null(\"HUD_Left/GameLogPanel\")\nif panel == null:\n\tfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\t\tif n.get(\"_tab_dice_button\") != null:\n\t\t\tpanel = n\n\t\t\tbreak\nif panel == null:\n\treturn \"panel not found\"\npanel._tab_dice_button.emit_signal(\"pressed\")\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_dice_log_lance"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sw11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    }
+  ]
+}

@@ -5909,6 +5909,21 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		if not best_target.is_empty():
 			return best_target
 
+	# Codex: Space Marines (11e) Space Wolves — Combat Doctrines (army rule) and
+	# Howling Onslaught: synchronous picks, SKIP when holding the doctrines, so
+	# the Command phase never stalls (SWArmyRules11e / SWDetachments11e, WP-S2).
+	var sw11e_has_doctrine_action := false
+	for action in available_actions:
+		if bool(action.get("sw11e", false)):
+			sw11e_has_doctrine_action = true
+	if sw11e_has_doctrine_action:
+		var sw11e_pick: Dictionary = load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").ai_command_action(player)
+		if sw11e_pick.is_empty():
+			sw11e_pick = load("res://scripts/codex/space_wolves/SWDetachments11e.gd").ai_command_action(player)
+		if not sw11e_pick.is_empty():
+			_add_thinking_step(str(sw11e_pick.get("_ai_description", "Space Wolves Command-phase rule")))
+			return sw11e_pick
+
 	# P2-27: Combat Doctrines selection (Space Marines — Gladius Task Force)
 	# AI strategy: Assault Doctrine early (advance+charge), Tactical mid-game (fall back flexibility),
 	# Devastator late (shoot after advancing when fewer units remain)
@@ -22320,6 +22335,11 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	if not cus11e_pick.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, cus11e_pick.get("name", ""), cus11e_pick.get("target_unit_id", "")])
 		return cus11e_pick
+	# Codex: Space Marines (11e) Space Wolves free rule choices (Howlmaw — SWDetachments11e.gd, WP-S2).
+	var sw11e_pick_w: Dictionary = load("res://scripts/codex/space_wolves/SWDetachments11e.gd").ai_decide(player, window_id, offers, ctx)
+	if not sw11e_pick_w.is_empty():
+		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sw11e_pick_w.get("name", ""), sw11e_pick_w.get("target_unit_id", "")])
+		return sw11e_pick_w
 	offers = offers.filter(func(o): return not ork11e_det.is_rule_offer(o))
 	if offers.is_empty():
 		_add_thinking_step("Window %s: declining its rule choice(s)" % window_id)

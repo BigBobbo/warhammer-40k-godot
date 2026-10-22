@@ -6,6 +6,10 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 # Codex: Orks (11e) army rules (WP-O34): Da Boss, War Cry in the opponent's Command phase.
 const Ork11eArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
+# Codex: Space Marines (11e) — Space Wolves army rules + detachments (WP-S2):
+# Combat Doctrines, Transhuman Strategist, Howling Onslaught.
+const SW11eArmyRules = preload("res://scripts/codex/space_wolves/SWArmyRules11e.gd")
+const SW11eDetachments = preload("res://scripts/codex/space_wolves/SWDetachments11e.gd")
 
 
 # CommandPhase - Handles Command Phase including CP generation and Battle-shock tests
@@ -101,6 +105,8 @@ func _on_phase_enter() -> void:
 		# Codex: Adeptus Custodes AQUILA COMMANDER — start of the battle round,
 		# +1CP if your WARLORD has it (bonus-CP cap respected; CustodesKatah.gd).
 		_cus11e_katah().on_battle_round_start(battle_round)
+		# Codex: Space Marines (11e) TRANSHUMAN STRATEGIST — +1CP if a Space Wolves WARLORD has it (SWArmyRules11e.gd, WP-S2).
+		SW11eArmyRules.on_battle_round_start(battle_round)
 
 	# Step 0b: Initialize secondary mission decks on first command phase
 	# Both players' decks are set up on the very first command phase entry,
@@ -193,6 +199,9 @@ func _on_phase_enter() -> void:
 	# Codex: Adeptus Custodes (11e) detachments / enhancements — dreadful foe and
 	# Blinding Light expire, BATTLELINE grants refreshed (CustodesDetachments.gd, WP-C46).
 	_cus11e_det().on_command_phase_start(current_player)
+	# Codex: Space Marines (11e) Space Wolves — the previous Combat Doctrine / Howling Onslaught end (WP-S2).
+	SW11eArmyRules.on_command_phase_start(current_player)
+	SW11eDetachments.on_command_phase_start(current_player)
 
 	# P3-106: Clear turn-scoped stratagem effects at start of new turn
 	# Per Core Rules, effects with "until the start of your next turn" duration expire here
@@ -581,8 +590,12 @@ func get_available_actions() -> Array:
 					"is_current_target": is_current
 				})
 
+	# Codex: Space Marines (11e) Space Wolves COMBAT DOCTRINES (army rule) + Howling Onslaught (WP-S2).
+	actions.append_array(SW11eArmyRules.command_actions(current_player))
+	actions.append_array(SW11eDetachments.command_actions(current_player))
 	# Combat Doctrines selection (Space Marines — Gladius Task Force) (P2-27)
-	if faction_mgr and faction_mgr.player_has_detachment(current_player, "Gladius Task Force"):
+	# (10e path; a Space Wolves army uses the codex army rule above instead.)
+	if faction_mgr and faction_mgr.player_has_detachment(current_player, "Gladius Task Force") and not SW11eArmyRules.Common.is_sw_army(current_player):
 		var available_doctrines = faction_mgr.get_available_doctrines(current_player)
 		var active_doctrine = faction_mgr.get_active_doctrine(current_player)
 		if available_doctrines.size() > 0 and active_doctrine == "":
@@ -782,7 +795,13 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"SELECT_COMBAT_DOCTRINE":
 			errors = _validate_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
-			pass  # Always valid
+			# Codex: Space Marines (11e) Space Wolves Combat Doctrines (WP-S2).
+			if SW11eArmyRules.Common.is_sw_army(get_current_player()):
+				errors = SW11eArmyRules.validate_action(get_current_player(), action)
+		"USE_HOWLING_ONSLAUGHT":
+			# Codex: Space Marines (11e) Saga of the Great Wolf (WP-S2).
+			if not SW11eDetachments.howling_onslaught_available(get_current_player()):
+				errors.append("Howling Onslaught is not available")
 		"SELECT_LOOT_OBJECTIVE":
 			errors = _validate_select_loot_objective(action)
 		"ISSUE_TAKTIK":
@@ -908,6 +927,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
 			return _handle_skip_combat_doctrine(action)
+		"USE_HOWLING_ONSLAUGHT":
+			return _handle_sw11e_howling_onslaught(action)
 		"SELECT_LOOT_OBJECTIVE":
 			return _handle_select_loot_objective(action)
 		"ISSUE_TAKTIK":
@@ -1631,6 +1652,10 @@ func _validate_select_combat_doctrine(action: Dictionary) -> Array:
 		errors.append("Missing doctrine_key for Combat Doctrine selection")
 		return errors
 
+	# Codex: Space Marines (11e) Space Wolves: the army rule (SWArmyRules11e.gd, WP-S2).
+	if SW11eArmyRules.Common.is_sw_army(current_player):
+		return SW11eArmyRules.validate_action(current_player, action)
+
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if not faction_mgr:
 		errors.append("FactionAbilityManager not available")
@@ -1660,6 +1685,10 @@ func _handle_select_combat_doctrine(action: Dictionary) -> Dictionary:
 	var current_player = get_current_player()
 	var doctrine_key = action.get("doctrine_key", "")
 
+	# Codex: Space Marines (11e) Space Wolves: the army rule (SWArmyRules11e.gd, WP-S2).
+	if SW11eArmyRules.Common.is_sw_army(current_player):
+		return _handle_sw11e_doctrine(action)
+
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if not faction_mgr:
 		return {"success": false, "error": "FactionAbilityManager not available"}
@@ -1683,6 +1712,9 @@ func _handle_select_combat_doctrine(action: Dictionary) -> Dictionary:
 
 func _handle_skip_combat_doctrine(_action: Dictionary) -> Dictionary:
 	var current_player = get_current_player()
+	# Codex: Space Marines (11e) Space Wolves: the army rule (SWArmyRules11e.gd, WP-S2).
+	if SW11eArmyRules.Common.is_sw_army(current_player):
+		return _handle_sw11e_doctrine(_action)
 	log_phase_message("COMBAT DOCTRINES: Player %d skips doctrine selection this round" % current_player)
 
 	var log_entry = {
@@ -1693,6 +1725,45 @@ func _handle_skip_combat_doctrine(_action: Dictionary) -> Dictionary:
 	GameState.add_action_to_phase_log(log_entry)
 
 	return {"success": true, "message": "No Combat Doctrine selected this round"}
+
+## Codex: Space Marines (11e) Space Wolves COMBAT DOCTRINES — select / skip
+## (logic in SWArmyRules11e.gd, WP-S2). The diffs ride the phase result.
+func _handle_sw11e_doctrine(action: Dictionary) -> Dictionary:
+	var player := get_current_player()
+	var res: Dictionary
+	if str(action.get("type", "")) == "SELECT_COMBAT_DOCTRINE":
+		res = SW11eArmyRules.select_doctrine_diffs(player, str(action.get("doctrine_key", "")))
+	else:
+		res = SW11eArmyRules.skip_doctrine_diffs(player)
+	if not res.get("success", false):
+		return create_result(false, [], str(res.get("error", "Combat Doctrines: not available")))
+	log_phase_message("COMBAT DOCTRINES: Player %d — %s" % [player, str(res.get("message", ""))])
+	if str(action.get("type", "")) == "SELECT_COMBAT_DOCTRINE":
+		var gel = get_node_or_null("/root/GameEventLog")
+		if gel:
+			gel.add_player_entry(player, str(res.get("message", "")))
+	GameState.add_action_to_phase_log({"type": str(action.get("type", "")), "player": player,
+		"doctrine": str(res.get("doctrine", "")), "turn": GameState.get_battle_round()})
+	var out := create_result(true, res.get("diffs", []))
+	out["message"] = str(res.get("message", ""))
+	out["doctrine"] = str(res.get("doctrine", ""))
+	out["doctrine_display"] = str(res.get("display", ""))
+	return out
+
+## Codex: Space Marines (11e) Saga of the Great Wolf — Logan Grimnar's HOWLING
+## ONSLAUGHT (SWDetachments11e.gd, WP-S2).
+func _handle_sw11e_howling_onslaught(_action: Dictionary) -> Dictionary:
+	var player := get_current_player()
+	var res: Dictionary = SW11eDetachments.use_howling_onslaught_diffs(player)
+	if not res.get("success", false):
+		return create_result(false, [], str(res.get("error", "")))
+	log_phase_message("HOWLING ONSLAUGHT: Player %d — %s" % [player, str(res.get("message", ""))])
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(player, str(res.get("message", "")))
+	var out := create_result(true, res.get("diffs", []))
+	out["message"] = str(res.get("message", ""))
+	return out
 
 # ============================================================================
 # HERE BE LOOT — LOOT OBJECTIVE SELECTION (OA-1)

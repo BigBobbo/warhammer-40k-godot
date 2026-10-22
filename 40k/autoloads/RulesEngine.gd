@@ -10084,6 +10084,9 @@ static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weap
 		return OrkAbilities11eScript._empty_mods()
 	var ab_mods: Dictionary = OrkAbilities11eScript.attack_mods(actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
 	CustodesAbilities11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-C7: Codex: Adeptus Custodes (11e) datasheet abilities ride the same aggregator
+	# WP-S2: Codex: Space Marines (11e) Space Wolves detachment rules + enhancements (Legendary Slayers,
+	# Hunter's Eye, Ferocious Strike, A Giant Amongst Giants) ride the same aggregator.
+	load("res://scripts/codex/space_wolves/SWDetachments11e.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
 	return ab_mods
 
 ## Fold the datasheet-ability hit modifiers into HitModifier bits (+ ledger).
@@ -14318,7 +14321,8 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 	# Servo-driven Charge, Plunging Talons) or directly as effect_grant_lance
 	# (DED KILLY CONSTRUCTION, Speedwaaagh!).
 	if is_lance_weapon(weapon_id, board) or EffectPrimitivesData.has_effect_lance(attacker_unit) \
-			or attacker_unit.get("flags", {}).get("effect_grant_lance", false):
+			or attacker_unit.get("flags", {}).get("effect_grant_lance", false) \
+			or (GameConstants.edition >= 11 and load("res://scripts/codex/space_wolves/SWDetachments11e.gd").melee_lance_source(attacker_unit) != ""):  # Codex: Space Marines (11e) Skjald's Foretelling melee [LANCE] (WP-S2)
 		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
 			melee_wound_modifiers |= WoundModifier.PLUS_ONE

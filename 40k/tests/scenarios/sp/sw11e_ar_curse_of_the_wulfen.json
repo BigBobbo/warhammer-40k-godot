@@ -1,0 +1,130 @@
+{
+  "id": "sw11e_ar_curse_of_the_wulfen",
+  "covers": [
+    "codex.space_wolves.army_rules.curse_of_the_wulfen",
+    "codex.space_wolves.SWArmyRules11e",
+    "mission.objective_control.oc_bonus",
+    "ui.ObjectiveVisual.control_label",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Space Wolves CURSE OF THE WULFEN (WP-S2): while within 6\" of a friendly SPACE WOLVES CHARACTER model (excluding WULFEN models) or 12\" of a friendly WOLF PRIEST model and not battle-shocked, an INFANTRY unit with the ability has +1 OC. Fixture sw11e_s2_wolves_active: the Wulfen (OC 0 on their datasheet) stand on objective NML_1 with the Wolf Guard Battle Leader ~3\" away. (1) Loading the save checks objective control at the start of the Command phase: every Wulfen model has OC 1, so the Space Wolves control NML_1 — the marker's label and the Command panel read Space Wolves. (2) Setup privilege: the Battle Leader is moved 10\" away (no Wolf Priest within 12\") and objective control is re-checked: the Wulfen are back to OC 0 and NML_1 reads Uncontrolled. (3) Setup privilege: the Wolf Priest is placed 9\" from the Wulfen (within 12\", not 6\"): the curse is on again and NML_1 returns to the Space Wolves.",
+  "fixture": "sw11e_s2_wolves_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WULFEN_A.meta.stats.objective_control",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "every Wulfen model has OC 1 (0 +1 Curse of the Wulfen)",
+      "script": "var u = GameState.state.units[\"U_WULFEN_A\"]\nvar t = 0\nfor m in u.models:\n\tt += MissionManager.model_oc(u, m)\nprint(\"[sw11e curse] Wulfen total OC = \", t, \" source = \", load(\"res://scripts/codex/space_wolves/SWArmyRules11e.gd\").curse_source(u))\nreturn t",
+      "equals": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return int(MissionManager.objective_control_state.get(\"obj_nml_1\", 0))",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the board marker reads the controlling faction",
+      "script": "return MissionManager.objectives_visual_refs[\"obj_nml_1\"].control_indicator.text",
+      "equals": "Space Wolves"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the Command panel's OBJECTIVE CONTROL list",
+      "script": "var sec = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/ObjectivesSection\")\nfor c in sec.get_children():\n\tif c is Label and c.text.begins_with(\"NML_1\"):\n\t\treturn c.text\nreturn \"\"",
+      "equals": "NML_1: Space Wolves"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_cursed_wulfen_control_nml1"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privilege: the Battle Leader steps 10\" away; objective control re-checked",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nH.move_to(\"U_WOLF_GUARD_BATTLE_LEADER_A\", 24.0, 16.0)\nMissionManager.check_all_objectives()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.state.units[\"U_WULFEN_A\"]\nvar t = 0\nfor m in u.models:\n\tt += MissionManager.model_oc(u, m)\nreturn t",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return int(MissionManager.objective_control_state.get(\"obj_nml_1\", 0))",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return MissionManager.objectives_visual_refs[\"obj_nml_1\"].control_indicator.text",
+      "equals": "Uncontrolled"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_no_character_near_uncontrolled"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privilege: the Wolf Priest 9\" from the Wulfen (within 12\", not 6\")",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nH.move_to(\"U_WOLF_PRIEST_A\", 23.0, 22.5)\nMissionManager.check_all_objectives()\nreturn load(\"res://scripts/codex/space_wolves/SWArmyRules11e.gd\").curse_source(GameState.state.units[\"U_WULFEN_A\"])",
+      "equals": "U_WOLF_PRIEST_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return MissionManager.objectives_visual_refs[\"obj_nml_1\"].control_indicator.text",
+      "equals": "Space Wolves"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_wolf_priest_12in_curse_on"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sw11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    }
+  ]
+}

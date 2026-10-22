@@ -1857,6 +1857,9 @@ func _capacity_weighted_models(unit: Dictionary, transport: Dictionary) -> int:
 		if kw in unit_keywords:
 			per_model = int(multipliers[kw])
 			break
+	# Codex: Space Marines (11e) BESTIAL FORMS: a WULFEN model takes the space of 2 (WP-S2).
+	if GameConstants.edition >= 11:
+		per_model = maxi(per_model, int(load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").transport_space_per_model(unit)))
 	var count = 0
 	for model in unit.get("models", []):
 		if model.get("alive", true):
