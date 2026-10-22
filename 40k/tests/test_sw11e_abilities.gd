@@ -305,6 +305,7 @@ func _run() -> void:
 	_section_wulfen_dreadnought()
 	_section_wolf_scouts()
 	_section_gating()
+	_section_advance_live()
 	_section_ai()
 
 
@@ -1117,6 +1118,48 @@ func _section_gating() -> void:
 	_check("phase_start entries: deduplicated against queued ones", SW.phase_start_entries(P_CMD, e1).is_empty())
 	SW.offers_suppressed = true
 	_check("scenario policy: offers suppressed", SW.window_offers(1, "phase_start", {"window_id": "phase_start"}).is_empty())
+	SW.offers_suppressed = false
+
+
+# ---------------------------------------------------------------------------
+# 3b/16b. Wind Walker + Fervour of the Ancients through a real BEGIN_ADVANCE
+# ---------------------------------------------------------------------------
+func _section_advance_live() -> void:
+	print("\n-- 3b/16b. Wind Walker + Fervour of the Ancients (real MovementPhase advance) --")
+	_fresh(P_CMD, 1)
+	_place("U_GREY_HUNTERS_A", 10, 40)
+	_place("U_NJAL_STORMCALLER_A", 10, 41.5)
+	_attach("U_NJAL_STORMCALLER_A", "U_GREY_HUNTERS_A")
+	_place("U_VENERABLE_DREADNOUGHT_A", 12, 45)
+	_place("U_BLOOD_CLAWS_B", 30, 40)
+	_place("U_BOYZ_B", 30, 10)
+	SW.offers_suppressed = true  # no cards in the way of the advance
+	PM.transition_to_phase(P_MOV)
+	var ph = PM.current_phase_instance
+	RE.set_test_seed(4242)
+	var res: Dictionary = ph.execute_action({"type": "BEGIN_ADVANCE", "actor_unit_id": "U_GREY_HUNTERS_A"})
+	for _i in range(3):
+		if ph.has_pending_stratagem_window():
+			ph.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": int(ph.get_pending_stratagem_window_decider())})
+	if ph._awaiting_reroll_decision:
+		ph.execute_action({"type": "DECLINE_COMMAND_REROLL"})
+	var md: Dictionary = ph.active_moves.get("U_GREY_HUNTERS_A", {})
+	_check("Wind Walker: Njal's unit's advance roll is a 6, +1 Fervour of the Ancients (Dreadnought within 6\") = 7", int(md.get("advance_roll", -1)) == 7, "%s %s" % [str(res.get("success", "")), str(md.get("advance_roll", "none"))])
+	_check("... move cap M7 + 7 = 14\"", int(md.get("move_cap_inches", 0)) == 14, str(md.get("move_cap_inches", "none")))
+	var fv_logged := false
+	for d in ph.dice_log:
+		if typeof(d) == TYPE_DICTIONARY and str(d.get("type", "")) == "Fervour of the Ancients":
+			fv_logged = true
+	_check("Fervour of the Ancients is a dice-log line", fv_logged)
+	RE.set_test_seed(77)
+	ph.execute_action({"type": "BEGIN_ADVANCE", "actor_unit_id": "U_BLOOD_CLAWS_B"})
+	for _i in range(3):
+		if ph.has_pending_stratagem_window():
+			ph.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": int(ph.get_pending_stratagem_window_decider())})
+	if ph._awaiting_reroll_decision:
+		ph.execute_action({"type": "DECLINE_COMMAND_REROLL"})
+	var mb: Dictionary = ph.active_moves.get("U_BLOOD_CLAWS_B", {})
+	_check("Blood Claws far from the Dreadnought, no Wind Walker: a plain D6 advance roll (1-6)", int(mb.get("advance_roll", -1)) >= 1 and int(mb.get("advance_roll", -1)) <= 6, str(mb.get("advance_roll", "none")))
 	SW.offers_suppressed = false
 
 
