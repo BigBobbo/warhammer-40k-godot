@@ -14,7 +14,7 @@ import {
   dc, ds, conv, unitData, sizeChoices, countsOf, writeCounts,
   applyWeaponDelta, clampLoadoutToBounds,
 } from './store.js';
-import { looseName } from '../lib/dckit.mjs';
+import { looseName, normName } from '../lib/dckit.mjs';
 
 /**
  * Import pasted list text. Returns { roster, report } or throws with a
@@ -24,6 +24,11 @@ export function importText(text, { factionOverride = null } = {}) {
   const notes = [];
   let roster = null;
   let source = null;
+  // GW app exports (v2.8+) mark attached units with "• Attached as: Leader
+  // (Character)" lines, which the package reads as wargear (and, inside a
+  // squad, as an extra model). Take them out and re-apply them below.
+  const gw = extractGwAttachments(text);
+  text = gw.text;
 
   const res = dc.tryImportRoster(text, { dataset: ds }); // the patched dataset (store.js), not the pre-patch default
   if (res.ok && res.roster) {
@@ -34,6 +39,7 @@ export function importText(text, { factionOverride = null } = {}) {
     if (usable) {
       roster = r;
       source = `package importer (${r.source?.format ?? '?'})`;
+      resolveRosterEnhancements(roster, notes);
       for (const w of r.diagnostics?.warnings ?? []) {
         notes.push(w.raw_name ? `${w.code}: ${w.raw_name}` : `${w.code}: ${w.message}`);
       }
@@ -57,8 +63,133 @@ export function importText(text, { factionOverride = null } = {}) {
     notes.push(`faction set manually: ${factionOverride}`);
   }
 
+  resolveRosterEnhancements(roster, notes);
+  applyGwAttachments(roster, gw.groups, notes);
   normalizeImportedRoster(roster, notes);
   return { roster, report: { title: `Imported via ${source ?? 'legacy parser'}`, warnings: notes } };
+}
+
+// ---------------------------------------------------------------------------
+// GW app "Attached Units" blocks.
+//
+//   Attached Unit 1
+//
+//   Logan Grimnar (150 points)
+//   •  Attached as: Leader (Character)
+//     • Warlord
+//     ...
+//   Terminator Assault Squad (395 points)
+//   •  Attached as: Bodyguard
+
+const UNIT_HEADER_RE = /^(\S.*?)\s*\((\d+)\s*(?:points?|pts?)\)\s*$/i;
+const ATTACHED_AS_RE = /^\s*[•·*-]?\s*Attached as:\s*(.+?)\s*$/i;
+const ATTACHED_GROUP_RE = /^\s*Attached Unit\s+\d+\s*$/i;
+
+/** Strip "Attached as:" lines; return the cleaned text and the attached
+ * groups: [[{name, nth, role: 'leader'|'support'|'bodyguard'}]], where nth is
+ * the 0-based occurrence of that unit name among the list's unit headers. */
+export function extractGwAttachments(text) {
+  // The GW app pads its bullets with invisible WORD JOINERs (U+2060) and
+  // no-break spaces.
+  const lines = String(text).replace(/[\u2060\u200B\uFEFF]/g, '').replace(/\u00A0/g, ' ').split(/\r?\n/);
+  const out = [];
+  const groups = [];
+  const seen = new Map();
+  let group = null;
+  let last = null;
+  for (const line of lines) {
+    if (ATTACHED_GROUP_RE.test(line)) {
+      group = [];
+      groups.push(group);
+      out.push(line);
+      continue;
+    }
+    const hm = line.match(UNIT_HEADER_RE);
+    if (hm) {
+      const k = looseName(hm[1]);
+      const nth = seen.get(k) ?? 0;
+      seen.set(k, nth + 1);
+      last = { name: hm[1].trim(), nth };
+      out.push(line);
+      continue;
+    }
+    const am = line.match(ATTACHED_AS_RE);
+    if (am) {
+      if (group && last) {
+        const role = /bodyguard/i.test(am[1]) ? 'bodyguard' : (/support/i.test(am[1]) ? 'support' : 'leader');
+        group.push({ ...last, role });
+      }
+      continue;
+    }
+    // A role-group heading ("BATTLELINE", "OTHER DATASHEETS") ends the
+    // attached-units section.
+    if (/^[A-Z][A-Z &/-]+$/.test(line.trim())) group = null;
+    out.push(line);
+  }
+  return { text: out.join('\n'), groups: groups.filter(g => g.length) };
+}
+
+/** Point each group's Leader / Support characters at its Bodyguard unit. */
+function applyGwAttachments(roster, groups, notes) {
+  if (!groups.length) return;
+  const units = roster.units ?? [];
+  const pick = (entry) => {
+    const k = looseName(entry.name);
+    return units.filter(u => looseName(u.ref?.raw_name ?? '') === k)[entry.nth] ?? null;
+  };
+  for (const g of groups) {
+    const bg = g.find(e => e.role === 'bodyguard');
+    const bgUnit = bg ? pick(bg) : null;
+    if (!bgUnit?.ref?.id) {
+      notes.push(`attached unit (${g.map(e => e.name).join(' + ')}): bodyguard not found — attach it by hand`);
+      continue;
+    }
+    for (const e of g) {
+      if (e.role === 'bodyguard') continue;
+      const ru = pick(e);
+      if (!ru) continue;
+      ru.leader_attachment = {
+        bodyguard_ref: { id: bgUnit.ref.id, raw_name: bgUnit.ref.raw_name, resolved: true, candidates: [] },
+        role: e.role,
+        provisional: false,
+      };
+    }
+  }
+}
+
+/**
+ * Re-resolve each enhancement against the roster's own detachments. The
+ * package matches enhancement names faction-wide, so "Imperium's Sword" could
+ * land on another detachment's record of the same name, and the GW app's
+ * "Furious Assault (Upgrade)" suffix matched nothing.
+ */
+function resolveRosterEnhancements(roster, notes) {
+  if (!roster.faction_id) return;
+  const dets = (roster.detachments ?? [])
+    .map(d => conv.findDetachment(roster.faction_id, d.ref?.id ?? d.ref?.raw_name ?? ''))
+    .filter(Boolean);
+  if (!dets.length) return;
+  const ownIds = new Set(dets.flatMap(d => d.enhancement_ids ?? []));
+  for (const ru of roster.units ?? []) {
+    const enh = ru.enhancement;
+    if (!enh || (enh.id && ownIds.has(enh.id))) continue;
+    const name = String(enh.raw_name ?? '').replace(/\s*\((?:upgrade|aura|one per army)\)\s*$/i, '').trim();
+    let hit = null;
+    for (const d of dets) {
+      const byName = conv.detachmentEnhancements(d);
+      hit = byName.get(normName(name)) ?? [...byName.values()].find(e => looseName(e.name) === looseName(name)) ?? null;
+      if (hit) break;
+    }
+    if (hit) {
+      ru.enhancement = { id: hit.id, raw_name: hit.name, resolved: true, candidates: [] };
+    } else {
+      notes.push(`enhancement "${name}" is not from a detachment in this list`);
+    }
+  }
+  // the package's own "enhancement-unresolved" notes for names resolved here
+  roster.diagnostics.warnings = (roster.diagnostics?.warnings ?? []).filter(w =>
+    w.code !== 'enhancement-unresolved' || !(roster.units ?? []).some(u => u.enhancement?.resolved &&
+      looseName(String(w.raw_name ?? '').replace(/\s*\([^)]*\)\s*$/, '')) === looseName(u.enhancement.raw_name)));
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +360,7 @@ export function normalizeImportedRoster(roster, notes = []) {
 
     // --- loadout: start every unit from its default loadout, then apply the
     // source's optional-weapon picks as swaps, then clamp into legal bounds.
+    remapForeignWeapons(data, ru, notes);
     const sourceCounts = countsOf(ru);
     const hints = ru._wargear_hints ?? [];
     delete ru._wargear_hints;
@@ -252,6 +384,43 @@ export function normalizeImportedRoster(roster, notes = []) {
     writeCounts(ru, counts, data.factionId);
   }
   return roster;
+}
+
+/**
+ * Move source weapons the datasheet does not list onto the datasheet's own
+ * weapon of that name: the package resolves the GW app's "Chainsword" to the
+ * generic `chainsword`, while the Outrider Squad / Grey Hunters carry
+ * "Astartes chainsword" — the import then showed both.
+ */
+function remapForeignWeapons(data, ru, notes) {
+  const own = new Set([...(data.raw.weapon_ids ?? []),
+    ...conv.wargearItems(data.raw, data.factionId).keys(),
+    ...DC_bounds(data, ru.model_count).keys()]);
+  // Some per-datasheet ids have no weapon record ("thunder-hammer-captain-on-
+  // bike"): name those from the id, minus the datasheet suffix.
+  const nameOf = id => conv.wres.resolve(data.factionId, id)?.name ??
+    id.replace(new RegExp(`-${data.raw.id}$`), '').replace(/-/g, ' ');
+  const ownNamed = [...own].map(id => ({ id, n: looseName(nameOf(id)) }));
+  const out = [];
+  for (const wg of ru.wargear ?? []) {
+    const id = wg.ref?.id;
+    if (!id || own.has(id)) { out.push(wg); continue; }
+    const n = looseName(wg.ref.raw_name ?? conv.wres.resolve(data.factionId, id)?.name ?? id);
+    const hit = ownNamed.find(o => o.n === n) ?? ownNamed.find(o => o.n.endsWith(` ${n}`));
+    if (hit) {
+      out.push({ ...wg, ref: { ...wg.ref, id: hit.id, resolved: true } });
+    } else {
+      // The bundle's kit predates the codex (Ancient in Terminator Armour's
+      // Master-crafted Power Weapon): keep the listed weapon.
+      out.push(wg);
+      notes.push(`${ru.ref.raw_name}: "${wg.ref.raw_name ?? id}" is not on the datasheet's kit — kept as listed`);
+    }
+  }
+  ru.wargear = out;
+}
+
+function DC_bounds(data, modelCount) {
+  return dc.weaponBounds(data.raw, modelCount, data.options, data.comp?.models);
 }
 
 function weaponIdForName(data, rawName) {

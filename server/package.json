@@ -10,7 +10,8 @@
     "test:e2e:custodes": "node tests/e2e-custodes-codex.mjs",
     "test:e2e:orks": "node tests/e2e-orks-codex.mjs",
     "test:e2e:codex": "node tests/e2e-codex-datasheets.mjs",
-    "test:e2e:multidet": "node tests/e2e-multi-detachment.mjs"
+    "test:e2e:multidet": "node tests/e2e-multi-detachment.mjs",
+    "test:e2e:gw-import": "node tests/e2e-gw-import-space-wolves.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",

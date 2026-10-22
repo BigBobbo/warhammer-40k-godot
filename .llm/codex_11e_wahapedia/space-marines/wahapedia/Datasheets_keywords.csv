@@ -1,0 +1,1395 @@
+datasheet_id|keyword|model|is_faction_keyword
+000000060|Adeptus Astartes||true
+000000060|Apothecary||false
+000000060|Imperium||false
+000000060|Infantry||false
+000000060|Gravis||false
+000000060|Character||false
+000000065|Adeptus Astartes||true
+000000065|Transport||false
+000000065|Imperium||false
+000000065|Deathwing||false
+000000065|Vehicle||false
+000000065|Frame||false
+000000065|Smoke||false
+000000066|Adeptus Astartes||true
+000000066|Deathwing||false
+000000066|Frame||false
+000000066|Transport||false
+000000066|Imperium||false
+000000066|Explosives||false
+000000066|Vehicle||false
+000000066|Smoke||false
+000000067|Adeptus Astartes||true
+000000067|Smoke||false
+000000067|Imperium||false
+000000067|Transport||false
+000000067|Frame||false
+000000067|Vehicle||false
+000000071|Adeptus Astartes||true
+000000071|Imperium||false
+000000071|Deathwing||false
+000000071|Tacticus||false
+000000071|Explosives||false
+000000071|Infantry||false
+000000073|Adeptus Astartes||true
+000000073|Explosives||false
+000000073|Tacticus||false
+000000073|Imperium||false
+000000073|Infantry||false
+000000073|Character||false
+000000076|Adeptus Astartes||true
+000000076|Phobos||false
+000000076|Smoke||false
+000000076|Explosives||false
+000000076|Imperium||false
+000000076|Infantry||false
+000000076|Character||false
+000000079|Adeptus Astartes||true
+000000079|Infantry||false
+000000079|Character||false
+000000079|Imperium||false
+000000079|Psyker||false
+000000079|Terminator||false
+000000079|Deathwing||false
+000000083|Adeptus Astartes||true
+000000083|Character||false
+000000083|Tacticus||false
+000000083|Jump Pack||false
+000000083|Imperium||false
+000000083|Infantry||false
+000000083|Captain||false
+000000083|Explosives||false
+000000083|Fly||false
+000000084|Adeptus Astartes||true
+000000084|Vehicle||false
+000000084|Smoke||false
+000000084|Ravenwing||false
+000000084|Imperium||false
+000000084|Fly||false
+000000084|Aircraft||false
+000000085|Adeptus Astartes||true
+000000085|Transport||false
+000000085|Imperium||false
+000000085|Smoke||false
+000000085|Vehicle||false
+000000085|Frame||false
+000000086|Adeptus Astartes||true
+000000086|Artillery||false
+000000086|Imperium||false
+000000086|Vehicle||false
+000000087|Adeptus Astartes||true
+000000087|Transport||false
+000000087|Imperium||false
+000000087|Frame||false
+000000087|Dedicated Transport||false
+000000087|Vehicle||false
+000000091|Adeptus Astartes||true
+000000091|Walker||false
+000000091|Imperium||false
+000000091|Dreadnought||false
+000000091|Vehicle||false
+000000091|Deathwing||false
+000000093|Adeptus Astartes||true
+000000093|Frame||false
+000000093|Vehicle||false
+000000093|Imperium||false
+000000093|Smoke||false
+000000094|Adeptus Astartes||true
+000000094|Ravenwing||false
+000000094|Mounted||false
+000000094|Chaplain||false
+000000094|Character||false
+000000094|Explosives||false
+000000094|Imperium||false
+000000097|Adeptus Astartes||true
+000000097|Vehicle||false
+000000097|Fortification||false
+000000097|Frame||false
+000000097|Imperium||false
+000000098|Adeptus Astartes||true
+000000098|Vehicle||false
+000000098|Artillery||false
+000000098|Frame||false
+000000098|Imperium||false
+000000099|Adeptus Astartes||true
+000000099|Frame||false
+000000099|Vehicle||false
+000000099|Imperium||false
+000000110|Adeptus Astartes||true
+000000110|Imperium||false
+000000110|Artillery||false
+000000110|Frame||false
+000000110|Vehicle||false
+000000112|Adeptus Astartes||true
+000000112|Explosives||false
+000000112|Jump Pack||false
+000000112|Fly||false
+000000112|Character||false
+000000112|Tacticus||false
+000000112|Imperium||false
+000000112|Chaplain||false
+000000112|Infantry||false
+000000114|Adeptus Astartes||true
+000000114|Imperium||false
+000000114|Ravenwing||false
+000000114|Speeder||false
+000000114|Frame||false
+000000114|Vehicle||false
+000000114|Fly||false
+000000115|Adeptus Astartes||true
+000000115|Infantry||false
+000000115|Character||false
+000000115|Imperium||false
+000000115|Chaplain||false
+000000115|Terminator||false
+000000115|Deathwing||false
+000000117|Adeptus Astartes||true
+000000117|Deathwing||false
+000000117|Walker||false
+000000117|Vehicle||false
+000000117|Smoke||false
+000000117|Imperium||false
+000000118|Adeptus Astartes||true
+000000118|Deathwing||false
+000000118|Terminator||false
+000000118|Imperium||false
+000000118|Infantry||false
+000000119|Adeptus Astartes||true
+000000119|Imperium||false
+000000119|Phobos||false
+000000119|Psyker||false
+000000119|Explosives||false
+000000119|Infantry||false
+000000119|Character||false
+000000120|Adeptus Astartes||true
+000000120|Imperium||false
+000000120|Deathwing||false
+000000120|Vehicle||false
+000000120|Walker||false
+000000120|Dreadnought||false
+000000120|Smoke||false
+000000124|Adeptus Astartes||true
+000000124|Vehicle||false
+000000124|Fly||false
+000000124|Speeder||false
+000000124|Imperium||false
+000000124|Frame||false
+000000124|Ravenwing||false
+000000125|Adeptus Astartes||true
+000000125|Jump Pack||false
+000000125|Imperium||false
+000000125|Gravis||false
+000000125|Fly||false
+000000125|Infantry||false
+000000126|Adeptus Astartes||true
+000000126|Explosives||false
+000000126|Infantry||false
+000000126|Tacticus||false
+000000126|Imperium||false
+000000127|Adeptus Astartes||true
+000000127|Iron Hands||true
+000000127|Infantry||false
+000000127|Imperium||false
+000000127|Gravis||false
+000000127|Epic Hero||false
+000000127|Character||false
+000000128|Adeptus Astartes||true
+000000128|Smoke||false
+000000128|Phobos||false
+000000128|Infantry||false
+000000128|Explosives||false
+000000128|Imperium||false
+000000129|Adeptus Astartes||true
+000000129|Smoke||false
+000000129|Frame||false
+000000129|Vehicle||false
+000000129|Dedicated Transport||false
+000000129|Transport||false
+000000129|Imperium||false
+000000135|Adeptus Astartes||true
+000000135|Infantry||false
+000000135|Captain||false
+000000135|Character||false
+000000135|Imperium||false
+000000135|Terminator||false
+000000135|Deathwing||false
+000000136|Adeptus Astartes||true
+000000136|Vehicle||false
+000000136|Walker||false
+000000136|Deathwing||false
+000000136|Dreadnought||false
+000000136|Imperium||false
+000000137|Adeptus Astartes||true
+000000137|Mounted||false
+000000137|Imperium||false
+000000137|Explosives||false
+000000137|Smoke||false
+000000137|Ravenwing||false
+000000138|Adeptus Astartes||true
+000000138|Ultramarines||true
+000000138|Primarch||false
+000000138|Monster||false
+000000138|Character||false
+000000138|Epic Hero||false
+000000138|Imperium||false
+000000138|Mobile||false
+000000139|Adeptus Astartes||true
+000000139|Transport||false
+000000139|Imperium||false
+000000139|Fly||false
+000000139|Vehicle||false
+000000139|Ravenwing||false
+000000139|Titanic||false
+000000140|Adeptus Astartes||true
+000000140|Imperium||false
+000000140|Explosives||false
+000000140|Character||false
+000000140|Infantry||false
+000000140|Tacticus||false
+000000147|Adeptus Astartes||true
+000000147|Jump Pack||false
+000000147|Tacticus||false
+000000147|Deathwing||false
+000000147|Fly||false
+000000147|Explosives||false
+000000147|Imperium||false
+000000147|Infantry||false
+000000151|Blood Angels||true
+000000151|Adeptus Astartes||true
+000000151|Epic Hero||false
+000000151|Jump Pack||false
+000000151|Character||false
+000000151|Explosives||false
+000000151|Fly||false
+000000151|Infantry||false
+000000151|Imperium||false
+000000151|Tacticus||false
+000000151|Chapter Master||false
+000000155|Adeptus Astartes||true
+000000155|Blood Angels||true
+000000155|Tacticus||false
+000000155|Infantry||false
+000000155|Character||false
+000000155|Epic Hero||false
+000000155|Psyker||false
+000000155|Imperium||false
+000000155|Explosives||false
+000000156|Adeptus Astartes||true
+000000156|Blood Angels||true
+000000156|Character||false
+000000156|Fly||false
+000000156|Infantry||false
+000000156|Imperium||false
+000000156|Tacticus||false
+000000156|Jump Pack||false
+000000156|Epic Hero||false
+000000157|Adeptus Astartes||true
+000000157|Blood Angels||true
+000000157|Fly||false
+000000157|Character||false
+000000157|Chaplain||false
+000000157|Infantry||false
+000000157|Epic Hero||false
+000000157|Tacticus||false
+000000157|Imperium||false
+000000157|Jump Pack||false
+000000158|Blood Angels||true
+000000158|Adeptus Astartes||true
+000000158|Imperium||false
+000000158|Tacticus||false
+000000158|Infantry||false
+000000158|Character||false
+000000158|Explosives||false
+000000164|Blood Angels||true
+000000164|Adeptus Astartes||true
+000000164|Tacticus||false
+000000164|Infantry||false
+000000164|Imperium||false
+000000164|Death Company||false
+000000164|Jump Pack||false
+000000164|Fly||false
+000000164|Explosives||false
+000000164|Epic Hero||false
+000000164|Character||false
+000000164|Chaplain||false
+000000165|Adeptus Astartes||true
+000000165|Blood Angels||true
+000000165|Jump Pack||false
+000000165|Infantry||false
+000000165|Explosives||false
+000000165|Fly||false
+000000165|Imperium||false
+000000165|Tacticus||false
+000000166|Blood Angels||true
+000000166|Adeptus Astartes||true
+000000166|Death Company||false
+000000166|Imperium||false
+000000166|Walker||false
+000000166|Vehicle||false
+000000166|Dreadnought||false
+000000168|Adeptus Astartes||true
+000000168|Blood Angels||true
+000000168|Frame||false
+000000168|Vehicle||false
+000000168|Smoke||false
+000000168|Imperium||false
+000000218|Dark Angels||true
+000000218|Adeptus Astartes||true
+000000218|Character||false
+000000218|Chapter Master||false
+000000218|Epic Hero||false
+000000218|Imperium||false
+000000218|Deathwing||false
+000000218|Tacticus||false
+000000218|Infantry||false
+000000218|Explosives||false
+000000219|Dark Angels||true
+000000219|Adeptus Astartes||true
+000000219|Infantry||false
+000000219|Captain||false
+000000219|Character||false
+000000219|Epic Hero||false
+000000219|Terminator||false
+000000219|Deathwing||false
+000000219|Imperium||false
+000000225|Adeptus Astartes||true
+000000225|Dark Angels||true
+000000225|Infantry||false
+000000225|Character||false
+000000225|Epic Hero||false
+000000225|Chaplain||false
+000000225|Tacticus||false
+000000225|Imperium||false
+000000225|Explosives||false
+000000225|Deathwing||false
+000000226|Dark Angels||true
+000000226|Adeptus Astartes||true
+000000226|Tacticus||false
+000000226|Psyker||false
+000000226|Character||false
+000000226|Epic Hero||false
+000000226|Explosives||false
+000000226|Librarian||false
+000000226|Deathwing||false
+000000226|Imperium||false
+000000226|Infantry||false
+000000230|Dark Angels||true
+000000230|Adeptus Astartes||true
+000000230|Infantry||false
+000000230|Deathwing||false
+000000230|Imperium||false
+000000230|Terminator||false
+000000231|Adeptus Astartes||true
+000000231|Dark Angels||true
+000000231|Terminator||false
+000000231|Deathwing||false
+000000231|Imperium||false
+000000231|Infantry||false
+000000238|Adeptus Astartes||true
+000000238|Dark Angels||true
+000000238|Imperium||false
+000000238|Ravenwing||false
+000000238|Frame||false
+000000238|Vehicle||false
+000000238|Speeder||false
+000000238|Fly||false
+000000239|Adeptus Astartes||true
+000000239|Dark Angels||true
+000000239|Vehicle||false
+000000239|Aircraft||false
+000000239|Ravenwing||false
+000000239|Fly||false
+000000239|Imperium||false
+000000240|Adeptus Astartes||true
+000000240|Dark Angels||true
+000000240|Vehicle||false
+000000240|Aircraft||false
+000000240|Ravenwing||false
+000000240|Fly||false
+000000240|Imperium||false
+000000241|Adeptus Astartes||true
+000000241|Dark Angels||true
+000000241|Imperium||false
+000000241|Ravenwing||false
+000000241|Explosives||false
+000000241|Mounted||false
+000000242|Adeptus Astartes||true
+000000242|Dark Angels||true
+000000242|Imperium||false
+000000242|Speeder||false
+000000242|Vehicle||false
+000000242|Frame||false
+000000242|Fly||false
+000000242|Ravenwing||false
+000000282|Adeptus Astartes||true
+000000282|Space Wolves||true
+000000282|Infantry||false
+000000282|Terminator||false
+000000282|Chapter Master||false
+000000282|Character||false
+000000282|Imperium||false
+000000282|Epic Hero||false
+000000285|Adeptus Astartes||true
+000000285|Space Wolves||true
+000000285|Imperium||false
+000000285|Infantry||false
+000000285|Captain||false
+000000285|Character||false
+000000285|Epic Hero||false
+000000285|Explosives||false
+000000285|Tacticus||false
+000000292|Space Wolves||true
+000000292|Adeptus Astartes||true
+000000292|Psyker||false
+000000292|Imperium||false
+000000292|Tacticus||false
+000000292|Infantry||false
+000000292|Character||false
+000000292|Epic Hero||false
+000000297|Adeptus Astartes||true
+000000297|Space Wolves||true
+000000297|Infantry||false
+000000297|Character||false
+000000297|Epic Hero||false
+000000297|Wolf Priest||false
+000000297|Explosives||false
+000000297|Imperium||false
+000000302|Space Wolves||true
+000000302|Adeptus Astartes||true
+000000302|Vehicle||false
+000000302|Smoke||false
+000000302|Imperium||false
+000000302|Dreadnought||false
+000000302|Epic Hero||false
+000000302|Character||false
+000000302|Walker||false
+000000303|Space Wolves||true
+000000303|Adeptus Astartes||true
+000000303|Tacticus||false
+000000303|Imperium||false
+000000303|Explosives||false
+000000303|Battleline||false
+000000303|Infantry||false
+000000305|Space Wolves||true
+000000305|Adeptus Astartes||true
+000000305|Explosives||false
+000000305|Imperium||false
+000000305|Tacticus||false
+000000305|Battleline||false
+000000305|Infantry||false
+000000306|Space Wolves||true
+000000306|Adeptus Astartes||true
+000000306|Imperium||false
+000000306|Techmarine||false
+000000306|Character||false
+000000306|Infantry||false
+000000311|Adeptus Astartes||true
+000000311|Space Wolves||true
+000000311|Imperium||false
+000000311|Wulfen||false
+000000311|Infantry||false
+000000314|Adeptus Astartes||true
+000000314|Space Wolves||true
+000000314|Dreadnought||false
+000000314|Character||false
+000000314|Epic Hero||false
+000000314|Wulfen||false
+000000314|Vehicle||false
+000000314|Imperium||false
+000000314|Walker||false
+000000317|Space Wolves||true
+000000317|Adeptus Astartes||true
+000000317|Imperium||false
+000000317|Terminator||false
+000000317|Character||false
+000000317|Infantry||false
+000000317|Epic Hero||false
+000000318|Adeptus Astartes||true
+000000318|Space Wolves||true
+000000318|Imperium||false
+000000318|Infantry||false
+000000318|Terminator||false
+000000322|Adeptus Astartes||true
+000000322|Space Wolves||true
+000000322|Mounted||false
+000000322|Explosives||false
+000000322|Imperium||false
+000000323|Adeptus Astartes||true
+000000323|Space Wolves||true
+000000323|Imperium||false
+000000323|Beasts||false
+000000358|Adeptus Astartes||true
+000000358|Deathwatch||true
+000000358|Fly||false
+000000358|Vehicle||false
+000000358|Imperium||false
+000000358|Smoke||false
+000000358|Transport||false
+000001153|Adeptus Astartes||true
+000001153|Frame||false
+000001153|Imperium||false
+000001153|Vehicle||false
+000001153|Smoke||false
+000001154|Adeptus Astartes||true
+000001154|Imperium||false
+000001154|Infantry||false
+000001154|Explosives||false
+000001156|Adeptus Astartes||true
+000001156|Phobos||false
+000001156|Vehicle||false
+000001156|Imperium||false
+000001156|Walker||false
+000001157|Adeptus Astartes||true
+000001157|Tacticus||false
+000001157|Explosives||false
+000001157|Infantry||false
+000001157|Imperium||false
+000001157|Battleline||false
+000001159|Adeptus Astartes||true
+000001159|Phobos||false
+000001159|Smoke||false
+000001159|Infantry||false
+000001159|Explosives||false
+000001159|Imperium||false
+000001160|Adeptus Astartes||true
+000001160|Smoke||false
+000001160|Imperium||false
+000001160|Explosives||false
+000001160|Infantry||false
+000001165|Adeptus Astartes||true
+000001165|Explosives||false
+000001165|Character||false
+000001165|Imperium||false
+000001165|Tacticus||false
+000001165|Deathwing||false
+000001165|Ancient||false
+000001165|Infantry||false
+000001172|Adeptus Astartes||true
+000001172|Gravis||false
+000001172|Imperium||false
+000001172|Captain||false
+000001172|Character||false
+000001172|Explosives||false
+000001172|Infantry||false
+000001174|Adeptus Astartes||true
+000001174|Imperium||false
+000001174|Tacticus||false
+000001174|Infantry||false
+000001174|Explosives||false
+000001174|Character||false
+000001175|Adeptus Astartes||true
+000001175|Frame||false
+000001175|Vehicle||false
+000001175|Imperium||false
+000001175|Smoke||false
+000001177|Adeptus Astartes||true
+000001177|Explosives||false
+000001177|Infantry||false
+000001177|Battleline||false
+000001177|Gravis||false
+000001177|Imperium||false
+000001183|Adeptus Astartes||true
+000001183|Deathwing||false
+000001183|Terminator||false
+000001183|Infantry||false
+000001183|Imperium||false
+000001188|Adeptus Astartes||true
+000001188|Frame||false
+000001188|Vehicle||false
+000001188|Imperium||false
+000001188|Smoke||false
+000001189|Adeptus Astartes||true
+000001189|Titanic||false
+000001189|Smoke||false
+000001189|Imperium||false
+000001189|Vehicle||false
+000001189|Frame||false
+000001189|Transport||false
+000001190|Adeptus Astartes||true
+000001190|Ravenwing||false
+000001190|Fly||false
+000001190|Vehicle||false
+000001190|Aircraft||false
+000001190|Imperium||false
+000001191|Adeptus Astartes||true
+000001191|Vehicle||false
+000001191|Fly||false
+000001191|Transport||false
+000001191|Ravenwing||false
+000001191|Imperium||false
+000001193|Adeptus Astartes||true
+000001193|Infantry||false
+000001193|Imperium||false
+000001193|Centurion||false
+000001346|Adeptus Astartes||true
+000001346|Tacticus||false
+000001346|Character||false
+000001346|Infantry||false
+000001346|Explosives||false
+000001346|Imperium||false
+000001606|Adeptus Astartes||true
+000001606|Infantry||false
+000001606|Tacticus||false
+000001606|Imperium||false
+000001606|Explosives||false
+000001606|Battleline||false
+000001610|Adeptus Astartes||true
+000001610|Imperium||false
+000001610|Ravenwing||false
+000001610|Vehicle||false
+000001610|Fly||false
+000001610|Frame||false
+000001610|Speeder||false
+000001611|Ultramarines||true
+000001611|Adeptus Astartes||true
+000001611|Character||false
+000001611|Infantry||false
+000001611|Tacticus||false
+000001611|Explosives||false
+000001611|Psyker||false
+000001611|Epic Hero||false
+000001666|Adeptus Astartes||true
+000001666|Frame||false
+000001666|Smoke||false
+000001666|Imperium||false
+000001666|Titanic||false
+000001666|Vehicle||false
+000001667|Adeptus Astartes||true
+000001667|Vehicle||false
+000001667|Imperium||false
+000001667|Smoke||false
+000001667|Frame||false
+000001668|Adeptus Astartes||true
+000001668|Phobos||false
+000001668|Smoke||false
+000001668|Imperium||false
+000001668|Explosives||false
+000001668|Infantry||false
+000001825|Adeptus Astartes||true
+000001825|Frame||false
+000001825|Vehicle||false
+000001825|Smoke||false
+000001825|Imperium||false
+000001991|Adeptus Astartes||true
+000001991|Dedicated Transport||false
+000001991|Transport||false
+000001991|Vehicle||false
+000001991|Frame||false
+000001991|Imperium||false
+000001997|Blood Angels||true
+000001997|Adeptus Astartes||true
+000001997|Death Company||false
+000001997|Tacticus||false
+000001997|Infantry||false
+000001997|Imperium||false
+000001997|Explosives||false
+000002098|Adeptus Astartes||true
+000002098|Tacticus||false
+000002098|Imperium||false
+000002098|Explosives||false
+000002098|Infantry||false
+000002099|Adeptus Astartes||true
+000002099|Imperium||false
+000002099|Gravis||false
+000002099|Infantry||false
+000002100|Salamanders||true
+000002100|Adeptus Astartes||true
+000002100|Imperium||false
+000002100|Tacticus||false
+000002100|Explosives||false
+000002100|Epic Hero||false
+000002100|Character||false
+000002100|Captain||false
+000002100|Infantry||false
+000002105|Imperial Fists||true
+000002105|Adeptus Astartes||true
+000002105|Imperium||false
+000002105|Terminator||false
+000002105|Epic Hero||false
+000002105|Infantry||false
+000002105|Captain||false
+000002105|Character||false
+000002173|Adeptus Astartes||true
+000002173|Deathwing||false
+000002173|Smoke||false
+000002173|Imperium||false
+000002173|Vehicle||false
+000002173|Frame||false
+000002173|Transport||false
+000002173|Explosives||false
+000002255|Adeptus Astartes||true
+000002255|Explosives||false
+000002255|Infantry||false
+000002255|Deathwing||false
+000002255|Imperium||false
+000002255|Tacticus||false
+000002266|Adeptus Astartes||true
+000002266|Tacticus||false
+000002266|Psyker||false
+000002266|Imperium||false
+000002266|Explosives||false
+000002266|Character||false
+000002266|Infantry||false
+000002270|Adeptus Astartes||true
+000002270|Tacticus||false
+000002270|Imperium||false
+000002270|Explosives||false
+000002270|Infantry||false
+000002291|Dark Angels||true
+000002291|Adeptus Astartes||true
+000002291|Epic Hero||false
+000002291|Fly||false
+000002291|Ravenwing||false
+000002291|Imperium||false
+000002291|Frame||false
+000002291|Explosives||false
+000002291|Mounted||false
+000002291|Captain||false
+000002291|Character||false
+000002296|Adeptus Astartes||true
+000002296|Dark Angels||true
+000002296|Infantry||false
+000002296|Captain||false
+000002296|Tacticus||false
+000002296|Imperium||false
+000002296|Deathwing||false
+000002296|Explosives||false
+000002296|Epic Hero||false
+000002296|Character||false
+000002473|Imperial Fists||true
+000002473|Adeptus Astartes||true
+000002473|Epic Hero||false
+000002473|Gravis||false
+000002473|Imperium||false
+000002473|Character||false
+000002473|Infantry||false
+000002473|Captain||false
+000002530|Adeptus Astartes||true
+000002530|Character||false
+000002530|Explosives||false
+000002530|Phobos||false
+000002530|Smoke||false
+000002530|Imperium||false
+000002530|Infantry||false
+000002568|Adeptus Astartes||true
+000002568|Vehicle||false
+000002568|Transport||false
+000002568|Imperium||false
+000002568|Dedicated Transport||false
+000002568|Frame||false
+000002677|Adeptus Astartes||true
+000002677|Ancient||false
+000002677|Infantry||false
+000002677|Deathwing||false
+000002677|Terminator||false
+000002677|Imperium||false
+000002677|Character||false
+000002682|Adeptus Astartes||true
+000002682|Dark Angels||true
+000002682|Epic Hero||false
+000002682|Monster||false
+000002682|Mobile||false
+000002682|Imperium||false
+000002682|Primarch||false
+000002682|Character||false
+000002700|Adeptus Astartes||true
+000002700|Frame||false
+000002700|Vehicle||false
+000002700|Titanic||false
+000002700|Imperium||false
+000002701|Adeptus Astartes||true
+000002701|Character||false
+000002701|Captain||false
+000002701|Infantry||false
+000002701|Phobos||false
+000002701|Explosives||false
+000002701|Imperium||false
+000002702|Adeptus Astartes||true
+000002702|Mounted||false
+000002702|Imperium||false
+000002702|Ravenwing||false
+000002702|Explosives||false
+000002702|Character||false
+000002702|Captain||false
+000002703|Adeptus Astartes||true
+000002703|Infantry||false
+000002703|Imperium||false
+000002703|Centurion||false
+000002705|Adeptus Astartes||true
+000002705|Vehicle||false
+000002705|Smoke||false
+000002705|Imperium||false
+000002705|Frame||false
+000002707|Adeptus Astartes||true
+000002707|Tacticus||false
+000002707|Imperium||false
+000002707|Infantry||false
+000002707|Character||false
+000002708|Adeptus Astartes||true
+000002708|Raven Guard||true
+000002708|Smoke||false
+000002708|Phobos||false
+000002708|Jump Pack||false
+000002708|Character||false
+000002708|Captain||false
+000002708|Infantry||false
+000002708|Explosives||false
+000002708|Fly||false
+000002708|Epic Hero||false
+000002708|Imperium||false
+000002709|Adeptus Astartes||true
+000002709|White Scars||true
+000002709|Epic Hero||false
+000002709|Character||false
+000002709|Captain||false
+000002709|Infantry||false
+000002709|Explosives||false
+000002709|Tacticus||false
+000002709|Imperium||false
+000002711|Adeptus Astartes||true
+000002711|Frame||false
+000002711|Imperium||false
+000002711|Speeder||false
+000002711|Ravenwing||false
+000002711|Vehicle||false
+000002711|Fly||false
+000002712|Adeptus Astartes||true
+000002712|Ravenwing||false
+000002712|Mounted||false
+000002712|Explosives||false
+000002712|Imperium||false
+000002714|Adeptus Astartes||true
+000002714|Smoke||false
+000002714|Imperium||false
+000002714|Frame||false
+000002714|Vehicle||false
+000002715|Adeptus Astartes||true
+000002715|Frame||false
+000002715|Vehicle||false
+000002715|Smoke||false
+000002715|Imperium||false
+000002717|Adeptus Astartes||true
+000002717|Vehicle||false
+000002717|Dreadnought||false
+000002717|Imperium||false
+000002717|Walker||false
+000002717|Deathwing||false
+000002718|Adeptus Astartes||true
+000002718|Infantry||false
+000002718|Explosives||false
+000002718|Imperium||false
+000002718|Phobos||false
+000002718|Smoke||false
+000002720|Adeptus Astartes||true
+000002720|Vehicle||false
+000002720|Smoke||false
+000002720|Dedicated Transport||false
+000002720|Frame||false
+000002720|Imperium||false
+000002720|Transport||false
+000002721|Adeptus Astartes||true
+000002721|Imperium||false
+000002721|Frame||false
+000002721|Vehicle||false
+000002721|Smoke||false
+000002721|Deathwing||false
+000002721|Transport||false
+000002722|Adeptus Astartes||true
+000002722|Imperium||false
+000002722|Smoke||false
+000002722|Transport||false
+000002722|Deathwing||false
+000002722|Vehicle||false
+000002722|Frame||false
+000002723|Adeptus Astartes||true
+000002723|Vehicle||false
+000002723|Dedicated Transport||false
+000002723|Imperium||false
+000002723|Smoke||false
+000002723|Frame||false
+000002723|Transport||false
+000002726|Adeptus Astartes||true
+000002726|Salamanders||true
+000002726|Infantry||false
+000002726|Character||false
+000002726|Explosives||false
+000002726|Imperium||false
+000002726|Tacticus||false
+000002726|Epic Hero||false
+000002727|Adeptus Astartes||true
+000002727|Vehicle||false
+000002727|Frame||false
+000002727|Imperium||false
+000002727|Smoke||false
+000002737|Adeptus Astartes||true
+000002737|Blood Angels||true
+000002737|Tacticus||false
+000002737|Imperium||false
+000002737|Fly||false
+000002737|Explosives||false
+000002737|Death Company||false
+000002737|Infantry||false
+000002737|Jump Pack||false
+000002748|Adeptus Astartes||true
+000002748|Dark Angels||true
+000002748|Imperium||false
+000002748|Ravenwing||false
+000002748|Character||false
+000002748|Mounted||false
+000002748|Explosives||false
+000002772|Adeptus Astartes||true
+000002772|Explosives|ALL MODELS|false
+000002772|Tacticus|ALL MODELS|false
+000002772|Champion|Company Champion|false
+000002772|Infantry|ALL MODELS|false
+000002772|Character|Ancient|false
+000002772|Ancient|Ancient|false
+000002772|Imperium|ALL MODELS|false
+000002773|Adeptus Astartes||true
+000002773|Infantry||false
+000002773|Character||false
+000002773|Imperium||false
+000002773|Tacticus||false
+000002775|Adeptus Astartes||true
+000002775|Imperium||false
+000002775|Character||false
+000002775|Infantry||false
+000002775|Explosives||false
+000002775|Tacticus||false
+000002776|Adeptus Astartes||true
+000002776|Fly||false
+000002776|Explosives||false
+000002776|Infantry||false
+000002776|Imperium||false
+000002776|Tacticus||false
+000002776|Jump Pack||false
+000002779|Deathwatch||true
+000002779|Adeptus Astartes||true
+000002779|Infantry||false
+000002779|Imperium||false
+000002779|Smoke||false
+000002779|Explosives||false
+000002779|Kill Team||false
+000002779|Phobos||false
+000002780|Adeptus Astartes||true
+000002780|Deathwatch||true
+000002780|Infantry||false
+000002780|Kill Team||false
+000002780|Explosives||false
+000002780|Imperium||false
+000002780|Tacticus||false
+000002781|Deathwatch||true
+000002781|Adeptus Astartes||true
+000002781|Kill Team||false
+000002781|Explosives||false
+000002781|Gravis||false
+000002781|Imperium||false
+000002781|Infantry||false
+000002783|Deathwatch||true
+000002783|Adeptus Astartes||true
+000002783|Battleline||false
+000002783|Infantry||false
+000002783|Imperium||false
+000002783|Explosives||false
+000002783|Kill Team||false
+000002786|Black Templars||true
+000002786|Adeptus Astartes||true
+000002786|Imperium||false
+000002786|Frame||false
+000002786|Dedicated Transport||false
+000002786|Transport||false
+000002786|Vehicle||false
+000002787|Black Templars||true
+000002787|Adeptus Astartes||true
+000002787|Imperium||false
+000002787|Smoke||false
+000002787|Frame||false
+000002787|Vehicle||false
+000002788|Black Templars||true
+000002788|Adeptus Astartes||true
+000002788|Imperium||false
+000002788|Frame||false
+000002788|Smoke||false
+000002788|Vehicle||false
+000002789|Black Templars||true
+000002789|Adeptus Astartes||true
+000002789|Frame||false
+000002789|Vehicle||false
+000002789|Imperium||false
+000002789|Smoke||false
+000002790|Adeptus Astartes||true
+000002790|Black Templars||true
+000002790|Vehicle||false
+000002790|Transport||false
+000002790|Frame||false
+000002790|Imperium||false
+000002790|Smoke||false
+000002791|Adeptus Astartes||true
+000002791|Black Templars||true
+000002791|Vehicle||false
+000002791|Transport||false
+000002791|Frame||false
+000002791|Imperium||false
+000002791|Smoke||false
+000002792|Adeptus Astartes||true
+000002792|Black Templars||true
+000002792|Character||false
+000002792|Infantry||false
+000002792|Chaplain||false
+000002792|Epic Hero||false
+000002792|Imperium||false
+000002792|Tacticus||false
+000002793|Adeptus Astartes||true
+000002793|Black Templars||true
+000002793|Infantry||false
+000002793|Character||false
+000002793|Lieutenant||false
+000002793|Explosives||false
+000002793|Imperium||false
+000002793|Tacticus||false
+000002794|Black Templars||true
+000002794|Adeptus Astartes||true
+000002794|Epic Hero||false
+000002794|Chapter Master||false
+000002794|Character||false
+000002794|Imperium||false
+000002794|Tacticus||false
+000002794|Infantry||false
+000002794|Explosives||false
+000002795|Black Templars||true
+000002795|Adeptus Astartes||true
+000002795|Explosives||false
+000002795|Character||false
+000002795|Infantry||false
+000002795|Imperium||false
+000002795|Tacticus||false
+000002796|Black Templars||true
+000002796|Adeptus Astartes||true
+000002796|Explosives||false
+000002796|Imperium||false
+000002796|Infantry||false
+000002796|Tacticus||false
+000002796|Captain||false
+000002796|Character||false
+000002798|Black Templars||true
+000002798|Adeptus Astartes||true
+000002798|Explosives||false
+000002798|Tacticus||false
+000002798|Imperium||false
+000002798|Infantry||false
+000002799|Black Templars||true
+000002799|Adeptus Astartes||true
+000002799|Battleline||false
+000002799|Infantry||false
+000002799|Tacticus||false
+000002799|Imperium||false
+000002799|Explosives||false
+000002801|Space Wolves||true
+000002801|Adeptus Astartes||true
+000002801|Smoke||false
+000002801|Imperium||false
+000002801|Dreadnought||false
+000002801|Walker||false
+000002801|Vehicle||false
+000003698|Adeptus Astartes||true
+000003698|Dark Angels||true
+000003698|Infantry||false
+000003698|Tacticus||false
+000003698|Imperium||false
+000003698|Deathwing||false
+000003708|Adeptus Astartes||true
+000003831|Blood Angels||true
+000003831|Adeptus Astartes||true
+000003831|Tacticus||false
+000003831|Imperium||false
+000003831|Character||false
+000003831|Captain||false
+000003831|Infantry||false
+000003831|Explosives||false
+000003832|Adeptus Astartes||true
+000003832|Blood Angels||true
+000003832|Character||false
+000003832|Death Company||false
+000003832|Explosives||false
+000003832|Captain||false
+000003832|Infantry||false
+000003832|Tacticus||false
+000003832|Imperium||false
+000003833|Blood Angels||true
+000003833|Adeptus Astartes||true
+000003833|Jump Pack||false
+000003833|Tacticus||false
+000003833|Infantry||false
+000003833|Captain||false
+000003833|Character||false
+000003833|Explosives||false
+000003833|Death Company||false
+000003833|Fly||false
+000003871|Deathwatch||true
+000003871|Adeptus Astartes||true
+000003871|Infantry||false
+000003871|Captain||false
+000003871|Character||false
+000003871|Kill Team||false
+000003871|Explosives||false
+000003871|Imperium||false
+000003872|Adeptus Astartes||true
+000003872|Deathwatch||true
+000003872|Kill Team||false
+000003872|Infantry||false
+000003872|Captain||false
+000003872|Character||false
+000003872|Epic Hero||false
+000003872|Explosives||false
+000003872|Imperium||false
+000003873|Adeptus Astartes||true
+000003873|Deathwatch||true
+000003873|Infantry||false
+000003873|Kill Team||false
+000003873|Terminator||false
+000003873|Imperium||false
+000003874|Adeptus Astartes||true
+000003874|Deathwatch||true
+000003874|Infantry||false
+000003874|Kill Team||false
+000003874|Explosives||false
+000003874|Jump Pack||false
+000003874|Fly||false
+000003874|Imperium||false
+000003874|Gravis||false
+000003874|Tacticus||false
+000003875|Adeptus Astartes||true
+000003875|Deathwatch||true
+000003875|Agents of the Imperium||true
+000003875|Ordo Xenos|ALL|false
+000003875|Kill Team Cassius|ALL|false
+000003875|Character|CHAPLAIN CASSIUS|false
+000003875|Epic Hero|CHAPLAIN CASSIUS|false
+000003875|Infantry|ALL|false
+000003875|Kill Team|ALL|false
+000003875|Grenades|ALL|false
+000003875|Imperium|ALL|false
+000003875|Ordo Xenos|ALL|false
+000003875|Kill Team Cassius|ALL|false
+000003875|Character|CHAPLAIN CASSIUS|false
+000003875|Epic Hero|CHAPLAIN CASSIUS|false
+000003875|Infantry|ALL|false
+000003875|Kill Team|ALL|false
+000003875|Grenades|ALL|false
+000003875|Imperium|ALL|false
+000003875|Ordo Xenos|ALL|false
+000003875|Kill Team Cassius|ALL|false
+000003875|Character|CHAPLAIN CASSIUS|false
+000003875|Epic Hero|CHAPLAIN CASSIUS|false
+000003875|Infantry|ALL|false
+000003875|Grenades|ALL|false
+000003875|Imperium|ALL|false
+000003875|Ordo Xenos|ALL|false
+000003875|Kill Team Cassius|ALL|false
+000003875|Character|CHAPLAIN CASSIUS|false
+000003875|Epic Hero|CHAPLAIN CASSIUS|false
+000003875|Infantry|ALL|false
+000003875|Kill Team|ALL|false
+000003875|Grenades|ALL|false
+000003875|Imperium|ALL|false
+000003875|Ordo Xenos|ALL|false
+000003875|Kill Team Cassius|ALL|false
+000003875|Character|CHAPLAIN CASSIUS|false
+000003875|Epic Hero|CHAPLAIN CASSIUS|false
+000003875|Kill Team|ALL|false
+000003875|Grenades|ALL|false
+000003875|Ordo Xenos|ALL|false
+000003875|Imperium|ALL|false
+000003875|Grenades|ALL|false
+000003875|Kill Team|ALL|false
+000003875|Infantry|ALL|false
+000003875|Epic Hero|CHAPLAIN CASSIUS|false
+000003875|Character|CHAPLAIN CASSIUS|false
+000003875|Kill Team Cassius|ALL|false
+000003875|Ordo Xenos|ALL|false
+000003875|Imperium|ALL|false
+000003875|Grenades|ALL|false
+000003875|Kill Team|ALL|false
+000003875|Infantry|ALL|false
+000003875|Epic Hero|CHAPLAIN CASSIUS|false
+000003875|Kill Team|ALL|false
+000003875|Kill Team Cassius|ALL|false
+000003875|Ordo Xenos|ALL|false
+000003875|Imperium|ALL|false
+000003875|Grenades|ALL|false
+000003875|Kill Team|ALL|false
+000003875|Infantry|ALL|false
+000003875|Epic Hero|CHAPLAIN CASSIUS|false
+000003875|Character|CHAPLAIN CASSIUS|false
+000003875|Kill Team Cassius|ALL|false
+000003875|Ordo Xenos|ALL|false
+000003875|Imperium|ALL|false
+000003875|Grenades|ALL|false
+000003875|Kill Team|ALL|false
+000003875|Infantry|ALL|false
+000003875|Character|CHAPLAIN CASSIUS|false
+000003875|Imperium|ALL|false
+000003875|Kill Team Cassius|ALL|false
+000003875|Character|CHAPLAIN CASSIUS|false
+000003875|Epic Hero|CHAPLAIN CASSIUS|false
+000003875|Infantry|ALL|false
+000004129|Adeptus Astartes||true
+000004129|Space Wolves||true
+000004129|Imperium||false
+000004129|Character||false
+000004129|Tacticus||false
+000004129|Infantry||false
+000004130|Adeptus Astartes||true
+000004130|Space Wolves||true
+000004130|Tacticus||false
+000004130|Character||false
+000004130|Imperium||false
+000004130|Infantry||false
+000004131|Adeptus Astartes||true
+000004131|Space Wolves||true
+000004131|Imperium||false
+000004131|Beasts||false
+000004131|Infantry||false
+000004131|Tacticus||false
+000004132|Space Wolves||true
+000004132|Adeptus Astartes||true
+000004132|Infantry||false
+000004132|Wulfen||false
+000004132|Imperium||false
+000004133|Adeptus Astartes||true
+000004133|Space Wolves||true
+000004133|Imperium||false
+000004133|Vehicle||false
+000004133|Dreadnought||false
+000004133|Wulfen||false
+000004133|Walker||false
+000004135|Adeptus Astartes||true
+000004135|Black Templars||true
+000004135|Explosives||false
+000004135|Infantry||false
+000004135|Chaplain||false
+000004135|Character||false
+000004135|Imperium||false
+000004135|Tacticus||false
+000004136|Black Templars||true
+000004136|Adeptus Astartes||true
+000004136|Tacticus||false
+000004136|Imperium||false
+000004136|Explosives||false
+000004136|Character||false
+000004136|Infantry||false
+000004148|Raven Guard||true
+000004148|Adeptus Astartes||true
+000004148|Chapter Master||false
+000004148|Character||false
+000004148|Explosives||false
+000004148|Infantry||false
+000004148|Fly||false
+000004148|Imperium||false
+000004148|Jump Pack||false
+000004148|Smoke||false
+000004148|Tacticus||false
+000004148|Epic Hero||false
+000004166|Iron Hands||true
+000004166|Adeptus Astartes||true
+000004166|Terminator||false
+000004166|Infantry||false
+000004166|Captain||false
+000004166|Character||false
+000004166|Epic Hero||false
+000004166|Imperium||false
+000004167|White Scars||true
+000004167|Adeptus Astartes||true
+000004167|Imperium||false
+000004167|Mounted||false
+000004167|Captain||false
+000004167|Character||false
+000004167|Epic Hero||false
+000004167|Explosives||false
+000004175|Deathwatch||true
+000004175|Adeptus Astartes||true
+000004175|Kill Team||false
+000004175|Battleline||false
+000004175|Infantry||false
+000004175|Explosives||false
+000004175|Imperium||false
+000004175|Tacticus||false
+000004175|Gravis||false
+000004182|Adeptus Astartes||true
+000004182|Space Wolves||true
+000004182|Infantry||false
+000004182|Imperium||false
+000004182|Phobos||false
+000004182|Smoke||false
+000004182|Explosives||false
+000004184|Adeptus Astartes||true
+000004184|Ultramarines||true
+000004184|Epic Hero||false
+000004184|Character||false
+000004184|Infantry||false
+000004184|Explosives||false
+000004184|Tacticus||false
+000004184|Imperium||false
+000004185|Adeptus Astartes||true
+000004185|Ultramarines||true
+000004185|Champion|Chapter Champion|false
+000004185|Epic Hero|Chapter Champion|false
+000004185|Imperium|ALL MODELS|false
+000004185|Infantry|ALL MODELS|false
+000004185|Tacticus|ALL MODELS|false
+000004185|Ancient|Chapter Ancient|false
+000004185|Epic Hero|Chapter Ancient|false
+000004187|Adeptus Astartes||true
+000004187|Ultramarines||true
+000004187|Character||false
+000004187|Epic Hero||false
+000004187|Explosives||false
+000004187|Imperium||false
+000004187|Tacticus||false
+000004187|Captain||false
+000004187|Infantry||false
+000004188|Adeptus Astartes||true
+000004188|Ultramarines||true
+000004188|Tacticus|ALL MODELS|false
+000004188|Psyker|Dainal Komelius|false
+000004188|Explosives|ALL MODELS|false
+000004188|Infantry|ALL MODELS|false
+000004188|Epic Hero|ALL MODELS|false
+000004188|Imperium|ALL MODELS|false
+000004231|Adeptus Astartes||true
+000004231|Imperium||false
+000004231|Gravis||false
+000004231|Explosives||false
+000004231|Infantry||false
+000004245|Adeptus Astartes||true
+000004245|Imperium||false
+000004245|Frame||false
+000004245|Vehicle||false
+000004245|Smoke||false
+000004246|Adeptus Astartes||true
+000004246|Ultramarines||true
+000004246|Imperium||false
+000004246|Terminator||false
+000004246|Epic Hero||false
+000004246|Character||false
+000004246|Chapter Master||false
+000004246|Infantry||false
+000004247|Adeptus Astartes||true
+000004247|Vehicle||false
+000004247|Frame||false
+000004247|Imperium||false
+000004247|Ravenwing||false
+000004247|Mounted||false
+000004248|Ultramarines||true
+000004248|Adeptus Astartes||true
+000004248|Infantry||false
+000004248|Epic Hero||false
+000004248|Explosives||false
+000004248|Tacticus||false
+000004248|Character||false
+000004249|Adeptus Astartes||true
+000004249|Infantry||false
+000004249|Explosives||false
+000004249|Gravis||false
+000004249|Imperium||false

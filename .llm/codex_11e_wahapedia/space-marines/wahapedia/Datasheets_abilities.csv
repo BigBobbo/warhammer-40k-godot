@@ -1,0 +1,883 @@
+datasheet_id|line|ability_id|model|name|description|type|parameter
+000000060|1|000010857||||Core|
+000000060|2|000011158||||Faction|
+000000060|3|||Vivispectral Analysis Targeting|This unit’s attacks have [Lethal Hits: non-Vehicle].|Datasheet|
+000000065|1|000011125||||Core|6
+000000065|2|000008339||||Core|D6
+000000065|3|000011158||||Faction|
+000000065|4|||Assault Ramp|In your Movement phase, when this unit ends a normal move, units embarked within this unit can make an assault disembark move.|Datasheet|
+000000065|5|||Power of the Machine Spirit|This unit’s ranged attacks can:<br><ul><li>Re-roll <u>one</u> hit roll.</li><li>Re-roll <u>one</u> wound roll.</li></ul>|Datasheet|
+000000066|1|000011125||||Core|6
+000000066|2|000008339||||Core|D6
+000000066|3|000011158||||Faction|
+000000066|4|||Assault Ramp|In your Movement phase, when this unit ends a normal move, units embarked within this unit can make an assault disembark move.|Datasheet|
+000000066|5|||Fury of the Machine Spirit|"This unit’s ranged attacks that target a unit within 12"" of this unit have [Lethal Hits]."|Datasheet|
+000000067|1|000008339||||Core|D6
+000000067|2|000011125||||Core|5
+000000067|3|000011158||||Faction|
+000000067|4|||Rites of Battle|Once per battle round, one unit from your army with this ability can use it when it is targeted with a stratagem. If it does, reduce the cost of that <b>stratagem</b> by 1 CP.|Datasheet|
+000000071|1|000011158||||Faction|
+000000071|2|||Bladeguard (Once per turn, per unit)|In the Fight phase, when this unit is selected to fight or when an enemy unit targets this unit, you can select one of the following:<br><ul><li>This unit’s melee attacks have +1 to hit rolls.</li><li><u>Or:</u> Attacks that target this unit have -1 to <b>hit rolls</b>.</li></ul>|Datasheet|
+000000073|1|000008346||||Core|
+000000073|2|000011158||||Faction|
+000000073|3|000011162||||Faction|
+000000073|4|||Strategic Acumen|In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase.|Datasheet|
+000000073|5|||Finest Hour (Once per battle, per unit)|In the Fight phase, when this unit is selected to fight, you can use this ability. If you do, this model’s melee attacks have:<br><ul><li>+3 <b>A</b>.</li><li>[Devastating Wounds].</li></ul>|Datasheet|
+000000073|6|||Relic Shield|This model has +1 <b>W</b>.|Wargear|
+000000076|1|000008338||||Core|5+
+000000076|2|000008345||||Core|
+000000076|3|000008336||||Core|
+000000076|4|000008337||||Core|
+000000076|5|000011158||||Faction|
+000000076|6|||Priority Target Identified (Once per battle, per unit)|"In your Command phase, you can use this ability. If you do, select one visible terrain feature. That terrain feature is identified until the end of the turn.<br><ul><li>While an enemy unit is within an identified terrain feature, that enemy unit has +3"" detection range.</li></ul>"|Datasheet|
+000000076|7|||Evade and Survive (Once per phase, per unit)|"In your opponent’s Movement phase, when an enemy unit ends a move within 8"" of this unit, if this unit is unengaged, this unit can make a normal move of up to D3+3""."|Datasheet|
+000000079|1|000008343||||Core|
+000000079|2|000008346||||Core|
+000000079|3|000011158||||Faction|
+000000079|4|000011163||||Faction|
+000000079|5|||Librarian (psyker level 1)|This model has the psychic abilities listed in the Psychic Abilities section.|Datasheet|
+000000079|6|||Psychic Hood (Psychic)|This unit has Feel No Pain 4+ against psychic attacks.|Datasheet|
+000000079|7|||Might of Heroes (psychic level 1)|In the Fight phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>This unit’s melee attacks have +2 <b>S</b>.</li></ul>|Psychic|
+000000079|8|||Thunderous Force (psychic level 1)|"In your Shooting phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>This unit’s ranged attacks have +6"" <b>R</b>.</li></ul>"|Psychic|
+000000083|1|000008343||||Core|
+000000083|2|000008346||||Core|
+000000083|3|000011158||||Faction|
+000000083|4|000011162||||Faction|
+000000083|5|||Strategic Acumen|In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase.|Datasheet|
+000000083|6|||Angel’s Wrath|This unit has +1 to advance rolls and charge rolls.|Datasheet|
+000000083|7|||Relic Shield|This model has +1 <b>W</b>.|Wargear|
+000000084|1|000008339||||Core|D3
+000000084|2|000011158||||Faction|
+000000084|3|||Interceptor|"This unit’s ranged attacks that target a <span class=""kwb"">FLY</span> unit have +1 to hit rolls."|Datasheet|
+000000085|1|000008339||||Core|D3
+000000085|2|000011158||||Faction|
+000000085|3|||Self-repair|In your Command phase, this unit heals 1 wound.|Datasheet|
+000000085|4|||Orbital Comms Array|"While a friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> unit is within 6"" of this unit, each time you target that unit with a stratagem roll 1D6:<br><ul><li>On a 5+, you gain 1 CP.</li></ul>"|Datasheet|
+000000086|1|000011158||||Faction|
+000000086|2|||Sentinel Protocols (Once per phase, per unit)|You can target this unit with the Fire Overwatch <b>stratagem</b>, regardless of any other uses of that <b>stratagem</b> this phase. If you do:<br><ul><li>This unit’s snap shooting attacks hit on unmodified hit rolls of 4+ until that <b>stratagem</b> is resolved.</li><li>That use does not prevent any uses of that <b>stratagem</b> on other units this phase.</li></ul>|Datasheet|
+000000087|1|000008339||||Core|1
+000000087|2|000008343||||Core|
+000000087|3|000011158||||Faction|
+000000087|4|||Drop Pod Assault|"<ul><li>This unit must start the battle in strategic reserves.</li><li>In your first Movement phase, this unit can make an ingress move.</li><li>When this unit is set up, all units embarked within this unit must make a disembark/assault disembark move, and those units must be set up more than 8"" away from all enemy units.</li></ul>"|Datasheet|
+000000087|5|||Deployment Complete|When this unit is set up and all units embarked within it have disembarked, units cannot embark within this unit.|Datasheet|
+000000091|1|000011125||||Core|4
+000000091|2|000008339||||Core|D3
+000000091|3|000011158||||Faction|
+000000091|4|||Ballistus Strike|"This unit’s ranged attacks that target an enemy unit within 24"" of this unit have [Sustained Hits 1]."|Datasheet|
+000000093|1|000011125||||Core|6
+000000093|2|000008339||||Core|D6
+000000093|3|000011158||||Faction|
+000000093|4|||Sunderer of Fortresses|"This unit’s ranged attacks that:<br><ul><li>Target a <span class=""kwb"">VEHICLE</span> unit have +1 <b>S</b> and <b>D</b>.</li><li>Target a <span class=""kwb"">FORTIFICATION</span> unit have +2 <b>S</b> and <b>D</b>.</li></ul>"|Datasheet|
+000000094|1|000008346||||Core|
+000000094|2|000011158||||Faction|
+000000094|3|||Litany of Hate|This unit’s melee attacks have [Lance].|Datasheet|
+000000094|4|||Catechism of Fire|In your Shooting phase, when this unit is selected to shoot, you can select one visible enemy unit. This unit’s ranged attacks that target that unit have [Devastating Wounds].|Datasheet|
+000000097|1|000008339||||Core|D6
+000000097|2|000011125||||Core|5
+000000097|3|000011158||||Faction|
+000000097|4|||Ceramite Cover|When an attack targets a unit that is not fully visible to the attacking model because of this unit, the target has the benefit of cover against that attack.|Datasheet|
+000000097|5|||Defensive Array (Once per phase, per unit)|You can target this unit with the Fire Overwatch <b>stratagem</b> regardless of any other uses of that <b>stratagem</b> this phase. If you do, that use is -1 CP.|Datasheet|
+000000097|6|||Fortification|"While an enemy unit is engaged with only <span class=""kwb"">FORTIFICATION</span> units:<br><ul><li>That enemy unit can be selected as a target of ranged attacks.</li><li>When shooting that enemy unit, those ranged attacks have -1 to hit rolls (excluding [CLOSE-QUARTERS] attacks).</li><li>When that enemy unit is selected to make a fall-back move, if that enemy unit is not battle-shocked, hazard rolls made for that enemy unit are automatically passed.</li></ul>"|Datasheet|
+000000098|1|000011158||||Faction|
+000000098|2|||Sentinel Protocols (Once per phase, per unit)|When you target this unit with the Fire Overwatch <b>stratagem</b>, this unit’s snap shooting attacks hit on unmodified hit rolls of 4+ until that <b>stratagem</b> is resolved.|Datasheet|
+000000099|1|000008339||||Core|1
+000000099|2|000011158||||Faction|
+000000099|3|||Sentry Programming (Once per phase, per unit)|You can target this unit with the Fire Overwatch <b>stratagem</b>, regardless of any other uses of that <b>stratagem</b> this phase. If you do:<br><ul><li>That use is -1 CP.</li><li>That use does not prevent any uses of that <b>stratagem</b> on other units this phase.</li></ul>|Datasheet|
+000000110|1|000011158||||Faction|
+000000110|2|||Powerful Volley|In a turn this unit remained stationary, ranged attacks that have [HEAVY] also have [LETHAL HITS].|Datasheet|
+000000112|1|000008343||||Core|
+000000112|2|000008346||||Core|
+000000112|3|000011158||||Faction|
+000000112|4|||Litany of Hate|This unit’s melee attacks have [Lance].|Datasheet|
+000000112|5|||Exhortation of Rage|While this unit is at or below half-strength, this unit’s melee attacks can re-roll wound rolls.|Datasheet|
+000000114|1|000008339||||Core|D3
+000000114|2|000008343||||Core|
+000000114|3|000011158||||Faction|
+000000114|4|||Hammerstrike|This unit’s ranged attacks that target an enemy unit within a terrain area have [Sustained Hits 1].|Datasheet|
+000000115|1|000008343||||Core|
+000000115|2|000008346||||Core|
+000000115|3|000011158||||Faction|
+000000115|4|||Litany of Hate|This unit’s melee attacks have [Lance].|Datasheet|
+000000115|5|||Zealous Fortitude|This unit has Feel No Pain 4+ against mortal wounds.|Datasheet|
+000000115|6|||Relic Shield|This model has +1 <b>W</b>.|Wargear|
+000000117|1|000008339||||Core|1
+000000117|2|000011158||||Faction|
+000000117|3|||Wisdom of the Ancients|"While a friendly Adeptus Astartes Infantry unit is within 6"" of this model, that unit’s attacks can re-roll hit rolls of 1."|Datasheet|
+000000118|1|000008343||||Core|
+000000118|2|000011158||||Faction|
+000000118|3|||Teleport Homer (Once per battle, per unit)|"At the start of the battle, you can set up one Teleport Homer token for this unit on the battlefield. If you do:<br><ul><li>When you target this unit with the Rapid Ingress <b>stratagem</b>, you can use that Teleport Homer token. If you do, that use is -1 CP, but when resolving that <b>stratagem</b>, this unit must be set up within 3"" of that Teleport Homer token and not within 8"" of an enemy unit. That Teleport Homer token is then removed from the battlefield.</li><li>If an enemy unit ends a move within 1"" of that Teleport Homer token, that Teleport Homer token is removed from the battlefield.</li></ul>"|Datasheet|
+000000118|4|||Terminatus Assault|If this unit made a charge move this turn, this unit’s:<br><ul><li>Lightning Claws weapons have [Sustained Hits 1: non-Monster/Vehicle].</li><li>Thunder Hammer weapons have [Sustained Hits 1: Monster/Vehicle].</li></ul>|Datasheet|
+000000118|5|||Storm Shield|This model has +1 <b>W</b>.|Wargear|
+000000119|1|000008343||||Core|
+000000119|2|000008345||||Core|
+000000119|3|000008346||||Core|
+000000119|4|000008344||||Core|"6"""
+000000119|5|000008337||||Core|
+000000119|6|000011158||||Faction|
+000000119|7|000011163||||Faction|
+000000119|8|||Librarian (psyker level 1)|This model has the psychic abilities listed in the Psychic Abilities section.|Datasheet|
+000000119|9|||Psychic Hood (Psychic)|This unit has Feel No Pain 4+ against psychic attacks.|Datasheet|
+000000119|10|||Shrouding (psychic level 1)|When an enemy unit targets this unit, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>Attacks that target this unit have -1 to hit rolls until the end of the phase.</li></ul>|Psychic|
+000000119|11|||Soul Sight (psychic level 1)|In your Shooting phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>Select one visible enemy unit. Ranged attacks that target that enemy unit have [IGNORES COVER].</li></ul>|Psychic|
+000000120|1|000008339||||Core|1
+000000120|2|000011158||||Faction|
+000000120|3|||Wisdom of the Ancients|"While a friendly Adeptus Astartes Infantry unit is within 6"" of this unit, this unit’s attacks can re-roll hit rolls of 1."|Datasheet|
+000000124|1|000008339||||Core|D3
+000000124|2|000008343||||Core|
+000000124|3|000011158||||Faction|
+000000124|4|||Hailstrike|"In your Shooting phase, when this unit has shot, select one enemy unit hit by those attacks. Friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> units’ ranged attacks that target that enemy unit have [IGNORES COVER]."|Datasheet|
+000000125|1|000008343||||Core|
+000000125|2|000011158||||Faction|
+000000125|3|||Meteoric Descent|If this unit made an ingress move this turn, this unit’s ranged attacks have +1 to hit rolls.|Datasheet|
+000000125|4|||Parabolic Jetleap|At the end of your opponent’s Fight phase, if this unit is unengaged, you can place this unit in strategic reserves.|Datasheet|
+000000126|1|000011158||||Faction|
+000000126|2|||Driven from Cover|"In your Shooting phase, when this unit has shot, select one enemy unit hit by those attacks. Friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> units’ ranged attacks that target that enemy unit have [IGNORES COVER]."|Datasheet|
+000000127|1|000008338||||Core|5+
+000000127|2|000008346||||Core|
+000000127|3|000011158||||Faction|
+000000127|4|000011162||||Faction|
+000000127|5|||Master of the Forge|"In your Movement phase, at the start or end of this unit’s move, you can select one friendly Adeptus Astartes Vehicle model within 3"" of this model:<br><ul><li>That <span class=""kwb"">VEHICLE</span> model heals 3 wounds.</li><li>That <span class=""kwb"">VEHICLE</span> model’s attacks can ignore modifiers to the following until the start of your next Movement phase:<br><ul><li><b>BS</b>.</li><li>Hit rolls and wound rolls.</li></ul></li></ul>"|Datasheet|
+000000127|6|||Rites of Tempering|Attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Datasheet|
+000000127|7|||Iron Father|"While this model is within 3"" of a friendly ADEPTUS ASTARTES VEHICLE unit, this model has Lone Operative"|Datasheet|
+000000128|1|000008345||||Core|
+000000128|2|000011158||||Faction|
+000000128|3|||Omni-scramblers|"In your Shooting phase, you can select one visible enemy unit within 18"" of this unit. That unit is <b>detected</b>:<br><ul><li>While a unit is <b>detected</b>, that unit has +3"" detection range.</li></ul>"|Datasheet|
+000000128|4|||Helix Gauntlet|In your Command phase, this unit heals D3 wounds.|Wargear|
+000000129|1|000008339||||Core|D3
+000000129|2|000011158||||Faction|
+000000129|3|||Fire Support|"In your Shooting phase, when this unit has shot, select one enemy unit hit by those attacks. Attacks that target that unit made by friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> units that Disembarked from this <span class=""kwb"">TRANSPORT</span> this turn can re-roll wound rolls."|Datasheet|
+000000135|1|000008343||||Core|
+000000135|2|000008346||||Core|
+000000135|3|000011158||||Faction|
+000000135|4|000011162||||Faction|
+000000135|5|||Strategic Acumen|In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase.|Datasheet|
+000000135|6|||Unstoppable Valour|You can re-roll charge rolls for this unit.|Datasheet|
+000000136|1|000011125||||Core|4
+000000136|2|000008339||||Core|D3
+000000136|3|000011158||||Faction|
+000000136|4|||Brutalis Charge (Once per phase, per unit)|You can target this unit with the Crushing Impact <b>stratagem</b>, regardless of any other uses of that <b>stratagem</b> this phase. If you do:<br><ul><li>That use is -1 CP.</li><li>That use does not prevent any uses of that <b>stratagem</b> on other units this phase.</li></ul>|Datasheet|
+000000137|1|000008344||||Core|"9"""
+000000137|2|000011158||||Faction|
+000000137|3|||Outflank|When this unit makes an ingress move, it can be set up within your opponent’s deployment zone.|Datasheet|
+000000138|1|000008338||||Core|5+
+000000138|2|000011158||||Faction|
+000000138|3|000011162||||Faction|
+000000138|4|||Codex Adept|The assault doctrine, devastator doctrine and tactical doctrine are active for this unit.|Datasheet|
+000000138|5|||Primarch of the XIII (Aura)|"While a friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> unit is within 6"" of this unit, that unit’s attacks can:<br><ul><li>Re-roll hit rolls of 1.</li><li>Re-roll wound rolls of 1.</li></ul>"|Datasheet|
+000000138|6|||Author of the Codex|"In your Movement phase, you can select one visible friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> unit within 12"" of this model, and select one combat doctrine. That <b>combat doctrine</b> is active for that unit <u>in addition</u> to any other <b>combat doctrines</b> that are active for that unit until the start of your next Command phase."|Datasheet|
+000000138|7|||Leader of Astartes|"While this unit is within 3"" of a friendly Adeptus Astartes Infantry unit, this unit has Lone Operative."|Datasheet|
+000000138|8|||SUPREME COMMANDER|"If this model is in your army, it must be your <span class=""kwb"">WARLORD</span>."|Fortification (левая колонка)|
+000000139|1|000008339||||Core|D6+2
+000000139|2|000011125||||Core|10
+000000139|3|000008342||||Core|
+000000139|4|000011158||||Faction|
+000000139|5|||Aerial Assault|In your Movement phase, when this unit ends a normal move, units embarked within this unit can make an assault disembark move, provided every model in the embarked unit has Deep Strike.|Datasheet|
+000000139|6|||Thunderhawk Cluster Bombs|In your Movement phase, when this unit ends a normal/advance move, you can select one enemy unit this unit moved over during that move and roll six D6:<br><ul><li>For each 3+, that enemy unit suffers 1 mortal wound.</li></ul>|Datasheet|
+000000140|1|000008346||||Core|
+000000140|2|000011158||||Faction|
+000000140|3|||Techmarine|"While this model is within 3"" of a friendly ADEPTUS ASTARTES VEHICLE unit, this model has Lone Operative."|Datasheet|
+000000140|4|||Blessings of the Omnissiah|"In your Movement phase, at the start or end of this unit’s move, you can select one friendly Adeptus Astartes Vehicle model within 3"" of this model:<br><ul><li>That <span class=""kwb"">VEHICLE</span> model heals D3 wounds.</li><li>That <span class=""kwb"">VEHICLE</span> model’s attacks can ignore modifiers to hit rolls and wound rolls until the start of your next Movement phase.</li></ul>"|Datasheet|
+000000147|1|000008343||||Core|
+000000147|2|000011158||||Faction|
+000000147|3|||Vanguard Assault|If this unit made a charge move this turn, this unit’s melee attacks have +1 <b>A</b>.|Datasheet|
+000000147|4|||Combat Shield|This model has 5+ InSv.|Wargear|
+000000151|1|000008343||||Core|
+000000151|2|000008346||||Core|
+000000151|3|000011158||||Faction|
+000000151|4|000011162||||Faction|
+000000151|5|||Death Mask of Sanguinius|"At the start of the Fight phase, each enemy unit within 6"" of this model makes a battle-shock roll, with -1 to that <b>battle-shock roll</b>."|Datasheet|
+000000151|6|||Warden of the Imperium Nihilus|The assault doctrine and tactical doctrine are active for this unit <u>in addition</u> to any other combat doctrine.|Datasheet|
+000000155|1|000008338||||Core|5+
+000000155|2|000008340||||Core|
+000000155|3|000008336||||Core|
+000000155|4|000011158||||Faction|
+000000155|5|000011162||||Faction|
+000000155|6|||Chief Librarian (psyker level 3)|This model has the psychic abilities listed in the Psychic Abilities section.|Datasheet|
+000000155|7|||Quickening (psychic level 1)|In your Command phase, if this unit is  not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>The assault doctrine is active for this unit <u>in addition</u> to any other combat doctrine until the start of your next Command phase.</li></ul>|Primarch|
+000000155|8|||Transfixing Gaze (psychic level 2)|"Start of your opponent’s Movement phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>When an enemy unit within 6"" makes a fall-back move, that enemy unit must take a leadership roll. If that test is failed, that enemy unit must <b>Remain Stationary</b> (Core Rules, 09.04).</li></ul>"|Primarch|
+000000156|1|000008343||||Core|
+000000156|2|000008340||||Core|
+000000156|3|000008336||||Core|
+000000156|4|000011158||||Faction|
+000000156|5|||Aura of Fervour|"Friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> units within 12"" of this model can re-roll leadership rolls."|Datasheet|
+000000156|6|||Miraculous Saviour (Once per battle, per army)|At the end of your opponent’s Charge phase (excluding the first battle round), select up to one enemy unit that made a charge move this phase. This unit can make an ingress move and must be set up engaged with that enemy unit. That move does not prevent this unit from being eligible to move.|Datasheet|
+000000157|1|000008346||||Core|
+000000157|2|000008343||||Core|
+000000157|3|000011158||||Faction|
+000000157|4|||Redeemer of the Lost|In the Fight phase, when a model in this unit is destroyed, if this unit has not been selected to fight this phase, roll one D6, with +1 to that roll if that model was engaged with an enemy unit with a <b>T</b> greater than or equal to this unit’s <b>T</b>:<br><ul><li>On a 4+, do not remove that model from the battlefield. When this unit has fought, or at the end of the phase (whichever comes first), that model is removed from the battlefield.</li></ul>|Datasheet|
+000000157|5|||Mass of Doom|If this unit made a charge move this turn, this unit’s melee attacks have [DEVASTATING WOUNDS: non-MONSTER/VEHICLE].|Datasheet|
+000000158|1|000010857||||Core|
+000000158|2|000011158||||Faction|
+000000158|3|||Blood Chalice|This unit has +1 <b>T</b>.|Datasheet|
+000000158|4|||Narthecium (Once per turn, per unit)|In your Command phase, this unit heals D3+1 wounds.|Datasheet|
+000000164|1|000008343||||Core|
+000000164|2|000008338||||Core|6+
+000000164|3|000008346||||Core|
+000000164|4|000011158||||Faction|
+000000164|5|||Fury Unbound|This unit’s melee attacks have [LETHAL HITS].|Datasheet|
+000000164|6|||Guardian of the Lost|Attacks that target this unit have -1 <b>D</b>.|Datasheet|
+000000165|1|000008343||||Core|
+000000165|2|000011158||||Faction|
+000000165|3|||Heirs of Azkaellon|Attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Datasheet|
+000000165|4|||Angelic Visage|Melee attacks that target this unit have -1 to hit rolls.|Datasheet|
+000000166|1|000011125||||Core|4
+000000166|2|000008339||||Core|D3
+000000166|3|000008338||||Core|6+
+000000166|4|000011158||||Faction|
+000000166|5|||Black Rage|"<ul><li>This unit’s melee attacks can re-roll hit rolls of 1.</li><li>While this unit is not within 6"" of one or more friendly Blood Angels Character models, or not within 12"" of one or more friendly Chaplain models, it cannot make a fall-back move and it’s <b>OC</b> is modified to 0.</li></ul>"|Datasheet|
+000000166|6|||Driven by Fury|"In your opponent’s Shooting phase, when an enemy unit has shot, if this unit was hit by those attacks, it can make a surge move of up to D6+1""."|Datasheet|
+000000168|1|000011125||||Core|4
+000000168|2|000008339||||Core|D3
+000000168|3|000011158||||Faction|
+000000168|4|||Overcharged Engines|This unit can re-roll advance rolls.|Datasheet|
+000000218|1|000008346||||Core|
+000000218|2|000011158||||Faction|
+000000218|3|000011162||||Faction|
+000000218|4|||Masterful Tactician|"In your Movement phase, select up to one visible friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> unit within 9"" of this model, and select one combat doctrine. That <b>combat doctrine</b> is active for that unit until the start of your next Command phase."|Datasheet|
+000000218|5|||Supreme Grand Master|This unit’s attacks have [SUSTAINED HITS 1].|Datasheet|
+000000218|6|||Watcher in the Dark (Once per battle, per unit)|In any phase, when this unit suffers a mortal wound, this unit can summon a Watcher in the Dark. If it does, this unit has Feel No Pain 4+ against mortal wounds.|Datasheet|
+000000218|7|||The Lion Helm|This unit has 4+ InSv.|Wargear|
+000000219|1|000008343||||Core|
+000000219|2|000008346||||Core|
+000000219|3|000011158||||Faction|
+000000219|4|000011162||||Faction|
+000000219|5|||Grand Master of the Deathwing|"This unit’s attacks that target an enemy <span class=""kwb"">CHARACTER</span> unit have +1 to wound rolls."|Datasheet|
+000000219|6|||Strikes of Retribution|In the fight phase, when this model is destroyed, if this unit has not been selected to fight this phase, roll one D6:<br><ul><li>On a 2+, do not remove this model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), this model is removed from the battlefield.</li></ul>|Datasheet|
+000000225|1|000008346||||Core|
+000000225|2|000011158||||Faction|
+000000225|3|000011162||||Faction|
+000000225|4|||Exemplar of Hate|This unit’s melee attacks can re-roll hit rolls.|Datasheet|
+000000225|5|||Feared Interrogator|"At the start of the Fight phase, each enemy <span class=""kwb"">CHARACTER</span> unit within 6"" of this model makes a battle-shock roll, with -1 to that <b>battle-shock roll</b>."|Datasheet|
+000000226|1|000008346||||Core|
+000000226|2|000011158||||Faction|
+000000226|3|||Book of Salvation|This unit’s melee attacks have +1 <b>A</b>.|Datasheet|
+000000226|4|||Chief Librarian (psyker level 3)|This model has the psychic abilities listed in the Psychic Abilities section.|Datasheet|
+000000226|5|||Psychic Hood|This unit has Feel No Pain 4+ against psychic attacks and mortal wounds.|Datasheet|
+000000226|6|||Engulfing Fear (psychic level 1)|"In your Shooting phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>Select one enemy unit within 12"" of this model. That unit makes a battle-shock roll with -1 to that <b>battle-shock roll</b>.</li></ul>"|Primarch|
+000000226|7|||Whispers of the Shadow Forest (psychic level 1)|When an enemy unit targets this unit, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>Attacks that target this unit have -1 to hit rolls until the end of the phase.</li></ul>|Primarch|
+000000230|1|000008343||||Core|
+000000230|2|000011158||||Faction|
+000000230|3|||Deathwing|This unit’s attacks can ignore modifiers to:<br><ul><li><b>BS</b> and <b>WS</b>.</li><li>Hit rolls.</li></ul>|Datasheet|
+000000230|4|||Watcher in the Dark|"Once per battle, in any phase, just after a mortal wound is allocated to an <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> model in this unit, this unit can summon a Watcher in the Dark. When it does, until the end of the phase, models in this unit have the Feel No Pain 4+ ability against mortal wounds.<br><br><b>Designer’s Note:</b> <i>Place a Watcher in the Dark token next to the unit, removing it when this ability has been used.</i>"|Wargear|
+000000231|1|000008343||||Core|
+000000231|2|000011158||||Faction|
+000000231|3|||Inner Circle|<ul><li>Attacks that target this unit have -1 <b>D</b>.</li><li>This unit cannot be targeted with the Tactical Dreadnought Fortitude <b>stratagem</b>.</li></ul>|Datasheet|
+000000231|4|||Teleport Homer (Once per battle, per unit)|"At the start of the battle, you can set up one Teleport Homer token for this unit on the battlefield. If you do:<br><ul><li>When you target this unit with the Rapid Ingress <b>stratagem</b>, you can use that Teleport Homer token. If you do, that use is -1 CP, but when resolving that <b>stratagem</b>, this unit must be set up within 3"" of that Teleport Homer token and not within 8"" of an enemy unit. That Teleport Homer token is then removed from the battlefield. </li><li>If an enemy unit ends a move within 1"" of that Teleport Homer token, that Teleport Homer token is removed from the battlefield.</li></ul>"|Datasheet|
+000000231|5|||Watcher in the Dark|"Once per battle, in any phase, just after a mortal wound is allocated to an <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> model in this unit, this unit can summon a Watcher in the Dark. When it does, until the end of the phase, models in this unit have the Feel No Pain 4+ ability against mortal wounds.<br><br><b>Designer’s Note:</b> <i>Place a Watcher in the Dark token next to the unit, removing it when this ability has been used.</i>"|Wargear|
+000000238|1|000008339||||Core|D3
+000000238|2|000008343||||Core|
+000000238|3|000008336||||Core|"15"""
+000000238|4|000011158||||Faction|
+000000238|5|||Icon of Old Caliban|"While a friendly Dark Angels unit is within 6"" of this unit, that unit has Stealth."|Datasheet|
+000000239|1|000011125||||Core|3
+000000239|2|000008339||||Core|D3
+000000239|3|000011158||||Faction|
+000000239|4|||Lightning-fast Manoeuvres|Ranged attacks that target this unit have -1 to wound rolls.|Datasheet|
+000000240|1|000011125||||Core|3
+000000240|2|000008339||||Core|D3
+000000240|3|000011158||||Faction|
+000000240|4|||Stasis Bomb|"At the end of your opponent’s Fight phase, select one visible enemy unit (excluding <span class=""kwb"">AIRCRAFT</span>/Lone Operative units) within 24"" of this unit. That enemy unit is slowed until the end of your opponent’s next Movement phase:<br><ul><li>While a unit is slowed, in your opponent’s Movement phase, when that unit is selected to move, unless that unit remains stationary, roll one D6:<br><ul><li>On a 1-4, that unit suffers D3 mortal wounds and that unit has -2"" <b>M</b>.</li><li>On a 5-6, that unit suffers 2D3 <b>mortal wounds</b> and that unit has -3"" <b>M</b>.</li></ul></li></ul>"|Datasheet|
+000000241|1|000011158||||Faction|
+000000241|2|||Knights of Caliban|If this unit made a charge move this turn, this unit’s melee attacks have [ANTI-MONSTER/VEHICLE 4+].|Datasheet|
+000000242|1|000008339||||Core|D3
+000000242|2|000008343||||Core|
+000000242|3|000011158||||Faction|
+000000242|4|||Storm of Vengeance (Once per turn, per unit)|"In your opponent’s Shooting phase, when an enemy unit has shot, if those attacks destroyed a friendly Dark Angels unit within 6"" of this unit, you can use this ability. If you do, this unit shoots using normal shooting but while doing so this unit can only target that enemy unit."|Datasheet|
+000000282|1|000008346||||Core|
+000000282|2|000008343||||Core|
+000000282|3|000011158||||Faction|
+000000282|4|000011162||||Faction|
+000000282|5|||High King of Fenris (Once per battle round, per unit)|In your Movement phase, select up to one friendly Space Wolves unit in strategic reserves. If you do, when that unit makes an ingress move, treat the current battle round number as being one higher than it actually is.|Datasheet|
+000000282|6|||Guile of the Wolf|At the start of each phase, the assault doctrine, devastator doctrine and tactical doctrine are active for this unit.|Datasheet|
+000000285|1|000008346||||Core|
+000000285|2|000011158||||Faction|
+000000285|3|000011162||||Faction|
+000000285|4|||Battle-lust|If this unit made a charge move this turn, this model’s melee attacks have +2 <b>A</b>.|Datasheet|
+000000285|5|||War Howl|<ul><li>While this model is attached to a Blood Claws unit, this unit’s melee attacks have +1 <b>S</b> and [SUSTAINED HITS 1].</li><li>While this model is attached to a Wolf Guard Headtakers unit, when this unit is selected to make an advance move, that <b>advance move</b> does not prevent this unit from being eligible to declare a charge.</li></ul>|Datasheet|
+000000292|1|000008346||||Core|
+000000292|2|000011158||||Faction|
+000000292|3|||Wind Walker|<ul><li>This unit’s ranged attacks have [ASSAULT].</li><li>When this unit is selected to make an advance move, this unit can change advance rolls to a 6.</li></ul>|Datasheet|
+000000292|4|||High Rune Priest (psyker level 3)|This model has the psychic abilities listed in the Runic Abilities section.|Datasheet|
+000000292|5|||Murderous Hurricane (psychic level 1)|"In your Movement phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>Select one visible enemy unit within 12"". That enemy unit cannot make Snap shooting attacks.</li></ul>"|Primarch|
+000000292|6|||Storm Caller (psychic level 1)|"When an enemy unit targets this unit, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>This unit has -3"" detection range until the end of the phase.</li></ul>"|Primarch|
+000000292|7|||Tempest's Wrath (psychic level 1)|"In your Shooting phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>Select one visible enemy unit within 18"". That enemy unit is <b>suppressed</b> until the start of your next turn:<br><ul><li>While a unit is <b>suppressed</b>, that unit’s attacks have -1 to hit rolls.</li></ul></li></ul>"|Primarch|
+000000297|1|000008338||||Core|6+
+000000297|2|000008346||||Core|
+000000297|3|000011158||||Faction|
+000000297|4|||Slayer's Oath|"At the start of the first battle round, you select up to one enemy <span class=""kwb"">CHARACTER</span>/<span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit to be this unit’s slayer’s oath:<br><ul><li>This unit’s attacks that target this unit’s slayer’s oath can ignore modifiers to your unit’s:<br><ul><li><b>BS</b> and <b>WS</b>.</li><li>Hit rolls.</li></ul></li></ul>"|Datasheet|
+000000297|5|||Oathbound|<ul><li>This unit’s melee attacks have +1 to hit rolls.</li><li><u>Or:</u> This unit’s melee attacks that target this unit’s slayer’s oath have +1 to <b>hit rolls</b> and wound rolls.</li></ul>|Datasheet|
+000000302|1|000008339||||Core|1
+000000302|2|000008338||||Core|5+
+000000302|3|000011158||||Faction|
+000000302|4|||Legendary Tenacity|Attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Datasheet|
+000000302|5|||Ancient Tactician (Once per turn, per army)|When you target this unit with a stratagem, that use is -1CP|Datasheet|
+000000303|1|000011158||||Faction|
+000000303|2|||Berserk Charge|When this unit is selected to make an advance move, that <b>advance move</b> does not prevent this unit from being eligible to declare a charge.|Datasheet|
+000000305|1|000011158||||Faction|
+000000305|2|||Old Greymanes|In the Declare Battle Formations step, you can split this unit into two units, each containing as equal a number of models as possible (when splitting a unit in this way, make a note of which models form each of the two new units).|Datasheet|
+000000305|3|||Cunning Hunters|In the Fight phase, if this unit is within range of an objective, this unit’s melee attacks:<br><ul><li>Have +1 <b>S</b>.</li><li>Have +1 <b>AP</b>.</li></ul>|Datasheet|
+000000306|1|000008346||||Core|
+000000306|2|000011158||||Faction|
+000000306|3|||Gift of the Iron Wolf|"In your Movement phase, at the start or end of this unit’s move, select up to one friendly Space Wolves Vehicle model within 3"" of this model:<br><ul><li>That <span class=""kwb"">VEHICLE</span> model heals D3 wounds.</li><li>That <span class=""kwb"">VEHICLE</span> model’s attacks can ignore modifiers to hit rolls and wound rolls until the start of your next Movement phase.</li></ul>You cannot select the same <span class=""kwb"">VEHICLE</span> model for this ability more than once per phase."|Datasheet|
+000000306|4|||Iron Priest|"While this model is within 3"" of a friendly Space Wolves Vehicle unit, this model has Lone Operative."|Datasheet|
+000000306|5|||Judgement of the Omnissiah|This model’s attacks that target an enemy unit engaged with a friendly Space Wolves Vehicle can re-roll wound rolls.|Datasheet|
+000000311|1|000011158||||Faction|
+000000311|2|000010256||||Faction|
+000000311|3|||Savage Frenzy|"When an enemy unit engaged with your unit (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) makes a fall-back move that enemy unit must use the desperate escape mode. If that enemy unit is battle-shocked, -1 from those hazard rolls."|Datasheet|
+000000311|4|||Death Totem|This unit’s melee attacks can re-roll hit rolls of 1.|Wargear|
+000000314|1|000008339||||Core|1
+000000314|2|000008338||||Core|6+
+000000314|3|000011158||||Faction|
+000000314|4|000010256||||Faction|
+000000314|5|||Murder-maker|"In the Fight phase, when a friendly Wulfen model within 6"" of this unit is destroyed, if that model’s unit has not been selected to fight this phase, roll one D6:<br><ul><li>On a 4+, do not remove that model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), that model is removed from the battlefield.</li></ul>"|Datasheet|
+000000314|6|||Bestial Fury|This unit:<br><ul><li>Can re-roll advance rolls.</li><li>Can re-roll charge rolls.</li></ul>|Datasheet|
+000000314|7|||Force of Untamed Destruction|"This model cannot be your <span class=""kwb"">WARLORD</span>."|Fortification (левая колонка)|
+000000317|1|000008346||||Core|
+000000317|2|000008343||||Core|
+000000317|3|000011158||||Faction|
+000000317|4|||Champion of the Kingsguard|"This model’s attacks that target a <span class=""kwb"">CHARACTER</span> unit:<br><ul><li>Can re-roll hit rolls of 1.</li><li>Can re-roll wound rolls of 1.</li></ul>"|Datasheet|
+000000317|5|||Anvil of Endurance|In the Fight phase, when a model in this unit is destroyed, if this unit has not been selected to fight this phase, roll one D6:<br><ul><li>On a 4+, do not remove that model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), that model is then removed from the battlefield.</li></ul>|Datasheet|
+000000318|1|000008343||||Core|
+000000318|2|000011158||||Faction|
+000000318|3|||Rugged Resilience|Attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Datasheet|
+000000318|4|||Storm Shield|This model has +1 <b>W</b>.|Wargear|
+000000322|1|000011158||||Faction|
+000000322|2|||Thunderous Charge|If this unit made a charge move this turn, this unit’s melee attacks have:<br><ul><li>+1 <b>S</b>.</li><li>+1 <b>D</b>.</li></ul>|Datasheet|
+000000322|3|||Storm Shield|This model has a 4+ InSv.|Wargear|
+000000323|1|000011158||||Faction|
+000000323|2|||Predatory Instinct (Once per battle round, per unit)|"In your opponent’s Movement phase, when an enemy unit ends a move within 8"" of this unit, if this unit is unengaged, this unit can make a normal move of up to D6""."|Datasheet|
+000000323|3|||Hunting Hounds|"While this unit is within 6"" of a friendly Space Wolves Character model (excluding Wulfen), if this unit is not battle-shocked, this unit has +1 <b>OC</b>."|Datasheet|
+000000358|1|000011125||||Core|5
+000000358|2|000008339||||Core|D6
+000000358|3|000008342||||Core|
+000000358|4|000008337||||Core|
+000000358|5|000011158||||Faction|
+000000358|6|||Blackstar Cluster Launcher|In your Movement phase, when this unit ends a normal move, select up to one enemy unit this unit moved over during that move and roll six D6:<br><ul><li>For each 4+, that unit suffers 1 mortal wound.</li></ul>|Datasheet|
+000000358|7|||Auspex Array|Ranged weapons equipped by the bearer have the [IGNORES COVER] ability.|Wargear|
+000001153|1|000011125||||Core|6
+000001153|2|000008339||||Core|D6
+000001153|3|000011158||||Faction|
+000001153|4|||Atomantic Arc-reactor|In a turn this unit remained stationary, this unit’s Cerberus Neutron Pulse Array ranged attacks have [LETHAL HITS].|Datasheet|
+000001154|1|000008344||||Core|"6"""
+000001154|2|000011158||||Faction|
+000001154|3|||Vanguard Assault|If this unit made a charge move this turn, this unit’s melee attacks have [LETHAL HITS].|Datasheet|
+000001154|4|||Storm Shield|This model has a 4+ InSv.|Wargear|
+000001156|1|000011125||||Core|4
+000001156|2|000008339||||Core|D3
+000001156|3|000008344||||Core|"8"""
+000001156|4|000011158||||Faction|
+000001156|5|||Forward Assault Warsuit|At the start of the first battle round, you can select one enemy unit to be this unit’s <b>mark</b>:<br><ul><li>This unit’s attacks that target this unit’s <b>mark</b> can re-roll wound rolls of 1.</li><li>Each time this unit’s <b>mark</b> is destroyed, select one enemy unit to be this unit’s <b>mark</b>.</li></ul>|Datasheet|
+000001157|1|000011158||||Faction|
+000001157|2|||Bolter Discipline|In your Shooting phase, if any of the following apply, this unit’s ranged attacks have +1 to hit rolls:<br><ul><li>This unit is within range of an objective.</li><li>The target of that attack is within range of an <b>objective</b>.</li></ul>|Datasheet|
+000001157|3|||Tactical Mainstay|<ul><li>Being engaged/battle-shocked does not prevent this unit from being eligible to start an action.</li><li>When this unit starts an action, that <b>action</b> does not prevent this unit from being eligible to shoot.</li></ul>|Datasheet|
+000001159|1|000008344||||Core|"6"""
+000001159|2|000011158||||Faction|
+000001159|3|||Divinator-class Auspexes (Once per phase, per unit)|"In your Shooting phase, when a friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> unit is selected to shoot, you can use this ability. If you do, select one visible enemy unit within 18"" of this unit. That unit is <b>scanned</b>:<br><ul><li>While a unit is <b>scanned</b>, ranged attacks that target that unit can re-roll hit rolls of 1.</li></ul>"|Datasheet|
+000001159|4|||Haywire Mine (Once per battle, per unit)|"In your Shooting phase, you can select one visible enemy unit within 6"" of this unit and roll one D6. On a 2+:<br><ul><li>That enemy unit suffers D3 mortal wounds.</li><li><u>Or:</u> If that enemy unit is a <span class=""kwb"">VEHICLE</span> unit, that enemy unit suffers 2D3 <b>mortal wounds</b>.</li></ul>"|Datasheet|
+000001160|1|000008345||||Core|
+000001160|2|000008344||||Core|"6"""
+000001160|3|000011158||||Faction|
+000001160|4|||Flexible Asset|When this unit is selected to make an advance/fall-back move, that <b>advance</b>/<b>fall-back move</b> does not prevent this unit from being eligible to start an action.|Datasheet|
+000001165|1|000010857||||Core|
+000001165|2|000011158||||Faction|
+000001165|3|||Raise the Banner|At the end of your Movement phase, if this unit is controlling an objective, that <b>objective</b> is secured.|Datasheet|
+000001165|4|||Deeds of Legend|While this unit is within range of an objective, this unit’s melee attacks have +1 <b>A</b>.|Datasheet|
+000001172|1|000008346||||Core|
+000001172|2|000011158||||Faction|
+000001172|3|000011162||||Faction|
+000001172|4|||Strategic Acumen|In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase.|Datasheet|
+000001172|5|||Refuse to Yield|Attacks allocated to this model have -1 <b>D</b>.|Datasheet|
+000001174|1|000008346||||Core|
+000001174|2|000011158||||Faction|
+000001174|3|||Litany of Hate|This unit’s melee attacks have [Lance].|Datasheet|
+000001174|4|||Spiritual Leader (Once per battle round, per unit)|"At the start of any phase, you can select one friendly battle-shocked <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> unit within 6"" of this model. That unit is no longer <b>battle-shocked</b>."|Datasheet|
+000001175|1|000011125||||Core|6
+000001175|2|000008339||||Core|D6
+000001175|3|000011158||||Faction|
+000001175|4|||Line-breaker|In your Shooting phase, when this unit is selected to shoot using close-quarters shooting:<br><ul><li>This unit’s attacks that target a unit engaged with this unit can ignore modifiers to:<br><ul><li><b>BS</b>.</li><li>Hit rolls.</li></ul></li></ul><ul><li>For each of this unit’s [Blast] weapons, you can choose for that weapon to not have [Blast]:<br><ul><li>If you do, that weapon can only target an enemy unit that is not engaged with another friendly unit.</li></ul></li></ul>|Datasheet|
+000001177|1|000011158||||Faction|
+000001177|2|||Unyielding in the Face of the Foe|While this unit is controlling an objective, this unit has +1 to save rolls.|Datasheet|
+000001183|1|000008343||||Core|
+000001183|2|000011158||||Faction|
+000001183|3|||Teleport Homer (Once per battle, per unit)|"At the start of the battle, you can set up one Teleport Homer token for this unit on the battlefield. If you do:<br><ul><li>When you target this unit with the Rapid Ingress <b>stratagem</b>, you can use that Teleport Homer token. If you do, that use is -1 CP, but when resolving that <b>stratagem</b>, this unit must be set up within 3"" of that Teleport Homer token and not within 8"" of an enemy unit. That Teleport Homer token is then removed from the battlefield.</li><li>If an enemy unit ends a move within 1"" of that Teleport Homer token, that Teleport Homer token is removed from the battlefield.</li></ul>"|Datasheet|
+000001183|4|||Fury of the First|"This unit’s attacks that target a unit within 9"" of this unit have +1 <b>AP</b>."|Datasheet|
+000001188|1|000008339||||Core|D3
+000001188|2|000011125||||Core|4
+000001188|3|000011158||||Faction|
+000001188|4|||Siege Shield|"In your Shooting phase, when this unit is <b>selected to shoot</b> using <b>close-quarters shooting</b>:<br><ul><li>This unit’s attacks that target a unit <b>engaged</b> with this unit can ignore modifiers to:</li><ul><li><b>BS</b>.</li><li><b>Hit rolls</b>.</li></ul><li>For each of this unit’s [Blast] weapons, you can choose for that weapon to not have <span class=""kwb"">[BLAST]</span>:</li><ul><li>If you do, that weapon can only target an enemy unit that is not <b>engaged</b> with another friendly unit.</li></ul></ul>"|Datasheet|
+000001189|1|000011125||||Core|10
+000001189|2|000008339||||Core|2D6
+000001189|3|000011158||||Faction|
+000001189|4|||Inviolable Transport|Attacks allocated to this unit have -1 <b>D</b>.|Datasheet|
+000001190|1|000008339||||Core|D3
+000001190|2|000011158||||Faction|
+000001190|3|||Strafing Run|"This unit’s ranged attacks that target a non-<span class=""kwb"">FLY</span> unit have +1 to hit rolls."|Datasheet|
+000001191|1|000008339||||Core|D6
+000001191|2|000011125||||Core|5
+000001191|3|000008342||||Core|
+000001191|4|000011158||||Faction|
+000001191|5|||Armoured Resilience|Attacks that target this unit have -1 <b>D</b>.|Datasheet|
+000001193|1|000011158||||Faction|
+000001193|2|||Decimator Protocols|<ul><li>This unit’s ranged attacks can re-roll hit rolls of 1.</li><li><u>Or:</u>This unit’s ranged attacks that target an enemy unit within range of an objective can re-roll <b>hit rolls</b>.</li></ul>|Datasheet|
+000001346|1|000010857||||Core|
+000001346|2|000011158||||Faction|
+000001346|3|||Demi-company Commander (Once per turn, per unit)|When a friendly Captain unit uses its Strategic Acumen ability, you can use this ability. If you do, the selected combat doctrine is active for this unit until the start of your next Command phase.|Datasheet|
+000001346|4|||Tactical Precision|This unit’s attacks have [Lethal Hits: non-MONSTER/VEHICLE].|Datasheet|
+000001346|5|||Storm Shield|This model has a 4+ InSv.|Wargear|
+000001606|1|000011158||||Faction|
+000001606|2|||Targeted Intercession|If this unit made a charge move this turn, this unit’s melee attacks have +1 <b>S</b> and <b>AP</b>.|Datasheet|
+000001610|1|000008339||||Core|D3
+000001610|2|000008343||||Core|
+000001610|3|000011158||||Faction|
+000001610|4|||Thunderstrike|"This unit’s ranged attacks that target a <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit have +1 to wound rolls."|Datasheet|
+000001610|5|||Shattered Defences|"In your Shooting phase, when this unit has shot, select one enemy <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit hit by those attacks. Friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> units’ ranged attacks that target that enemy unit have +1 <b>AP</b>."|Datasheet|
+000001611|1|000008346||||Core|
+000001611|2|000011158||||Faction|
+000001611|3|000011163||||Faction|
+000001611|4|000011162||||Faction|
+000001611|5|||Chief Librarian (psyker level 3)|This model has the psychic abilities listed in the Psychic Abilities section.|Datasheet|
+000001611|6|||Hood of Hellfire (Psychic)|This unit has Feel No Pain 4+ against psychic attacks and mortal wounds.|Datasheet|
+000001611|7|||Prescience (psychic level 2)|In your Movement phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>This unit has +1 <b>Sv</b> until the start of your next turn.</li></ul>|Psychic|
+000001611|8|||Telepathic Assault (psychic level 1)|"In your Shooting phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>Select one visible enemy unit within 24"" of this unit. That enemy unit suffers 2D3 mortal wounds.</li></ul>"|Psychic|
+000001666|1|000008339||||Core|D6+2
+000001666|2|000011125||||Core|8
+000001666|3|000011158||||Faction|
+000001666|4|||Titan-killer|"This unit’s Twin Falchion Volcano Cannon ranged attacks that target a <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit have [DEVASTATING WOUNDS]."|Datasheet|
+000001667|1|000008339||||Core|D3
+000001667|2|000011125||||Core|4
+000001667|3|000011158||||Faction|
+000001667|4|||Reaping Tally|"This unit’s ranged attacks that target a unit (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) have +1 <b>AP</b>."|Datasheet|
+000001668|1|000008345||||Core|
+000001668|2|000008337||||Core|
+000001668|3|000011158||||Faction|
+000001668|4|||Chameleoline Cloaks|"This unit has -3"" detection range."|Datasheet|
+000001668|5|||Special-issue Optics and Ammunition|"In your Shooting phase, when this unit is selected to shoot, you can select one of the following:<br><ul><li>This unit’s ranged attacks have [Ignores Cover].</li><li><u>Or:</u> Select one enemy unit within 24"" of this unit. That enemy unit has +6"" detection range until this unit has shot.</li></ul>"|Datasheet|
+000001825|1|000011125||||Core|4
+000001825|2|000008339||||Core|D3
+000001825|3|000011158||||Faction|
+000001825|4|||Priority Target Acquisition|"This unit’s ranged attacks that target a unit within 12"" of this unit have +1 <b>S</b>."|Datasheet|
+000001991|1|000011125||||Core|5
+000001991|2|000008339||||Core|D3
+000001991|3|000008343||||Core|
+000001991|4|000011158||||Faction|
+000001991|5|||Termite Assault|"<ul><li>This unit must start the battle in strategic reserves.</li><li>In your first Movement phase, this unit can make an ingress move.</li><li>When this unit is set up, all units embarked within this unit must make a disembark/assault disembark move, and those units must be set up more than 8"" away from all enemy units.</li></ul>"|Datasheet|
+000001997|1|000008338||||Core|6+
+000001997|2|000011158||||Faction|
+000001997|3|||An Honourable Death in Combat|This unit’s attacks:<br><ul><li>Have [SUSTAINED HITS 1], if this unit is below starting strength.</li><li><u>Or:</u> have [SUSTAINED HITS 2], if this unit is below half-strength.</li></ul>|Datasheet|
+000001997|4|||Black Rage|"<ul><li>This unit’s melee attacks can re-roll hit rolls of 1.</li><li>While this unit is not within 6"" of one or more friendly Blood Angels Character models, or not within 12"" of one or more friendly Chaplain models, it cannot make a fall-back move and it’s <b>OC</b> is modified to 0.</li></ul>"|Datasheet|
+000002098|1|000011158||||Faction|
+000002098|2|||Rites of Thermal Appeasement|This unit has +1 to hazard rolls made for its Plasma Incinerator and Plasma Pistol weapons.|Datasheet|
+000002099|1|000011158||||Faction|
+000002099|2|||Close-quarters Firestorm|"This unit’s attacks that target an enemy unit within 9"" of this unit have +1 <b>S</b>."|Datasheet|
+000002100|1|000008346||||Core|
+000002100|2|000011158||||Faction|
+000002100|3|000011162||||Faction|
+000002100|4|||Lord of the Pyroclasts|While an enemy unit is engaged with this unit, that enemy unit has -1 <b>OC</b>.|Datasheet|
+000002100|5|||Unto the Anvil|This unit’s melee attacks can:<br><ul><li>Re-roll wound rolls of 1.</li><li><u>Or:</u> If the assault doctrine is active for this unit, re-roll <b>wound rolls</b>.</li></ul>|Datasheet|
+000002105|1|000008343||||Core|
+000002105|2|000008346||||Core|
+000002105|3|000011158||||Faction|
+000002105|4|000011162||||Faction|
+000002105|5|||Rampart (Once per battle, per army)|At the start of any phase, you can use this ability. If you do, this model has 2+ InSv until the end of the phase.|Datasheet|
+000002105|6|||Icon of Obstinacy|Attacks that target this unit have -1 to hit rolls.|Datasheet|
+000002173|1|000011125||||Core|6
+000002173|2|000008339||||Core|D6
+000002173|3|000011158||||Faction|
+000002173|4|||Assault Ramp|In your Movement phase, when this unit ends a normal move, units embarked within this unit can make an assault disembark move.|Datasheet|
+000002173|5|||Wrath of the Machine Spirit|"This unit’s ranged attacks that target a unit within 12"" of this unit have [Devastating Wounds: non-Monster/vehicle]."|Datasheet|
+000002255|1|000011158||||Faction|
+000002255|2|||Veteran Marksmen|This unit’s ranged attacks can re-roll hit rolls of 1.|Datasheet|
+000002266|1|000008346||||Core|
+000002266|2|000011158||||Faction|
+000002266|3|000011163||||Faction|
+000002266|4|||Librarian (psyker level 1)|This model has the psychic abilities listed in the Psychic Abilities section.|Datasheet|
+000002266|5|||Psychic Hood (Psychic)|This unit has Feel No Pain 4+ against psychic attacks.|Datasheet|
+000002266|6|||Veil of Time (psychic level 1)|When this unit is selected to make an advance move, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>. </li><li>This unit can change that advance roll to a 6.</li></ul>|Psychic|
+000002266|7|||Force Dome (psychic level 1)|In your Movement phase, if this unit is not battle-shocked, you can make a <b>psychic roll</b> for this unit by rolling one D6. If you do:<br><ul><li>On a 1, this unit is <b>battle-shocked</b>.</li><li>This unit has 4+ InSv until the start of your next turn.</li></ul>|Psychic|
+000002270|1|000011158||||Faction|
+000002270|2|||Targeter Optics|This unit’s ranged attacks that target a visible enemy unit have [Ignores Cover].|Datasheet|
+000002291|1|000008346||||Core|
+000002291|2|000011158||||Faction|
+000002291|3|000011162||||Faction|
+000002291|4|||Cut Off Their Escape|"When an enemy unit engaged with this unit (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) makes a fall-back move, that enemy unit must use the desperate escape mode. If that enemy unit is battle-shocked, -1 from those hazard rolls."|Datasheet|
+000002291|5|||Grand Master of the Ravenwing|<ul><li>This unit has Mobile.</li><li>In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase.</li></ul>|Datasheet|
+000002296|1|000008346||||Core|
+000002296|2|000011158||||Faction|
+000002296|3|000011162||||Faction|
+000002296|4|||Intractable Will|In the Fight phase, when a model in this unit is destroyed, if this unit has not been selected to fight this phase, roll one D6:<br><ul><li>On a 4+, do not remove that model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), that model is removed from the battlefield.</li></ul>|Datasheet|
+000002296|5|||The Spiritshield Helm|This unit has Feel No Pain 3+ against psychic attacks and mortal wounds.|Datasheet|
+000002473|1|000008346||||Core|
+000002473|2|000011158||||Faction|
+000002473|3|000011162||||Faction|
+000002473|4|||Siege Captain|"This model’s attacks that target a <span class=""kwb"">FORTIFICATION</span>/<span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit have +2 <b>S</b>, <b>AP</b> and <b>D</b>."|Datasheet|
+000002473|5|||Signum Array|"In your Shooting phase, you can select one visible enemy unit within 18"" of this unit. That enemy unit cannot have the benefit of cover."|Datasheet|
+000002530|1|000008343||||Core|
+000002530|2|000008345||||Core|
+000002530|3|000008344||||Core|"6"""
+000002530|4|000010857||||Core|
+000002530|5|000011158||||Faction|
+000002530|6|||Demi-company Commander (Once per turn, per unit)|When a friendly Captain unit uses its Strategic Acumen ability, you can use this ability. If you do, the selected combat doctrine is active for this unit until the start of your next Command phase.|Datasheet|
+000002530|7|||Tactical Precision|This unit’s attacks have [Lethal Hits: non-MONSTER/VEHICLE].|Datasheet|
+000002568|1|000008339||||Core|D3
+000002568|2|000008334||||Core|7
+000002568|3|000011158||||Faction|
+000002568|4|||Rapid Disembarkation|In your Movement phase, when this unit ends an advance move, units embarked within this unit can make a shock disembark move.|Datasheet|
+000002568|5|||Orbital Comms Array|"This unit has Scouts 6""."|Wargear|
+000002568|6|||Shield Dome|This unit has 5+ InSv.|Wargear|
+000002677|1|000008343||||Core|
+000002677|2|000010857||||Core|
+000002677|3|000011158||||Faction|
+000002677|4|||Raise the Banner|At the end of your Movement phase, if this unit is controlling an objective, that <b>objective</b> is secured.|Datasheet|
+000002677|5|||Never Shall the Standard Fall|While this unit is within range of an objective, attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Datasheet|
+000002682|1|000008343||||Core|
+000002682|2|000008340||||Core|
+000002682|3|000011158||||Faction|
+000002682|4|000011162||||Faction|
+000002682|5|||Dark Angels Bodyguard|"While this unit is within 3"" of a friendly Dark Angels Infantry unit, this unit has Lone Operative."|Datasheet|
+000002682|6|||The Emperor's Shield|Attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Datasheet|
+000002682|7|||Primarch of the First Legion|At the start of your Command phase, you can select up to two of the abilities in the Primarch of the First Legion section. Until the start of your next Command phase, this model has those abilities.|Datasheet|
+000002682|8|||The Watchers|This unit has Feel No Pain 4+ against psychic attacks and mortal wounds.|Datasheet|
+000002682|9|||Master Strategist|In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase, <u>in addition</u> to any other <b>combat doctrine</b>.|Datasheet|
+000002682|10|||Mist-wreathed Shadow Realms|In your Command phase, if this unit is unengaged, you can use this ability. If you do:<br><ul><li>Place this unit in strategic reserves.</li><li>This unit can make an ingress move in your next Movement phase (including in your first turn).</li></ul>|Primarch|
+000002682|11|||Martial Exemplar|"While a friendly Dark Angels unit is within 6"" of this unit, that unit’s melee attacks can:<br><ul><li>Re-roll hit rolls of 1.</li><li>Re-roll wound rolls of 1.</li></ul>"|Primarch|
+000002682|12|||No Hiding from the Watchers|"While a friendly Dark Angels unit is within 6"" of this unit, that unit has Feel No Pain 5+ against psychic attacks and mortal wounds."|Primarch|
+000002682|13|||Supreme Commander|"If this model is in your army, it must be your <span class=""kwb"">WARLORD</span>."|Fortification (левая колонка)|
+000002700|1|000008339||||Core|D6+2
+000002700|2|000011125||||Core|8
+000002700|3|000011158||||Faction|
+000002700|4|||Suppression Fire|In your Shooting phase, when this unit has shot, select one enemy unit hit by this model’s Twin Macro-accelerator Cannon weapon. That enemy unit is <b>suppressed</b> until the start of your next turn:<br><ul><li>While a unit is <b>suppressed</b>, that unit’s attacks have -1 to hit rolls.</li></ul>|Datasheet|
+000002701|1|000008343||||Core|
+000002701|2|000008345||||Core|
+000002701|3|000008346||||Core|
+000002701|4|000008344||||Core|"6"""
+000002701|5|000008337||||Core|
+000002701|6|000011158||||Faction|
+000002701|7|000011162||||Faction|
+000002701|8|||Strategic Acumen|In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase.|Datasheet|
+000002701|9|||Tactical Fluidity (Once per battle round, per unit)|"<ul><li>In your Shooting phase, when this unit has shot, if this unit is unengaged, this unit can make a normal move of up to D6"".</li><li><u>Or:</u> At the end of your opponent’s Fight phase if this unit is engaged, this unit can make a fall-back move of up to 6"".</li></ul>"|Datasheet|
+000002702|1|000008346||||Core|
+000002702|2|000011158||||Faction|
+000002702|3|000011162||||Faction|
+000002702|4|||Strategic Acumen|In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase.|Datasheet|
+000002702|5|||Into the Fray|If this unit made a charge move this turn, this unit’s melee attacks have [cleave 1].|Datasheet|
+000002703|1|000011158||||Faction|
+000002703|2|||Annihilator Protocols|"This unit’s melee attacks that target a <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span>/<span class=""kwb"">FORTIFICATION</span> unit have [SUSTAINED HITS 2]."|Datasheet|
+000002703|3|||Centurion Assault Launcher|"The bearer has the <span class=""kwb"">EXPLOSIVES</span> keyword."|Wargear|
+000002705|1|000011125||||Core|4
+000002705|2|000008339||||Core|D3
+000002705|3|000011158||||Faction|
+000002705|4|||Aquilon Optics|"This unit’s ranged attacks that target a <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit can:<br><ul><li>Re-roll <u>one</u> hit roll.</li><li>Re-roll <u>one</u> wound roll.</li><li>Re-roll <u>one</u> damage roll.</li></ul>"|Datasheet|
+000002707|1|000008340||||Core|
+000002707|2|000010857||||Core|
+000002707|3|000011158||||Faction|
+000002707|4|||Tempormortis|This unit has Fights First.|Datasheet|
+000002708|1|000008343||||Core|
+000002708|2|000008346||||Core|
+000002708|3|000008336||||Core|
+000002708|4|000011158||||Faction|
+000002708|5|000011162||||Faction|
+000002708|6|||Trifold Path of Shadow|"This unit has:<br><ul><li>Stealth.</li><li>-3"" detection range.</li></ul>"|Datasheet|
+000002708|7|||Echo of the Ravenspire|At the end of your opponent’s Fight phase, if this unit is unengaged, you can place this unit in strategic reserves.|Datasheet|
+000002709|1|000008346||||Core|
+000002709|2|000011158||||Faction|
+000002709|3|000011162||||Faction|
+000002709|4|||Trophy Taker|"This unit’s attacks that target a <span class=""kwb"">CHARACTER</span> unit can:<br><ul><li>Re-roll hit rolls of 1 </li><li>Re-roll wound rolls of 1.</li></ul>"|Datasheet|
+000002709|5|||For the Khan!|<ul><li>This unit’s ranged attacks have [ASSAULT]</li><li>This unit’s melee attacks have [LANCE].</li></ul>|Datasheet|
+000002711|1|000008343||||Core|
+000002711|2|000011158||||Faction|
+000002711|3|||Purgation Run|"In your Shooting phase, when this unit has shot, you can use this ability. If you do:<br><ul><li>This unit can make a normal move of up to D6"".</li><li>This unit is not eligible to declare a charge until the end of the turn.</li></ul>"|Datasheet|
+000002712|1|000011158||||Faction|
+000002712|2|||Full-throttle Assault|If this unit made a charge move this turn, this unit’s:<br><ul><li>Thunder Hammer weapons have +1 to hit rolls and [Sustained Hits 1].</li><li>Other melee weapons have +1 <b>D</b> and [Sustained Hits 1].</li></ul>|Datasheet|
+000002714|1|000008339||||Core|D3
+000002714|2|000011125||||Core|4
+000002714|3|000011158||||Faction|
+000002714|4|||Annihilator|"This unit’s ranged attacks that target a <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit can re-roll damage rolls."|Datasheet|
+000002715|1|000008339||||Core|D3
+000002715|2|000011125||||Core|4
+000002715|3|000011158||||Faction|
+000002715|4|||Destructor|"This unit’s ranged attacks that target an <span class=""kwb"">INFANTRY</span> unit have +1 <b>AP</b>."|Datasheet|
+000002717|1|000011125||||Core|4
+000002717|2|000008339||||Core|D3
+000002717|3|000011158||||Faction|
+000002717|4|||Duty Eternal|Attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Datasheet|
+000002718|1|000008344||||Core|"6"""
+000002718|2|000011158||||Faction|
+000002718|3|||Terror Troops (Aura)|"While an enemy model is within 3"" of this unit, that enemy model has -1 <b>OC</b>."|Datasheet|
+000002718|4|||Fearsome Assault|At the start of the Fight phase, each enemy unit engaged with a unit with this ability makes a battle-shock roll, with -1 to that <b>battle-shock roll</b>.|Datasheet|
+000002718|5|||Grapnel Launchers|When this unit makes a move, this unit can:<br><ul><li>Move through all types of model.</li><li>Ignore all vertical distance for the purposes of how far this unit has moved.</li></ul>|Wargear|
+000002718|6|||Grav-chutes|This unit has Deep Strike.|Wargear|
+000002720|1|000008339||||Core|D3
+000002720|2|000011158||||Faction|
+000002720|3|||Fire Supprt|"In your Shooting phase, when this unit has shot, select one enemy unit hit by those attacks. Attacks that target that unit made by friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> units that Disembarked from this <span class=""kwb"">TRANSPORT</span> this turn can re-roll wound rolls."|Datasheet|
+000002721|1|000011125||||Core|6
+000002721|2|000008339||||Core|D6
+000002721|3|000011158||||Faction|
+000002721|4|||Combat Embarkation|"In your opponent’s Charge phase, when an enemy unit has selected charge targets, you can select one friendly unengaged <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> unit that was one of those <b>charge targets</b> and is eligible to embark within this <span class=""kwb"">TRANSPORT</span>. If every model in that unit is within 3"" of this <span class=""kwb"">TRANSPORT</span>, that unit can embark within this <span class=""kwb"">TRANSPORT</span>. That enemy unit can then select new <b>charge targets</b> for that charge move."|Datasheet|
+000002722|1|000011125||||Core|6
+000002722|2|000008339||||Core|D6
+000002722|3|000011158||||Faction|
+000002722|4|||Executioner|This unit’s ranged attacks that target a unit not below half-strength have +1 to hit rolls.|Datasheet|
+000002723|1|000008339||||Core|D3
+000002723|2|000008334||||Core|2
+000002723|3|000011158||||Faction|
+000002723|4|||Veiling Smoke (Once per phase, per unit)|You can target this unit with the Smokescreen <b>stratagem</b>, regardless of any other uses of that <b>stratagem</b> this phase. If you do:<br><ul><li>That use is -1 CP.</li><li>That use does not prevent any uses of that <b>stratagem</b> on other units this phase.</li></ul>|Datasheet|
+000002726|1|000008338||||Core|6+
+000002726|2|000008346||||Core|
+000002726|3|000011158||||Faction|
+000002726|4|000011162||||Faction|
+000002726|5|||Seeker of the Unfound|The first time this model is set up on the battlefield, select one objective on the battlefield. While this model is within range of that <b>objective</b>, this model has:<br><ul><li>10 <b>OC</b>.</li><li>5+ <b>Ld</b>.</li><li>Feel No Pain 4+.</li></ul>|Datasheet|
+000002726|6|||Forgefather|"In your Shooting phase, select one visible enemy unit within 24"" of this model. Friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> units’ [Melta]/[Torrent] attacks that target that enemy unit have +2 <b>S</b>."|Datasheet|
+000002727|1|000008339||||Core|D3
+000002727|2|000011125||||Core|4
+000002727|3|000011158||||Faction|
+000002727|4|||Punishing Bombardment|"In your Shooting phase, when this unit has shot, select one enemy <span class=""kwb"">INFANTRY</span> unit hit by Whirlwind Vengeance Launcher attacks. That enemy unit makes a battle-shock roll."|Datasheet|
+000002737|1|000008343||||Core|
+000002737|2|000008338||||Core|6+
+000002737|3|000011158||||Faction|
+000002737|4|||Black Rage|"<ul><li>This unit’s melee attacks can re-roll hit rolls of 1.</li><li>While this unit is not within 6"" of one or more friendly Blood Angels Character models, or not within 12"" of one or more friendly Chaplain models, it cannot make a fall-back move and it’s <b>OC</b> is modified to 0.</li></ul>"|Datasheet|
+000002737|5|||Savage Fury|This unit has +1 to charge rolls.|Datasheet|
+000002748|1|000010857||||Core|
+000002748|2|000011158||||Faction|
+000002748|3|||Astartes Banner|While this unit contains a Ravenwing Ancient, this unit has +1 <b>OC</b>.|Datasheet|
+000002748|4|||Honour or Death|While this unit contains a Ravenwing Champion:<br><ul><li>This unit has +1 to advance rolls and charge rolls.</li><li>When you target this unit with the Heroic Intervention <b>stratagem</b>, that use is -1CP.</li></ul>|Datasheet|
+000002748|5|||Narthecium|While this unit contains a Ravenwing Apothecary, in your Command phase, this unit heals D3+1 wounds.|Datasheet|
+000002772|1|000011158||||Faction|
+000002772|2|||Raise the Banner|At the end of your Movement phase, if this unit is controlling an objective, that <b>objective</b> is secured.|Datasheet|
+000002772|3|||Command Squad|Attacks that target this unit have -1 to wound rolls.|Datasheet|
+000002773|1|000010857||||Core|
+000002773|2|000011158||||Faction|
+000002773|3|||Narthecium|In your Command phase, this unit heals D3+1 wounds.|Datasheet|
+000002775|1|000010857||||Core|
+000002775|2|000011158||||Faction|
+000002775|3|||Raise the Banner|At the end of your Movement phase, if this unit is controlling an objective, that <b>objective</b> is secured.|Datasheet|
+000002775|4|||Honour of the Company|This unit has +1 <b>OC</b>.|Datasheet|
+000002776|1|000008343||||Core|
+000002776|2|000011158||||Faction|
+000002776|3|||Hammer of Wrath|When this unit ends a charge move, you can select one enemy unit engaged with this unit. For each model in this unit <b>engaged</b> with that enemy unit, roll one D6:<br><ul><li>On a 4+, that enemy unit suffers 1 mortal wound.</li></ul>|Datasheet|
+000002779|1|000008345||||Core|
+000002779|2|000008344||||Core|"6"""
+000002779|3|000011158||||Faction|
+000002779|4|||Spectrus Doctrines|At the end of your opponent’s Fight phase, if this unit is unengaged, you can place this unit in strategic reserves.|Datasheet|
+000002779|5|||Helix Gauntlet|In your Command phase, this unit heals D3 wounds.|Datasheet|
+000002779|6|||Helix Gauntlet|In your Command phase, this unit heals D3 wounds.|Wargear|
+000002780|1|000011158||||Faction|
+000002780|2|||Fortis Doctrines|This unit’s attacks that target a unit:<br><ul><li>Below starting strength, have +1 to hit rolls.</li><li><u>Or:</u> at or below half-strength have +1 to hit rolls and wound rolls.</li></ul>|Datasheet|
+000002781|1|000011158||||Faction|
+000002781|2|||Indomitor Doctrines|<ul><li>This unit’s ranged attacks that target the closest eligible enemy unit, have +1 <b>S</b>.</li><li>If this unit made a charge move this turn, this unit’s melee attacks have +1 <b>S</b>.</li></ul>|Datasheet|
+000002783|1|000011158||||Faction|
+000002783|2|||Death to the Alien|"This unit’s attacks can:<br><ul><li>Re-roll hit rolls of 1.</li><li><u>Or:</u> If the target of those attacks does not have <span class=""kwb"">IMPERIUM</span>/<span class=""kwb"">CHAOS</span>, re-roll <b>hit rolls</b>.</li></ul>"|Datasheet|
+000002783|3|||Storm Shield|This model has a 4+ InSv.|Wargear|
+000002786|1|000008339||||Core|D3
+000002786|2|000008334||||Core|7
+000002786|3|000011158||||Faction|
+000002786|4|||Rapid Disembarkation|In your Movement phase, when this unit ends an advance move, units embarked within this unit can make a shock disembark move.|Datasheet|
+000002786|5|||Orbital Comms Array|"This unit has Scouts 6""."|Wargear|
+000002786|6|||Shield Dome|This unit has 5+ InSv.|Wargear|
+000002787|1|000011125||||Core|4
+000002787|2|000008339||||Core|D3
+000002787|3|000011158||||Faction|
+000002787|4|||Aquilon Optics|"This unit’s ranged attacks that target a <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit can:<br><ul><li>Re-roll <u>one</u> hit roll.</li><li>Re-roll <u>one</u> wound roll.</li><li>Re-roll <u>one</u> damage roll.</li></ul>"|Datasheet|
+000002788|1|000011125||||Core|4
+000002788|2|000008339||||Core|D3
+000002788|3|000011158||||Faction|
+000002788|4|||Priority Target Acquisition|"This unit’s ranged attacks that target a unit within 12"" of this unit have +1 <b>S</b>."|Datasheet|
+000002789|1|000008339||||Core|D3
+000002789|2|000011125||||Core|4
+000002789|3|000011158||||Faction|
+000002789|4|||Reaping Tally|"This unit’s ranged attacks that target a unit (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) have +1 <b>AP</b>."|Datasheet|
+000002790|1|000011125||||Core|6
+000002790|2|000008339||||Core|D6
+000002790|3|000011158||||Faction|
+000002790|4|||Executioner|This unit’s ranged attacks that target a unit not below half-strength have +1 to hit rolls.|Datasheet|
+000002791|1|000008339||||Core|D6
+000002791|2|000011125||||Core|6
+000002791|3|000011158||||Faction|
+000002791|4|||Combat Embarkation|"In your opponent’s Charge phase, when an enemy unit has selected charge targets, you can select one friendly unengaged <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> unit that was one of those <b>charge targets</b> and is eligible to embark within this <span class=""kwb"">TRANSPORT</span>. If every model in that unit is within 3"" of this <span class=""kwb"">TRANSPORT</span>, that unit can embark within this <span class=""kwb"">TRANSPORT</span>. That enemy unit can then select new <b>charge targets</b> for that charge move."|Datasheet|
+000002792|1|000008346||||Core|
+000002792|2|000008338||||Core|5+
+000002792|3|000011158||||Faction|
+000002792|4|||Temple Relics|At the start of your Command phase, if this unit contains one or more Cenobyte Servitor models, select up to one of the abilities in the Temple Relics section. Until the start of your next Command phase, this model has that ability.|Datasheet|
+000002792|5|||Faithful Cenobytes|<ul><li>If this unit’s Chaplain Grimaldus model is destroyed, this unit’s remaining Cenobyte Servitor models are also <b>destroyed</b>.</li><li>Each Cenobyte Servitor model in this unit takes up 0 transport capacity.</li></ul>|Datasheet|
+000002792|6|||Litanies of the Devout|This unit’s melee attacks can re-roll hit rolls.|Datasheet|
+000002792|7|||Banner of the Emperor Victorious|This unit has +1 to advance rolls and charge rolls.|Primarch|
+000002792|8|||Column from the Major Altar|This unit has +1 <b>T</b>.|Primarch|
+000002792|9|||Water from the Stoup of Elucidation|This unit’s melee attacks have +1 <b>AP</b>.|Primarch|
+000002793|1|000010857||||Core|
+000002793|2|000011158||||Faction|
+000002793|3|||Vehement Aggression|In the Fight phase, when this unit is selected to fight, you can use this ability. If you do, make a leadership roll for this unit:<br><ul><li>This unit’s melee attacks can re-roll hit rolls of 1.</li><li><u>Or:</u> If that roll succeeds: <br>This unit’s melee attacks:<br><ul><li>Can re-roll <b>hit rolls</b> of 1.</li><li>Can re-roll wound rolls of 1.</li></ul></li></ul>|Datasheet|
+000002794|1|000008346||||Core|
+000002794|2|000011158||||Faction|
+000002794|3|000011162||||Faction|
+000002794|4|||High Marshal|At the start of the Fight phase, select up to one enemy unit engaged with this unit and roll one D6:<br><ul><li>On a 2-3, that enemy unit suffers D3 mortal wounds.</li><li>On a 4-5, that enemy unit suffers 3 <b>mortal wounds</b>.</li><li>On a 6+, that enemy unit suffers D3+3 <b>mortal wounds</b>.</li></ul>|Datasheet|
+000002794|5|||Crusade of Wrath|This unit’s melee attacks have:<br><ul><li>+1 <b>A</b>.</li><li>+1 <b>S</b>.</li></ul>|Datasheet|
+000002795|1|000008346||||Core|
+000002795|2|000008336||||Core|
+000002795|3|000011158||||Faction|
+000002795|4|||Armour of Faith|Attacks allocated to this model have -1 <b>D</b>.|Datasheet|
+000002795|5|||Chosen of the Emperor|"You cannot include more than one <span class=""kwb"">EMPEROR’S</span> <span class=""kwb"">CHAMPION</span> unit in your army."|Datasheet|
+000002795|6|||Sigismund's Heir|This unit has +1 to charge rolls.|Datasheet|
+000002796|1|000008346||||Core|
+000002796|2|000011158||||Faction|
+000002796|3|000011162||||Faction|
+000002796|4|||Inspirational Exemplar|This unit’s melee attacks have +1 to hit rolls.|Datasheet|
+000002796|5|||Pious Fervour|"When this unit is selected to fight, you can use this ability. If you do, this model’s melee attacks have +1 <b>A</b> for each enemy unit within 6"" of this model (to a maximum of +3 <b>A</b>)."|Datasheet|
+000002798|1|000011158||||Faction|
+000002798|2|||Exploit their Cowardice|"In your opponent’s Movement phase, when an enemy unit that was engaged with this unit ends a fall-back move, if this unit is unengaged it can make a normal move of up to 6""."|Datasheet|
+000002799|1|000011158||||Faction|
+000002799|2|||Righteous Zeal|"In your opponent’s Shooting phase, when an enemy unit has shot, if a model in this unit was destroyed by those attacks, this unit can make a surge move of up to D6+1""."|Datasheet|
+000002801|1|000008339||||Core|1
+000002801|2|000011158||||Faction|
+000002801|3|||Fervour of the Ancients|"Friendly Space Wolves units within 6"" of this unit:<br><ul><li>Have +1 to advance rolls.</li><li>Have +1 to charge rolls.</li></ul>"|Datasheet|
+000002801|4|||Blizzard Shield|This model has 4+ InSv|Wargear|
+000003698|1|000011158||||Faction|
+000003698|2|||Braziers of Judgement|<ul><li>This unit has Stealth.</li><li>Melee attacks that target this unit have -1 to hit rolls.</li></ul>|Datasheet|
+000003698|3|||Emnity for the Unworthy|"This unit’s attacks that target a <span class=""kwb"">CHARACTER</span> unit have +1 to hit rolls."|Datasheet|
+000003831|1|000008346||||Core|
+000003831|2|000011158||||Faction|
+000003831|3|000011162||||Faction|
+000003831|4|||Finest Hour (Once per battle, per unit)|In the Fight phase, when this unit is selected to fight, you can use this ability. If you do, this model’s melee attacks have:<br><ul><li>+3 <b>A</b>.</li><li>[Devastating Wounds].</li></ul>|Datasheet|
+000003831|5|||Strategic Acumen|In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase.|Datasheet|
+000003832|1|000008338||||Core|6+
+000003832|2|000008346||||Core|
+000003832|3|000011158||||Faction|
+000003832|4|||Death Visions of Sanguinius|"In the Fight phase, when an enemy unit has fought, if this model was destroyed by those attacks, you can use this ability. If you do, roll one D6, with +2 to that roll if this model was engaged with an enemy <span class=""kwb"">WARLORD</span> unit:<br><ul><li>On a 2-3, that enemy unit suffers D3 mortal wounds.</li><li>On a 4-5, that enemy unit suffers 3 <b>mortal wounds</b>.</li><li>On a 6+, that enemy unit suffers D3+3 <b>mortal wounds</b>.</li></ul>"|Datasheet|
+000003832|5|||Black Rage|"<ul><li>This unit’s melee attacks can re-roll hit rolls of 1.</li><li>While this unit is not within 6"" of one or more friendly Blood Angels Character models, or not within 12"" of one or more friendly Chaplain models, it cannot make a fall-back move and it’s <b>OC</b> is modified to 0.</li></ul>"|Datasheet|
+000003832|6|||Forlorn Hero|"This unit has Scouts 6""."|Datasheet|
+000003833|1|000008343||||Core|
+000003833|2|000008338||||Core|6+
+000003833|3|000011158||||Faction|
+000003833|4|||Black Rage|"<ul><li>This unit’s melee attacks can re-roll hit rolls of 1.</li><li>While this unit is not within 6"" of one or more friendly Blood Angels Character models, or not within 12"" of one or more friendly Chaplain models, it cannot make a fall-back move and it’s <b>OC</b> is modified to 0.</li></ul>"|Datasheet|
+000003833|5|||Death Visions of Sanguinius|"In the Fight phase, when an enemy unit has fought, if this model was destroyed by those attacks, you can use this ability. If you do, roll one D6, with +2 to that roll if this model was engaged with an enemy <span class=""kwb"">WARLORD</span> unit:<br><ul><li>On a 2-3, that enemy unit suffers D3 mortal wounds.</li><li>On a 4-5, that enemy unit suffers 3 <b>mortal wounds</b>.</li><li>On a 6+, that enemy unit suffers D3+3 <b>mortal wounds</b>.</li></ul>"|Datasheet|
+000003833|6|||Lost to Fury|This unit’s melee attacks have [SUSTAINED HITS 1].|Datasheet|
+000003833|7|||Relic Shield|This model has +1 <b>W</b>.|Wargear|
+000003871|1|000008346||||Core|
+000003871|2|000011162||||Faction|
+000003871|3|000011158||||Faction|
+000003871|4|||Strategic Knowledge|<ul><li>This unit’s ranged attacks have [ASSAULT].</li><li>When this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.</li><li>When this unit is selected to make a fall-back move, that <b>fall-back move</b> does not prevent this unit from being eligible to shoot and <b>eligible to declare a charge</b>.</li></ul>|Datasheet|
+000003871|5|||Watch Master|"This model’s attacks that target a <span class=""kwb"">CHARACTER</span> unit can:<br><ul><li>Re-roll hit rolls of 1.</li><li>Re-roll wound rolls of 1.</li></ul>"|Datasheet|
+000003871|6|||Purgatus Quarry|At the start of the first battle round, select up to one enemy unit to be this unit’s <b>hunted</b>:<br><ul><li>This unit’s attacks that target this unit’s <b>hunted</b> unit can re-roll wound rolls of 1.</li><li>Each time this unit’s <b>hunted</b> is destroyed, select up to one enemy unit to be this unit’s <b>hunted</b>.</li></ul>|Datasheet|
+000003872|1|000008338||||Core|6+
+000003872|2|000008346||||Core|
+000003872|3|000011158||||Faction|
+000003872|4|000011162||||Faction|
+000003872|5|||Unstoppable Champion (Once per battle, per army)|At the end of a phase in which this model is destroyed, roll one D6:<br><ul><li>On a 2+, set this model back up on the battlefield as close as possible to where it was <b>destroyed</b>, unengaged with 3 wounds remaining.</li></ul>|Datasheet|
+000003872|6|||Tactical Instinct|This unit’s attacks have [Sustained Hits 1].|Datasheet|
+000003873|1|000008343||||Core|
+000003873|2|000011158||||Faction|
+000003873|3|||Terminatus Assault|"<ul><li>This unit can re-roll charge rolls.</li><li>After this unit ends a charge move, each enemy unit engaged with this unit makes a battle-shock roll, with -1 to that <b>battle-shock roll</b> if it’s a non-<span class=""kwb"">IMPERIUM</span>/<span class=""kwb"">CHAOS</span> unit.</li></ul>"|Datasheet|
+000003873|4|||Teleport Homer|"At the start of the battle, you can set up one Teleport Homer token for this unit on the battlefield. If you do:<br><ul><li>When you target this unit with the Rapid Ingress <b>stratagem</b>, you can use that Teleport Homer token. If you do, that use is -1 CP, but when resolving that <b>stratagem</b>, this unit must be set up within 3"" of that Teleport Homer token and not within 8"" of an enemy unit. That Teleport Homer token is then removed from the battlefield. </li><li>If an enemy unit ends a move within 1"" of that Teleport Homer token, that Teleport Homer token is removed from the battlefield.</li></ul>"|Datasheet|
+000003873|5|||Storm Shield|This model has +1 <b>W</b>.|Wargear|
+000003874|1|000008343||||Core|
+000003874|2|000011158||||Faction|
+000003874|3|||Talonstrike Doctrines|In a turn this unit was set up on the battlefield:<br><ul><li>This unit’s attacks have +1 <b>AP</b>.</li><li>This unit’s melee attacks have [LANCE].</li></ul>|Datasheet|
+000003875|1|000008343||||Core|
+000003875|2|000008452||||Faction|
+000003875|3|000008519||||Faction|
+000003875|4|||Catechism of Death|While this unit contains Chaplain Cassius, melee weapons equipped by models in this unit have the [DEVASTATING WOUNDS] ability.|Datasheet|
+000003875|5|||Unflinching|You can re-roll Battle-shock tests for this unit.|Datasheet|
+000003875|6|||Jump Pack|"The bearer has a Move characteristic of 12"" and can move over models and terrain as if they were not there."|Wargear|
+000003875|7|||Psychic Hood|Models in the bearer’s unit have the Feel No Pain 4+ ability against Psychic Attacks.|Wargear|
+000003875|8|||CASSIUS|"Your army cannot contain both Chaplain Cassius and <span class=""kwb"">KILL</span> <span class=""kwb"">TEAM</span> <span class=""kwb"">CASSIUS</span>."|Special (правая колонка)|
+000004129|1|000008346||||Core|
+000004129|2|000011158||||Faction|
+000004129|3|||Healing Balms|In your Command phase, this unit heals D3+1 wounds.|Datasheet|
+000004129|4|||Litany of Hate|This unit’s melee attacks have [LANCE].|Datasheet|
+000004130|1|000008346||||Core|
+000004130|2|000011158||||Faction|
+000004130|3|||Tempered Ferocity|"<ul><li>This unit’s attacks have [SUSTAINED HITS 1].</li><li>This unit’s attacks that target an enemy unit within 6"" of this unit can re-roll hit rolls of 1.</li></ul>"|Datasheet|
+000004130|4|||Heroic Last Stand|In the Fight phase, when this model is destroyed, if this unit has not been selected to fight this phase, roll one D6:<br><ul><li>On a 2+, do not remove this model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), this model is removed from the battlefield.</li></ul>|Datasheet|
+000004130|5|||Storm Shield|This model has +1 <b>W</b>.|Wargear|
+000004131|1|000011158||||Faction|
+000004131|2|||Headhunters|At the start of the first battle round, select up to one enemy unit to be this unit’s <b>quarry</b>:<br><ul><li>This unit’s attacks that target this unit’s <b>quarry</b> have [DEVASTATING WOUNDS] and [PRECISION].</li><li>Each time this unit’s <b>quarry</b> is destroyed, select one enemy unit to be this unit’s <b>quarry</b>.</li></ul>|Datasheet|
+000004131|3|||Let Loose the Wolves|At the start of the Declare Battle Formations step, you can split this unit into two units, one containing all Wolf Guard Headtaker models and all leader/support models, the other containing all Hunting Wolves models, with new starting strengths accordingly.|Datasheet|
+000004131|4|||Hunting Hounds|"While this unit is within 6"" of a friendly Space Wolves Character model (excluding Wulfen), if this unit is not battle-shocked, Hunting Wolf models have +1 <b>OC</b>."|Datasheet|
+000004131|5|||Storm Shield|This model has a 4+ InSv.|Wargear|
+000004132|1|000011158||||Faction|
+000004132|2|000010256||||Faction|
+000004132|3|||Hammer Blow|"In the Fight phase, when this unit has fought, select up to one enemy <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit hit by those attacks. If you do, that enemy unit is <b>suppressed</b> until the start of your next turn:<br><ul><li>While a unit is <b>suppressed</b>, that unit’s attacks have -1 to hit rolls.</li></ul>"|Datasheet|
+000004132|4|||Death Totem|This unit’s melee attacks can re-roll hit rolls of 1.|Wargear|
+000004133|1|000008339||||Core|1
+000004133|2|000008338||||Core|6+
+000004133|3|000010256||||Faction|
+000004133|4|000011158||||Faction|
+000004133|5|||Violent Fury|If this model is equipped with two melee weapons, melee attacks made by this unit have [TWIN-LINKED].|Datasheet|
+000004133|6|||Bestial Rage|"In your opponent’s Shooting phase, when an enemy unit has shot, if this unit lost a wound as a result of those attacks, this unit can make a surge move of up to D6+1""."|Datasheet|
+000004133|7|||Blizzard Shield|This model has 4+ InSv|Wargear|
+000004135|1|000008346||||Core|
+000004135|2|000011158||||Faction|
+000004135|3|||Remorseless Persecution|In your Movement phase, when this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.|Datasheet|
+000004135|4|||Condemnatory Annihilation|After this unit has fought, if this unit destroyed an enemy model this phase, each enemy unit engaged with this unit makes a battle-shock roll, with -1 to that <b>battle-shock roll</b>.|Datasheet|
+000004136|1|000010857||||Core|
+000004136|2|000011158||||Faction|
+000004136|3|||Martial Honour (Once per battle, per unit)|If this unit’s melee attacks destroyed an enemy unit this phase, you can use this ability. If you do, until the end of the battle, this model has +5 <b>OC</b>.|Datasheet|
+000004136|4|||Vengeful Exhortation|In the Fight phase, you can use this ability. If you do, when a model in this unit is destroyed, if this unit has not been selected to fight this phase, roll one D6:<br><ul><li>On a 4+, do not remove this model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), this model is removed from the battlefield.</li></ul>|Datasheet|
+000004148|1|000008343||||Core|
+000004148|2|000008336||||Core|
+000004148|3|000008337||||Core|
+000004148|4|000011158||||Faction|
+000004148|5|000011162||||Faction|
+000004148|6|||Master of Shadows|In your Command phase, you can select one friendly Adeptus Astartes Infantry unit. You can re-roll charge rolls for that unit until the start of your next Command phase.|Datasheet|
+000004148|7|||Blackwing Mantle (Once per phase, per army)|You can target this unit with the Heroic Intervention <b>stratagem</b>, regardless of any other uses of that <b>stratagem</b> this phase. If you do:<br><ul><li>That use is -1 CP.</li><li>That use does not prevent any uses of that <b>stratagem</b> on other units this phase.</li></ul>|Datasheet|
+000004166|1|000008343||||Core|
+000004166|2|000008338||||Core|5+
+000004166|3|000008346||||Core|
+000004166|4|000011158||||Faction|
+000004166|5|000011162||||Faction|
+000004166|6|||Cold and Calculating|In your Shooting phase or the Fight phase, when this unit is selected to attack, you can select one of the following for this unit’s attacks to have:<br><ul><li>[Lethal Hits: Monster/Vehicle].</li><li><u>Or:</u> [Sustained Hits 1: non-Monster/Vehicle].</li><li><u>Or:</u> If the tactical doctrine is active for this unit, [Lethal Hits: Monster/Vehicle] and [Sustained Hits 1: non-Monster/Vehicle].</li></ul>|Datasheet|
+000004166|7|||Cerebrex Logic Engine|"In the Declare Battle Formations step, you can select one friendly Adeptus Astartes Infantry unit. That unit has Scouts 6""."|Datasheet|
+000004167|1|000008346||||Core|
+000004167|2|000011158||||Faction|
+000004167|3|000011162||||Faction|
+000004167|4|||Spear of Chogoris|<ul><li>This unit’s ranged attacks have [Assault].</li><li>When this unit is selected to make an advance move, that <b>advance move</b> does not prevent this unit from being eligible to declare a charge.</li><li>If the assault doctrine is active for this unit, this unit has +1 to advance rolls and charge rolls.</li></ul>|Datasheet|
+000004167|5|||Skilled Riders|This unit has Mobile.|Datasheet|
+000004175|1|000011158||||Faction|
+000004175|2|||Death to the Alien|"This unit’s attacks can:<br><ul><li>Re-roll hit rolls of 1.</li><li><u>Or:</u> If the target of those attacks does not have <span class=""kwb"">IMPERIUM</span>/<span class=""kwb"">CHAOS</span>, re-roll <b>hit rolls</b>.</li></ul>"|Datasheet|
+000004175|3|||Storm Shield|This model has a 4+ InSv.|Wargear|
+000004182|1|000008344||||Core|"8"""
+000004182|2|000008345||||Core|
+000004182|3|000011158||||Faction|
+000004182|4|||Deadly Stalkers|"This unit’s attacks that target an enemy unit more than 6"" from any other enemy units have +1 to wound rolls."|Datasheet|
+000004182|5|||Hunting Hounds|"While this unit is within 6"" of a friendly Space Wolves Character model (excluding Wulfen), if this unit is not battle-shocked, Hunting Wolf models have +1 <b>OC</b>."|Datasheet|
+000004182|6|||Haywire Mine (Once per battle, per unit)|"In your Shooting phase, select up to one visible enemy unit within 6"" of this unit and roll one D6. On a 2+:<br><ul><li>That enemy unit suffers D3 mortal wounds.</li><li><u>Or:</u> If that enemy unit is a <span class=""kwb"">VEHICLE</span> unit, that enemy unit suffers 2D3 <b>mortal wounds</b>.</li></ul>"|Wargear|
+000004184|1|000008346||||Core|
+000004184|2|000011158||||Faction|
+000004184|3|000011162||||Faction|
+000004184|4|||Captain of the Honour Guard|If your army includes a Marneus Calgar unit, replace this unit’s Leader ability with the Support ability (this unit can still be attached to the same units).|Datasheet|
+000004184|5|||Knight Champion of Macragge (Once per phase, per army)|"In your opponent’s Movement phase, when an enemy unit ends a move within 8"" of this unit, if this unit is unengaged, this unit can make a normal move of up to 6""."|Datasheet|
+000004184|6|||Honour or Death|When you target this unit with the Heroic Intervention <b>stratagem</b>, that use is -1 CP.|Datasheet|
+000004185|1|000011158||||Faction|
+000004185|2|||Glory of Ultramar|"In your opponent’s Shooting phase, when an enemy unit has shot, if a model in this unit was destroyed by those attacks, this unit can make a surge move of up to D6""."|Datasheet|
+000004185|3|||Honour Guard of Macragge|Attacks that target this unit have -1 to wound rolls.|Datasheet|
+000004185|4|||Banner of Macragge|<ul><li>At the end of your Movement phase, if this unit is controlling an objective, that <b>objective</b> is secured.</li><li>(Once per battle, per army) When this unit is selected to fight, you can use this ability. If you do, this unit’s melee attacks have +1 <b>A</b> and <b>S</b>.</li></ul>|Wargear|
+000004187|1|000008338||||Core|5+
+000004187|2|000008346||||Core|
+000004187|3|000011162||||Faction|
+000004187|4|000011158||||Faction|
+000004187|5|||Press the Attack|This unit’s melee attacks have:<br><ul><li>[Sustained Hits 1: non-Monster/vehicle].</li><li><u>Or:</u> If the assault doctrine is active for this unit, [Sustained Hits 1].</li></ul>|Datasheet|
+000004187|6|||Righteous Fury (Once per battle, per army)|In the Fight phase, you can use this ability. If you do, this unit’s melee attacks have +1 <b>S</b>, and when this unit has fought: <br><ul><li>This model heals D3 wounds.</li><li><u>Or:</u> If this model destroyed an enemy model this phase, this model <b>heals</b> 2D3 wounds.</li></ul>|Datasheet|
+000004187|7|||Honour of Ultramar|In the fight phase, when this model is destroyed, if this unit has not been selected to fight this phase, roll one D6:<br><ul><li>On a 2+, do not remove this model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), this model is removed from the battlefield.</li></ul>|Datasheet|
+000004188|1|000010857||||Core|
+000004188|2|000011158||||Faction|
+000004188|3|||Raise the Banner|At the end of your Movement phase, if this unit is controlling an objective, that <b>objective</b> is secured.|Datasheet|
+000004188|4|||Strategium Command|"When both players have deployed their armies, you can redeploy up to three friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in <b>strategic reserves</b>."|Datasheet|
+000004231|1|000011158||||Faction|
+000004231|2|||Overlapping Destruction|In your Shooting phase, you can select one enemy unit. This unit’s Heavy Bolter weapons that target that enemy unit have [Blast 1].|Datasheet|
+000004245|1|000008339||||Core|D3
+000004245|2|000011125||||Core|5
+000004245|3|000011158||||Faction|
+000004245|4|||Armoured Spearhead|This unit’s ranged attacks can re-roll <u>one</u>:<br><ul><li>Hit roll.</li><li>Wound roll.</li><li>Damage roll.</li></ul>|Datasheet|
+000004246|1|000008343||||Core|
+000004246|2|000008346||||Core|
+000004246|3|000011158||||Faction|
+000004246|4|000011162||||Faction|
+000004246|5|||Codex Adept|The assault doctrine, devastator doctrine and tactical doctrine are active for this unit.|Datasheet|
+000004246|6|||Master Tactician|"In your Movement phase, you can select one visible friendly <span class=""kwb"">ADEPTUS</span> <span class=""kwb"">ASTARTES</span> unit within 9"" of this model, and select one combat doctrine. That <b>combat doctrine</b> is active for that unit until the start of your next Command phase."|Datasheet|
+000004246|7|||Thunderhawk Insertion|In the Declare Battle Formations step, you can select one friendly Gravis/Phobos/Tacticus unit. That unit has Deep Strike.|Datasheet|
+000004247|1|000011158||||Faction|
+000004247|2|||Aggressive Reconnaissance|"In your Shooting phase, this unit’s ranged attacks that target an enemy unit that is not within 6"" of any other enemy units have +1 to wound rolls."|Datasheet|
+000004248|1|000010857||||Core|
+000004248|2|000011158||||Faction|
+000004248|3|||Veteran Bodyguard|"While this model is attached to a unit, other <span class=""kwb"">CHARACTER</span> models in this unit have Feel No Pain 4+."|Datasheet|
+000004248|4|||Calgar’s Champion|"This model’s attacks that target a <span class=""kwb"">CHARACTER</span> unit can:<br><ul><li>Re-roll hit rolls of 1.</li><li>Re-roll wound rolls of 1.</li></ul>"|Datasheet|
+000004249|1|000011158||||Faction|
+000004249|2|||Total Obliteration|This unit’s ranged attacks can re-roll damage rolls.|Datasheet|

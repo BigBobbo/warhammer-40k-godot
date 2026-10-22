@@ -2,12 +2,24 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.48.1",
+      "version": "1.49.1",
       "date": "2026-10-22",
       "summary": "Game log wound rows now show [LETHAL HITS] auto-wounds, so the number of saves matches what the log says.",
       "changes": [
         "Fixed: when [LETHAL HITS] applied (e.g. Sentinel Guard's Stand Vigil near an objective) the wound row read e.g. 'Wound (5+): 1 2 3 3 5 5 \u2014 6/6' even though only 2 dice wounded. It now reads '\u2014 2/6 +4 Lethal Hits = 6': critical hits auto-wound without rolling, which is why 6 saves were rolled.",
         "The step-by-step roll summary in the Shooting panel splits rolled wounds from Lethal Hits auto-wounds the same way."
+      ]
+    },
+    {
+      "version": "1.49.0",
+      "date": "2026-10-22",
+      "summary": "Army builder: Codex: Space Marines points and detachments, and GW app list imports for Space Wolves and other chapters now work.",
+      "changes": [
+        "Space Marines and every chapter use the Codex: Space Marines points (e.g. Logan Grimnar 150, Captain on Bike 110, Storm Shields +5 each) and codex detachments at their codex Detachment Points: Assault Brethren, Tactical Brethren, Saga of the Beastslayer (1 DP) and the rest. Index detachments the codex dropped are no longer offered.",
+        "Space Wolves, Blood Angels, Dark Angels and the other chapters can be picked as the army faction; they build from the Space Marine datasheets plus their own chapter's.",
+        "GW app imports: several detachments on one line are all added, \"Attached Unit\" blocks attach each Leader / Support character to its bodyguard, \"(Upgrade)\" enhancements resolve, and squads no longer gain a phantom extra model.",
+        "Enhancements resolve against your own detachments (Imperium's Sword from Assault Brethren) and enhancement-granted Leader targets (Wolf-Touched lets a Captain lead Wulfen) are offered.",
+        "Imported weapons named differently by the GW app (\"Chainsword\" vs \"Astartes chainsword\") no longer show up twice; the Grey Hunter Pack Leader's Plasma Pistol now replaces the Bolt Pistol."
       ]
     },
     {
