@@ -23,6 +23,9 @@ const OrkCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
 # Codex: Adeptus Custodes (11e) dispatcher (WP-C5) — same API as OrkCodex,
 # dispatched at every site OrkCodex is (rows marked {"type":"custom:custodes11e"}).
 const CustodesCodex = preload("res://scripts/codex/custodes/CustodesCodex11e.gd")
+# Codex: Space Marines (11e) Space Wolves dispatcher (WP-S3) — same API, rows
+# marked {"type":"custom:sw11e"}.
+const SWCodex = preload("res://scripts/codex/space_wolves/SWCodex11e.gd")
 
 ## The codex dispatcher that owns `strat` (Codex: Orks / Codex: Adeptus
 ## Custodes 11e rows), or null for every other stratagem.
@@ -31,6 +34,8 @@ static func codex_for(strat: Dictionary):
 		return OrkCodex
 	if CustodesCodex.handles(strat):
 		return CustodesCodex
+	if SWCodex.handles(strat):
+		return SWCodex  # Codex: Space Marines (11e) Space Wolves (SWCodex11e.gd)
 	return null
 # WP-O6: Codex: Orks (11e) datasheet abilities — activated ones ride the window
 # framework (offers appended in get_all_window_offers, "ork11e_ab_*" ids routed in
@@ -636,6 +641,12 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 			strat["implemented"] = CustodesCodex.is_implemented(strat)
 			if strat["implemented"]:
 				print("StratagemManager: Marked '%s' (%s) as implemented (Adeptus Custodes codex registry)" % [strat.get("name", ""), strat.get("csv_id", "")])
+			continue
+		# Codex: Space Marines (11e) Space Wolves rows: the SW codex registry only (SWCodex11e.gd, WP-S3).
+		if SWCodex.handles(strat):
+			strat["implemented"] = SWCodex.is_implemented(strat)
+			if strat["implemented"]:
+				print("StratagemManager: Marked '%s' (%s) as implemented (Space Wolves codex registry)" % [strat.get("name", ""), strat.get("csv_id", "")])
 			continue
 		# Data sources use typographic apostrophes (BOARDIN’ RUSH) — normalize
 		# so the straight-quoted handler names below keep matching.

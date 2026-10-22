@@ -115,11 +115,22 @@ const CONFIRMED_WINDOWS = {
   'preternatural-rapidity-dread-host': ['unit_ended_advance_move'],
   'lightning-wrath-dread-host': ['unit_selected_to_pile_in'],
   // Codex: Space Marines — Space Wolves detachments (WP-S1 data pass; the
-  // stratagem pass confirms or revises these).
+  // WP-S3 stratagem pass confirmed all 12 — SWCodex11e.gd, RULINGS.md § WP-S3).
   'impetuosity-saga-of-the-beastslayer': ['enemy_has_shot'],
   'battle-instincts-saga-of-the-great-wolf': ['enemy_has_shot'],
   'co-ordinated-strike-saga-of-the-beastslayer': ['fight_phase_end'],
   'eye-of-the-pack-saga-of-the-great-wolf': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  // "Your Command phase" — offered in the active player's command_phase_main window.
+  'birth-of-a-saga-champions-of-fenris': ['command_phase_main'],
+  'grimnars-command-saga-of-the-great-wolf': ['command_phase_main'],
+  'heroic-resolve-champions-of-fenris': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'champions-guidance-champions-of-fenris': ['unit_selected_to_fight'],
+  'unbridled-ferocity-saga-of-the-beastslayer': ['unit_selected_to_fight'],
+  'fangs-of-the-pack-saga-of-the-great-wolf': ['unit_selected_to_fight'],
+  'fenrisian-ferocity-saga-of-the-great-wolf': ['unit_selected_to_move', 'unit_declares_charge'],
+  // "Any phase, when … suffers a mortal wound": no reactive hook exists at the
+  // many mortal-wound sites — S panel, used before the mortal wound (ruling).
+  'wolf-totems-saga-of-the-great-wolf': [],
 };
 
 // Editorial duration phrases (see orks_codex_11e.json): where the printed

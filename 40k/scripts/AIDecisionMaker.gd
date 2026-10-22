@@ -21438,6 +21438,10 @@ static func _codex_for_strat(strat: Dictionary):
 	var cc = load("res://scripts/codex/custodes/CustodesCodex11e.gd")
 	if cc != null and cc.handles(strat):
 		return cc
+	# Codex: Space Marines (11e) Space Wolves stratagems (SWCodex11e.gd, WP-S3).
+	var swc = load("res://scripts/codex/space_wolves/SWCodex11e.gd")
+	if swc != null and swc.handles(strat):
+		return swc
 	return null
 
 ## WP-O6: Codex: Orks (11e) datasheet abilities (loaded on first use, like _ork_codex).

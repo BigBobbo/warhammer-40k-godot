@@ -15523,6 +15523,10 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	if load("res://scripts/codex/custodes/CustodesCodex11e.gd").handles(strat) and strat.get("timing", {}).get("windows", []).is_empty():
 		_prompt_friendly_target_then_use(sid_resolved, active_player)
 		return
+	# Codex: Space Marines (11e) Space Wolves S-panel stratagem (SWCodex11e.gd: WOLF TOTEMS — no window).
+	if load("res://scripts/codex/space_wolves/SWCodex11e.gd").handles(strat) and strat.get("timing", {}).get("windows", []).is_empty():
+		_prompt_friendly_target_then_use(sid_resolved, active_player)
+		return
 	# Unit-targeted faction stratagems (SPESHUL AMMO, DUST TRAILS, DAT'S OURS,
 	# TAKTIKAL RETREAT, DED SNEAKY, ...): prompt for the friendly target
 	# instead of firing target-less, which would no-op the unit-flag effect.

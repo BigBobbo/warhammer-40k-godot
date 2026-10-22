@@ -640,6 +640,13 @@ static func _cus11e_abilities():
 		_cus11e_ab_script = load("res://scripts/codex/custodes/CustodesAbilities.gd")
 	return _cus11e_ab_script
 
+## Codex: Space Marines (11e) Space Wolves stratagems (WP-S3, SWCodex11e.gd) — loaded lazily.
+static var _sw11e_codex_script = null
+static func _sw11e_codex():
+	if _sw11e_codex_script == null:
+		_sw11e_codex_script = load("res://scripts/codex/space_wolves/SWCodex11e.gd")
+	return _sw11e_codex_script
+
 static func get_effect_invuln_source(unit: Dictionary) -> String:
 	"""Get the source name of the effect-granted invulnerable save (empty if none)."""
 	return unit.get("flags", {}).get(FLAG_INVULN_SOURCE, "")
@@ -774,8 +781,10 @@ static func has_effect_minus_damage(unit: Dictionary) -> bool:
 static func get_effect_minus_damage(unit: Dictionary) -> int:
 	"""Get the effect-granted damage reduction value (0 if none)."""
 	# WP-O6: + Codex: Orks (11e) Dread 'Ard (-1 D) / Mobile Fortress (ranged -1 D).
-	return maxi(maxi(int(unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0)), int(_ork_abilities().defence_mods_now(unit).get("damage_minus", 0))),
+	var best_minus := maxi(maxi(int(unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0)), int(_ork_abilities().defence_mods_now(unit).get("damage_minus", 0))),
 		int(_cus11e_abilities().defence_mods_now(unit).get("damage_minus", 0)))  # WP-C7: Guardian Eternal (ranged -1 D)
+	# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE (SWCodex11e.gd): attacks that target the unit have -1 D.
+	return maxi(best_minus, int(_sw11e_codex().damage_minus(unit)))
 
 static func has_effect_crit_hit_on(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted critical hit threshold."""

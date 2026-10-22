@@ -5827,6 +5827,8 @@ func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
 			_ev_action_attacker = prev_attacker
 		# "until that enemy unit has attacked" effects end with its attacks.
 		_cus11e_codex().on_unit_has_attacked(str(shooter))
+		# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE (SWCodex11e.gd).
+		load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(str(shooter))
 	var summary := "%s: %s → %s: %d hit(s), %d wound(s), %d model(s) slain" % [source, unit_name, target_name, hits, wounds, casualties]
 	log_phase_message(summary)
 	GameEventLog.add_player_entry(player, summary)

@@ -5113,7 +5113,15 @@ func _ork11e_post_shot_ctx(shooter_id: String) -> Dictionary:
 		var u = GameState.get_unit(uid)
 		if not u.is_empty() and _ork11e_unit_wounds(u) < int(_ork11e_pre_shot_wounds[uid]):
 			wounded.append(uid)
-	return {"hit_unit_ids": hit.keys(), "wounded_unit_ids": wounded}
+	# Codex: Space Marines (11e) Space Wolves IMPETUOSITY / BATTLE INSTINCTS
+	# (SWCodex11e.gd): "an enemy unit that TARGETED a friendly unit has shot" —
+	# every unit a hit roll of those attacks was made against (hit or not).
+	var targeted := hit.duplicate()
+	for j in range(mini(_ork11e_shot_dice_start, dice_log.size()), dice_log.size()):
+		var tb = dice_log[j]
+		if typeof(tb) == TYPE_DICTIONARY and str(tb.get("target_unit_id", "")) != "":
+			targeted[str(tb.get("target_unit_id", ""))] = true
+	return {"hit_unit_ids": hit.keys(), "wounded_unit_ids": wounded, "targeted_unit_ids": targeted.keys()}
 
 func _ork11e_queue_post_shot(a_type: String, shot_before: int, result: Dictionary) -> void:
 	if a_type in _ORK11E_NOT_SHOOTING_ACTIONS or result.get("throat_slittas", false):
@@ -5161,6 +5169,8 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 		# Codex: Adeptus Custodes VIGIL UNENDING / IN AURAMITE CLAD end "until
 		# that enemy unit has attacked" (CustodesCodex11e.gd).
 		_cus11e_codex().on_unit_has_attacked(shooter_id)
+		# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE ends "until that enemy unit has attacked" (SWCodex11e.gd).
+		load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(shooter_id)
 		# WP-O6: Codex: Orks (11e) "when this unit has shot, select one enemy
 		# unit hit" abilities (Rokkit Barrage, Squig Barrage, Bust 'Em, Madcap
 		# Artillery) resolve here when exactly one unit was hit; with 2+ hit
@@ -5170,7 +5180,8 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 			{"player": active, "window_id": "unit_has_shot", "ctx": {"phase": "shooting", "unit_id": shooter_id,
 				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}},
 			{"player": other, "window_id": "enemy_has_shot", "ctx": {"phase": "shooting", "attacker_unit_id": shooter_id,
-				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}}],
+				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids,
+				"targeted_unit_ids": shot.targeted_unit_ids}}],  # targeted: Space Wolves IMPETUOSITY / BATTLE INSTINCTS
 			"_ork11e_resume_after_post_shot_windows", {"unit_id": shooter_id})
 		merged.append_array(consume_window_diffs())
 		if paused:

@@ -751,6 +751,7 @@ enum WoundModifier {
 	REROLL_FAILED = 2,  # Re-roll all failed wound rolls (Twin-linked)
 	PLUS_ONE = 4,       # +1 to wound (e.g., Lance on charge)
 	MINUS_ONE = 8,      # -1 to wound
+	REROLL_ONES_TWOS = 16,  # Re-roll wound rolls of 1 and 2 (Codex: Space Marines 11e EYE OF THE PACK — SWCodex11e.gd)
 }
 
 # Apply wound modifiers to a single roll
@@ -778,6 +779,13 @@ static func apply_wound_modifiers(roll: int, modifiers: int, wound_threshold: in
 		result.rerolled = true
 		result.reroll_value = reroll_result
 		result.modified_roll = reroll_result
+	elif (modifiers & WoundModifier.REROLL_ONES_TWOS) and roll <= 2 and roll < wound_threshold:
+		# Codex: Space Marines (11e) EYE OF THE PACK (SWCodex11e.gd): "can re-roll
+		# wound rolls of 1 and 2" — a 2 that already wounds (2+) is kept.
+		var reroll_12 = rng.roll_d6(1)[0]
+		result.rerolled = true
+		result.reroll_value = reroll_12
+		result.modified_roll = reroll_12
 
 	# Step 2: Then apply numeric modifiers (capped at net +1/-1)
 	var net_modifier = 0
@@ -1154,7 +1162,7 @@ static func reroll_wound_die(wound_context: Dictionary, die_index: int, board: D
 		return {"success": false, "error": "Invalid wound die index %d" % die_index}
 	if bool(evals[die_index].get("rerolled", false)):
 		return {"success": false, "error": "That wound die has already been re-rolled — a dice can never be re-rolled more than once"}
-	var mods_no_reroll = int(wound_context.get("wound_modifiers", 0)) & ~(WoundModifier.REROLL_ONES | WoundModifier.REROLL_FAILED)
+	var mods_no_reroll = int(wound_context.get("wound_modifiers", 0)) & ~(WoundModifier.REROLL_ONES | WoundModifier.REROLL_FAILED | WoundModifier.REROLL_ONES_TWOS)
 	var new_raw = rng_service.roll_d6(1)[0]
 	var ev = AttackSequence.evaluate_wound_roll(new_raw, mods_no_reroll, int(wound_context.get("wound_threshold", 4)), int(wound_context.get("critical_wound_threshold", 6)), rng_service)
 	var old_eval = evals[die_index]
@@ -3283,6 +3291,8 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 
 	# Codex: Adeptus Custodes (11e) detachment rules / enhancements (CustodesDetachments.gd, WP-C46).
 	wound_modifiers = cus11e_apply_wound_effects(wound_modifiers, wound_mod_ledger, actor_unit, target_unit, false, strength, toughness, board, {"model_ids": assignment.get("model_ids", [])})
+	# Codex: Space Marines (11e) Space Wolves stratagems (SWCodex11e.gd): EYE OF THE PACK re-rolls wound rolls of 1 and 2.
+	wound_modifiers = _sw11e_codex().apply_wound_bits(wound_modifiers, actor_unit, target_unit, false, wound_mod_ledger)
 
 	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a target that is not a MONSTER/VEHICLE unit
 	if ork11e_kustom_dakka_wound_bonus(actor_unit, target_unit) > 0:
@@ -5342,6 +5352,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# Codex: Adeptus Custodes (11e) detachment rules / enhancements (CustodesDetachments.gd, WP-C46).
 	ar_wound_modifiers = cus11e_apply_wound_effects(ar_wound_modifiers, ar_wound_mod_ledger, actor_unit, target_unit, false, strength, toughness, board, {"model_ids": model_ids})
+	# Codex: Space Marines (11e) Space Wolves stratagems (SWCodex11e.gd): EYE OF THE PACK re-rolls wound rolls of 1 and 2.
+	ar_wound_modifiers = _sw11e_codex().apply_wound_bits(ar_wound_modifiers, actor_unit, target_unit, false, ar_wound_mod_ledger)
 
 	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a target that is not a MONSTER/VEHICLE unit
 	if ork11e_kustom_dakka_wound_bonus(actor_unit, target_unit) > 0:
@@ -9990,7 +10002,7 @@ static func cus11e_magna_reroll_wound(actor_unit: Dictionary, wound_evals: Array
 		return out
 	cus11e_det().magna_imperator_consume(actor_unit, "wound")
 	var new_raw: int = rng.roll_d6(1)[0]
-	var no_rr: int = mods & ~(WoundModifier.REROLL_ONES | WoundModifier.REROLL_FAILED)
+	var no_rr: int = mods & ~(WoundModifier.REROLL_ONES | WoundModifier.REROLL_FAILED | WoundModifier.REROLL_ONES_TWOS)
 	var ev = AttackSequence.evaluate_wound_roll(new_raw, no_rr, wound_threshold, crit_threshold, rng)
 	var old_raw = wound_evals[i].get("raw", 0)
 	wound_evals[i] = {"raw": old_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail, "rerolled": true}
@@ -14036,6 +14048,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			print("RulesEngine: KAPTARIS — melee attacks that target %s have -1 to hit" % target_name)
 		# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): SHIELD OF HONOUR / GOLDEN LIGHT (-1), HONOURED INTERRED (re-roll 1s), BEARERS OF HIS LIGHT (ignore -1).
 		melee_hit_modifiers = _cus11e_codex().apply_hit_bits(melee_hit_modifiers, attacker_unit, target_unit, true, board, melee_hit_mod_ledger)
+		# Codex: Space Marines (11e) Space Wolves stratagems (SWCodex11e.gd): CHAMPION'S GUIDANCE re-rolls melee hit rolls of 1.
+		melee_hit_modifiers = _sw11e_codex().apply_hit_bits(melee_hit_modifiers, attacker_unit, target_unit, true, melee_hit_mod_ledger)
 
 		# A10 (24.29): [PSYCHIC] melee weapons ignore modifiers to the hit roll —
 		# strip the harmful -1 (the shooting paths do the same). 11e only.
@@ -14338,6 +14352,8 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): SLAYERS OF NIGHTMARES (+1), SHIELD OF HONOUR (-1), BEARERS OF HIS LIGHT (ignore -1).
 	melee_wound_modifiers = _cus11e_codex().apply_wound_bits(melee_wound_modifiers, attacker_unit, target_unit, true, strength, toughness, melee_wound_mod_ledger)
+	# Codex: Space Marines (11e) Space Wolves stratagems (SWCodex11e.gd): CHAMPION'S GUIDANCE (1s) / EYE OF THE PACK (1s and 2s) wound re-rolls.
+	melee_wound_modifiers = _sw11e_codex().apply_wound_bits(melee_wound_modifiers, attacker_unit, target_unit, true, melee_wound_mod_ledger)
 
 	var melee_wound_modifier_net = 0
 	if melee_wound_modifiers & WoundModifier.PLUS_ONE:
@@ -16222,6 +16238,9 @@ static func _conditional_fnp(unit: Dictionary, is_psychic: bool, is_mortal: bool
 	var best := int(EffectPrimitivesData.get_effect_fnp_psychic_mortal(unit))
 	# Codex: Adeptus Custodes army rules (CustodesKatah.gd)
 	best = _better_fnp(best, int(_cus11e_katah().fnp_vs(unit, is_psychic, is_mortal)))
+	# Codex: Space Marines (11e) Space Wolves WOLF TOTEMS (SWCodex11e.gd): Feel No Pain 5+ against mortal wounds.
+	if is_mortal:
+		best = _better_fnp(best, int(_sw11e_codex().fnp_vs_mortal(unit)))
 	return best
 
 static func _better_fnp(a: int, b: int) -> int:
@@ -16240,6 +16259,11 @@ static func _cus11e_katah():
 ## one-line hooks in this file call (loaded lazily, like _cus11e_katah).
 static func _cus11e_codex():
 	return load("res://scripts/codex/custodes/CustodesCodex11e.gd")
+
+## Codex: Space Marines (11e) Space Wolves stratagems (WP-S3) — the effect
+## consumers of the one-line "SWCodex11e.gd" hooks in this file (loaded lazily).
+static func _sw11e_codex():
+	return load("res://scripts/codex/space_wolves/SWCodex11e.gd")
 
 ## Mortal wounds that survive Feel No Pain, for the mortal-wound paths that
 ## allocate through Allocation.apply_mortal_wounds_11e (explosives, crushing

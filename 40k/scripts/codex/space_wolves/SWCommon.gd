@@ -569,3 +569,77 @@ static func doctrine_active(u: Dictionary, doctrine: String) -> bool:
 
 static func doctrine_active_id(unit_id: String, doctrine: String) -> bool:
 	return doctrine_active(unit(unit_id), doctrine)
+
+
+# ===========================================================================
+# WP-S3 (stratagems, SWCodex11e.gd + group scripts) helpers
+# ===========================================================================
+
+## True when any component of the (Attached) unit has any of the keywords.
+static func group_has_any_keyword(unit_id: String, keywords: Array) -> bool:
+	for kw in keywords:
+		if group_has_keyword(unit_id, str(kw)):
+			return true
+	return false
+
+## True when any component of the (Attached) unit is a MONSTER or VEHICLE.
+static func group_is_monster_or_vehicle(unit_id: String) -> bool:
+	return group_has_any_keyword(unit_id, ["MONSTER", "VEHICLE"])
+
+## Melee / ranged weapons on any component of the (Attached) unit.
+static func group_has_melee_weapons(unit_id: String) -> bool:
+	var re = rules()
+	if re == null or not re.has_method("get_unit_melee_weapons"):
+		return false
+	for gid in attached_group_ids(unit_id):
+		if not re.get_unit_melee_weapons(str(gid), state()).is_empty():
+			return true
+	return false
+
+static func group_has_ranged_weapons(unit_id: String) -> bool:
+	var re = rules()
+	if re == null or not re.has_method("get_unit_weapons"):
+		return false
+	for gid in attached_group_ids(unit_id):
+		var w: Dictionary = re.get_unit_weapons(str(gid), state())
+		for mid in w:
+			for wid in w[mid]:
+				if not str(wid).ends_with("_melee"):
+					return true
+	return false
+
+## Points of every component of the (Attached) unit.
+static func group_points(unit_id: String) -> int:
+	var pts := 0
+	for gid in attached_group_ids(unit_id):
+		pts += int(unit(str(gid)).get("meta", {}).get("points", 0))
+	return pts
+
+## Closest distance (inches) from any alive model's base of the (Attached)
+## unit to any battlefield edge ("within": any part of a base, 01.04.01).
+static func group_edge_distance_inches(unit_id: String) -> float:
+	var size = state().get("board", {}).get("size", {})
+	var w_in := float(size.get("width", 44.0))
+	var h_in := float(size.get("height", 60.0))
+	var meas = autoload("Measurement")
+	var best := INF
+	for gid in attached_group_ids(unit_id):
+		for m in unit(str(gid)).get("models", []):
+			if not m.get("alive", true) or m.get("position", null) == null:
+				continue
+			var p := _pos(m) / PX_PER_INCH
+			var r := float(m.get("base_mm", 32)) / 25.4 / 2.0
+			if meas and meas.has_method("base_extent_px"):
+				r = float(meas.base_extent_px(m)) / PX_PER_INCH
+			var d := minf(minf(p.x - r, w_in - p.x - r), minf(p.y - r, h_in - p.y - r))
+			best = minf(best, maxf(d, 0.0))
+	return best
+
+## True when `unit_id` (or another component of its Attached unit) is in ids.
+static func group_in(unit_id: String, ids) -> bool:
+	if typeof(ids) != TYPE_ARRAY:
+		return false
+	for gid in attached_group_ids(unit_id):
+		if gid in ids:
+			return true
+	return false

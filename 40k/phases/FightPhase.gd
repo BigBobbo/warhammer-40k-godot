@@ -2901,6 +2901,8 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	# Codex: Adeptus Custodes VIGIL UNENDING / IN AURAMITE CLAD end "until that
 	# enemy unit has attacked" (CustodesCodex11e.gd).
 	_cus11e_codex().on_unit_has_attacked(unit_id)
+	# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE ends "until that enemy unit has attacked" (SWCodex11e.gd).
+	load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(unit_id)
 	# Codex: Adeptus Custodes INDOMITABLE GUARDIANS (CustodesCodex11e.gd): the
 	# opponent's enemy_has_fought window ("Your opponent's Fight phase, when an
 	# enemy unit has fought") opens before the next selection / Counter-Offensive.
@@ -5439,7 +5441,8 @@ func _execute_window_followup(player: int, window_id: String, followup: Dictiona
 		"embark":
 			diffs = _ork11e_embark_followup_diffs(str(followup.get("unit_id", "")), str(followup.get("transport_id", "")))
 		"strategic_reserves":
-			diffs = _ork11e_strategic_reserves_followup_diffs(str(followup.get("unit_id", "")))
+			# source: the stratagem's name for the log (INSTINCTIVE HUNTERS; Space Wolves CO-ORDINATED STRIKE).
+			diffs = _ork11e_strategic_reserves_followup_diffs(str(followup.get("unit_id", "")), str(followup.get("source", "INSTINCTIVE HUNTERS")))
 		_:
 			return super._execute_window_followup(player, window_id, followup, ctx)
 	if not diffs.is_empty():
@@ -5483,7 +5486,7 @@ func _ork11e_embark_followup_diffs(unit_id: String, transport_id: String) -> Arr
 ## reserve_type strategic_reserves — EVASIVE MANOOVA / DED SNEAKY pattern), the
 ## whole Attached unit together. `repositioned_to_reserves` exempts it from the
 ## end-of-round-3 destruction of reserves (20.04 exception).
-func _ork11e_strategic_reserves_followup_diffs(unit_id: String) -> Array:
+func _ork11e_strategic_reserves_followup_diffs(unit_id: String, source: String = "INSTINCTIVE HUNTERS") -> Array:
 	var u = get_unit(unit_id)
 	if u.is_empty():
 		_window_error("strategic_reserves follow-up: unknown unit %s" % unit_id)
@@ -5501,7 +5504,7 @@ func _ork11e_strategic_reserves_followup_diffs(unit_id: String) -> Array:
 		var g_models = get_unit(gid).get("models", [])
 		for i in range(g_models.size()):
 			diffs.append({"op": "set", "path": "units.%s.models.%d.position" % [gid, i], "value": null})
-	var msg := "INSTINCTIVE HUNTERS: %s is placed in strategic reserves" % u.get("meta", {}).get("name", unit_id)
+	var msg := "%s: %s is placed in strategic reserves" % [source, u.get("meta", {}).get("name", unit_id)]
 	log_phase_message(msg)
 	var gel = get_node_or_null("/root/GameEventLog")
 	if gel:
