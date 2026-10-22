@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.49.2",
+      "date": "2026-10-22",
+      "summary": "Game log wound rows now show [LETHAL HITS] auto-wounds, so the number of saves matches what the log says.",
+      "changes": [
+        "Fixed: when [LETHAL HITS] applied (e.g. Sentinel Guard's Stand Vigil near an objective) the wound row read e.g. 'Wound (5+): 1 2 3 3 5 5 \u2014 6/6' even though only 2 dice wounded. It now reads '\u2014 2/6 +4 Lethal Hits = 6': critical hits auto-wound without rolling, which is why 6 saves were rolled.",
+        "The step-by-step roll summary in the Shooting panel splits rolled wounds from Lethal Hits auto-wounds the same way."
+      ]
+    },
+    {
       "version": "1.49.1",
       "date": "2026-10-22",
       "summary": "Fix: using 'Examine Board' on your own stratagem decision no longer soft-locks the game after you go back and decline.",
