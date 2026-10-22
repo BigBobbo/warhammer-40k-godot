@@ -793,7 +793,8 @@ static func has_effect_fall_back_and_shoot(unit: Dictionary) -> bool:
 	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false) \
 		or (GameConstants.edition >= 11 and _cus11e_det().fall_back_allows_shoot(unit)) \
 		or _cus11e_grants(unit, "fall_back_and_shoot") \
-		or (GameConstants.edition >= 11 and load("res://scripts/codex/orks/OrkEnhancements11e.gd").fall_back_allows_shoot(unit))  # Codex: Orks (11e) Kunnin' But Brutal (WP-O5)
+		or (GameConstants.edition >= 11 and load("res://scripts/codex/orks/OrkEnhancements11e.gd").fall_back_allows_shoot(unit)) \
+		or (GameConstants.edition >= 11 and _sw11e_rules().fall_back_allows_shoot(unit))  # Codex: Space Marines (11e) TACTICAL DOCTRINE (WP-S2)
 
 static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and charge eligibility."""
@@ -803,7 +804,8 @@ static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
 	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false) \
 		or (GameConstants.edition >= 11 and _ork11e_det().fall_back_allows_charge(unit)) \
 		or (GameConstants.edition >= 11 and _cus11e_det().fall_back_allows_charge(unit)) \
-		or _cus11e_grants(unit, "fall_back_and_charge")
+		or _cus11e_grants(unit, "fall_back_and_charge") \
+		or (GameConstants.edition >= 11 and _sw11e_rules().fall_back_allows_charge(unit))  # Codex: Space Marines (11e) TACTICAL DOCTRINE (WP-S2)
 
 static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and charge eligibility."""
@@ -814,7 +816,8 @@ static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
 		or (GameConstants.edition >= 11 and _ork11e_det().advance_allows_charge(unit)) \
 		or (GameConstants.edition >= 11 and _cus11e_det().advance_allows_charge(unit)) \
 		or _cus11e_grants(unit, "advance_and_charge") \
-		or _cus11e_abilities().advance_allows_charge(unit)  # WP-C7: Assault Dropship
+		or _cus11e_abilities().advance_allows_charge(unit) \
+		or (GameConstants.edition >= 11 and _sw11e_rules().advance_allows_charge(unit))  # WP-C7: Assault Dropship; Codex: Space Marines (11e) ASSAULT DOCTRINE (WP-S2)
 
 static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and shoot eligibility."""
@@ -822,7 +825,16 @@ static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant.
 	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false) \
 		or (GameConstants.edition >= 11 and _ork11e_det().ranged_attacks_have_assault(unit)) \
-		or _cus11e_grants(unit, "advance_and_shoot")
+		or _cus11e_grants(unit, "advance_and_shoot") \
+		or (GameConstants.edition >= 11 and _sw11e_rules().ranged_attacks_have_assault(unit))  # Codex: Space Marines (11e) DEVASTATOR DOCTRINE: ranged [ASSAULT] (WP-S2)
+
+## Codex: Space Marines (11e) Space Wolves army rules (Combat Doctrines, WP-S2),
+## loaded on first use like the codex modules below.
+static var _sw11e_rules_script = null
+static func _sw11e_rules():
+	if _sw11e_rules_script == null:
+		_sw11e_rules_script = load("res://scripts/codex/space_wolves/SWArmyRules11e.gd")
+	return _sw11e_rules_script
 
 ## Codex: Orks (11e) detachment rules module (WP-O34), loaded on first use so
 ## this class compiles without it.

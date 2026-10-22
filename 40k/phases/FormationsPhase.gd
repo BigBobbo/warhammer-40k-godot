@@ -831,6 +831,9 @@ func _capacity_weighted_model_count(unit: Dictionary, transport: Dictionary) -> 
 		if kw in unit_keywords:
 			per_model_cost = int(multipliers[kw])
 			break
+	# Codex: Space Marines (11e) BESTIAL FORMS: a WULFEN model takes the space of 2 (WP-S2).
+	if GameConstants.edition >= 11 and not transport.is_empty():
+		per_model_cost = maxi(per_model_cost, int(load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").transport_space_per_model(unit)))
 	var count = 0
 	for model in unit.get("models", []):
 		if model.get("alive", true):
@@ -952,6 +955,9 @@ func _validate_warlord_designation(player: int) -> Dictionary:
 		"Player %d has no Warlord designated. One of these CHARACTER units must be the Warlord: %s" % [player, ", ".join(names)]
 	]}
 
+## Players whose Space Wolves army problems were already reported this phase (WP-S2).
+var _sw11e_reported: Dictionary = {}
+
 func _validate_army_construction_points(player: int) -> void:
 	"""Validate army construction points for a player at formation confirmation time.
 	Logs warnings but does not block — this is advisory validation per GEN-10."""
@@ -985,6 +991,20 @@ func _validate_army_construction_points(player: int) -> void:
 
 	if detachment.is_empty():
 		log_phase_message("WARNING: Player %d has no detachment declared" % player)
+
+	# Codex: Space Marines (11e) Space Wolves — SONS OF RUSS / Master of Wolves restriction:
+	# an illegal unit is reported on the Game Log (SWArmyRules11e / SWDetachments11e, WP-S2).
+	var sw11e_problems: Array = load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").live_army_problems(player)
+	sw11e_problems.append_array(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").live_army_problems(player))
+	if _sw11e_reported.has(player):
+		sw11e_problems = []  # reported once per Formations phase (validation runs more than once)
+	elif not sw11e_problems.is_empty():
+		_sw11e_reported[player] = true
+	for sw11e_p in sw11e_problems:
+		log_phase_message("WARNING: Player %d army construction — %s" % [player, sw11e_p])
+		var gel = get_node_or_null("/root/GameEventLog")
+		if gel:
+			gel.add_player_entry(player, "ILLEGAL ARMY — %s" % sw11e_p)
 
 func _get_auto_warlord_id(player: int) -> String:
 	"""If the player has exactly one CHARACTER and no designated Warlord,

@@ -78,6 +78,22 @@ func _advanced(unit: Dictionary) -> bool:
 	return unit.get("flags", {}).get("advanced", false)
 
 
+## flags.cannot_shoot is set by a fall-back move AND by starting an action
+## (16.01). A "fall back and still shoot" effect (Codex: Space Marines 11e
+## TACTICAL DOCTRINE, WP-S2; Anti-gravitic Mobility, Kunnin' But Brutal, ...)
+## lifts the fall-back lockout only — never the action's. The 10e path
+## (ShootingPhase._can_unit_shoot) already had this override; the 11e
+## shooting types ignored it.
+func _cannot_shoot(unit: Dictionary) -> bool:
+	var flags: Dictionary = unit.get("flags", {})
+	if not flags.get("cannot_shoot", false):
+		return false
+	if flags.get("fell_back", false) and str(flags.get("performing_action", "")) == "" \
+			and load("res://autoloads/EffectPrimitives.gd").has_effect_fall_back_and_shoot(unit):
+		return false
+	return true
+
+
 func _engaged(unit_id: String, board: Dictionary) -> bool:
 	return _rules().is_unit_engaged(unit_id, board)
 

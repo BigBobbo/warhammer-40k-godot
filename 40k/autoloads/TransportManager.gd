@@ -322,6 +322,10 @@ func _get_unit_capacity_cost(unit: Dictionary, transport: Dictionary) -> int:
 					if kw in unit_keywords:
 						model_cost = multipliers[kw]
 						break
+				# Codex: Space Marines (11e) Curse of the Wulfen — BESTIAL FORMS: each
+				# WULFEN model takes up the space of 2 models (SWArmyRules11e.gd, WP-S2).
+				if GameConstants.edition >= 11:
+					model_cost = maxi(model_cost, int(load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").transport_space_per_model(unit)))
 				cost += model_cost
 
 	# WP-O6 DOWNTRODDEN (Codex: Orks 11e, Gretchin): "each 2 Gretchin models

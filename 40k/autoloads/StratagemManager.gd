@@ -54,7 +54,33 @@ func _cus11e_stratagem_override(player: int, stratagem_id: String, target_unit_i
 	if GameConstants.edition < 11 or target_unit_id == "":
 		return {"applies": false}
 	var e = _cus11e_det().enh()
-	return e.stratagem_override(player, stratagem_id, target_unit_id) if e else {"applies": false}
+	var ov: Dictionary = e.stratagem_override(player, stratagem_id, target_unit_id) if e else {"applies": false}
+	if not bool(ov.get("applies", false)):
+		# Codex: Space Marines (11e) Grimnar's Mark (Saga of the Great Wolf) — same override shape, sw11e: true (WP-S2).
+		ov = _sw11e_det().stratagem_override(player, stratagem_id, target_unit_id)
+	return ov
+
+## Codex: Space Marines (11e) Space Wolves detachments + enhancements façade (WP-S2).
+static func _sw11e_det():
+	return load("res://scripts/codex/space_wolves/SWDetachments11e.gd")
+
+## Codex: Space Marines (11e) The Great Wolf Watches — Countercharge (-1CP Heroic
+## Intervention, once per battle round per unit): {} or {discount, source, head_id}.
+func _sw11e_cp_discount(player: int, stratagem_id: String, target_unit_id: String) -> Dictionary:
+	if GameConstants.edition < 11 or target_unit_id == "":
+		return {}
+	return _sw11e_det().stratagem_cp_discount(player, stratagem_id, target_unit_id)
+
+## The CP a use of `stratagem_id` on `target_unit_id` would cost right now
+## (base cost and the per-target codex discounts) — dialogs show it (WP-S2).
+func preview_cp_cost(player: int, stratagem_id: String, target_unit_id: String = "") -> int:
+	var sid := _resolve_core_id(stratagem_id)
+	if not stratagems.has(sid):
+		return 0
+	var cost := _base_cp_cost(stratagems[sid], {})
+	cost = maxi(0, cost + int(_cus11e_stratagem_override(player, sid, target_unit_id).get("cost_delta", 0)))
+	cost = maxi(0, cost - int(_sw11e_cp_discount(player, sid, target_unit_id).get("discount", 0)))
+	return cost
 
 # Stratagem WINDOWS (design §3): the game event at which a stratagem with
 # timing.windows is offered automatically. The phrase completes
@@ -917,6 +943,8 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# (HEROIC INTERVENTION): -1CP, regardless of other uses this phase (CustodesEnhancements.gd, WP-C46).
 	var cus11e_ov: Dictionary = _cus11e_stratagem_override(player, stratagem_id, target_unit_id)
 	effective_cost = maxi(0, effective_cost + int(cus11e_ov.get("cost_delta", 0)))
+	# Codex: Space Marines (11e) Countercharge (The Great Wolf Watches): Heroic Intervention -1CP (WP-S2).
+	effective_cost = maxi(0, effective_cost - int(_sw11e_cp_discount(player, stratagem_id, target_unit_id).get("discount", 0)))
 	var player_cp = _get_player_cp(player)
 	if player_cp < effective_cost:
 		return {"can_use": false, "reason": "Not enough CP (need %d, have %d)" % [effective_cost, player_cp]}
@@ -1216,6 +1244,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# Codex: Adeptus Custodes (11e) rule choice / enhancement ability in a window (WP-C46): free.
 	if _cus11e_det().is_rule_offer_id(stratagem_id):
 		return _cus11e_det().use_rule_offer(player, stratagem_id, target_unit_id, context)
+	# Codex: Space Marines (11e) Space Wolves rule choice / enhancement ability in a window (WP-S2): free.
+	if _sw11e_det().is_rule_offer_id(stratagem_id):
+		return _sw11e_det().use_rule_offer(player, stratagem_id, target_unit_id, context)
 	# Validate
 	var validation = can_use_stratagem(player, stratagem_id, target_unit_id, context)
 	if not validation.can_use:
@@ -1248,8 +1279,15 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	var cus11e_ov_use: Dictionary = _cus11e_stratagem_override(player, stratagem_id, target_unit_id)
 	if bool(cus11e_ov_use.get("applies", false)):
 		effective_cp_cost = maxi(0, effective_cp_cost + int(cus11e_ov_use.get("cost_delta", 0)))
-		diffs.append_array(_cus11e_det().enh().record_stratagem_override(cus11e_ov_use))
+		# (Codex: Space Marines (11e) Grimnar's Mark records through SWDetachments11e — WP-S2.)
+		diffs.append_array(_sw11e_det().record_stratagem_override(cus11e_ov_use) if bool(cus11e_ov_use.get("sw11e", false)) else _cus11e_det().enh().record_stratagem_override(cus11e_ov_use))
 		print("StratagemManager: %s — %s costs %d CP and does not count towards its once-per-phase limit" % [str(cus11e_ov_use.source), strat.name, effective_cp_cost])
+	# Codex: Space Marines (11e) Countercharge (The Great Wolf Watches): Heroic Intervention -1CP (WP-S2).
+	var sw11e_disc: Dictionary = _sw11e_cp_discount(player, stratagem_id, target_unit_id)
+	if not sw11e_disc.is_empty() and effective_cp_cost > 0:
+		effective_cp_cost = maxi(0, effective_cp_cost - int(sw11e_disc.get("discount", 0)))
+		diffs.append_array(_sw11e_det().record_cp_discount(sw11e_disc))
+		print("StratagemManager: %s — %s costs %d CP" % [str(sw11e_disc.source), strat.name, effective_cp_cost])
 
 	# Deduct CP
 	var current_cp = _get_player_cp(player)
@@ -1573,6 +1611,8 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 	offers = Ork11eDetachments.window_offers(player, window_id, wctx) + offers
 	# Codex: Adeptus Custodes (11e) detachment-rule / enhancement choices (WP-C46): free, listed first.
 	offers = _cus11e_det().window_offers(player, window_id, wctx) + offers
+	# Codex: Space Marines (11e) Space Wolves enhancement choices (Howlmaw — WP-S2): free, listed first.
+	offers = _sw11e_det().window_offers(player, window_id, wctx) + offers
 	print("StratagemManager: get_window_offers(P%d, %s) -> %d offer(s)%s" % [
 		player, window_id, offers.size(),
 		"" if offers.is_empty() else " " + str(offers.map(func(o): return o.name))])
@@ -4126,13 +4166,19 @@ func get_fire_overwatch_offer_targets_11e(player: int) -> Array:
 	print("StratagemManager: FIRE OVERWATCH offer rows for P%d: %s" % [player, str(rows.map(func(r): return "%s->%s" % [r.unit_id, str(r.secondary.options.map(func(o): return o.id))]))])
 	return rows
 
-func is_heroic_intervention_available(player: int) -> Dictionary:
+func is_heroic_intervention_available(player: int, unit_id: String = "") -> Dictionary:
 	"""
 	Check if Heroic Intervention stratagem is available for a player.
 	Returns { available: bool, reason: String }
 	"""
-	var validation = can_use_stratagem(player, "heroic_intervention")
+	var validation = can_use_stratagem(player, "heroic_intervention", unit_id)
 	if not validation.can_use:
+		# Codex: Space Marines (11e) Countercharge / Grimnar's Mark (WP-S2): a
+		# player short of the base CP may still afford it on a discounted unit.
+		if unit_id == "" and GameConstants.edition >= 11 and str(validation.reason).begins_with("Not enough CP"):
+			for row in get_heroic_intervention_eligible_units_11e(player):
+				if can_use_stratagem(player, "heroic_intervention", str(row.get("unit_id", ""))).can_use:
+					return {"available": true, "reason": ""}
 		return {"available": false, "reason": validation.reason}
 	return {"available": true, "reason": ""}
 

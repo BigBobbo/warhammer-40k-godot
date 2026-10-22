@@ -778,6 +778,11 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	if cus11e_cb > 0:
 		log_phase_message("Auric Eagle — +%d to the charge roll" % cus11e_cb)
 	charge_bonus += cus11e_cb
+	# Codex: Space Marines (11e) Encircling Jaws (Master of Wolves, assault doctrine): +1 to charge rolls (WP-S2).
+	var sw11e_cb: int = int(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").charge_roll_bonus(unit_for_charge_bonus)) if GameConstants.edition >= 11 else 0
+	if sw11e_cb > 0:
+		log_phase_message("Encircling Jaws (Master of Wolves) — +%d to the charge roll" % sw11e_cb)
+	charge_bonus += sw11e_cb
 	# WP-O6: Codex: Orks (11e) datasheet abilities — Trophy Hunters, Waaagh!
 	# Banner (+1 to charge rolls), Thundering Stampede aura (+1, BEAST SNAGGA).
 	if GameConstants.edition >= 11:
@@ -3358,6 +3363,10 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 	var cus11e_src: String = str(_cus11e_det().charge_reroll_source(unit_data))
 	if cus11e_src != "":
 		return cus11e_src
+	# Codex: Space Marines (11e) Preyslayer (Champions of Fenris enhancement, WP-S2).
+	var sw11e_src: String = str(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").charge_reroll_source(unit_data))
+	if sw11e_src != "":
+		return sw11e_src
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:

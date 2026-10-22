@@ -718,7 +718,11 @@ func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 		or faction_mgr.is_boss_watchin_waaagh_available(current_player)
 	var plant_eligible = faction_mgr.get_plant_waaagh_banner_eligible_units(current_player) if faction_mgr.has_method("get_plant_waaagh_banner_eligible_units") else []
 
-	if not has_oath and not has_waaagh and plant_eligible.size() == 0:
+	# Codex: Space Marines (11e) Space Wolves COMBAT DOCTRINES + Howling Onslaught (SWArmyRules11e.gd, WP-S2).
+	var sw11e_rules = load("res://scripts/codex/space_wolves/SWArmyRules11e.gd")
+	var has_sw11e: bool = sw11e_rules.show_command_ui(current_player)
+
+	if not has_oath and not has_waaagh and plant_eligible.size() == 0 and not has_sw11e:
 		return
 
 	_add_command_gold_separator(command_panel)
@@ -739,6 +743,12 @@ func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 	# --- Oath of Moment (Space Marines) ---
 	if has_oath:
 		_setup_oath_of_moment_subsection(section, faction_mgr, current_player)
+
+	# --- Combat Doctrines / Howling Onslaught (Codex: Space Marines 11e, Space Wolves — WP-S2) ---
+	if has_sw11e:
+		var sw11e_emit := func(a: Dictionary): emit_signal("command_action_requested", a)
+		sw11e_rules.build_command_ui(section, current_player, sw11e_emit)
+		load("res://scripts/codex/space_wolves/SWDetachments11e.gd").build_command_ui(section, current_player, sw11e_emit)
 
 func _setup_waaagh_subsection(section: VBoxContainer, faction_mgr, current_player: int) -> void:
 	"""Build the Waaagh! activation UI for Ork players."""

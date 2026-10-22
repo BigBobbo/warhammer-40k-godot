@@ -236,6 +236,11 @@ func get_unit_movement(unit: Dictionary) -> float:
 	if cus11e_mv > 0.0:
 		movement += cus11e_mv
 		DebugLogger.info(str("MovementPhase: Calistus (Solar Watch) — movement +%.0f\" for %s" % [cus11e_mv, unit.get("meta", {}).get("name", "?")]))
+	# Codex: Space Marines (11e) Wolf-Touched (Saga of the Beastslayer): "+2\" M" for the bearer's unit (WP-S2).
+	var sw11e_mv: float = float(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").move_bonus_inches(unit)) if GameConstants.edition >= 11 else 0.0
+	if sw11e_mv > 0.0:
+		movement += sw11e_mv
+		DebugLogger.info(str("MovementPhase: Wolf-Touched — movement +%.0f\" for %s" % [sw11e_mv, unit.get("meta", {}).get("name", "?")]))
 	# WP-O6: Codex: Orks (11e) datasheet abilities — Runnin' wiv da Herd (+4"),
 	# Madcap Artillery 'smashed' (-2").
 	if GameConstants.edition >= 11:
@@ -1421,6 +1426,14 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int, is_roll: bool = t
 		log_phase_message("Auric Eagle: %s advance roll %d %+d = %d" % [unit_id, ae_raw, cus11e_ab, advance_roll])
 		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
 			"type": "Auric Eagle", "roll": ae_raw, "result": "Advance roll %d %+d = %d" % [ae_raw, cus11e_ab, advance_roll]})
+	# Codex: Space Marines (11e) Encircling Jaws (Master of Wolves, assault doctrine): +1 to advance rolls (WP-S2).
+	var sw11e_ab: int = int(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").advance_roll_bonus(unit)) if (is_roll and GameConstants.edition >= 11) else 0
+	if sw11e_ab != 0:
+		var ej_raw := advance_roll
+		advance_roll += sw11e_ab
+		log_phase_message("Encircling Jaws: %s advance roll %d %+d = %d" % [unit_id, ej_raw, sw11e_ab, advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": "Encircling Jaws", "roll": ej_raw, "result": "Advance roll %d %+d = %d" % [ej_raw, sw11e_ab, advance_roll]})
 	# WP-O6 FUEL-MIXA GROT (Codex: Orks 11e, Deffkilla Wartrike): "+1 to advance rolls".
 	var o6_adv := OrkAbilities11eScript.advance_roll_bonus(unit_id) if (is_roll and GameConstants.edition >= 11) else 0
 	if o6_adv != 0:

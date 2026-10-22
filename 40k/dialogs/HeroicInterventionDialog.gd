@@ -154,17 +154,21 @@ func _build_ui() -> void:
 		unit_container.add_child(name_label)
 
 		if GameConstants.edition >= 11:
-			# 15.11 mode choice per unit
+			# 15.11 mode choice per unit. The per-unit cost includes codex
+			# discounts (Codex: Space Marines 11e Countercharge / Grimnar's Mark, WP-S2).
+			var row_cost: int = int(StratagemManager.preview_cp_cost(player, "heroic_intervention", str(unit_info.unit_id))) if StratagemManager.has_method("preview_cp_cost") else 1
+			if row_cost < 1:
+				name_label.tooltip_text = "Countercharge / Grimnar's Mark: this use costs %d CP" % row_cost
 			var leap_button = Button.new()
 			leap_button.name = "Leap_%s" % unit_info.unit_id
-			leap_button.text = "Leap to Defend (1 CP)"
+			leap_button.text = "Leap to Defend (%d CP)" % row_cost
 			leap_button.custom_minimum_size = Vector2(160, 30)
 			leap_button.pressed.connect(_on_use_pressed.bind(unit_info.unit_id, "leap_to_defend"))
 			unit_container.add_child(leap_button)
 
 			var fray_button = Button.new()
 			fray_button.name = "Fray_%s" % unit_info.unit_id
-			fray_button.text = "Into the Fray (1 CP)"
+			fray_button.text = "Into the Fray (%d CP)" % row_cost
 			fray_button.custom_minimum_size = Vector2(160, 30)
 			fray_button.pressed.connect(_on_use_pressed.bind(unit_info.unit_id, "into_the_fray"))
 			unit_container.add_child(fray_button)

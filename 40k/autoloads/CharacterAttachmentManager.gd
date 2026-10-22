@@ -21,7 +21,9 @@ func _ready() -> void:
 static func get_enhancement_can_lead_extras(character: Dictionary) -> Array:
 	if GameConstants.edition < 11:
 		return []
-	return load("res://scripts/codex/orks/OrkEnhancements11e.gd").leader_extras(character)
+	# + Codex: Space Marines (11e) Wolf-Touched: the bearer can lead Wulfen units (SWEnhancements11e, WP-S2).
+	return load("res://scripts/codex/orks/OrkEnhancements11e.gd").leader_extras(character) \
+		+ load("res://scripts/codex/space_wolves/SWEnhancements11e.gd").leader_extras(character)
 
 # Check if a character can attach to a bodyguard unit
 func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
@@ -87,6 +89,11 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 			break
 	if not has_match:
 		return {"valid": false, "reason": "Unit does not have a compatible keyword (%s)" % str(can_lead)}
+	# Codex: Space Marines (11e) Wolf-Touched leads Wulfen INFANTRY only (SWEnhancements11e, WP-S2).
+	if GameConstants.edition >= 11:
+		var sw11e_block: String = load("res://scripts/codex/space_wolves/SWEnhancements11e.gd").attach_block_reason(character, bodyguard)
+		if sw11e_block != "":
+			return {"valid": false, "reason": sw11e_block}
 
 	# Check same owner
 	if character.get("owner", 0) != bodyguard.get("owner", 0):
