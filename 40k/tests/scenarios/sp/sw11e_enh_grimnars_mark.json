@@ -1,0 +1,125 @@
+{
+  "id": "sw11e_enh_grimnars_mark",
+  "covers": [
+    "codex.space_wolves.enhancements.grimnars_mark",
+    "codex.space_wolves.SWEnhancements11e",
+    "autoloads.StratagemManager.stratagem_override",
+    "dialogs.HeroicInterventionDialog.row_cost",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Saga of the Great Wolf enhancement GRIMNAR'S MARK (WP-S2): (once per battle round, per army) RAPID INGRESS / HEROIC INTERVENTION on the bearer's unit regardless of other uses this phase; that use is -1CP and does not prevent uses on other units. Fixture sw11e_s2_wolves_active. Setup privileges: P1's detachment Saga of the Great Wolf only (so Champions of Fenris' Countercharge does not also apply), Grimnar's Mark read from Arjac Rockfist's meta.enhancements (the test army has no Captain in Terminator Armour — the effect reads the enhancement exactly as for a mustered bearer), the Orks' Charge phase with the Gretchin (charged this turn) ~3\" from Arjac, P1 at 1 CP. A real click ends the Orks' Charge phase: in the HEROIC INTERVENTION window Arjac's row reads 0 CP, the Grey Hunters' 1 CP. A real click on Arjac's Into the Fray: used for 0 CP, Grimnar's Mark is marked for this battle round and the Game Log names it.",
+  "fixture": "sw11e_s2_wolves_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privileges (see description)",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nGameState.state.factions[\"1\"][\"detachment\"] = \"Saga of the Great Wolf\"\nGameState.state.factions[\"1\"][\"detachments\"] = [\"Saga of the Great Wolf\"]\nGameState.state.units[\"U_ARJAC_ROCKFIST_A\"].meta[\"enhancements\"] = [\"Grimnar's Mark\"]\nGameState.set_active_player(2)\nPhaseManager.transition_to_phase(9)\nH.move_to(\"U_GRETCHIN_C\", 37.0, 44.0)\nGameState.state.units[\"U_GRETCHIN_C\"].flags[\"charged_this_turn\"] = true\nGameState.state.players[\"1\"][\"cp\"] = 1\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn int(GameState.get_current_phase())",
+      "equals": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return StratagemManager.preview_cp_cost(1, \"heroic_intervention\", \"U_ARJAC_ROCKFIST_A\")",
+      "equals": 0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true,
+      "comment": "End Charge Phase (the Orks' turn)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/HeroicInterventionDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_ARJAC_ROCKFIST_A/Fray_U_ARJAC_ROCKFIST_A\").text",
+      "equals": "Into the Fray (0 CP)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_GREY_HUNTERS_A/Fray_U_GREY_HUNTERS_A\").text",
+      "equals": "Into the Fray (1 CP)"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_hi_window_grimnars_mark_0cp"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_ARJAC_ROCKFIST_A/Fray_U_ARJAC_ROCKFIST_A",
+      "comment": "REAL click: Into the Fray with Arjac Rockfist"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_ARJAC_ROCKFIST_A.flags.sw11e_grimnars_mark_round",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Grimnar's Mark\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().heroic_intervention_unit_id",
+      "equals": "U_ARJAC_ROCKFIST_A"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_heroic_intervention_used_grimnars_mark"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sw11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    }
+  ]
+}

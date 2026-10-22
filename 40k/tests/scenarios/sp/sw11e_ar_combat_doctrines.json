@@ -1,0 +1,338 @@
+{
+  "id": "sw11e_ar_combat_doctrines",
+  "covers": [
+    "codex.space_wolves.army_rules.combat_doctrines",
+    "codex.space_wolves.SWArmyRules11e",
+    "codex.space_wolves.detachment.master_of_wolves.encircling_jaws",
+    "phases.CommandPhase.sw11e_doctrine",
+    "ui.CommandController.sw11e_doctrines",
+    "rules.effects.advance_and_charge",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Space Wolves COMBAT DOCTRINES (WP-S2). Fixture sw11e_s2_wolves_active (P1 Space Wolves active, Command phase of round 2; layout in tests/helpers/gen_sw11e_s2_fixtures.gd). (1) The Command panel shows the COMBAT DOCTRINES block with the three doctrines; a REAL click on ASSAULT DOCTRINE selects it: the block reads 'Active: Assault Doctrine', the other buttons are disabled for this Command phase, the Game Log names it and state.factions.1.sw11e_doctrine = assault. (2) A real click on End Command Phase. Movement phase: the Grey Hunters advance (the panel's Advance action; Command Re-roll kept) and move 3\" north (drag + Confirm Move): the advance roll gets Encircling Jaws +1 (Master of Wolves, assault doctrine). (3) Setup privilege: straight to the Charge phase, P2 at 0 CP (no Fire Overwatch). The charge panel lists the ADVANCED Grey Hunters (without the doctrine an advanced unit is not eligible); they are picked, the Gretchin targeted and Declare Charge accepted.",
+  "fixture": "sw11e_s2_wolves_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_devastator",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_tactical",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "scroll the doctrines block into view for the screenshot",
+      "script": "var b = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox\")\ntree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer\").ensure_control_visible(b)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_doctrines_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "comment": "REAL click on ASSAULT DOCTRINE"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "factions.1.sw11e_doctrine",
+      "equals": "assault"
+    },
+    {
+      "act": "expect_state",
+      "path": "factions.1.sw11e_doctrines_used.assault",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrineStatus\").text.begins_with(\"Active: Assault Doctrine\")",
+      "equals": true
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_devastator",
+      "property": "disabled",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Assault Doctrine active\")",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return load(\"res://scripts/codex/space_wolves/SWCommon.gd\").doctrine_active_id(\"U_GREY_HUNTERS_A\", \"assault\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox\")\ntree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer\").ensure_control_visible(b)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_assault_doctrine_selected"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/EndCommandPhaseButton",
+      "emit_pressed": true,
+      "comment": "End Command Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a command_phase_main / battle_shock_step_start window (not under test) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return GameState.get_current_phase() == 7",
+      "equals": true,
+      "timeout_s": 8.0,
+      "poll_s": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement_phase_start (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "equals": true,
+      "comment": "setup privilege: P2 0 CP (no Fire Overwatch / reactions, not under test)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_ADVANCE",
+        "actor_unit_id": "U_GREY_HUNTERS_A",
+        "player": 1
+      },
+      "comment": "the movement panel's Advance"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton",
+      "comment": "Command Re-roll (not under test): keep the roll"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the advance roll carries Encircling Jaws +1 (Master of Wolves, assault doctrine)",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nfor d in ph.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"type\", \"\")) == \"Encircling Jaws\":\n\t\tprint(\"[sw11e scen] \", d)\n\t\treturn true\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.move(\"U_GREY_HUNTERS_A\", 0.0, -3.0)",
+      "comment": "the advance move (drag + Confirm Move)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_GREY_HUNTERS_A.flags.advanced",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_grey_hunters_advanced"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privilege: straight to the Charge phase",
+      "script": "PhaseManager.transition_to_phase(9)\nreturn int(GameState.get_current_phase())",
+      "equals": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the charge panel lists the ADVANCED Grey Hunters",
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in range(cc.unit_selector.get_item_count()):\n\tout.append(str(cc.unit_selector.get_item_metadata(i)))\nprint(\"[sw11e scen] charge list: \", out)\nreturn out.find(\"U_GREY_HUNTERS_A\")",
+      "expect_min": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the Grey Hunters are row 1 of the charge panel",
+      "script": "return str(tree.root.get_node(\"Main\").charge_controller.unit_selector.get_item_metadata(1))",
+      "equals": "U_GREY_HUNTERS_A"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 1,
+      "comment": "REAL click on the Grey Hunters row of the charge panel"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_GREY_HUNTERS_A"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "04_advanced_unit_can_charge"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_charges.has(\"U_GREY_HUNTERS_A\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05_charge_declared_after_advance"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sw11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    }
+  ]
+}

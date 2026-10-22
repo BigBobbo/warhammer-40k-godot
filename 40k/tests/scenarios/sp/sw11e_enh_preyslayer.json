@@ -1,0 +1,155 @@
+{
+  "id": "sw11e_enh_preyslayer",
+  "covers": [
+    "codex.space_wolves.enhancements.preyslayer",
+    "codex.space_wolves.SWEnhancements11e",
+    "rules.charge.ability_reroll.preyslayer",
+    "dialogs.CommandRerollDialog.free_ability_mode",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Champions of Fenris enhancement PREYSLAYER (WP-S2): the bearer's unit can re-roll charge rolls. Fixture sw11e_s2_wolves_active (Arjac Rockfist carries Preyslayer). Setup privileges: straight to the Charge phase (P1 active), CP 0 for both, the Gretchin placed ~9\" north of Arjac. The charge panel lists Arjac; a real click picks him, the Gretchin are targeted, Declare Charge, Roll Charge (seeded): the re-roll dialog offers a FREE re-roll branded PREYSLAYER; a real click on Re-roll re-rolls the 2D6 without spending CP.",
+  "fixture": "sw11e_s2_wolves_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privileges (see description)",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nH.move_to(\"U_GRETCHIN_C\", 38.0, 38.5)\nPhaseManager.transition_to_phase(9)\nreturn load(\"res://scripts/codex/space_wolves/SWDetachments11e.gd\").charge_reroll_source(GameState.state.units[\"U_ARJAC_ROCKFIST_A\"])",
+      "equals": "Preyslayer"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the charge panel's unit list (index of Arjac Rockfist)",
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in range(cc.unit_selector.get_item_count()):\n\tout.append(str(cc.unit_selector.get_item_metadata(i)))\nprint(\"[sw11e preyslayer] charge list: \", out)\nreturn out.find(\"U_ARJAC_ROCKFIST_A\")",
+      "equals": 0
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_ARJAC_ROCKFIST_A"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(4)",
+      "comment": "deterministic dice for the charge roll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CommandRerollDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t: String = tree.root.get_node(\"CommandRerollDialog\").find_child(\"HeaderLabel\", true, false).text\nprint(\"[sw11e preyslayer] reroll header: \", t)\nreturn t.contains(\"PREYSLAYER\") and t.contains(\"FREE RE-ROLL\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_free_charge_reroll_preyslayer"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/UseRerollButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().ability_reroll_used",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_charge_rerolled_no_cp"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sw11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    }
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "id": "sw11e_enh_howlmaw",
+  "covers": [
+    "codex.space_wolves.enhancements.howlmaw",
+    "codex.space_wolves.SWEnhancements11e",
+    "stratagem.window.fight_phase_start",
+    "dialogs.StratagemDialog.rule_card",
+    "dialogs.StratagemTargetDialog",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Saga of the Great Wolf enhancement HOWLMAW (WP-S2): (once per turn, per unit) at the start of the Fight phase, select one enemy unit within 6\" of the Wolf Priest; it makes a battle-shock roll with -1. Fixture sw11e_s2_wolves_active (the Wolf Priest carries Howlmaw and is engaged with the Meganobz); the scenario enters the Fight phase (P1 active); setup privileges: CP 0 for both players. The fight_phase_start window shows the free HOWLMAW card; a real click on Use opens the target picker listing the Meganobz (within 6\"); a real click picks them: no CP is spent, the Meganobz make a battle-shock roll at -1 (dice + verdict in the Game Log), and the Wolf Priest is marked as having used it this turn.",
+  "fixture": "sw11e_s2_wolves_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privileges (see description)",
+      "script": "GameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")",
+      "equals": "fight_phase_start"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_rule_enh_howlmaw/Buttons/Use_sw11e_rule_enh_howlmaw_U_WOLF_PRIEST_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_howlmaw_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_rule_enh_howlmaw/Buttons/Use_sw11e_rule_enh_howlmaw_U_WOLF_PRIEST_A",
+      "comment": "REAL click on Use"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_MEGANOBZ_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_GRETCHIN_C\") == null",
+      "equals": true,
+      "comment": "the Gretchin are not within 6\""
+    },
+    {
+      "act": "screenshot",
+      "label": "02_howlmaw_target_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_MEGANOBZ_A",
+      "comment": "REAL click: the Meganobz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the Meganobz' battle-shock roll at -1 is logged",
+      "script": "var n = ScenarioRunner.event_log_count_containing(\"HOWLMAW\")\nvar f = GameState.state.units[\"U_WOLF_PRIEST_A\"].flags.get(\"sw11e_howlmaw_turn\", \"\")\nprint(\"[sw11e howlmaw] events=\", n, \" stamp=\", f, \" shocked=\", GameState.state.units[\"U_MEGANOBZ_A\"].flags.get(\"battle_shocked\", false))\nreturn n >= 1 and f == \"2:1\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"-1 =\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "03_howlmaw_battle_shock_roll_logged"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sw11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    }
+  ]
+}

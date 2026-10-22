@@ -183,6 +183,12 @@ func _build_ui() -> void:
 		unit_list.add_child(unit_container)
 
 	scroll.add_child(unit_list)
+	# Codex discounts (Countercharge / Grimnar's Mark, WP-S2): say so in the cost line.
+	if GameConstants.edition >= 11 and StratagemManager.has_method("preview_cp_cost"):
+		for unit_info in eligible_units:
+			if int(StratagemManager.preview_cp_cost(player, "heroic_intervention", str(unit_info.unit_id))) < hi_cost:
+				cp_label.text += " — less for some units: see each button"
+				break
 	main_container.add_child(scroll)
 
 	main_container.add_child(HSeparator.new())
