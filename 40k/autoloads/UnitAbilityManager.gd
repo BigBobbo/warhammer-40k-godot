@@ -155,6 +155,364 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# WP-S4: Codex: Space Marines (11e) — Space Wolves datasheet / wargear
+	# abilities. The rules live in scripts/codex/space_wolves/SWAbilities11e.gd;
+	# these rows only describe them (condition "sw11e" is never evaluated here).
+	# ======================================================================
+	"High King of Fenris": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle round, in your Movement phase: a friendly SPACE WOLVES unit in strategic reserves ingresses as if the battle round were one higher (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Guile of the Wolf": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "At the start of each phase, the assault, devastator and tactical doctrines are active for this unit (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Battle-lust": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "If this unit made a charge move this turn, this model's melee attacks have +2 A (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"War Howl": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Leading Blood Claws: melee +1 S and [SUSTAINED HITS 1]; leading Wolf Guard Headtakers: advance and still charge (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Wind Walker": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit's ranged attacks have [ASSAULT]; its advance rolls can be changed to a 6 (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"High Rune Priest": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psyker level 3 (Librarius): Murderous Hurricane, Storm Caller, Tempest's Wrath (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Murderous Hurricane": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 1, your Movement phase: a visible enemy unit within 12\" cannot make snap-shooting attacks this turn (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Storm Caller": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 1, when an enemy unit targets this unit: -3\" detection range until the end of the phase (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Tempest's Wrath": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 1, your Shooting phase: a visible enemy unit within 18\" is suppressed (-1 to hit) until the start of your next turn (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Slayer's Oath": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Start of the first battle round: an enemy CHARACTER/MONSTER/VEHICLE unit becomes the slayer's oath \u2014 attacks against it ignore BS/WS and hit-roll modifiers (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Oathbound": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Melee attacks +1 to hit; +1 to hit and wound against the slayer's oath (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Legendary Tenacity": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target this unit with S greater than its T have -1 to wound (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Ancient Tactician": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per turn, per army: a stratagem that targets this unit is -1 CP (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Berserk Charge": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit can advance and still declare a charge (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Old Greymanes": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Declare Battle Formations: split this unit into two units, as equal as possible (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Cunning Hunters": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Fight phase, within range of an objective: melee +1 S and +1 AP (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Gift of the Iron Wolf": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Movement phase, start or end of this unit's move: a friendly SPACE WOLVES VEHICLE model within 3\" heals D3 and ignores hit/wound modifiers until your next Movement phase (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Iron Priest": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While within 3\" of a friendly SPACE WOLVES VEHICLE unit, this model has Lone Operative (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Judgement of the Omnissiah": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This model's attacks that target an enemy unit engaged with a friendly SPACE WOLVES VEHICLE can re-roll wound rolls (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Savage Frenzy": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Engaged enemy units (not MONSTER/VEHICLE) must fall back with desperate escape (-1 to hazard rolls if battle-shocked) (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Death Totem": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit's melee attacks can re-roll hit rolls of 1 (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Murder-maker": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Fight phase: a friendly WULFEN model within 6\" that is destroyed before its unit fought stays on a 4+ until its unit has fought (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Bestial Fury": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit can re-roll advance rolls and charge rolls (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Force of Untamed Destruction": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This model cannot be your WARLORD (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Champion of the Kingsguard": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This model's attacks that target a CHARACTER unit re-roll hit rolls of 1 and wound rolls of 1 (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Anvil of Endurance": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Fight phase: a model of this unit destroyed before it fought stays on a 4+ until the unit has fought (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Rugged Resilience": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target this unit with S greater than its T have -1 to wound (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Storm Shield": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Wolf Guard Terminators / Battle Leader: the bearer has +1 W; Thunderwolf Cavalry / Headtakers: the bearer has a 4+ invulnerable save (applied at army load) (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Thunderous Charge": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "If this unit made a charge move this turn, its melee attacks have +1 S and +1 D (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Predatory Instinct": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle round, opponent's Movement phase: an enemy unit ends a move within 8\" \u2014 normal move of up to D6\" (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Hunting Hounds": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Within 6\" of a friendly SPACE WOLVES CHARACTER (not WULFEN), not battle-shocked: +1 OC (Hunting Wolf models) (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Fervour of the Ancients": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Friendly SPACE WOLVES units within 6\" have +1 to advance rolls and charge rolls (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Blizzard Shield": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This model has a 4+ invulnerable save (applied at army load) (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Healing Balms": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "In your Command phase, this unit heals D3+1 wounds (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Litany of Hate": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit's melee attacks have [LANCE] (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Tempered Ferocity": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit's attacks have [SUSTAINED HITS 1]; re-roll hit rolls of 1 against an enemy unit within 6\" (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Heroic Last Stand": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Fight phase: this model destroyed before its unit fought stays on a 2+ until the unit has fought (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Headhunters": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Start of the first battle round (and when it is destroyed): select a quarry \u2014 attacks against it have [DEVASTATING WOUNDS] and [PRECISION] (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Let Loose the Wolves": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Declare Battle Formations: split into a Wolf Guard Headtakers unit and a Hunting Wolves unit (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Hammer Blow": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Fight phase, when this unit has fought: an enemy MONSTER/VEHICLE unit it hit is suppressed (-1 to hit) until the start of your next turn (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Violent Fury": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Equipped with two melee weapons: this unit's melee attacks have [TWIN-LINKED] (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Bestial Rage": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Opponent's Shooting phase, after an enemy unit shot and this unit lost a wound: surge move of up to D6+1\" (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Deadly Stalkers": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target an enemy unit more than 6\" from any other enemy unit have +1 to wound (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+	"Haywire Mine": {
+		"condition": "sw11e",  # WP-S4: Space Wolves (11e) rule lives in SWAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle, your Shooting phase: a visible enemy unit within 6\" \u2014 D6 2+: D3 mortal wounds (2D3 vs a VEHICLE) (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
+	},
+
+	# ======================================================================
 	# ALWAYS-ON UNIT ABILITIES
 	# ======================================================================
 

@@ -76,6 +76,9 @@ func enter_phase(state_snapshot: Dictionary) -> void:
 	# CustodesAbilities.gd, WP-C7): queued as event windows BEFORE the phase's
 	# own start rules, so the first window the phase opens resolves them first.
 	_ev_deferred.append_array(_cus11e_abilities().phase_start_entries(int(phase_type)))
+	# WP-S4: Space Wolves start-of-phase ability cards (Slayer's Oath, Headhunters,
+	# Healing Balms, High King of Fenris, Njal's psychic powers, Haywire Mine).
+	_ev_deferred.append_array(_sw11e_abilities().phase_start_entries(int(phase_type), _ev_deferred))
 	_on_phase_enter()
 	# (A phase that ended inside its own entry does not carry them over.)
 	var pm_now = get_node_or_null("/root/PhaseManager")
@@ -491,6 +494,11 @@ static func _cus11e_codex():
 ## the phase_start window and the phases' passive hooks. Loaded lazily.
 static func _cus11e_abilities():
 	return load("res://scripts/codex/custodes/CustodesAbilities.gd")
+
+## Codex: Space Marines (11e) Space Wolves datasheet abilities (WP-S4,
+## SWAbilities11e.gd): the phase_start cards and the phases' passive hooks.
+static func _sw11e_abilities():
+	return load("res://scripts/codex/space_wolves/SWAbilities11e.gd")
 
 ## Codex: Adeptus Custodes SUPERHUMAN FOCUS (WP-C5, CustodesCodex11e.gd): the
 ## phase_end window ("End of any phase", both players, active first). Called by

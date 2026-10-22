@@ -1,0 +1,177 @@
+{
+  "id": "sw11e_ab_command_cards",
+  "covers": [
+    "codex.space_wolves.datasheet_abilities.healing_balms",
+    "codex.space_wolves.datasheet_abilities.hunting_hounds",
+    "scripts.codex.space_wolves.SWAbilities11e",
+    "stratagem.window.phase_start",
+    "autoloads.MissionManager"
+  ],
+  "description": "WP-S4 Space Wolves HEALING BALMS (Wolf Priest) and HUNTING HOUNDS (Fenrisian Wolves). Fixture sw11e_s4_command (P1 Space Wolves' Command phase, round 2): the Wolf Priest leads Blood Claws that lost 2 models and a wound; Fenrisian Wolves (printed OC 0) stand alone on the centre objective with a Wolf Guard Battle Leader 4\" away. Entering the Command phase opens P1's phase_start window with the Healing Balms card; a real click heals D3+1 (the wounded Blood Claw first, then destroyed models return with 1 W). Hunting Hounds: each Fenrisian Wolf has OC 1, so they control the centre objective (objective panel); with the Battle Leader moved away (setup privilege) their OC is 0 and the objective is uncontrolled.",
+  "fixture": "sw11e_s4_command",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "sw_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor gid in [\"U_BLOOD_CLAWS_A\", \"U_WOLF_PRIEST_A\"]:\n\tfor m in GameState.get_unit(gid).models:\n\t\tif m.get(\"alive\", true):\n\t\t\tn += int(m.current_wounds)\nprint(\"[sw11e-s4] healing balms: wounds before = \", n)\nreturn n",
+      "multiline": true,
+      "comment": "the Wolf Priest's unit starts with 2 Blood Claws destroyed and one on 1 W (8x2 - 1 + Wolf Priest 4 = 19)",
+      "equals": 19
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_healing_balms",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_healing_balms\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_healing_balms_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_healing_balms/Buttons/Use_sw11e_ab_healing_balms_U_BLOOD_CLAWS_A",
+      "comment": "real click: Healing Balms"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nvar alive := 0\nfor gid in [\"U_BLOOD_CLAWS_A\", \"U_WOLF_PRIEST_A\"]:\n\tfor m in GameState.get_unit(gid).models:\n\t\tif m.get(\"alive\", true):\n\t\t\tn += int(m.current_wounds)\n\t\t\talive += 1\nprint(\"[sw11e-s4] healing balms: wounds after = \", n, \" alive models \", alive)\nreturn n - 19 >= 2 and n - 19 <= 4",
+      "multiline": true,
+      "comment": "D3+1 wounds healed: the wounded Blood Claw first, then destroyed models return with 1 W",
+      "equals": true
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Healing Balms: Blood Claws Alpha + Wolf Priest heals D3+1\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "comment": "the secondary-mission review (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_healing_balms_resolved"
+    },
+    {
+      "act": "execute_script",
+      "script": "var SW = load(\"res://scripts/codex/space_wolves/SWAbilities11e.gd\")\nreturn SW.hunting_hounds_active(GameState.get_unit(\"U_FENRISIAN_WOLVES_A\"))",
+      "multiline": true,
+      "comment": "the Fenrisian Wolves are within 6\" of a friendly SPACE WOLVES CHARACTER (the Battle Leader)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.get_unit(\"U_FENRISIAN_WOLVES_A\")\nreturn MissionManager.model_oc(u, u.models[0])",
+      "multiline": true,
+      "comment": "Hunting Hounds: each Fenrisian Wolf has OC 1 (printed OC 0)",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.check_all_objectives(false)\nMissionManager.refresh_objective_control_display()\nreturn int(MissionManager.objective_control_state.get(\"obj_center\", 0))",
+      "multiline": true,
+      "comment": "the Fenrisian Wolves alone control the centre objective",
+      "equals": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "03_hunting_hounds_control_centre"
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.get_unit(\"U_WOLF_GUARD_BATTLE_LEADER_A\")\nfor m in u.models:\n\tm.position = {\"x\": 40.0 * 40.0, \"y\": 55.0 * 40.0}\nvar w = GameState.get_unit(\"U_FENRISIAN_WOLVES_A\")\nMissionManager.check_all_objectives(false)\nMissionManager.refresh_objective_control_display()\nreturn \"%d,%d\" % [MissionManager.model_oc(w, w.models[0]), int(MissionManager.objective_control_state.get(\"obj_center\", 0))]",
+      "multiline": true,
+      "comment": "setup privilege: the Battle Leader moved far away — the wolves' OC drops to 0 and the objective is no longer controlled",
+      "equals": "0,0"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "04_without_hunting_hounds"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sw11e-s4] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

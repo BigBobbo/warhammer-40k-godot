@@ -44,6 +44,10 @@ const OrkAbilities = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 # WP-C7: Codex: Adeptus Custodes (11e) datasheet abilities — the same window
 # pattern ("cus11e_ab_*" ids), plus SWIFT RUIN's Rapid Ingress exemption.
 const CustodesAbilities = preload("res://scripts/codex/custodes/CustodesAbilities.gd")
+# WP-S4: Codex: Space Marines (11e) Space Wolves datasheet abilities — the same
+# window pattern ("sw11e_ab_*" ids), plus ANCIENT TACTICIAN's -1 CP and the
+# MURDEROUS HURRICANE snap-shooting ban.
+const SWAbilities = preload("res://scripts/codex/space_wolves/SWAbilities11e.gd")
 # Codex: Orks (11e) army / detachment rule choices (WP-O34): free rule offers
 # that ride the window framework (get_window_offers / use_stratagem hooks).
 const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
@@ -127,6 +131,9 @@ const WINDOW_WHEN_TEXT: Dictionary = {
 	# "At the start of any phase" (Moment Shackle, Neutronium Cascade Mine,
 	# Sword of the Throne).
 	"phase_start": "a phase starts",
+	# Codex: Space Marines (11e) Space Wolves datasheet abilities (WP-S4,
+	# SWAbilities11e.gd): "when this unit has fought" (Hammer Blow).
+	"unit_has_fought": "one of your units has fought",
 }
 
 # 11e CORE stratagems offered through a stratagem window (design §3), keyed by
@@ -902,6 +909,9 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	Check if a player can use a specific stratagem right now.
 	Returns { "can_use": bool, "reason": String }
 	"""
+	# WP-S4: a Space Wolves datasheet-ability card (no stratagem row) — e.g. STORM CALLER in the reactive dialog.
+	if SWAbilities.handles_id(stratagem_id):
+		return SWAbilities.can_use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
 	if not stratagems.has(stratagem_id):
 		return {"can_use": false, "reason": "Unknown stratagem: %s" % stratagem_id}
@@ -947,6 +957,9 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# WP-O6 TRAMPLASQUIG CHARGE (Codex: Orks 11e, Hunta Rig): Crushing Impact -1 CP.
 	if target_unit_id != "" and effective_cost > 0:
 		effective_cost = maxi(effective_cost - OrkAbilities.stratagem_cp_discount(str(strat.get("name", "")), target_unit_id), 0)
+	# WP-S4 ANCIENT TACTICIAN (Space Wolves, Bjorn; once per turn, per army): -1 CP on this unit.
+	if target_unit_id != "" and effective_cost > 0:
+		effective_cost = maxi(effective_cost - SWAbilities.stratagem_cp_discount(player, target_unit_id), 0)
 	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus with Lord of Deceit aura
 	if target_unit_id != "":
 		effective_cost += get_lord_of_deceit_cp_increase(player, target_unit_id)
@@ -1248,6 +1261,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# WP-C7: a Codex: Adeptus Custodes datasheet ability offered in a window (0 CP).
 	if CustodesAbilities.handles_id(stratagem_id):
 		return CustodesAbilities.use(player, stratagem_id, target_unit_id, context)
+	# WP-S4: a Space Wolves datasheet ability offered in a window (0 CP).
+	if SWAbilities.handles_id(stratagem_id):
+		return SWAbilities.use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
 	# Codex: Orks (11e) rule choice offered in a window (WP-O34): no CP, no stratagem bookkeeping.
 	if Ork11eDetachments.is_rule_offer_id(stratagem_id):
@@ -1279,6 +1295,10 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		if tsc_disc > 0:
 			effective_cp_cost = maxi(effective_cp_cost - tsc_disc, 0)
 			print("StratagemManager: Tramplasquig Charge reduces CP cost of %s by %d (now %d)" % [strat.name, tsc_disc, effective_cp_cost])
+	# WP-S4 ANCIENT TACTICIAN (Space Wolves, Bjorn; once per turn, per army): -1 CP on this unit.
+	if target_unit_id != "" and effective_cp_cost > 0 and SWAbilities.stratagem_cp_discount(player, target_unit_id) > 0:
+		effective_cp_cost = maxi(effective_cp_cost - 1, 0)
+		SWAbilities.record_cp_discount(player, target_unit_id, str(strat.get("name", stratagem_id)))
 	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus
 	var lord_of_deceit_increase = 0
 	if target_unit_id != "":
@@ -1640,6 +1660,7 @@ func get_all_window_offers(player: int, window_id: String, ctx: Dictionary = {})
 	wctx["window_id"] = window_id
 	var abil: Array = OrkAbilities.window_offers(player, window_id, wctx)
 	abil.append_array(CustodesAbilities.window_offers(player, window_id, wctx))  # WP-C7: Codex: Adeptus Custodes datasheet abilities
+	abil.append_array(SWAbilities.window_offers(player, window_id, wctx))  # WP-S4: Space Wolves datasheet abilities
 	if not abil.is_empty():
 		print("StratagemManager: get_all_window_offers(P%d, %s) + %d datasheet ability offer(s) %s" % [
 			player, window_id, abil.size(), str(abil.map(func(o): return o.name))])
@@ -4111,6 +4132,10 @@ func fire_overwatch_shooter_reason_11e(player: int, unit_id: String, board: Dict
 	# only on the 10e per-move path (get_fire_overwatch_eligible_units).
 	if OrkAbilities.blocks_fire_overwatch(unit_id):
 		return "Drive-by Skorchin': cannot be targeted with FIRE OVERWATCH this turn"
+	# WP-S4 MURDEROUS HURRICANE (Space Wolves, Njal): that unit cannot make snap-shooting attacks.
+	var sw_snap := SWAbilities.snap_shooting_block_reason(unit_id)
+	if sw_snap != "":
+		return sw_snap
 	var status := int(unit.get("status", GameStateData.UnitStatus.DEPLOYED))
 	if status in [GameStateData.UnitStatus.UNDEPLOYED, GameStateData.UnitStatus.DEPLOYING, GameStateData.UnitStatus.IN_RESERVES]:
 		return "the unit is not on the battlefield"
@@ -4512,7 +4537,10 @@ func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids
 	var wctx: Dictionary = window_ctx.duplicate(true)
 	wctx["phase"] = "shooting"
 	wctx["target_unit_ids"] = target_unit_ids.duplicate()
-	for offer in get_window_offers(defending_player, "enemy_targets_unit_shooting", wctx):
+	var sw_wctx: Dictionary = wctx.duplicate(true)
+	sw_wctx["window_id"] = "enemy_targets_unit_shooting"
+	# WP-S4: + the Space Wolves STORM CALLER card (a free psychic ability).
+	for offer in get_window_offers(defending_player, "enemy_targets_unit_shooting", wctx) + SWAbilities.window_offers(defending_player, "enemy_targets_unit_shooting", sw_wctx):
 		var w_units: Array = []
 		for t in offer.get("targets", []):
 			w_units.append(str(t.get("unit_id", "")))

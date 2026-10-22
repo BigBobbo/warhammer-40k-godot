@@ -1,0 +1,181 @@
+{
+  "id": "sw11e_ab_shooting_cards",
+  "covers": [
+    "codex.space_wolves.datasheet_abilities.tempests_wrath",
+    "codex.space_wolves.datasheet_abilities.haywire_mine",
+    "codex.space_wolves.librarius",
+    "scripts.codex.space_wolves.SWAbilities11e",
+    "stratagem.window.phase_start",
+    "dialogs.StratagemTargetDialog"
+  ],
+  "description": "WP-S4 Space Wolves Shooting-phase abilities through the real phase_start window. Fixture sw11e_s4_shoot (P1 Space Wolves, round 2): Njal Stormcaller leads Grey Hunters (Gretchin ~14\" away); the Wolf Scouts that took the Haywire Mine stand 4\" from Ork Boyz. TEMPEST'S WRATH (psychic level 1): real click + pick of the Gretchin — psychic roll logged, the Gretchin are suppressed (-1 to hit until the start of P1's next turn). HAYWIRE MINE (once per battle): real click, the picker lists only enemies within 6\" (Boyz, not Gretchin), a real pick rolls the D6 (2+: D3 mortal wounds) and marks the once-per-battle ledger. No CP spent.",
+  "fixture": "sw11e_s4_shoot",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "sw_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_tempests_wrath",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_haywire_mine",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shooting_phase_start_cards"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_tempests_wrath/Buttons/Use_sw11e_ab_tempests_wrath_U_GREY_HUNTERS_A",
+      "comment": "real click: Tempest's Wrath"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_GRETCHIN_C",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_GRETCHIN_C",
+      "comment": "real click: the Gretchin (within 18\", visible)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_GRETCHIN_C\").flags.get(\"sw11e_ab_suppressed\", {}).get(\"source\", \"\")",
+      "comment": "suppressed until the start of P1's next turn",
+      "equals": "Tempest's Wrath"
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_GRETCHIN_C\"), GameState.get_unit(\"U_GREY_HUNTERS_A\"), {\"name\": \"x\", \"type\": \"Ranged\"}, false, GameState.state)\nreturn bool(m.get(\"hit_minus\", false))",
+      "multiline": true,
+      "comment": "a suppressed unit's attacks have -1 to hit",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Tempest's Wrath (Njal Stormcaller): psychic roll\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_haywire_mine",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_haywire_mine/Buttons/Use_sw11e_ab_haywire_mine_U_WOLF_SCOUTS_B",
+      "comment": "real click: Haywire Mine"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_GRETCHIN_C\") == null",
+      "comment": "only enemy units within 6\"",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_haywire_mine_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "comment": "real click: the Boyz 4\" away"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "UnitAbilityManager.is_once_per_battle_used(\"U_WOLF_SCOUTS_B\", \"Haywire Mine\")",
+      "comment": "once per battle: ledger marked",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Haywire Mine: \")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "03_tempest_and_mine_resolved_log"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sw11e-s4] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

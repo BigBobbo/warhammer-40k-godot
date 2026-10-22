@@ -646,6 +646,12 @@ static func _sw11e_codex():
 	if _sw11e_codex_script == null:
 		_sw11e_codex_script = load("res://scripts/codex/space_wolves/SWCodex11e.gd")
 	return _sw11e_codex_script
+## WP-S4: Codex: Space Marines (11e) Space Wolves datasheet abilities (late-loaded, as above).
+static var _sw11e_ab_script = null
+static func _sw11e_abilities():
+	if _sw11e_ab_script == null:
+		_sw11e_ab_script = load("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+	return _sw11e_ab_script
 
 static func get_effect_invuln_source(unit: Dictionary) -> String:
 	"""Get the source name of the effect-granted invulnerable save (empty if none)."""
@@ -826,7 +832,8 @@ static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
 		or (GameConstants.edition >= 11 and _cus11e_det().advance_allows_charge(unit)) \
 		or _cus11e_grants(unit, "advance_and_charge") \
 		or _cus11e_abilities().advance_allows_charge(unit) \
-		or (GameConstants.edition >= 11 and _sw11e_rules().advance_allows_charge(unit))  # WP-C7: Assault Dropship; Codex: Space Marines (11e) ASSAULT DOCTRINE (WP-S2)
+		or (GameConstants.edition >= 11 and _sw11e_rules().advance_allows_charge(unit)) \
+		or _sw11e_abilities().advance_allows_charge(unit)  # WP-C7: Assault Dropship; Codex: Space Marines (11e) ASSAULT DOCTRINE (WP-S2); WP-S4: Berserk Charge / War Howl
 
 static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and shoot eligibility."""
@@ -835,7 +842,8 @@ static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false) \
 		or (GameConstants.edition >= 11 and _ork11e_det().ranged_attacks_have_assault(unit)) \
 		or _cus11e_grants(unit, "advance_and_shoot") \
-		or (GameConstants.edition >= 11 and _sw11e_rules().ranged_attacks_have_assault(unit))  # Codex: Space Marines (11e) DEVASTATOR DOCTRINE: ranged [ASSAULT] (WP-S2)
+		or (GameConstants.edition >= 11 and _sw11e_rules().ranged_attacks_have_assault(unit)) \
+		or _sw11e_abilities().ranged_attacks_have_assault(unit)  # Codex: Space Marines (11e) DEVASTATOR DOCTRINE (WP-S2); WP-S4: Wind Walker [ASSAULT]
 
 ## Codex: Space Marines (11e) Space Wolves army rules (Combat Doctrines, WP-S2),
 ## loaded on first use like the codex modules below.
@@ -872,12 +880,14 @@ static func _cus11e_grants(unit: Dictionary, what: String) -> bool:
 static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll."""
 	# WP-C7: + Codex: Adeptus Custodes (11e) Swift Onslaught / Seeker's Instincts.
-	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false) or _cus11e_abilities().charge_reroll_source(unit) != ""
+	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false) or _cus11e_abilities().charge_reroll_source(unit) != "" \
+		or _sw11e_abilities().reroll_source(unit) != ""  # WP-S4: Bestial Fury (Space Wolves)
 
 static func has_effect_reroll_advance(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted Advance re-roll (Bloodthirsty Belligerence, Superfuelled Boiler)."""
 	# WP-C7: + Codex: Adeptus Custodes (11e) Swift Onslaught / Seeker's Instincts.
-	return unit.get("flags", {}).get(FLAG_REROLL_ADVANCE, false) or _cus11e_abilities().advance_reroll_source(unit) != ""
+	return unit.get("flags", {}).get(FLAG_REROLL_ADVANCE, false) or _cus11e_abilities().advance_reroll_source(unit) != "" \
+		or _sw11e_abilities().reroll_source(unit) != ""  # WP-S4: Bestial Fury (Space Wolves)
 
 static func has_effect_counts_as_10(unit: Dictionary) -> bool:
 	"""Green Tide: unit counts as containing 10+ models (Raucous Warcaller, Braggin' Rights)."""

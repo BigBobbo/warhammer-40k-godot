@@ -112,6 +112,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_undeclare_reserves(action)
 		"DESIGNATE_WARLORD":
 			return _validate_designate_warlord(action)
+		"SW11E_SPLIT_UNIT":
+			return _validate_sw11e_split_unit(action)  # WP-S4 Old Greymanes / Let Loose the Wolves
 		"CONFIRM_FORMATIONS":
 			return _validate_confirm_formations(action)
 		"END_FORMATIONS":
@@ -139,6 +141,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_undeclare_reserves(action)
 		"DESIGNATE_WARLORD":
 			return _process_designate_warlord(action)
+		"SW11E_SPLIT_UNIT":
+			return _process_sw11e_split_unit(action)  # WP-S4 Old Greymanes / Let Loose the Wolves
 		"CONFIRM_FORMATIONS":
 			return _process_confirm_formations(action)
 		"END_FORMATIONS":
@@ -555,6 +559,29 @@ func _find_supreme_commander_unit(player: int) -> String:
 				return uid
 	return ""
 
+## WP-S4: Space Wolves OLD GREYMANES (Grey Hunters) / LET LOOSE THE WOLVES
+## (Wolf Guard Headtakers) — split the unit in this step (SWAbilities11e.gd).
+func _validate_sw11e_split_unit(action: Dictionary) -> Dictionary:
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
+	if _is_player_confirmed(player):
+		return {"valid": false, "errors": ["Cannot modify formations after confirming"]}
+	var reason := str(_sw11e_abilities().split_block_reason(str(action.get("unit_id", "")), player,
+		player_formations.get(player, {}).get("leader_attachments", {})))
+	if reason != "":
+		return {"valid": false, "errors": [reason]}
+	return {"valid": true, "errors": []}
+
+func _process_sw11e_split_unit(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("unit_id", ""))
+	var res: Dictionary = _sw11e_abilities().split_diffs(unit_id)
+	if res.has("error"):
+		return create_result(false, [], str(res.error))
+	log_phase_message(str(res.get("log", "")))
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(int(action.get("player", get_current_player())), str(res.get("log", "")))
+	return create_result(true, res.get("diffs", []))
+
 func _validate_confirm_formations(action: Dictionary) -> Dictionary:
 	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 
@@ -779,6 +806,10 @@ func _player_has_declaration_options(player: int) -> bool:
 	# Check for transports
 	var transports = GameState.get_transports_for_player(player)
 	if transports.size() > 0:
+		return true
+
+	# WP-S4: Space Wolves unit splits (Old Greymanes / Let Loose the Wolves).
+	if not _sw11e_abilities().splittable_units(player).is_empty():
 		return true
 
 	# Check for units that could go into reserves (any unit can go into strategic reserves)
@@ -1025,7 +1056,11 @@ func _cus11e_warlord_block_reason(unit_id: String, player: int) -> String:
 	var katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
 	var u: Dictionary = get_unit(unit_id).duplicate()
 	u["id"] = unit_id
-	return str(katah.warlord_block_reason(u, katah.player_detachments(player)))
+	var reason := str(katah.warlord_block_reason(u, katah.player_detachments(player)))
+	# WP-S4: Space Wolves Murderfang — Force of Untamed Destruction ("cannot be your WARLORD").
+	if reason == "":
+		reason = str(_sw11e_abilities().warlord_block_reason(u))
+	return reason
 
 func _cus11e_warlord_eligible(character_ids: Array, player: int) -> Array:
 	var out: Array = []
@@ -1285,6 +1320,12 @@ func get_available_actions() -> Array:
 					"player": current_player,
 					"description": "Attach %s to %s" % [char_name, bg_name]
 				})
+
+	# WP-S4: Space Wolves unit splits (Old Greymanes / Let Loose the Wolves).
+	for sp_id in _sw11e_abilities().splittable_units(current_player):
+		if _sw11e_abilities().split_block_reason(sp_id, current_player, formations.get("leader_attachments", {})) == "":
+			actions.append({"type": "SW11E_SPLIT_UNIT", "unit_id": sp_id, "player": current_player,
+				"description": "Split %s (%s)" % [get_unit(sp_id).get("meta", {}).get("name", sp_id), _sw11e_abilities().display(_sw11e_abilities().split_kind(sp_id))]})
 
 	# Undo attachments
 	for char_id in formations.get("leader_attachments", {}):

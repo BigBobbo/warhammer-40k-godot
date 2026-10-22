@@ -792,6 +792,11 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 			log_phase_message("Charge roll +%d (%s)" % [int(o6_cb.get("bonus", 0)), ", ".join(o6_cb.get("sources", []))])
 	# Codex: Adeptus Custodes (CustodesCodex11e.gd): FURY OF THE EMPEROR +2,
 	# GRAVIMETRIC GRENADE -1 (on the enemy unit), INEXORABLE ignores the penalty.
+	# WP-S4 FERVOUR OF THE ANCIENTS (Space Wolves, Venerable Dreadnought): +1 to charge rolls within 6".
+	var sw_fv: Dictionary = _sw11e_abilities().fervour_bonus(unit_id)
+	if int(sw_fv.get("bonus", 0)) > 0:
+		charge_bonus += int(sw_fv.bonus)
+		log_phase_message("Charge roll +%d (%s)" % [int(sw_fv.bonus), str(sw_fv.source)])
 	charge_bonus = int(_cus11e_codex().charge_roll_modifier(unit_for_charge_bonus, charge_bonus))
 	if charge_bonus > 0:
 		total_distance += charge_bonus
