@@ -255,8 +255,11 @@ func _section_giant() -> void:
 	# Attached to the Blood Claws: only HIS attacks (his own unit id).
 	_unit(RAGNAR)["attached_to"] = BC
 	_unit(BC)["attachment_data"] = {"attached_characters": [RAGNAR]}
-	_check("attached: the Blood Claws' own melee attacks get no +1 S", int(_mods(BC, BOYZ, true).get("strength", 0)) == 0)
-	_check("attached: Ragnar's still do", int(_mods(RAGNAR, BOYZ, true).get("strength", 0)) == 1)
+	# Ragnar leading Blood Claws also gives the whole unit War Howl (+1 S,
+	# WP-S4), so the enhancement's +1 S shows as the difference: the Blood
+	# Claws get War Howl only, Ragnar War Howl + A Giant Amongst Giants.
+	_check("attached: the Blood Claws' own melee attacks get no enhancement +1 S (War Howl's +1 only)", int(_mods(BC, BOYZ, true).get("strength", 0)) == 1, str(_mods(BC, BOYZ, true)))
+	_check("attached: Ragnar's still do (War Howl +1, enhancement +1)", int(_mods(RAGNAR, BOYZ, true).get("strength", 0)) == 2, str(_mods(RAGNAR, BOYZ, true)))
 	_restore()
 
 
