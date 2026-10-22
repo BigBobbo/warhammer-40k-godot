@@ -1,0 +1,1061 @@
+datasheet_id|line|line_in_wargear|dice|name|description|range|type|A|BS_WS|S|AP|D
+000000060|1|1||Absolvor Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-2|2
+000000060|2|1||Servo-armature||Melee|Melee|4|3|5|0|1
+000000065|1|1||Godhammer Lascannon||48|Ranged|2|3|12|-3|D3+3
+000000065|2|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000000065|3|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000000065|4|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000065|5|1||Twin Heavy Bolter|Twin-linked, Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000000065|6|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000000066|1|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000000066|2|1||Hurricane Bolter|Twin-linked, Rapid Fire 6|24|Ranged|6|3|5|-1|1
+000000066|3|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+3
+000000066|4|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000066|5|1||Twin Assault Cannon|Sustained Hits 1, Twin-linked|24|Ranged|6|3|6|-2|1
+000000066|6|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000000067|1|1||Combi-weapon - Damnatus|Melta 2|12|Ranged|1|3|9|-3|D3+2
+000000067|2|2||Combi-weapon - Infernus|Torrent, BLAST 1|12|Ranged|3|-|4|0|1
+000000067|3|3||Combi-weapon - Purgatus||24|Ranged|2|3|7|-2|2
+000000067|4|1||Godhammer Lascannon||48|Ranged|2|3|12|-3|D3+3
+000000067|5|1||Grav-cannon|Anti-Vehicle 2+|24|Ranged|3|3|6|-1|3
+000000067|6|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000000067|7|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000000067|8|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000067|9|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000000071|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000000071|2|1||Neo-volkite Pistol|CLOSE-QUARTERS, Devastating Wounds|12|Ranged|1|3|5|0|2
+000000071|3|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000000071|4|2||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|3|8|-3|2
+000000071|5|1||Master-crafted Power Sword||Melee|Melee|4|3|5|-2|2
+000000073|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000000073|2|1||Master-crafted Bolter|Rapid Fire 1, ASSAULT|24|Ranged|2|2|5|-1|2
+000000073|3|1||Neo-volkite Pistol|CLOSE-QUARTERS, Devastating Wounds|12|Ranged|1|2|5|0|2
+000000073|4|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|2|7|-2|1
+000000073|5|2||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|2|8|-3|2
+000000073|6|1||Master-crafted Power Weapon||Melee|Melee|6|2|6|-2|2
+000000073|7|1||Power Fist||Melee|Melee|5|2|8|-2|2
+000000076|1|1||Combi-weapon - Bolter|Rapid Fire 1, ASSAULT|24|Ranged|2|2|5|-1|2
+000000076|2|2||Combi-weapon - Flamer|Torrent, ASSAULT, BLAST 1|12|Ranged|3|-|5|-1|1
+000000076|3|1||Paired Combat Blades|Sustained Hits 1|Melee|Melee|6|2|5|-1|1
+000000079|1|1||Smite - Focused Witchfire|Devastating Wounds, PSYCHIC, Hazardous|24|Ranged|D3+3|3|6|-2|2
+000000079|2|2||Smite - Witchfire|PSYCHIC|24|Ranged|D6|3|6|-1|2
+000000079|3|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000079|4|1||Force Weapon|PSYCHIC|Melee|Melee|4|3|6|-2|2
+000000083|1|1||Hand Flamer|CLOSE-QUARTERS, Torrent|9|Ranged|3|-|4|0|1
+000000083|2|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000000083|3|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|2|7|-2|1
+000000083|4|2||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|2|8|-3|2
+000000083|5|1||Chainsword|Sustained Hits 1|Melee|Melee|8|2|5|-1|1
+000000083|6|1||Power Fist||Melee|Melee|5|2|8|-2|2
+000000083|7|1||Relic Weapon||Melee|Melee|6|2|6|-2|2
+000000083|8|1||Thunder Hammer|Devastating Wounds|Melee|Melee|5|3|8|-2|3
+000000084|1|1||Icarus Stormcannon|Anti-Fly 2+|48|Ranged|6|3|7|-1|2
+000000084|2|1||Las-talon||36|Ranged|2|3|10|-3|D3+3
+000000084|3|1||Skyhammer Missile Launcher|Anti-Fly 2+|48|Ranged|3|3|8|-1|2
+000000084|4|1||Twin Assault Cannon|Sustained Hits 1, Twin-linked|24|Ranged|6|3|6|-2|1
+000000084|5|1||Twin Heavy Bolter|Twin-linked, Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000000084|6|1||Typhoon Missile Launcher - Krak||48|Ranged|2|3|10|-2|D3+3
+000000084|7|2||Typhoon Missile Launcher - Frag|BLAST 2|48|Ranged|6|3|4|-1|1
+000000084|8|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000000085|1|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000000085|2|1||Twin Plasma Gun - Standard|Twin-linked, Rapid Fire 1|24|Ranged|1|3|7|-2|1
+000000085|3|2||Twin Plasma Gun - Supercharge|Rapid Fire 1, Hazardous, Twin-linked|24|Ranged|1|3|8|-3|2
+000000085|4|1||Armoured Tracks||Melee|Melee|3|4|6|0|1
+000000086|1|1||Twin Firestrike Autocannon|Twin-linked, Rapid Fire 2|48|Ranged|4|2|9|-1|3
+000000086|2|1||Twin Firestrike Las-talon|Twin-linked|36|Ranged|2|2|10|-3|D3+3
+000000086|3|1||Hovering Bulk||Melee|Melee|3|3|5|0|1
+000000087||1||||||0|-|-|0|-
+000000091|1|1||Ballistus Lascannon||48|Ranged|2|3|12|-3|D3+3
+000000091|2|1||Ballistus Missile Launcher - Frag|BLAST 2|48|Ranged|D6+6|3|5|-1|1
+000000091|3|2||Ballistus Missile Launcher - Krak||48|Ranged|2|3|10|-2|D3+3
+000000091|4|1||Storm Bolters|Rapid Fire 4|24|Ranged|4|3|5|-1|1
+000000091|5|1||Armoured Feet||Melee|Melee|5|3|7|0|1
+000000093|1|1||Dreadhammer Siege Cannon|BLAST 1|24|Ranged|D6+6|3|14|-3|D3+3
+000000093|2|1||Heavy Bolter|Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000000093|3|1||Heavy Flamer|Torrent, BLAST 2|12|Ranged|3|-|5|-1|1
+000000093|4|1||Lascannon||48|Ranged|1|3|12|-3|D3+3
+000000093|5|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000000093|6|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000093|7|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000000094|1|1||Absolvor Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-2|2
+000000094|2|1||Twin Bolt Rifle|Twin-linked, Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000094|3|1||Crozius Arcanum|CLEAVE 1|Melee|Melee|5|2|6|-1|2
+000000097|1|1||Hammerfall Heavy Bolter Array|Sustained Hits 1, Rapid Fire 2, Twin-linked|36|Ranged|6|4|5|-1|2
+000000097|2|1||Hammerfall Heavy Flamer Array|Twin-linked, Torrent, BLAST 2|12|Ranged|6|-|5|-1|1
+000000097|3|1||Hammerfall Missile Launcher - Superfrag|BLAST 1|48|Ranged|7|4|5|-1|1
+000000097|4|2||Hammerfall Missile Launcher - Superkrak||48|Ranged|2|4|10|-2|D3+3
+000000098|1|1||Twin Heavy Bolter|Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000000098|2|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000000098|3|1||Armoured Hull||Melee|Melee|1|6|3|0|1
+000000099|1|1||Tarantula Air Defence Missiles|BLAST 2, Anti-Fly 2+|48|Ranged|3|4|7|-1|1
+000000099|2|1||Armoured Hull||Melee|Melee|1|4|4|0|1
+000000110|1|1||Boltgun|Rapid Fire 1|24|Ranged|1|3|5|-1|1
+000000110|2|1||Graviton Cannon|BLAST 2, Anti-Vehicle 2+, Heavy|36|Ranged|3|3|6|-2|2
+000000110|3|1||Laser Destroyer|Heavy|72|Ranged|2|3|14|-3|D6+3
+000000110|4|1||Quad Heavy Bolter|Sustained Hits 1, Rapid Fire 2, Twin-linked, Heavy|36|Ranged|6|3|5|-1|2
+000000110|5|1||Quad Launcher - Shatter Shells|Heavy|24|Ranged|4|3|9|-2|3
+000000110|6|2||Quad Launcher - Thunderfire Shells|Indirect Fire, Heavy, BLAST 1|60|Ranged|D3+6|3|5|0|1
+000000110|7|1||Armoured Hull||Melee|Melee|2|3|4|0|1
+000000112|1|1||Absolvor Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-2|2
+000000112|2|1||Crozius Arcanum|CLEAVE 1|Melee|Melee|5|2|6|-1|2
+000000114|1|1||Hammerstrike Missile Launcher||36|Ranged|2|3|10|-3|D3+2
+000000114|2|1||Krakstorm Grenade Launchers||18|Ranged|2|3|9|-1|2
+000000114|3|1||Melta Destroyer|Melta 3|18|Ranged|3|3|10|-3|D3+2
+000000114|4|1||Armoured Impact||Melee|Melee|3|4|6|0|1
+000000115|1|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000115|2|1||Crozius Arcanum|CLEAVE 1|Melee|Melee|5|2|6|-1|2
+000000117|1|1||Assault Cannon|Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000000117|2|1||Heavy Flamer|BLAST 2, Torrent|12|Ranged|3|-|5|-1|1
+000000117|3|1||Heavy Plasma Cannon - Standard|BLAST 1, Heavy|36|Ranged|3|3|9|-2|2
+000000117|4|2||Heavy Plasma Cannon - Supercharge|Hazardous, BLAST 1, Heavy|36|Ranged|3|3|10|-3|3
+000000117|5|1||Missile Launcher - Frag|BLAST 1|48|Ranged|4|3|4|-1|1
+000000117|6|2||Missile Launcher - Krak||48|Ranged|1|3|10|-2|D3+3
+000000117|7|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000000117|8|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000117|9|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000000117|10|1||Crushing Feet||Melee|Melee|5|3|6|0|1
+000000117|11|1||Dreadnought Fist||Melee|Melee|5|3|12|-2|3
+000000118|1|1||Thunder Hammer|Devastating Wounds|Melee|Melee|3|3|8|-2|3
+000000118|2|1||Twin Lightning Claws|Twin-linked|Melee|Melee|6|3|5|-2|1
+000000119|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000000119|2|1||Smite - Focused Witchfire|Devastating Wounds, PSYCHIC, Hazardous|24|Ranged|D3+3|3|6|-2|2
+000000119|3|2||Smite - Witchfire|PSYCHIC|24|Ranged|D6|3|6|-1|2
+000000119|4|1||Force Weapon|PSYCHIC|Melee|Melee|4|3|6|-2|2
+000000120|1|1||Assault Cannon|Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000000120|2|1||Dreadnought Inferno Cannon|BLAST 2, Torrent|12|Ranged|7|-|6|-1|1
+000000120|3|1||Heavy Flamer|Torrent, BLAST 2|12|Ranged|3|-|5|-1|1
+000000120|4|1||Heavy Plasma Cannon - Standard|BLAST 1, Heavy|36|Ranged|3|3|9|-2|2
+000000120|5|2||Heavy Plasma Cannon - Supercharge|Hazardous, BLAST 1, Heavy|36|Ranged|3|3|10|-3|3
+000000120|6|1||Missile Launcher - Frag|BLAST 1, Heavy|48|Ranged|4|3|4|-1|1
+000000120|7|2||Missile Launcher - Krak||48|Ranged|1|3|10|-2|D3+3
+000000120|8|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000000120|9|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000120|10|1||Twin Autocannon|Twin-linked|48|Ranged|2|3|9|-1|3
+000000120|11|1||Twin Heavy Bolter|Sustained Hits 1, Rapid Fire 2, Twin-linked|36|Ranged|3|3|5|-1|2
+000000120|12|1||Twin Heavy Flamer|BLAST 2, Twin-linked, Torrent|12|Ranged|3|-|5|-1|1
+000000120|13|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000000120|14|1||Armoured Feet||Melee|Melee|5|3|6|0|1
+000000120|15|1||Dreadnought Fist||Melee|Melee|5|3|12|-2|3
+000000124|1|1||Fragstorm Grenade Launchers|BLAST 2, Ignores Cover|18|Ranged|6|3|4|-1|1
+000000124|2|1||Ironhail Heavy Stubber Array|Rapid Fire 6, Ignores Cover|36|Ranged|6|3|4|-1|1
+000000124|3|1||Onslaught Gatling Cannon|DEVASTATING WOUNDS: non-MONSTER/VEHICLE, Ignores Cover|24|Ranged|8|3|5|-1|1
+000000124|4|1||Armoured Impact||Melee|Melee|3|4|6|0|1
+000000125|1|1||Assault Bolters|ASSAULT, Twin-linked, Sustained Hits 2, CLOSE-QUARTERS|18|Ranged|3|3|5|-1|2
+000000125|2|1||Plasma Exterminators - Standard|ASSAULT, CLOSE-QUARTERS, Twin-linked|18|Ranged|2|3|7|-2|2
+000000125|3|2||Plasma Exterminators - Supercharge|CLOSE-QUARTERS, Hazardous, ASSAULT, Twin-linked|18|Ranged|2|3|8|-3|3
+000000125|4|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000000126|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000000126|2|1||Pyreblaster|BLAST 1, Torrent|12|Ranged|3|-|5|-1|1
+000000126|3|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000000127|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|2|5|-1|1
+000000127|2|1||Gorgon’s Wrath|Rapid Fire 2, Sustained Hits 2|36|Ranged|3|2|6|-1|2
+000000127|3|1||Harrowhand||Melee|Melee|6|3|7|-2|2
+000000127|4|1||Medusan Manipuli|Extra Attacks|Melee|Melee|2|3|10|-2|3
+000000128|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000000128|2|1||Marksman Bolt Carbine|Rapid Fire 1, Precision|24|Ranged|2|3|5|-1|1
+000000128|3|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000000129|1|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000000129|2|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000129|3|1||Twin Heavy Bolter|Twin-linked, Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000000129|4|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000000129|5|1||Armoured Tracks||Melee|Melee|3|4|6|0|1
+000000135|1|1||Combi-weapon - Infernus|Torrent, BLAST 1|12|Ranged|3|-|4|0|1
+000000135|2|2||Combi-weapon - Purgatus||24|Ranged|2|2|7|-2|2
+000000135|3|3||Combi-weapon - Damnatus|Melta 2|12|Ranged|1|2|9|-3|D3+2
+000000135|4|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|2|5|-1|1
+000000135|5|1||Relic Fist||Melee|Melee|5|2|8|-2|2
+000000135|6|1||Relic Weapon||Melee|Melee|6|2|6|-2|2
+000000136|1|1||Bolt Rifles|Twin-linked|24|Ranged|4|3|5|-1|1
+000000136|2|1||Twin Heavy Bolter|Twin-linked, Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000000136|3|1||Twin Icarus Ironhail Heavy Stubber|Anti-Fly 3+, Rapid Fire 3, Twin-linked|36|Ranged|3|3|4|-1|1
+000000136|4|1||Twin Multi-melta|Twin-linked, Melta 3|18|Ranged|2|3|10|-3|D3+2
+000000136|5|1||Brutalis Fists|Twin-linked|Melee|Melee|6|3|12|-3|D3+3
+000000136|6|1||Brutalis Talons|SUSTAINED HITS 1: non-MONSTER/VEHICLE, Twin-linked, CLEAVE 2|Melee|Melee|8|3|10|-2|2
+000000137|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000000137|2|1||Boltgun|Rapid Fire 1|24|Ranged|1|3|5|-1|1
+000000137|3|1||Combi-weapon - Damnatus|Melta 2|12|Ranged|1|3|9|-3|D3+2
+000000137|4|2||Combi-weapon - Infernus|BLAST 1, Torrent|12|Ranged|3|-|4|0|1
+000000137|5|3||Combi-weapon - Purgatus||24|Ranged|2|3|7|-2|2
+000000137|6|1||Grav-pistol|Anti-Vehicle 2+, CLOSE-QUARTERS|12|Ranged|2|3|2|-1|3
+000000137|7|1||Grenade Launcher - Frag|BLAST 1|24|Ranged|4|4|4|-1|1
+000000137|8|2||Grenade Launcher - Krak|Rapid Fire 1|24|Ranged|1|4|10|-2|3
+000000137|9|1||Hand Flamer|CLOSE-QUARTERS, Torrent|9|Ranged|3|-|4|0|1
+000000137|10|1||Inferno Pistol|CLOSE-QUARTERS, Melta 2|9|Ranged|1|3|8|-3|D3+2
+000000137|11|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000000137|12|2||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|3|8|-3|2
+000000137|13|1||Shotgun|ASSAULT, BLAST 1|18|Ranged|2|3|4|-1|1
+000000137|14|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000137|15|1||Twin Boltgun|Rapid Fire 1, Twin-linked|24|Ranged|2|3|5|-1|1
+000000137|16|1||Combat Knife||Melee|Melee|3|3|4|-1|1
+000000137|17|1||Power Fist||Melee|Melee|2|3|8|-2|2
+000000137|18|1||Power Weapon||Melee|Melee|4|3|4|-2|1
+000000137|19|1||Thunder Hammer|Devastating Wounds|Melee|Melee|3|4|8|-2|3
+000000137|20|1||Chainsword||Melee|Melee|4|3|4|-1|1
+000000138|1|1||Hand of Dominion|Rapid Fire 2, Sustained Hits 1|36|Ranged|4|2|6|-2|2
+000000138|2|1||Emperor’s Sword|Devastating Wounds, CLEAVE 2|Melee|Melee|10|2|10|-3|2
+000000138|3|1||Hand of Dominion|Lethal Hits|Melee|Melee|7|2|14|-4|4
+000000139|1|1||Lascannon||48|Ranged|1|3|12|-3|D3+3
+000000139|2|1||Hellstrike Missile Battery|Anti-Fly 4+|72|Ranged|4|3|8|-2|3
+000000139|3|1||Thunderhawk Heavy Cannon|BLAST 2|48|Ranged|10|3|10|-2|3
+000000139|4|1||Turbo-laser Destructor|BLAST 2|96|Ranged|3|3|20|-4|D6+6
+000000139|5|1||Twin Heavy Bolter|Rapid Fire 2, Twin-linked, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000000139|6|1||Armoured Hull||Melee|Melee|6|4|8|0|1
+000000140|1|1||Forge Bolter|Sustained Hits 1|24|Ranged|3|2|5|-1|2
+000000140|2|1||Grav-pistol|Anti-Vehicle 2+, CLOSE-QUARTERS|12|Ranged|2|2|2|-1|3
+000000140|3|1||Omnissian Power Axe and Servo-arm||Melee|Melee|5|3|6|-2|2
+000000147|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000000147|2|1||Plasma pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000000147|3|2||Plasma pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|3|8|-3|2
+000000147|4|1||Master-crafted Power Weapon||Melee|Melee|3|3|5|-2|2
+000000147|5|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000000147|6|1||Relic Blade|CLEAVE 1, LETHAL HITS: non-MONSTER/VEHICLE|Melee|Melee|3|3|6|-2|2
+000000147|7|1||Thunder Hammer|Devastating Wounds|Melee|Melee|3|4|8|-2|3
+000000151|1|1||Perdition Pistol|Sustained Hits 1, Melta 2, CLOSE-QUARTERS|9|Ranged|1|2|10|-3|D3+2
+000000151|2|1||The Axe Mortalis|Lethal Hits|Melee|Melee|8|2|8|-3|2
+000000155|1|1||Fury of the Ancients - Focused Witchfire|ASSAULT, CLOSE-QUARTERS, PSYCHIC, Hazardous|18|Ranged|3|2|6|-2|3
+000000155|2|2||Fury of the Ancients - Witchfire|CLOSE-QUARTERS, ASSAULT, PSYCHIC|18|Ranged|3|2|5|-1|2
+000000155|3|1||Plasma Pistol - Standard|CLOSE-QUARTERS, ASSAULT|12|Ranged|1|2|7|-2|1
+000000155|4|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, ASSAULT|12|Ranged|1|2|8|-3|2
+000000155|5|1||Vitarus|PSYCHIC, Lethal Hits|Melee|Melee|6|2|10|-3|3
+000000156|1|1||Encarmine Broadsword|Devastating Wounds|Melee|Melee|8|2|6|-3|2
+000000157|1|1||The Executioner's Axe|Precision, Devastating Wounds|Melee|Melee|6|2|7|-3|2
+000000158|1|1||Absolvor Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-2|2
+000000158|2|1||Chainsword||Melee|Melee|5|3|5|-1|1
+000000164|1|1||Absolvor Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-2|2
+000000164|2|1||The Blood Crozius|Lethal Hits, CLEAVE 1|Melee|Melee|6|2|6|-2|2
+000000165|1|1||Angelus Boltgun|ASSAULT, CLOSE-QUARTERS|18|Ranged|3|2|5|-1|1
+000000165|2|1||Inferno Pistol|Melta 1, CLOSE-QUARTERS|9|Ranged|1|2|8|-3|D3+2
+000000165|3|1||Encarmine Weapon|Lance|Melee|Melee|4|2|6|-2|2
+000000166|1|1||Blood Fist Bolt Rifles|Twin-linked|24|Ranged|4|3|5|-1|1
+000000166|2|1||Twin Heavy Bolter|Sustained Hits 1, Twin-linked|36|Ranged|3|3|5|-1|2
+000000166|3|1||Twin Icarus Ironhail Heavy Stubber|Anti-Fly 3+, Rapid Fire 3, Twin-linked|36|Ranged|3|3|4|-1|1
+000000166|4|1||Twin Multi-melta|Melta 3, Twin-linked|18|Ranged|2|3|10|-3|D3+2
+000000166|5|1||Blood Fists|Twin-linked|Melee|Melee|6|3|12|-3|D3+3
+000000166|6|1||Blood Talons|CLEAVE 2, Twin-linked, SUSTAINED HITS 1: non-MONSTER/VEHICLE|Melee|Melee|8|3|10|-2|2
+000000168|1|1||Baal Flamestorm Cannon|BLAST 2, Torrent, ASSAULT|18|Ranged|6|-|6|-2|2
+000000168|2|1||Heavy Bolter|Sustained Hits 1, ASSAULT, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000000168|3|1||Heavy Flamer|BLAST 2, ASSAULT, Torrent|12|Ranged|3|-|5|-1|1
+000000168|4|1||Hunter-killer Missile|ASSAULT, ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000000168|5|1||Storm Bolter|Rapid Fire 2, ASSAULT|24|Ranged|2|3|5|-1|1
+000000168|6|1||Twin Assault Cannon|Sustained Hits 1, Twin-linked, ASSAULT|24|Ranged|6|3|6|-2|1
+000000168|7|1||Armoured Tracks||Melee|Melee|3|4|6|0|1
+000000218|1|1||Lion's Wrath|Rapid Fire 1, Devastating Wounds, anti-infantry 4+|24|Ranged|2|2|8|-3|2
+000000218|2|1||The Sword of Secrets|Devastating Wounds|Melee|Melee|6|2|6|-4|2
+000000219|1|1||Master-crafted Storm Bolter|Precision|24|Ranged|2|2|5|-1|2
+000000219|2|1||The Sword of Silence||Melee|Melee|6|2|6|-3|2
+000000225|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000000225|2|1||Crozius Arcanum and Power Weapon - Strike|Precision|Melee|Melee|5|2|6|-2|2
+000000225|3|2||Crozius Arcanum and Power Weapon - Sweep|CLEAVE 1|Melee|Melee|8|2|5|-2|1
+000000226|1|1||Mind Wipe - Focused Witchfire|Devastating Wounds, Hazardous, Precision, PSYCHIC, Anti-Character 4+, CLOSE-QUARTERS|12|Ranged|1|2|6|-2|D3+3
+000000226|2|2||Mind Wipe - Witchfire|Devastating Wounds, Precision, CLOSE-QUARTERS, PSYCHIC|12|Ranged|1|2|6|-2|D6
+000000226|3|1||The Deliverer|Precision, CLOSE-QUARTERS|12|Ranged|1|2|5|-1|2
+000000226|4|1||Traitor's Bane|Precision, PSYCHIC|Melee|Melee|4|2|6|-3|2
+000000230|1|1||Assault Cannon|Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000000230|2|1||Cyclone Missile Launcher - Frag|BLAST 2|36|Ranged|8|3|4|-1|1
+000000230|3|2||Cyclone Missile Launcher - Krak||36|Ranged|2|3|10|-2|D3+3
+000000230|4|1||Heavy Flamer|Torrent, BLAST 2|12|Ranged|3|-|5|-1|1
+000000230|5|1||Plasma Cannon - Standard|BLAST 1|36|Ranged|3|3|7|-2|2
+000000230|6|2||Plasma Cannon - Supercharge|Hazardous, BLAST 1|36|Ranged|3|3|8|-3|3
+000000230|7|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000230|8|1||Chainfist - Standard||Melee|Melee|2|4|8|-2|2
+000000230|9|2||Chainfist - Hunter||Melee|Melee|3|3|12|-2|3
+000000230|10|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000000230|11|1||Power Weapon||Melee|Melee|5|3|5|-2|1
+000000231|1|1||Great Weapon of the Unforgiven|Devastating Wounds, Sustained Hits 1|Melee|Melee|5|2|6|-2|2
+000000231|2|1||Mace of Absolution|ANTI-MONSTER/VEHICLE 4+|Melee|Melee|4|2|6|-2|2
+000000231|3|1||Power Weapon||Melee|Melee|5|2|6|-2|2
+000000231|4|1||Relic Weapon|Lethal Hits|Melee|Melee|6|2|7|-2|2
+000000238|1|1||Assault Cannon|Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000000238|2|1||Heavy Bolter|Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000000238|3|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000000239|1|1||Avenger Mega Bolter|Sustained Hits 1|36|Ranged|10|3|5|-1|2
+000000239|2|1||Blacksword Missiles|Anti-Fly 2+|36|Ranged|2|3|8|-2|D3+2
+000000239|3|1||Nephilim Lascannons||48|Ranged|2|3|12|-3|D3+3
+000000239|4|1||Twin Heavy Bolter|Twin-linked, Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000000239|5|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000000240|1|1||Rift Cannon|Devastating Wounds, BLAST 1|18|Ranged|D3+1|3|16|-4|3
+000000240|2|1||Hurricane Bolter|Rapid Fire 6, Twin-linked|24|Ranged|6|3|5|-1|1
+000000240|3|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000000241|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000000241|2|1||Grenade Launcher - Frag|BLAST 1|24|Ranged|4|3|4|-1|1
+000000241|3|2||Grenade Launcher - Krak|Rapid Fire 1|24|Ranged|1|3|10|-2|3
+000000241|4|1||Plasma Talon - Standard|Rapid Fire 1|18|Ranged|2|3|7|-2|1
+000000241|5|2||Plasma Talon - Supercharge|Rapid Fire 1, Hazardous|18|Ranged|2|3|8|-3|2
+000000241|6|1||Corvus Hammers|Devastating Wounds|Melee|Melee|4|3|5|-2|1
+000000242|1|1||Assault Cannon|Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000000242|2|1||Heavy Bolter|Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000000242|3|1||Plasma Storm Battery - Supercharge|Hazardous, BLAST 1, Twin-linked|36|Ranged|D3+3|3|10|-3|3
+000000242|4|2||Plasma Storm Battery - Standard|Twin-linked, BLAST 1|36|Ranged|D3+3|3|9|-2|2
+000000242|5|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000000282|1|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|2|5|-1|1
+000000282|2|1||Axe Morkai - Strike||Melee|Melee|6|2|10|-2|3
+000000282|3|2||Axe Morkai - Sweep|CLEAVE 1|Melee|Melee|10|2|6|-2|1
+000000282|4|1||Tyrnak and Fenrir|Extra Attacks|Melee|Melee|6|2|5|-1|1
+000000285|1|1||Bolt Pistol||12|Ranged|1|2|5|-1|1
+000000285|2|1||Frostfang|Sustained Hits 1|Melee|Melee|8|2|6|-3|2
+000000292|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000000292|2|1||Living Lightning - Focused Witchfire|PSYCHIC, Hazardous, Sustained Hits 2|24|Ranged|D6+6|3|7|-2|1
+000000292|3|2||Living Lightning - Witchfire|Sustained Hits 2, PSYCHIC|24|Ranged|D3+3|3|7|-1|1
+000000292|4|1||Staff of the Stormcaller|Sustained Hits 2, PSYCHIC|Melee|Melee|4|3|7|-1|2
+000000297|1|1||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|2|8|-3|2
+000000297|2|2||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|2|7|-2|1
+000000297|3|1||Artificer Crozius Arcanum|ANTI-MONSTER/VEHICLE 4+|Melee|Melee|5|2|6|-2|2
+000000302|1|1||Assault Cannon|Sustained Hits 1|24|Ranged|6|2|6|-2|1
+000000302|2|1||Heavy Flamer|Torrent, BLAST 2|12|Ranged|3|-|5|-1|1
+000000302|3|1||Helfrost Cannon - Dispersed|Torrent|12|Ranged|3|-|6|-1|2
+000000302|4|2||Helfrost Cannon - Focused||36|Ranged|1|2|10|-3|5
+000000302|5|1||Multi-melta|Melta 3|18|Ranged|2|2|10|-3|D3+2
+000000302|6|1||Trueclaw|Lethal Hits|Melee|Melee|6|2|12|-2|3
+000000303|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000000303|2|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000000303|3|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000000303|4|1||Chainsword||Melee|Melee|4|3|5|-1|1
+000000303|5|1||Power Weapon||Melee|Melee|4|3|5|-2|1
+000000305|1|1||Bolt Carbine|Rapid Fire 1, ASSAULT|24|Ranged|3|3|5|-1|1
+000000305|2|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000000305|3|1||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000000305|4|2||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000000305|5|1||Chainsword||Melee|Melee|4|3|5|-1|1
+000000305|6|1||Power Weapon||Melee|Melee|4|3|5|-2|1
+000000305|7|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000000306|1|1||Helfrost Pistol - Dispersed|CLOSE-QUARTERS, Torrent|12|Ranged|3|7|4|-1|1
+000000306|2|2||Helfrost Pistol - Focused|CLOSE-QUARTERS|12|Ranged|1|2|6|-3|3
+000000306|3|1||Tempest Hammer and Servo-arm||Melee|Melee|4|4|8|-2|3
+000000311|1|1||Stormfrag Auto-launcher|BLAST 1, ASSAULT|12|Ranged|2|4|4|-1|1
+000000311|2|1||Wulfen Weapons|Sustained Hits 1|Melee|Melee|3|3|6|-2|2
+000000314|1|1||Heavy Flamer|BLAST 2, Torrent|12|Ranged|3|7|5|-1|1
+000000314|2|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000314|3|1||Murderclaws|Twin-linked, Sustained Hits 1|Melee|Melee|8|3|14|-2|3
+000000317|1|1||Foehammer|ASSAULT, ANTI-MONSTER/VEHICLE 3+|9|Ranged|1|2|10|-2|3
+000000317|2|1||Foehammer|ANTI-MONSTER/VEHICLE 3+, Precision|Melee|Melee|5|2|10|-2|3
+000000318|1|1||Assault Cannon|Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000000318|2|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000000318|3|1||Master-crafted Power Weapon||Melee|Melee|4|3|5|-2|2
+000000318|4|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000000318|5|1||Relic Greataxe|Devastating Wounds|Melee|Melee|3|3|8|-2|3
+000000318|6|1||Twin Lightning Claws|Twin-linked|Melee|Melee|6|3|5|-2|1
+000000322|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000000322|2|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000000322|3|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000000322|4|1||Boltgun|Rapid Fire 1|24|Ranged|1|3|5|-1|1
+000000322|5|1||Teeth and Claws|Extra Attacks|Melee|Melee|3|4|5|-1|1
+000000322|6|1||Wolf Guard Weapon||Melee|Melee|4|3|5|-2|2
+000000323|1|1||Teeth and Claws||Melee|Melee|3|4|4|0|1
+000000358|1|1||Blackstar Rocket Launcher|BLAST 1|30|Ranged|4|3|5|0|1
+000000358|2|1||Hurricane Bolter|Twin-linked, Rapid Fire 6|24|Ranged|6|3|5|-1|1
+000000358|3|1||Stormstrike Missile Launcher||48|Ranged|1|3|10|-2|3
+000000358|4|1||Twin Assault Cannon|Twin-linked, Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000000358|5|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000000358|6|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000001153|1|1||Cerberus Neutron Pulse Array|Twin-linked|48|Ranged|3|3|16|-3|D3+6
+000001153|2|1||Heavy Bolter|Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000001153|3|1||Heavy Flamer|BLAST 2, Torrent|12|Ranged|3|-|5|-1|1
+000001153|4|1||Lascannon||48|Ranged|1|3|12|-3|D3+3
+000001153|5|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000001153|6|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000001153|7|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000001154|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000001154|2|1||Inferno Pistol|Melta 2|9|Ranged|1|3|8|-3|D3+2
+000001154|3|1||Hand Flamer|Torrent, CLOSE-QUARTERS|9|Ranged|3|-|4|0|1
+000001154|4|1||Grav-pistol|CLOSE-QUARTERS, Anti-Vehicle 2+|12|Ranged|2|3|2|-1|3
+000001154|5|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000001154|6|2||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|3|8|-3|2
+000001154|7|1||Heirloom Weapon||Melee|Melee|4|3|5|-2|1
+000001156|1|1||Fragstorm Grenade Launcher|BLAST 1|18|Ranged|3|3|4|-1|1
+000001156|2|1||Heavy Bolter|Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000001156|3|1||Incendium Cannon|Torrent, BLAST 2|12|Ranged|4|-|6|-1|2
+000001156|4|1||Ironhail Heavy Stubbers|Rapid Fire 6|36|Ranged|6|3|4|-1|1
+000001156|5|1||Twin Ironhail Autocannon|Twin-linked|48|Ranged|4|3|9|-1|3
+000001156|6|1||Invictor Fist||Melee|Melee|5|3|12|-2|3
+000001157|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000001157|2|1||Bolt Rifle - Focused Fire|Rapid Fire 1, Heavy|24|Ranged|1|3|6|-1|2
+000001157|3|2||Bolt Rifle - Saturation|ASSAULT, Rapid Fire 1|24|Ranged|2|3|5|-1|1
+000001157|4|1||Grenade Launcher - Frag|BLAST 1|24|Ranged|4|3|4|-1|1
+000001157|5|2||Grenade Launcher - Krak|Rapid Fire 1|24|Ranged|1|3|10|-2|3
+000001157|6|1||Hand Flamer|CLOSE-QUARTERS, Torrent|9|Ranged|3|-|4|0|1
+000001157|7|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000001157|8|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000001157|9|1||Chainsword||Melee|Melee|5|3|5|-1|1
+000001157|10|1||Knives and Fists||Melee|Melee|3|3|5|0|1
+000001157|11|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000001157|12|1||Power Weapon||Melee|Melee|4|3|5|-2|1
+000001157|13|1||Thunder Hammer|Devastating Wounds|Melee|Melee|3|4|8|-2|3
+000001159|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000001159|2|1||Occulus Bolt Carbine|Ignores Cover, ASSAULT|24|Ranged|2|3|5|-1|1
+000001159|3|1||Paired Combat Blades|Sustained Hits 1|Melee|Melee|3|3|5|-1|1
+000001160|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000001160|2|1||Boltgun|Rapid Fire 1|24|Ranged|1|3|5|-1|1
+000001160|3|1||Heavy Bolter|Rapid Fire 2, Sustained Hits 1, Heavy|36|Ranged|3|4|5|-1|2
+000001160|4|1||Missile Launcher - Frag|BLAST 1, Heavy|48|Ranged|4|4|4|-1|1
+000001160|5|2||Missile Launcher - Krak||48|Ranged|1|4|10|-2|D3+3
+000001160|6|1||Shotgun|ASSAULT, BLAST 1|18|Ranged|2|3|4|-1|1
+000001160|7|1||Sniper Rifle|Heavy, Precision|36|Ranged|1|3|5|-2|2
+000001160|8|1||Chainsword||Melee|Melee|4|3|4|-1|1
+000001160|9|1||Combat Knife||Melee|Melee|3|3|4|-1|1
+000001165|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000001165|2|1||Relics of Battle||Melee|Melee|4|3|5|-2|2
+000001172|1|1||Boltstorm Gauntlet|CLOSE-QUARTERS|12|Ranged|3|2|5|-1|1
+000001172|2|1||Master-crafted Heavy Bolt Rifle|Heavy, ASSAULT, Rapid Fire 1|30|Ranged|2|2|6|-1|3
+000001172|3|1||Boltstorm Gauntlet||Melee|Melee|5|2|8|-2|2
+000001172|4|1||Master-crafted Power Weapon||Melee|Melee|6|2|6|-2|2
+000001172|5|1||Relic Blade|Extra Attacks|Melee|Melee|2|2|6|-2|2
+000001172|6|1||Relic Chainsword|Extra Attacks|Melee|Melee|3|2|5|-1|2
+000001172|7|1||Relic Power Fist|Extra Attacks|Melee|Melee|1|2|8|-2|2
+000001174|1|1||Absolvor Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-2|2
+000001174|2|1||Crozius Arcanum|CLEAVE 1|Melee|Melee|5|2|6|-1|2
+000001175|1|1||Autocannon|Rapid Fire 2|48|Ranged|4|3|9|-1|3
+000001175|2|1||Combi-weapon - Damnatus|Melta 2|12|Ranged|1|3|9|-3|D3+2
+000001175|3|2||Combi-weapon - Infernus|Torrent, BLAST 1|12|Ranged|3|-|4|0|1
+000001175|4|3||Combi-weapon - Purgatus||24|Ranged|2|3|7|-2|2
+000001175|5|1||Havoc Launcher|BLAST 1|48|Ranged|3|3|5|-1|1
+000001175|6|1||Heavy Bolter|Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000001175|7|1||Heavy Flamer|Torrent, BLAST 2|12|Ranged|3|-|5|-1|1
+000001175|8|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000001175|9|1||Kratos Battle Cannon - Blast|BLAST 2|36|Ranged|D3+3|3|10|-1|3
+000001175|10|2||Kratos Battle Cannon - Piercing|Heavy|36|Ranged|1|3|18|-4|D3+6
+000001175|11|1||Lascannon||48|Ranged|1|3|12|-3|D3+3
+000001175|12|1||Melta Blast-gun|Melta 3|24|Ranged|4|3|12|-3|D3+2
+000001175|13|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000001175|14|1||Twin Boltgun|Twin-linked, Rapid Fire 1|24|Ranged|2|3|5|-1|1
+000001175|15|1||Volkite Caliver|Devastating Wounds|24|Ranged|2|3|5|0|2
+000001175|16|1||Volkite Cardanelle|Devastating Wounds|36|Ranged|9|3|9|0|3
+000001175|17|1||Volkite Culverin|Devastating Wounds|36|Ranged|4|3|6|0|2
+000001175|18|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000001177|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000001177|2|1||Heavy Bolt Rifle|Heavy, Rapid Fire 1|30|Ranged|2|3|5|-1|2
+000001177|3|1||Heavy Bolter|Heavy, Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000001177|4|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000001183|1|1||Assault Cannon|Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000001183|2|1||Cyclone Missile Launcher - Frag|BLAST 2|36|Ranged|8|3|4|-1|1
+000001183|3|2||Cyclone Missile Launcher - Krak||36|Ranged|2|3|10|-2|D3+3
+000001183|4|1||Heavy Flamer|Torrent, BLAST 2|12|Ranged|3|-|5|-1|1
+000001183|5|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000001183|6|1||Chainfist - Standard||Melee|Melee|2|4|8|-2|2
+000001183|7|2||Chainfist - Hunter||Melee|Melee|3|3|12|-2|3
+000001183|8|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000001183|9|1||Power Weapon||Melee|Melee|5|3|5|-2|1
+000001188|1|1||Demolisher Cannon|BLAST 1|24|Ranged|D3+3|3|14|-3|4
+000001188|2|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000001188|3|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000001188|4|1||Armoured Tracks||Melee|Melee|3|4|6|0|1
+000001189|1|1||Heavy Bolter|Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000001189|2|1||Heavy Flamer|BLAST 2, Torrent|12|Ranged|3|-|5|-1|1
+000001189|3|1||Lascannon||48|Ranged|1|3|12|-3|D3+3
+000001189|4|1||Siege Melta Array|Melta 3|24|Ranged|6|3|10|-3|D3+2
+000001189|5|1||Skyreaper Battery|Anti-Fly 4+|48|Ranged|8|3|7|-1|2
+000001189|6|1||Volkite Culverin|Devastating Wounds|36|Ranged|4|3|6|0|2
+000001189|7|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000001190|1|1||Skyhammer Missile Launcher|Twin-linked, Anti-Fly 2+|48|Ranged|3|3|8|-1|2
+000001190|2|1||Twin Assault Cannon|Twin-linked, Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000001190|3|1||Twin Heavy Bolter|Rapid Fire 2, Twin-linked, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000001190|4|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000001190|5|1||Typhoon Missile Launcher - Frag|BLAST 2|48|Ranged|6|3|4|-1|1
+000001190|6|2||Typhoon Missile Launcher - Krak||48|Ranged|2|3|10|-2|D3+3
+000001190|7|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000001191|1|1||Hurricane Bolter|Twin-linked, Rapid Fire 6|24|Ranged|6|3|5|-1|1
+000001191|2|1||Stormstrike Missile Launcher||48|Ranged|1|3|10|-2|3
+000001191|3|1||Typhoon Missile Launcher - Frag|BLAST 2|48|Ranged|6|3|4|-1|1
+000001191|4|2||Typhoon Missile Launcher - Krak||48|Ranged|2|3|10|-2|D3+3
+000001191|5|1||Twin Assault Cannon|Twin-linked, Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000001191|6|1||Twin Multi-melta|Twin-linked, Melta 3|18|Ranged|2|3|10|-3|D3+2
+000001191|7|1||Twin Heavy Bolter|Twin-linked, Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000001191|8|1||Twin Heavy Plasma Cannon - Standard|Heavy, BLAST 1, Twin-linked|36|Ranged|3|3|9|-2|2
+000001191|9|2||Twin Heavy Plasma Cannon - Supercharge|Heavy, Twin-linked, BLAST 1, Hazardous|36|Ranged|3|3|10|-3|3
+000001191|10|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000001191|11|1||Armoured Hull||Melee|Melee|6|4|8|0|1
+000001193|1|1||Centurion Bolters|Rapid Fire 3, Twin-linked|24|Ranged|3|3|5|-1|1
+000001193|2|1||Centurion Missile Launcher|BLAST 1|36|Ranged|2|3|9|-2|3
+000001193|3|1||Grav-cannon|Anti-Vehicle 2+|24|Ranged|3|3|6|-1|3
+000001193|4|1||Twin Heavy Bolter|Twin-linked, Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000001193|5|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000001193|6|1||Centurion Fists||Melee|Melee|3|4|5|-1|2
+000001346|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|2|5|-1|1
+000001346|2|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000001346|3|1||Master-crafted Bolter||24|Ranged|2|2|5|-1|2
+000001346|4|1||Neo-volkite Pistol|CLOSE-QUARTERS, Devastating Wounds|12|Ranged|1|2|5|0|2
+000001346|5|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|2|7|-2|1
+000001346|6|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|2|8|-3|2
+000001346|7|1||Ceramite Fists||Melee|Melee|5|2|5|0|1
+000001346|8|1||Master-crafted Power Weapon||Melee|Melee|5|2|6|-2|2
+000001346|9|1||Power Fist||Melee|Melee|4|2|8|-2|2
+000001606|1|1||Hand Flamer|CLOSE-QUARTERS, Torrent|9|Ranged|3|-|4|0|1
+000001606|2|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000001606|3|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000001606|4|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000001606|5|1||Chainsword||Melee|Melee|4|3|5|-1|1
+000001606|6|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000001606|7|1||Power Weapon||Melee|Melee|4|3|5|-2|1
+000001606|8|1||Thunder Hammer|Devastating Wounds|Melee|Melee|3|4|8|-2|3
+000001610|1|1||Stormfury Missile Launcher||48|Ranged|2|3|10|-3|D3+3
+000001610|2|1||Thunderstrike Icarus Rocket Pod|Anti-Fly 2+|24|Ranged|6|3|6|-1|2
+000001610|3|1||Thunderstrike Las-talon||36|Ranged|2|3|10|-3|D3+3
+000001610|4|1||Armoured Impact||Melee|Melee|3|4|6|0|1
+000001611|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|2|5|-1|1
+000001611|2|1||Storm of the Emperor’s Wrath|PSYCHIC, BLAST 1|18|Ranged|D3+6|2|6|-2|2
+000001611|3|1||Rod of Tigurius|PSYCHIC|Melee|Melee|5|2|7|-2|2
+000001666|1|1||Heavy Bolter|Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000001666|2|1||Heavy Flamer|Torrent, BLAST 2|12|Ranged|3|-|5|-1|1
+000001666|3|1||Laser Destroyer|Heavy|72|Ranged|2|3|14|-3|D6+3
+000001666|4|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000001666|5|1||Quad Lascannon||48|Ranged|4|3|12|-3|D3+3
+000001666|6|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000001666|7|1||Twin Heavy Bolter|Rapid Fire 2, Twin-linked, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000001666|8|1||Twin Falchion Volcano Cannon|BLAST 1, Twin-linked|120|Ranged|D3+1|3|24|-4|12
+000001666|9|1||Twin Heavy Flamer|BLAST 2, Twin-linked, Torrent|12|Ranged|3|-|5|-1|1
+000001666|10|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000001667|1|1||Defensive Array|Rapid Fire 12|24|Ranged|12|3|5|-1|1
+000001667|2|1||Twin Heavy Onslaught Gatling Cannon|SUSTAINED HITS 2: non-MONSTER/VEHICLE, Twin-linked, DEVASTATING WOUNDS: non-MONSTER/VEHICLE|24|Ranged|12|3|6|-1|1
+000001667|3|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000001668|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000001668|2|1||Bolt Sniper Rifle|Heavy, Precision|36|Ranged|1|3|6|-2|3
+000001668|3|1||Instigator Bolt Carbine|LETHAL HITS: non-MONSTER/VEHICLE, Rapid Fire 2, Precision|24|Ranged|2|2|5|-2|2
+000001668|4|1||Las Fusil|Heavy|36|Ranged|1|3|10|-3|D3+3
+000001668|5|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000001825|1|1||Defensive Array|Rapid Fire 6|24|Ranged|6|3|5|-1|1
+000001825|2|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000001825|3|1||Twin Las-talon|Twin-linked|36|Ranged|2|3|10|-3|D3+3
+000001825|4|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000001991|1|1||Combi-weapon - Damnatus|Melta 2|12|Ranged|1|3|9|-3|D3+2
+000001991|2|2||Combi-weapon - Infernus|BLAST 1, Torrent|12|Ranged|3|-|4|0|1
+000001991|3|3||Combi-weapon - Purgatus||24|Ranged|2|3|7|-2|2
+000001991|4|1||Heavy Flamer|BLAST 2, Torrent|12|Ranged|3|-|5|-1|1
+000001991|5|1||Terrax Melta Cutter|Melta 2|12|Ranged|5|3|9|-3|D3+2
+000001991|6|1||Twin Volkite Charger|Twin-linked, Devastating Wounds|18|Ranged|2|3|5|0|2
+000001991|7|1||Termite Drill||Melee|Melee|6|4|14|-2|D3+3
+000001997|1|1||Bolt Rifle - Focused Fire|Heavy, Rapid Fire 1|24|Ranged|1|3|6|-1|2
+000001997|2|2||Bolt Rifle - Saturation|ASSAULT, Rapid Fire 1|24|Ranged|2|3|5|-1|1
+000001997|3|1||Grenade Launcher - Frag|BLAST 1|24|Ranged|4|3|4|-1|1
+000001997|4|2||Grenade Launcher - Krak|Rapid Fire 1|24|Ranged|2|3|10|-2|3
+000001997|5|1||Hand Flamer|Torrent, CLOSE-QUARTERS|9|Ranged|3|-|4|0|1
+000001997|6|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000001997|7|1||Inferno Pistol|Melta 1, CLOSE-QUARTERS|9|Ranged|1|3|8|-3|D3+2
+000001997|8|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000001997|9|2||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|3|8|-3|2
+000001997|10|1||Chainsword||Melee|Melee|4|3|5|-1|1
+000001997|11|1||Combat Blade||Melee|Melee|3|3|5|0|1
+000001997|12|1||Eviscerator|CLEAVE 1|Melee|Melee|3|3|7|-2|2
+000001997|13|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000001997|14|1||Power Weapon||Melee|Melee|4|3|5|-2|1
+000001997|15|1||Thunder Hammer|Devastating Wounds|Melee|Melee|3|4|8|-2|3
+000002098|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000002098|2|1||Plasma Incinerator - Standard|Rapid Fire 1, ASSAULT|24|Ranged|2|3|7|-2|2
+000002098|3|2||Plasma Incinerator - Supercharge|ASSAULT, Rapid Fire 1, Hazardous|24|Ranged|2|3|8|-3|2
+000002098|4|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000002098|5|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000002098|6|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000002099|1|1||Auto Boltstorm Gauntlets|CLOSE-QUARTERS, Twin-linked|18|Ranged|3|3|5|-1|1
+000002099|2|1||Flamestorm Gauntlets - Close Quarters|CLOSE-QUARTERS, Torrent, Twin-linked|12|Ranged|3|-|4|-1|1
+000002099|3|2||Flamestorm Gauntlets - Ranged|Twin-linked, Torrent, BLAST 2|12|Ranged|3|-|4|-1|1
+000002099|4|1||Fragstorm Grenade Launcher|BLAST 1|18|Ranged|3|3|4|-1|1
+000002099|5|1||Twin Power Fists|Twin-linked|Melee|Melee|3|3|8|-2|2
+000002100|1|1||Drakkis|Torrent, CLOSE-QUARTERS|12|Ranged|D6+3|-|5|-1|1
+000002100|2|1||Malleus Noctum|Devastating Wounds|Melee|Melee|5|2|10|-2|3
+000002105|1|1||Fist of Dorn|Devastating Wounds, CLEAVE 1|Melee|Melee|5|2|10|-3|3
+000002173|1|1||Flamestorm Cannon|Torrent, BLAST 2|12|Ranged|4|-|6|-2|2
+000002173|2|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000002173|3|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002173|4|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002173|5|1||Twin Assault Cannon|Sustained Hits 1, Twin-linked|24|Ranged|6|3|6|-2|1
+000002173|6|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000002255|1|1||Artificer Firearm - Infernus|ASSAULT, Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002255|2|2||Artificer Firearm - Purgatus|ASSAULT, Rapid Fire 1|24|Ranged|1|3|7|-2|2
+000002255|3|3||Artificer Firearm - Damnatus|ASSAULT, Melta 2|12|Ranged|1|3|9|-3|D3+2
+000002255|4|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000002255|5|1||Heavy Bolter|Heavy, Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000002255|6|1||Pyrecannon|BLAST 2, Torrent|12|Ranged|4|-|6|-1|1
+000002255|7|1||Ceramite Fists||Melee|Melee|4|3|5|0|1
+000002255|8|1||Chainsword||Melee|Melee|6|3|5|-1|1
+000002255|9|1||Power Fist||Melee|Melee|4|3|8|-2|2
+000002255|10|1||Power Weapon||Melee|Melee|5|3|5|-2|1
+000002266|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000002266|2|1||Smite - Focused Witchfire|Devastating Wounds, PSYCHIC, Hazardous|24|Ranged|D3+3|3|6|-2|2
+000002266|3|2||Smite - Witchfire|PSYCHIC|24|Ranged|D6|3|6|-1|2
+000002266|4|1||Force Weapon|PSYCHIC|Melee|Melee|4|3|6|-2|2
+000002270|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000002270|2|1||Castellan Launcher|Heavy|24|Ranged|2|3|5|-1|1
+000002270|3|1||Superfrag Rocket Launcher|BLAST 1, Heavy|48|Ranged|4|3|5|-1|1
+000002270|4|1||Superkrak Rocket Launcher|Heavy|48|Ranged|1|3|10|-2|D3+3
+000002270|5|1||Vengor Launcher|BLAST 1, Indirect Fire, Heavy|48|Ranged|4|3|7|-1|2
+000002270|6|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000002291|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|2|5|-1|1
+000002291|2|1||Master-crafted Plasma Cannon|BLAST 1|36|Ranged|3|2|8|-3|3
+000002291|3|1||Twin Storm Bolter|Twin-linked, Rapid Fire 2|24|Ranged|2|2|5|-1|1
+000002291|4|1||The Raven Sword|Sustained Hits 2|Melee|Melee|6|2|6|-3|2
+000002296|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|2|5|-1|1
+000002296|2|1||Enmity's Edge|Anti-Psyker 2+|Melee|Melee|6|2|6|-3|2
+000002473|1|1||Artificer Grav-gun|Anti-Vehicle 2+|18|Ranged|3|2|5|-1|2
+000002473|2|1||Hand of Defiance||Melee|Melee|5|2|12|-2|2
+000002530|1|1||Master-crafted bolt carbine||24|Ranged|2|2|4|0|2
+000002530|2|1||Special-issue Bolt Pistol|Precision, CLOSE-QUARTERS|12|Ranged|1|2|5|-2|2
+000002530|3|1||Monomolecular Combat Blades|Sustained Hits 1, Precision|Melee|Melee|6|2|5|-1|1
+000002568|1|1||Bellicatus Missile Array - Frag|BLAST 1|48|Ranged|4|3|4|-1|1
+000002568|2|2||Bellicatus Missile Array - Icarus|Anti-Fly 2+|48|Ranged|3|3|6|-1|2
+000002568|3|3||Bellicatus Missile Array - Krak||48|Ranged|1|3|10|-2|D3+3
+000002568|4|1||Fragstorm Grenade Launchers|BLAST 2|18|Ranged|6|3|4|-1|1
+000002568|5|1||Ironhail Heavy Stubber|Rapid Fire 3|36|Ranged|3|3|4|-1|1
+000002568|6|1||Ironhail Skytalon Array|Rapid Fire 6|36|Ranged|6|3|4|-1|1
+000002568|7|1||Storm Bolters|Rapid Fire 4|24|Ranged|4|3|5|-1|1
+000002568|8|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000002677|1|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002677|2|1||Master-crafted Power Weapon||Melee|Melee|5|3|5|-2|2
+000002682|1|1||Arma Luminis - Plasma|CLOSE-QUARTERS|18|Ranged|2|2|10|-3|3
+000002682|2|2||Arma Luminis - Bolt|CLOSE-QUARTERS|18|Ranged|4|2|6|-2|2
+000002682|3|1||Fealty - Sweep|Sustained Hits 1, CLEAVE 2|Melee|Melee|12|2|6|-3|2
+000002682|4|2||Fealty - Strike|Lethal Hits|Melee|Melee|8|2|12|-4|4
+000002700|1|1||Astareus Las-ripper||36|Ranged|2|3|12|-3|D3+3
+000002700|2|1||Ironhail Heavy Stubber|Rapid Fire 3|36|Ranged|3|3|4|-1|1
+000002700|3|1||Plasma Eradicator - Standard|BLAST 2|36|Ranged|3|3|7|-2|2
+000002700|4|2||Plasma Eradicator - Supercharge|BLAST 2, Hazardous|36|Ranged|3|3|8|-3|3
+000002700|5|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002700|6|1||Twin Heavy Bolter|Twin-linked, Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000002700|7|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000002700|8|1||Twin Macro-accelerator Cannon|Twin-linked, Sustained Hits 1|72|Ranged|12|3|10|-1|3
+000002700|9|1||Armoured Hull||Melee|Melee|6|4|8|0|1
+000002701|1|1||Instigator Bolt Carbine|Precision|24|Ranged|1|2|4|-2|2
+000002701|2|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|2|5|-1|1
+000002701|3|1||Combat Knife|Precision, Sustained Hits 1|Melee|Melee|6|2|5|-1|1
+000002702|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000002702|2|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|2|7|-2|1
+000002702|3|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|2|8|-3|2
+000002702|4|1||Twin Bolt Rifle|Twin-linked, ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|1
+000002702|5|1||Master-crafted Power Weapon||Melee|Melee|6|2|6|-2|2
+000002702|6|1||Thunder Hammer|Devastating Wounds|Melee|Melee|5|3|8|-2|3
+000002703|1|1||Centurion Bolters|Rapid Fire 3, Twin-linked|24|Ranged|3|3|5|-1|1
+000002703|2|1||Twin Flamer|BLAST 1, Twin-linked, Torrent|12|Ranged|3|-|4|0|1
+000002703|3|1||Twin Meltagun|Melta 2, Twin-linked|12|Ranged|1|3|9|-3|D3+2
+000002703|4|1||Siege Drills|Twin-linked|Melee|Melee|3|3|10|-2|3
+000002705|1|1||Defensive Array|Rapid Fire 6|24|Ranged|6|3|5|-1|1
+000002705|2|1||Laser Destroyer|Heavy|72|Ranged|2|3|14|-3|D6+3
+000002705|3|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000002707|1|1||Absolvor Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-2|2
+000002707|2|1||Executioner Relic Blade|Precision, Devastating Wounds|Melee|Melee|5|2|7|-2|2
+000002708|1|1||Blackout|Precision, CLOSE-QUARTERS|18|Ranged|1|2|5|-1|2
+000002708|2|1||Raven’s Talons|Precision, Twin-linked|Melee|Melee|7|2|5|-2|2
+000002709|1|1||Anzuq|DEVASTATING WOUNDS: INFANTRY, CLOSE-QUARTERS, anti-infantry 4+|18|Ranged|2|3|4|-1|2
+000002709|2|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|2|5|-1|1
+000002709|3|1||Moonfang|Anti-Character 5+, Precision, Devastating Wounds|Melee|Melee|6|2|6|-3|2
+000002711|1|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002711|2|1||Onslaught Gatling Cannon|DEVASTATING WOUNDS: non-MONSTER/VEHICLE|24|Ranged|8|3|5|-1|1
+000002711|3|1||Pyrecannon|BLAST 2, Torrent|12|Ranged|4|-|6|-1|1
+000002711|4|1||Stormfury Missile Launcher||48|Ranged|1|3|10|-3|D3+3
+000002711|5|1||Armoured Impact||Melee|Melee|3|4|6|0|1
+000002712|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000002712|2|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000002712|3|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000002712|4|1||Twin Bolt Rifle|Twin-linked, ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|1
+000002712|5|1||Chainsword||Melee|Melee|4|3|5|-1|1
+000002712|6|1||Power Weapon||Melee|Melee|3|3|5|-2|1
+000002712|7|1||Thunder Hammer|Devastating Wounds|Melee|Melee|3|4|8|-2|3
+000002714|1|1||Heavy Bolter|Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000002714|2|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000002714|3|1||Lascannon||48|Ranged|1|3|12|-3|D3+3
+000002714|4|1||Predator Twin Lascannon|Twin-linked|48|Ranged|1|3|14|-3|D3+3
+000002714|5|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002714|6|1||Armoured Tracks||Melee|Melee|3|4|6|0|1
+000002715|1|1||Lascannon||48|Ranged|1|3|12|-3|D3+3
+000002715|2|1||Heavy Bolter|Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000002715|3|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000002715|4|1||Predator Autocannon|Rapid Fire 2|48|Ranged|4|3|9|-1|3
+000002715|5|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002715|6|1||Armoured Tracks||Melee|Melee|3|4|6|0|1
+000002717|1|1||Fragstorm Grenade Launchers|BLAST 2|18|Ranged|6|3|4|-1|1
+000002717|2|1||Heavy Flamer|BLAST 2, Torrent|12|Ranged|3|-|5|-1|1
+000002717|3|1||Heavy Onslaught Gatling Cannon|DEVASTATING WOUNDS: non-MONSTER/VEHICLE, SUSTAINED HITS 2: non-MONSTER/VEHICLE|24|Ranged|12|3|6|-1|1
+000002717|4|1||Icarus Rocket Pod|Anti-Fly 2+|24|Ranged|3|3|6|-1|2
+000002717|5|1||Macro Plasma Incinerator - Standard|BLAST 1|36|Ranged|D3+3|3|9|-3|2
+000002717|6|2||Macro Plasma Incinerator - Supercharge|BLAST 1, Hazardous|36|Ranged|D3+3|3|10|-4|3
+000002717|7|1||Onslaught Gatling Cannon|DEVASTATING WOUNDS: non-MONSTER/VEHICLE|24|Ranged|8|3|5|-1|1
+000002717|8|1||Storm Bolters|Rapid Fire 4|24|Ranged|4|3|5|-1|1
+000002717|9|1||Redemptor Fist||Melee|Melee|5|3|12|-3|D3+3
+000002718|1|1||Bolt Carbine|Precision, ASSAULT|18|Ranged|3|3|5|-1|1
+000002718|2|1||Special-issue Bolt Pistol|CLOSE-QUARTERS, Precision|12|Ranged|1|3|5|-2|1
+000002718|3|1||Monomolecular Combat Knife|Precision|Melee|Melee|4|3|5|-1|1
+000002720|1|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000002720|2|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002720|3|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002720|4|1||Twin Assault Cannon|Twin-linked, Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000002720|5|1||Twin Heavy Bolter|Sustained Hits 1, Rapid Fire 2, Twin-linked|36|Ranged|3|3|5|-1|2
+000002720|6|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000002720|7|1||Armoured Tracks||Melee|Melee|3|4|6|0|1
+000002721|1|1||Defensive Array||24|Ranged|18|3|5|-1|1
+000002721|2|1||Heavy Onslaught Gatling Cannon|DEVASTATING WOUNDS: non-MONSTER/VEHICLE, SUSTAINED HITS 2: non-MONSTER/VEHICLE|24|Ranged|12|3|6|-1|1
+000002721|3|1||Hunter-slayer Missile|Indirect Fire, ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000002721|4|1||Las-talon||36|Ranged|2|3|10|-3|D3+3
+000002721|5|1||Twin Heavy Bolter|Rapid Fire 2, Sustained Hits 1, Twin-linked|36|Ranged|3|3|5|-1|2
+000002721|6|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000002721|7|1||Armoured Hull||Melee|Melee|6|4|8|0|1
+000002722|1|1||Defensive Array||24|Ranged|18|3|5|-1|1
+000002722|2|1||Heavy Laser Destroyer|Devastating Wounds, Heavy|72|Ranged|2|3|16|-4|D6+4
+000002722|3|1||Heavy Onslaught Gatling Cannon|SUSTAINED HITS 2: non-MONSTER/VEHICLE, DEVASTATING WOUNDS: non-MONSTER/VEHICLE|24|Ranged|12|3|6|-1|1
+000002722|4|1||Macro Plasma Incinerator - Standard|BLAST 1|36|Ranged|D3+3|3|9|-3|2
+000002722|5|2||Macro Plasma Incinerator - Supercharge|Hazardous, BLAST 1|36|Ranged|D3+3|3|10|-4|3
+000002722|6|1||Twin Heavy Bolter|Sustained Hits 1, Rapid Fire 2, Twin-linked|36|Ranged|3|3|5|-1|2
+000002722|7|1||Armoured Hull||Melee|Melee|6|4|8|0|1
+000002723|1|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000002723|2|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002723|3|1||Armoured Tracks||Melee|Melee|3|4|6|0|1
+000002726|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|2|5|-1|1
+000002726|2|1||Gauntlet of the Forge|Torrent, CLOSE-QUARTERS|12|Ranged|D6+3|-|6|-1|1
+000002726|3|1||Spear of Vulkan|Devastating Wounds|Melee|Melee|6|2|7|-2|2
+000002727|1|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000002727|2|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002727|3|1||Whirlwind Vengeance Launcher|Indirect Fire, BLAST 2|72|Ranged|6|3|8|-2|2
+000002727|4|1||Armoured Tracks||Melee|Melee|3|4|6|0|1
+000002737|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000002737|2|1||Hand Flamer|Torrent, CLOSE-QUARTERS|9|Ranged|3|-|4|0|1
+000002737|3|1||Inferno Pistol|CLOSE-QUARTERS, Melta 1|9|Ranged|1|3|8|-3|D3+2
+000002737|4|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000002737|5|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000002737|6|1||Chainsword||Melee|Melee|4|3|5|-1|1
+000002737|7|1||Eviscerator|CLEAVE 1|Melee|Melee|3|3|7|-2|2
+000002737|8|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000002737|9|1||Power Weapon||Melee|Melee|4|3|5|-2|1
+000002748|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000002748|2|1||Grenade Launcher - Frag|BLAST 1|24|Ranged|4|3|4|-1|1
+000002748|3|2||Grenade Launcher - Krak|Rapid Fire 1|24|Ranged|1|3|10|-2|3
+000002748|4|1||Plasma Talon - Standard|Rapid Fire 1|18|Ranged|2|3|7|-2|1
+000002748|5|2||Plasma Talon - Supercharge|Rapid Fire 1, Hazardous|18|Ranged|2|3|8|-3|2
+000002748|6|1||Corvus Hammers|Devastating Wounds|Melee|Melee|4|3|5|-2|1
+000002748|7|1||Master-crafted Power Weapon||Melee|Melee|6|2|6|-2|2
+000002772|1|1||Master-crafted Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|2
+000002772|2|1||Master-crafted Bolt Rifle|ASSAULT, Rapid Fire 1|24|Ranged|2|3|5|-1|2
+000002772|3|1||Master-crafted Heavy Bolter|ASSAULT, Rapid Fire 2, Heavy, Sustained Hits 1|36|Ranged|4|3|6|-1|2
+000002772|4|1||Combat Knife||Melee|Melee|5|3|5|-1|1
+000002772|5|1||Master-crafted Power Weapon|Precision|Melee|Melee|6|2|6|-2|2
+000002773|1|1||Absolvor Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-2|2
+000002773|2|1||Reductor Pistol|Extra Attacks|Melee|Melee|1|3|5|-4|2
+000002773|3|1||Servo-armature||Melee|Melee|4|3|5|0|1
+000002775|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000002775|2|1||Bolt Rifle - Focused Fire|Rapid Fire 1, Heavy|24|Ranged|1|3|6|-1|2
+000002775|3|2||Bolt Rifle - Saturation|Rapid Fire 1, ASSAULT|24|Ranged|2|3|5|-1|1
+000002775|4|1||Ceramite Fists||Melee|Melee|4|3|5|0|1
+000002775|5|1||Power Weapon||Melee|Melee|5|3|5|-2|1
+000002776|1|1||Hand Flamer|CLOSE-QUARTERS, Torrent|9|Ranged|3|-|4|0|1
+000002776|2|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000002776|3|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000002776|4|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000002776|5|1||Chainsword||Melee|Melee|4|3|5|-1|1
+000002776|6|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000002776|7|1||Power Weapon||Melee|Melee|4|3|5|-2|1
+000002779|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000002779|2|1||Bolt Sniper Rifle|Precision, Heavy|36|Ranged|1|3|6|-2|3
+000002779|3|1||Deathwatch Bolt Carbine|Precision, Lethal Hits|24|Ranged|2|3|5|-1|1
+000002779|4|1||Deathwatch Marksman Bolt Carbine|Heavy, Lethal Hits|24|Ranged|2|3|5|-1|1
+000002779|5|1||Deathwatch Occulus Bolt Carbine|ASSAULT, Ignores Cover, Lethal Hits|24|Ranged|2|3|5|-1|1
+000002779|6|1||Instigator Bolt Carbine|LETHAL HITS: non-MONSTER/VEHICLE, Precision, Rapid Fire 2|24|Ranged|2|2|5|-2|2
+000002779|7|1||Las Fusil|Heavy|36|Ranged|1|3|10|-3|D3+3
+000002779|8|1||Special-issue Bolt Pistol|CLOSE-QUARTERS, Precision|12|Ranged|1|3|5|-1|1
+000002779|9|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000002779|10|1||Combat Knife|Precision|Melee|Melee|4|3|5|-1|1
+000002779|11|1||Paired Combat Blades|Sustained Hits 1|Melee|Melee|3|3|5|-1|1
+000002780|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000002780|2|1||Castellan Launcher|Heavy|24|Ranged|2|3|5|-1|1
+000002780|3|1||Deathwatch Bolt Rifle|ASSAULT, Lethal Hits, Heavy|24|Ranged|2|3|5|-2|1
+000002780|4|1||Grenade Launcher - Frag|BLAST 1|24|Ranged|4|3|4|-1|1
+000002780|5|2||Grenade Launcher - Krak|Rapid Fire 1|24|Ranged|1|3|10|-2|3
+000002780|6|1||Hand Flamer|CLOSE-QUARTERS, Torrent|9|Ranged|3|-|4|0|1
+000002780|7|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000002780|8|1||Plasma Incinerator - Standard|Rapid Fire 1, ASSAULT|24|Ranged|2|3|7|-2|2
+000002780|9|2||Plasma Incinerator - Supercharge|Hazardous, Rapid Fire 1, ASSAULT|24|Ranged|2|3|8|-3|2
+000002780|10|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000002780|11|2||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|3|8|-3|2
+000002780|12|1||Pyreblaster|Torrent, BLAST 1|12|Ranged|3|-|5|-1|1
+000002780|13|1||Superfrag Rocket Launcher|BLAST 1, Heavy|48|Ranged|4|3|5|-1|1
+000002780|14|1||Superkrak Rocket Launcher|Heavy|48|Ranged|1|3|10|-2|D3+3
+000002780|15|1||Vengor Launcher|Heavy, BLAST 1, Indirect Fire|48|Ranged|4|3|7|-1|2
+000002780|16|1||Chainsword||Melee|Melee|4|3|5|-1|1
+000002780|17|1||Knives and Fists||Melee|Melee|3|3|5|0|1
+000002780|18|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000002780|19|1||Power Weapon||Melee|Melee|4|3|5|-2|1
+000002780|20|1||Thunder Hammer|Devastating Wounds|Melee|Melee|3|4|8|-2|3
+000002781|1|1||Auto Boltstorm Gauntlets|CLOSE-QUARTERS, Twin-linked|18|Ranged|3|3|5|-1|1
+000002781|2|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000002781|3|1||Deathwatch Heavy Bolt Rifle|ASSAULT, Lethal Hits, Heavy|30|Ranged|2|3|5|-2|2
+000002781|4|1||Deathwatch Heavy Bolter|ASSAULT, Heavy, Lethal Hits, Sustained Hits 1|36|Ranged|3|3|5|-2|3
+000002781|5|1||Flamestorm Gauntlets|BLAST 2, Torrent, Twin-linked|12|Ranged|3|-|4|-1|1
+000002781|6|2||Flamestorm Gauntlets - Close Quarters|CLOSE-QUARTERS, Twin-linked, Torrent|12|Ranged|3|-|4|-1|1
+000002781|7|1||Fragstorm Grenade Launcher|BLAST 1|18|Ranged|3|3|4|-1|1
+000002781|8|1||Melta Rifle|Melta 2|18|Ranged|1|3|10|-3|D3+2
+000002781|9|2||Melta Rifle - Hunter|Melta 2|18|Ranged|1|2|12|-3|D3+2
+000002781|10|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002781|11|2||Multi-melta - Hunter|Melta 3|18|Ranged|2|2|12|-3|D3+2
+000002781|12|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000002781|13|1||Twin Power Fists|Twin-linked|Melee|Melee|3|3|8|-2|2
+000002783|1|1||Boltgun|Rapid Fire 1|24|Ranged|1|3|5|-1|1
+000002783|2|1||Combi-weapon - Damnatus||12|Ranged|1|3|9|-3|D3+2
+000002783|3|2||Combi-weapon - Infernus|BLAST 1, Torrent|12|Ranged|3|-|4|0|1
+000002783|4|3||Combi-weapon - Purgatus|Melta 2|24|Ranged|2|3|7|-2|2
+000002783|5|1||Deathwatch Shotgun|ASSAULT|18|Ranged|2|3|4|-1|2
+000002783|6|1||Frag Cannon|Heavy, Lethal Hits, Rapid Fire 1, BLAST 1|18|Ranged|2|3|7|-2|2
+000002783|7|1||Infernus Heavy Bolter - Bolt|Heavy, Rapid Fire 2, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000002783|8|2||Infernus Heavy Bolter - Infernus|Torrent, BLAST 1|12|Ranged|3|-|5|-1|1
+000002783|9|1||Stalker-pattern Boltgun|Heavy, Precision|24|Ranged|1|3|5|-1|2
+000002783|10|1||Black Shield Blades|Twin-linked|Melee|Melee|4|3|5|-2|1
+000002783|11|1||Heavy Thunder Hammer|Devastating Wounds|Melee|Melee|3|4|10|-2|3
+000002783|12|1||Knives and Fists||Melee|Melee|3|3|5|0|1
+000002783|13|1||Power Weapon||Melee|Melee|3|3|5|-2|1
+000002783|14|1||Xenophase Blade|Devastating Wounds|Melee|Melee|4|3|5|-2|1
+000002786|1|1||Bellicatus Missile Array - Frag|BLAST 1|48|Ranged|4|3|4|-1|1
+000002786|2|2||Bellicatus Missile Array - Icarus|Anti-Fly 2+|48|Ranged|3|3|6|-1|2
+000002786|3|3||Bellicatus Missile Array - Krak||48|Ranged|1|3|10|-2|D3+3
+000002786|4|1||Fragstorm Grenade Launchers|BLAST 2|18|Ranged|6|3|4|-1|1
+000002786|5|1||Ironhail Heavy Stubber|Rapid Fire 3|36|Ranged|3|3|4|-1|1
+000002786|6|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002786|7|1||Storm Bolters|Rapid Fire 4|24|Ranged|4|3|5|-1|1
+000002786|8|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000002787|1|1||Laser Destroyer|Heavy|72|Ranged|2|3|14|-3|D6+3
+000002787|2|1||Defensive Array|Rapid Fire 6|24|Ranged|6|3|5|-1|1
+000002787|3|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002787|4|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000002788|1|1||Defensive Array|Rapid Fire 6|24|Ranged|6|3|5|-1|1
+000002788|2|1||Twin Las-talon|Twin-linked|36|Ranged|2|3|10|-3|D3+3
+000002788|3|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002788|4|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000002789|1|1||Defensive Array|Rapid Fire 12|24|Ranged|12|3|5|-1|1
+000002789|2|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002789|3|1||Twin Heavy Onslaught Gatling Cannon|SUSTAINED HITS 2: non-MONSTER/VEHICLE, Twin-linked, DEVASTATING WOUNDS: non-MONSTER/VEHICLE|24|Ranged|12|3|6|-1|1
+000002789|4|1||Armoured Hull||Melee|Melee|3|4|6|0|1
+000002790|1|1||Defensive Array||24|Ranged|18|3|5|-1|1
+000002790|2|1||Heavy Laser Destroyer|Devastating Wounds, Heavy|72|Ranged|2|3|16|-4|D6+4
+000002790|3|1||Heavy Onslaught Gatling Cannon|SUSTAINED HITS 2: non-MONSTER/VEHICLE, DEVASTATING WOUNDS: non-MONSTER/VEHICLE|24|Ranged|12|3|6|-1|1
+000002790|4|1||Macro Plasma Incinerator - Standard|BLAST 1|36|Ranged|D3+3|3|9|-3|2
+000002790|5|2||Macro Plasma Incinerator - Supercharge|BLAST 1, Hazardous|36|Ranged|D3+3|3|10|-4|3
+000002790|6|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002790|7|1||Twin Heavy Bolter|Sustained Hits 1, Rapid Fire 2, Twin-linked|36|Ranged|3|3|5|-1|2
+000002790|8|1||Armoured Hull||Melee|Melee|6|4|8|0|1
+000002791|1|1||Defensive Array||24|Ranged|18|3|5|-1|1
+000002791|2|1||Heavy Onslaught Gatling Cannon|DEVASTATING WOUNDS: non-MONSTER/VEHICLE, SUSTAINED HITS 2: non-MONSTER/VEHICLE|24|Ranged|12|3|6|-1|1
+000002791|3|1||Hunter-slayer Missile|Indirect Fire, ONE SHOT|48|Ranged|1|2|14|-3|D3+3
+000002791|4|1||Las-talon||36|Ranged|2|3|10|-3|D3+3
+000002791|5|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002791|6|1||Twin Heavy Bolter|Rapid Fire 2, Sustained Hits 1, Twin-linked|36|Ranged|3|3|5|-1|2
+000002791|7|1||Twin Lascannon|Twin-linked|48|Ranged|1|3|12|-3|D3+3
+000002791|8|1||Armoured Hull||Melee|Melee|6|4|8|0|1
+000002792|1|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|2|7|-2|1
+000002792|2|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|2|8|-3|2
+000002792|3|1||Artificer crozius||Melee|Melee|6|2|6|-2|2
+000002792|4|1||Close combat weapon||Melee|Melee|1|4|3|0|1
+000002793|1|1||Combi-weapon - Purgatus||24|Ranged|2|2|7|-2|2
+000002793|2|2||Combi-weapon - Damnatus|Melta 2|12|Ranged|1|2|9|-3|D3+2
+000002793|3|3||Combi-weapon - Infernus|Torrent, BLAST 1|12|Ranged|3|-|4|0|1
+000002793|4|1||Heavy Bolt Pistol|Pistol|18|Ranged|1|2|4|-1|1
+000002793|5|1||Chainsword|Sustained Hits 1|Melee|Melee|7|2|5|-1|1
+000002793|6|1||Master-crafted Power Weapon|Lethal Hits|Melee|Melee|6|2|6|-2|2
+000002794|1|1||Ferocity|anti-infantry 4+, Devastating Wounds|24|Ranged|2|2|5|-1|2
+000002794|2|1||Sword of the High Marshals - Strike||Melee|Melee|6|2|9|-3|3
+000002794|3|2||Sword of the High Marshals - Sweep||Melee|Melee|12|2|6|-3|1
+000002795|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|2|5|-1|1
+000002795|2|1||Black Sword - Sweep||Melee|Melee|10|2|6|-2|1
+000002795|3|2||Black Sword - Strike|Precision, Anti-Character 5+, Devastating Wounds|Melee|Melee|6|2|8|-3|3
+000002796|1|1||Combi-weapon - Damnatus|Melta 2|12|Ranged|1|2|9|-3|D3+2
+000002796|2|2||Combi-weapon - Infernus|Blast 1, Torrent|12|Ranged|3|-|4|0|1
+000002796|3|3||Combi-weapon - Purgatus||24|Ranged|2|2|7|-2|2
+000002796|4|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|2|7|-2|1
+000002796|5|2||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|2|8|-3|2
+000002796|6|1||Master-crafted Power Weapon|Lethal Hits|Melee|Melee|7|2|6|-2|2
+000002798|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000002798|2|1||Hand Flamer|Torrent, CLOSE-QUARTERS|9|Ranged|3|-|4|0|1
+000002798|3|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000002798|4|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000002798|5|1||Chainsword|Sustained Hits 1|Melee|Melee|6|2|5|-1|1
+000002798|6|1||Master-crafted Power Weapon|Lethal Hits|Melee|Melee|3|2|5|-2|2
+000002798|7|1||Thunder Hammer|Devastating Wounds|Melee|Melee|3|3|8|-2|3
+000002798|8|1||Twin Lightning Claws|Twin-linked|Melee|Melee|5|2|5|-2|1
+000002799|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000002799|2|1||Bolt Rifle - Focused Fire|Rapid Fire 1, Heavy|24|Ranged|1|3|6|-1|2
+000002799|3|2||Bolt Rifle - Saturation|ASSAULT, Rapid Fire 1|24|Ranged|2|3|5|-1|1
+000002799|4|1||Hand Flamer|Torrent, CLOSE-QUARTERS|9|Ranged|3|-|4|0|1
+000002799|5|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000002799|6|1||Pyreblaster|BLAST 1, Torrent|12|Ranged|3|-|5|-1|1
+000002799|7|1||Shotgun|ASSAULT, BLAST 1|18|Ranged|2|3|4|-1|1
+000002799|8|1||Close combat weapon||Melee|Melee|3|3|4|0|1
+000002799|9|1||Combat Knife||Melee|Melee|3|3|4|-1|1
+000002799|10|1||Initiate Chainsword|Sustained Hits 1|Melee|Melee|4|3|5|-1|1
+000002799|11|1||Master-crafted Power Weapon|Lethal Hits|Melee|Melee|3|2|5|-2|2
+000002799|12|1||Neophyte Chainsword|Sustained Hits 1|Melee|Melee|4|3|4|-1|1
+000002799|13|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000002801|1|1||Assault Cannon|Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000002801|2|1||Heavy Flamer|Torrent, BLAST 2|12|Ranged|3|-|5|-1|1
+000002801|3|1||Helfrost Cannon - Dispersed|Torrent|12|Ranged|3|-|6|-1|2
+000002801|4|2||Helfrost Cannon - Focused||36|Ranged|1|3|10|-3|5
+000002801|5|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000002801|6|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000002801|7|1||Dreadnought Combat Weapon||Melee|Melee|5|3|12|-2|3
+000002801|8|1||Fenrisian Great Axe - Strike||Melee|Melee|6|3|10|-2|D3+3
+000002801|9|2||Fenrisian Great Axe - Sweep||Melee|Melee|12|3|6|-2|1
+000003698|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000003698|2|1||Calibanite Greatsword - Sweep|Sustained Hits 2|Melee|Melee|5|3|6|-2|1
+000003698|3|2||Calibanite Greatsword - Strike|Lethal Hits|Melee|Melee|4|3|6|-2|2
+000003708|1|1||Bolt pistol|pistol|12|Ranged|1|3|4|0|1
+000003708|2|1||Astartes chainsword||Melee|Melee|4|3|4|-1|1
+000003831|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000003831|2|1||Inferno Pistol|Melta 1, CLOSE-QUARTERS|9|Ranged|1|2|8|-3|D3+2
+000003831|3|1||Master-crafted Chainsword||Melee|Melee|7|2|5|-1|2
+000003831|4|1||Power Fist||Melee|Melee|5|2|8|-2|2
+000003831|5|1||Relic Weapon||Melee|Melee|6|2|6|-2|2
+000003832|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000003832|2|1||Inferno Pistol|CLOSE-QUARTERS, Melta 1|9|Ranged|1|2|8|-3|D3+2
+000003832|3|1||Master-crafted Chainsword|Sustained Hits 1|Melee|Melee|8|2|5|-1|2
+000003832|4|1||Power Fist||Melee|Melee|6|2|8|-2|2
+000003832|5|1||Relic Weapon||Melee|Melee|7|2|6|-2|2
+000003833|1|1||Hand Flamer|Torrent, CLOSE-QUARTERS|9|Ranged|3|-|4|0|1
+000003833|2|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000003833|3|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|2|7|-2|1
+000003833|4|2||Plasma Pistol - Supercharge|Hazardous|12|Ranged|1|2|8|-3|2
+000003833|5|1||Chainsword|Sustained Hits 1|Melee|Melee|8|2|5|-1|1
+000003833|6|1||Power Fist||Melee|Melee|5|2|8|-2|2
+000003833|7|1||Relic Weapon||Melee|Melee|6|2|6|-2|2
+000003833|8|1||Thunder Hammer||Melee|Melee|5|3|8|-2|3
+000003871|1|1||Vigil Spear||24|Ranged|2|2|5|-1|2
+000003871|2|1||Vigil Spear|Lance|Melee|Melee|6|2|6|-2|2
+000003872|1|1||Hellfire Extremis|Torrent, Ignores Cover, Devastating Wounds, anti-infantry 4+|12|Ranged|3|-|4|-1|1
+000003872|2|1||Master-crafted Power Weapon||Melee|Melee|6|2|6|-2|2
+000003873|1|1||Assault Cannon|Sustained Hits 1|24|Ranged|6|3|6|-2|1
+000003873|2|1||Cyclone Missile Launcher - Frag|BLAST 2|36|Ranged|8|3|4|-1|1
+000003873|3|2||Cyclone Missile Launcher - Krak||36|Ranged|2|3|10|-2|D3+3
+000003873|4|1||Heavy Flamer|Torrent, BLAST 2|12|Ranged|3|-|5|-1|1
+000003873|5|1||Plasma Cannon - Standard|BLAST 1|36|Ranged|3|3|9|-2|2
+000003873|6|2||Plasma Cannon - Supercharge|Hazardous, BLAST 1|36|Ranged|3|3|10|-3|3
+000003873|7|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000003873|8|1||Chainfist - Hunter||Melee|Melee|3|3|12|-2|3
+000003873|9|2||Chainfist - Standard||Melee|Melee|2|4|8|-2|2
+000003873|10|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000003873|11|1||Power Weapon||Melee|Melee|5|3|5|-2|1
+000003873|12|1||Thunder Hammer|Devastating Wounds|Melee|Melee|3|3|8|-2|3
+000003873|13|1||Twin Lightning Claws|Twin-linked|Melee|Melee|6|3|5|-2|1
+000003874|1|1||Assault Bolters|ASSAULT, Twin-linked, Sustained Hits 2, CLOSE-QUARTERS|18|Ranged|3|3|5|-1|2
+000003874|2|1||Hand Flamer|Torrent, CLOSE-QUARTERS|9|Ranged|3|7|4|0|1
+000003874|3|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000003874|4|1||Plasma Exterminators - Standard|Twin-linked, ASSAULT, CLOSE-QUARTERS|18|Ranged|2|3|7|-2|2
+000003874|5|2||Plasma Exterminators - Supercharge|CLOSE-QUARTERS, ASSAULT, Hazardous, Twin-linked|18|Ranged|2|3|8|-3|3
+000003874|6|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000003874|7|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000003874|8|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000003874|9|1||Chainsword||Melee|Melee|4|3|5|-1|1
+000003874|10|1||Power Fist||Melee|Melee|3|3|8|-2|2
+000003874|11|1||Power Weapon||Melee|Melee|4|3|5|-2|1
+000003875||1||Twin lightning claws|twin-linked|Melee|Melee|4|3|5|-2|1
+000003875||1||Bolt pistol|pistol|12|Ranged|1|3|4|0|1
+000003875||1||Boltgun||24|Ranged|2|3|4|0|1
+000003875||1||Heavy flamer|ignores cover, torrent|12|Ranged|D6|-|5|-1|1
+000003875||1||Force weapon|psychic|Melee|Melee|5|2|5|-3|D3
+000003875||1||Power fist||Melee|Melee|3|3|8|-2|2
+000003875||1||Long Vigil melee weapon||Melee|Melee|3|3|5|-2|1
+000003875||1||Close combat weapon||Melee|Melee|3|3|5|-2|1
+000003875||1||Artificer crozius||Melee|Melee|5|2|6|-1|2
+000003875||1||Psychic Cleanse|psychic|24|Ranged|D6|3|5|-1|D3
+000003875||1||Long Vigil ranged weapon|anti-infantry 4+, devastating wounds, rapid fire 1|24|Ranged|1|4|4|0|1
+000003875||1||Frag cannon|blast, heavy, rapid fire d3|18|Ranged|D3|4|7|-1|2
+000003875||1||Deathwatch twin boltgun|TWIN-LINKED|24|Ranged|2|3|4|0|1
+000004129|1|1||Absolvor Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-2|2
+000004129|2|1||Crozius Arcanum||Melee|Melee|5|2|6|-1|2
+000004130|1|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000004130|2|2||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|3|8|-3|2
+000004130|3|1||Master-crafted Power Weapon||Melee|Melee|7|2|6|-2|2
+000004130|4|1||Thunder Hammer|Devastating Wounds|Melee|Melee|5|3|8|-2|3
+000004131|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000004131|2|1||Master-crafted Power Weapon||Melee|Melee|4|3|5|-2|2
+000004131|3|1||Paired Master-crafted Power Weapons||Melee|Melee|6|3|5|-2|2
+000004131|4|1||Teeth and Claws||Melee|Melee|3|4|4|0|1
+000004132|1|1||Stormfrag Auto-launcher|ASSAULT, BLAST 1|12|Ranged|2|4|4|-1|1
+000004132|2|1||Thunder Hammer|Devastating Wounds|Melee|Melee|2|3|8|-2|3
+000004132|3|2||Thunder Hammer - Hunter|Devastating Wounds|Melee|Melee|3|3|10|-3|3
+000004133|1|1||Heavy Flamer|BLAST 2, Torrent|12|Ranged|3|7|5|-1|1
+000004133|2|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000004133|3|1||Great Wolf Claw||Melee|Melee|6|3|10|-3|3
+000004133|4|1||Fenrisian Great Axe - Strike||Melee|Melee|6|3|10|-2|D3+3
+000004133|5|2||Fenrisian Great Axe - Sweep||Melee|Melee|12|3|6|-2|1
+000004135|1|1||Absolvor Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-2|2
+000004135|2|1||Hand Flamer|CLOSE-QUARTERS, Torrent|9|Ranged|3|-|4|0|1
+000004135|3|1||Crozius Arcanum|CLEAVE 1|Melee|Melee|5|2|6|-1|2
+000004135|4|1||Master-crafted Power Weapon|Extra Attacks, Lethal Hits|Melee|Melee|3|2|6|-2|2
+000004136|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000004136|2|1||Master-crafted Power Weapon|Lethal Hits|Melee|Melee|5|2|5|-2|2
+000004148|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000004148|2|1||Claws of Severax|Twin-linked, SUSTAINED HITS 2: non-MONSTER/VEHICLE|Melee|Melee|7|2|5|-2|2
+000004166|1|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|2|5|-1|1
+000004166|2|1||Axiom|CLEAVE 1|Melee|Melee|5|2|8|-3|2
+000004167|1|1||Onslaught gatling cannon|Devastating Wounds|24|Ranged|8|2|5|0|1
+000004167|2|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000004167|3|1||Stormtooth|ANTI-MONSTER/VEHICLE 4+, Lance|Melee|Melee|6|2|7|-3|2
+000004167|4|1||Power Sword|SUSTAINED HITS 1: non-MONSTER/VEHICLE, Extra Attacks|Melee|Melee|3|2|5|-2|1
+000004175|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000004175|2|1||Deathwatch Marksman Bolt Carbine|Lethal Hits, Heavy|24|Ranged|2|3|5|-1|1
+000004175|3|1||Frag Cannon|Lethal Hits, BLAST 1, Heavy, Rapid Fire 1|18|Ranged|2|3|7|-2|2
+000004175|4|1||Grenade Launcher - Frag|BLAST 1|24|Ranged|4|3|4|-1|1
+000004175|5|2||Grenade Launcher - Krak|Rapid Fire 1|24|Ranged|1|3|10|-2|3
+000004175|6|1||Hellstorm Bolt Rifle|Lethal Hits, ASSAULT, Heavy|30|Ranged|2|3|5|-2|2
+000004175|7|1||Infernus Heavy Bolter - Bolt|Rapid Fire 2, Heavy, Sustained Hits 1|36|Ranged|3|3|5|-1|2
+000004175|8|2||Infernus Heavy Bolter - Infernus|BLAST 1, Torrent|12|Ranged|3|-|5|-1|1
+000004175|9|1||Plasma Incinerator - Standard|ASSAULT, Rapid Fire 1|24|Ranged|2|3|7|-2|2
+000004175|10|2||Plasma Incinerator - Supercharge|Hazardous, Rapid Fire 1, ASSAULT|24|Ranged|2|3|8|-3|2
+000004175|11|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000004175|12|2||Plasma Pistol - Supercharge|CLOSE-QUARTERS, Hazardous|12|Ranged|1|3|8|-3|2
+000004175|13|1||Special-issue Bolt Pistol|CLOSE-QUARTERS, Precision, Lethal Hits|18|Ranged|1|3|5|-1|1
+000004175|14|1||Stalker Bolt Rifle|Precision, Heavy, Lethal Hits|30|Ranged|2|3|5|-2|2
+000004175|15|1||Heavy Thunder Hammer|Devastating Wounds|Melee|Melee|3|4|10|-2|3
+000004175|16|1||Knives and Fists||Melee|Melee|3|3|5|0|1
+000004175|17|1||Power Weapon|Sustained Hits 1|Melee|Melee|4|3|5|-2|1
+000004175|18|1||Xenophase Blade|Devastating Wounds|Melee|Melee|4|3|5|-2|1
+000004182|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000004182|2|1||Instigator Bolt Carbine|Precision, LETHAL HITS: non-MONSTER/VEHICLE|24|Ranged|2|3|5|-2|2
+000004182|3|1||Plasma Gun - Standard|Rapid Fire 1|24|Ranged|1|3|7|-2|1
+000004182|4|2||Plasma Gun - Supercharge|Hazardous, Rapid Fire 1|24|Ranged|1|3|8|-3|2
+000004182|5|1||Plasma Pistol - Standard|CLOSE-QUARTERS|12|Ranged|1|3|7|-2|1
+000004182|6|2||Plasma Pistol - Supercharge|Hazardous, CLOSE-QUARTERS|12|Ranged|1|3|8|-3|2
+000004182|7|1||Thunderclap|BLAST 1, PSYCHIC|12|Ranged|2|3|5|-1|2
+000004182|8|1||Combat Knife||Melee|Melee|4|3|4|-1|1
+000004182|9|1||Power Weapon||Melee|Melee|4|3|5|-2|1
+000004182|10|1||Runic Stave|PSYCHIC|Melee|Melee|3|3|6|-1|2
+000004182|11|1||Teeth and Claws||Melee|Melee|2|4|4|0|1
+000004184|1|1||Artisan Plasma Pistol|CLOSE-QUARTERS|12|Ranged|1|2|8|-3|2
+000004184|2|1||Talassarian Tempest Blade - Strike|Devastating Wounds|Melee|Melee|4|2|6|-3|3
+000004184|3|2||Talassarian Tempest Blade - Coup de Grace|Precision|Melee|Melee|6|2|5|-2|2
+000004184|4|3||Talassarian Tempest Blade - Sweep|Sustained Hits 1|Melee|Melee|9|2|5|-2|1
+000004185|1|1||Master-crafted Bolt Carbine|Rapid Fire 1, ASSAULT|24|Ranged|2|2|5|-1|2
+000004185|2|1||Blades of Honour|Twin-linked, Precision|Melee|Melee|6|2|6|-2|2
+000004185|3|1||Master-crafted Power Weapon||Melee|Melee|5|2|5|-2|2
+000004187|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|2|5|-1|1
+000004187|2|1||Master-crafted Bolter|ASSAULT, Rapid Fire 1, Heavy|24|Ranged|2|2|5|-1|2
+000004187|3|1||Master-crafted Chainsword|ANTI-non-MONSTER/VEHICLE 2+|Melee|Melee|8|2|5|-1|2
+000004188|1|1||Archeotech Laspistol|CLOSE-QUARTERS|12|Ranged|1|3|4|-1|1
+000004188|2|1||Astropathic Blast|PSYCHIC, BLAST 1|12|Ranged|3|3|4|-1|1
+000004188|3|1||Bolt Rifle - Focused Fire|Heavy, Rapid Fire 1|24|Ranged|1|3|6|-1|2
+000004188|4|2||Bolt Rifle - Saturation|ASSAULT, Rapid Fire 1|24|Ranged|2|3|5|-1|1
+000004188|5|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|3|5|-1|1
+000004188|6|1||Ceramite Fists||Melee|Melee|4|3|5|0|1
+000004188|7|1||Force Stave|PSYCHIC|Melee|Melee|1|2|5|-2|2
+000004188|8|1||Master-crafted Power Weapon|Precision|Melee|Melee|5|2|5|-2|2
+000004188|9|1||Power Weapon||Melee|Melee|4|2|4|-2|1
+000004188|10|1||Ultramarian Combat Weapons||Melee|Melee|4|3|4|0|1
+000004231|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000004231|2|1||Heavy Bolter|Sustained Hits 1, Rapid Fire 2, Heavy|36|Ranged|3|3|6|-1|2
+000004231|3|1||Ceramite Fists||Melee|Melee|3|3|5|0|1
+000004245|1|1||Arcus Multi-launcher|Indirect Fire|48|Ranged|7|3|6|0|2
+000004245|2|1||Heavy Bolter|Sustained Hits 1, Rapid Fire 2|36|Ranged|3|3|5|-1|2
+000004245|3|1||Herakles-pattern Autocannon|Rapid Fire 2|48|Ranged|6|3|9|-1|3
+000004245|4|1||Hunter-killer Missile|ONE SHOT|48|Ranged|1|3|14|-3|D3+3
+000004245|5|1||Lascannon||48|Ranged|1|3|12|-3|D3+3
+000004245|6|1||Omega Plasma Array - Standard||36|Ranged|6|3|9|-3|2
+000004245|7|2||Omega Plasma Array - Supercharge|Hazardous|36|Ranged|6|3|10|-3|3
+000004245|8|1||Punisher Rotary Cannon|Devastating Wounds|36|Ranged|18|3|6|0|1
+000004245|9|1||Storm Bolter|Rapid Fire 2|24|Ranged|2|3|5|-1|1
+000004245|10|1||Venator Neutron Laser|Heavy|48|Ranged|3|3|16|-3|D3+3
+000004245|11|1||Armoured Tracks||Melee|Melee|6|4|8|0|1
+000004246|1|1||Gauntlets of Ultramar|CLOSE-QUARTERS, Twin-linked|18|Ranged|4|2|5|-2|2
+000004246|2|1||Gauntlets of Ultramar|Twin-linked|Melee|Melee|6|2|10|-3|3
+000004246|3|2||Gauntlets of Ultramar - Overhead Smash|Extra Attacks, Twin-linked|Melee|Melee|1|2|14|-3|D3+3
+000004247|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000004247|2|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000004247|3|1||Onslaught Gatling Cannon|DEVASTATING WOUNDS: non-MONSTER/VEHICLE|24|Ranged|8|3|5|-1|1
+000004247|4|1||Twin Bolt Rifle|Twin-linked, ASSAULT, Rapid Fire 2|24|Ranged|2|2|5|-1|1
+000004247|5|1||Armoured Impact||Melee|Melee|4|3|5|0|1
+000004248|1|1||Heavy Bolt Pistol|CLOSE-QUARTERS|18|Ranged|1|2|5|-1|1
+000004248|2|1||Severance and Rebuke - Strike|Precision|Melee|Melee|5|2|10|-3|3
+000004248|3|2||Severance and Rebuke - Sweep|CLEAVE 2|Melee|Melee|6|2|6|-3|2
+000004249|1|1||Bolt Pistol|CLOSE-QUARTERS|12|Ranged|1|3|5|-1|1
+000004249|2|1||Melta Rifle|Melta 2|18|Ranged|1|3|10|-3|D3+2
+000004249|3|2||Melta Rifle - Hunter|Melta 2|18|Ranged|1|2|12|-3|D3+2
+000004249|4|1||Multi-melta|Melta 3|18|Ranged|2|3|10|-3|D3+2
+000004249|5|2||Multi-melta - Hunter|Melta 3|18|Ranged|2|2|12|-3|D3+2
+000004249|6|1||Ceramite Fists||Melee|Melee|3|3|5|0|1

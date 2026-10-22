@@ -257,6 +257,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
   const enhancementsAll = rawData.enhancements;
   const detachmentsAll = rawData.detachments;
   const factions = rawData.factions;
+  const wargearNameById = new Map((rawData.wargear ?? []).map(w => [w.id, w.name]));
 
   const wres = factionScopedResolver(weapons, units, w => w.id, u => u.weapon_ids);
   const ares = factionScopedResolver(abilities, units, a => a.ability_id, u => u.ability_ids,
@@ -457,7 +458,9 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     let pts = 0;
     for (const [id, n] of counts ?? []) {
       if (!n || n <= 0) continue;
-      const name = items.get(id)?.name ?? wres.resolve(factionId, id)?.name;
+      // Non-weapon gear without an ability record (the Space Marine
+      // "storm-shield", priced "per Storm Shield 5") is named in rawData.wargear.
+      const name = items.get(id)?.name ?? wres.resolve(factionId, id)?.name ?? wargearNameById.get(id);
       if (name) pts += wargearPriceOf(dcUnit, name) * n;
     }
     return pts;
@@ -837,7 +840,9 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         continue;
       }
       const { unit: dcUnit, factionId: unitFactionId } = found;
-      if (unitFactionId !== armyFactionId) {
+      // A chapter (Space Wolves) builds from its parent's datasheets — not allies.
+      const parentId = factions.find(f => f.id === armyFactionId)?.parent_faction_id ?? null;
+      if (unitFactionId !== armyFactionId && unitFactionId !== parentId) {
         warnings.push(`${dcUnit.name}: resolved as ${unitFactionId} allied unit`);
       }
 

@@ -55,6 +55,17 @@ test('the patched builder dataset equals the game data for the overlaid collecti
   };
   // builder-only flags on pre-codex datasheets (D1)
   const strip = r => { const c = { ...r }; delete c.superseded_by_codex; delete c.superseded_by; return c; };
+  // Builder-only Codex: Space Marines points / Support role / Leader lists
+  // (applySmCodex, sm-codex-11e-data.mjs): the game data has no SM codex
+  // import yet, so those fields are compared against the bundle as is.
+  const smIds = new Set(P.SM_CODEX_UNIT_PATCHES.map(p => p.id));
+  const smUnit = r => r.faction_id === 'adeptus-astartes' && smIds.has(r.id);
+  const stripSm = r => {
+    const c = strip(r);
+    for (const f of ['points', 'points_provisional', 'wargear_points', 'attachment_role']) delete c[f];
+    return c;
+  };
+  const SM_KIT_FIXES = new Set(['grey-hunters-wgo-mfm-2']);
   const firstByKey = (arr, k) => { const m = new Map(); for (const r of arr) if (!m.has(k(r))) m.set(k(r), r); return m; };
   for (const [coll, k] of Object.entries(keys)) {
     const b = firstByKey(RAW[coll], k);
@@ -63,11 +74,15 @@ test('the patched builder dataset equals the game data for the overlaid collecti
     assert.equal(b.size, g.size, `${coll}: distinct keys`);
     for (const [kk, gr] of g) {
       assert.ok(b.has(kk), `${coll} ${kk} missing from the builder`);
-      assert.deepEqual(strip(b.get(kk)), gr, `${coll} ${kk}`);
+      if (coll === 'units' && smUnit(gr)) assert.deepEqual(stripSm(b.get(kk)), stripSm(gr), `${coll} ${kk}`);
+      else if (coll === 'wargearOptions' && SM_KIT_FIXES.has(gr.id)) continue;
+      else assert.deepEqual(strip(b.get(kk)), gr, `${coll} ${kk}`);
     }
   }
   // no faction key (leader ids repeat across factions): same records, same order
-  assert.deepEqual(RAW.leaderAttachments, G.leaderAttachments, 'leaderAttachments');
+  const smLeaders = new Set(P.SM_CODEX_LEADER_ATTACHMENTS.map(l => l.leader_id));
+  const notSm = arr => arr.filter(l => !smLeaders.has(l.leader_id));
+  assert.deepEqual(notSm(RAW.leaderAttachments), notSm(G.leaderAttachments), 'leaderAttachments');
   assert.deepEqual(RAW.factions, G.factions, 'factions');
   // per-datasheet option order (the loadout maths reads options in order)
   const blocks = arr => {
