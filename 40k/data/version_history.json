@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.47.1",
+      "date": "2026-10-22",
+      "summary": "Fix: when a unit with an attached CHARACTER performs an action, the whole attached unit gives up shooting.",
+      "changes": [
+        "Starting or performing an action in the Shooting phase (Hold Position, Cleanse, mission actions, etc.) with a bodyguard unit now also marks its attached CHARACTER(s) as having acted — they can no longer be selected to shoot separately, and they cannot charge that turn.",
+        "The same applies the other way round: if the CHARACTER starts the action, its bodyguard unit gives up shooting too, and the attached unit can only start one action per turn."
+      ]
+    },
+    {
       "version": "1.47.0",
       "date": "2026-10-20",
       "summary": "Multiple detachments: build an army from several detachments within the Detachment Points pool (3 DP at 2000 pts, 2 DP at 1000), and every one of them is active in game.",

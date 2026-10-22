@@ -946,6 +946,47 @@ func _can_unit_perform_action(unit: Dictionary) -> bool:
 		return true
 	return false
 
+## 19.01: "An attached unit is a single unit for all rules purposes". The
+## engine keeps a bodyguard and its attached CHARACTER(s) as separate unit
+## dicts, so when one component performs an action (giving up shooting) the
+## rest of the Attached unit must give up shooting too. Returns the mirrored
+## flag diffs for the other components (performing_action / action_started_turn
+## stay on the actor only, so the action completes / scores once).
+func _mirror_action_to_attached_group(unit_id: String, changes: Array) -> Array:
+	var out: Array = []
+	var prefix := "units.%s.flags." % unit_id
+	for pid in AttackSequence.coherency_group_ids(unit_id, GameState.state.get("units", {})):
+		var partner_id := str(pid)
+		if partner_id == unit_id:
+			continue
+		if not partner_id in units_that_shot:
+			units_that_shot.append(partner_id)
+		if active_shooter_id == partner_id:
+			active_shooter_id = ""
+			pending_assignments.clear()
+			confirmed_assignments.clear()
+		for c in changes:
+			var path := str(c.get("path", ""))
+			if not path.begins_with(prefix):
+				continue
+			var flag := path.substr(prefix.length())
+			if flag in ["performing_action", "action_started_turn"]:
+				continue
+			out.append({"op": c.get("op", "set"), "path": StateSchema.path_unit_flag(partner_id, flag), "value": c.get("value")})
+		DebugLogger.info(str("ShootingPhase: %s is attached to acting unit %s — it gives up shooting too (19.01)" % [partner_id, unit_id]))
+	return out
+
+## True when any component of `unit_id`'s Attached unit (bodyguard or attached
+## CHARACTER) has already shot / acted this phase.
+func _attached_group_has_shot(unit_id: String) -> bool:
+	var units: Dictionary = GameState.state.get("units", {})
+	for pid in AttackSequence.coherency_group_ids(unit_id, units):
+		if str(pid) in units_that_shot:
+			return true
+		if str(pid) != unit_id and units.get(str(pid), {}).get("flags", {}).get("has_shot", false):
+			return true
+	return false
+
 func _validate_perform_secondary_action(action: Dictionary) -> Dictionary:
 	"""Validate a unit performing a secondary mission action instead of shooting."""
 	var unit_id = action.get("actor_unit_id", "")
@@ -964,7 +1005,7 @@ func _validate_perform_secondary_action(action: Dictionary) -> Dictionary:
 	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform an action (same requirements as shooting)"]}
 
-	if unit_id in units_that_shot:
+	if _attached_group_has_shot(unit_id):
 		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
 
 	var action_name = action.get("payload", {}).get("action_name", "")
@@ -1999,6 +2040,10 @@ func _process_perform_secondary_action(action: Dictionary) -> Dictionary:
 
 	log_phase_message("%s performs %s (gives up shooting)" % [unit_name, action_name])
 
+	# 19.01: an Attached unit is one unit — its attached CHARACTER(s) /
+	# bodyguard gave up shooting with it.
+	changes.append_array(_mirror_action_to_attached_group(unit_id, changes))
+
 	return create_result(true, changes)
 
 # ============================================================================
@@ -2023,7 +2068,7 @@ func _validate_burn_objective(action: Dictionary) -> Dictionary:
 	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform burn action"]}
 
-	if unit_id in units_that_shot:
+	if _attached_group_has_shot(unit_id):
 		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
 
 	var objective_id = action.get("objective_id", "")
@@ -2083,6 +2128,10 @@ func _process_burn_objective(action: Dictionary) -> Dictionary:
 	else:
 		log_phase_message("ERROR: Burn action failed for %s on %s" % [unit_name, obj_label])
 
+	# 19.01: an Attached unit is one unit — its attached CHARACTER(s) /
+	# bodyguard gave up shooting with it.
+	changes.append_array(_mirror_action_to_attached_group(unit_id, changes))
+
 	return create_result(true, changes)
 
 func _get_burn_objective_options(unit_id: String) -> Array:
@@ -2123,7 +2172,7 @@ func _validate_perform_ritual_action(action: Dictionary) -> Dictionary:
 	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform ritual action"]}
 
-	if unit_id in units_that_shot:
+	if _attached_group_has_shot(unit_id):
 		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
 
 	# Units that Advanced or Fell Back cannot perform actions.
@@ -2196,6 +2245,10 @@ func _process_perform_ritual_action(action: Dictionary) -> Dictionary:
 	else:
 		log_phase_message("ERROR: Ritual action failed for %s at %s" % [unit_name, _ritual_obj_label])
 
+	# 19.01: an Attached unit is one unit — its attached CHARACTER(s) /
+	# bodyguard gave up shooting with it.
+	changes.append_array(_mirror_action_to_attached_group(unit_id, changes))
+
 	return create_result(true, changes)
 
 func _get_ritual_action_options(unit_id: String) -> Array:
@@ -2246,7 +2299,7 @@ func _validate_perform_terraform_action(action: Dictionary) -> Dictionary:
 	if not _can_unit_perform_action(unit):
 		return {"valid": false, "errors": ["Unit is not eligible to perform terraform action"]}
 
-	if unit_id in units_that_shot:
+	if _attached_group_has_shot(unit_id):
 		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
 
 	# Units that Advanced or Fell Back cannot perform actions.
@@ -2322,6 +2375,10 @@ func _process_perform_terraform_action(action: Dictionary) -> Dictionary:
 			log_phase_message("TERRAFORM: %s terraformed %s for Player %d" % [unit_name, _tf_obj_label, player])
 	else:
 		log_phase_message("ERROR: Terraform action failed for %s at %s" % [unit_name, _tf_obj_label])
+
+	# 19.01: an Attached unit is one unit — its attached CHARACTER(s) /
+	# bodyguard gave up shooting with it.
+	changes.append_array(_mirror_action_to_attached_group(unit_id, changes))
 
 	return create_result(true, changes)
 
@@ -2490,7 +2547,7 @@ func _validate_start_action(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	if unit.get("owner", 0) != get_current_player():
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
-	if unit.get("flags", {}).get("has_shot", false):
+	if unit.get("flags", {}).get("has_shot", false) or _attached_group_has_shot(unit_id):
 		return {"valid": false, "errors": ["Unit has already shot or acted this phase"]}
 	var board = GameState.create_snapshot()
 	for s in ActionsManager.get_startable_actions(unit_id, board, get_current_player(), GameState.get_battle_round()):
@@ -2520,6 +2577,7 @@ func _process_start_action(action: Dictionary) -> Dictionary:
 	# action does not prevent the unit from being eligible to shoot.
 	if _cus11e_katah().conservai_active(unit):
 		log_phase_message("%s started action '%s' (CONSERVAI: the unit can still shoot this phase; cannot charge; completes end of turn)" % [unit_name, action_name])
+		changes.append_array(_mirror_action_to_attached_group(unit_id, changes))
 		return create_result(true, changes)
 	# 16.01: starting an action in the Shooting phase gives up shooting.
 	units_that_shot.append(unit_id)
@@ -2528,6 +2586,9 @@ func _process_start_action(action: Dictionary) -> Dictionary:
 		active_shooter_id = ""
 		pending_assignments.clear()
 		confirmed_assignments.clear()
+	# 19.01: an Attached unit is one unit — its attached CHARACTER(s) /
+	# bodyguard gave up shooting with it.
+	changes.append_array(_mirror_action_to_attached_group(unit_id, changes))
 	log_phase_message("%s started action '%s' (16.01: gives up shooting, cannot charge; completes end of turn)" % [unit_name, action_name])
 	return create_result(true, changes)
 

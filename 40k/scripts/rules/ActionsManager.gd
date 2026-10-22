@@ -173,6 +173,14 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 
 	if flags.get("performing_action", "") != "":
 		reasons.append("already started an action this turn")
+	else:
+		# 19.01: an Attached unit is one unit — if its bodyguard or attached
+		# CHARACTER already started an action, the whole unit has.
+		var units: Dictionary = board.get("units", {})
+		for pid in AttackSequence.coherency_group_ids(unit_id, units):
+			if str(pid) != unit_id and str(units.get(str(pid), {}).get("flags", {}).get("performing_action", "")) != "":
+				reasons.append("already started an action this turn (attached unit)")
+				break
 
 	return {"eligible": reasons.is_empty(), "reasons": reasons}
 
