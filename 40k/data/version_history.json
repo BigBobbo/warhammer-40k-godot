@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.48.0",
+      "date": "2026-10-22",
+      "summary": "Secondary missions: you now choose whether to Score or Hold an achieved Tactical secondary at the end of your turn (11th edition rule).",
+      "changes": [
+        "When a Tactical secondary's conditions are met at the end of your turn it is no longer scored automatically: the mission card in the Scoring panel shows \"Score N VP\" and \"Hold\" buttons.",
+        "Hold keeps the card active without scoring it, so you can score it later \u2014 e.g. hold Display of Might (2 VP) to score its 5 VP at the end of your opponent's turn.",
+        "The End Turn prompt shows your Score / Hold choice for each achieved mission; anything left on Score is scored (and discarded) when you end the turn.",
+        "A held card can still be discarded for CP as normal. AI players keep scoring immediately."
+      ]
+    },
+    {
       "version": "1.47.0",
       "date": "2026-10-20",
       "summary": "Multiple detachments: build an army from several detachments within the Detachment Points pool (3 DP at 2000 pts, 2 DP at 1000), and every one of them is active in game.",

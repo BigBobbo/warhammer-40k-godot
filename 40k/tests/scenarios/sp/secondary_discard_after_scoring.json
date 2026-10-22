@@ -11,7 +11,7 @@
   "edition": 11,
   "disable_ai": true,
   "transition_to_phase": 6,
-  "description": "End-of-turn sequence: 'First, if you scored 1 or more VP from a Secondary Mission card, discard that card — it is achieved. Then, you can discard one or more of your active Secondary Mission cards (gain 1CP).' A card you scored VP from this turn must therefore NEVER be offered for the discard-for-CP step, and Fixed Mission cards can never be discarded at all. Part 1 (real path, Fixed): Engage on All Fronts scores at end of turn and — being Fixed — stays in hand; its Discard button must be locked and the End Turn prompt must not open for it. Part 2 (real path, Tactical): a card that scores is discarded as achieved and no discard action is offered. Part 3 (backstop, synthetic): a Tactical card carrying a this-turn VP tally is refused by voluntary_discard while its unscored neighbour is still discardable through the real dialog.",
+  "description": "End-of-turn sequence: 'First, if you scored 1 or more VP from a Secondary Mission card, discard that card — it is achieved. Then, you can discard one or more of your active Secondary Mission cards (gain 1CP).' A card you scored VP from this turn must therefore NEVER be offered for the discard-for-CP step, and Fixed Mission cards can never be discarded at all. Part 1 (real path, Fixed): Engage on All Fronts scores at end of turn and — being Fixed — stays in hand; its Discard button must be locked and the End Turn prompt must not open for it. Part 2 (real path, Tactical): a card that scores is discarded as achieved and no discard action is offered. Part 3 (backstop, synthetic): a Tactical card carrying a this-turn VP tally is refused by voluntary_discard while its unscored neighbour is still discardable through the real dialog. (11e score-or-hold: the Tactical card is first offered as Score/Hold; the scenario resolves it as Score — End Turn's scoring step — before checking the gate.)",
   "steps": [
     {
       "act": "wait_seconds",
@@ -105,6 +105,18 @@
     {
       "act": "wait_seconds",
       "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = GameState.get_active_player()\nvar pend = SecondaryMissionManager.get_pending_secondary_scores(p)\nreturn \"%d:%s:%s\" % [pend.size(), str(pend[0][\"mission_id\"]) if pend.size() > 0 else \"-\", str(pend[0][\"held\"]) if pend.size() > 0 else \"-\"]",
+      "equals": "1:engage_on_all_fronts:false"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# 11e score-or-hold: the met card is only OFFERED on phase entry; the\n# player leaves it on Score (the default) and End Turn's scoring step awards\n# it. Run that step now so the discard gate below sees the achieved card.\nvar p = GameState.get_active_player()\nPhaseManager.get_current_phase_instance()._resolve_pending_secondary_scores(p)\nreturn SecondaryMissionManager.get_pending_secondary_scores(p).size()",
+      "equals": 0
     },
     {
       "act": "execute_script",
