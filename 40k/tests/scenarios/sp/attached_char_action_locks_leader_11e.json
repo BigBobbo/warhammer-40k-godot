@@ -9,7 +9,7 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "User report 2026-10-22: a bodyguard unit started an action in the Shooting phase but its attached CHARACTER (Trajann) could still be selected and shoot separately. 19.01: an Attached unit is a single unit, so the whole unit gives up shooting and cannot charge. Boyz K (with the Weirdboy attached) press the real Start Action button and pick Hold Position; the Weirdboy is then flagged has_shot / cannot_shoot / cannot_charge, SELECT_SHOOTER on it is rejected, it cannot start its own action, and the action itself is carried (and completes) only once on the Boyz.",
+  "description": "User report 2026-10-22: a bodyguard unit started an action in the Shooting phase but its attached CHARACTER (Trajann) could still be selected and shoot separately. 19.01: an Attached unit is a single unit, so the whole unit gives up shooting and cannot charge. Boyz K (with the Weirdboy attached) press the real Start Action button and pick Hold Position; the Weirdboy is then flagged has_shot / cannot_shoot / cannot_charge, SELECT_SHOOTER on it is rejected, it cannot start its own action, and the action itself is carried (and completes) only once on the Boyz. The shooter list shows the Attached unit as ONE row ('Boyz + Weirdboy') marked [SHOT] (19.01: the character is not a separate shooter).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -133,12 +133,12 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var sc = tree.current_scene.get_node(\"ShootingController\")\nsc._refresh_unit_list(false)\nvar l = tree.root.find_child(\"ShooterUnitList\", true, false)\nfor i in l.get_item_count():\n\tif str(l.get_item_metadata(i)) == \"U_WEIRDBOY_J\":\n\t\tl.ensure_current_is_visible()\n\t\tl.select(i)\n\t\tl.ensure_current_is_visible()\n\t\treturn l.get_item_text(i).ends_with(\"[SHOT]\")\nreturn \"missing\"",
+      "script": "var sc = tree.current_scene.get_node(\"ShootingController\")\nsc._refresh_unit_list(false)\nvar l = tree.root.find_child(\"ShooterUnitList\", true, false)\nfor i in l.get_item_count():\n\tif str(l.get_item_metadata(i)) == \"U_BOYZ_K\":\n\t\tl.ensure_current_is_visible()\n\t\tl.select(i)\n\t\tl.ensure_current_is_visible()\n\t\tvar t = l.get_item_text(i)\n\t\tif t.contains(\"Weirdboy\") and t.ends_with(\"[SHOT]\"):\n\t\t\treturn true\n\t\treturn t\nreturn \"missing\"",
       "equals": true
     },
     {
       "act": "screenshot",
-      "label": "02_weirdboy_gave_up_shooting_with_bodyguard"
+      "label": "02_attached_unit_gave_up_shooting_with_bodyguard"
     },
     {
       "act": "execute_script",
