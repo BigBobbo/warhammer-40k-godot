@@ -116,7 +116,19 @@ func _on_phase_enter() -> void:
 		var is_final_turn: bool = GameConstants.edition >= 11 \
 			and GameState.is_last_turn_of_round(current_player) \
 			and GameState.get_battle_round() >= GameState.MAX_BATTLE_ROUNDS
-		_secondary_results = secondary_mgr.score_secondary_missions_for_player(current_player, is_final_turn)
+		# 11e: scoring a met Tactical card is the player's CHOICE ("you can
+		# gain the VP ... If you do ... discard that Secondary Mission") — a
+		# human may hold a card to score it later (Display of Might: 2 VP now
+		# vs 5 VP at the end of the opponent's turn). Offer the choice and
+		# resolve it at END_TURN; AI players keep scoring immediately.
+		if GameConstants.edition >= 11 and secondary_mgr.get_mode(current_player) == "tactical" \
+				and _is_human_player_11e(current_player):
+			var offers = secondary_mgr.offer_secondary_scoring_choices(current_player, is_final_turn)
+			for offer in offers:
+				DebugLogger.info(str("ScoringPhase: P%d may score %s for %d VP — Score or Hold (decided at End Turn)" % [
+					current_player, offer["mission_name"], offer["vp"]]))
+		else:
+			_secondary_results = secondary_mgr.score_secondary_missions_for_player(current_player, is_final_turn)
 		if _secondary_results.size() > 0:
 			DebugLogger.info(str("ScoringPhase: Player %d scored secondary missions:" % current_player))
 			for result in _secondary_results:
@@ -236,6 +248,15 @@ func get_available_actions() -> Array:
 	# cannot also be cashed in for CP.
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+		# Score-or-hold toggles for met Tactical cards (11e — scoring is optional)
+		for pending in secondary_mgr.get_pending_secondary_scores(current_player):
+			actions.append({
+				"type": "HOLD_SECONDARY",
+				"mission_id": pending["mission_id"],
+				"hold": not pending["held"],
+				"description": ("Score %s (%d VP)" if pending["held"] else "Hold %s — don't score its %d VP this turn") % [pending["mission_name"], pending["vp"]],
+				"player": current_player,
+			})
 		var active_missions = secondary_mgr.get_active_missions(current_player)
 		var can_gain_cp = GameState.can_gain_bonus_cp(current_player)
 		for i in range(active_missions.size()):
@@ -296,6 +317,16 @@ func validate_action(action: Dictionary) -> Dictionary:
 			var mission_index = action.get("mission_index", -1)
 			if mission_index < 0:
 				errors.append("Invalid mission index")
+		"HOLD_SECONDARY":
+			var hold_mgr = get_node_or_null("/root/SecondaryMissionManager")
+			var hold_id = str(action.get("mission_id", ""))
+			var is_pending := false
+			if hold_mgr:
+				for pending in hold_mgr.get_pending_secondary_scores(get_current_player()):
+					if pending["mission_id"] == hold_id:
+						is_pending = true
+			if not is_pending:
+				errors.append("%s has no score pending to hold" % hold_id)
 		"ACROBATIC_ESCAPE_VANISH":
 			if not _awaiting_acrobatic_escape_vanish:
 				errors.append("No Acrobatic Escape vanish is pending")
@@ -326,6 +357,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return {"success": true, "changes": []}
 		"DISCARD_SECONDARY":
 			return _handle_discard_secondary(action)
+		"HOLD_SECONDARY":
+			return _handle_hold_secondary(action)
 		"ACROBATIC_ESCAPE_VANISH":
 			return _handle_acrobatic_escape_vanish(action)
 		"DECLINE_ACROBATIC_ESCAPE_VANISH":
@@ -357,6 +390,34 @@ func _handle_discard_secondary(action: Dictionary) -> Dictionary:
 		if game_event_log:
 			game_event_log.add_player_entry(current_player, "Discarded %s (gained %d CP)" % [result["discarded"], result["cp_gained"]])
 	return result
+
+func _handle_hold_secondary(action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return {"success": false, "error": "SecondaryMissionManager not available"}
+	var result = secondary_mgr.set_secondary_score_held(current_player, str(action.get("mission_id", "")), bool(action.get("hold", true)))
+	if result["success"]:
+		DebugLogger.info(str("ScoringPhase: Player %d %s %s (%d VP)" % [
+			current_player, "holds" if result["held"] else "will score", result["mission_name"], result["vp"]]))
+		var game_event_log = get_node_or_null("/root/GameEventLog")
+		if game_event_log and result["held"]:
+			game_event_log.add_player_entry(current_player, "Held %s (not scoring %d VP this turn)" % [result["mission_name"], result["vp"]])
+	result["changes"] = []
+	return result
+
+func _resolve_pending_secondary_scores(player: int) -> void:
+	"""Award the score-or-hold offers the player did not hold (End Turn)."""
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr or not secondary_mgr.is_initialized(player):
+		return
+	var results = secondary_mgr.resolve_pending_secondary_scores(player)
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	for result in results:
+		DebugLogger.info(str("ScoringPhase: Player %d scored %s: %d VP" % [player, result["mission_name"], result["vp_earned"]]))
+		if game_event_log:
+			game_event_log.add_player_entry(player, "Scored %d VP from %s" % [result["vp_earned"], result["mission_name"]])
+	_secondary_results.append_array(results)
 
 func _handle_end_turn() -> Dictionary:
 	var current_player = get_current_player()
@@ -451,6 +512,9 @@ func _handle_end_turn() -> Dictionary:
 					"trigger_card_action_prompt": true,
 					"card_action_pending": pending_ca,
 				}
+
+	# 11e score-or-hold: award every met Tactical card the player did not hold.
+	_resolve_pending_secondary_scores(current_player)
 
 	_turn_ended = true
 
