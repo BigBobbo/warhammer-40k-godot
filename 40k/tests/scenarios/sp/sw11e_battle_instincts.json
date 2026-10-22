@@ -1,0 +1,216 @@
+{
+  "id": "sw11e_battle_instincts",
+  "covers": [
+    "codex.space_wolves.stratagems.battle-instincts",
+    "codex.space_wolves.SWCodex11e",
+    "stratagem.window.enemy_has_shot",
+    "phases.ShootingPhase.enemy_has_shot",
+    "rules.move.normal_reactive"
+  ],
+  "description": "Codex: Space Marines (11e) Space Wolves BATTLE INSTINCTS (Saga of the Great Wolf, 1 CP) — WP-S3. Fixture sw11e_s3_reactive (P1 Orks ACTIVE vs P2 Space Wolves, round 2; layout in tests/helpers/gen_sw11e_s3_fixtures.gd). Setup privileges: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test), straight to the phase under test. The Ork Flash Gitz shoot Grey Hunters B (the shooting panel's SHOOT); enemy_has_shot opens for the Space Wolves player; a real click on 'Use on Grey Hunters' spends 1 CP (D3 rolled: a normal move of up to D3+3\") and opens the reactive-move panel; real clicks on Auto-move and Confirm move the Grey Hunters within range of obj_nml_2.",
+  "fixture": "sw11e_s3_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.setup(2, {\"cp\": {\"1\": 0}})",
+      "comment": "setup privilege: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation",
+      "equals": "Saga of the Great Wolf + Champions of Fenris + Saga of the Beastslayer"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.frame(33, 40, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.shoot(\"U_FLASH_GITZ_A\", \"U_GREY_HUNTERS_B\")",
+      "comment": "the Ork player's U_FLASH_GITZ_A shoot U_GREY_HUNTERS_B (the shooting panel's SHOOT)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.decline_others(2) >= 0",
+      "comment": "the Ork player's own post-shot windows (none at 0 CP) come first",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.window_id()",
+      "equals": "enemy_has_shot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_battle_instincts/Buttons/Use_faction_sw_saga_of_the_great_wolf_battle_instincts_U_GREY_HUNTERS_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_battle_instincts/Buttons/Use_faction_sw_saga_of_the_great_wolf_battle_instincts_U_GREY_HUNTERS_B",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn \"U_GREY_HUNTERS_B\" in H.phase().get_pending_stratagem_window().get(\"ctx\", {}).get(\"targeted_unit_ids\", [])",
+      "comment": "ctx.targeted_unit_ids (the enemy unit TARGETED it)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sw11e_battle_instincts_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_battle_instincts/Buttons/Use_faction_sw_saga_of_the_great_wolf_battle_instincts_U_GREY_HUNTERS_B",
+      "comment": "REAL click (Space Wolves player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Ork11eReactiveMovePanel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn main.get_tree().root.get_node(\"Ork11eReactiveMovePanel/Content/Header\").text.begins_with(\"BATTLE INSTINCTS — Grey Hunters\")",
+      "comment": "the panel names the stratagem and the unit",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nvar info = H.phase().ork11e_reactive_move_info()\nreturn info.kind == \"normal\" and float(info.max_inches) >= 4.0 and float(info.max_inches) <= 6.0",
+      "comment": "normal move of up to D3+3\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn ResourceLoader.load(\"res://scripts/rules/ReactiveMove11e.gd\").group_within_objective_range(GameState.state, \"U_GREY_HUNTERS_B\")",
+      "comment": "not within range of an objective yet",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sw11e_battle_instincts_move_panel"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/AutoButton",
+      "comment": "REAL click: Auto-move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nvar info = H.phase().ork11e_reactive_move_info()\nreturn bool(info.valid) and float(info.moved_inches) > 0.0 and float(info.moved_inches) <= float(info.max_inches) + 0.05",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/ConfirmButton",
+      "comment": "REAL click: Confirm"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.phase()._ork11e_followup.is_empty() and not H.phase().has_pending_stratagem_window()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.log_count(\"BATTLE INSTINCTS\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn ResourceLoader.load(\"res://scripts/rules/ReactiveMove11e.gd\").group_within_objective_range(GameState.state, \"U_GREY_HUNTERS_B\")",
+      "comment": "Grey Hunters B moved onto obj_nml_2's range",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sw11e_battle_instincts_grey_hunters_moved"
+    }
+  ],
+  "transition_to_phase": 7
+}

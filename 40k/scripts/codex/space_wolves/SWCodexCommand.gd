@@ -69,9 +69,12 @@ static func eligible_targets(strat: Dictionary, player: int, window_id: String, 
 			continue
 		var extra := {}
 		if csv == CSV_GRIMNAR:
+			# One button per (unit, doctrine): the label names the unit, as
+			# every unit's three buttons sit in the same card.
 			var variants: Array = []
 			for d in Common.DOCTRINES:
-				variants.append({"id": d, "label": str(Common.DOCTRINE_LABELS[d]), "cp_cost": int(strat.get("cp_cost", 1))})
+				variants.append({"id": d, "label": "%s: %s" % [Common.group_label(str(uid)), str(Common.DOCTRINE_LABELS[d])],
+					"cp_cost": int(strat.get("cp_cost", 1))})
 			extra = {"require_variant": true, "ai_variant": ai_doctrine(str(uid)), "variants": variants}
 		out.append(Common.target_entry(str(uid), extra))
 	return out

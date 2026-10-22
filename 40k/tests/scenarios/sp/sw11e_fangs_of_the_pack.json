@@ -1,0 +1,248 @@
+{
+  "id": "sw11e_fangs_of_the_pack",
+  "covers": [
+    "codex.space_wolves.stratagems.fangs_of_the_pack",
+    "codex.space_wolves.SWCodex11e",
+    "stratagem.window.unit_selected_to_fight",
+    "phases.FightPhase.unit_selected_to_fight"
+  ],
+  "description": "Codex: Space Marines (11e) Space Wolves FANGS OF THE PACK (Saga of the Great Wolf, 1 CP) — WP-S3. Fixture sw11e_s3_active (P1 Space Wolves ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sw11e_s3_fixtures.gd). Setup privileges: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test), straight to the phase under test. A real click on Grey Hunters A (ADEPTUS ASTARTES INFANTRY, engaged with the Nobz) in the fight list opens unit_selected_to_fight; a real click on 'Use on Grey Hunters' spends 1 CP; their melee attacks have [PRECISION] (the engine's effect_precision_melee — the same grant EPIC CHALLENGE uses); the fight resolves.",
+  "fixture": "sw11e_s3_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation",
+      "equals": "Saga of the Great Wolf + Champions of Fenris + Saga of the Beastslayer"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nPhaseManager.transition_to_phase(10)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "Pile In step: no pile-in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "Pile In step: no pile-in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.frame(25, 31, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_GREY_HUNTERS_A",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_GREY_HUNTERS_A",
+      "comment": "REAL click: select the unit to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_selected_to_fight"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text.to_lower().contains(\"selected to fight\")",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_fangs_of_the_pack/Buttons/Use_faction_sw_saga_of_the_great_wolf_fangs_of_the_pack_U_GREY_HUNTERS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_fangs_of_the_pack/Buttons/Use_faction_sw_saga_of_the_great_wolf_fangs_of_the_pack_U_GREY_HUNTERS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sw11e_fangs_of_the_pack_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_fangs_of_the_pack/Buttons/Use_faction_sw_saga_of_the_great_wolf_fangs_of_the_pack_U_GREY_HUNTERS_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the window re-opens with the remaining cards (if any) — declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.flag(\"U_GREY_HUNTERS_A\", \"sw11e_fangs_of_the_pack\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.log_count(\"Used FANGS OF THE PACK\")",
+      "comment": "the Game Log names the stratagem",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn RulesEngine.has_effect_precision_melee(H.unit(\"U_GREY_HUNTERS_A\"))",
+      "comment": "the engine's melee [PRECISION] (effect_precision_melee)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sw11e_fangs_of_the_pack_used"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nmain.get_node(\"FightController\").fight_resolution_dock.debug_click_through(14)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn \"U_GREY_HUNTERS_A\" in H.phase().units_that_fought",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sw11e_fangs_of_the_pack_fight_resolved"
+    }
+  ],
+  "transition_to_phase": 9
+}
