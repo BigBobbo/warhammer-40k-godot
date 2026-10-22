@@ -1,0 +1,266 @@
+datasheet_id|line|name|M|T|Sv|inv_sv|inv_sv_descr|W|Ld|OC|base_size|base_size_descr
+000000060|1|Apothecary Biologis|"5"""|6|3+|-||5|6+|1|40mm|
+000000065|1|Land Raider|"10"""|12|2+|-||16|6+|5|Use model|
+000000066|1|Land Raider Crusader|"12"""|12|2+|-||16|6+|5|Use model|
+000000067|1|Land Raider Excelsior|"10"""|12|2+|5||16|6+|5|Use model|
+000000071|1|Bladeguard Veteran Sergeant|"6"""|5|3+|4||3|6+|1|40mm|
+000000071|2|Bladeguard Veteran|"6"""|5|3+|4||3|6+|1|40mm|
+000000073|1|Captain|"6"""|5|3+|4||5|6+|1|40mm|
+000000076|1|Lieutenant with Combi-weapon|"8"""|4|3+|-||4|6+|1|40mm|
+000000079|1|Librarian in Terminator Armour|"5"""|6|2+|4||5|6+|1|40mm|
+000000083|1|Captain with Jump Pack|"12"""|5|3+|4||5|6+|1|40mm|
+000000084|1|Stormhawk Interceptor|-|9|3+|-||10|6+|-|120 x 92mm|
+000000085|1|Rhino Primaris|"12"""|9|3+|-||10|6+|3|Use model|
+000000086|1|Firestrike Servo-turrets|"5"""|6|2+|-||6|6+|2|80mm|
+000000087|1|Drop Pod|-|7|3+|-||8|6+|-||Custom
+000000091|1|Ballistus Dreadnought|"8"""|10|2+|-||12|6+|4|90mm|
+000000093|1|Typhon|"10"""|12|2+|-||18|6+|6|Use model|
+000000094|1|Chaplain on Bike|"12"""|6|3+|4||5|5+|2|90 x 52mm|
+000000097|1|Hammerfall Bunker|-|12|2+|-||14|6+|0|Use model|
+000000098|1|Tarantula Sentry Battery|-|6|3+|-||4|6+|1|Use model|
+000000099|1|Tarantula Air Defence Battery|-|5|3+|-||4|7+|0|Use model|
+000000110|1|Rapier Carrier|"3"""|6|2+|-||6|6+|2|Use model|
+000000112|1|Chaplain with Jump Pack|"12"""|5|3+|4||4|5+|1|40mm|
+000000114|1|Storm Speeder Hammerstrike|"14"""|9|3+|-||11|6+|3|90mm|
+000000115|1|Chaplain in Terminator Armour|"5"""|6|2+|4||5|5+|1|50mm|
+000000117|1|Dreadnought|"6"""|9|2+|-||8|6+|3|60mm|
+000000118|1|Terminator Sergeant|"5"""|6|2+|4||3|6+|1|40mm|
+000000118|2|Terminator|"5"""|6|2+|4||3|6+|1|40mm|
+000000119|1|Librarian in Phobos Armour|"8"""|4|3+|-||4|6+|1|40mm|
+000000120|1|Venerable Dreadnought|"6"""|9|2+|-||8|6+|3|60mm|
+000000124|1|Storm Speeder Hailstrike|"14"""|9|3+|-||11|6+|3|90mm|
+000000125|1|Inceptor|"10"""|6|3+|-||3|6+|1|40mm|
+000000125|2|Inceptor Sergeant|"10"""|6|3+|-||3|6+|1|40mm|
+000000126|1|Infernus Marine|"6"""|5|3+|-||2|6+|1|32mm|
+000000126|2|Infernus Sergeant|"6"""|5|3+|-||2|6+|1|32mm|
+000000127|1|Iron Father Feirros|"5"""|6|2+|-||6|6+|1|40mm|
+000000128|1|Infiltrator Sergeant|"8"""|4|3+|-||2|6+|1|32mm|
+000000128|2|Infiltrator|"8"""|4|3+|-||2|6+|1|32mm|
+000000129|1|Razorback|"12"""|9|3+|-||10|6+|2|Use model|
+000000135|1|Captain in Terminator Armour|"5"""|6|2+|4||6|6+|1|40mm|
+000000136|1|Brutalis Dreadnought|"10"""|10|2+|-||12|6+|4|90mm|
+000000137|1|Scout Biker Sergeant|"12"""|5|4+|-||3|6+|2|75 x 25mm|
+000000137|2|Scout Biker|"12"""|5|4+|-||3|6+|2|75 x 25mm|
+000000138|1|Roboute Guilliman|"8"""|10|2+|4||16|5+|4|60mm|
+000000139|1|Thunderhawk Gunship|"14"""|12|2+|-||30|6+|0|Unique|
+000000140|1|Techmarine|"6"""|5|2+|-||4|6+|1|40mm|
+000000147|1|Vanguard Veteran Sergeant|"12"""|5|3+|-||2|6+|1|32mm|
+000000147|2|Vanguard Veteran|"12"""|5|3+|-||2|6+|1|32mm|
+000000151|1|Commander Dante|"12"""|5|2+|4||6|6+|1|40mm|
+000000155|1|Chief Librarian Mephiston|"8"""|6|2+|4||6|6+|1|40mm|
+000000156|1|The Sanguinor|"12"""|5|2+|4||7|6+|1|40mm|
+000000157|1|Astorath|"12"""|5|2+|4||5|5+|1|40mm|
+000000158|1|Sanguinary Priest|"6"""|5|3+|-||4|6+|1|40mm|
+000000164|1|Lemartes|"12"""|5|3+|4||5|5+|1|40mm|
+000000165|1|Sanguinary Guard|"12"""|5|2+|4||3|6+|2|40mm|
+000000166|1|Death Company Dreadnought|"10"""|10|2+|-||12|6+|4|90mm|
+000000168|1|Baal Predator|"12"""|10|3+|-||11|6+|3|Use model|
+000000218|1|Azrael|"6"""|5|2+|4||6|6+|1|50mm|
+000000219|1|Belial|"5"""|6|2+|4||6|6+|1|50mm|
+000000225|1|Asmodai|"6"""|5|3+|4||4|5+|1|50mm|
+000000226|1|Ezekiel|"6"""|5|2+|4||5|6+|1|25mm|
+000000230|1|Deathwing Terminators|"5"""|6|2+|4||3|6+|1|40mm|
+000000230|2|Deathwing Sergeant|"5"""|6|2+|4||3|6+|1|40mm|
+000000231|1|Deathwing Knights|"5"""|6|2+|4||4|6+|1|40mm|
+000000231|2|Knight Master|"5"""|6|2+|4||4|6+|1|40mm|
+000000238|1|Ravenwing Darkshroud|"14"""|8|3+|5||10|6+|3||Large Flying Base
+000000239|1|Nephilim Jetfighter|-|8|3+|5||11|6+|-|120 x 92mm|
+000000240|1|Ravenwing Dark Talon|-|8|3+|5||11|6+|-|120 x 92mm|
+000000241|1|Ravenwing Huntmaster|"12"""|6|3+|5||3|6+|2|75 x 42mm|
+000000241|2|Ravenwing Black Knight|"12"""|6|3+|5||3|6+|2|75 x 42mm|
+000000242|1|Land Speeder Vengeance|"14"""|9|3+|5||11|6+|3|60mm flying base|
+000000282|1|Logan Grimnar|"6"""|6|2+|4||8|6+|1|80mm|
+000000285|1|Ragnar Blackmane|"7"""|5|3+|4||5|6+|1|40mm|
+000000292|1|Njal Stormcaller|"7"""|5|3+|4||4|6+|1|40mm|
+000000297|1|Ulrik the Slayer|"7"""|5|3+|4||4|5+|1|32mm|
+000000302|1|Bjorn the Fell-handed|"9"""|10|2+|5||8|6+|3|60mm|
+000000303|1|Blood Claw Pack Leader|"7"""|5|3+|-||2|6+|2|32mm|
+000000303|2|Blood Claw|"7"""|5|3+|-||2|6+|2|32mm|
+000000305|1|Grey Hunter|"7"""|5|3+|-||2|6+|3|32mm|
+000000305|2|Grey Hunter Pack Leader|"7"""|5|3+|-||2|6+|3|32mm|
+000000306|1|Iron Priest|"7"""|5|2+|-||4|6+|1|32mm|
+000000311|1|Wulfen|"9"""|6|4+|-||2|7+|0|40mm|
+000000314|1|Murderfang|"9"""|9|2+|-||8|6+|0|60mm|
+000000317|1|Arjac Rockfist|"6"""|6|2+|4||6|6+|1|50mm|
+000000318|1|Wolf Guard Terminator|"6"""|6|2+|4||3|6+|1|40mm|
+000000318|2|Wolf Guard Terminator Pack Leader|"6"""|6|2+|4||3|6+|1|40mm|
+000000322|1|Thunderwolf Cavalry|"12"""|6|3+|-||4|6+|2|60mm|
+000000322|2|Thunderwolf Cavalry Pack Leader|"12"""|6|3+|-||4|6+|2|60mm|
+000000323|1|Fenrisian Wolf|"10"""|4|6+|-||1|8+|0|40mm|
+000000358|1|Corvus Blackstar|"14"""|10|3+|-||14|6+|0|120 x 92mm|
+000001153|1|Cerberus|"10"""|12|2+|-||18|6+|6|Use model|
+000001154|1|Vanguard Veteran|"6"""|5|3+|-||2|6+|1|32mm|
+000001154|2|Vanguard Veteran Sergeant|"6"""|5|3+|-||2|6+|1|32mm|
+000001156|1|Invictor Tactical Warsuit|"10"""|9|3+|-||12|6+|4|90mm|
+000001157|1|Intercessor Sergeant|"6"""|5|3+|-||2|6+|2|32mm|
+000001157|2|Intercessor|"6"""|5|3+|-||2|6+|2|32mm|
+000001159|1|Incursor|"8"""|4|3+|-||2|6+|1|32mm|
+000001159|2|Incursor Sergeant|"8"""|4|3+|-||2|6+|1|32mm|
+000001160|1|Scout|"6"""|4|4+|-||2|6+|1|28.5mm|
+000001160|2|Scout Sergeant|"6"""|4|4+|-||2|6+|1|28.5mm|
+000001165|1|Bladeguard Ancient|"6"""|5|3+|4||4|6+|3|40mm|
+000001172|1|Captain in Gravis Armour|"5"""|6|3+|4||6|6+|1|40mm|
+000001174|1|Chaplain|"6"""|5|3+|4||4|5+|1|40mm|
+000001175|1|Kratos|"10"""|12|2+|-||18|6+|6|Use model|
+000001177|1|Heavy Intercessor Sergeant|"5"""|6|3+|-||3|6+|2|40mm|
+000001177|2|Heavy Intercessor|"5"""|6|3+|-||3|6+|2|40mm|
+000001183|1|Terminator|"5"""|6|2+|4||3|6+|1|40mm|
+000001183|2|Terminator Sergeant|"5"""|6|2+|4||3|6+|1|40mm|
+000001188|1|Vindicator|"9"""|11|2+|-||11|6+|3|Use model|
+000001189|1|Mastodon|"9"""|14|2+|-||30|6+|12|Use model|
+000001190|1|Stormtalon Gunship|-|8|3+|-||10|6+|-|120 x 92mm|
+000001191|1|Stormraven Gunship|"14"""|10|3+|-||14|6+|0|120 x 92mm|
+000001193|1|Devastator Centurion|"4"""|7|2+|-||4|6+|2|50mm|
+000001193|2|Devastator Centurion Sergeant|"4"""|7|2+|-||4|6+|2|50mm|
+000001346|1|Lieutenant|"6"""|5|3+|-||4|6+|1|40mm|
+000001606|1|Assault Intercessor|"6"""|5|3+|-||2|6+|2|32mm|
+000001606|2|Assault Intercessor Sergeant|"6"""|5|3+|-||2|6+|2|32mm|
+000001610|1|Storm Speeder Thunderstrike|"14"""|9|3+|-||11|6+|3|90mm|
+000001611|1|Chief Librarian Tigurius|"6"""|5|3+|4||5|6+|1|40mm|
+000001666|1|Falchion|"9"""|13|2+|-||24|6+|8|Use model|
+000001667|1|Gladiator Reaper|"10"""|10|3+|-||12|6+|3|100mm|
+000001668|1|Eliminator|"8"""|4|3+|-||2|6+|1|40mm|
+000001668|2|Eliminator Sergeant|"8"""|4|3+|-||2|6+|1|40mm|
+000001825|1|Gladiator Valiant|"10"""|10|3+|-||12|6+|3|100mm|
+000001991|1|Terrax-pattern Termite|"8"""|10|3+|-||14|6+|2|Use model|
+000001997|1|Death Company Marines|"6"""|5|3+|-||2|6+|1|32mm|
+000002098|1|Hellblaster Sergeant|"6"""|5|3+|-||2|6+|1|32mm|
+000002098|2|Hellblaster|"6"""|5|3+|-||2|6+|1|32mm|
+000002099|1|Aggressor Sergeant|"5"""|6|3+|-||3|6+|1|40mm|
+000002099|2|Aggressor|"5"""|6|3+|-||3|6+|1|40mm|
+000002100|1|Adrax Agatone|"6"""|5|2+|4||5|6+|1|40mm|
+000002105|1|Darnath Lysander|"5"""|6|2+|4||7|6+|1|50mm|
+000002173|1|Land Raider Redeemer|"12"""|12|2+|-||16|6+|5|Use model|
+000002255|1|Sternguard Veteran Sergeant|"6"""|5|3+|-||2|6+|1|32mm|
+000002255|2|Sternguard Veteran|"6"""|5|3+|-||2|6+|1|32mm|
+000002266|1|Librarian|"6"""|5|3+|-||4|6+|1|40mm|
+000002270|1|Desolation Marine|"6"""|5|3+|-||2|6+|1|32mm|
+000002270|2|Desolation Sergeant|"6"""|5|3+|-||2|6+|1|32mm|
+000002291|1|Sammael|"12"""|6|3+|4||7|6+|2|60mm flying base|
+000002296|1|Lazarus|"6"""|5|3+|4||5|6+|1|40mm|
+000002473|1|Tor Garadon|"5"""|6|3+|4||6|6+|1|40mm|
+000002530|1|Lieutenant in Phobos Armour|"8"""|4|3+|-||4|6+|1|40mm|
+000002568|1|Impulsor|"12"""|9|3+|-||11|6+|2|100mm|
+000002677|1|Ancient in Terminator Armour|"5"""|6|2+|4||5|6+|2|40mm|
+000002682|1|Lion El'Jonson|"8"""|10|2+|3||16|5+|4|60mm|
+000002700|1|Astraeus|"10"""|12|2+|5|Against ranged attacks only|24|6+|8|Use model|
+000002701|1|Captain in Phobos Armour|"8"""|4|3+|4||5|6+|1|40mm|
+000002702|1|Captain on Bike|"12"""|6|3+|4||6|6+|2|90 x 52mm|
+000002703|1|Assault Centurion Sergeant|"4"""|7|2+|-||4|6+|2|50mm|
+000002703|2|Assault Centurion|"4"""|7|2+|-||4|6+|2|50mm|
+000002705|1|Gladiator Lancer|"10"""|10|3+|-||12|6+|3|100mm|
+000002707|1|Judiciar|"6"""|5|3+|4|Against melee attacks only|4|6+|1|40mm|
+000002708|1|Kayvaan Shrike|"12"""|4|3+|4||5|6+|1|40mm|
+000002709|1|Kor'sarro Khan|"6"""|5|3+|4||5|6+|1|40mm|
+000002711|1|Land Speeder|"14"""|8|3+|-||9|6+|3|105 x 70mm|
+000002712|1|Outrider|"12"""|6|3+|-||4|6+|2|90 x 52mm|
+000002712|2|Outrider Sergeant|"12"""|6|3+|-||4|6+|2|90 x 52mm|
+000002714|1|Predator Annihilator|"10"""|10|3+|-||11|6+|3|Use model|
+000002715|1|Predator Destructor|"10"""|10|3+|-||11|6+|3|Use model|
+000002717|1|Redemptor Dreadnought|"8"""|10|2+|-||12|6+|4|90mm|
+000002718|1|Reiver Sergeant|"8"""|4|3+|-||2|6+|1|32mm|
+000002718|2|Reiver|"8"""|4|3+|-||2|6+|1|32mm|
+000002720|1|Relic Razorback|"12"""|9|3+|-||10|6+|2|Use model|
+000002721|1|Repulsor|"10"""|12|3+|-||16|6+|5|100mm|
+000002722|1|Repulsor Executioner|"10"""|12|3+|-||16|6+|5|100mm|
+000002723|1|Rhino|"12"""|9|3+|-||10|6+|2|Use model|
+000002726|1|Vulkan He'stan|"6"""|5|2+|4||5|6+|1|40mm|
+000002727|1|Whirlwind|"10"""|10|3+|-||11|6+|3|Use model|
+000002737|1|Death Company Marines with Jump Packs|"12"""|5|3+|-||2|6+|1|32mm|
+000002748|1|Ravenwing Ancient|"12"""|6|3+|5||4|6+|2|75 x 42mm|
+000002748|2|Ravenwing Apothecary|"12"""|6|3+|5||4|6+|2|75 x 42mm|
+000002748|3|Ravenwing Champion|"12"""|6|3+|5||4|6+|2|75 x 42mm|
+000002772|1|Ancient|"6"""|5|3+|-||4|6+|2|40mm|
+000002772|2|Company veteran with bolt rifle|"6"""|5|3+|-||4|6+|2|40mm|
+000002772|3|Company Champion|"6"""|5|3+|-||4|6+|2|40mm|
+000002772|4|Company Veteran with heavy bolter|"6"""|5|3+|-||4|6+|2|40mm|
+000002773|1|Apothecary|"6"""|5|3+|-||4|6+|1|40mm|
+000002775|1|Ancient|"6"""|5|3+|-||4|6+|2|40mm|
+000002776|1|Assault Intercessor Sergeant with Jump Pack|"12"""|5|3+|-||2|6+|1|32mm|
+000002776|2|Assault Intercessor with Jump Pack|"12"""|5|3+|-||2|6+|1|32mm|
+000002779|1|Kill Team Infiltrator with Deathwatch Occulus Bolt Carbine, Bolt Pistol and Paired Combat Blades|"8"""|4|3+|-||2|6+|1|32mm|
+000002779|2|Kill Team Infiltrator with Bolt Sniper Rifle, Bolt Pistol and Ceramite Fists|"8"""|4|3+|-||2|6+|1|32mm|
+000002779|3|Kill Team Infiltrator with Deathwatch Marksman Bolt Carbine, Bolt Pistol and Ceramite Fists|"8"""|4|3+|-||2|6+|1|32mm|
+000002779|4|Kill Team Infiltrator with Special-issue Bolt Pistol and Combat Knife|"8"""|4|3+|-||2|6+|1|32mm|
+000002780|1|Kill Team Intercessor with Pyreblaster, Bolt Pistol and Knives and Fists|"6"""|5|3+|-||2|6+|2|32mm|
+000002780|2|Kill Team Sergeant|"6"""|5|3+|-||2|6+|2|32mm|
+000002780|3|Deathwatch Intercessor with Plasma Incinerator, Bolt Pistol and Knives and Fists|"6"""|5|3+|-||2|6+|2|32mm|
+000002780|4|Kill Team Intercessor with Deathwatch Bolt Rifle, Bolt Pistol and Knives and Fists|"6"""|5|3+|-||2|6+|2|32mm|
+000002780|5|Kill Team Intercessor with Heavy Bolt Pistol and Chainsword|"6"""|5|3+|-||2|6+|2|32mm|
+000002780|6|Kill Team Intercessor with Castellan Launcher, Superfrag Rocket Launcher and Knives and Fists|"6"""|5|3+|-||2|6+|2|32mm|
+000002781|1|Kill Team Heavy Intercessor with Deathwatch Heavy Bolt Rifle and Ceramite Fists.|"5"""|6|3+|-||3|6+|1|40mm|
+000002781|2|Kill Team Heavy Intercessor with Flamestorm Gauntlets and Twin Power Fists|"5"""|6|3+|-||3|6+|1|40mm|
+000002781|3|Kill Team Heavy Intercessor with Melta Rifle, Bolt Pistol and Ceramite Fists|"5"""|6|3+|-||3|6+|1|40mm|
+000002783|1|Watch Sergeant|"6"""|5|3+|-||2|6+|2|32mm|
+000002783|2|Deathwatch Veteran|"6"""|5|3+|-||2|6+|2|32mm|
+000002786|1|Impulsor|"12"""|9|3+|-||11|6+|2|100mm|
+000002787|1|Gladiator Lancer|"10"""|10|3+|-||12|6+|3|100mm|
+000002788|1|Gladiator Valiant|"10"""|10|3+|-||12|6+|3|100mm|
+000002789|1|Gladiator Reaper|"10"""|10|3+|-||12|6+|3|100mm|
+000002790|1|Repulsor Executioner|"10"""|12|3+|-||16|6+|5|100mm|
+000002791|1|Repulsor|"10"""|12|3+|-||16|6+|5|100mm|
+000002792|1|Chaplain Grimaldus|"6"""|5|3+|4||5|5+|1|40mm|
+000002792|2|Cenobyte Servitor|"6"""|4|3+|4||1|8+|1|28.5mm|
+000002793|1|Castellan|"6"""|5|3+|-||4|6+|1|40mm|
+000002794|1|High Marshal Helbrecht|"6"""|5|2+|4||6|6+|3|60mm|
+000002795|1|Emperor's Champion|"8"""|5|2+|4||5|6+|1|40mm|
+000002796|1|Marshal|"6"""|5|3+|4||5|6+|1|40mm|
+000002798|1|Sword Brother|"6"""|5|3+|-||3|6+|1|40mm|
+000002799|1|Neophyte|"6"""|4|4+|-||2|6+|2|28.5mm|
+000002799|2|Sword Brother|"6"""|5|3+|-||2|6+|2|28.5mm|
+000002799|3|Initiate|"6"""|5|3+|-||2|6+|2|28.5mm|
+000002801|1|Venerable Dreadnought|"8"""|9|2+|-||8|6+|3|60mm|
+000003698|1|Inner Circle Companions|"6"""|5|3+|-||3|6+|2|40mm|
+000003831|1|Blood Angels Captain|"6"""|5|3+|4||5|6+|1|40mm|
+000003832|1|Death Company Captain|"6"""|5|3+|4||5|6+|1|40mm|
+000003833|1|Death Company Captain with Jump Pack|"12"""|5|3+|4||5|6+|1|40mm|
+000003871|1|Watch Master|"6"""|5|2+|4||5|6+|1|32mm|
+000003872|1|Watch Captain Artemis|"6"""|5|3+|4||4|6+|1|32mm|
+000003873|1|Deathwatch Terminator|"5"""|6|2+|4||3|6+|1|40mm|
+000003873|2|Deathwatch Terminator Sergeant|"5"""|6|2+|4||3|6+|1|40mm|
+000003874|1|Kill Team Intercessor with Jump Pack|"12"""|5|3+|-||2|6+|1|32mm|
+000003874|2|Kill Team Sergeant with Jump Pack|"12"""|5|3+|-||2|6+|1|32mm|
+000003874|3|Kill Team Heavy Intercessor with Jump Pack|"10"""|6|3+|-||3|6+|1|40mm|
+000003875|1|KILL TEAM VETERAN|"6"""|4|3+|-||2|6+|2|32mm|
+000003875|2|KILL TEAM BIKER|"12"""|5|3+|-||3|6+|2|75 x 42mm|
+000003875|3|CHAPLAIN CASSIUS|"6"""|4|3+|4|* Chaplain Cassius and Kill Team Terminator models only.|4|5+|2|32mm|
+000003875|4|KILL TEAM TERMINATOR|"5"""|5|2+|4|* Chaplain Cassius and Kill Team Terminator models only.|3|6+|2|40mm|
+000004129|1|Wolf Priest|"7"""|5|3+|4||4|6+|1|40mm|
+000004130|1|Wolf Guard Battle Leader|"7"""|5|3+|4||5|6+|1|40mm|
+000004131|1|Wolf Guard Headtaker|"7"""|5|3+|-||3|6+|1|40mm|
+000004131|2|Hunting Wolf|"10"""|4|6+|-||1|8+|0|60 x 35.5mm|
+000004132|1|Wulfen with Storm Shield|"9"""|6|4+|4||2|7+|0|40mm|
+000004133|1|Wulfen Dreadnought|"9"""|9|2+|-||8|6+|0|60mm|
+000004135|1|Execrator|"6"""|5|3+|4||4|5+|1|40mm|
+000004136|1|Crusade Ancient|"6"""|5|3+|-||4|6+|1|40mm|
+000004148|1|Aethon Shaan|"14"""|5|3+|4||5|6+|1|50mm|
+000004166|1|Caanok Var|"5"""|6|2+|4||6|6+|1|50mm|
+000004167|1|Suboden Khan|"12"""|6|3+|4||8|6+|2|90 x 52mm|
+000004175|1|Gravis Veteran|"5"""|6|3+|-||3|6+|2|40mm|
+000004175|2|Deathwatch Veteran with Stalker Bolt Rifle, Bolt Pistol and Knives and Fists|"6"""|5|3+|-||2|6+|2|32mm|
+000004175|3|Kill Team Sergeant|"6"""|5|3+|-||2|6+|2|32mm|
+000004175|4|Deathwatch Veteran with Xenophase Blade and Special-issue Bolt Pistol|"6"""|5|3+|-||2|6+|2|32mm|
+000004175|5|Deathwatch Veteran with Deathwatch Marksman Bolt Carbine, Special-issue Bolt Pistol and Knives and Fists|"6"""|5|3+|-||2|6+|2|32mm|
+000004175|6|Deathwatch Veteran with Heavy Thunder Hammer and Bolt Pistol|"6"""|5|3+|-||2|6+|2|32mm|
+000004182|1|Hunting Wolf|"10"""|4|6+|-||1|8+|0|60 x 35.5mm|
+000004182|2|Wolf Scout|"8"""|4|3+|-||2|6+|1|32mm|
+000004182|3|Wolf Scout Pack Leader|"8"""|4|3+|-||2|6+|1|32mm|
+000004184|1|Cato Sicarius|"6"""|5|2+|4||5|6+|1|40mm|
+000004185|1|Chapter Ancient|"6"""|5|2+|-||3|6+|2|40mm|
+000004185|2|Victrix Honour Guard|"6"""|5|2+|-||3|6+|2|40mm|
+000004185|3|Chapter Champion|"6"""|5|2+|-||3|6+|2|40mm|
+000004187|1|Captain Titus|"6"""|5|3+|4||6|6+|1|40mm|
+000004188|1|Gaius Silva|"6"""|3|4+|5|Gaius Silva only|3|6+|1|28.5mm|
+000004188|2|Aemelia Minervas|"6"""|3|4+|-||3|6+|1|28.5mm|
+000004188|3|Veteran Sergeant Metaurus|"6"""|5|3+|4|Veteran Sergeant Metaurus only|4|6+|1|40mm|
+000004188|4|Dainal Komelius|"6"""|3|4+|-||3|6+|1|28.5mm|
+000004188|5|Ancient Gadriel|"6"""|5|3+|-||4|6+|2|40mm|
+000004188|6|Lucia Vestha|"6"""|3|4+|-||3|6+|1|28.5mm|
+000004231|1|Eradicator|"5"""|6|3+|-||3|6+|1|40mm|
+000004231|2|Eradicator Sergeant|"5"""|6|3+|-||3|6+|1|40mm|
+000004245|1|Sicaran|"10"""|11|2+|-||14|6+|4|Use model|
+000004246|1|Marneus Calgar|"6"""|6|2+|4||6|6+|1|50mm|
+000004247|1|Invader ATV|"10"""|6|3+|-||8|6+|2|Use model|
+000004248|1|Kaius Konorius|"6"""|5|2+|4||5|6+|1|40mm|
+000004249|1|Eradicator|"5"""|6|3+|-||3|6+|1|40mm|
+000004249|2|Eradicator Sergeant|"5"""|6|3+|-||3|6+|1|40mm|
