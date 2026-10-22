@@ -1,0 +1,266 @@
+datasheet_id|line|description
+000000060|1|1 Apothecary Biologis model
+000000065|1|1 Land Raider model
+000000066|1|1 Land Raider Crusader model
+000000067|1|1 Land Raider Excelsior model
+000000071|1|1 Bladeguard Veteran Sergeant model
+000000071|2|2-5 Bladeguard Veteran models
+000000073|1|1 Captain model
+000000076|1|1 Lieutenant with Combi-weapon model
+000000079|1|1 Librarian in Terminator Armour model
+000000083|1|1 Captain with Jump Pack model
+000000084|1|1 Stormhawk Interceptor model
+000000085|1|1 Rhino Primaris model
+000000086|1|1-2 Firestrike Servo-turrets models
+000000087|1|1 Drop Pod model
+000000091|1|1 Ballistus Dreadnought model
+000000093|1|1 Typhon model
+000000094|1|1 Chaplain on Bike model
+000000097|1|1 Hammerfall Bunker model
+000000098|1|1-3 Tarantula Sentry Battery models
+000000099|1|1 Tarantula Air Defence Battery model
+000000110|1|1 Rapier Carrier model
+000000112|1|1 Chaplain with Jump Pack model
+000000114|1|1 Storm Speeder Hammerstrike model
+000000115|1|1 Chaplain in Terminator Armour model
+000000117|1|1 Dreadnought model
+000000118|1|1 Terminator Sergeant model
+000000118|2|4-9 Terminator models
+000000119|1|1 Librarian in Phobos Armour model
+000000120|1|1 Venerable Dreadnought model
+000000124|1|1 Storm Speeder Hailstrike model
+000000125|1|1 Inceptor Sergeant model
+000000125|2|2-5 Inceptor models
+000000126|1|1 Infernus Sergeant model
+000000126|2|4-9 Infernus Marine models
+000000127|1|1 Iron Father Feirros model
+000000128|1|1 Infiltrator Sergeant model
+000000128|2|4-9 Infiltrator models
+000000129|1|1 Razorback model
+000000135|1|1 Captain in Terminator Armour model
+000000136|1|1 Brutalis Dreadnought model
+000000137|1|1 Scout Biker Sergeant model
+000000137|2|2-5 Scout Biker models
+000000138|1|1 Roboute Guilliman model
+000000139|1|1 Thunderhawk Gunship model
+000000140|1|1 Techmarine model
+000000147|1|1 Vanguard Veteran Sergeant with Jump Pack model
+000000147|2|4-9 Vanguard Veteran with Jump Pack models
+000000151|1|1 Commander Dante model
+000000155|1|1 Chief Librarian Mephiston model
+000000156|1|1 The Sanguinor model
+000000157|1|1 Astorath model
+000000158|1|1 Sanguinary Priest model
+000000164|1|1 Lemartes model
+000000165|1|3-6 Sanguinary Guard models
+000000166|1|1 Death Company Dreadnought model
+000000168|1|1 Baal Predator model
+000000218|1|1 Azrael model
+000000219|1|1 Belial model
+000000225|1|1 Asmodai model
+000000226|1|1 Ezekiel model
+000000230|1|1 Deathwing Sergeant model
+000000230|2|4-9 Deathwing Terminators models
+000000231|1|1 Knight Master model
+000000231|2|4 Deathwing Knights models
+000000238|1|1 Ravenwing Darkshroud model
+000000239|1|1 Nephilim Jetfighter model
+000000240|1|1 Ravenwing Dark Talon model
+000000241|1|1 Ravenwing Huntmaster model
+000000241|2|2-5 Ravenwing Black Knight models
+000000242|1|1 Land Speeder Vengeance model
+000000282|1|1 Logan Grimnar model
+000000285|1|1 Ragnar Blackmane model
+000000292|1|1 Njal Stormcaller model
+000000297|1|1 Ulrik the Slayer model
+000000302|1|1 Bjorn the Fell-handed model
+000000303|1|1 Blood Claw Pack Leader model
+000000303|2|9-19 Blood Claw models
+000000305|1|1 Grey Hunter Pack Leader model
+000000305|2|9 Grey Hunter models
+000000306|1|1 Iron Priest model
+000000311|1|5-10 Wulfen models
+000000314|1|1 Murderfang model
+000000317|1|1 Arjac Rockfist model
+000000318|1|1 Wolf Guard Terminator Pack Leader model
+000000318|2|4-9 Wolf Guard Terminator models
+000000322|1|1 Thunderwolf Cavalry Pack Leader model
+000000322|2|2-5 Thunderwolf Cavalry models
+000000323|1|5-10 Fenrisian Wolf models
+000000358|1|1 Corvus Blackstar model
+000001153|1|1 Cerberus model
+000001154|1|1 Vanguard Veteran Sergeant model
+000001154|2|4-9 Vanguard Veteran models
+000001156|1|1 Invictor Tactical Warsuit model
+000001157|1|1 Intercessor Sergeant model
+000001157|2|4-9 Intercessor models
+000001159|1|1 Incursor Sergeant model
+000001159|2|4-9 Incursor models
+000001160|1|1 Scout Sergeant model
+000001160|2|4-9 Scout models
+000001165|1|1 Bladeguard Ancient model
+000001172|1|1 Captain in Gravis Armour model
+000001174|1|1 Chaplain model
+000001175|1|1 Kratos model
+000001177|1|1 Heavy Intercessor Sergeant model
+000001177|2|4-9 Heavy Intercessor models
+000001183|1|1 Terminator Sergeant model
+000001183|2|4-9 Terminator models
+000001188|1|1 Vindicator model
+000001189|1|1 Mastodon model
+000001190|1|1 Stormtalon Gunship model
+000001191|1|1 Stormraven Gunship model
+000001193|1|1 Devastator Centurion Sergeant model
+000001193|2|2-5 Devastator Centurion models
+000001346|1|1 Lieutenant model
+000001606|1|1 Assault Intercessor Sergeant model
+000001606|2|4-9 Assault Intercessor models
+000001610|1|1 Storm Speeder Thunderstrike model
+000001611|1|1 Chief Librarian Tigurius model
+000001666|1|1 Falchion model
+000001667|1|1 Gladiator Reaper model
+000001668|1|1 Eliminator Sergeant model
+000001668|2|2 Eliminator models
+000001825|1|1 Gladiator Valiant model
+000001991|1|1 Terrax-pattern Termite model
+000001997|1|5-10 Death Company Marines models
+000002098|1|1 Hellblaster Sergeant model
+000002098|2|4-9 Hellblaster models
+000002099|1|1 Aggressor Sergeant model
+000002099|2|2-5 Aggressor models
+000002100|1|1 Adrax Agatone model
+000002105|1|1 Darnath Lysander model
+000002173|1|1 Land Raider Redeemer model
+000002255|1|1 Sternguard Veteran Sergeant model
+000002255|2|4-9 Sternguard Veteran models
+000002266|1|1 Librarian model
+000002270|1|1 Desolation Sergeant model
+000002270|2|4 Desolation Marine models
+000002291|1|1 Sammael model
+000002296|1|1 Lazarus model
+000002473|1|1 Tor Garadon model
+000002530|1|1 Lieutenant in Phobos Armour model
+000002568|1|1 Impulsor model
+000002677|1|1 Ancient in Terminator Armour model
+000002682|1|1 Lion El'Jonson model
+000002700|1|1 Astraeus model
+000002701|1|1 Captain in Phobos Armour model
+000002702|1|1 Captain on Bike model
+000002703|1|1 Assault Centurion Sergeant model
+000002703|2|2-5 Assault Centurion models
+000002705|1|1 Gladiator Lancer model
+000002707|1|1 Judiciar model
+000002708|1|1 Kayvaan Shrike model
+000002709|1|1 Kor’sarro Khan model
+000002711|1|1 Land Speeder model
+000002712|1|1 Outrider Sergeant model
+000002712|2|2-5 Outrider models
+000002714|1|1 Predator Annihilator model
+000002715|1|1 Predator Destructor model
+000002717|1|1 Redemptor Dreadnought model
+000002718|1|1 Reiver Sergeant model
+000002718|2|4-9 Reiver models
+000002720|1|1 Relic Razorback model
+000002721|1|1 Repulsor model
+000002722|1|1 Repulsor Executioner model
+000002723|1|1 Rhino model
+000002726|1|1 Vulkan He’stan model
+000002727|1|1 Whirlwind model
+000002737|1|5-10 Death Company Marines with Jump Packs models
+000002748|1|1 Ravenwing Ancient model
+000002748|2|1 Ravenwing Apothecary model
+000002748|3|1 Ravenwing Champion model
+000002772|1|1 Ancient model
+000002772|2|1 Company Champion model
+000002772|3|1 Company Veteran with Bolt Rifle model
+000002772|4|1 Company Veteran with Heavy Bolter model
+000002773|1|1 Apothecary model
+000002775|1|1 Ancient model
+000002776|1|1 Assault Intercessor Sergeant with Jump Pack model
+000002776|2|4-9 Assault Intercessor with Jump Pack models
+000002779|1|2 Kill Team Infiltrator with Bolt Sniper Rifle, Bolt Pistol and Ceramite Fists models
+000002779|2|2 Kill Team Infiltrator with Deathwatch Occulus Bolt Carbine, Bolt Pistol and Paired Combat Blades models
+000002779|3|2 Kill Team Infiltrator with Special-issue Bolt Pistol and Combat Knife models
+000002779|4|4 Kill Team Infiltrator with Deathwatch Marksman Bolt Carbine, Bolt Pistol and Ceramite Fists models
+000002780|1|1 Kill Team Intercessor with Castellan Launcher, Superfrag Rocket Launcher and Knives and Fists model
+000002780|2|1 Kill Team Sergeant model
+000002780|3|2 Deathwatch Intercessor with Plasma Incinerator, Bolt Pistol and Knives and Fists models
+000002780|4|2 Kill Team Intercessor with Deathwatch Bolt Rifle, Bolt Pistol and Knives and Fists models
+000002780|5|2 Kill Team Intercessor with Heavy Bolt Pistol and Chainsword models
+000002780|6|2 Kill Team Intercessor with Pyreblaster, Bolt Pistol and Knives and Fists models
+000002781|1|3 Kill Team Heavy Intercessor with Flamestorm Gauntlets and Twin Power Fists models
+000002781|2|3 Kill Team Heavy Intercessor with Melta Rifle, Bolt Pistol and Ceramite Fists models
+000002781|3|4 Kill Team Heavy Intercessor with Deathwatch Heavy Bolt Rifle and Ceramite Fists models
+000002783|1|1 Watch Sergeant model
+000002783|2|4-9 Deathwatch Veteran models
+000002786|1|1 Impulsor model
+000002787|1|1 Gladiator Lancer model
+000002788|1|1 Gladiator Valiant model
+000002789|1|1 Gladiator Reaper model
+000002790|1|1 Repulsor Executioner model
+000002791|1|1 Repulsor model
+000002792|1|1 Chaplain Grimaldus model
+000002792|2|3 Cenobyte Servitor models
+000002793|1|1 Castellan model
+000002794|1|1 High Marshal Helbrecht model
+000002795|1|1 Emperor's Champion model
+000002796|1|1 Marshal model
+000002798|1|4-10 Sword Brother models
+000002799|1|1 Sword Brother model
+000002799|2|4-8 Neophyte models
+000002799|3|5-11 Initiate models
+000002801|1|1 Venerable Dreadnought model
+000003698|1|3-6 Inner Circle Companions models
+000003831|1|1 Blood Angels Captain model
+000003832|1|1 Death Company Captain model
+000003833|1|1 Death Company Captain with Jump Pack model
+000003871|1|1 Watch Master model
+000003872|1|1 Watch Captain Artemis model
+000003873|1|1 Deathwatch Terminator Sergeant model
+000003873|2|4-9 Deathwatch Terminator models
+000003874|1|1 Kill Team Sergeant with Jump Pack model
+000003874|2|4 Kill Team Heavy Intercessor with Jump Pack models
+000003874|3|5 Kill Team Intercessor with Jump Pack models
+000003875|1|"1 Chaplain Cassius – <span class=""kwb"">EPIC</span> <span class=""kwb"">HERO</span>"
+000003875|2|"8 Kill Team Veterans:<br><ul style=""list-style-type:circle;""><li>Vael Donatus</li><li>Zameon Gydrael</li><li>Rodricus Grytt</li><li>Antor Delassio</li><li>Edryc Setorax</li><li>Jensus Natorian</li><li>Drenn Redblade</li><li>Ennox Sorrlock</li></ul>"
+000003875|3|1 Kill Team Terminator (Garran Branatar)
+000003875|4|1 Kill Team Biker (Jetek Suberei)
+000004129|1|1 Wolf Priest model
+000004130|1|1 Wolf Guard Battle Leader model
+000004131|1|3-6 Hunting Wolf models
+000004131|2|3-6 Wolf Guard Headtaker models
+000004132|1|5-10 Wulfen with Storm Shield models
+000004133|1|1 Wulfen Dreadnought model
+000004135|1|1 Execrator model
+000004136|1|1 Crusade Ancient model
+000004148|1|1 Aethon Shaan model
+000004166|1|1 Caanok Var model
+000004167|1|1 Suboden Khan model
+000004175|1|1 Deathwatch Veteran with Xenophase Blade and Special-issue Bolt Pistol model
+000004175|2|1 Kill Team Sergeant model
+000004175|3|1-2 Deathwatch Veteran with Deathwatch Marksman Bolt Carbine, Special-issue Bolt Pistol and Knives and Fists models
+000004175|4|1-2 Deathwatch Veteran with Heavy Thunder Hammer and Bolt Pistol models
+000004175|5|1-2 Deathwatch Veteran with Stalker Bolt Rifle, Bolt Pistol and Knives and Fists models
+000004175|6|1-2 Gravis Veteran models
+000004182|1|1 Wolf Scout Pack Leader model
+000004182|2|1-2 Hunting Wolf models
+000004182|3|4-9 Wolf Scout models
+000004184|1|1 Cato Sicarius model
+000004185|1|0-1 Chapter Ancient model
+000004185|2|0-1 Chapter Champion model
+000004185|3|1-6 Victrix Honour Guard models
+000004187|1|1 Captain Titus model
+000004188|1|1 Aemelia Minervas model
+000004188|2|1 Ancient Gadriel model
+000004188|3|1 Dainal Kornelius model
+000004188|4|1 Gaius Silva model
+000004188|5|1 Lucia Vestha model
+000004188|6|1 Veteran Sergeant Metaurus model
+000004231|1|1 Eradicator Sergeant model
+000004231|2|2-5 Eradicator models
+000004245|1|1 Sicaran model
+000004246|1|1 Marneus Calgar model
+000004247|1|1-2 Invader ATV models
+000004248|1|1 Kaius Konorius model
+000004249|1|1 Eradicator Sergeant model
+000004249|2|2-5 Eradicator models

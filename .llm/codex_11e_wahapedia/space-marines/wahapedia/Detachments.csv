@@ -1,0 +1,40 @@
+id|faction_id|name|legend|type|dp|force_disposition
+000000750|SM|Gladius Task Force|"<p class=""ShowFluff legend3"">THE PERFECTLY BALANCED BLADE OF A GLADIUS TASK FORCE CAN SLAY ANY FOE</p>"||3|Priority Assets
+000000794|SM|Ironstorm Spearhead|"<p class=""ShowFluff legend3"">SPACE MARINE TANKS DEPLOY AT SQUADRON STRENGTH TO PUNCH THROUGH ENEMY LINES</p>"||1|Purge the Foe
+000000796|SM|Stormlance Task Force|"<p class=""ShowFluff legend3"">SPACE MARINE BIKE SQUADRONS, SPEEDERS AND LIGHT ARMOUR RACE INTO BATTLE</p>"||1|Reconnaissance
+000000808|SM|Black Spear Task Force|||3|Purge the Foe
+000000835|SM|Inner Circle Task Force|||1|Priority Assets
+000000905|SM|Boarding Strike|<b>Space Marines excel in the sort of fast-paced, ferociously violent battles that erupt during voidship boarding assaults. Moving fast and hitting hard, they swiftly secure enemy vessels, or else sweep impertinent foes from their own warships’ decks.</b>|Boarding Actions||
+000000906|SM|Pilum Strike Team|<b>Comprising veterans in the theatre of ship-to-ship void war, pilum strike teams are cast through the void like a spear aboard shrouded boarding torpedoes to infiltrate key enemy warships. Once aboard, the Phobos-armoured Space Marines wage a terror campaign to destabilise the target vessel from within.</b>|Boarding Actions||
+000000907|SM|Terminator Assault|<b>The Imperium has no finer or more perfectly suited warriors for cleansing the claustrophobic decks of voidships than Terminators. Each battle-brother is an army unto themself. Their armoured resilience is second to none, while their massive firepower allows them to turn gloomy corridors into killing grounds.</b>|Boarding Actions||
+000001004|SM|Angelic Inheritors|||3|Priority Assets
+000001008|SM|Champions of Fenris|"<p class=""ShowFluff legend3"">THE HAND‑PICKED CHAMPIONS OF THE SPACE WOLVES CHAPTER STRIDE OUT TO LAY THEIR ENEMIES LOW</p>"||1|Priority Assets
+000001059|SM|Wrath of the Rock|||2|Take and Hold
+000001070|SM|Saga of the Beastslayer|||1|Purge the Foe
+000001086|SM|Forgefather’s Seekers|||2|Priority Assets
+000001104|SM|Shadowmark Talon|||2|Disruption
+000001119|SM|Spearpoint Task Force|||2|Reconnaissance
+000001120|SM|Blade of Ultramar|||3|Priority Assets
+000001126|SM|Saga of the Great Wolf|||2|Take and Hold
+000001139|SM|Shield of the Void|<b>The Reclamation of Ultramar saw the Shield Chapters conquer countless threats in the void with the tactically divergent warriors at hand. They alloyed these into lethal ly effective forces that struck at enemy vessels using coordinated aggression and methodical precision to purge the foe deck by deck.</b>|Boarding Actions||
+000001146|SM|Ceramite Sentinels|||2|Take and Hold
+000001209|SM|Marshal’s Household|"<p class=""ShowFluff legend3"">WARRIOR‑KNIGHTS – EACH A CHAMPION OF MARTIAL FAITH – STRIKE WITH UNCOMPROMISING FERVOUR</p>"||1|Priority Assets
+000001214|SM|Encarmine Speartip|"<p class=""ShowFluff legend3"">THE CHAPTER’S GOLDEN‑ARMOURED ELITE PLUNGE INTO FOE LIKE A SPEAR CAST FROM THE HEAVENS</p>"||1|Disruption
+000001215|SM|Wrath of the Doomed|"<p class=""ShowFluff legend3"">THE DEATH COMPANY BRING THEIR FOES A DOOM THAT IS BLOODY AND SUPERNATURALLY SWIFT</p>"||1|Purge the Foe
+000001205|SM|Darkflight Pursuit|"<p class=""ShowFluff legend3"">BLACK‑ARMOURED COMBAT CRAFT HUNT THEIR PREY UPON WINGS OF DARK FURY</p>"||1|Reconnaissance
+000001229|SM|Deathwatch Support|||1|Disruption
+000001230|SM|Vow-sworn Crusaders|||2|Purge the Foe
+000001231|SM|Fist of the God-Emperor|||1|Take and Hold
+000001232|SM|Medusa's Wrath|||2|Purge the Foe
+000001233|SM|Gauntlet Task Force|"<p class=""ShowFluff legend3"">SQUADS OF BATTLE-BROTHERS RACE INTO BATTLE ABOARD INDOMITABLE ARMOURED TRANSPORTS</p>"||1|Reconnaissance
+000001234|SM|Phobos Shadow Force|"<p class=""ShowFluff legend3"">PHOBOS-ARMOURED STEALTH ADEPTS HUNT THEIR ENEMIES UNSEEN</p>"||1|Disruption
+000001235|SM|Tacticus Attack Force|"<p class=""ShowFluff legend3"">CHARGING INTO BATTLE, TACTICUS-ARMOURED BATTLE-BROTHERS CUT A BLOODY PATH THROUGH THE FOE</p>"||1|Take and Hold
+000001236|SM|Phobos Shock Force|"<p class=""ShowFluff legend2"">EXPLODING FROM THE SHADOWS, PHOBOS-ARMOURED KILLERS CATCH THE FOE IN A BLOODY AMBUSH</p>"||1|Disruption
+000001237|SM|Terminator Storm Force|"<p class=""ShowFluff legend3"">TERMINATOR-ARMOURED FIRST COMPANY VETERANS UNLEASH THEIR MIGHT UPON THE BATTLEFIELD</p>"||1|Priority Assets
+000001238|SM|Assault Brethren|"<p class=""ShowFluff legend3"">THE CHAPTER’S CLOSE-COMBAT SPECIALISTS TEAR INTO THE FOE WITH LETHAL INTENT</p>"||1|Take and Hold
+000001239|SM|Gravis Linebreaker Force|"<p class=""ShowFluff legend3"">RELENTLESS AND UNSTOPPABLE, GRAVIS-ARMOURED WARRIORS MARCH OUT ON THE ATTACK</p>"||1|Take and Hold
+000001240|SM|Devastator Brethren|"<p class=""ShowFluff legend3"">HEAVILY ARMED SPACE MARINES RAIN THUNDEROUS DEATH UPON THE EMPEROR’S FOES</p>"||1|Purge the Foe
+000001241|SM|Gravis Siege Force|"<p class=""ShowFluff legend3"">GRAVIS-ARMOURED SPACE MARINES SEIZE AND HOLD VITAL STRATEGIC SITES AGAINST ANY THREAT</p>"||1|Take and Hold
+000001242|SM|Tactical Brethren|"<p class=""ShowFluff legend3"">A CORE OF TACTICALLY VERSATILE WARRIORS STRENGTHENS THE SPACE MARINE BATTLE LINE</p>"||1|Priority Assets
+000001243|SM|Ironclad Champions|"<p class=""ShowFluff legend3"">THE CHAPTER’S DEATHLESS DREADNOUGHT CHAMPIONS STRIDE OUT TO WAR</p>"||1|Priority Assets
+000001244|SM|Tacticus Firestorm Force|"<p class=""ShowFluff legend3"">TACTICUS-ARMOURED WARRIORS LAY DOWN DISCIPLINED FIRE TO DOMINATE THE BATTLEFIELD</p>"||1|Priority Assets
