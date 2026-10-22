@@ -1,0 +1,220 @@
+{
+  "id": "game_log_lethal_hits_wound_row_11e",
+  "edition": 11,
+  "covers": [
+    "ui.log.wound_row.lethal_hits_auto_wounds",
+    "scripts.DiceLogFormatter.wound_summary.lethal_hits"
+  ],
+  "fixture": "custodes_lions_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Bug report: a wound row read 'Wound (5+): 1 2 3 3 5 5 \u2014 6/6' \u2014 only 2 dice beat 5+, yet 6 saves were rolled. The 6 was correct ([LETHAL HITS] from Stand Vigil: 4 critical hits auto-wounded, 2 rolled wounds) but the row hid the auto-wounds. Custodian Guard Alpha shoots the Battlewagon with [LETHAL HITS] granted via the effect_lethal_hits flag (the same flag stratagems set; Stand Vigil itself only reaches non-VEHICLE targets). Asserts the combat card's wound row splits rolled wounds from '+N Lethal Hits = total'.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_BATTLEWAGON_G\"][\"models\"][0].merge({\"position\": {\"x\": 950.0, \"y\": 480.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().enter_phase(GameState.create_snapshot())"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_A\"][\"flags\"][\"effect_lethal_hits\"] = true\nPhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_CUSTODIAN_GUARD_A\"][\"flags\"][\"effect_lethal_hits\"] = true\nreturn true",
+      "comment": "[LETHAL HITS] for this shooter (effect flag, as a stratagem would set)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "(\"U_BATTLEWAGON_G\" in RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_A\", PhaseManager.get_current_phase_instance().game_state_snapshot))",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CUSTODIAN_GUARD_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "payload": {
+          "weapon_id": "guardian_spear___ranged_ranged",
+          "target_unit_id": "U_BATTLEWAGON_G",
+          "model_ids": [
+            "m1",
+            "m2",
+            "m3",
+            "m4",
+            "m5"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "RG-F1: decline the defender's reactive stratagem window only if one opened. The fixture's War Horde Orks lost the 10e 'ARD AS NAILS stopgap (Codex: Orks 11e has no War Horde stratagem in the enemy_targets_unit_shooting window), so normally none opens and resolution starts straight after CONFIRM_TARGETS.",
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nif pi.awaiting_reactive_stratagem:\n\treturn pi.execute_action({\"type\": \"DECLINE_REACTIVE_STRATAGEM\"}).get(\"success\", false)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.state",
+      "equals": "staged_hits"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Wound row reads 'Wound (X+): <dice> \u2014 rolled/dice +N Lethal Hits = total' with N > 0 and rolled + N == total (the seed really produced lethal auto-wounds)",
+      "script": "var gl = tree.current_scene.game_log_panel\nvar cc = gl._card_container\nvar rows_text = []\nfor i in range(cc.get_child_count() - 1, -1, -1):\n\tvar card = cc.get_child(i)\n\tif not card.has_meta(\"combat_dice_container\"):\n\t\tcontinue\n\tfor row in card.get_meta(\"combat_dice_container\").get_children():\n\t\tvar t = \"\"\n\t\tfor c in row.get_children():\n\t\t\tif c is RichTextLabel or c is Label:\n\t\t\t\tt += gl._text_control_plain(c).strip_edges() + \" \"\n\t\trows_text.append(t.strip_edges())\n\tbreak\nvar re = RegEx.new()\nre.compile(\"^Wound \\\\(\\\\d\\\\+\\\\):.*\u2014 (\\\\d+)/(\\\\d+) \\\\+(\\\\d+) Lethal Hits = (\\\\d+)$\")\nfor t in rows_text:\n\tvar m = re.search(t)\n\tif m and int(m.get_string(3)) > 0 and int(m.get_string(1)) + int(m.get_string(3)) == int(m.get_string(4)):\n\t\treturn true\nreturn rows_text",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.game_log_panel.expand_last_combat_card()",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_wound_row_shows_lethal_auto_wounds",
+      "region": [
+        0,
+        100,
+        360,
+        700
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "02_full_frame"
+    }
+  ]
+}

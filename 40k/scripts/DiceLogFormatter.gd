@@ -401,6 +401,10 @@ static func _format_generic_roll(rtl: RichTextLabel, dice_data: Dictionary, cont
 		"wound":
 			if successes >= 0:
 				summary = "[color=%s][b]%d/%d wound[/b][/color]" % [COLOR_WOUND_TEXT, successes, total]
+				# [LETHAL HITS] auto-wounds are not among the rolled dice.
+				var lethal_auto := int(dice_data.get("lethal_hits_auto_wounds", 0))
+				if lethal_auto > 0:
+					summary = "[color=%s][b]%d/%d wound[/b][/color] [color=#E890E8]+%d Lethal Hits = %d[/color]" % [COLOR_WOUND_TEXT, successes - lethal_auto, total, lethal_auto, successes]
 		"save":
 			var failed := int(dice_data.get("failed", 0))
 			var saved := successes if successes >= 0 else 0

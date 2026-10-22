@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.49.3",
+      "version": "1.49.4",
       "date": "2026-10-22",
       "summary": "Fix: a unit with an attached CHARACTER shoots as one unit, in one activation.",
       "changes": [
@@ -13,12 +13,21 @@
       ]
     },
     {
-      "version": "1.49.2",
+      "version": "1.49.3",
       "date": "2026-10-22",
       "summary": "Fix: when a unit with an attached CHARACTER performs an action, the whole attached unit gives up shooting.",
       "changes": [
         "Starting or performing an action in the Shooting phase (Hold Position, Cleanse, mission actions, etc.) with a bodyguard unit now also marks its attached CHARACTER(s) as having acted — they can no longer be selected to shoot separately, and they cannot charge that turn.",
         "The same applies the other way round: if the CHARACTER starts the action, its bodyguard unit gives up shooting too, and the attached unit can only start one action per turn."
+      ]
+    },
+    {
+      "version": "1.49.2",
+      "date": "2026-10-22",
+      "summary": "Game log wound rows now show [LETHAL HITS] auto-wounds, so the number of saves matches what the log says.",
+      "changes": [
+        "Fixed: when [LETHAL HITS] applied (e.g. Sentinel Guard's Stand Vigil near an objective) the wound row read e.g. 'Wound (5+): 1 2 3 3 5 5 \u2014 6/6' even though only 2 dice wounded. It now reads '\u2014 2/6 +4 Lethal Hits = 6': critical hits auto-wound without rolling, which is why 6 saves were rolled.",
+        "The step-by-step roll summary in the Shooting panel splits rolled wounds from Lethal Hits auto-wounds the same way."
       ]
     },
     {
