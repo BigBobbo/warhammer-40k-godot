@@ -366,9 +366,13 @@ static func _base_kit_slugs(unit: Dictionary, meta: Dictionary, weapons: Array, 
 	# option names — across weapon types (Venerable Dreadnought: the Fenrisian
 	# Great Axe replaces the Assault Cannon AND the Dreadnought combat weapon;
 	# its Heavy Flamer replaces the Storm Bolter).
+	# Not for a frozen pre-codex (1.0.19) kit: that data encodes "can be
+	# equipped with" add-ons as replacing the base weapon (Battlewagon:
+	# every option "replaces" Tracks and wheels).
 	_ensure_options_loaded()
 	var replaced := {}
-	for opt in _options_by_unit.get(unit_slug, []):
+	var option_rows: Array = [] if unit_slug.ends_with(LEGACY_SLUG_SUFFIX) else _options_by_unit.get(unit_slug, [])
+	for opt in option_rows:
 		var taken := false
 		for bundle in opt.get("bundles", []):
 			for b in bundle:
