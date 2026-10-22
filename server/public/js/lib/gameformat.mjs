@@ -195,6 +195,22 @@ export function compositionCounts(compModels, modelCount, { minFirst = false } =
     counts.push(Math.max(0, take));
     remaining -= take;
   }
+  // The last row cannot hold the remainder (Wolf Scouts: 1 Pack Leader,
+  // 1-2 Hunting Wolves, 4-9 Wolf Scouts at 12 models): every row starts at its
+  // minimum and the remainder fills rows from the last one up, each to its
+  // maximum (1 / 2 / 9). RulesEngine._positional_roles mirrors this.
+  const last = rows.length - 1;
+  if (last >= 0 && rows[last].max != null && counts[last] > rows[last].max) {
+    const out = rows.map(m => m.min ?? 0);
+    let rest = modelCount - out.reduce((a, b) => a + b, 0);
+    for (let k = last; k >= 0 && rest > 0; k--) {
+      const room = Math.max(0, (rows[k].max ?? rows[k].min ?? 0) - out[k]);
+      const add = Math.min(room, rest);
+      out[k] += add;
+      rest -= add;
+    }
+    if (rest === 0) return out;
+  }
   return counts;
 }
 

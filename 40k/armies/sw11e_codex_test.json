@@ -3473,12 +3473,17 @@
     },
     {
      "id": "m3",
-     "wounds": 2,
-     "current_wounds": 2,
-     "base_mm": 32,
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 60,
      "position": null,
      "alive": true,
-     "status_effects": []
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 35.5,
+      "width": 60
+     }
     },
     {
      "id": "m4",

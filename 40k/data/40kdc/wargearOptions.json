@@ -6839,7 +6839,9 @@
   ],
   "replacement_choice": [
    [
-    "helfrost-cannon-venerable-dreadnought",
+    "helfrost-cannon-venerable-dreadnought"
+   ],
+   [
     "multi-melta-venerable-dreadnought"
    ]
   ]
@@ -6952,7 +6954,9 @@
   ],
   "replacement_choice": [
    [
-    "power-fist",
+    "power-fist"
+   ],
+   [
     "power-weapon"
    ]
   ]
@@ -7067,7 +7071,9 @@
   ],
   "replacement_choice": [
    [
-    "relic-greataxe",
+    "relic-greataxe"
+   ],
+   [
     "twin-lightning-claws-wolf-guard-terminators"
    ]
   ]
@@ -7200,7 +7206,9 @@
   ],
   "replacement_choice": [
    [
-    "helfrost-cannon",
+    "helfrost-cannon"
+   ],
+   [
     "multi-melta-bjorn-the-fell-handed"
    ]
   ]
@@ -7268,8 +7276,12 @@
   ],
   "replacement_choice": [
    [
-    "bolt-pistol-wolf-scouts",
-    "runic-stave",
+    "bolt-pistol-wolf-scouts"
+   ],
+   [
+    "runic-stave"
+   ],
+   [
     "thunderclap"
    ]
   ]

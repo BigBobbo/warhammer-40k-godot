@@ -134,6 +134,11 @@ func _counts_by_role(unit: Dictionary, per_model: Dictionary, type_filter: Strin
 		var m = models[i]
 		if not m.get("alive", true):
 			continue
+		# A model the resolver stamped with NO weapon of this type carries none
+		# by its datasheet kit (a Hunting Wolf; a Wolf Guard Terminator whose
+		# storm bolter became a storm shield) — WP-S1. Not part of the k count.
+		if type_filter != "" and _stamped_empty(m, type_filter):
+			continue
 		var key := str(m.get("id", "")) if type_filter != "" else "m%d" % i
 		var reported = per_model.get(key, [])
 		var c := _weapon_count(unit, reported, type_filter) if grouped else int(reported.size())
@@ -142,6 +147,10 @@ func _counts_by_role(unit: Dictionary, per_model: Dictionary, type_filter: Strin
 		arr.append(c)
 		out[r] = arr
 	return out
+
+func _stamped_empty(m: Dictionary, type_filter: String) -> bool:
+	var v = m.get(type_filter.to_lower() + "_loadout", null)
+	return v is Array and (v as Array).is_empty()
 
 # True when some role's models carry different weapon SETS of this type (each
 # took a different wargear option) — then their profile counts may differ.
@@ -292,7 +301,7 @@ func _run():
 				var k_profiles = _counts_by_role(unit, mw, "Ranged", false)
 				var alive := 0
 				for m in models:
-					if m.get("alive", true):
+					if m.get("alive", true) and not _stamped_empty(m, "Ranged"):
 						alive += 1
 				var reporting := 0
 				for r in k_profiles:

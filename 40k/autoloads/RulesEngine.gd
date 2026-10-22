@@ -7740,6 +7740,67 @@ static func _model_allows_weapon(unit: Dictionary, model: Dictionary, weapon_nam
 	return weapon_name in model_profiles[model_type].get("weapons", [])
 
 
+# MA-LOADOUT (WP-S1): per model index, the weapon slugs its composition role
+# can hold — the role's default kit plus every option bundle open to that role
+# (role filter "" = any model). {} when the roles can't be worked out.
+static func _role_weapon_menus(unit: Dictionary) -> Dictionary:
+	var models = unit.get("models", [])
+	var ds_key = UnitLoadoutResolver.datasheet_key(unit)
+	var positional = _positional_roles(ds_key, models.size())
+	if positional.size() != models.size() or not _kits_match_weapons(unit):
+		return {}
+	var options = UnitLoadoutResolver.get_wargear_options(ds_key)
+	var out := {}
+	for i in range(models.size()):
+		var role = UnitLoadoutResolver.match_model_role(ds_key, [str(positional[i])])
+		if role == "":
+			return {}
+		var menu := {}
+		for sl in UnitLoadoutResolver.get_role_default_weapon_slugs(ds_key, role):
+			menu[str(sl)] = true
+		for opt in options:
+			var rf = str(opt.get("role", ""))
+			if rf != "" and rf != role:
+				continue
+			for bundle in opt.get("bundles", []):
+				for b in bundle:
+					menu[str(b)] = true
+		out[i] = menu
+	return out
+
+# True when every default-kit weapon id of every role of this datasheet names
+# one of the unit's weapons (full or base name). Only then do the WP-S1 rules
+# below trust the kit enough to say "this role carries no gun" or "this role
+# can't take that gun"; a kit whose ids don't match the weapon names (Ork
+# "choppa" vs "Choppas") keeps the older, more cautious behaviour.
+static func _kits_match_weapons(unit: Dictionary) -> bool:
+	var names := {}
+	for w in unit.get("meta", {}).get("weapons", []):
+		if typeof(w) != TYPE_DICTIONARY:
+			continue
+		var n = str(w.get("name", ""))
+		names[UnitLoadoutResolver.slugify(n)] = true
+		names[UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(n))] = true
+	var ds_key = UnitLoadoutResolver.datasheet_key(unit)
+	var roles = UnitLoadoutResolver.get_model_roles(ds_key)
+	if roles.is_empty():
+		return false
+	for r in roles:
+		var role = UnitLoadoutResolver.slugify(str(r.get("name", "")))
+		var kit = UnitLoadoutResolver.get_role_default_weapon_slugs(ds_key, role)
+		if kit.is_empty():
+			return false
+		for sl in kit:
+			if not names.has(str(sl)):
+				return false
+	return true
+
+static func _role_menu_allows(role_menu: Dictionary, mi: int, weapon_name: String) -> bool:
+	var menu: Dictionary = role_menu.get(mi, {})
+	return menu.has(UnitLoadoutResolver.slugify(weapon_name)) or \
+		menu.has(UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(weapon_name)))
+
+
 # Every profile name of one weapon (a multi-profile weapon is carried whole).
 static func _model_allows_weapons(unit: Dictionary, model: Dictionary, weapon_names: Array) -> bool:
 	for wn in weapon_names:
@@ -7868,11 +7929,18 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 		ordered.sort_custom(func(a, b): return int(counts[a]) < int(counts[b]))
 		var assigned := {}   # model index -> gun name
 		var used := {}       # model index -> true
+		# Which weapons each model's composition ROLE can ever hold (its default
+		# kit + the options open to that role) — so a special gun never lands on
+		# a model whose role can't take it (a Thunderclap on a Hunting Wolf).
+		# {} when the roles can't be told; then only model_profiles decide.
+		var role_menu := _role_weapon_menus(unit)
 		for name in ordered:
 			for _i in range(int(counts[name])):
 				var placed := false
 				for mi in range(model_count):
 					if used.has(mi):
+						continue
+					if not role_menu.is_empty() and not _role_menu_allows(role_menu, mi, str(name)):
 						continue
 					if _model_allows_weapons(unit, models[mi], gun_names[name]):
 						used[mi] = true
@@ -7983,9 +8051,12 @@ static func _resolve_type_from_datasheet_defaults(unit: Dictionary, weapon_type_
 		return false
 
 	var picks: Array = []  # parallel to models
+	var any_pick := false
+	var kits_trusted := _kits_match_weapons(unit)
 	for i in range(models.size()):
 		var model = models[i]
 		var allowed: Array = []
+		var kit_has_type := false
 		for wname in type_weapon_names:
 			# Match the full name AND the base name so a kit slug of
 			# "guardian-spear" picks up "Guardian spear – Melee".
@@ -7993,13 +8064,22 @@ static func _resolve_type_from_datasheet_defaults(unit: Dictionary, weapon_type_
 			var s_base = UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(wname))
 			if not (kits[i].has(s_full) or kits[i].has(s_base)):
 				continue
+			kit_has_type = true
 			if _model_allows_weapon(unit, model, wname):
 				allowed.append(wname)
-		if allowed.is_empty():
+		if allowed.is_empty() and (kit_has_type or not kits_trusted):
 			print("[MA-LOADOUT] %s (%s): model %d's datasheet kit has no %s weapon — left unresolved" % [
 				uname, weapon_type_filter, i, tlow])
 			return false
+		# A model whose kit simply has no weapon of this type carries none
+		# (a Hunting Wolf has no gun; a Wolf Guard Terminator who swapped his
+		# storm bolter for a storm shield shoots nothing). WP-S1.
+		if not allowed.is_empty():
+			any_pick = true
 		picks.append(allowed)
+	if not any_pick:
+		print("[MA-LOADOUT] %s (%s): no model's datasheet kit has a %s weapon — left unresolved" % [uname, weapon_type_filter, tlow])
+		return false
 
 	# Only stamp when this actually narrows something. A unit already reporting
 	# exactly its default kit gains nothing from the stamp, and skipping it keeps
@@ -8096,6 +8176,11 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 
 	# Roster wargear as {weapon slug: count}, where -1 means "named without a
 	# count" — enough to know a swap happened, not enough to know how often.
+	var option_item_slugs := {}
+	for opt in UnitLoadoutResolver.get_wargear_options(ds_key):
+		for bundle in opt.get("bundles", []):
+			for b in bundle:
+				option_item_slugs[str(b)] = true
 	var wargear_counts := {}
 	for entry in meta.get("wargear", []):
 		for part in str(entry).split(","):
@@ -8113,7 +8198,10 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 			if paren > 0:
 				txt = txt.substr(0, paren).strip_edges()
 			var s = UnitLoadoutResolver.slugify(txt)
-			if s == "" or not datasheet_slugs.has(s):
+			# A non-weapon item an option swaps in (Wolf Guard Terminators:
+			# "Storm Bolter replaced with 1 Storm Shield") is evidence of that
+			# swap too — "4x Storm Shield" = four storm bolters gone.
+			if s == "" or not (datasheet_slugs.has(s) or option_item_slugs.has(s)):
 				continue
 			if count < 0 or int(wargear_counts.get(s, 0)) < 0:
 				wargear_counts[s] = -1  # any count-less mention poisons the tally
@@ -8242,6 +8330,39 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 #   * the fixed roles' counts plus the open-ended role's allowed range must add
 #     up to exactly this unit's model count
 # Anything else is ambiguous and the caller falls back to the datasheet menu.
+# The army builder's other fixed split (gameformat.compositionCounts): every
+# role at its minimum, the remainder filling roles from the LAST one up, each
+# to its maximum (Wolf Scouts at 12: 1 Pack Leader, 2 Hunting Wolves, 9 Wolf
+# Scouts). Only when the last role alone cannot take the remainder — otherwise
+# the split is the one-open-ended-role case and stays undecidable here.
+static func _positional_roles_fill_from_last(roles: Array, model_count: int) -> Array:
+	var counts: Array = []
+	var total := 0
+	for r in roles:
+		counts.append(int(r.get("min", 0)))
+		total += int(r.get("min", 0))
+	var rest := model_count - total
+	var last := roles.size() - 1
+	if last < 0 or rest <= 0:
+		return []
+	var last_room := int(roles[last].get("max", roles[last].get("min", 0))) - int(counts[last])
+	if rest <= last_room:
+		return []  # the last role could hold it all: not this builder split
+	for k in range(last, -1, -1):
+		var room := int(roles[k].get("max", roles[k].get("min", 0))) - int(counts[k])
+		var add := mini(maxi(room, 0), rest)
+		counts[k] = int(counts[k]) + add
+		rest -= add
+		if rest == 0:
+			break
+	if rest != 0:
+		return []
+	var out: Array = []
+	for k in range(roles.size()):
+		for _j in range(int(counts[k])):
+			out.append(str(roles[k].get("name", "")))
+	return out
+
 static func _positional_roles(unit_name: String, model_count: int) -> Array:
 	var roles = UnitLoadoutResolver.get_model_roles(unit_name)
 	if roles.is_empty() or model_count <= 0:
@@ -8261,14 +8382,14 @@ static func _positional_roles(unit_name: String, model_count: int) -> Array:
 	if open_ended > 1:
 		# Codex fixed sizes: every role scales by the same whole multiple.
 		if min_total <= 0 or model_count % min_total != 0:
-			return []
+			return _positional_roles_fill_from_last(roles, model_count)
 		var mult := model_count / min_total
 		var out_scaled: Array = []
 		for i in range(roles.size()):
 			var mn := int(roles[i].get("min", 0))
 			var mx := int(roles[i].get("max", mn))
 			if mn * mult > mx:
-				return []  # this role cannot scale that far — undecidable
+				return _positional_roles_fill_from_last(roles, model_count)  # cannot scale that far
 			for _j in range(mn * mult):
 				out_scaled.append(str(roles[i].get("name", "")))
 		return out_scaled if out_scaled.size() == model_count else []

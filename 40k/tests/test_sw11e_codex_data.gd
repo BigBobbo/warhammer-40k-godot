@@ -136,6 +136,17 @@ func _per_model(army: Dictionary, uid: String, weapon_type: String) -> Dictionar
 			out[key] = int(out.get(key, 0)) + 1
 	return out
 
+# Hunting Wolf models (W1) that carry no ranged weapon.
+func _wolves_unarmed(army: Dictionary, uid: String) -> int:
+	var u: Dictionary = army["units"][uid].duplicate(true)
+	var RE = root.get_node("RulesEngine")
+	RE._ensure_loadout_resolved(u)
+	var n := 0
+	for m in u.get("models", []):
+		if int(m.get("wounds", 0)) == 1 and RE._get_model_weapon_ids(u, m, "Ranged").is_empty():
+			n += 1
+	return n
+
 func _count(d: Dictionary, needle: String) -> int:
 	var n := 0
 	for k in d:
@@ -169,6 +180,12 @@ func _check_wargear(army: Dictionary) -> void:
 	var ws_r := _per_model(army, "U_WOLF_SCOUTS_B", "Ranged")
 	_check("Wolf Scouts: 1 Plasma Gun, 1 Thunderclap",
 		_count(ws_r, "plasma gun") == 1 and _count(ws_r, "thunderclap") == 1, str(ws_r))
+	_check("Wolf Guard Terminators (10): 4 Storm Shields replace 4 Storm Bolters (4 left + 2 Assault Cannons)",
+		_count(tm_r, "storm bolter") == 4 and _count(tm_r, "assault cannon") == 2, str(tm_r))
+	_check("Wolf Scouts (12 = 1 Pack Leader, 2 Hunting Wolves, 9 Scouts): the wolves carry no gun",
+		_count(_per_model(army, "U_WOLF_SCOUTS_A", "Ranged"), "plasma pistol") == 10 and _wolves_unarmed(army, "U_WOLF_SCOUTS_A") == 2,
+		str(_per_model(army, "U_WOLF_SCOUTS_A", "Ranged")))
+	_check("Wolf Scouts: the Thunderclap goes to a Wolf Scout, not the Hunting Wolf", _wolves_unarmed(army, "U_WOLF_SCOUTS_B") == 1)
 	var wl_m := _per_model(army, "U_WOLF_GUARD_BATTLE_LEADER_B", "Melee")
 	_check("Wolf Guard Battle Leader: Thunder Hammer", _count(wl_m, "thunder hammer") == 1 and _count(wl_m, "master crafted") == 0, str(wl_m))
 	var bc_m := _per_model(army, "U_BLOOD_CLAWS_B", "Melee")

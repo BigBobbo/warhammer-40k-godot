@@ -1223,8 +1223,14 @@ export function parseOption(r, i, unitId, factionId, resolveWeapon, SOURCE) {
     const replaces = splitItems(m[1].replace(/^(their|its)\s+/i, ''));
     const rhs = m[2].trim();
     rec.replaces = ids(replaces);
-    if (/•/.test(rhs) || /one of the following/i.test(text)) {
+    if (/•/.test(rhs)) {
       rec.replacement_choice = rhs.split('•').map(s => s.trim()).filter(Boolean).map(s => ids(splitItems(s)));
+    } else if (/one of the following/i.test(text)) {
+      // Codex: Space Marines prints the choices inline, comma-separated
+      // ("one of the following: 1 Helfrost Cannon, 1 Multi-melta"): each comma
+      // item is ONE alternative ("1 Boltgun and 1 Storm Shield" = a bundle).
+      rec.replacement_choice = rhs.split(/,\s*/).map(s => s.trim()).filter(Boolean)
+        .map(s => ids(s.split(/\s+and\s+/i).map(x => x.trim().replace(/\.$/, '')).filter(Boolean)));
     } else rec.replacement = ids(splitItems(rhs));
   } else if ((m = text.match(/can be equipped with (?:(?:up to )?(\d+) )?(?:one of the following:)?\s*(.+)$/i))) {
     rec.replaces = [];
