@@ -844,6 +844,13 @@ func process_end_scoring(action: Dictionary) -> Dictionary:
 	if MissionManager and GameConstants.edition >= 11:
 		MissionManager.count_destroyed_units_this_round()
 		MissionManager.score_primary_eot_11e(current_player)
+	# 11e score-or-hold: award the met Tactical cards the player did not hold
+	# (mirror of ScoringPhase._resolve_pending_secondary_scores).
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr and secondary_mgr.has_method("resolve_pending_secondary_scores") \
+			and secondary_mgr.is_initialized(current_player):
+		for result in secondary_mgr.resolve_pending_secondary_scores(current_player):
+			print("GameManager: Player %d scored %d VP from %s (score-or-hold)" % [current_player, result["vp_earned"], result["mission_name"]])
 	if MissionManager and MissionManager.has_method("record_vp_snapshot"):
 		MissionManager.record_vp_snapshot(GameState.get_battle_round())
 

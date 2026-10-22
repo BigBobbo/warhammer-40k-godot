@@ -8,6 +8,9 @@ extends AcceptDialog
 
 signal mission_discard_requested(mission_index: int)
 signal end_turn_without_discard()
+# 11e score-or-hold: the player toggled whether a met Tactical card scores
+# (hold = true keeps the card active without scoring it this turn).
+signal mission_hold_toggled(mission_id: String, hold: bool)
 
 # Max height for the mission list before it starts scrolling. Below this the
 # scroll area shrinks to hug its content so the dialog doesn't leave a gap.
@@ -25,6 +28,9 @@ var _mission_list: VBoxContainer = null
 # card-nested Discard buttons).
 var _discard_buttons: Array = []  # one per mission, top-to-bottom
 var _skip_button: Button = null
+# Score / Hold toggle pairs for met cards, keyed by mission_id: [score_btn, hold_btn]
+var _score_hold_buttons: Dictionary = {}
+var _has_pending_scores: bool = false
 
 # PadRouter checks this group and keeps its board handlers off a dialog that
 # drives itself with Godot's native ui_* focus navigation.
@@ -47,8 +53,11 @@ func setup(p_active_missions: Array, p_can_gain_cp: bool) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
 	active_missions = p_active_missions
 	can_gain_cp = p_can_gain_cp
+	for m in active_missions:
+		if int(m.get("pending_score_vp", 0)) > 0:
+			_has_pending_scores = true
 
-	title = "Discard a Secondary Mission?"
+	title = "Score or Hold Secondary Missions" if _has_pending_scores else "Discard a Secondary Mission?"
 	# Keep the MEDIUM width, but let the height follow the content. The dialog is
 	# short (a prompt, a fixed-height mission list, and one button), so pinning it
 	# to the 400px MEDIUM height left a large empty gap at the bottom.
@@ -74,7 +83,7 @@ func _build_ui() -> void:
 
 	# Header
 	var header = Label.new()
-	header.text = "DISCARD FOR CP?"
+	header.text = "SCORE, HOLD OR DISCARD?" if _has_pending_scores else "DISCARD FOR CP?"
 	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -88,6 +97,8 @@ func _build_ui() -> void:
 		explain_label.text = "You may discard one Secondary Mission to gain +1 CP.\nSelect a mission to discard, or end your turn without discarding."
 	else:
 		explain_label.text = "You may discard one Secondary Mission (bonus CP cap reached — no CP gained).\nSelect a mission to discard, or end your turn without discarding."
+	if _has_pending_scores:
+		explain_label.text = "Missions you achieved can be scored now (then discarded) or HELD to score later.\n" + explain_label.text
 	explain_label.add_theme_font_size_override("font_size", 17)
 	explain_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explain_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -128,7 +139,7 @@ func _build_ui() -> void:
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var skip_button = Button.new()
-	skip_button.text = "End Turn Without Discarding"
+	skip_button.text = "End Turn" if _has_pending_scores else "End Turn Without Discarding"
 	skip_button.custom_minimum_size = Vector2(250, 40)
 	skip_button.pressed.connect(_on_skip_pressed)
 	button_container.add_child(skip_button)
@@ -186,6 +197,35 @@ func _add_mission_option(parent: VBoxContainer, mission: Dictionary, index: int)
 
 	hbox.add_child(info_vbox)
 
+	# 11e score-or-hold toggle pair for a met card
+	var pending_vp = int(mission.get("pending_score_vp", 0))
+	if pending_vp > 0:
+		var mission_id = str(mission.get("id", ""))
+		var held = bool(mission.get("score_held", false))
+		var choice_row = HBoxContainer.new()
+		choice_row.add_theme_constant_override("separation", 4)
+		var score_btn = Button.new()
+		score_btn.name = "ScoreButton_%s" % mission_id
+		score_btn.text = "Score %d VP" % pending_vp
+		score_btn.toggle_mode = true
+		score_btn.custom_minimum_size = Vector2(110, 32)
+		score_btn.add_theme_font_size_override("font_size", 16)
+		score_btn.tooltip_text = "Score this card now; it is then discarded as achieved."
+		var hold_btn = Button.new()
+		hold_btn.name = "HoldButton_%s" % mission_id
+		hold_btn.text = "Hold"
+		hold_btn.toggle_mode = true
+		hold_btn.custom_minimum_size = Vector2(80, 32)
+		hold_btn.add_theme_font_size_override("font_size", 16)
+		hold_btn.tooltip_text = "Don't score now — keep the card active to score it later."
+		score_btn.pressed.connect(_on_hold_toggled.bind(mission_id, false))
+		hold_btn.pressed.connect(_on_hold_toggled.bind(mission_id, true))
+		choice_row.add_child(score_btn)
+		choice_row.add_child(hold_btn)
+		info_vbox.add_child(choice_row)
+		_score_hold_buttons[mission_id] = [score_btn, hold_btn]
+		_apply_hold_state(mission_id, held)
+
 	# Cards that may not be discarded (Fixed Missions; anything that scored VP
 	# this turn and is therefore already achieved) are listed but locked, with
 	# the rule spelled out — silently dropping them would look like the card had
@@ -221,6 +261,20 @@ func _add_mission_option(parent: VBoxContainer, mission: Dictionary, index: int)
 	# skipped by focus, so pad navigation still lands on a usable one).
 	if can_discard:
 		_discard_buttons.append(discard_btn)
+
+func _apply_hold_state(mission_id: String, held: bool) -> void:
+	var pair = _score_hold_buttons.get(mission_id, [])
+	if pair.size() != 2:
+		return
+	pair[0].set_pressed_no_signal(not held)
+	pair[1].set_pressed_no_signal(held)
+	pair[0].add_theme_color_override("font_color", Color(0.3, 1.0, 0.3) if not held else Color(0.6, 0.6, 0.6))
+	pair[1].add_theme_color_override("font_color", Color(1.0, 0.75, 0.3) if held else Color(0.6, 0.6, 0.6))
+
+func _on_hold_toggled(mission_id: String, hold: bool) -> void:
+	print("MissionDiscardDialog: Player chose to %s %s" % ["HOLD" if hold else "SCORE", mission_id])
+	_apply_hold_state(mission_id, hold)
+	emit_signal("mission_hold_toggled", mission_id, hold)
 
 func _on_discard_pressed(mission_index: int) -> void:
 	print("MissionDiscardDialog: Player chose to discard mission index %d" % mission_index)
@@ -287,6 +341,10 @@ func _setup_pad_focus() -> void:
 # Discard buttons).
 func _wire_pad_focus_neighbors() -> void:
 	var seq: Array = []
+	for pair in _score_hold_buttons.values():
+		for b in pair:
+			if is_instance_valid(b):
+				seq.append(b)
 	for b in _discard_buttons:
 		if is_instance_valid(b):
 			seq.append(b)

@@ -247,6 +247,9 @@ func _setup_right_panel() -> void:
 		var instruction_label = Label.new()
 		var cp_note = "+1 CP" if GameState.can_gain_bonus_cp(GameState.get_active_player()) else "+0 CP (cap reached)"
 		instruction_label.text = "Discard a secondary for %s, or End Turn." % cp_note
+		if secondary_mgr and secondary_mgr.is_initialized(current_player) \
+				and not secondary_mgr.get_pending_secondary_scores(current_player).is_empty():
+			instruction_label.text = "Choose Score or Hold for each met secondary, discard one for %s, then End Turn." % cp_note
 		instruction_label.add_theme_font_size_override("font_size", 16)
 		instruction_label.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 		instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -510,6 +513,10 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, p
 	# Mission name + best VP indicator
 	var name_label = Label.new()
 	var best_vp = progress.get("best_vp_available", 0)
+	# A score-or-hold offer carries the payout for THIS turn's end — show that,
+	# not the best tier across both turns (Display of Might: 2 now, 5 later).
+	if int(mission.get("pending_score_vp", 0)) > 0:
+		best_vp = int(mission["pending_score_vp"])
 	if best_vp > 0:
 		name_label.text = "%s [%d VP ready]" % [mission.get("name", "Unknown Mission"), best_vp]
 		name_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
@@ -575,6 +582,50 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, p
 		pending_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 		card_vbox.add_child(pending_label)
 
+	# 11e score-or-hold: a met Tactical card is scored only if the player wants
+	# to ("you can gain the VP"). Show the pending VP and a Score / Hold pair.
+	var pending_vp = int(mission.get("pending_score_vp", 0))
+	if pending_vp > 0:
+		var held = bool(mission.get("score_held", false))
+		var choice_label = Label.new()
+		choice_label.name = "ScoreChoiceLabel"
+		if held:
+			choice_label.text = "HOLDING — %d VP will NOT be scored; card stays active" % pending_vp
+			choice_label.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
+		else:
+			choice_label.text = "Will score %d VP at End Turn (card then discarded)" % pending_vp
+			choice_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+		choice_label.add_theme_font_size_override("font_size", 16)
+		choice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		card_vbox.add_child(choice_label)
+		var choice_row = HBoxContainer.new()
+		choice_row.add_theme_constant_override("separation", 4)
+		var score_btn = Button.new()
+		score_btn.name = "ScoreSecondaryButton"
+		score_btn.text = "Score %d VP" % pending_vp
+		score_btn.toggle_mode = true
+		score_btn.button_pressed = not held
+		score_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		score_btn.custom_minimum_size = Vector2(0, 26)
+		score_btn.add_theme_font_size_override("font_size", 16)
+		score_btn.tooltip_text = "Score this card's VP at the end of your turn (it is then discarded as achieved)."
+		score_btn.pressed.connect(_on_hold_secondary_pressed.bind(str(mission.get("id", "")), false))
+		choice_row.add_child(score_btn)
+		var hold_btn = Button.new()
+		hold_btn.name = "HoldSecondaryButton"
+		hold_btn.text = "Hold"
+		hold_btn.toggle_mode = true
+		hold_btn.button_pressed = held
+		hold_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hold_btn.custom_minimum_size = Vector2(0, 26)
+		hold_btn.add_theme_font_size_override("font_size", 16)
+		hold_btn.tooltip_text = "Don't score now — keep the card active to score it later (e.g. a bigger payout at the end of your opponent's turn)."
+		hold_btn.pressed.connect(_on_hold_secondary_pressed.bind(str(mission.get("id", "")), true))
+		choice_row.add_child(hold_btn)
+		WhiteDwarfTheme.apply_secondary_button(score_btn)
+		WhiteDwarfTheme.apply_secondary_button(hold_btn)
+		card_vbox.add_child(choice_row)
+
 	# Discard button — styled with WhiteDwarf theme. Locked when the card may not
 	# be discarded at all: Fixed Missions never can, and a card that scored VP
 	# this turn is already achieved ("first ... discard that card — it is
@@ -639,6 +690,24 @@ func _on_discard_pressed(mission_index: int) -> void:
 		"mission_index": mission_index,
 		"player": current_player,
 	})
+
+func _on_hold_secondary_pressed(mission_id: String, hold: bool) -> void:
+	if GameState.is_game_complete():
+		return
+	if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_local_player_turn():
+		print("ScoringController: Score/Hold ignored — not local player's turn")
+		_rebuild_right_panel.call_deferred()
+		return
+	var current_player = GameState.get_active_player()
+	print("ScoringController: %s requested for %s by player %d" % ["Hold" if hold else "Score", mission_id, current_player])
+	emit_signal("scoring_action_requested", {
+		"type": "HOLD_SECONDARY",
+		"mission_id": mission_id,
+		"hold": hold,
+		"player": current_player,
+	})
+	# Re-sync the toggle pair with the authoritative state either way.
+	_rebuild_right_panel.call_deferred()
 
 func _rebuild_right_panel() -> void:
 	if not hud_right:

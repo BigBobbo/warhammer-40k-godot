@@ -2,12 +2,23 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+<<<<<<< HEAD
       "version": "1.47.1",
       "date": "2026-10-22",
       "summary": "Game log wound rows now show [LETHAL HITS] auto-wounds, so the number of saves matches what the log says.",
       "changes": [
         "Fixed: when [LETHAL HITS] applied (e.g. Sentinel Guard's Stand Vigil near an objective) the wound row read e.g. 'Wound (5+): 1 2 3 3 5 5 \u2014 6/6' even though only 2 dice wounded. It now reads '\u2014 2/6 +4 Lethal Hits = 6': critical hits auto-wound without rolling, which is why 6 saves were rolled.",
         "The step-by-step roll summary in the Shooting panel splits rolled wounds from Lethal Hits auto-wounds the same way."
+=======
+      "version": "1.48.0",
+      "date": "2026-10-22",
+      "summary": "Secondary missions: you now choose whether to Score or Hold an achieved Tactical secondary at the end of your turn (11th edition rule).",
+      "changes": [
+        "When a Tactical secondary's conditions are met at the end of your turn it is no longer scored automatically: the mission card in the Scoring panel shows \"Score N VP\" and \"Hold\" buttons.",
+        "Hold keeps the card active without scoring it, so you can score it later \u2014 e.g. hold Display of Might (2 VP) to score its 5 VP at the end of your opponent's turn.",
+        "The End Turn prompt shows your Score / Hold choice for each achieved mission; anything left on Score is scored (and discarded) when you end the turn.",
+        "A held card can still be discarded for CP as normal. AI players keep scoring immediately."
+>>>>>>> origin/main
       ]
     },
     {
