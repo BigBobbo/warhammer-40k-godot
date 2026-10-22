@@ -515,6 +515,7 @@ const _SAVE_LOCKED_ACTIONS := [
 ]
 
 func validate_action(action: Dictionary) -> Dictionary:
+	action = _normalize_attached_shooter(action)
 	var action_type = action.get("type", "")
 
 	# Codex: Orks (11e) reactive move follow-up (GRAB IT / GOADED INTO ACTION):
@@ -598,6 +599,20 @@ func validate_action(action: Dictionary) -> Dictionary:
 ## action completed a unit's shooting — opens the post-shot stratagem windows.
 ## The dispatch itself is unchanged (_process_action_dispatch).
 func process_action(action: Dictionary) -> Dictionary:
+	# 19.01: an attached CHARACTER shoots in its bodyguard's activation, and
+	# when that activation ends the whole Attached unit has shot.
+	action = _normalize_attached_shooter(action)
+	var shot_before: Array = units_that_shot.duplicate()
+	var result: Dictionary = _process_action_with_windows(action)
+	if result.get("success", false):
+		var mirrored := _mirror_shot_to_attached_group(shot_before)
+		if not mirrored.is_empty():
+			var merged_changes: Array = result.get("changes", []).duplicate()
+			merged_changes.append_array(mirrored)
+			result["changes"] = merged_changes
+	return result
+
+func _process_action_with_windows(action: Dictionary) -> Dictionary:
 	var a_type := str(action.get("type", ""))
 	if a_type == "ASSIGN_TARGET" and _sts_deferred_hold_active():
 		_sts_held_actions.append(action.duplicate(true))
@@ -946,6 +961,87 @@ func _can_unit_perform_action(unit: Dictionary) -> bool:
 		return true
 	return false
 
+## 19.01: "An attached unit is a single unit for all rules purposes" — it is
+## selected to shoot ONCE (10.02) and selects targets for ALL its weapons before
+## any attack is resolved (04.02 -> 04.03). The engine keeps the bodyguard and
+## its attached CHARACTER(s) as separate unit dicts, but the bodyguard's
+## activation already shoots with the whole Attached unit:
+## RulesEngine.get_unit_weapons(bodyguard) lists the characters' guns as
+## "<char_unit_id>:<model_id>" bearers. So selecting the character on its own
+## would split the unit into two activations (and could fire its guns twice).
+## Returns the unit that is actually selected when `unit_id` is chosen to shoot:
+## the bodyguard for an attached character, else unit_id itself. The character
+## is only selected on its own when the bodyguard cannot shoot at all (e.g. it
+## Advanced without Assault weapons) — then the character's models are the only
+## part of the unit that can shoot, and finishing still ends the whole unit.
+func shooting_actor_for(unit_id: String) -> String:
+	var bodyguard_id := _attached_bodyguard_for(unit_id)
+	if bodyguard_id == "":
+		return unit_id
+	var bodyguard := get_unit(bodyguard_id)
+	if bodyguard_id in units_that_shot or bodyguard.get("flags", {}).get("has_shot", false) or _can_unit_shoot(bodyguard):
+		return bodyguard_id
+	return unit_id
+
+## Live bodyguard unit `unit_id` is attached to ("" when not attached).
+## RulesEngine.attached_unit_target_id walks BOTH sides of the linkage and
+## skips a wiped bodyguard (19.05: the leader is its own unit again).
+func _attached_bodyguard_for(unit_id: String) -> String:
+	var unit := get_unit(unit_id)
+	if unit.is_empty():
+		return ""
+	var bodyguard_id := RulesEngine.attached_unit_target_id(unit_id, GameState.state)
+	if bodyguard_id == unit_id or get_unit(bodyguard_id).get("owner", -1) != unit.get("owner", -2):
+		return ""
+	return bodyguard_id
+
+## Every component of unit_id's Attached unit (bodyguard first), or [unit_id].
+func _attached_unit_ids(unit_id: String) -> Array:
+	var head := RulesEngine.attached_unit_target_id(unit_id, GameState.state)
+	return RulesEngine.attached_unit_component_ids(head, GameState.state)
+
+const _ATTACHED_SHOOTER_ACTIONS := ["SELECT_SHOOTER", "SHOOT", "SKIP_UNIT"]
+
+## Rewrite SELECT_SHOOTER / SHOOT / SKIP_UNIT naming an attached character to
+## its bodyguard (SHOOT model ids become "<char_unit_id>:<model_id>" bearers).
+func _normalize_attached_shooter(action: Dictionary) -> Dictionary:
+	if not str(action.get("type", "")) in _ATTACHED_SHOOTER_ACTIONS:
+		return action
+	var unit_id := str(action.get("actor_unit_id", ""))
+	if unit_id == "":
+		return action
+	var actor_id := shooting_actor_for(unit_id)
+	if actor_id == unit_id:
+		return action
+	var out: Dictionary = action.duplicate(true)
+	out["actor_unit_id"] = actor_id
+	if str(action.get("type", "")) == "SHOOT":
+		for a in out.get("payload", {}).get("assignments", []):
+			var bearers: Array = []
+			for mid in a.get("model_ids", []):
+				bearers.append(str(mid) if ":" in str(mid) else "%s:%s" % [unit_id, str(mid)])
+			a["model_ids"] = bearers
+	DebugLogger.info(str("ShootingPhase: [19.01] %s for attached character %s routed to its bodyguard %s (one Attached unit, one activation)" % [action.get("type", ""), unit_id, actor_id]))
+	return out
+
+## Every component of an Attached unit that (just) finished shooting / gave
+## up shooting is done too: it was part of that one activation. Returns the
+## has_shot diffs for the components marked here.
+func _mirror_shot_to_attached_group(shot_before: Array) -> Array:
+	var out: Array = []
+	var units: Dictionary = GameState.state.get("units", {})
+	for shooter_id in units_that_shot.duplicate():
+		if shooter_id in shot_before:
+			continue
+		for pid in _attached_unit_ids(str(shooter_id)):
+			var partner_id := str(pid)
+			if partner_id == str(shooter_id) or partner_id in units_that_shot:
+				continue
+			units_that_shot.append(partner_id)
+			out.append({"op": "set", "path": "units.%s.flags.has_shot" % partner_id, "value": true})
+			DebugLogger.info(str("ShootingPhase: [19.01] %s shot as part of %s's Attached unit — marked as shot" % [partner_id, shooter_id]))
+	return out
+
 ## 19.01: "An attached unit is a single unit for all rules purposes". The
 ## engine keeps a bodyguard and its attached CHARACTER(s) as separate unit
 ## dicts, so when one component performs an action (giving up shooting) the
@@ -955,7 +1051,7 @@ func _can_unit_perform_action(unit: Dictionary) -> bool:
 func _mirror_action_to_attached_group(unit_id: String, changes: Array) -> Array:
 	var out: Array = []
 	var prefix := "units.%s.flags." % unit_id
-	for pid in AttackSequence.coherency_group_ids(unit_id, GameState.state.get("units", {})):
+	for pid in _attached_unit_ids(unit_id):
 		var partner_id := str(pid)
 		if partner_id == unit_id:
 			continue
@@ -980,7 +1076,7 @@ func _mirror_action_to_attached_group(unit_id: String, changes: Array) -> Array:
 ## CHARACTER) has already shot / acted this phase.
 func _attached_group_has_shot(unit_id: String) -> bool:
 	var units: Dictionary = GameState.state.get("units", {})
-	for pid in AttackSequence.coherency_group_ids(unit_id, units):
+	for pid in _attached_unit_ids(unit_id):
 		if str(pid) in units_that_shot:
 			return true
 		if str(pid) != unit_id and units.get(str(pid), {}).get("flags", {}).get("has_shot", false):
@@ -1024,6 +1120,11 @@ func _validate_perform_secondary_action(action: Dictionary) -> Dictionary:
 
 func _validate_shoot(action: Dictionary) -> Dictionary:
 	# Full shoot action validation
+	# 10.02: a unit is selected to shoot once per phase (with 19.01 routing an
+	# attached CHARACTER to its bodyguard, this also stops the Attached unit
+	# from shooting a second time through the character).
+	if str(action.get("actor_unit_id", "")) in units_that_shot:
+		return {"valid": false, "errors": ["Unit has already shot this phase"]}
 	var validation = RulesEngine.validate_shoot(action, game_state_snapshot)
 	return validation
 
@@ -6073,6 +6174,10 @@ func get_available_actions() -> Array:
 	# Units that can shoot
 	for unit_id in units:
 		var unit = units[unit_id]
+		# 19.01: an attached CHARACTER is selected through its bodyguard (the
+		# bodyguard's activation already carries the character's weapons).
+		if shooting_actor_for(unit_id) != unit_id:
+			continue
 		if _can_unit_shoot(unit) and unit_id not in units_that_shot:
 			# P3-96: "Unless at least one model in a unit has an eligible target,
 			# that unit cannot be selected to shoot." (SHOOT-7)

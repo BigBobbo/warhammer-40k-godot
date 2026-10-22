@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.47.2",
+      "date": "2026-10-22",
+      "summary": "Fix: a unit with an attached CHARACTER shoots as one unit, in one activation.",
+      "changes": [
+        "An attached CHARACTER (e.g. Trajann Valoris) is no longer listed or selectable as a separate shooter. Its weapons are in its bodyguard unit's weapon list, so the whole unit picks all its targets together and then rolls.",
+        "Clicking the character's token selects its whole unit. The shooter list shows one row, e.g. \"Custodian Guard + Trajann Valoris (4)\".",
+        "Once that unit has shot (or skipped), neither the bodyguard nor the character can be selected again that phase.",
+        "Fixed a leader linked to its unit only from the character's side being left out of the unit's weapon list."
+      ]
+    },
+    {
       "version": "1.47.1",
       "date": "2026-10-22",
       "summary": "Fix: when a unit with an attached CHARACTER performs an action, the whole attached unit gives up shooting.",

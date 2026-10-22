@@ -8369,7 +8369,9 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 			result[model_id] = _get_model_weapon_ids(unit, model, "Ranged")
 
 	# Include attached character weapons (combined unit shoots together)
-	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+	# 19.01: both sides of the linkage — a leader linked only by its own
+	# `attached_to` (no forward entry) still shoots with its Attached unit.
+	var attached_chars = attached_character_ids(unit_id, {"units": units})
 	for char_id in attached_chars:
 		var char_unit = units.get(char_id, {})
 		if char_unit.is_empty():
