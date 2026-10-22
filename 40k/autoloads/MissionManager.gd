@@ -558,6 +558,10 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 		# "has +2 OC" — every model of it (WP-C46). Same order as above: only
 		# a model that already has OC gets it.
 		oc += _custodes_11e_oc_bonus(unit)
+	# WP-S4: Space Wolves HUNTING HOUNDS — a Hunting Wolf's printed OC is 0, +1
+	# within 6" of a friendly SPACE WOLVES CHARACTER (SWAbilities11e.model_oc).
+	if GameConstants.edition >= 11:
+		oc = int(load("res://scripts/codex/space_wolves/SWAbilities11e.gd").model_oc(unit, model, oc))
 	return maxi(oc, 0)
 
 ## Codex: Adeptus Custodes (11e) Moritoi Ancients OC bonus for `unit` (0 at 10e

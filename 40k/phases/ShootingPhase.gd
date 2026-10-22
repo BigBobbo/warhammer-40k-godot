@@ -4932,7 +4932,8 @@ func _reactive_window_context(action: Dictionary) -> Dictionary:
 		ctx = action_ctx.duplicate(true)
 	var strat = StratagemManager.get_stratagem(str(action.get("stratagem_id", "")))
 	var windows = strat.get("timing", {}).get("windows", [])
-	if "enemy_targets_unit_shooting" in windows:
+	# WP-S4: the Space Wolves STORM CALLER card has no stratagem row — it is a window offer too.
+	if "enemy_targets_unit_shooting" in windows or _sw11e_abilities().handles_id(str(action.get("stratagem_id", ""))):
 		var target_ids: Array = []
 		for assignment in confirmed_assignments:
 			var tid = str(assignment.get("target_unit_id", ""))
@@ -4963,7 +4964,7 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 
 	# Clear awaiting state and continue to resolution
 	awaiting_reactive_stratagem = false
-	log_phase_message("Player %d used %s on %s" % [defending_player, StratagemManager.get_stratagem(stratagem_id).name, target_unit_id])
+	log_phase_message("Player %d used %s on %s" % [defending_player, StratagemManager.get_stratagem(stratagem_id).get("name", result.get("stratagem_name", stratagem_id)), target_unit_id])
 
 	# More than one reactive stratagem per targeting (e.g. a core one AND a
 	# codex one): while another is still usable, the defender's dialog
@@ -4972,7 +4973,7 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	if not reopened.is_empty():
 		reopened["stratagem_used"] = {
 			"stratagem_id": stratagem_id,
-			"stratagem_name": StratagemManager.get_stratagem(stratagem_id).name,
+			"stratagem_name": StratagemManager.get_stratagem(stratagem_id).get("name", result.get("stratagem_name", stratagem_id)),
 			"target_unit_id": target_unit_id,
 			"player": defending_player
 		}
@@ -5001,7 +5002,7 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 
 	combined["stratagem_used"] = {
 		"stratagem_id": stratagem_id,
-		"stratagem_name": StratagemManager.get_stratagem(stratagem_id).name,
+		"stratagem_name": StratagemManager.get_stratagem(stratagem_id).get("name", result.get("stratagem_name", stratagem_id)),
 		"target_unit_id": target_unit_id,
 		"player": defending_player
 	}

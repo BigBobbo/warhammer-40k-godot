@@ -2802,6 +2802,7 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"UNDECLARE_LEADER_ATTACHMENT",
 		"UNDECLARE_TRANSPORT_EMBARKATION",
 		"UNDECLARE_RESERVES",
+		"SW11E_SPLIT_UNIT",  # WP-S4: Space Wolves Old Greymanes / Let Loose the Wolves
 		"CONFIRM_FORMATIONS",
 		"END_FORMATIONS",
 		# Fight Phase actions - players alternate during active player's turn

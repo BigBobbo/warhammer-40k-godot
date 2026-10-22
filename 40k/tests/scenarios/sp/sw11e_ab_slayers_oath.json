@@ -1,0 +1,212 @@
+{
+  "id": "sw11e_ab_slayers_oath",
+  "covers": [
+    "codex.space_wolves.datasheet_abilities.slayers_oath",
+    "codex.space_wolves.datasheet_abilities.headhunters",
+    "scripts.codex.space_wolves.SWAbilities11e",
+    "stratagem.window.phase_start",
+    "dialogs.StratagemTargetDialog"
+  ],
+  "description": "WP-S4 Codex: Space Marines (11e) Space Wolves SLAYER'S OATH (Ulrik the Slayer) and HEADHUNTERS (Wolf Guard Headtakers) through the real start-of-phase window at the start of the first battle round. Fixture sw11e_s4_round1 (P1 Space Wolves, battle round 1): Ulrik leads Blood Claws; Wolf Guard Headtakers; the Orks field a Warboss (CHARACTER), Boyz and a Deff Dread (VEHICLE). Entering the Command phase opens the phase_start window for P1 with both ability cards (cost 'Ability'). A real click on Slayer's Oath opens the enemy picker — only the CHARACTER / MONSTER / VEHICLE units (Warboss, Deff Dread; not the Boyz); a real click picks the Deff Dread. The window re-offers Headhunters; a real click and a real pick make the Warboss the quarry. No CP spent; the choices are game-log lines; Ulrik's unit's attacks against the Deff Dread now ignore hit modifiers and the Headtakers' attacks against the Warboss have [DEVASTATING WOUNDS] and [PRECISION].",
+  "fixture": "sw11e_s4_round1",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "sw_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_slayers_oath",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_headhunters",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_slayers_oath\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_round1_oath_and_quarry_cards"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_slayers_oath/Buttons/Use_sw11e_ab_slayers_oath_U_ULRIK_THE_SLAYER_A",
+      "comment": "real click: Slayer's Oath"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_DEFF_DREAD_A",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_WARBOSS_A",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_BOYZ_B\") == null",
+      "comment": "the Boyz are not a CHARACTER / MONSTER / VEHICLE unit",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_oath_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_DEFF_DREAD_A",
+      "comment": "real click: the Deff Dread is the slayer's oath"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_ULRIK_THE_SLAYER_A.flags.sw11e_ab_oath",
+      "equals": "U_DEFF_DREAD_A"
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Slayer's Oath:\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_BLOOD_CLAWS_A\"), GameState.get_unit(\"U_DEFF_DREAD_A\"), {\"name\": \"Chainsword\", \"type\": \"Melee\"}, true, GameState.state)\nreturn bool(m.get(\"ignore_hit_penalties\", false)) and bool(m.get(\"wound_plus\", false))",
+      "multiline": true,
+      "comment": "Ulrik's unit vs the oath: hit modifiers ignored; Oathbound +1 to wound",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_headhunters",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_slayers_oath\") == null",
+      "comment": "the oath is chosen once",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_headhunters/Buttons/Use_sw11e_ab_headhunters_U_WOLF_GUARD_HEADTAKERS_A",
+      "comment": "real click: Headhunters"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_WARBOSS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_WARBOSS_A",
+      "comment": "real click: the Warboss is the quarry"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WOLF_GUARD_HEADTAKERS_A.flags.sw11e_ab_quarry",
+      "equals": "U_WARBOSS_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_WOLF_GUARD_HEADTAKERS_A\"), GameState.get_unit(\"U_WARBOSS_A\"), {\"name\": \"x\", \"type\": \"Melee\"}, true, GameState.state)\nreturn bool(m.get(\"devastating\", false)) and bool(m.get(\"precision\", false))",
+      "multiline": true,
+      "comment": "vs the quarry: [DEVASTATING WOUNDS] and [PRECISION]",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Headhunters:\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03_oath_and_quarry_chosen_log"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sw11e-s4] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

@@ -56,6 +56,9 @@ var active_fighter_id: String = ""
 var selected_weapon_id: String = ""  # Currently selected weapon for active fighter
 var pending_attacks: Array = []
 var confirmed_attacks: Array = []
+# WP-S4 (SWAbilities11e) Hammer Blow: the finished activation's assignments, read by the unit_has_fought window.
+var _sw11e_fought_assignments: Array = []
+var _sw11e_dice_mark: int = 0
 var resolution_state: Dictionary = {}
 var dice_log: Array = []
 var units_that_fought: Array = []
@@ -1264,6 +1267,9 @@ func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 	var _perf_t0 := Time.get_ticks_usec()
 	# Move pending attacks to confirmed attacks (but don't resolve yet)
 	confirmed_attacks = pending_attacks.duplicate(true)
+	# WP-S4 Hammer Blow ("hit by those attacks"): this activation's assignments and where its dice start.
+	_sw11e_fought_assignments = confirmed_attacks.duplicate(true)
+	_sw11e_dice_mark = dice_log.size()
 	pending_attacks.clear()
 
 	# T3-3: Auto-inject Extra Attacks weapons if not already assigned
@@ -2905,11 +2911,18 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	# opponent's enemy_has_fought window ("Your opponent's Fight phase, when an
 	# enemy unit has fought") opens before the next selection / Counter-Offensive.
 	var fought_owner := int(get_unit(unit_id).get("owner", 0))
-	if GameConstants.edition >= 11 and fought_owner == GameState.get_active_player():
+	# WP-S4 (SWAbilities11e): the fighter's own unit_has_fought window first —
+	# Space Wolves HAMMER BLOW ("In the Fight phase, when this unit has fought").
+	var sw_uhf: Array = _sw11e_abilities().unit_has_fought_entries(unit_id, _sw11e_abilities().melee_hit_unit_ids(_sw11e_fought_assignments, dice_log.slice(mini(_sw11e_dice_mark, dice_log.size()))))
+	_sw11e_fought_assignments = []
+	if GameConstants.edition >= 11 and (fought_owner == GameState.get_active_player() or not sw_uhf.is_empty()):
 		var ehf_decider := 2 if fought_owner == 1 else 1
 		var ehf_ctx := {"phase": "fight", "enemy_unit_id": unit_id, "attacker_unit_id": unit_id}
-		if open_stratagem_window(ehf_decider, "enemy_has_fought", ehf_ctx, "_cus11e_resume_after_enemy_has_fought"):
-			log_phase_message("Waiting for Player %d's enemy_has_fought stratagem decision (%s has fought)" % [ehf_decider, unit_id])
+		var ehf_entries: Array = sw_uhf.duplicate()
+		if fought_owner == GameState.get_active_player():
+			ehf_entries.append({"player": ehf_decider, "window_id": "enemy_has_fought", "ctx": ehf_ctx})
+		if open_stratagem_windows(ehf_entries, "_cus11e_resume_after_enemy_has_fought", ehf_ctx):
+			log_phase_message("Waiting for Player %d's %s decision (%s has fought)" % [get_pending_stratagem_window_decider(), str(ehf_entries.map(func(e): return e.window_id)), unit_id])
 			changes.append_array(consume_window_diffs())
 			final_result["changes"] = changes
 			return final_result
@@ -3030,6 +3043,10 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		var ard := mode == "" and Ork11eDetachments.ard_as_nails_applies(unit)
 		if ard:
 			mode = Ork11eDetachments.ARD_AS_NAILS_MODE
+		# WP-S4 (SWAbilities11e): Space Wolves Murder-maker / Anvil of Endurance / Heroic Last Stand.
+		var sw_fod: Dictionary = _sw11e_abilities().fod_rule(uid, int(parts[3])) if mode == "" else {}
+		if not sw_fod.is_empty():
+			mode = "sw11e"
 		if mode == "":
 			continue
 		var idx := int(parts[3])
@@ -3047,6 +3064,8 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		var source := str(uflags.get(OrkCodexFight.FLAG_FOD_SOURCE, "Fight On Death"))
 		if ard:
 			source = "'Ard as Nails"
+		elif not sw_fod.is_empty():
+			source = str(sw_fod.get("source", source))  # WP-S4
 		var models: Array = unit.get("models", [])
 		var label := str(unit.get("meta", {}).get("name", uid))
 		if idx >= 0 and idx < models.size() and models.size() > 1:
@@ -3062,6 +3081,10 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		if not ard and _cus11e_codex().is_fod_mode(mode):
 			mod_info = _cus11e_codex().fod_roll(uid, idx)
 			fod_pass = int(mod_info.get("pass", fod_pass))
+		# WP-S4: the Space Wolves rule's own threshold (Heroic Last Stand 2+, the others 4+), no modifier.
+		if not sw_fod.is_empty():
+			mod_info = {"mod": 0, "note": ""}
+			fod_pass = int(sw_fod.get("pass", fod_pass))
 		var mod := int(mod_info.get("mod", 0))
 		var total := roll + mod
 		var kept := total >= fod_pass
@@ -3071,7 +3094,7 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		log_phase_message(msg)
 		DebugLogger.info(str("FightPhase: [ork11e FOD] " + msg))
 		var raw_needed := clampi(fod_pass - mod, 1, 7)
-		if kept and ard:
+		if kept and (ard or not sw_fod.is_empty()):  # WP-S4: the Space Wolves source names the removal line too
 			ork11e_ard_sources[uid] = source
 		var dice_block := {"context": "ork11e_fight_on_death", "stratagem": source, "unit_id": uid, "model_index": idx,
 			"rolls_raw": [roll], "rolls_modified": [total], "modifier": mod, "threshold": "%d+" % raw_needed,

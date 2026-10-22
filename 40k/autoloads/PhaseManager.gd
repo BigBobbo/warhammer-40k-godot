@@ -159,6 +159,8 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 	OrkAbilities11eScript.on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
 	# WP-C7: Codex: Adeptus Custodes (11e) datasheet-ability flag expiry (every peer).
 	load("res://scripts/codex/custodes/CustodesAbilities.gd").on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
+	# WP-S4: Space Wolves datasheet-ability expiry + Guile of the Wolf's doctrines (every peer).
+	load("res://scripts/codex/space_wolves/SWAbilities11e.gd").on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
 
 	# Update game state to new phase
 	GameState.set_phase(new_phase)

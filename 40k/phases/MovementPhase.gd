@@ -1283,6 +1283,12 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 		log_phase_message("Advance: %s → Shokk-boosta — advance roll is a 6" % unit.get("meta", {}).get("name", unit_id))
 		return _resolve_advance_roll(unit_id, 6, true)
 
+	# WP-S4 WIND WALKER (Space Wolves, Njal Stormcaller): "this unit can change
+	# advance rolls to a 6" — always taken; it is a roll, so modifiers apply.
+	if _sw11e_abilities().advance_roll_six(unit_id):
+		log_phase_message("Advance: %s → Wind Walker — advance roll changed to a 6" % unit.get("meta", {}).get("name", unit_id))
+		return _resolve_advance_roll(unit_id, 6, true)
+
 	# Roll D6 for advance (with deterministic seed for multiplayer)
 	# T5-MP9: Read seed from action payload (embedded by NetworkManager.submit_action)
 	# so both optimistic client and authoritative host produce the same roll.
@@ -1429,6 +1435,14 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int, is_roll: bool = t
 		log_phase_message("Fuel-mixa Grot: %s advance roll %d %+d = %d" % [unit_id, o6_raw, o6_adv, advance_roll])
 		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
 			"type": "Fuel-mixa Grot", "roll": o6_raw, "result": "Advance roll %d %+d = %d" % [o6_raw, o6_adv, advance_roll]})
+	# WP-S4 FERVOUR OF THE ANCIENTS (Space Wolves, Venerable Dreadnought): +1 to advance rolls within 6".
+	var sw_fv: Dictionary = _sw11e_abilities().fervour_bonus(unit_id) if is_roll else {"bonus": 0}
+	if int(sw_fv.get("bonus", 0)) != 0:
+		var sw_raw := advance_roll
+		advance_roll += int(sw_fv.bonus)
+		log_phase_message("%s: %s advance roll %d %+d = %d" % [str(sw_fv.source), unit_id, sw_raw, int(sw_fv.bonus), advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": "Fervour of the Ancients", "roll": sw_raw, "result": "Advance roll %d %+d = %d" % [sw_raw, int(sw_fv.bonus), advance_roll]})
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
@@ -2797,6 +2811,10 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 			elif _cus11e_abilities().corner_the_quarry_source(unit_id) != "":
 				active_moves[unit_id]["fall_back_mode_forced_by"] = "Corner the Quarry"
 				log_phase_message("[11e] Corner the Quarry: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
+			# WP-S4 SAVAGE FRENZY (Space Wolves, Wulfen) forced it.
+			elif _sw11e_abilities().savage_frenzy_source(unit_id) != "":
+				active_moves[unit_id]["fall_back_mode_forced_by"] = "Savage Frenzy"
+				log_phase_message("[11e] Savage Frenzy: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
 			# 06.03: each failure destroys a model (3 MW each instead for
 			# an all-MONSTER/VEHICLE unit, via the 06.02 allocation).
 			if int(hz.get("failures", 0)) > 0:
@@ -4073,6 +4091,8 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 	# phase, this unit can make an ingress move" — WP-C46; WP-O5 Impulsive Recon:
 	# that ORKS AIRCRAFT can make an ingress move in its owner's first Movement phase.)
 	var battle_round = GameState.get_battle_round()
+	# WP-S4 HIGH KING OF FENRIS (Space Wolves, Logan Grimnar): this unit's ingress move treats the battle round as one higher.
+	battle_round = _sw11e_abilities().ingress_battle_round(unit, battle_round)
 	if battle_round < 2 and not _cus11e_det().can_ingress_first_round(unit) and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit):
 		errors.append("Reserves cannot arrive until Battle Round 2 (currently Round %d)" % battle_round)
 		return {"valid": false, "errors": errors}
@@ -7512,6 +7532,10 @@ func _cus11e_lightning_descent_reserves(player: int) -> Array:
 	for rid in GameState.get_reserves_for_player(player):
 		if _cus11e_det().can_ingress_first_round(get_unit(str(rid))):
 			out.append(rid)
+	# WP-S4 HIGH KING OF FENRIS (Space Wolves): the selected unit can arrive in battle round 1.
+	for hk_id in _sw11e_abilities().high_king_first_round_units(player):
+		if not hk_id in out:
+			out.append(hk_id)
 	return out
 
 func get_available_actions() -> Array:

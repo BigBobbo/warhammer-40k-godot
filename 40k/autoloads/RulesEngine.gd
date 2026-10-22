@@ -3295,6 +3295,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		ModifierLedger.note(wound_mod_ledger, "Salvus (Ka'tah)", ModifierLedger.KIND_WOUND, ModifierLedger.IGNORED, "wound-roll penalties ignored")
 		ModifierLedger.mark_ignored(wound_mod_ledger, ModifierLedger.KIND_WOUND, [ModifierLedger.MINUS_ONE])
 		print("RulesEngine: SALVUS — ignoring wound-roll penalties for %s" % actor_unit_id)
+	wound_modifiers = sw11e_ignore_wound_penalties(wound_modifiers, wound_mod_ledger, ork6)  # WP-S4 Gift of the Iron Wolf (Space Wolves)
 	var wound_modifier_net = 0
 	if wound_modifiers & WoundModifier.PLUS_ONE:
 		wound_modifier_net += 1
@@ -3455,7 +3456,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 
 	# PRECISION (T3-4): Check if weapon has Precision keyword
 	# Critical hits (unmodified 6 to hit) from Precision weapons allow wound allocation to CHARACTER models
-	var weapon_has_precision = has_precision(weapon_id, board)
+	var weapon_has_precision = has_precision(weapon_id, board) or bool(ork6.get("precision", false))  # WP-S4 Headhunters (Space Wolves): [PRECISION] vs the quarry
 	var precision_data = {}
 	if weapon_has_precision:
 		# Number of precision wounds = min(critical_hits, wounds_caused)
@@ -5354,6 +5355,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ModifierLedger.note(ar_wound_mod_ledger, "Salvus (Ka'tah)", ModifierLedger.KIND_WOUND, ModifierLedger.IGNORED, "wound-roll penalties ignored")
 		ModifierLedger.mark_ignored(ar_wound_mod_ledger, ModifierLedger.KIND_WOUND, [ModifierLedger.MINUS_ONE])
 		print("RulesEngine: SALVUS (auto-resolve) — ignoring wound-roll penalties for %s" % actor_unit_id)
+	ar_wound_modifiers = sw11e_ignore_wound_penalties(ar_wound_modifiers, ar_wound_mod_ledger, ork6)  # WP-S4 Gift of the Iron Wolf (Space Wolves)
 	var ar_wound_modifier_net = 0
 	if ar_wound_modifiers & WoundModifier.PLUS_ONE:
 		ar_wound_modifier_net += 1
@@ -5582,7 +5584,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		print("RulesEngine: Half Damage active on defender (auto-resolve) — all damage characteristics halved (round up)")
 
 	# PRECISION (T3-4): Check if weapon has Precision keyword — mirrors interactive path
-	var ar_weapon_has_precision = has_precision(weapon_id, board)
+	var ar_weapon_has_precision = has_precision(weapon_id, board) or bool(ork6.get("precision", false))  # WP-S4 Headhunters: [PRECISION] vs the quarry
 	var ar_precision_wounds = 0
 	if ar_weapon_has_precision:
 		ar_precision_wounds = mini(critical_hits, wounds_caused)
@@ -9548,6 +9550,9 @@ static func has_lone_operative(unit: Dictionary) -> bool:
 	# of da Hunt, Beast Snagga Following, Speednob Support, Da Grand Warlord's Ladz).
 	if GameConstants.edition >= 11 and OrkAbilities11eScript.conditional_lone_operative(unit):
 		return true
+	# WP-S4: Space Wolves Iron Priest — Lone Operative while within 3" of a friendly SPACE WOLVES VEHICLE.
+	if GameConstants.edition >= 11 and SWAbilities11eScript.conditional_lone_operative(unit):
+		return true
 	return false
 
 
@@ -9624,6 +9629,25 @@ static func apply_heal_11e(unit: Dictionary, amount: int) -> Dictionary:
 			continue
 		break  # everything alive at full wounds — excess heals are wasted
 	return {"healed": healed, "revived": revived}
+
+## Core "Feel No Pain X+" datasheet ability (by NAME — "Feel No Pain 5+"):
+## X, or 0 when the unit has none. The bare "Feel No Pain" row of
+## UnitAbilityManager (10e data) keeps its own grant_fnp path.
+static func get_named_fnp(unit: Dictionary) -> int:
+	var best := 0
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var nm := ""
+		if ab is String:
+			nm = ab
+		elif ab is Dictionary:
+			nm = str(ab.get("name", ""))
+		nm = nm.strip_edges().to_lower()
+		if not nm.begins_with("feel no pain "):
+			continue
+		var digits := nm.substr(13).replace("+", "").strip_edges()
+		if digits.is_valid_int() and int(digits) >= 2 and int(digits) <= 6:
+			best = int(digits) if best == 0 else mini(best, int(digits))
+	return best
 
 ## ISS-069 (11e 24.24): "Lone Operative X\"" gates targeting at X" (visibility
 ## AND [INDIRECT FIRE]); the default form is 12". Parses the first number in
@@ -10066,12 +10090,15 @@ static func cus11e_invuln(target_unit: Dictionary, is_melee: bool, current: int,
 const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 # WP-C7: Codex: Adeptus Custodes (11e) DATASHEET abilities (scripts/codex/custodes/CustodesAbilities.gd).
 const CustodesAbilities11eScript = preload("res://scripts/codex/custodes/CustodesAbilities.gd")
+# WP-S4: Codex: Space Marines (11e) Space Wolves DATASHEET abilities (scripts/codex/space_wolves/SWAbilities11e.gd).
+const SWAbilities11eScript = preload("res://scripts/codex/space_wolves/SWAbilities11e.gd")
 
 static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weapon_profile: Dictionary, is_melee: bool, board: Dictionary, bearer_ids: Array = []) -> Dictionary:
 	if GameConstants.edition < 11:
 		return OrkAbilities11eScript._empty_mods()
 	var ab_mods: Dictionary = OrkAbilities11eScript.attack_mods(actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
 	CustodesAbilities11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-C7: Codex: Adeptus Custodes (11e) datasheet abilities ride the same aggregator
+	SWAbilities11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-S4: Space Wolves (11e) datasheet abilities ride the same aggregator
 	return ab_mods
 
 ## Fold the datasheet-ability hit modifiers into HitModifier bits (+ ledger).
@@ -10109,15 +10136,29 @@ static func ork11e_ab_wound_bits(bits: int, ledger: Array, ab: Dictionary) -> in
 			bits |= WoundModifier.REROLL_FAILED
 	return bits
 
+## WP-S4: Codex: Space Marines (11e) Gift of the Iron Wolf — "that VEHICLE
+## model's attacks can ignore modifiers to ... wound rolls": every -1 to wound
+## is ignored (the +1s are kept — the attacker's choice).
+static func sw11e_ignore_wound_penalties(bits: int, ledger: Array, ab: Dictionary) -> int:
+	if not bool(ab.get("ignore_wound_penalties", false)) or not (bits & WoundModifier.MINUS_ONE):
+		return bits
+	ModifierLedger.note(ledger, "Gift of the Iron Wolf", ModifierLedger.KIND_WOUND, ModifierLedger.IGNORED, "wound-roll penalties ignored")
+	ModifierLedger.mark_ignored(ledger, ModifierLedger.KIND_WOUND, [ModifierLedger.MINUS_ONE])
+	print("RulesEngine: [WP-S4] Gift of the Iron Wolf — ignoring wound-roll penalties")
+	return bits & ~WoundModifier.MINUS_ONE
+
 ## Hardy Bioniks (Painboss): S > T attacks that target the unit have -1 to wound.
 static func ork11e_ab_wound_penalty(target_unit: Dictionary, strength: int, toughness: int) -> bool:
 	return GameConstants.edition >= 11 and (OrkAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness) \
-		or CustodesAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness))  # WP-C7: Unyielding Ancient / Praesidium Shield (Sentinel Guard)
+		or CustodesAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness)  # WP-C7: Unyielding Ancient / Praesidium Shield (Sentinel Guard)
+		or SWAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness))  # WP-S4: Legendary Tenacity / Rugged Resilience (Space Wolves)
 
 ## The ledger name of the S > T -1 to wound above (Hardy Bioniks, or the
 ## Custodes Unyielding Ancient / Praesidium Shield — WP-C7).
 static func ork11e_ab_wound_penalty_name(target_unit: Dictionary, strength: int, toughness: int) -> String:
 	var cus_src: String = CustodesAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)
+	if cus_src == "":
+		cus_src = SWAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)  # WP-S4: Legendary Tenacity / Rugged Resilience
 	return cus_src if cus_src != "" else "Hardy Bioniks"
 
 const ORK11E_FLAG_CLOSE_RANGE_DAKKA := "ork11e_close_range_dakka"
@@ -13794,6 +13835,10 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 	if not weapon_has_devastating_wounds and has_beastly_rage_active(attacker_unit):
 		weapon_has_devastating_wounds = true
 		print("RulesEngine:   DEVASTATING WOUNDS granted by Beastly Rage (charged this turn)")
+	# WP-S4 Headhunters (Space Wolves): melee attacks vs the quarry have [DEVASTATING WOUNDS].
+	if not weapon_has_devastating_wounds and bool(ork6.get("devastating", false)):
+		weapon_has_devastating_wounds = true
+		print("RulesEngine:   DEVASTATING WOUNDS granted by a codex (11e) datasheet ability (melee)")
 	# 24.10 (audit #17): attacker may decline the mortal-wound conversion.
 	if GameConstants.edition >= 11 and weapon_has_devastating_wounds \
 			and str(assignment.get("devastating_wounds_choice", "")) == "normal":
@@ -13801,7 +13846,7 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		print("RulesEngine: [24.10] DEVASTATING WOUNDS — attacker declined the mortal-wound conversion (melee)")
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false) or bool(ork6.get("torrent", false))  # WP-O5 Temperamental Shokka (1: [TORRENT])
 	# PRECISION: Check both weapon keyword and stratagem flag on attacker
-	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
+	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit) or bool(ork6.get("precision", false))  # WP-S4 Headhunters: [PRECISION] vs the quarry
 
 	# EFFECT FLAGS: unit-level Lethal / Sustained Hits grants set by abilities or
 	# stratagems via EffectPrimitives.
@@ -14339,6 +14384,7 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): SLAYERS OF NIGHTMARES (+1), SHIELD OF HONOUR (-1), BEARERS OF HIS LIGHT (ignore -1).
 	melee_wound_modifiers = _cus11e_codex().apply_wound_bits(melee_wound_modifiers, attacker_unit, target_unit, true, strength, toughness, melee_wound_mod_ledger)
 
+	melee_wound_modifiers = sw11e_ignore_wound_penalties(melee_wound_modifiers, melee_wound_mod_ledger, hit_context.get("ork11e_ab", {}))  # WP-S4 Gift of the Iron Wolf (Space Wolves)
 	var melee_wound_modifier_net = 0
 	if melee_wound_modifiers & WoundModifier.PLUS_ONE:
 		melee_wound_modifier_net += 1
@@ -16179,6 +16225,13 @@ static func get_unit_fnp(unit: Dictionary) -> int:
 	Note: this returns the UNCONDITIONAL FNP only — for psychic/mortal-only FNP
 	(e.g. Daughters of the Abyss) call get_unit_fnp_for_attack(unit, true)."""
 	var base_fnp = unit.get("meta", {}).get("stats", {}).get("fnp", 0)
+	# WP-S4 (found verifying the Space Wolves core abilities): the core
+	# "Feel No Pain X+" datasheet ability — the 11e army data carries it only
+	# as an ability NAME (Ulrik, Bjorn, Murderfang, Trajann, Beastboss ...),
+	# never as stats.fnp, so it was never applied. Parsed like Lone Operative X".
+	var named_fnp := get_named_fnp(unit)
+	if named_fnp > 0 and (int(base_fnp) <= 0 or named_fnp < int(base_fnp)):
+		base_fnp = named_fnp
 	var effect_fnp = EffectPrimitivesData.get_effect_fnp(unit)
 	# Codex: Adeptus Custodes (11e) Genalchemic Warding / Augury Uplink: the bearer has FNP 5+ (WP-C46).
 	if GameConstants.edition >= 11:

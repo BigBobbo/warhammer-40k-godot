@@ -288,6 +288,7 @@ func _run_scenario() -> void:
 	_katah_policy_arm()
 	# 1c) Codex: Adeptus Custodes datasheet-ability cards policy (WP-C7).
 	_cus11e_abilities_policy_arm()
+	_sw11e_abilities_policy_arm()  # WP-S4: Space Wolves datasheet-ability cards
 
 	# 2) Load fixture (optional)
 	var fixture: String = _scenario.get("fixture", "")
@@ -1917,6 +1918,21 @@ func _cus11e_abilities_policy_arm() -> void:
 		print("[ScenarioRunner] custodes_abilities: true — Codex: Adeptus Custodes datasheet-ability cards will be offered")
 	else:
 		print("[ScenarioRunner] custodes_abilities policy: Codex: Adeptus Custodes datasheet-ability cards are not offered in this scenario (opt in with \"custodes_abilities\": true); passive abilities still apply")
+
+# Codex: Space Marines (11e) Space Wolves DATASHEET ABILITIES (WP-S4) — the
+# same scenario policy as custodes_abilities: the ability cards
+# (SWAbilities11e) are only offered when the scenario opts in with top-level
+# "sw_abilities": true; passive abilities always apply.
+func _sw11e_abilities_policy_arm() -> void:
+	var sw = load("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+	if sw == null:
+		return
+	var opt_in := bool(_scenario.get("sw_abilities", false))
+	sw.offers_suppressed = not opt_in
+	if opt_in:
+		print("[ScenarioRunner] sw_abilities: true — Space Wolves datasheet-ability cards will be offered")
+	else:
+		print("[ScenarioRunner] sw_abilities policy: Space Wolves datasheet-ability cards are not offered in this scenario (opt in with \"sw_abilities\": true); passive abilities still apply")
 
 func _katah_policy_on_phase_changed(new_phase) -> void:
 	if int(new_phase) != int(GameStateData.Phase.COMMAND):

@@ -22223,7 +22223,11 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 				continue
 
 			var score: float
-			if strat_entry.has("window_id") and _codex_for_strat(strat) != null:
+			# WP-S4: a Space Wolves ability card folded into the reactive dialog (Storm Caller).
+			if strat_entry.has("window_id") and load("res://scripts/codex/space_wolves/SWAbilities11e.gd").handles_id(str(strat_id)):
+				score = float(load("res://scripts/codex/space_wolves/SWAbilities11e.gd").ai_score(defending_player, str(strat_id), unit_id,
+					str(strat_entry.get("window_id", "")), strat_entry.get("window_ctx", {})))
+			elif strat_entry.has("window_id") and _codex_for_strat(strat) != null:
 				# Window offer folded into the shooting reactive dialog: the
 				# codex handler scores it (its effects list is just a marker).
 				score = _codex_for_strat(strat).ai_score(strat, defending_player, unit_id,
@@ -22364,6 +22368,10 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 				# WP-C7: Codex: Adeptus Custodes ability offers ("cus11e_ab_*") are scored by CustodesAbilities.
 				var cus_ab = load("res://scripts/codex/custodes/CustodesAbilities.gd")
 				score = float(cus_ab.ai_score(player, sid, tid, window_id, ctx)) if cus_ab.handles_id(sid) else float(_ork_abilities().ai_score(player, sid, tid, window_id, ctx))
+				# WP-S4: Space Wolves ability offers ("sw11e_ab_*") are scored by SWAbilities11e.
+				var sw_ab = load("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+				if sw_ab.handles_id(sid):
+					score = float(sw_ab.ai_score(player, sid, tid, window_id, ctx))
 			elif is_codex:
 				score = codex.ai_score(strat, player, tid, window_id, ctx)
 			elif units.has(tid):
