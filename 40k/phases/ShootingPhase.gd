@@ -5172,6 +5172,8 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 		_cus11e_codex().on_unit_has_attacked(shooter_id)
 		# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE ends "until that enemy unit has attacked" (SWCodex11e.gd).
 		load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(shooter_id)
+		# Codex: Space Marines (11e) ARMOUR OF CONTEMPT ends "until that enemy unit has attacked" (SMCodex11e.gd).
+		load("res://scripts/codex/space_marines/SMCodex11e.gd").on_unit_has_attacked(shooter_id)
 		# WP-O6: Codex: Orks (11e) "when this unit has shot, select one enemy
 		# unit hit" abilities (Rokkit Barrage, Squig Barrage, Bust 'Em, Madcap
 		# Artillery) resolve here when exactly one unit was hit; with 2+ hit

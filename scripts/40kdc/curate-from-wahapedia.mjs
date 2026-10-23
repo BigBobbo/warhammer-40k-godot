@@ -140,6 +140,37 @@ const CONFIRMED_WINDOWS = {
   // "Any phase, when … suffers a mortal wound": no reactive hook exists at the
   // many mortal-wound sites — S panel, used before the mortal wound (ruling).
   'wolf-totems-saga-of-the-great-wolf': [],
+  // Codex: Space Marines — generic detachments, WP-M3a stratagem pass (Gladius,
+  // Ironstorm, Stormlance, Gauntlet, Phobos Shadow / Shock Force, Tacticus Attack
+  // Force; SMCodex11e.gd, RULINGS.md § WP-M3a).
+  'storm-of-devastation-gladius-task-force': ['unit_selected_to_shoot'],
+  'responsive-tactics-gladius-task-force': ['enemy_ended_move'],
+  'a-worthy-death-gladius-task-force': ['enemy_targets_unit_fight'],
+  'armour-of-contempt-gladius-task-force': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'might-of-angels-gladius-task-force': ['unit_selected_to_fight'],
+  // "Your Command phase" — the active player's command_phase_main window (the Space Wolves ruling).
+  'adaptive-strategy-gladius-task-force': ['command_phase_main'],
+  'might-of-the-machine-spirit-ironstorm-spearhead': ['command_phase_main'],
+  // "Any phase, when … suffers a mortal wound": S panel, used before the mortal wound (WOLF TOTEMS ruling).
+  'layered-ceramite-ironstorm-spearhead': [],
+  'headhunter-doctrine-ironstorm-spearhead': ['unit_selected_to_shoot'],
+  'wind-swift-evasion-stormlance-task-force': ['fight_phase_end'],
+  'sudden-onslaught-stormlance-task-force': ['unit_selected_to_move'],
+  'hurtling-targets-stormlance-task-force': ['enemy_targets_unit_shooting'],
+  'duty-is-never-done-gauntlet-task-force': ['fight_phase_end'],
+  'storm-and-secure-gauntlet-task-force': ['movement_phase_end'],
+  // "selected to move" while embarked = selected to disembark (move_type "disembark").
+  'aggressive-disembarkation-gauntlet-task-force': ['unit_selected_to_move'],
+  'tactical-withdrawal-phobos-shadow-force': ['fight_phase_end'],
+  'mortis-snares-phobos-shadow-force': ['movement_phase_end'],
+  // "selected to attack" = selected to shoot (your Shooting phase) / selected to fight.
+  'strike-from-the-shadows-phobos-shadow-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'strike-from-the-shadows-phobos-shock-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'relentless-assault-tacticus-attack-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'tactical-focus-tacticus-attack-force': ['unit_selected_to_consolidate'],
+  'transhuman-swiftness-tacticus-attack-force': ['enemy_has_fought'],
+  'transhuman-reactions-phobos-shock-force': ['enemy_ended_move'],
+  'umbral-evasion-phobos-shock-force': ['enemy_targets_unit_shooting'],
 };
 
 // Editorial duration phrases (see orks_codex_11e.json): where the printed

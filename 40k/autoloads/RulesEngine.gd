@@ -1911,6 +1911,8 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		print("RulesEngine: PREY (Overwatch) — AP improved by %d (target is Prey)" % ow_prey_bonus)	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PSY-CHAFF VOLLEY +1 AP vs a prosecuted unit, IN AURAMITE CLAD -1 AP.
 	ap = _cus11e_codex().modify_ap(ap, shooter_unit, target_unit)
+	# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): ARMOUR OF CONTEMPT -1 AP to attacks that target the unit.
+	ap = _sm11e_codex().modify_ap(ap, shooter_unit, target_unit)
 	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ow_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
@@ -2732,6 +2734,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			var cus11e_salvus_ignored: Array = _cus11e_katah().salvus_filter_stack(actor_unit, ms_stack)
 			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): INEVITABLE ANNIHILATION ignores the harmful BS / hit-roll entries.
 			cus11e_salvus_ignored.append_array(_cus11e_codex().filter_hit_stack(actor_unit, ms_stack, false))
+			# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): MIGHT OF THE MACHINE SPIRIT ignores the harmful BS / hit-roll entries.
+			cus11e_salvus_ignored.append_array(_sm11e_codex().filter_hit_stack(actor_unit, ms_stack, false))
 			var ms_bs_delta = ms_stack.net("bs")
 			var ms_hit_net_pre = ms_stack.net("hit_roll")
 			# WP-O6 Walking Bastion ignores BS/hit modifiers like [PSYCHIC] does.
@@ -2756,7 +2760,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			# target. Attacks with no recorded firing model (overrides,
 			# bonus attacks) fall back to the first firing model's view.
 			# (SALVUS / INEVITABLE ANNIHILATION ignore that BS worsening too; WP-O6 Codex: Orks [IGNORES COVER].)
-			if not ms_is_psychic and not _cus11e_katah().salvus_active(actor_unit) and not _cus11e_codex().ignores_bs_worsening(actor_unit, false) and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {"ignores_cover": bool(ork6.get("ignores_cover", false))}):
+			if not ms_is_psychic and not _cus11e_katah().salvus_active(actor_unit) and not _cus11e_codex().ignores_bs_worsening(actor_unit, false) and not _sm11e_codex().ignores_bs_worsening(actor_unit, false) and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {"ignores_cover": bool(ork6.get("ignores_cover", false))}):
 				var pa_terrain = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
 				if pa_terrain != null:
 					# WP-O6 Madcap Artillery: a wobbled unit's targets have the benefit of cover.
@@ -2804,6 +2808,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			print("RulesEngine: SALVUS — ignoring hit-roll penalties for %s" % actor_unit_id)
 		# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): GOLDEN LIGHT (-1), HONOURED INTERRED (re-roll 1s), INEVITABLE ANNIHILATION (ignore -1).
 		hit_modifiers = _cus11e_codex().apply_hit_bits(hit_modifiers, actor_unit, target_unit, false, board, hit_mod_ledger)
+		# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): HURTLING TARGETS / UMBRAL EVASION (-1), MIGHT OF THE MACHINE SPIRIT (ignore -1).
+		hit_modifiers = _sm11e_codex().apply_hit_bits(hit_modifiers, actor_unit, target_unit, false, hit_mod_ledger)
 
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -2929,6 +2935,15 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if int(sustained_data.value) == 0 and int(ork6.get("sustained", 0)) > 0:
 			sustained_data = {"value": int(ork6.get("sustained", 0)), "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS %d granted by a Codex: Orks (11e) datasheet ability" % int(ork6.get("sustained", 0)))
+
+		# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): HEADHUNTER DOCTRINE / RELENTLESS ASSAULT / STRIKE FROM THE SHADOWS.
+		var sm11e_g: Dictionary = _sm11e_codex().attack_grants(actor_unit, target_unit, false)
+		if not weapon_has_lethal_hits and str(sm11e_g.lethal) != "":
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by %s" % str(sm11e_g.lethal))
+		if int(sustained_data.value) == 0 and int(sm11e_g.sustained) > 0:
+			sustained_data = {"value": int(sm11e_g.sustained), "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by a Codex: Space Marines stratagem" % int(sm11e_g.sustained))
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -3120,6 +3135,8 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		print("RulesEngine: MOBILE DAKKASTORM — ranged strength %d → %d (+2 vs marked %s)" % [pre_s_md, strength, target_unit_id])
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): TIP OF THE TALON +1 S vs a target within 9".
 	strength += int(_cus11e_codex().ranged_strength_bonus(actor_unit, target_unit, board))
+	# Codex: Space Marines (11e) STRIKE FROM THE SHADOWS (SMCodex11e.gd): +1 S.
+	strength += int(_sm11e_codex().attack_grants(actor_unit, target_unit, false).strength)
 	strength += ork11e_det_strength_bonus(actor_unit, weapon_id, board)  # Codex: Orks (11e) Try Dat Button! / Powers of da Waaagh! (WP-O34)
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk
@@ -3293,6 +3310,8 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	wound_modifiers = cus11e_apply_wound_effects(wound_modifiers, wound_mod_ledger, actor_unit, target_unit, false, strength, toughness, board, {"model_ids": assignment.get("model_ids", [])})
 	# Codex: Space Marines (11e) Space Wolves stratagems (SWCodex11e.gd): EYE OF THE PACK re-rolls wound rolls of 1 and 2.
 	wound_modifiers = _sw11e_codex().apply_wound_bits(wound_modifiers, actor_unit, target_unit, false, wound_mod_ledger)
+	# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): MIGHT OF THE MACHINE SPIRIT ignores wound-roll penalties.
+	wound_modifiers = _sm11e_codex().apply_wound_bits(wound_modifiers, actor_unit, target_unit, false, wound_mod_ledger)
 
 	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a target that is not a MONSTER/VEHICLE unit
 	if ork11e_kustom_dakka_wound_bonus(actor_unit, target_unit) > 0:
@@ -4884,6 +4903,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var cus11e_salvus_ignored: Array = _cus11e_katah().salvus_filter_stack(actor_unit, ms_stack)
 			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): INEVITABLE ANNIHILATION ignores the harmful BS / hit-roll entries.
 			cus11e_salvus_ignored.append_array(_cus11e_codex().filter_hit_stack(actor_unit, ms_stack, false))
+			# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): MIGHT OF THE MACHINE SPIRIT ignores the harmful BS / hit-roll entries.
+			cus11e_salvus_ignored.append_array(_sm11e_codex().filter_hit_stack(actor_unit, ms_stack, false))
 			var ms_bs_delta = ms_stack.net("bs")
 			var ms_hit_net_pre = ms_stack.net("hit_roll")
 			# WP-O6 Walking Bastion ignores BS/hit modifiers like [PSYCHIC] does.
@@ -4908,7 +4929,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# target. Attacks with no recorded firing model (overrides,
 			# bonus attacks) fall back to the first firing model's view.
 			# (SALVUS / INEVITABLE ANNIHILATION ignore that BS worsening too; WP-O6 Codex: Orks [IGNORES COVER].)
-			if not ms_is_psychic and not _cus11e_katah().salvus_active(actor_unit) and not _cus11e_codex().ignores_bs_worsening(actor_unit, false) and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {"ignores_cover": bool(ork6.get("ignores_cover", false))}):
+			if not ms_is_psychic and not _cus11e_katah().salvus_active(actor_unit) and not _cus11e_codex().ignores_bs_worsening(actor_unit, false) and not _sm11e_codex().ignores_bs_worsening(actor_unit, false) and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {"ignores_cover": bool(ork6.get("ignores_cover", false))}):
 				var pa_terrain = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
 				if pa_terrain != null:
 					# WP-O6 Madcap Artillery: a wobbled unit's targets have the benefit of cover.
@@ -4956,6 +4977,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			print("RulesEngine: SALVUS — ignoring hit-roll penalties for %s" % actor_unit_id)
 		# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): GOLDEN LIGHT (-1), HONOURED INTERRED (re-roll 1s), INEVITABLE ANNIHILATION (ignore -1).
 		hit_modifiers = _cus11e_codex().apply_hit_bits(hit_modifiers, actor_unit, target_unit, false, board, hit_mod_ledger)
+		# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): HURTLING TARGETS / UMBRAL EVASION (-1), MIGHT OF THE MACHINE SPIRIT (ignore -1).
+		hit_modifiers = _sm11e_codex().apply_hit_bits(hit_modifiers, actor_unit, target_unit, false, hit_mod_ledger)
 
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -5083,6 +5106,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			sustained_data = {"value": int(ork6.get("sustained", 0)), "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS %d granted by a Codex: Orks (11e) datasheet ability" % int(ork6.get("sustained", 0)))
 
+		# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): HEADHUNTER DOCTRINE / RELENTLESS ASSAULT / STRIKE FROM THE SHADOWS.
+		var sm11e_g: Dictionary = _sm11e_codex().attack_grants(actor_unit, target_unit, false)
+		if not weapon_has_lethal_hits and str(sm11e_g.lethal) != "":
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by %s" % str(sm11e_g.lethal))
+		if int(sustained_data.value) == 0 and int(sm11e_g.sustained) > 0:
+			sustained_data = {"value": int(sm11e_g.sustained), "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by a Codex: Space Marines stratagem" % int(sm11e_g.sustained))
+
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
 
@@ -5190,6 +5222,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		print("RulesEngine: MOBILE DAKKASTORM (auto-resolve) — ranged strength %d → %d (+2 vs marked %s)" % [pre_s_md, strength, target_unit_id])
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): TIP OF THE TALON +1 S vs a target within 9".
 	strength += int(_cus11e_codex().ranged_strength_bonus(actor_unit, target_unit, board))
+	# Codex: Space Marines (11e) STRIKE FROM THE SHADOWS (SMCodex11e.gd): +1 S.
+	strength += int(_sm11e_codex().attack_grants(actor_unit, target_unit, false).strength)
 	strength += ork11e_det_strength_bonus(actor_unit, weapon_id, board)  # Codex: Orks (11e) Try Dat Button! / Powers of da Waaagh! (WP-O34)
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (auto-resolve)
@@ -5355,6 +5389,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	ar_wound_modifiers = cus11e_apply_wound_effects(ar_wound_modifiers, ar_wound_mod_ledger, actor_unit, target_unit, false, strength, toughness, board, {"model_ids": model_ids})
 	# Codex: Space Marines (11e) Space Wolves stratagems (SWCodex11e.gd): EYE OF THE PACK re-rolls wound rolls of 1 and 2.
 	ar_wound_modifiers = _sw11e_codex().apply_wound_bits(ar_wound_modifiers, actor_unit, target_unit, false, ar_wound_mod_ledger)
+	# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): MIGHT OF THE MACHINE SPIRIT ignores wound-roll penalties.
+	ar_wound_modifiers = _sm11e_codex().apply_wound_bits(ar_wound_modifiers, actor_unit, target_unit, false, ar_wound_mod_ledger)
 
 	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a target that is not a MONSTER/VEHICLE unit
 	if ork11e_kustom_dakka_wound_bonus(actor_unit, target_unit) > 0:
@@ -5541,6 +5577,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		print("RulesEngine: GLOWIN' DAKKA (auto-resolve) — AP improved by %d (target within 9\")" % ar_glowin_ap)
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PSY-CHAFF VOLLEY +1 AP vs a prosecuted unit, IN AURAMITE CLAD -1 AP.
 	ap = _cus11e_codex().modify_ap(ap, actor_unit, target_unit)
+	# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): ARMOUR OF CONTEMPT -1 AP to attacks that target the unit.
+	ap = _sm11e_codex().modify_ap(ap, actor_unit, target_unit)
 	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ar_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
@@ -13889,6 +13927,11 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		var pre_s_hoa = strength
 		strength += plus_s_melee
 		print("RulesEngine: Hall of Armouries — melee strength %d → %d (+%d)" % [pre_s_hoa, strength, plus_s_melee])
+	# Codex: Space Marines (11e) STRIKE FROM THE SHADOWS (SMCodex11e.gd): +1 S.
+	var sm11e_ms := int(_sm11e_codex().attack_grants(attacker_unit, target_unit, true).strength)
+	if sm11e_ms > 0:
+		strength += sm11e_ms
+		print("RulesEngine: Strike from the Shadows — melee strength +%d (now %d)" % [sm11e_ms, strength])
 
 	# (WP-O5: the 10e Green Tide Ferocious Show Off +S is gone — the codex
 	# Ferocious Show-off is +1/+2 A, OrkEnhancements11e.merge_attack_mods.)
@@ -13943,6 +13986,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		print("RulesEngine: [WP-O6] (melee) AP %d → %d" % [pre_ap_o6, ap])
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PSY-CHAFF VOLLEY +1 AP vs a prosecuted unit, IN AURAMITE CLAD -1 AP.
 	ap = _cus11e_codex().modify_ap(ap, attacker_unit, target_unit)
+	# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): ARMOUR OF CONTEMPT -1 AP to attacks that target the unit.
+	ap = _sm11e_codex().modify_ap(ap, attacker_unit, target_unit)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var melee_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if melee_worsen_ap > 0 and ap != 0:
@@ -14013,6 +14058,15 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 	if not weapon_has_lethal_hits and _cus11e_codex().melee_lethal_hits(attacker_unit, target_unit):
 		weapon_has_lethal_hits = true
 		print("RulesEngine:   LETHAL HITS (CHARACTER/MONSTER) granted by GRIM RESPONSIBILITY vs %s" % target_name)
+
+	# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): RELENTLESS ASSAULT / STRIKE FROM THE SHADOWS.
+	var sm11e_mg: Dictionary = _sm11e_codex().attack_grants(attacker_unit, target_unit, true)
+	if not weapon_has_lethal_hits and str(sm11e_mg.lethal) != "":
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS granted by %s" % str(sm11e_mg.lethal))
+	if sustained_data.value == 0 and int(sm11e_mg.sustained) > 0:
+		sustained_data = {"value": int(sm11e_mg.sustained), "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS %d granted by a Codex: Space Marines stratagem" % int(sm11e_mg.sustained))
 
 	# FIGHT PROPPA (Taktikal Brigade, 10e) and HIT 'EM HARDER (Codex: Orks 11e,
 	# OrkCodexFight.gd): melee-scoped grants — [SUSTAINED HITS 1] or
@@ -14219,6 +14273,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		melee_hit_modifiers = _cus11e_codex().apply_hit_bits(melee_hit_modifiers, attacker_unit, target_unit, true, board, melee_hit_mod_ledger)
 		# Codex: Space Marines (11e) Space Wolves stratagems (SWCodex11e.gd): CHAMPION'S GUIDANCE re-rolls melee hit rolls of 1.
 		melee_hit_modifiers = _sw11e_codex().apply_hit_bits(melee_hit_modifiers, attacker_unit, target_unit, true, melee_hit_mod_ledger)
+		# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): MIGHT OF THE MACHINE SPIRIT ignores hit-roll penalties.
+		melee_hit_modifiers = _sm11e_codex().apply_hit_bits(melee_hit_modifiers, attacker_unit, target_unit, true, melee_hit_mod_ledger)
 
 		# A10 (24.29): [PSYCHIC] melee weapons ignore modifiers to the hit roll —
 		# strip the harmful -1 (the shooting paths do the same). 11e only.
@@ -14524,6 +14580,8 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 	melee_wound_modifiers = _cus11e_codex().apply_wound_bits(melee_wound_modifiers, attacker_unit, target_unit, true, strength, toughness, melee_wound_mod_ledger)
 	# Codex: Space Marines (11e) Space Wolves stratagems (SWCodex11e.gd): CHAMPION'S GUIDANCE (1s) / EYE OF THE PACK (1s and 2s) wound re-rolls.
 	melee_wound_modifiers = _sw11e_codex().apply_wound_bits(melee_wound_modifiers, attacker_unit, target_unit, true, melee_wound_mod_ledger)
+	# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): MIGHT OF THE MACHINE SPIRIT ignores wound-roll penalties.
+	melee_wound_modifiers = _sm11e_codex().apply_wound_bits(melee_wound_modifiers, attacker_unit, target_unit, true, melee_wound_mod_ledger)
 
 	melee_wound_modifiers = sw11e_ignore_wound_penalties(melee_wound_modifiers, melee_wound_mod_ledger, hit_context.get("ork11e_ab", {}))  # WP-S4 Gift of the Iron Wolf (Space Wolves)
 	var melee_wound_modifier_net = 0
@@ -15408,6 +15466,8 @@ static func prepare_save_resolution(
 		print("RulesEngine: GLOWIN' DAKKA (interactive) — AP improved by %d (target within 9\")" % int_glowin_ap)
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PSY-CHAFF VOLLEY +1 AP vs a prosecuted unit, IN AURAMITE CLAD -1 AP.
 	ap = _cus11e_codex().modify_ap(ap, shooter_unit, target_unit)
+	# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): ARMOUR OF CONTEMPT -1 AP to attacks that target the unit.
+	ap = _sm11e_codex().modify_ap(ap, shooter_unit, target_unit)
 	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if int_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
@@ -15629,6 +15689,8 @@ static func prepare_melee_save_resolution(
 		print("RulesEngine: [WP-O6] (melee interactive) AP improved by %d → %d" % [mi_ork6_ap, ap])
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PSY-CHAFF VOLLEY +1 AP vs a prosecuted unit, IN AURAMITE CLAD -1 AP.
 	ap = _cus11e_codex().modify_ap(ap, attacker_unit, target_unit)
+	# Codex: Space Marines (11e) stratagems (SMCodex11e.gd): ARMOUR OF CONTEMPT -1 AP to attacks that target the unit.
+	ap = _sm11e_codex().modify_ap(ap, attacker_unit, target_unit)
 
 	var damage = weapon_profile.get("damage", 1)
 
@@ -16419,6 +16481,8 @@ static func _conditional_fnp(unit: Dictionary, is_psychic: bool, is_mortal: bool
 	# Codex: Space Marines (11e) Space Wolves WOLF TOTEMS (SWCodex11e.gd): Feel No Pain 5+ against mortal wounds.
 	if is_mortal:
 		best = _better_fnp(best, int(_sw11e_codex().fnp_vs_mortal(unit)))
+		# Codex: Space Marines (11e) LAYERED CERAMITE (SMCodex11e.gd): Feel No Pain 5+ against mortal wounds.
+		best = _better_fnp(best, int(_sm11e_codex().fnp_vs_mortal(unit)))
 	return best
 
 static func _better_fnp(a: int, b: int) -> int:
@@ -16442,6 +16506,11 @@ static func _cus11e_codex():
 ## consumers of the one-line "SWCodex11e.gd" hooks in this file (loaded lazily).
 static func _sw11e_codex():
 	return load("res://scripts/codex/space_wolves/SWCodex11e.gd")
+
+## Codex: Space Marines (11e) generic detachment stratagems (WP-M3a) — the effect
+## consumers of the one-line "SMCodex11e.gd" hooks in this file (loaded lazily).
+static func _sm11e_codex():
+	return load("res://scripts/codex/space_marines/SMCodex11e.gd")
 
 ## Mortal wounds that survive Feel No Pain, for the mortal-wound paths that
 ## allocate through Allocation.apply_mortal_wounds_11e (explosives, crushing

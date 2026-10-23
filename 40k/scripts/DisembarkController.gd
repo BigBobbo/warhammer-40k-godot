@@ -328,6 +328,9 @@ func _validate_disembark_position(pos: Vector2, slot_idx: int) -> Dictionary:
 
 	# P3-95: Use centralized shape-aware distance check from TransportManager
 	var range_result = TransportManager.is_position_within_disembark_range(pos, model, transport_data, setup_range_inches)
+	# Codex: Space Marines (11e) AGGRESSIVE DISEMBARKATION (SMCodex11e.gd): WITHIN (not wholly within) the set-up distance.
+	if not range_result.within_range and load("res://scripts/codex/space_marines/SMCodex11e.gd").disembark_range_ok(unit_id, range_result, setup_range_inches):
+		range_result["within_range"] = true
 
 	if not range_result.within_range:
 		# 18.04 / 18.06: the whole base must be within the set-up distance.
