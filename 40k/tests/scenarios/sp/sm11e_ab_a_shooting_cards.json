@@ -156,9 +156,10 @@
     },
     {
       "act": "execute_script",
-      "script": "tree.root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_GRETCHIN_C\") == null",
-      "comment": "only visible enemy units within 18\"",
-      "equals": true
+      "script": "var C = load(\"res://scripts/codex/space_wolves/SWCommon.gd\")\nvar d = C.unit_distance_inches(GameState.get_unit(\"U_INFILTRATOR_SQUAD_A\"), GameState.get_unit(\"U_GRETCHIN_C\"))\nvar listed = tree.root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_GRETCHIN_C\") != null\nprint(\"[sm11e-m4a] omni-scramblers: gretchin at \", d, \"\\\" listed=\", listed)\nreturn listed == (d <= 18.0)",
+      "comment": "the picker lists the Gretchin exactly when they are within 18\" (visible enemy units within 18\" only)",
+      "equals": true,
+      "multiline": true
     },
     {
       "act": "click_node",
@@ -272,6 +273,13 @@
       "seconds": 0.4
     },
     {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.get_unit(\"U_INFERNUS_SQUAD_A\")\nfor i in range(1, u.models.size()):\n\tu.models[i][\"alive\"] = false\n\tu.models[i][\"current_wounds\"] = 0\ntree.current_scene._recreate_unit_visuals()\nreturn true",
+      "comment": "setup privilege: one Infernus model left, so its Pyreblaster/Bolt Pistol hit the Gretchin without destroying the unit (Driven from Cover needs a surviving target)",
+      "equals": true
+    },
+    {
       "act": "click_unit",
       "unit_id": "U_INFERNUS_SQUAD_A"
     },
@@ -317,7 +325,8 @@
     },
     {
       "act": "click_node",
-      "button_text": "Fast Roll ⏩"
+      "button_text": "Fast Roll All ⏩",
+      "comment": "the Infernus Squad's queued weapons (Bolt Pistols + Pyreblasters) are resolved"
     },
     {
       "act": "wait_seconds",
@@ -412,6 +421,15 @@
     {
       "act": "wait_seconds",
       "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "comment": "REAL click: Complete Shooting (the Infernus Squad has shot)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
     },
     {
       "act": "expect_node_visible",

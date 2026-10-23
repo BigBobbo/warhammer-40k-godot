@@ -131,6 +131,13 @@
       "timeout_s": 6.0
     },
     {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\")\nvar last: int = u.models.size() - 1\nfor i in range(0, last):\n\tu.models[i][\"alive\"] = false\n\tu.models[i][\"current_wounds\"] = 0\nu.models[last][\"position\"] = {\"x\": float(u.models[last].position.x), \"y\": float(u.models[last].position.y) + 1.9 * 40.0}\ntree.current_scene._recreate_unit_visuals()\nreturn true",
+      "comment": "setup privilege: one Intercessor left, stepped back just out of Engagement Range (still in coherency with the Captain), so the Captain's own attacks are the ones rolled against the Gretchin",
+      "equals": true
+    },
+    {
       "act": "click_node",
       "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_INTERCESSOR_SQUAD_A",
       "emit_pressed": true
@@ -197,6 +204,17 @@
     {
       "act": "wait_seconds",
       "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n := 0\nfor c in tree.root.get_children():\n\tif c.get_script() != null and str(c.get_script().resource_path).ends_with(\"EpicChallengeDialog.gd\") and c.visible:\n\t\tc._on_decline_pressed()\n\t\tn += 1\nreturn true",
+      "comment": "decline the Epic Challenge prompt (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
     },
     {
       "act": "expect_node_visible",

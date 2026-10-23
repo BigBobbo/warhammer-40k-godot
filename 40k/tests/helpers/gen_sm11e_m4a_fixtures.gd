@@ -118,7 +118,7 @@ const FIXTURES := {
 		"sms": [
 			["U_BLADEGUARD_VETERAN_SQUAD_A", 8.0, 30.5, 3],
 			["U_INTERCESSOR_SQUAD_A", 22.0, 30.5, 5],
-			["U_CAPTAIN_A", 22.0, 33.6, 1],
+			["U_CAPTAIN_A", 26.7, 30.2, 1],  # beside the front rank: in Engagement Range of the Gretchin
 			["U_TERMINATOR_SQUAD_A", 36.0, 30.5, 5],
 			["U_LIBRARIAN_IN_TERMINATOR_ARMOUR_A", 36.0, 34.4, 1],
 		],
@@ -128,7 +128,7 @@ const FIXTURES := {
 			["U_NOBZ_A", 36.0, 29.5, 5],
 		],
 		"attach": [["U_CAPTAIN_A", "U_INTERCESSOR_SQUAD_A"], ["U_LIBRARIAN_IN_TERMINATOR_ARMOUR_A", "U_TERMINATOR_SQUAD_A"]],
-		"engaged": [["U_BLADEGUARD_VETERAN_SQUAD_A", "U_BOYZ_B"], ["U_INTERCESSOR_SQUAD_A", "U_GRETCHIN_C"], ["U_TERMINATOR_SQUAD_A", "U_NOBZ_A"]],
+		"engaged": [["U_BLADEGUARD_VETERAN_SQUAD_A", "U_BOYZ_B"], ["U_INTERCESSOR_SQUAD_A", "U_GRETCHIN_C"], ["U_CAPTAIN_A", "U_GRETCHIN_C"], ["U_TERMINATOR_SQUAD_A", "U_NOBZ_A"]],
 		"flags": {"U_BLADEGUARD_VETERAN_SQUAD_A": {"charged_this_turn": true}},
 		"offers": [[1, "phase_start", 10, 1, ["might_of_heroes"]]],
 	},

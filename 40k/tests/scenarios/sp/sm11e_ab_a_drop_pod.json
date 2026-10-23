@@ -97,9 +97,10 @@
     },
     {
       "act": "execute_script",
-      "script": "str(MoveTypes.get_type(\"disembark\").select_mode(\"U_INTERCESSOR_SQUAD_A\", GameState.state).mode)",
+      "script": "var mt = load(\"res://scripts/rules/movetypes/MoveTypes.gd\")\nreturn str(mt.get_type(\"disembark\").select_mode(\"U_INTERCESSOR_SQUAD_A\", GameState.state).mode)",
       "comment": "an assault disembark move",
-      "equals": "assault"
+      "equals": "assault",
+      "multiline": true
     },
     {
       "act": "expect_node_visible",
@@ -109,8 +110,8 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar pos := []\nfor i in range(GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\").models.size()):\n\tpos.append([(20.0 + i * 1.4) * 40.0, 27.0 * 40.0])\nvar v: Dictionary = ph._validate_confirm_disembark({\"type\": \"CONFIRM_DISEMBARK\", \"actor_unit_id\": \"U_INTERCESSOR_SQUAD_A\", \"player\": 1, \"payload\": {\"positions\": pos}})\nprint(\"[sm11e-m4a] drop pod near-enemy disembark: \", v)\nreturn str(v.get(\"errors\", [])).contains(\"more than 8\")",
-      "comment": "a set-up within 8\" of the Boyz is refused (Drop Pod Assault)",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar pod = GameState.get_unit(\"U_DROP_POD_A\").models[0].position\nvar c := Vector2(float(pod.x), float(pod.y)) / 40.0\nvar n: int = GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\").models.size()\nvar pos := []\nfor i in range(n):\n\tvar a := PI + PI * float(i) / float(maxi(1, n - 1))\n\tvar p := c + Vector2(cos(a), sin(a)) * 2.3\n\tpos.append([p.x * 40.0, p.y * 40.0])\nvar boyz = GameState.get_unit(\"U_BOYZ_B\")\nvar saved := []\nfor i in range(boyz.models.size()):\n\tsaved.append(boyz.models[i].position)\n\tboyz.models[i].position = {\"x\": (c.x - 6.0 + (i % 10) * 1.3) * 40.0, \"y\": (c.y - 9.0 - (i / 10) * 1.3) * 40.0}\nvar v: Dictionary = ph._validate_confirm_disembark({\"type\": \"CONFIRM_DISEMBARK\", \"actor_unit_id\": \"U_INTERCESSOR_SQUAD_A\", \"player\": 1, \"payload\": {\"positions\": pos}})\nfor i in range(boyz.models.size()):\n\tboyz.models[i].position = saved[i]\nvar v2: Dictionary = ph._validate_confirm_disembark({\"type\": \"CONFIRM_DISEMBARK\", \"actor_unit_id\": \"U_INTERCESSOR_SQUAD_A\", \"player\": 1, \"payload\": {\"positions\": pos}})\nprint(\"[sm11e-m4a] drop pod near-enemy disembark: \", v, \" | Boyz back far away: \", v2)\nreturn str(v.get(\"errors\", [])).contains(\"more than 8\") and bool(v2.get(\"valid\", false))",
+      "comment": "setup privilege: the Boyz are moved ~6\" from the set-up ring for this check only (restored after); the same set-up is refused within 8\" (Drop Pod Assault) and valid once the Boyz are back",
       "equals": true
     },
     {

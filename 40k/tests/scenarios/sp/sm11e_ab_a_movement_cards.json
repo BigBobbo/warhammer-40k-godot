@@ -317,9 +317,10 @@
     },
     {
       "act": "execute_script",
-      "script": "str(MoveTypes.get_type(\"disembark\").select_mode(\"U_TERMINATOR_SQUAD_A\", GameState.state).mode)",
+      "script": "var mt = load(\"res://scripts/rules/movetypes/MoveTypes.gd\")\nreturn str(mt.get_type(\"disembark\").select_mode(\"U_TERMINATOR_SQUAD_A\", GameState.state).mode)",
       "comment": "an ASSAULT DISEMBARK MOVE (18.06)",
-      "equals": "assault"
+      "equals": "assault",
+      "multiline": true
     },
     {
       "act": "expect_node_visible",

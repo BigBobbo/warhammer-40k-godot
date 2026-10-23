@@ -41,6 +41,47 @@
       "seconds": 0.5
     },
     {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true,
+      "comment": "real click: End Fight Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight",
+      "emit_pressed": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene.get_node_or_null(\"PhaseEndConfirmDialog\")\nif d and d.visible:\n\td.get_ok_button().emit_signal(\"pressed\")\nreturn true",
+      "comment": "confirm the 'End Fight Phase?' prompt (its OK button)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "comment": "a P2 window not under test (if any) is declined",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
       "act": "expect_node_visible",
       "node": "/root/StratagemDialog",
       "timeout_s": 8.0
