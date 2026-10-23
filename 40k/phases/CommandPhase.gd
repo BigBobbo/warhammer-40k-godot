@@ -969,12 +969,14 @@ static func _get_effective_leadership(unit_id: String) -> int:
 	Bodyguard Ld 5 + Character Ld 8 -> use 8."""
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	var ld = int(unit.get("meta", {}).get("stats", {}).get("leadership", 7))
+	ld = int(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").leadership(unit, ld))  # WP-M4c Seeker of the Unfound: 5+ Ld
 	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
 	for char_id in attached_chars:
 		var char_unit = GameState.state.get("units", {}).get(char_id, {})
 		if char_unit.is_empty():
 			continue
 		var char_ld = int(char_unit.get("meta", {}).get("stats", {}).get("leadership", 7))
+		char_ld = int(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").leadership(char_unit, char_ld))  # WP-M4c Seeker of the Unfound
 		if char_ld > ld:
 			ld = char_ld
 	# HUGE SHOW-OFFS (More Dakka!): 'improve the Leadership characteristic by

@@ -1029,6 +1029,8 @@ func detection_range_inches_for(model: Dictionary, unit: Dictionary, observer_mo
 	range_in += load("res://scripts/codex/custodes/CustodesAbilities.gd").detection_range_bonus(unit)
 	# WP-S4 STORM CALLER (Space Wolves, Njal Stormcaller): this unit has -3" detection range until the end of the phase.
 	range_in += load("res://scripts/codex/space_wolves/SWAbilities11e.gd").detection_range_bonus(unit)
+	# WP-M4c TRIFOLD PATH OF SHADOW (Kayvaan Shrike): this unit has -3" detection range.
+	range_in += load("res://scripts/codex/space_marines/SMAbilitiesC.gd").detection_range_bonus(unit)
 	return maxf(range_in, GameConstants.detection_range_floor_inches())
 
 ## WP-O6: Codex: Orks (11e) datasheet abilities, loaded lazily (no preload

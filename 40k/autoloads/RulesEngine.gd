@@ -3677,6 +3677,7 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
 			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one low damage roll.
 			dmg_result = _cus11e_codex().auto_single_reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng)
+			dmg_result = SMAbilitiesC11eScript.reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng, bool(opts.get("is_melee", false)))  # WP-M4c: Total Obliteration
 			var dmg = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append(dmg_result)
@@ -3769,6 +3770,7 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
 			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one low damage roll.
 			dmg_result = _cus11e_codex().auto_single_reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng)
+			dmg_result = SMAbilitiesC11eScript.reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng, bool(opts.get("is_melee", false)))  # WP-M4c: Total Obliteration
 			var dmg = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append(dmg_result)
@@ -10225,6 +10227,8 @@ const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.
 const CustodesAbilities11eScript = preload("res://scripts/codex/custodes/CustodesAbilities.gd")
 # WP-S4: Codex: Space Marines (11e) Space Wolves DATASHEET abilities (scripts/codex/space_wolves/SWAbilities11e.gd).
 const SWAbilities11eScript = preload("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+# WP-M4c: Codex: Space Marines (11e) generic DATASHEET abilities, M4c datasheets (scripts/codex/space_marines/SMAbilitiesC.gd).
+const SMAbilitiesC11eScript = preload("res://scripts/codex/space_marines/SMAbilitiesC.gd")
 
 static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weapon_profile: Dictionary, is_melee: bool, board: Dictionary, bearer_ids: Array = []) -> Dictionary:
 	if GameConstants.edition < 11:
@@ -10235,6 +10239,7 @@ static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weap
 	# Hunter's Eye, Ferocious Strike, A Giant Amongst Giants) ride the same aggregator.
 	load("res://scripts/codex/space_wolves/SWDetachments11e.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
 	SWAbilities11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-S4: Space Wolves (11e) datasheet abilities ride the same aggregator
+	SMAbilitiesC11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-M4c: Space Marines (11e) M4c datasheet abilities ride the same aggregator
 	return ab_mods
 
 ## Fold the datasheet-ability hit modifiers into HitModifier bits (+ ledger).
@@ -10287,7 +10292,8 @@ static func sw11e_ignore_wound_penalties(bits: int, ledger: Array, ab: Dictionar
 static func ork11e_ab_wound_penalty(target_unit: Dictionary, strength: int, toughness: int) -> bool:
 	return GameConstants.edition >= 11 and (OrkAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness) \
 		or CustodesAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness)  # WP-C7: Unyielding Ancient / Praesidium Shield (Sentinel Guard)
-		or SWAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness))  # WP-S4: Legendary Tenacity / Rugged Resilience (Space Wolves)
+		or SWAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness)  # WP-S4: Legendary Tenacity / Rugged Resilience (Space Wolves)
+		or SMAbilitiesC11eScript.incoming_wound_penalty(target_unit, strength, toughness))  # WP-M4c: Duty Eternal (Redemptor Dreadnought)
 
 ## The ledger name of the S > T -1 to wound above (Hardy Bioniks, or the
 ## Custodes Unyielding Ancient / Praesidium Shield — WP-C7).
@@ -10295,6 +10301,8 @@ static func ork11e_ab_wound_penalty_name(target_unit: Dictionary, strength: int,
 	var cus_src: String = CustodesAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)
 	if cus_src == "":
 		cus_src = SWAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)  # WP-S4: Legendary Tenacity / Rugged Resilience
+	if cus_src == "":
+		cus_src = SMAbilitiesC11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)  # WP-M4c: Duty Eternal
 	return cus_src if cus_src != "" else "Hardy Bioniks"
 
 const ORK11E_FLAG_CLOSE_RANGE_DAKKA := "ork11e_close_range_dakka"
@@ -10668,7 +10676,8 @@ static func has_stealth_ability(unit: Dictionary) -> bool:
 	# ISS-019: unified query — covers datasheet abilities AND the
 	# effect_stealth flag (dynamically granted, e.g. Smokescreen-likes).
 	return UnitAbilities.unit_has(unit, "stealth") \
-		or (GameConstants.edition >= 11 and ork11e_enh().grants_stealth(unit))  # WP-O5 Kill Kommanda (while attached)
+		or (GameConstants.edition >= 11 and ork11e_enh().grants_stealth(unit)) \
+		or SMAbilitiesC11eScript.grants_stealth(unit)  # WP-O5 Kill Kommanda (while attached); WP-M4c Trifold Path of Shadow
 
 # DAMAGED PROFILE (P1-14): Check if a unit's Damaged profile is active
 # Per 10e rules: When a model with a Damaged profile has wounds remaining at or below
@@ -11773,6 +11782,9 @@ static func eligible_to_charge(unit_id: String, board: Dictionary) -> bool:
 		return false
 	# WP-C7: Codex: Adeptus Custodes (11e) MOBILE HUNTER — the same hard lock (CustodesAbilities.gd).
 	if CustodesAbilities11eScript.blocks_charge(unit):
+		return false
+	# WP-M4c PURGATION RUN (Land Speeder): not eligible to declare a charge until the end of the turn.
+	if SMAbilitiesC11eScript.blocks_charge(unit):
 		return false
 
 	# Check restriction flags
@@ -13838,6 +13850,10 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		if int(cus11e_mg.cleave) > cleave_x:
 			cleave_x = int(cus11e_mg.cleave)
 			print("RulesEngine: %s — melee weapon %s gains [CLEAVE %d]" % [str(cus11e_mg.cleave_source), weapon_id, cleave_x])
+		# WP-M4c INTO THE FRAY (Captain on Bike): charged this turn -> this unit's melee attacks have [CLEAVE 1].
+		if cleave_x < SMAbilitiesC11eScript.melee_cleave(attacker_unit):
+			cleave_x = SMAbilitiesC11eScript.melee_cleave(attacker_unit)
+			print("RulesEngine: Into the Fray — melee weapon %s gains [CLEAVE %d]" % [weapon_id, cleave_x])
 		if cleave_x > 0:
 			# 19.01: an Attached unit is ONE unit — its leaders' models count
 			# toward "every 5 models in the target" as well as the bodyguard's.
@@ -16377,6 +16393,7 @@ static func get_unit_fnp(unit: Dictionary) -> int:
 	# Codex: Adeptus Custodes (11e) Genalchemic Warding / Augury Uplink: the bearer has FNP 5+ (WP-C46).
 	if GameConstants.edition >= 11:
 		effect_fnp = _better_fnp(effect_fnp, int(cus11e_det().unit_fnp(unit)))
+		effect_fnp = _better_fnp(effect_fnp, int(SMAbilitiesC11eScript.unit_fnp(unit)))  # WP-M4c: Seeker of the Unfound / Veteran Bodyguard (FNP 4+)
 
 	# Use the better (lower) FNP if both exist, otherwise whichever is non-zero
 	if base_fnp > 0 and effect_fnp > 0:

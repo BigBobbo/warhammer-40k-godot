@@ -555,6 +555,9 @@ func unit_has_deep_strike(unit_id: String) -> bool:
 	# has Deep Strike" — the bearer's Attached unit.
 	if GameConstants.edition >= 11 and _ork11e_enh().grants_deep_strike(unit):
 		return true
+	# WP-M4c GRAV-CHUTES (Reiver Squad wargear) / THUNDERHAWK INSERTION (Marneus Calgar's pick).
+	if GameConstants.edition >= 11 and load("res://scripts/codex/space_marines/SMAbilitiesC.gd").grants_deep_strike(unit):
+		return true
 	return false
 
 func unit_has_infiltrators(unit_id: String) -> bool:
@@ -714,6 +717,9 @@ func _unit_has_scout_own(unit_id: String) -> bool:
 	# this unit has Scouts 6"."
 	if GameConstants.edition >= 11 and float(_ork11e_enh().scouts_distance(unit)) > 0.0:
 		return true
+	# WP-M4c CEREBREX LOGIC ENGINE (Caanok Var's pick): Scouts 6".
+	if GameConstants.edition >= 11 and float(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").scouts_distance(unit)) > 0.0:
+		return true
 	return false
 
 func _get_scout_distance_from_abilities(abilities: Array) -> float:
@@ -800,6 +806,10 @@ func get_scout_distance(unit_id: String) -> float:
 		var o5_scouts := float(_ork11e_enh().scouts_distance(unit))
 		if o5_scouts > 0.0:
 			return o5_scouts
+		# WP-M4c CEREBREX LOGIC ENGINE: Scouts 6" (unless the unit has a longer Scouts of its own).
+		var smc_scouts := float(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").scouts_distance(unit))
+		if smc_scouts > 0.0:
+			return maxf(smc_scouts, _get_scout_distance_from_abilities(unit.get("meta", {}).get("abilities", [])))
 	# Check own abilities first
 	var own_abilities = unit.get("meta", {}).get("abilities", [])
 	var own_distance = _get_scout_distance_from_abilities(own_abilities)

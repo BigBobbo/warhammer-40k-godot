@@ -6997,7 +6997,10 @@
      "shape": "round",
      "diameter": 28.5
     },
-    "default_weapon_ids": [],
+    "default_weapon_ids": [
+     "archeotech-laspistol",
+     "power-weapon-wardens-of-ultramar"
+    ],
     "default_wargear": []
    },
    {
@@ -7009,7 +7012,10 @@
      "shape": "round",
      "diameter": 40
     },
-    "default_weapon_ids": [],
+    "default_weapon_ids": [
+     "bolt-rifle-wardens-of-ultramar",
+     "ceramite-fists-wardens-of-ultramar"
+    ],
     "default_wargear": []
    },
    {
@@ -7022,7 +7028,10 @@
      "shape": "round",
      "diameter": 28.5
     },
-    "default_weapon_ids": [],
+    "default_weapon_ids": [
+     "astropathic-blast",
+     "force-stave"
+    ],
     "default_wargear": []
    },
    {
@@ -7034,7 +7043,10 @@
      "shape": "round",
      "diameter": 28.5
     },
-    "default_weapon_ids": [],
+    "default_weapon_ids": [
+     "archeotech-laspistol",
+     "power-weapon-wardens-of-ultramar"
+    ],
     "default_wargear": []
    },
    {
@@ -7046,7 +7058,10 @@
      "shape": "round",
      "diameter": 28.5
     },
-    "default_weapon_ids": [],
+    "default_weapon_ids": [
+     "archeotech-laspistol",
+     "ultramarian-combat-weapons"
+    ],
     "default_wargear": []
    },
    {
@@ -7058,7 +7073,10 @@
      "shape": "round",
      "diameter": 40
     },
-    "default_weapon_ids": [],
+    "default_weapon_ids": [
+     "heavy-bolt-pistol-wardens-of-ultramar",
+     "master-crafted-power-weapon-wardens-of-ultramar"
+    ],
     "default_wargear": []
    }
   ],

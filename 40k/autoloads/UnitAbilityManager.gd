@@ -155,6 +155,382 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# WP-M4c: Codex: Space Marines (11e) - generic datasheet / wargear
+	# abilities of the M4c datasheets. The rules live in
+	# scripts/codex/space_marines/SMAbilitiesC.gd; these rows only describe
+	# them (condition "sm11e" is never evaluated here). Names shared with the
+	# M4a/M4b datasheets (Strategic Acumen, Raise the Banner, Codex Adept)
+	# get no row here so the sibling packages' rows never collide.
+	# ======================================================================
+	"Into the Fray": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Captain on Bike: if this unit made a charge move this turn, its melee attacks have [CLEAVE 1]. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Aquilon Optics": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Gladiator Lancer: ranged attacks that target a MONSTER/VEHICLE unit can re-roll one hit roll, one wound roll and one damage roll. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Tempormortis": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Judiciar: this unit (the Judiciar's Attached unit) has Fights First. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Trifold Path of Shadow": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Kayvaan Shrike: this unit has Stealth and -3\" detection range. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Echo of the Ravenspire": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Kayvaan Shrike: end of your opponent's Fight phase, unengaged: placed in strategic reserves. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Trophy Taker": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Kor'sarro Khan: attacks that target a CHARACTER unit re-roll hit rolls of 1 and wound rolls of 1. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"For the Khan!": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Kor'sarro Khan: ranged attacks have [ASSAULT]; melee attacks have [LANCE]. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Purgation Run": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Land Speeder: your Shooting phase, when this unit has shot: a normal move of up to D6\"; then no charge this turn. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Full-throttle Assault": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Outrider Squad: charged this turn - Thunder Hammers +1 to hit and [SUSTAINED HITS 1]; other melee +1 D and [SUSTAINED HITS 1]. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Duty Eternal": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Redemptor Dreadnought: attacks with S greater than this unit's T have -1 to wound. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Terror Troops": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Reiver Squad (aura): enemy models within 3\" have -1 OC. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Fearsome Assault": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Reiver Squad: start of the Fight phase - each engaged enemy unit makes a battle-shock roll at -1. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Grapnel Launchers": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Reiver Squad (wargear): moves through all types of model and ignores vertical distance. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Grav-chutes": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Reiver Squad (wargear): this unit has Deep Strike. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Combat Embarkation": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Repulsor: opponent's Charge phase, a friendly unengaged charge target wholly within 3\" can embark. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Executioner": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Repulsor Executioner: ranged attacks vs a unit not below half-strength have +1 to hit. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Veiling Smoke": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Rhino (once per phase): Smokescreen on this unit regardless of other uses this phase, -1 CP. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Seeker of the Unfound": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Vulkan He'stan: picks an objective the first time he is set up; within range of it OC 10, Ld 5+, Feel No Pain 4+. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Forgefather": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Vulkan He'stan: your Shooting phase - a visible enemy within 24\": friendly [MELTA]/[TORRENT] attacks against it +2 S. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Command Squad": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Company Heroes: attacks that target this unit have -1 to wound. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Narthecium": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Apothecary: your Command phase - this unit heals D3+1 wounds. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Honour of the Company": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ancient: this unit has +1 OC. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Hammer of Wrath": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Assault Intercessors with Jump Packs: end of a charge move - D6 per engaged model vs one engaged enemy, 4+ = 1 mortal wound. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Master of Shadows": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Aethon Shaan: your Command phase - a friendly ADEPTUS ASTARTES INFANTRY unit re-rolls charge rolls until your next Command phase. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Blackwing Mantle": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Aethon Shaan (once per phase, per army): Heroic Intervention on this unit regardless of other uses, -1 CP. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Cold and Calculating": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Caanok Var: when selected to shoot/fight - [LETHAL HITS] vs MONSTER/VEHICLE or [SUSTAINED HITS 1] vs others (both with the tactical doctrine). (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Cerebrex Logic Engine": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Caanok Var: Declare Battle Formations - a friendly ADEPTUS ASTARTES INFANTRY unit has Scouts 6\". (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Spear of Chogoris": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Suboden Khan: ranged [ASSAULT]; advance and still charge; +1 advance and charge rolls with the assault doctrine. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Skilled Riders": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Suboden Khan: this unit has Mobile. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Captain of the Honour Guard": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Cato Sicarius: with a Marneus Calgar in the army, Leader becomes Support. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Knight Champion of Macragge": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Cato Sicarius (once per phase, per army): opponent's Movement phase, an enemy ends a move within 8\" - normal move up to 6\". (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Honour or Death": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Cato Sicarius: Heroic Intervention on this unit is -1 CP. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Glory of Ultramar": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Victrix Honour Guard: opponent's Shooting phase, a model of this unit was destroyed - surge move of up to D6\". (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Honour Guard of Macragge": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Victrix Honour Guard: attacks that target this unit have -1 to wound. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Banner of Macragge": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Victrix Honour Guard (wargear): end of your Movement phase, controlled objective secured; once per battle, selected to fight: melee +1 A and S. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Press the Attack": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Captain Titus: melee [SUSTAINED HITS 1] vs non-MONSTER/VEHICLE ([SUSTAINED HITS 1] vs all with the assault doctrine). (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Righteous Fury": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Captain Titus (once per battle, per army): Fight phase - melee +1 S; when fought, heals D3 (2D3 after a kill). (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Honour of Ultramar": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Captain Titus: Fight phase, destroyed before his unit fought - 2+ it stays until his unit has fought. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Strategium Command": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Wardens of Ultramar: after deployment, redeploy up to three ADEPTUS ASTARTES units (reserves allowed). (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Overlapping Destruction": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Eradicator Squad with Heavy Bolters: your Shooting phase - Heavy Bolters vs one enemy unit have [BLAST 1]. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Master Tactician": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Marneus Calgar: your Movement phase - a visible friendly ADEPTUS ASTARTES unit within 9\" gets a combat doctrine until your next Command phase. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Thunderhawk Insertion": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Marneus Calgar: Declare Battle Formations - a friendly GRAVIS/PHOBOS/TACTICUS unit has Deep Strike. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Aggressive Reconnaissance": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Invader ATVs: your Shooting phase - ranged attacks vs an enemy more than 6\" from other enemies +1 to wound. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Veteran Bodyguard": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Kaius Konorius: while attached, other CHARACTER models in this unit have Feel No Pain 4+. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Calgar's Champion": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Kaius Konorius: this model's attacks vs a CHARACTER unit re-roll hit rolls of 1 and wound rolls of 1. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	"Total Obliteration": {
+		"condition": "sm11e",  # WP-M4c: Space Marines (11e) rule lives in SMAbilitiesC.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Eradicator Squad with Melta Rifles: ranged attacks can re-roll damage rolls. (Codex: Space Marines 11e \u2014 SMAbilitiesC)."
+	},
+	# ======================================================================
 	# WP-S4: Codex: Space Marines (11e) — Space Wolves datasheet / wargear
 	# abilities. The rules live in scripts/codex/space_wolves/SWAbilities11e.gd;
 	# these rows only describe them (condition "sw11e" is never evaluated here).

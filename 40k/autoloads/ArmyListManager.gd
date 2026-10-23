@@ -195,6 +195,9 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 										keyword = keyword.strip_edges()
 										if keyword.length() > 0:
 											capacity_keywords.append(keyword)
+									# WP-M4c: "14 SPACE MARINES INFANTRY models" (generated army text for the printed
+									# "Adeptus Astartes Infantry") names the faction keyword ADEPTUS ASTARTES.
+									capacity_keywords = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").transport_capacity_keywords(capacity_keywords)
 
 									DebugLogger.debug("Parsed transport capacity keywords", {
 										"unit_id": unit_id,
@@ -672,6 +675,8 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 									keyword = keyword.strip_edges()
 									if keyword.length() > 0:
 										capacity_keywords.append(keyword)
+								# WP-M4c: SPACE MARINES / ADEPTUS ASTARTES are one faction keyword (see the primary parse site).
+								capacity_keywords = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").transport_capacity_keywords(capacity_keywords)
 
 								DebugLogger.debug("Parsed transport capacity keywords", {
 									"unit_id": unit_id,

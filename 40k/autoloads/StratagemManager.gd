@@ -48,6 +48,10 @@ const CustodesAbilities = preload("res://scripts/codex/custodes/CustodesAbilitie
 # window pattern ("sw11e_ab_*" ids), plus ANCIENT TACTICIAN's -1 CP and the
 # MURDEROUS HURRICANE snap-shooting ban.
 const SWAbilities = preload("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+# WP-M4c: Codex: Space Marines (11e) generic datasheet abilities of the M4c
+# datasheets ("sm11e_abc_*" ids), Veiling Smoke / Blackwing Mantle overrides,
+# Honour or Death -1 CP.
+const SMAbilitiesC = preload("res://scripts/codex/space_marines/SMAbilitiesC.gd")
 # Codex: Orks (11e) army / detachment rule choices (WP-O34): free rule offers
 # that ride the window framework (get_window_offers / use_stratagem hooks).
 const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
@@ -67,6 +71,9 @@ func _cus11e_stratagem_override(player: int, stratagem_id: String, target_unit_i
 	if not bool(ov.get("applies", false)):
 		# Codex: Space Marines (11e) Grimnar's Mark (Saga of the Great Wolf) — same override shape, sw11e: true (WP-S2).
 		ov = _sw11e_det().stratagem_override(player, stratagem_id, target_unit_id)
+	if not bool(ov.get("applies", false)):
+		# WP-M4c Veiling Smoke (Rhino) / Blackwing Mantle (Aethon Shaan) — the Custodes override shape (recorded through its record_stratagem_override).
+		ov = SMAbilitiesC.stratagem_override(player, stratagem_id, target_unit_id)
 	return ov
 
 ## Codex: Space Marines (11e) Space Wolves detachments + enhancements façade (WP-S2).
@@ -89,6 +96,7 @@ func preview_cp_cost(player: int, stratagem_id: String, target_unit_id: String =
 	var cost := _base_cp_cost(stratagems[sid], {})
 	cost = maxi(0, cost + int(_cus11e_stratagem_override(player, sid, target_unit_id).get("cost_delta", 0)))
 	cost = maxi(0, cost - int(_sw11e_cp_discount(player, sid, target_unit_id).get("discount", 0)))
+	cost = maxi(0, cost - SMAbilitiesC.stratagem_cp_discount(player, sid, target_unit_id))  # WP-M4c Honour or Death
 	return cost
 
 # Stratagem WINDOWS (design §3): the game event at which a stratagem with
@@ -134,6 +142,7 @@ const WINDOW_WHEN_TEXT: Dictionary = {
 	# Codex: Space Marines (11e) Space Wolves datasheet abilities (WP-S4,
 	# SWAbilities11e.gd): "when this unit has fought" (Hammer Blow).
 	"unit_has_fought": "one of your units has fought",
+	"enemy_declares_charge": "an enemy unit has selected charge targets",  # WP-M4c Combat Embarkation (Repulsor)
 }
 
 # 11e CORE stratagems offered through a stratagem window (design §3), keyed by
@@ -912,6 +921,8 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# WP-S4: a Space Wolves datasheet-ability card (no stratagem row) — e.g. STORM CALLER in the reactive dialog.
 	if SWAbilities.handles_id(stratagem_id):
 		return SWAbilities.can_use(player, stratagem_id, target_unit_id, context)
+	if SMAbilitiesC.handles_id(stratagem_id):  # WP-M4c: an M4c datasheet-ability card
+		return SMAbilitiesC.can_use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
 	if not stratagems.has(stratagem_id):
 		return {"can_use": false, "reason": "Unknown stratagem: %s" % stratagem_id}
@@ -969,6 +980,8 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	effective_cost = maxi(0, effective_cost + int(cus11e_ov.get("cost_delta", 0)))
 	# Codex: Space Marines (11e) Countercharge (The Great Wolf Watches): Heroic Intervention -1CP (WP-S2).
 	effective_cost = maxi(0, effective_cost - int(_sw11e_cp_discount(player, stratagem_id, target_unit_id).get("discount", 0)))
+	# WP-M4c HONOUR OR DEATH (Cato Sicarius): Heroic Intervention on this unit -1 CP.
+	effective_cost = maxi(0, effective_cost - SMAbilitiesC.stratagem_cp_discount(player, stratagem_id, target_unit_id))
 	var player_cp = _get_player_cp(player)
 	if player_cp < effective_cost:
 		return {"can_use": false, "reason": "Not enough CP (need %d, have %d)" % [effective_cost, player_cp]}
@@ -1264,6 +1277,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# WP-S4: a Space Wolves datasheet ability offered in a window (0 CP).
 	if SWAbilities.handles_id(stratagem_id):
 		return SWAbilities.use(player, stratagem_id, target_unit_id, context)
+	# WP-M4c: a Codex: Space Marines (M4c datasheets) ability offered in a window (0 CP).
+	if SMAbilitiesC.handles_id(stratagem_id):
+		return SMAbilitiesC.use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
 	# Codex: Orks (11e) rule choice offered in a window (WP-O34): no CP, no stratagem bookkeeping.
 	if Ork11eDetachments.is_rule_offer_id(stratagem_id):
@@ -1319,6 +1335,10 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		effective_cp_cost = maxi(0, effective_cp_cost - int(sw11e_disc.get("discount", 0)))
 		diffs.append_array(_sw11e_det().record_cp_discount(sw11e_disc))
 		print("StratagemManager: %s — %s costs %d CP" % [str(sw11e_disc.source), strat.name, effective_cp_cost])
+	# WP-M4c HONOUR OR DEATH (Cato Sicarius): Heroic Intervention on this unit -1 CP.
+	if effective_cp_cost > 0 and SMAbilitiesC.stratagem_cp_discount(player, stratagem_id, target_unit_id) > 0:
+		effective_cp_cost = maxi(0, effective_cp_cost - 1)
+		print("StratagemManager: Honour or Death — %s costs %d CP" % [strat.name, effective_cp_cost])
 
 	# Deduct CP
 	var current_cp = _get_player_cp(player)
@@ -1661,6 +1681,7 @@ func get_all_window_offers(player: int, window_id: String, ctx: Dictionary = {})
 	var abil: Array = OrkAbilities.window_offers(player, window_id, wctx)
 	abil.append_array(CustodesAbilities.window_offers(player, window_id, wctx))  # WP-C7: Codex: Adeptus Custodes datasheet abilities
 	abil.append_array(SWAbilities.window_offers(player, window_id, wctx))  # WP-S4: Space Wolves datasheet abilities
+	abil.append_array(SMAbilitiesC.window_offers(player, window_id, wctx))  # WP-M4c: Space Marines (M4c datasheets) abilities
 	if not abil.is_empty():
 		print("StratagemManager: get_all_window_offers(P%d, %s) + %d datasheet ability offer(s) %s" % [
 			player, window_id, abil.size(), str(abil.map(func(o): return o.name))])

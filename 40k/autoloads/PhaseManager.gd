@@ -161,6 +161,8 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 	load("res://scripts/codex/custodes/CustodesAbilities.gd").on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
 	# WP-S4: Space Wolves datasheet-ability expiry + Guile of the Wolf's doctrines (every peer).
 	load("res://scripts/codex/space_wolves/SWAbilities11e.gd").on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
+	# WP-M4c: Space Marines (M4c datasheets) ability expiry + Codex Adept / Skilled Riders grants (every peer).
+	load("res://scripts/codex/space_marines/SMAbilitiesC.gd").on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
 
 	# Update game state to new phase
 	GameState.set_phase(new_phase)

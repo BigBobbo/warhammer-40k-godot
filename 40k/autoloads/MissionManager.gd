@@ -569,6 +569,8 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 	# within 6" of a friendly SPACE WOLVES CHARACTER (SWAbilities11e.model_oc).
 	if GameConstants.edition >= 11:
 		oc = int(load("res://scripts/codex/space_wolves/SWAbilities11e.gd").model_oc(unit, model, oc))
+		# WP-M4c: Terror Troops (-1 OC near Reivers), Honour of the Company (+1), Seeker of the Unfound (OC 10).
+		oc = int(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").model_oc(unit, model, oc))
 	return maxi(oc, 0)
 
 ## Codex: Adeptus Custodes (11e) Moritoi Ancients OC bonus for `unit` (0 at 10e

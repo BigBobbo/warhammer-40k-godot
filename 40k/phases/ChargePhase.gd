@@ -566,6 +566,9 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 		after_udc["changes"] = udc_diffs
 	return after_udc
 
+## WP-M4c: declarations whose enemy_declares_charge window (Combat Embarkation) was opened.
+var _sm11e_ce_opened: Dictionary = {}
+
 ## Resume point for the unit_declares_charge window (BasePhase framework).
 func _resume_after_declares_charge_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
 	return _after_declares_charge_windows(str(ctx.get("unit_id", "")))
@@ -575,6 +578,22 @@ func _resume_after_declares_charge_window(ctx: Dictionary, _window_result: Dicti
 func _after_declares_charge_windows(unit_id: String) -> Dictionary:
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# WP-M4c COMBAT EMBARKATION (Codex: Space Marines 11e, Repulsor): "In your
+	# opponent's Charge phase, when an enemy unit has selected charge targets"
+	# — the defender's enemy_declares_charge window, once per declaration
+	# (SMAbilitiesC). An embarked target leaves the battlefield, so the 11e
+	# post-roll target selection (_targets_within) no longer offers it.
+	var ce_key := "%s@%s" % [unit_id, str(pending_charges.get(unit_id, {}).get("declared_at", ""))]
+	if GameConstants.edition >= 11 and not _sm11e_ce_opened.has(ce_key):
+		_sm11e_ce_opened[ce_key] = true
+		var ce_targets: Array = pending_charges.get(unit_id, {}).get("targets", [])
+		if not ce_targets.is_empty():
+			var ce_def := 2 if int(unit.get("owner", get_current_player())) == 1 else 1
+			var ce_ctx := {"phase": "charge", "unit_id": unit_id, "enemy_unit_id": unit_id, "target_unit_ids": ce_targets.duplicate()}
+			if open_stratagem_window(ce_def, "enemy_declares_charge", ce_ctx, "_resume_after_declares_charge_window"):
+				log_phase_message("Waiting for Player %d's enemy_declares_charge decision (Combat Embarkation) for %s" % [ce_def, unit_id])
+				return create_result(true, consume_window_diffs())
 
 	# T3-11: Check for Fire Overwatch opportunity for the defending player
 	# Per 10e rules: After a charge is declared, the defending player may use
@@ -797,6 +816,11 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	if int(sw_fv.get("bonus", 0)) > 0:
 		charge_bonus += int(sw_fv.bonus)
 		log_phase_message("Charge roll +%d (%s)" % [int(sw_fv.bonus), str(sw_fv.source)])
+	# WP-M4c SPEAR OF CHOGORIS (Suboden Khan): assault doctrine active -> +1 to charge rolls (SMAbilitiesC).
+	var smc_cb: Dictionary = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").roll_bonus(unit_id)
+	if int(smc_cb.get("bonus", 0)) > 0:
+		charge_bonus += int(smc_cb.bonus)
+		log_phase_message("Charge roll +%d (%s)" % [int(smc_cb.bonus), str(smc_cb.source)])
 	charge_bonus = int(_cus11e_codex().charge_roll_modifier(unit_for_charge_bonus, charge_bonus))
 	if charge_bonus > 0:
 		total_distance += charge_bonus
@@ -1967,6 +1991,9 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 		return false
 	# Codex: Adeptus Custodes MOBILE HUNTER (CustodesAbilities.gd): the same hard lock.
 	if _cus11e_abilities().blocks_charge(unit):
+		return false
+	# WP-M4c PURGATION RUN (Land Speeder): not eligible to declare a charge until the end of the turn.
+	if load("res://scripts/codex/space_marines/SMAbilitiesC.gd").blocks_charge(unit):
 		return false
 
 	# Check restriction flags
@@ -3372,6 +3399,10 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 	var sw11e_src: String = str(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").charge_reroll_source(unit_data))
 	if sw11e_src != "":
 		return sw11e_src
+	# WP-M4c MASTER OF SHADOWS (Aethon Shaan).
+	var smc_src: String = str(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").charge_reroll_source(unit_data))
+	if smc_src != "":
+		return smc_src
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:

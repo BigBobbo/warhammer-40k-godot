@@ -22396,6 +22396,10 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 				var sw_ab = load("res://scripts/codex/space_wolves/SWAbilities11e.gd")
 				if sw_ab.handles_id(sid):
 					score = float(sw_ab.ai_score(player, sid, tid, window_id, ctx))
+				# WP-M4c: Space Marines (M4c datasheets) ability offers ("sm11e_abc_*") are scored by SMAbilitiesC.
+				var smc_ab = load("res://scripts/codex/space_marines/SMAbilitiesC.gd")
+				if smc_ab.handles_id(sid):
+					score = float(smc_ab.ai_score(player, sid, tid, window_id, ctx))
 			elif is_codex:
 				score = codex.ai_score(strat, player, tid, window_id, ctx)
 			elif units.has(tid):

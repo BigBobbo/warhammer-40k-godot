@@ -181,6 +181,21 @@ static func get_equipped_weapons(unit: Dictionary) -> Array:
 			selected[s] = true
 
 	if selected.is_empty():
+		# WP-M4c: a single-model Codex: Space Marines (11e) datasheet whose
+		# roster lists no wargear carries its printed default kit ("This model
+		# is equipped with: ..."), not the whole option menu (a Captain on Bike
+		# does not also hold the Plasma Pistol and Thunder Hammer it could swap in).
+		var codex_kit := _codex_default_kit_slugs(unit)
+		if not codex_kit.is_empty():
+			var kit_out: Array = []
+			for w in weapons:
+				if typeof(w) != TYPE_DICTIONARY:
+					continue
+				var kn := str(w.get("name", ""))
+				if codex_kit.has(_slug(kn)) or codex_kit.has(_slug(_base_name(kn))) or str(w.get("granted_by", "")) != "":
+					kit_out.append(w)
+			if not kit_out.is_empty():
+				return kit_out
 		# No usable loadout signal — show the datasheet as-is rather than guess.
 		return weapons
 
@@ -422,6 +437,7 @@ static func _ensure_compositions_loaded() -> void:
 	var parsed = _read_json_array(COMPOSITIONS_PATH, "base-kit weapons")
 	if parsed != null:
 		_ingest_compositions(parsed, "")
+		_ingest_compositions(_alias_entries(parsed), "")  # WP-M4c: name-slug aliases
 	var legacy = _read_json_array(LEGACY_COMPOSITIONS_PATH, "legacy (pre-codex) base kits")
 	if legacy != null:
 		_ingest_compositions(legacy, LEGACY_SLUG_SUFFIX)
@@ -451,6 +467,87 @@ static func _read_json_array(path: String, what: String):
 	return parsed
 
 
+# ── WP-M4c: Codex: Space Marines (11e) kits keyed by weapon NAME ─────
+# The Wahapedia import gives a weapon a datasheet prints differently its own
+# id ("bolt-pistol-company-heroes" is the Company Heroes' "Master-crafted Bolt
+# Pistol", "combat-knife-reiver-squad" the Reivers' "Monomolecular Combat
+# Knife"), so stripping the unit suffix off the id does not give the weapon's
+# name. For those records (faction adeptus-astartes, source wahapedia-11e) the
+# kit / option slugs are the slugs of the weapons' NAMES (data/40kdc/weapons.json).
+const WEAPONS_PATH := "res://data/40kdc/weapons.json"
+static var _weapon_name_by_id: Dictionary = {}
+static var _weapon_names_loaded: bool = false
+## Unit slugs whose kits are name-keyed codex kits (single-model default kit).
+static var _codex_kit_units: Dictionary = {}
+## Codex datasheet id -> the slug of its NAME when they differ (invader-atv -> invader-atvs).
+static var _name_aliases: Dictionary = {}
+static var _unit_name_by_id: Dictionary = {}
+static var _unit_names_loaded: bool = false
+
+static func _datasheet_name_slug(unit_id: String) -> String:
+	if not _unit_names_loaded:
+		_unit_names_loaded = true
+		var parsed = _read_json_array("res://data/40kdc/units.json", "datasheet names")
+		if parsed != null:
+			for u in parsed:
+				if typeof(u) == TYPE_DICTIONARY and str(u.get("faction_id", "")) == "adeptus-astartes" and str(u.get("source", "")).begins_with("wahapedia-11e"):
+					_unit_name_by_id[str(u.get("id", ""))] = str(u.get("name", ""))
+	var n := str(_unit_name_by_id.get(unit_id, ""))
+	return _slug(n) if n != "" else ""
+
+## Copies of the name-keyed records whose datasheet name slugs differently,
+## re-keyed on the name slug (ingested like any record).
+static func _alias_entries(parsed: Array) -> Array:
+	var out: Array = []
+	for entry in parsed:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var uid := str(entry.get("unit_id", ""))
+		if not _name_aliases.has(uid):
+			continue
+		var e: Dictionary = (entry as Dictionary).duplicate(true)
+		e["unit_id"] = str(_name_aliases[uid])
+		out.append(e)
+	return out
+
+static func _ensure_weapon_names() -> void:
+	if _weapon_names_loaded:
+		return
+	_weapon_names_loaded = true
+	var parsed = _read_json_array(WEAPONS_PATH, "weapon names")
+	if parsed == null:
+		return
+	for w in parsed:
+		if typeof(w) == TYPE_DICTIONARY and str(w.get("id", "")) != "":
+			_weapon_name_by_id[str(w.id)] = str(w.get("name", ""))
+
+static func _is_codex_name_keyed(entry: Dictionary) -> bool:
+	return str(entry.get("faction_id", "")) == "adeptus-astartes" and str(entry.get("source", "")).begins_with("wahapedia-11e")
+
+## The slug of the weapon NAME of a 40kdc weapon id ("" when unknown).
+static func _name_slug_of_id(id: String) -> String:
+	_ensure_weapon_names()
+	var n := str(_weapon_name_by_id.get(id, ""))
+	return _slug(n) if n != "" else ""
+
+## WP-M4c: the default kit (weapon-name slugs) of a single-model Codex: Space
+## Marines datasheet with one composition role; {} otherwise.
+static func _codex_default_kit_slugs(unit: Dictionary) -> Dictionary:
+	if unit.get("models", []).size() != 1:
+		return {}
+	var meta: Dictionary = unit.get("meta", {}) if typeof(unit.get("meta", {})) == TYPE_DICTIONARY else {}
+	var unit_slug := _slug(str(meta.get("name", "")))
+	_ensure_compositions_loaded()
+	if unit_slug == "" or not _codex_kit_units.has(unit_slug):
+		return {}
+	var per_model = _defaults_by_unit_model.get(unit_slug, {})
+	if typeof(per_model) != TYPE_DICTIONARY or per_model.size() != 1:
+		return {}
+	var out := {}
+	for id in per_model.values()[0]:
+		out[_strip_unit_suffix(str(id), unit_slug)] = true
+	return out
+
 # Store composition records under unit_id + slug_suffix ("" = current data,
 # LEGACY_SLUG_SUFFIX = frozen legacy kits).
 static func _ingest_compositions(parsed: Array, slug_suffix: String) -> void:
@@ -469,6 +566,14 @@ static func _ingest_compositions(parsed: Array, slug_suffix: String) -> void:
 		# would hand a model a weapon from the other variant and break the
 		# positional role maths. First entry wins.
 		var variant_seen := _roles_by_unit.has(uid) or _defaults_by_unit_model.has(uid)
+		var name_keyed := slug_suffix == "" and _is_codex_name_keyed(entry)  # WP-M4c
+		if name_keyed and not variant_seen:
+			_codex_kit_units[uid] = true
+		# WP-M4c: a codex datasheet whose NAME slugs differently from its id
+		# ("Invader ATVs" / invader-atv) is looked up by name — ingest it under both.
+		var name_alias := _datasheet_name_slug(uid) if name_keyed else ""
+		if name_alias != "" and name_alias != uid:
+			_name_aliases[uid] = name_alias
 		var per_model: Dictionary = {}
 		var roles: Array = []
 		for m in entry.get("models", []):
@@ -486,6 +591,10 @@ static func _ingest_compositions(parsed: Array, slug_suffix: String) -> void:
 				var s := str(wid)
 				if s == "":
 					continue
+				if name_keyed:
+					var ns := _name_slug_of_id(s)  # WP-M4c: the weapon's name, not its id
+					if ns != "":
+						s = ns
 				if s not in ids:
 					ids.append(s)
 				if role_slug != "" and s not in role_ids:
@@ -550,6 +659,8 @@ static func _ensure_options_loaded() -> void:
 	var parsed = _read_json_array(WARGEAR_OPTIONS_PATH, "wargear options")
 	if parsed != null:
 		_ingest_options(parsed, "")
+		_ensure_compositions_loaded()
+		_ingest_options(_alias_entries(parsed), "")  # WP-M4c: name-slug aliases
 	var legacy = _read_json_array(LEGACY_WARGEAR_OPTIONS_PATH, "legacy (1.0.19) wargear options")
 	if legacy != null:
 		_ingest_options(legacy, LEGACY_SLUG_SUFFIX)
@@ -569,14 +680,15 @@ static func _ingest_options(parsed: Array, slug_suffix: String) -> void:
 		# several ("replacement_choice"). Normalise both to a list of bundles so
 		# callers only handle one shape.
 		var bundles: Array = []
+		var nk := slug_suffix == "" and _is_codex_name_keyed(entry)  # WP-M4c: name-keyed codex option ids
 		var fixed = entry.get("replacement", null)
 		if typeof(fixed) == TYPE_ARRAY and not fixed.is_empty():
-			bundles.append(_slug_list(fixed, uid))
+			bundles.append(_slug_list(_name_keyed_ids(fixed) if nk else fixed, uid))
 		var choices = entry.get("replacement_choice", null)
 		if typeof(choices) == TYPE_ARRAY:
 			for choice in choices:
 				if typeof(choice) == TYPE_ARRAY and not choice.is_empty():
-					bundles.append(_slug_list(choice, uid))
+					bundles.append(_slug_list(_name_keyed_ids(choice) if nk else choice, uid))
 		if bundles.is_empty():
 			continue
 
@@ -585,7 +697,7 @@ static func _ingest_options(parsed: Array, slug_suffix: String) -> void:
 			constraint = {}
 		var options: Array = _options_by_unit.get(uid, [])
 		options.append({
-			"replaces": _slug_list(entry.get("replaces", []), uid),
+			"replaces": _slug_list(_name_keyed_ids(entry.get("replaces", [])) if nk else entry.get("replaces", []), uid),
 			"bundles": bundles,
 			"role": _slug(str(constraint.get("model_name", ""))),
 			"max_count": int(constraint.get("max_count", -1)),
@@ -594,6 +706,16 @@ static func _ingest_options(parsed: Array, slug_suffix: String) -> void:
 		})
 		_options_by_unit[uid] = options
 
+
+## WP-M4c: weapon ids -> their weapon-name slugs (unknown ids kept).
+static func _name_keyed_ids(ids) -> Array:
+	var out: Array = []
+	if typeof(ids) != TYPE_ARRAY:
+		return out
+	for id in ids:
+		var ns := _name_slug_of_id(str(id))
+		out.append(ns if ns != "" else str(id))
+	return out
 
 # 40kdc weapon ids, slugified and stripped of the disambiguating unit suffix.
 static func _slug_list(ids, unit_slug: String) -> Array:

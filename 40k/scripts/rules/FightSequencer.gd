@@ -85,6 +85,9 @@ func is_fights_first(unit: Dictionary) -> bool:
 	# Throne: friendly ADEPTUS CUSTODES units have Fights First (WP-C46).
 	if load("res://scripts/codex/custodes/CustodesDetachments.gd").has_fights_first(unit):
 		return true
+	# WP-M4c TEMPORMORTIS (Judiciar): "This unit has Fights First" — the Judiciar's whole Attached unit.
+	if load("res://scripts/codex/space_marines/SMAbilitiesC.gd").group_fights_first(unit):
+		return true
 	return UnitAbilities.unit_has(unit, "fights first")
 
 

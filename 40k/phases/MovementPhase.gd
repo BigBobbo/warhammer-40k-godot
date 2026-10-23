@@ -1456,6 +1456,14 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int, is_roll: bool = t
 		log_phase_message("%s: %s advance roll %d %+d = %d" % [str(sw_fv.source), unit_id, sw_raw, int(sw_fv.bonus), advance_roll])
 		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
 			"type": "Fervour of the Ancients", "roll": sw_raw, "result": "Advance roll %d %+d = %d" % [sw_raw, int(sw_fv.bonus), advance_roll]})
+	# WP-M4c SPEAR OF CHOGORIS (Suboden Khan): assault doctrine active -> +1 to advance rolls (SMAbilitiesC).
+	var smc_rb: Dictionary = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").roll_bonus(unit_id) if is_roll else {"bonus": 0}
+	if int(smc_rb.get("bonus", 0)) != 0:
+		var smc_raw := advance_roll
+		advance_roll += int(smc_rb.bonus)
+		log_phase_message("%s: %s advance roll %d %+d = %d" % [str(smc_rb.source), unit_id, smc_raw, int(smc_rb.bonus), advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": "Spear of Chogoris", "roll": smc_raw, "result": "Advance roll %d %+d = %d" % [smc_raw, int(smc_rb.bonus), advance_roll]})
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
@@ -5622,6 +5630,8 @@ func _complete_movement_phase(changes: Array) -> Dictionary:
 		# your Movement phase, if this unit is controlling an objective, that
 		# objective is secured."
 		OrkAbilities11eScript.on_movement_phase_end(get_current_player())
+		# WP-M4c RAISE THE BANNER / BANNER OF MACRAGGE: "At the end of your Movement phase, if this unit is controlling an objective, that objective is secured."
+		load("res://scripts/codex/space_marines/SMAbilitiesC.gd").on_movement_phase_end(get_current_player())
 		var ctx := {"phase": "movement", "engaged_at_phase_start": _engagement_at_phase_start.keys()}
 		if open_stratagem_window_both_players("movement_phase_end", ctx, "_resume_after_movement_phase_end"):
 			log_phase_message("Movement phase end waits for Player %d's movement_phase_end stratagem decision" % get_pending_stratagem_window_decider())
@@ -6873,8 +6883,9 @@ func _unit_has_fly_keyword(unit_id: String) -> bool:
 ## WP-O6 SHOKK-BOOSTA (Codex: Orks 11e, Big Mek): while making the boosted
 ## advance move "this unit can move through all types of model".
 func _o6_moves_through_models(unit_id: String, move_data: Dictionary) -> bool:
-	return GameConstants.edition >= 11 and str(move_data.get("mode", "")) == "ADVANCE" \
-		and OrkAbilities11eScript.shokk_boosta_active(unit_id)
+	return (GameConstants.edition >= 11 and str(move_data.get("mode", "")) == "ADVANCE" \
+		and OrkAbilities11eScript.shokk_boosta_active(unit_id)) \
+		or load("res://scripts/codex/space_marines/SMAbilitiesC.gd").moves_through_models(unit_id)  # WP-M4c GRAPNEL LAUNCHERS (Reiver Squad): move through all types of model
 
 ## Codex: Adeptus Custodes CALISTUS ka'tah (CustodesKatah.gd): the unit's
 ## current normal / advance / fall-back move may cross every model's base.
@@ -7143,7 +7154,9 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 		var _mv_keywords = _mv_unit.get("meta", {}).get("keywords", []) if not _mv_unit.is_empty() else []
 		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false, _mv_keywords))
 	# T-103: multi-floor vertical climb cost.
-	penalty += _get_vertical_climb_cost(from_pos, to_pos, unit_id)
+	# (WP-M4c GRAPNEL LAUNCHERS, Reiver Squad: "ignore all vertical distance" — SMAbilitiesC.)
+	if not load("res://scripts/codex/space_marines/SMAbilitiesC.gd").ignores_vertical_distance(unit_id):
+		penalty += _get_vertical_climb_cost(from_pos, to_pos, unit_id)
 	# log_it=false is for the live drag preview (MovementController calls this
 	# once per mouse-motion event so its ghost, its over-range clamp and this
 	# validation all cost a move identically). Logging there would flood the
