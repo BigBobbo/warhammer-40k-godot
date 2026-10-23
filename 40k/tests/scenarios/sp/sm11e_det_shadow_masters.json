@@ -8,7 +8,7 @@
     "phases.ShootingPhase.reactive_normal_move",
     "debug_log.no_errors"
   ],
-  "description": "Codex: Space Marines (11e) Phobos Shadow Force (WP-M2a). Fixture sm11e_m2a_marines_active. Setup privileges: P2 at 0 CP, a dense ruin under the Infiltrators (injected into TerrainManager \u2014 the fixture board is open). Shooting phase: (1) the Infiltrators (PHOBOS) shoot the Gretchin: shooting would stop them being hidden; the unit_has_shot window shows the free SHADOW MASTERS card with two buttons; a REAL click on 'Stay hidden' \u2014 they are hidden again (Game Log). (2) The Lieutenant with Combi-weapon (EXECUTE AND REDEPLOY) shoots: the card offers a 6\" normal move; a REAL click on Use starts the move (the reactive-move panel); it moves 3\" north (the panel's drag + Confirm) and is not eligible to charge this turn.",
+  "description": "Codex: Space Marines (11e) Phobos Shadow Force (WP-M2a). Fixture sm11e_m2a_marines_active. Setup privileges: P2 at 0 CP, a dense ruin under the Infiltrators (injected into TerrainManager — the fixture board is open). Shooting phase: (1) the Infiltrators (PHOBOS) shoot the Gretchin: shooting would stop them being hidden; the unit_has_shot window shows the free SHADOW MASTERS card with two buttons; a REAL click on 'Stay hidden' — they are hidden again (Game Log). (2) The Lieutenant with Combi-weapon (EXECUTE AND REDEPLOY) shoots: the card offers a 6\" normal move; a REAL click on Use starts the move (the reactive-move panel); it moves 3\" north (the panel's drag + Confirm) and is not eligible to charge this turn.",
   "fixture": "sm11e_m2a_marines_active",
   "edition": 11,
   "rng_seed": 42,
@@ -30,7 +30,7 @@
       "act": "execute_script",
       "multiline": true,
       "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
-      "comment": "setup privilege: P2 at 0 CP (no Ork reactions \u2014 not under test), auto wound allocation",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions — not under test), auto wound allocation",
       "equals": true
     },
     {
@@ -54,7 +54,7 @@
     {
       "act": "click_if_visible",
       "node": "/root/StratagemDialog/Content/DeclineButton",
-      "comment": "shooting phase_start (Auspex card \u2014 not under test here) declined"
+      "comment": "shooting phase_start (Auspex card — not under test here) declined"
     },
     {
       "act": "wait_seconds",
@@ -72,6 +72,13 @@
       "multiline": true,
       "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.shoot(1, \"U_INFILTRATOR_SQUAD_A\", \"U_GRETCHIN_C\", \"carbine\", 9)",
       "comment": "the Infiltrators shoot the Gretchin",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "integration: the detachment's WP-M3a stratagems now open unit_selected_to_shoot first — declined (not under test); the held action then applies",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.has_pending_stratagem_window() and str(ph.get_pending_stratagem_window().get(\"window_id\", \"\")) == \"unit_selected_to_shoot\":\n\tvar w = ph.get_pending_stratagem_window()\n\tph.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": \"unit_selected_to_shoot\"})\nreturn true",
       "equals": true
     },
     {

@@ -8,7 +8,7 @@
     "dialogs.CommandRerollDialog.free_ability",
     "debug_log.no_errors"
   ],
-  "description": "Codex: Space Marines (11e) Stormlance Task Force (WP-M2a). Fixture sm11e_m2a_marines_active. (1) Movement phase (P2 at 0 CP): LIGHTNING-FAST STRIKE \u2014 the Outriders (MOUNTED) have M +2\" (the movement cap). They advance (the panel's Advance): SUPERCHARGED ENGINES offers a FREE re-roll in the re-roll dialog (no CP) \u2014 a REAL click on the re-roll button re-rolls it. (2) Shooting phase: the phase_start window shows the free AUSPEX TRIANGULATION SHRINES card (Land Speeder); a REAL click on Use opens the target picker listing the Meganobz (visible, within 12\"); a REAL click picks them: they are spotted (+3\" detection range), Game Log line.",
+  "description": "Codex: Space Marines (11e) Stormlance Task Force (WP-M2a). Fixture sm11e_m2a_marines_active. (1) Movement phase (P2 at 0 CP): LIGHTNING-FAST STRIKE — the Outriders (MOUNTED) have M +2\" (the movement cap). They advance (the panel's Advance): SUPERCHARGED ENGINES offers a FREE re-roll in the re-roll dialog (no CP) — a REAL click on the re-roll button re-rolls it. (2) Shooting phase: the phase_start window shows the free AUSPEX TRIANGULATION SHRINES card (Land Speeder); a REAL click on Use opens the target picker listing the Meganobz (visible, within 12\"); a REAL click picks them: they are spotted (+3\" detection range), Game Log line.",
   "fixture": "sm11e_m2a_marines_active",
   "edition": 11,
   "rng_seed": 42,
@@ -30,7 +30,7 @@
       "act": "execute_script",
       "multiline": true,
       "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
-      "comment": "setup privilege: P2 at 0 CP (no Ork reactions \u2014 not under test), auto wound allocation",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions — not under test), auto wound allocation",
       "equals": true
     },
     {
@@ -47,7 +47,7 @@
     {
       "act": "click_if_visible",
       "node": "/root/StratagemDialog/Content/DeclineButton",
-      "comment": "movement phase_start (Damocles-class Uplink card \u2014 not under test here) declined"
+      "comment": "movement phase_start (Damocles-class Uplink card — not under test here) declined"
     },
     {
       "act": "wait_seconds",
@@ -75,6 +75,13 @@
     {
       "act": "expect_action_result",
       "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "integration: the detachment's WP-M3a stratagems now open unit_selected_to_move (SUDDEN ONSLAUGHT) first — declined (not under test); the held action then applies",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.has_pending_stratagem_window() and str(ph.get_pending_stratagem_window().get(\"window_id\", \"\")) == \"unit_selected_to_move\":\n\tvar w = ph.get_pending_stratagem_window()\n\tph.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": \"unit_selected_to_move\"})\nreturn true",
       "equals": true
     },
     {

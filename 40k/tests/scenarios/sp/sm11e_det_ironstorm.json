@@ -7,7 +7,7 @@
     "rules.reroll.one_hit_roll",
     "debug_log.no_errors"
   ],
-  "description": "Codex: Space Marines (11e) Ironstorm Spearhead (WP-M2a). Fixture sm11e_m2a_marines_active (P1 took all seven WP-M2a detachments). (1) REDOUBTABLE MACHINE SPIRIT: setup privilege \u2014 the Repulsor (the bearer) has lost 3 wounds; a REAL click on End Command Phase heals 1 (Game Log). (2) IRONSTORM AUTO-TARGETERS: Shooting phase (P2 at 0 CP); the Impulsor (ADEPTUS ASTARTES VEHICLE, not a WALKER) shoots the Gretchin with its storm bolters (the shooting panel's SHOOT): a failed hit die is re-rolled once \u2014 the hit dice block's modifier ledger names 'Ironstorm Auto-targeters'. The post-shot COMBINED DEPLOYMENT card (Gauntlet, not under test here) is declined.",
+  "description": "Codex: Space Marines (11e) Ironstorm Spearhead (WP-M2a). Fixture sm11e_m2a_marines_active (P1 took all seven WP-M2a detachments). (1) REDOUBTABLE MACHINE SPIRIT: setup privilege — the Repulsor (the bearer) has lost 3 wounds; a REAL click on End Command Phase heals 1 (Game Log). (2) IRONSTORM AUTO-TARGETERS: Shooting phase (P2 at 0 CP); the Impulsor (ADEPTUS ASTARTES VEHICLE, not a WALKER) shoots the Gretchin with its storm bolters (the shooting panel's SHOOT): a failed hit die is re-rolled once — the hit dice block's modifier ledger names 'Ironstorm Auto-targeters'. The post-shot COMBINED DEPLOYMENT card (Gauntlet, not under test here) is declined.",
   "fixture": "sm11e_m2a_marines_active",
   "edition": 11,
   "rng_seed": 42,
@@ -110,7 +110,7 @@
       "act": "execute_script",
       "multiline": true,
       "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
-      "comment": "setup privilege: P2 at 0 CP (no Ork reactions \u2014 not under test), auto wound allocation",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions — not under test), auto wound allocation",
       "equals": true
     },
     {
@@ -127,7 +127,7 @@
     {
       "act": "click_if_visible",
       "node": "/root/StratagemDialog/Content/DeclineButton",
-      "comment": "shooting phase_start (Auspex Triangulation Shrines card \u2014 not under test) declined"
+      "comment": "shooting phase_start (Auspex Triangulation Shrines card — not under test) declined"
     },
     {
       "act": "wait_seconds",
@@ -145,6 +145,13 @@
       "multiline": true,
       "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.shoot(1, \"U_IMPULSOR_A\", \"U_GRETCHIN_C\", \"storm\", 11)",
       "comment": "the Impulsor shoots the Gretchin (the shooting panel's SHOOT)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "integration: the detachment's WP-M3a stratagems now open unit_selected_to_shoot first — declined (not under test); the held action then applies",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.has_pending_stratagem_window() and str(ph.get_pending_stratagem_window().get(\"window_id\", \"\")) == \"unit_selected_to_shoot\":\n\tvar w = ph.get_pending_stratagem_window()\n\tph.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": \"unit_selected_to_shoot\"})\nreturn true",
       "equals": true
     },
     {
