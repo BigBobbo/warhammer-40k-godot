@@ -621,7 +621,11 @@ func test_lance_melee_profile_resolves_in_melee():
 	var board = _make_melee_board([], {"toughness": 4, "save": 4, "wounds": 1},
 		{"charged_this_turn": true})
 	var action = _make_melee_action("lance_melee")
+	# Seeded: an unseeded all-miss roll (3.7% for 3 attacks at 3+) produces no
+	# wound block and failed this test intermittently in CI.
+	rules_engine.set_test_seed(42)
 	var result = rules_engine.resolve_melee_attacks(action, board)
+	rules_engine.set_test_seed(-1)
 
 	assert_true(result.success, "Resolution with lance_melee should succeed")
 	assert_true(result.dice.size() >= 2, "Should have at least hit and wound dice blocks")
