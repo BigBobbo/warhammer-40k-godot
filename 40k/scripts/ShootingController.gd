@@ -2040,7 +2040,7 @@ func _show_range_indicators() -> void:
 		var rapid_fire_value = RulesEngine.get_rapid_fire_value(weapon_id) \
 			+ RulesEngine.ork11e_rapid_fire_bonus(shooter_unit, weapon_profile)
 		if rapid_fire_value > 0:
-			var half_range_px = range_px / 2.0
+			var half_range_px = range_px if load("res://scripts/codex/space_marines/SMDetachmentsB.gd").full_range_rapid_fire(shooter_unit) else range_px / 2.0  # WP-M2b Codex Fire-patterns: [RAPID FIRE] up to maximum range
 			var half_range_circle = preload("res://scripts/RangeCircle.gd").new()
 			half_range_circle.position = reference_pos
 			half_range_circle.setup(half_range_px, weapon_display_name + " (Rapid Fire %d)" % rapid_fire_value, Color.ORANGE, true)
@@ -7276,7 +7276,7 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 		for rf_mid in rf_unit_weapons:
 			if weapon_id in rf_unit_weapons[rf_mid]:
 				rf_bearers.append(rf_mid)
-		var rf_in_half: int = RulesEngine.count_models_in_half_range(attacker_unit, target_unit, weapon_id, rf_bearers, GameState.state)
+		var rf_in_half: int = RulesEngine.count_models_in_half_range(attacker_unit, target_unit, weapon_id, rf_bearers, GameState.state, true)  # (WP-M2b: RAPID FIRE — Codex Fire-patterns reads the full range)
 		var rf_models: int = mini(rf_in_half, model_count)
 		total_attacks += rapid_fire_val * rf_models
 		if rf_models >= model_count:

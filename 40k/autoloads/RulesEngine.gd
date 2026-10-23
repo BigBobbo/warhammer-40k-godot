@@ -1917,6 +1917,7 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		ap = worsen_ap(ap, ow_worsen_ap)
 		print("RulesEngine: Worsen AP (Overwatch) — AP %d → %d (worsen by %d)" % [pre_ap, ap, ow_worsen_ap])
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+	damage_raw = cus11e_damage_raw_plus(str(damage_raw), int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").ranged_damage_bonus(shooter_unit, weapon_profile)))  # WP-M2b Master-forged Firearms +1 D (Codex: Space Marines 11e)
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 	var target_flags = target_unit.get("flags", {})
 
@@ -2334,7 +2335,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
 		var weapon_range = weapon_profile.get("range", 24) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
-		var half_range_inches = weapon_range / 2.0
+		var half_range_inches = weapon_range if load("res://scripts/codex/space_marines/SMDetachmentsB.gd").full_range_rapid_fire(actor_unit) else weapon_range / 2.0  # WP-M2b Codex Fire-patterns: [RAPID FIRE] up to maximum range
 		for model_id in model_ids:
 			# ATTACHED CHARACTERS: a composite "<char_unit>:<model>" bearer is not
 			# in actor_unit.models, so _get_model_by_id returned {} and the model
@@ -4502,7 +4503,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
 		var weapon_range = weapon_profile.get("range", 24) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
-		var half_range_inches = weapon_range / 2.0
+		var half_range_inches = weapon_range if load("res://scripts/codex/space_marines/SMDetachmentsB.gd").full_range_rapid_fire(actor_unit) else weapon_range / 2.0  # WP-M2b Codex Fire-patterns: [RAPID FIRE] up to maximum range
 		for model_id in model_ids:
 			# ATTACHED CHARACTERS: a composite "<char_unit>:<model>" bearer is not
 			# in actor_unit.models, so _get_model_by_id returned {} and the model
@@ -5547,6 +5548,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ap = worsen_ap(ap, ar_worsen_ap)
 		print("RulesEngine: Worsen AP (auto-resolve) — AP %d → %d (worsen by %d)" % [pre_ap, ap, ar_worsen_ap])
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+	damage_raw = cus11e_damage_raw_plus(str(damage_raw), int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").ranged_damage_bonus(actor_unit, weapon_profile)))  # WP-M2b Master-forged Firearms +1 D (Codex: Space Marines 11e)
 	var casualties = 0
 	var damage_applied = 0
 	var damage_roll_log = []
@@ -10235,6 +10237,7 @@ static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weap
 	# Hunter's Eye, Ferocious Strike, A Giant Amongst Giants) ride the same aggregator.
 	load("res://scripts/codex/space_wolves/SWDetachments11e.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
 	SWAbilities11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-S4: Space Wolves (11e) datasheet abilities ride the same aggregator
+	load("res://scripts/codex/space_marines/SMDetachmentsB.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-M2b: Codex: Space Marines (11e) generic detachments B (Enduring Vengeance, Walking Fortress, enhancements)
 	return ab_mods
 
 ## Fold the datasheet-ability hit modifiers into HitModifier bits (+ ledger).
@@ -10287,7 +10290,8 @@ static func sw11e_ignore_wound_penalties(bits: int, ledger: Array, ab: Dictionar
 static func ork11e_ab_wound_penalty(target_unit: Dictionary, strength: int, toughness: int) -> bool:
 	return GameConstants.edition >= 11 and (OrkAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness) \
 		or CustodesAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness)  # WP-C7: Unyielding Ancient / Praesidium Shield (Sentinel Guard)
-		or SWAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness))  # WP-S4: Legendary Tenacity / Rugged Resilience (Space Wolves)
+		or SWAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness)  # WP-S4: Legendary Tenacity / Rugged Resilience (Space Wolves)
+		or load("res://scripts/codex/space_marines/SMDetachmentsB.gd").incoming_wound_penalty(target_unit, strength, toughness))  # WP-M2b: Indefatigable Fortitude / Indomitable Defence (Codex: Space Marines 11e)
 
 ## The ledger name of the S > T -1 to wound above (Hardy Bioniks, or the
 ## Custodes Unyielding Ancient / Praesidium Shield — WP-C7).
@@ -10295,6 +10299,8 @@ static func ork11e_ab_wound_penalty_name(target_unit: Dictionary, strength: int,
 	var cus_src: String = CustodesAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)
 	if cus_src == "":
 		cus_src = SWAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)  # WP-S4: Legendary Tenacity / Rugged Resilience
+	if cus_src == "":
+		cus_src = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").incoming_wound_penalty_source(target_unit, strength, toughness)  # WP-M2b: Indefatigable Fortitude / Indomitable Defence
 	return cus_src if cus_src != "" else "Hardy Bioniks"
 
 const ORK11E_FLAG_CLOSE_RANGE_DAKKA := "ork11e_close_range_dakka"
@@ -11525,11 +11531,12 @@ static func count_models_in_half_range(
 	target_unit: Dictionary,
 	weapon_id: String,
 	model_ids: Array,
-	board: Dictionary
+	board: Dictionary,
+	for_rapid_fire: bool = false
 ) -> int:
 	var weapon_profile = get_weapon_profile(weapon_id, board)
 	var weapon_range = weapon_profile.get("range", 24) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
-	var half_range_inches = weapon_range / 2.0
+	var half_range_inches = weapon_range if (for_rapid_fire and load("res://scripts/codex/space_marines/SMDetachmentsB.gd").full_range_rapid_fire(actor_unit)) else weapon_range / 2.0  # WP-M2b Codex Fire-patterns (RAPID FIRE only, never MELTA)
 
 	var models_in_half_range = 0
 
@@ -15417,6 +15424,7 @@ static func prepare_save_resolution(
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
 	var damage_raw = weapon_profile.get("damage_raw", str(damage))
+	damage_raw = cus11e_damage_raw_plus(str(damage_raw), int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").ranged_damage_bonus(shooter_unit, weapon_profile)))  # WP-M2b Master-forged Firearms +1 D (Codex: Space Marines 11e)
 
 	# IGNORES COVER: Check if weapon ignores cover
 	var weapon_ignores_cover = has_ignores_cover(weapon_profile.get("name", ""), board)

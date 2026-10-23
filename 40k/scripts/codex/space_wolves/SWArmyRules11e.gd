@@ -119,14 +119,18 @@ static func times_used(player: int, doctrine: String) -> int:
 
 ## How many times `doctrine` may still be selected this battle: once each;
 ## with Codex Discipline (Gladius Task Force) ONE doctrine one extra time.
+## WP-M2b: + Assault / Devastator / Tactical Mastery (SMDetachmentsB) — that
+## doctrine one additional time; stacks with Codex Discipline.
 static func doctrine_limit(player: int, doctrine: String) -> int:
+	var smb = load("res://scripts/codex/space_marines/SMDetachmentsB.gd")
+	var base := 1 + int(smb.doctrine_extra_selections(player, doctrine))
 	if not has_codex_discipline(player):
-		return 1
+		return base
 	var used := doctrines_used(player)
 	for d in used:
-		if str(d) != doctrine and int(used[d]) >= 2:
-			return 1  # the extra selection went to another doctrine
-	return 2
+		if str(d) != doctrine and int(used[d]) >= 2 + int(smb.doctrine_extra_selections(player, str(d))):
+			return base  # Codex Discipline's extra selection went to another doctrine
+	return base + 1
 
 static func doctrine_available(player: int, doctrine: String) -> bool:
 	return doctrine in Common.DOCTRINES and times_used(player, doctrine) < doctrine_limit(player, doctrine)
@@ -392,7 +396,11 @@ static func build_command_ui(section: VBoxContainer, player: int, emit: Callable
 		btn.name = "SW11eDoctrine_%s" % d
 		var used_n := times_used(player, d)
 		var can := open and doctrine_available(player, d)
-		btn.text = "%s%s" % [str(Common.DOCTRINE_LABELS[d]).to_upper(), "  (used)" if used_n >= doctrine_limit(player, d) else ("  (Codex Discipline)" if used_n >= 1 else "")]
+		# WP-M2b: the extra selection is named after the rule that gives it (Assault Mastery, ... or Codex Discipline).
+		var extra_src := str(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").doctrine_extra_source(player, d))
+		if extra_src == "" or used_n >= 2:
+			extra_src = "Codex Discipline" if has_codex_discipline(player) else extra_src
+		btn.text = "%s%s" % [str(Common.DOCTRINE_LABELS[d]).to_upper(), "  (used)" if used_n >= doctrine_limit(player, d) else (("  (%s)" % extra_src) if used_n >= 1 else "")]
 		btn.tooltip_text = str(DOCTRINE_TEXT[d])
 		btn.custom_minimum_size = Vector2(230, 30)
 		btn.add_theme_font_size_override("font_size", 16)

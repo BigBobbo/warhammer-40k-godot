@@ -79,6 +79,9 @@ func enter_phase(state_snapshot: Dictionary) -> void:
 	# WP-S4: Space Wolves start-of-phase ability cards (Slayer's Oath, Headhunters,
 	# Healing Balms, High King of Fenris, Njal's psychic powers, Haywire Mine).
 	_ev_deferred.append_array(_sw11e_abilities().phase_start_entries(int(phase_type), _ev_deferred))
+	# WP-M2b: Codex: Space Marines (11e) Tactical Insight (doctrine sync) + Narthecis Gauntlet Command-phase card.
+	load("res://scripts/codex/space_marines/SMDetachmentsB.gd").on_phase_enter(int(phase_type))
+	_ev_deferred.append_array(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").phase_start_entries(int(phase_type), _ev_deferred))
 	_on_phase_enter()
 	# (A phase that ended inside its own entry does not carry them over.)
 	var pm_now = get_node_or_null("/root/PhaseManager")

@@ -790,7 +790,8 @@ static func get_effect_minus_damage(unit: Dictionary) -> int:
 	var best_minus := maxi(maxi(int(unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0)), int(_ork_abilities().defence_mods_now(unit).get("damage_minus", 0))),
 		int(_cus11e_abilities().defence_mods_now(unit).get("damage_minus", 0)))  # WP-C7: Guardian Eternal (ranged -1 D)
 	# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE (SWCodex11e.gd): attacks that target the unit have -1 D.
-	return maxi(best_minus, int(_sw11e_codex().damage_minus(unit)))
+	best_minus = maxi(best_minus, int(_sw11e_codex().damage_minus(unit)))
+	return maxi(best_minus, int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").damage_minus(unit)))  # WP-M2b: Codex: Space Marines (11e) Artificer Sarcophagus (-1 D)
 
 static func has_effect_crit_hit_on(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted critical hit threshold."""

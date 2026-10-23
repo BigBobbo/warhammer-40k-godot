@@ -89,6 +89,7 @@ func preview_cp_cost(player: int, stratagem_id: String, target_unit_id: String =
 	var cost := _base_cp_cost(stratagems[sid], {})
 	cost = maxi(0, cost + int(_cus11e_stratagem_override(player, sid, target_unit_id).get("cost_delta", 0)))
 	cost = maxi(0, cost - int(_sw11e_cp_discount(player, sid, target_unit_id).get("discount", 0)))
+	cost = maxi(0, cost - int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").stratagem_cp_discount(player, sid, target_unit_id).get("discount", 0)))  # WP-M2b Laurels of Vigilance
 	return cost
 
 # Stratagem WINDOWS (design §3): the game event at which a stratagem with
@@ -969,6 +970,8 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	effective_cost = maxi(0, effective_cost + int(cus11e_ov.get("cost_delta", 0)))
 	# Codex: Space Marines (11e) Countercharge (The Great Wolf Watches): Heroic Intervention -1CP (WP-S2).
 	effective_cost = maxi(0, effective_cost - int(_sw11e_cp_discount(player, stratagem_id, target_unit_id).get("discount", 0)))
+	# WP-M2b: Codex: Space Marines (11e) Laurels of Vigilance — Fire Overwatch / Heroic Intervention on a BATTLELINE unit -1CP.
+	effective_cost = maxi(0, effective_cost - int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").stratagem_cp_discount(player, stratagem_id, target_unit_id).get("discount", 0)))
 	var player_cp = _get_player_cp(player)
 	if player_cp < effective_cost:
 		return {"can_use": false, "reason": "Not enough CP (need %d, have %d)" % [effective_cost, player_cp]}
@@ -1274,6 +1277,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# Codex: Space Marines (11e) Space Wolves rule choice / enhancement ability in a window (WP-S2): free.
 	if _sw11e_det().is_rule_offer_id(stratagem_id):
 		return _sw11e_det().use_rule_offer(player, stratagem_id, target_unit_id, context)
+	# WP-M2b: Codex: Space Marines (11e) generic detachments B rule card (Narthecis Gauntlet): free.
+	if load("res://scripts/codex/space_marines/SMDetachmentsB.gd").is_rule_offer_id(stratagem_id):
+		return load("res://scripts/codex/space_marines/SMDetachmentsB.gd").use_rule_offer(player, stratagem_id, target_unit_id, context)
 	# Validate
 	var validation = can_use_stratagem(player, stratagem_id, target_unit_id, context)
 	if not validation.can_use:
@@ -1319,6 +1325,12 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		effective_cp_cost = maxi(0, effective_cp_cost - int(sw11e_disc.get("discount", 0)))
 		diffs.append_array(_sw11e_det().record_cp_discount(sw11e_disc))
 		print("StratagemManager: %s — %s costs %d CP" % [str(sw11e_disc.source), strat.name, effective_cp_cost])
+	# WP-M2b: Codex: Space Marines (11e) Laurels of Vigilance (once per battle round, per army): -1CP.
+	var sm11e_disc: Dictionary = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").stratagem_cp_discount(player, stratagem_id, target_unit_id) if GameConstants.edition >= 11 else {}
+	if not sm11e_disc.is_empty() and effective_cp_cost > 0:
+		effective_cp_cost = maxi(0, effective_cp_cost - int(sm11e_disc.get("discount", 0)))
+		diffs.append_array(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").record_cp_discount(sm11e_disc))
+		print("StratagemManager: %s — %s costs %d CP" % [str(sm11e_disc.source), strat.name, effective_cp_cost])
 
 	# Deduct CP
 	var current_cp = _get_player_cp(player)
@@ -1644,6 +1656,8 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 	offers = _cus11e_det().window_offers(player, window_id, wctx) + offers
 	# Codex: Space Marines (11e) Space Wolves enhancement choices (Howlmaw — WP-S2): free, listed first.
 	offers = _sw11e_det().window_offers(player, window_id, wctx) + offers
+	# WP-M2b: Codex: Space Marines (11e) generic detachments B rule cards (Narthecis Gauntlet): free, listed first.
+	offers = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").window_offers(player, window_id, wctx) + offers
 	print("StratagemManager: get_window_offers(P%d, %s) -> %d offer(s)%s" % [
 		player, window_id, offers.size(),
 		"" if offers.is_empty() else " " + str(offers.map(func(o): return o.name))])
