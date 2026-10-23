@@ -88,6 +88,9 @@ func enter_phase(state_snapshot: Dictionary) -> void:
 	# Spiritual Leader, Rampart, Teleport Homer, Tigurius' / the Librarian's psychic
 	# powers, Haywire Mine, Signum Array) — SMAbilitiesB.gd.
 	_ev_deferred.append_array(load("res://scripts/codex/space_marines/SMAbilitiesB.gd").phase_start_entries(int(phase_type), _ev_deferred))
+	# WP-M4c: Space Marines (M4c datasheets) start-of-phase cards (Strategic Acumen, Narthecium,
+	# Master of Shadows, Seeker of the Unfound, Forgefather, Overlapping Destruction, Master Tactician).
+	_ev_deferred.append_array(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").phase_start_entries(int(phase_type), _ev_deferred))
 	_on_phase_enter()
 	# (A phase that ended inside its own entry does not carry them over.)
 	var pm_now = get_node_or_null("/root/PhaseManager")

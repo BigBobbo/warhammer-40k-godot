@@ -221,6 +221,8 @@ func _on_phase_enter() -> void:
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
 		ability_mgr.on_phase_start(GameStateData.Phase.FIGHT)
+	# WP-M4c FEARSOME ASSAULT (Reiver Squad): start of the Fight phase — each enemy unit engaged with Reivers makes a battle-shock roll at -1.
+	load("res://scripts/codex/space_marines/SMAbilitiesC.gd").on_fight_phase_start()
 
 	# Refresh snapshot after ability effects mutated GameState flags
 	game_state_snapshot = GameState.create_snapshot()
@@ -2948,6 +2950,8 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	# WP-S4 (SWAbilities11e): the fighter's own unit_has_fought window first —
 	# Space Wolves HAMMER BLOW ("In the Fight phase, when this unit has fought").
 	var sw_uhf: Array = _sw11e_abilities().unit_has_fought_entries(unit_id, _sw11e_abilities().melee_hit_unit_ids(_sw11e_fought_assignments, dice_log.slice(mini(_sw11e_dice_mark, dice_log.size()))))
+	# WP-M4c RIGHTEOUS FURY (Captain Titus): "when this unit has fought" — Titus heals D3 (2D3 after a kill) (SMAbilitiesC, diffs applied).
+	changes.append_array(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").on_unit_has_fought(unit_id))
 	_sw11e_fought_assignments = []
 	# Codex: Space Marines (11e) TRANSHUMAN SWIFTNESS (SMCodex11e.gd): "Fight phase, when an enemy unit has
 	# fought" — either player's Fight phase, so the window also opens for the active player.
@@ -3082,6 +3086,8 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 			mode = Ork11eDetachments.ARD_AS_NAILS_MODE
 		# WP-S4 (SWAbilities11e): Space Wolves Murder-maker / Anvil of Endurance / Heroic Last Stand.
 		var sw_fod: Dictionary = _sw11e_abilities().fod_rule(uid, int(parts[3])) if mode == "" else {}
+		if sw_fod.is_empty() and mode == "":
+			sw_fod = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").fod_rule(uid, int(parts[3]))  # WP-M4c Honour of Ultramar (Captain Titus, 2+)
 		if not sw_fod.is_empty():
 			mode = "sw11e"
 		if mode == "":

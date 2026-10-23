@@ -1,0 +1,169 @@
+{
+  "id": "sm11e_ab_c_shooting_cards",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.forgefather",
+    "codex.space_marines.datasheet_abilities.overlapping_destruction",
+    "scripts.codex.space_marines.SMAbilitiesC",
+    "stratagem.window.phase_start",
+    "dialogs.StratagemTargetDialog"
+  ],
+  "description": "WP-M4c Codex: Space Marines (11e) FORGEFATHER (Vulkan He'stan) and OVERLAPPING DESTRUCTION (Eradicator Squad with Heavy Bolters) through the real start-of-Shooting-phase window. Fixture sm11e_m4c_shoot (P1 Space Marines' Shooting phase): Vulkan and Eradicators with Melta Rifles face a Deff Dread; Eradicators with Heavy Bolters face 10 Boyz. Real clicks: Forgefather + the Deff Dread (friendly [MELTA]/[TORRENT] attacks against it +2 S this phase), Overlapping Destruction + the Boyz (Heavy Bolters that target them have [BLAST 1]: +2 attacks per model vs 10 models). The effect is checked on the engine's own resolution (same seed, with and without).",
+  "fixture": "sm11e_m4c_shoot",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "sm_abilities_c": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_forgefather",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_overlapping_destruction",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shooting_ability_cards"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_forgefather/Buttons/Use_sm11e_abc_forgefather_U_VULKAN_HE_STAN_A",
+      "comment": "real click: Forgefather"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_DEFF_DREAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_forgefather_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_DEFF_DREAD_A",
+      "comment": "real click: the Deff Dread"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_ERADICATOR_SQUAD_WITH_MELTA_RIFLES_A\"), GameState.get_unit(\"U_DEFF_DREAD_A\"), {\"name\": \"Melta Rifle\", \"type\": \"Ranged\", \"keywords\": [\"MELTA 2\"]}, false, GameState.state)\nvar b = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_ERADICATOR_SQUAD_WITH_MELTA_RIFLES_A\"), GameState.get_unit(\"U_DEFF_DREAD_A\"), {\"name\": \"Bolt Pistol\", \"type\": \"Ranged\", \"keywords\": [\"PISTOL\"]}, false, GameState.state)\nreturn \"%d,%d\" % [int(m.get(\"strength\", 0)), int(b.get(\"strength\", 0))]",
+      "multiline": true,
+      "comment": "the Eradicators' [MELTA] attacks vs the Deff Dread +2 S; their Bolt Pistols unchanged",
+      "equals": "2,0"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Forgefather: friendly ADEPTUS ASTARTES [MELTA]/[TORRENT] attacks that target Deff Dread\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_overlapping_destruction",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_overlapping_destruction/Buttons/Use_sm11e_abc_overlapping_destruction_U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A",
+      "comment": "real click: Overlapping Destruction"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "comment": "real click: the Boyz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var aid := \"U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A\"\nvar wid := \"\"\nvar w = RulesEngine.get_unit_weapons(aid, GameState.state)\nfor mid in w:\n\tfor x in w[mid]:\n\t\tif wid == \"\" and not str(x).ends_with(\"_melee\") and str(RulesEngine.get_weapon_profile(str(x), GameState.state).get(\"name\", \"\")).to_lower().contains(\"heavy bolter\"):\n\t\t\twid = str(x)\nvar mids: Array = []\nfor mid in w:\n\tif wid in w[mid]:\n\t\tmids.append(str(mid))\nvar asg = {\"weapon_id\": wid, \"target_unit_id\": \"U_BOYZ_B\", \"model_ids\": mids}\nvar live_flags: Dictionary = GameState.state.units[aid].flags\nvar saved = live_flags.get(\"sm11e_abc_overlap\")\nvar prev_seed: int = RulesEngine.get_test_seed()\nvar on_b: Dictionary = GameState.state.duplicate(true)\nRulesEngine.set_test_seed(11)\nvar on = RulesEngine.resolve_shoot({\"type\": \"SHOOT\", \"actor_unit_id\": aid, \"payload\": {\"assignments\": [asg]}}, on_b, RulesEngine.RNGService.new(11))\nlive_flags.erase(\"sm11e_abc_overlap\")\nvar off_b: Dictionary = GameState.state.duplicate(true)\nRulesEngine.set_test_seed(11)\nvar off = RulesEngine.resolve_shoot({\"type\": \"SHOOT\", \"actor_unit_id\": aid, \"payload\": {\"assignments\": [asg]}}, off_b, RulesEngine.RNGService.new(11))\nlive_flags[\"sm11e_abc_overlap\"] = saved\nRulesEngine.set_test_seed(prev_seed)\nvar a_on := 0\nvar a_off := 0\nfor dd in on.get(\"dice\", []):\n\tif str(dd.get(\"context\", \"\")) in [\"to_hit\", \"hit_roll\"]:\n\t\ta_on += int(dd.get(\"total_attacks\", dd.get(\"rolls_raw\", []).size()))\nfor dd in off.get(\"dice\", []):\n\tif str(dd.get(\"context\", \"\")) in [\"to_hit\", \"hit_roll\"]:\n\t\ta_off += int(dd.get(\"total_attacks\", dd.get(\"rolls_raw\", []).size()))\nprint(\"[sm11e-m4c] overlapping destruction: weapon %s models %s; heavy bolter attacks %d with vs %d without\" % [wid, str(mids), a_on, a_off])\nreturn a_on - a_off",
+      "multiline": true,
+      "comment": "[BLAST 1] vs 10 Boyz: +2 attacks per Heavy Bolter (3 models = +6), same seed",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Overlapping Destruction: the Heavy Bolters of Eradicator Squad with Heavy Bolters that target Boyz\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "03_shooting_cards_resolved_log"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4c] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

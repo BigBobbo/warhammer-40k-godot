@@ -1,0 +1,244 @@
+{
+  "id": "sm11e_ab_c_fight_cards",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.righteous_fury",
+    "codex.space_marines.datasheet_abilities.press_the_attack",
+    "codex.space_marines.datasheet_abilities.fearsome_assault",
+    "scripts.codex.space_marines.SMAbilitiesC",
+    "stratagem.window.unit_selected_to_fight",
+    "phases.FightPhase"
+  ],
+  "description": "WP-M4c Codex: Space Marines (11e) FEARSOME ASSAULT (Reiver Squad), RIGHTEOUS FURY and PRESS THE ATTACK (Captain Titus). Fixture sm11e_m4c_fight (P1 Space Marines' Fight phase): Captain Titus (3/6 W) leads an Intercessor Squad engaged with the Warboss; a Reiver Squad is engaged with the Boyz. At the start of the Fight phase the Boyz make a battle-shock roll at -1 (Game Log). Selecting the Intercessors to fight (real click in the fight panel) opens P1's unit_selected_to_fight window with the free Righteous Fury card (once per battle): a real click gives the unit's melee attacks +1 S (and Press the Attack's [SUSTAINED HITS 1] vs the non-VEHICLE Warboss); when the unit has fought, Titus heals D3.",
+  "fixture": "sm11e_m4c_fight",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "sm_abilities_c": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Fearsome Assault (Reiver Squad): Boyz battle-shock roll\")",
+      "comment": "start of the Fight phase: the Boyz (engaged with the Reivers) make a battle-shock roll at -1",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Fearsome Assault (Reiver Squad): Warboss\")",
+      "comment": "the Warboss is not engaged with the Reivers: no roll",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fearsome_assault_log"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "multiline": true,
+      "comment": "auto-allocate the Warboss's saves; P2 has no CP for reactions (not under test)",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_INTERCESSOR_SQUAD_A",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_INTERCESSOR_SQUAD_A",
+      "emit_pressed": true,
+      "comment": "real click: select the Intercessors (led by Titus) to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_righteous_fury",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "unit_selected_to_fight"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_righteous_fury\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_righteous_fury_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_righteous_fury/Buttons/Use_sm11e_abc_righteous_fury_U_INTERCESSOR_SQUAD_A",
+      "comment": "real click: Righteous Fury"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\"), GameState.get_unit(\"U_WARBOSS_A\"), {\"name\": \"Close Combat Weapon\", \"type\": \"Melee\"}, true, GameState.state)\nreturn \"%d,%d\" % [int(m.get(\"strength\", 0)), int(m.get(\"sustained\", 0))]",
+      "multiline": true,
+      "comment": "Righteous Fury: the unit's melee attacks +1 S; Press the Attack: [SUSTAINED HITS 1] vs a non-MONSTER/VEHICLE unit",
+      "equals": "1,1"
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.state.players[\"1\"].get(\"sm11e_abc_army_uses\", {}).get(\"righteous_fury\", \"\") == \"battle\")",
+      "comment": "once per battle (per army): spent",
+      "equals": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the rest of P1's unit_selected_to_fight window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+      "multiline": true,
+      "comment": "EPIC CHALLENGE prompt for a CHARACTER fighter (Titus) — not under test, declined via its real Decline button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "P2's enemy_targets_unit_fight window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)",
+      "comment": "resolve the attacks through the resolution dock"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "post-fight windows (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return int(GameState.get_unit(\"U_CAPTAIN_TITUS_A\").models[0].current_wounds) > 3",
+      "equals": true,
+      "timeout_s": 6.0,
+      "comment": "when the unit has fought: Titus heals D3 (2D3 if he destroyed an enemy model)"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Righteous Fury: Captain Titus has fought\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "03_titus_healed_log"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4c] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

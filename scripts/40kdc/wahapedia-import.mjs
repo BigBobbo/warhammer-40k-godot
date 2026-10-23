@@ -392,11 +392,13 @@ export function parseLoadout(text) {
 export function parseLoadoutCounts(text) {
   const out = new Map();
   const t = stripHtml(text);
-  const re = /(This model|Every model|Every ([^:]+?)|The ([^:]+?)) (?:is|are) equipped with:\s*([^]*?)(?=(?:This model|Every|The [^.:]+ (?:is|are) equipped with:)|$)/gi;
+  // WP-M4c: a named model ("Aemelia Minervas is equipped with: ...", Wardens
+  // of Ultramar) is a fourth form of the sentence; before it, those kits were empty.
+  const re = /(This model|Every model|Every ([^:]+?)|The ([^:]+?)|([A-Z][^:.;]*?)) (?:is|are) equipped with:\s*([^]*?)(?=(?:This model|Every|The [^.:]+ (?:is|are) equipped with:|[A-Z][^:.;]*? (?:is|are) equipped with:)|$)/gi;
   let m;
   while ((m = re.exec(t))) {
-    const who = (m[2] || m[3] || '*').trim();
-    const items = m[4].replace(/\.\s*$/, '').split(/;/).map(x => x.trim().replace(/\.$/, '')).filter(Boolean)
+    const who = (m[2] || m[3] || m[4] || '*').trim();
+    const items = m[5].replace(/\.\s*$/, '').split(/;/).map(x => x.trim().replace(/\.$/, '')).filter(Boolean)
       .map(x => {
         const c = x.match(/^(\d+)\s+(.+)$/);
         return c ? { name: c[2], n: parseInt(c[1], 10) } : { name: x, n: 1 };

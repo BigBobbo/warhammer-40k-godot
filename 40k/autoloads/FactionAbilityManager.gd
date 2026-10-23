@@ -2161,6 +2161,10 @@ func get_redeploy_enhancement(player: int) -> Dictionary:
 		var sm11e_rd: Dictionary = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").redeploy_enhancement(player)
 		if not sm11e_rd.is_empty():
 			return sm11e_rd
+		# WP-M4c STRATEGIUM COMMAND (Wardens of Ultramar datasheet ability): up to three ADEPTUS ASTARTES units.
+		var smc_rd: Dictionary = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").redeploy_entry(player)
+		if not smc_rd.is_empty():
+			return smc_rd
 	for entry in REDEPLOY_ENHANCEMENTS:
 		if has_enhancement(player, entry.name):
 			return entry
@@ -2184,6 +2188,8 @@ func get_razgit_eligible_units(player: int) -> Array:
 		return []
 
 	var bearer_info = _find_enhancement_bearer(player, entry.name)
+	if bearer_info.is_empty() and entry.has("bearer_id"):
+		bearer_info = {"bearer_id": str(entry.bearer_id)}  # WP-M4c: a datasheet ability (Strategium Command), not an enhancement
 	if bearer_info.is_empty():
 		return []
 

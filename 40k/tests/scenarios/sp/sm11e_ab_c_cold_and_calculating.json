@@ -1,0 +1,144 @@
+{
+  "id": "sm11e_ab_c_cold_and_calculating",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.cold_and_calculating",
+    "scripts.codex.space_marines.SMAbilitiesC",
+    "stratagem.window.unit_selected_to_fight",
+    "phases.FightPhase"
+  ],
+  "description": "WP-M4c Codex: Space Marines (11e) COLD AND CALCULATING (Caanok Var) through the real unit_selected_to_fight window. Fixture sm11e_m4c_fight_cards (P1 Space Marines' Fight phase): Caanok Var is engaged with a Deff Dread. A real click selects him to fight; the free card offers [LETHAL HITS: MONSTER/VEHICLE] or [SUSTAINED HITS 1: non-MONSTER/VEHICLE] (no tactical doctrine: no third option); a real click on the lethal option gives his attacks vs the Deff Dread [LETHAL HITS] for the phase.",
+  "fixture": "sm11e_m4c_fight_cards",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "sm_abilities_c": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CAANOK_VAR_A",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CAANOK_VAR_A",
+      "emit_pressed": true,
+      "comment": "real click: select Caanok Var to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_cold_and_calculating",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_cold_and_calculating/Buttons/Use_sm11e_abc_cold_and_calculating_U_CAANOK_VAR_A_lethal",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_cold_and_calculating/Buttons/Use_sm11e_abc_cold_and_calculating_U_CAANOK_VAR_A_both\") == null",
+      "comment": "no tactical doctrine active: no 'both' option",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_cold_and_calculating_options"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_cold_and_calculating/Buttons/Use_sm11e_abc_cold_and_calculating_U_CAANOK_VAR_A_lethal",
+      "comment": "real click: [LETHAL HITS: MONSTER/VEHICLE]"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_CAANOK_VAR_A\"), GameState.get_unit(\"U_DEFF_DREAD_A\"), {\"name\": \"Axiom\", \"type\": \"Melee\"}, true, GameState.state)\nreturn bool(m.get(\"lethal\", false))",
+      "comment": "Caanok's attacks vs the Deff Dread (VEHICLE) have [LETHAL HITS]",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Cold and Calculating: Caanok Var's attacks have [LETHAL HITS: MONSTER/VEHICLE]\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the rest of the window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_cold_and_calculating_used_log"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4c] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

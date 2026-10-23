@@ -145,6 +145,9 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 func attachment_role(character: Dictionary) -> String:
 	if UnitAbilities.has_datasheet_ability(character, "support"):
 		return "support"
+	# WP-M4c CAPTAIN OF THE HONOUR GUARD (Cato Sicarius): Leader -> Support while the army includes Marneus Calgar.
+	if load("res://scripts/codex/space_marines/SMAbilitiesC.gd").leader_becomes_support(character):
+		return "support"
 	return "leader"
 
 

@@ -574,6 +574,8 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 		oc = int(load("res://scripts/codex/space_wolves/SWAbilities11e.gd").model_oc(unit, model, oc))
 		# WP-M4b LORD OF THE PYROCLASTS (Adrax Agatone): an enemy unit engaged with his unit has -1 OC.
 		oc = int(load("res://scripts/codex/space_marines/SMAbilitiesB.gd").model_oc(unit, model, oc))
+		# WP-M4c: Terror Troops (-1 OC near Reivers), Honour of the Company (+1), Seeker of the Unfound (OC 10).
+		oc = int(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").model_oc(unit, model, oc))
 	return maxi(oc, 0)
 
 ## Codex: Adeptus Custodes (11e) Moritoi Ancients OC bonus for `unit` (0 at 10e
