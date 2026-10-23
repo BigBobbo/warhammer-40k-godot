@@ -247,6 +247,8 @@ TESTS=(
     "tests/test_sw11e_detachments.gd"
     "tests/test_sw11e_enhancements.gd"
     "tests/test_sw11e_abilities.gd"
+    "tests/test_sm11e_army_rules.gd"
+    "tests/test_sm11e_detachments_a.gd"
     "tests/test_ork_codex_framework.gd"
     "tests/test_ork_codex_fight.gd"
     "tests/test_ork_codex_shooting.gd"

@@ -1,12 +1,19 @@
 extends RefCounted
 
-## SWArmyRules11e — Codex: Space Marines (11e), Space Wolves ARMY RULES (WP-S2).
+## SWArmyRules11e — Codex: Space Marines (11e) ARMY RULES (WP-S2, generalised
+## to every Space Marine army by WP-M2a).
 ##
-## Source: .llm/codex_11e_wahapedia/space-marines/SPACE_WOLVES.md ("Army
-## rules"). Plan: PLAN_SPACE_WOLVES.md; contract: IMPLEMENTATION.md; rulings:
-## RULINGS.md § WP-S2. Every rule here gates on SWCommon.is_sw_army(player)
-## (11e and a Space Wolves army) — other Space Marine armies keep their index
-## rules (Oath of Moment, the 10e Gladius doctrines in FactionAbilityManager).
+## Source: .llm/codex_11e_wahapedia/space-marines/SPACE_WOLVES.md and
+## SPACE_MARINES_GENERIC.md ("Army rules"). Plans: PLAN_SPACE_WOLVES.md,
+## PLAN_SPACE_MARINES.md; contract: IMPLEMENTATION.md; rulings: RULINGS.md
+## § WP-S2 / § WP-M2a.
+##
+## WP-M2a (SM-D1): COMBAT DOCTRINES and TRANSHUMAN STRATEGIST apply to EVERY
+## Space Marine army (SWCommon.is_sm_army: faction Space Marines / Adeptus
+## Astartes or any chapter, 11e). The 10e Gladius-only doctrine path
+## (FactionAbilityManager "COMBAT DOCTRINES", CommandPhase) is edition-10 only.
+## The Space Wolves specifics (Curse of the Wulfen, Bestial Forms, Sons of
+## Russ) keep gating on SWCommon.is_sw_army(player).
 ##
 ##  COMBAT DOCTRINES (army rule; the state API is documented in SWCommon)
 ##   - Selection: in YOUR Command phase (offered from its start until you pick
@@ -137,7 +144,7 @@ static func decided_this_command_phase(player: int) -> bool:
 ## True while `player` may select (or skip) a doctrine: a Space Wolves army,
 ## in its own Command phase, not decided yet this phase, a doctrine left.
 static func selection_open(player: int) -> bool:
-	if not enabled() or not Common.is_sw_army(player):
+	if not enabled() or not Common.is_sm_army(player):
 		return false
 	if Common.current_phase() != int(GameStateData.Phase.COMMAND) or Common.active_player() != player:
 		return false
@@ -232,8 +239,8 @@ static func command_actions(player: int) -> Array:
 ## Validation for SELECT_COMBAT_DOCTRINE / SKIP_COMBAT_DOCTRINE (errors array).
 static func validate_action(player: int, action: Dictionary) -> Array:
 	var errors: Array = []
-	if not Common.is_sw_army(player):
-		errors.append("Player %d is not a Space Wolves army" % player)
+	if not Common.is_sm_army(player):
+		errors.append("Player %d is not a Space Marines army (Codex: Space Marines 11e)" % player)
 		return errors
 	if Common.current_phase() != int(GameStateData.Phase.COMMAND) or Common.active_player() != player:
 		errors.append("Combat Doctrines: select a doctrine in your own Command phase")
@@ -290,7 +297,7 @@ static func skip_doctrine_diffs(player: int) -> Dictionary:
 ## loaded during it) keeps this phase's choice. Applies the diffs itself.
 static func on_command_phase_start(player: int) -> Array:
 	var diffs: Array = []
-	if not enabled() or not Common.is_sw_army(player):
+	if not enabled() or not Common.is_sm_army(player):
 		return diffs
 	if decided_this_command_phase(player):
 		_log("P%d's Command phase re-entered — doctrine choice of this phase kept (%s)" % [player, army_doctrine(player)])
@@ -355,7 +362,7 @@ static func ai_command_action(player: int) -> Dictionary:
 
 ## True when the Command panel should show the block for `player`.
 static func show_command_ui(player: int) -> bool:
-	return enabled() and Common.is_sw_army(player)
+	return enabled() and Common.is_sm_army(player)
 
 ## Build the block into `section`. `emit` is a Callable(action: Dictionary)
 ## that sends the action like the panel's other buttons.
@@ -433,7 +440,7 @@ static func on_battle_round_start(battle_round: int) -> Array:
 	if not enabled():
 		return diffs
 	for p in [1, 2]:
-		if not Common.is_sw_army(p):
+		if not Common.is_sm_army(p):
 			continue
 		var wid := warlord_id(p)
 		if wid == "":

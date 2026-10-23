@@ -27,8 +27,10 @@ const ArmyDetachments11e = preload("res://scripts/codex/ArmyDetachments11e.gd")
 #   (3) Models have a 5+ invulnerable save.
 #
 # Detachment abilities (P2-27):
-# - Combat Doctrines (Space Marines / Gladius Task Force):
+# - Combat Doctrines (Space Marines / Gladius Task Force) — EDITION 10 ONLY:
 #   At the start of your Command phase, select one Combat Doctrine. Each once per battle.
+#   (11e: the Codex: Space Marines army rule of every Space Marine army,
+#   scripts/codex/space_wolves/SWArmyRules11e.gd — WP-M2a.)
 #   Devastator: eligible to shoot after Advancing. Tactical: shoot+charge after Falling Back.
 #   Assault: charge after Advancing.
 # - Get Stuck In (Orks / War Horde):
@@ -867,6 +869,10 @@ func has_detachment_ability(player: int) -> bool:
 
 func get_available_doctrines(player: int) -> Array:
 	"""Get list of Combat Doctrines that haven't been used yet this battle."""
+	# 10e only: at 11e Combat Doctrines is the Codex: Space Marines army rule of
+	# every Space Marine army (SWArmyRules11e.gd, WP-M2a) — no Gladius-only path.
+	if GameConstants.edition >= 11:
+		return []
 	if not player_has_detachment(player, "Gladius Task Force"):
 		return []
 
@@ -890,6 +896,9 @@ func select_combat_doctrine(player: int, doctrine_key: String) -> Dictionary:
 	"""Select a Combat Doctrine for this Command Phase. Once per battle each."""
 	var player_key = str(player)
 
+	# 10e only (WP-M2a): the 11e army rule lives in SWArmyRules11e.gd.
+	if GameConstants.edition >= 11:
+		return {"success": false, "error": "Combat Doctrines (11e) is the Codex: Space Marines army rule — select it in the Command panel (SWArmyRules11e)"}
 	if not player_has_detachment(player, "Gladius Task Force"):
 		return {"success": false, "error": "Player %d is not using Gladius Task Force detachment" % player}
 
@@ -1138,7 +1147,8 @@ func unit_has_detachment_charge_reroll(unit: Dictionary) -> bool:
 	if GameConstants.edition >= 11:
 		return Ork11eDetachments.charge_reroll_source(unit) != "" \
 			or load("res://scripts/codex/custodes/CustodesDetachments.gd").charge_reroll_source(unit) != "" \
-			or load("res://scripts/codex/space_wolves/SWDetachments11e.gd").charge_reroll_source(unit) != ""  # Codex: Space Marines (11e) Preyslayer (WP-S2)
+			or load("res://scripts/codex/space_wolves/SWDetachments11e.gd").charge_reroll_source(unit) != "" \
+			or load("res://scripts/codex/space_marines/SMDetachmentsA.gd").charge_reroll_source(unit) != ""  # Codex: Space Marines (11e) Preyslayer (WP-S2); Linebreaker Onslaught (WP-M2a)
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false

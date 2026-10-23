@@ -672,3 +672,151 @@ static func is_sm_army(player: int) -> bool:
 		if int(u.get("owner", 0)) == player and has_keyword(u, "ADEPTUS ASTARTES"):
 			return true
 	return false
+
+# ===========================================================================
+# LIBRARIUS — psyker-level budget for every ADEPTUS ASTARTES PSYKER (WP-M2a)
+# ===========================================================================
+# "ADEPTUS ASTARTES PSYKER units with this ability have a psyker level of 1 or
+# higher, specified in that unit's abilities. Each psychic ability has a
+# psychic level of 1 or higher, specified in that ability's name. In a battle
+# round, a friendly ADEPTUS ASTARTES PSYKER unit can use a number of psychic
+# abilities whose total psychic level does not exceed that PSYKER unit's
+# psyker level."
+#
+# The API the datasheet packages (M4a/b/c Librarians, Tigurius, ...) call:
+#   librarius_psyker(u)                        -> bool (the unit has a budget)
+#   librarius_psyker_level(u)                  -> int  (1+; 0 = not a budgeted psyker)
+#   librarius_psychic_level(power_name)        -> int  ("(psychic level N)" in the
+#                                                      name, else the table, else 1)
+#   librarius_levels_used(u)                   -> int  (this battle round)
+#   librarius_can_use(unit_id, power[, lvl])   -> {ok, reason, level, used, cost}
+#   librarius_use_diffs(unit_id, power[, lvl]) -> Array (record the use; apply
+#                                                      the diffs with your effect)
+# Budget + "each power once per phase" live on the PSYKER model's OWN unit
+# (an attached Librarian keeps its unit id), in the same flags SWAbilities11e
+# (Njal Stormcaller, WP-S4) uses — one budget whichever module spends it:
+#   flags.sw11e_psy_round / sw11e_psy_used / sw11e_psy_phase / sw11e_psy_phase_names
+# The psychic roll itself ("roll one D6: on a 1 this unit is battle-shocked")
+# stays with the ability's module (it knows the "If you do" effect).
+
+const LIBRARIUS_F_ROUND := "sw11e_psy_round"
+const LIBRARIUS_F_USED := "sw11e_psy_used"
+const LIBRARIUS_F_PHASE := "sw11e_psy_phase"
+const LIBRARIUS_F_PHASE_NAMES := "sw11e_psy_phase_names"
+
+## Datasheet abilities that state the psyker level (the army data drops the
+## printed "(psyker level N)" suffix — Librarian 1, Chief Librarian 3, Njal's
+## High Rune Priest 3).
+const LIBRARIUS_PSYKER_LEVELS := {"librarian": 1, "chief librarian": 3, "high rune priest": 3}
+## Psychic level of each Codex: Space Marines psychic ability (printed in the
+## ability name; the army data drops it).
+const LIBRARIUS_PSYCHIC_LEVELS := {
+	"might of heroes": 1, "thunderous force": 1, "shrouding": 1, "soul sight": 1,
+	"prescience": 2, "telepathic assault": 1, "veil of time": 1, "force dome": 1,
+	"murderous hurricane": 1, "storm caller": 1, "tempest's wrath": 1,
+}
+
+static func _librarius_level_in_name(n: String, word: String) -> int:
+	var re := RegEx.new()
+	re.compile("(?i)" + word + "\\s+level\\s+(\\d+)")
+	var m := re.search(n)
+	return int(m.get_string(1)) if m else 0
+
+## The power's key: lower case, straight apostrophes, "(psychic level N)" and
+## underscores folded ("murderous_hurricane" == "Murderous Hurricane").
+static func librarius_power_key(power_name: String) -> String:
+	var k := norm_name(power_name.replace("_", " "))
+	var p := k.find("(")
+	if p > 0:
+		k = k.substr(0, p).strip_edges()
+	return k
+
+static func librarius_psychic_level(power_name: String) -> int:
+	var lvl := _librarius_level_in_name(power_name, "psychic")
+	if lvl > 0:
+		return lvl
+	return int(LIBRARIUS_PSYCHIC_LEVELS.get(librarius_power_key(power_name), 1))
+
+## The unit's psyker level from its abilities (0 = none stated).
+static func _librarius_stated_level(u: Dictionary) -> int:
+	var level := 0
+	for a in u.get("meta", {}).get("abilities", []):
+		var n := ""
+		if a is String:
+			n = a
+		elif a is Dictionary:
+			n = str(a.get("name", ""))
+		var inline := _librarius_level_in_name(n, "psyker")
+		if inline > 0:
+			level = maxi(level, inline)
+			continue
+		level = maxi(level, int(LIBRARIUS_PSYKER_LEVELS.get(librarius_power_key(n), 0)))
+	return level
+
+## A budgeted psyker: an ADEPTUS ASTARTES PSYKER unit of a Space Marine army
+## (11e) with the Librarius ability or an ability that states a psyker level.
+static func librarius_psyker(u: Dictionary) -> bool:
+	if u.is_empty() or not has_keyword(u, "ADEPTUS ASTARTES") or not has_keyword(u, "PSYKER"):
+		return false
+	if not is_sm_army(int(u.get("owner", 0))):
+		return false
+	return has_ability(u, "Librarius") or _librarius_stated_level(u) > 0
+
+static func librarius_psyker_level(u: Dictionary) -> int:
+	if not librarius_psyker(u):
+		return 0
+	return maxi(1, _librarius_stated_level(u))  # "a psyker level of 1 or higher"
+
+static func _librarius_phase_key() -> String:
+	return "%d:%d:%d" % [battle_round(), active_player(), current_phase()]
+
+static func librarius_levels_used(u: Dictionary) -> int:
+	var flags: Dictionary = u.get("flags", {})
+	if int(flags.get(LIBRARIUS_F_ROUND, -1)) != battle_round():
+		return 0
+	return int(flags.get(LIBRARIUS_F_USED, 0))
+
+## {ok, reason, level, used, cost}. psychic_level < 1: read from the name / table.
+static func librarius_can_use(unit_id: String, power_name: String, psychic_level: int = -1) -> Dictionary:
+	var u := unit(unit_id)
+	var cost := psychic_level if psychic_level >= 1 else librarius_psychic_level(power_name)
+	if not librarius_psyker(u):
+		return {"ok": false, "reason": "%s is not an ADEPTUS ASTARTES PSYKER unit with a psyker level (Librarius)" % unit_name(unit_id),
+			"level": 0, "used": 0, "cost": cost}
+	var level := librarius_psyker_level(u)
+	var used := librarius_levels_used(u)
+	var key := librarius_power_key(power_name)
+	var flags: Dictionary = u.get("flags", {})
+	var names: Array = []
+	if str(flags.get(LIBRARIUS_F_PHASE, "")) == _librarius_phase_key():
+		for n in flags.get(LIBRARIUS_F_PHASE_NAMES, []):
+			names.append(librarius_power_key(str(n)))
+	if key in names:
+		return {"ok": false, "level": level, "used": used, "cost": cost,
+			"reason": "%s has already used %s this phase" % [unit_name(unit_id), power_name]}
+	if used + cost > level:
+		return {"ok": false, "level": level, "used": used, "cost": cost,
+			"reason": "Librarius: %s (psyker level %d) has used %d psychic level%s this battle round — %s (psychic level %d) would exceed it" % [
+				unit_name(unit_id), level, used, "" if used == 1 else "s", power_name, cost]}
+	return {"ok": true, "reason": "", "level": level, "used": used, "cost": cost}
+
+## Record one use (budget + once-per-phase). Returns diffs (not applied).
+static func librarius_use_diffs(unit_id: String, power_name: String, psychic_level: int = -1) -> Array:
+	var u := unit(unit_id)
+	if u.is_empty():
+		return []
+	var cost := psychic_level if psychic_level >= 1 else librarius_psychic_level(power_name)
+	var used := librarius_levels_used(u) + cost
+	var flags: Dictionary = u.get("flags", {})
+	var names: Array = []
+	if str(flags.get(LIBRARIUS_F_PHASE, "")) == _librarius_phase_key():
+		names = (flags.get(LIBRARIUS_F_PHASE_NAMES, []) as Array).duplicate()
+	names.append(librarius_power_key(power_name))
+	log_info("[Librarius] %s used %s (psychic level %d): %d/%d psyker level spent this battle round" % [
+		unit_id, power_name, cost, used, librarius_psyker_level(u)])
+	return [
+		{"op": "set", "path": "units.%s.flags.%s" % [unit_id, LIBRARIUS_F_ROUND], "value": battle_round()},
+		{"op": "set", "path": "units.%s.flags.%s" % [unit_id, LIBRARIUS_F_USED], "value": used},
+		{"op": "set", "path": "units.%s.flags.%s" % [unit_id, LIBRARIUS_F_PHASE], "value": _librarius_phase_key()},
+		{"op": "set", "path": "units.%s.flags.%s" % [unit_id, LIBRARIUS_F_PHASE_NAMES], "value": names},
+	]

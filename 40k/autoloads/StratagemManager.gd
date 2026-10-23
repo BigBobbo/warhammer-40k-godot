@@ -1274,6 +1274,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# Codex: Space Marines (11e) Space Wolves rule choice / enhancement ability in a window (WP-S2): free.
 	if _sw11e_det().is_rule_offer_id(stratagem_id):
 		return _sw11e_det().use_rule_offer(player, stratagem_id, target_unit_id, context)
+	# WP-M2a Codex: Space Marines (11e) detachment-rule / enhancement cards (SMDetachmentsA.gd): free.
+	if stratagem_id.begins_with("sm11e_rule_"):
+		return load("res://scripts/codex/space_marines/SMDetachmentsA.gd").use_rule_offer(player, stratagem_id, target_unit_id, context)
 	# Validate
 	var validation = can_use_stratagem(player, stratagem_id, target_unit_id, context)
 	if not validation.can_use:
@@ -1644,6 +1647,8 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 	offers = _cus11e_det().window_offers(player, window_id, wctx) + offers
 	# Codex: Space Marines (11e) Space Wolves enhancement choices (Howlmaw — WP-S2): free, listed first.
 	offers = _sw11e_det().window_offers(player, window_id, wctx) + offers
+	# WP-M2a Codex: Space Marines (11e) detachment-rule / enhancement cards (SMDetachmentsA.gd): free, listed first.
+	offers = load("res://scripts/codex/space_marines/SMDetachmentsA.gd").window_offers(player, window_id, wctx) + offers
 	print("StratagemManager: get_window_offers(P%d, %s) -> %d offer(s)%s" % [
 		player, window_id, offers.size(),
 		"" if offers.is_empty() else " " + str(offers.map(func(o): return o.name))])

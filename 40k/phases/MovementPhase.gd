@@ -241,6 +241,11 @@ func get_unit_movement(unit: Dictionary) -> float:
 	if sw11e_mv > 0.0:
 		movement += sw11e_mv
 		DebugLogger.info(str("MovementPhase: Wolf-Touched — movement +%.0f\" for %s" % [sw11e_mv, unit.get("meta", {}).get("name", "?")]))
+	# WP-M2a Codex: Space Marines (11e) Lightning-fast Strike (Stormlance Task Force): AA MOUNTED / SPEEDER +2" M.
+	var sm11e_mv: float = float(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").move_bonus_inches(unit)) if GameConstants.edition >= 11 else 0.0
+	if sm11e_mv > 0.0:
+		movement += sm11e_mv
+		DebugLogger.info(str("MovementPhase: Lightning-fast Strike — movement +%.0f\" for %s" % [sm11e_mv, unit.get("meta", {}).get("name", "?")]))
 	# WP-O6: Codex: Orks (11e) datasheet abilities — Runnin' wiv da Herd (+4"),
 	# Madcap Artillery 'smashed' (-2").
 	if GameConstants.edition >= 11:
@@ -1345,6 +1350,9 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 	# re-roll offered in the same dialog instead of the Command Re-roll (WP-O34).
 	var free_rr_source: String = Ork11eArmyRules.free_advance_reroll_source(unit) if tw_override == 0 and advance_roll < 6 \
 		and not (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)) else ""
+	# WP-M2a Codex: Space Marines (11e) Wrath of the Chapter / Supercharged Engines: "can re-roll advance rolls" (free).
+	if free_rr_source == "" and tw_override == 0 and advance_roll < 6 and GameConstants.edition >= 11 and not (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)):
+		free_rr_source = str(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").free_advance_reroll_source(unit))
 	if strat_manager and free_rr_source == "" and not ork11e_roll_changed:  # (WP-O34: a changed 6 is not re-rolled)
 		var reroll_check = strat_manager.is_command_reroll_available(current_player, unit_id)
 		reroll_available = reroll_check.available
@@ -5622,6 +5630,8 @@ func _complete_movement_phase(changes: Array) -> Dictionary:
 		# your Movement phase, if this unit is controlling an objective, that
 		# objective is secured."
 		OrkAbilities11eScript.on_movement_phase_end(get_current_player())
+		# WP-M2a Codex: Space Marines (11e) Vanguard Ambushers (Phobos Shock Force): hidden PHOBOS units re-roll wound rolls of 1.
+		out.append_array(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").on_movement_phase_end(get_current_player()))
 		var ctx := {"phase": "movement", "engaged_at_phase_start": _engagement_at_phase_start.keys()}
 		if open_stratagem_window_both_players("movement_phase_end", ctx, "_resume_after_movement_phase_end"):
 			log_phase_message("Movement phase end waits for Player %d's movement_phase_end stratagem decision" % get_pending_stratagem_window_decider())

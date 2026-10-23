@@ -3372,6 +3372,10 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 	var sw11e_src: String = str(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").charge_reroll_source(unit_data))
 	if sw11e_src != "":
 		return sw11e_src
+	# WP-M2a Codex: Space Marines (11e) Linebreaker Onslaught (Gauntlet Task Force enhancement).
+	var sm11e_src: String = str(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").charge_reroll_source(unit_data))
+	if sm11e_src != "":
+		return sm11e_src
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:

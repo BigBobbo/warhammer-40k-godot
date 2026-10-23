@@ -1527,6 +1527,8 @@ static func snap_shooting_targets_11e(shooter_unit_id: String, board: Dictionary
 			print("RulesEngine: [15.09] SNAP — %s has Sneaky Surprise (cannot be targeted by Fire Overwatch)" % tid)
 			continue
 		var cus11e_block := _cus11e_snap_block_reason(target)
+		if cus11e_block == "" and GameConstants.edition >= 11:
+			cus11e_block = str(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").snap_block_reason(target))  # WP-M2a Seal of Shrouding / Linebreaker Onslaught
 		if cus11e_block != "":
 			print("RulesEngine: [15.09] SNAP — %s cannot be targeted with snap shooting (%s)" % [tid, cus11e_block])
 			continue
@@ -2867,6 +2869,11 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			hits += int(cus11e_mh.hit)
 			critical_hits += int(cus11e_mh.crit)
 			regular_hits += int(cus11e_mh.hit) - int(cus11e_mh.crit)
+			# WP-M2a Codex: Space Marines (11e) Ironstorm Auto-targeters / Martial Paragon: re-roll one hit roll.
+			var sm11e_mh: Dictionary = sm11e_reroll_one_hit(actor_unit, false, hit_evals, modified_rolls, reroll_data, bs_per_attack, bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band, hit_mod_ledger)
+			hits += int(sm11e_mh.hit)
+			critical_hits += int(sm11e_mh.crit)
+			regular_hits += int(sm11e_mh.hit) - int(sm11e_mh.crit)
 
 		# DAKKASTORM (OA-16): Every successful Hit roll scores a Critical Hit (ranged only)
 		if has_dakkastorm(actor_unit) and regular_hits > 0:
@@ -3386,6 +3393,14 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	if int(cus11e_mw.wound) > 0:
 		wounds_from_rolls += 1
 		if weapon_has_devastating_wounds and int(cus11e_mw.crit) > 0:
+			critical_wound_count += 1
+		else:
+			regular_wound_count += 1
+	# WP-M2a Codex: Space Marines (11e) Ironstorm Auto-targeters / Martial Paragon: re-roll one wound roll.
+	var sm11e_mw: Dictionary = sm11e_reroll_one_wound(actor_unit, false, wound_evals, wound_rolls, wound_reroll_data, wound_modifiers, wound_threshold, critical_wound_threshold, rng, wound_mod_ledger)
+	if int(sm11e_mw.wound) > 0:
+		wounds_from_rolls += 1
+		if weapon_has_devastating_wounds and int(sm11e_mw.crit) > 0:
 			critical_wound_count += 1
 		else:
 			regular_wound_count += 1
@@ -5020,6 +5035,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hits += int(cus11e_mh_ar.hit)
 			critical_hits += int(cus11e_mh_ar.crit)
 			regular_hits += int(cus11e_mh_ar.hit) - int(cus11e_mh_ar.crit)
+			# WP-M2a Ironstorm Auto-targeters / Martial Paragon: re-roll one hit roll (auto-resolve).
+			var sm11e_mh_ar: Dictionary = sm11e_reroll_one_hit(actor_unit, false, cus11e_ar_hit_evals, modified_rolls, reroll_data, bs_per_attack, bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band, hit_mod_ledger)
+			hits += int(sm11e_mh_ar.hit)
+			critical_hits += int(sm11e_mh_ar.crit)
+			regular_hits += int(sm11e_mh_ar.hit) - int(sm11e_mh_ar.crit)
 
 		# DAKKASTORM (OA-16): Every successful Hit roll scores a Critical Hit (ranged only, auto-resolve)
 		if has_dakkastorm(actor_unit) and regular_hits > 0:
@@ -5449,6 +5469,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if int(cus11e_mw_ar.wound) > 0:
 		wounds_from_rolls += 1
 		if ar_weapon_has_devastating_wounds and int(cus11e_mw_ar.crit) > 0:
+			ar_critical_wound_count += 1
+		else:
+			ar_regular_wound_count += 1
+	# WP-M2a Ironstorm Auto-targeters / Martial Paragon: re-roll one wound roll (auto-resolve).
+	var sm11e_mw_ar: Dictionary = sm11e_reroll_one_wound(actor_unit, false, cus11e_ar_wound_evals, wound_rolls, ar_wound_reroll_data, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng, ar_wound_mod_ledger)
+	if int(sm11e_mw_ar.wound) > 0:
+		wounds_from_rolls += 1
+		if ar_weapon_has_devastating_wounds and int(sm11e_mw_ar.crit) > 0:
 			ar_critical_wound_count += 1
 		else:
 			ar_regular_wound_count += 1
@@ -10161,6 +10189,67 @@ static func cus11e_magna_reroll_wound(actor_unit: Dictionary, wound_evals: Array
 			out.crit = 1
 	return out
 
+## WP-M2a Codex: Space Marines (11e) IRONSTORM AUTO-TARGETERS (AA VEHICLE, not
+## WALKER, ranged) / MARTIAL PARAGON (the bearer's unit): "re-roll one hit
+## roll" — the Magna Imperator single-die re-roll, sourced from
+## SMDetachmentsA.reroll_one_source (once per unit per phase per roll type).
+static func sm11e_reroll_one_hit(actor_unit: Dictionary, is_melee: bool, hit_evals: Array, modified_rolls: Array, reroll_data: Array, bs_per_attack: Array, bs: int, mods: int, crit_threshold: int, rng: RNGService, fail_band: int, ledger: Array) -> Dictionary:
+	var out := {"hit": 0, "crit": 0}
+	if GameConstants.edition < 11:
+		return out
+	var smd = load("res://scripts/codex/space_marines/SMDetachmentsA.gd")
+	var src: String = str(smd.reroll_one_source(actor_unit, "hit", is_melee))
+	if src == "":
+		return out
+	var i: int = cus11e_det().magna_pick_index(hit_evals, "is_hit")
+	if i < 0:
+		return out
+	smd.reroll_one_consume(actor_unit, "hit", src)
+	var new_raw: int = rng.roll_d6(1)[0]
+	var attack_bs: int = int(bs_per_attack[i]) if i < bs_per_attack.size() else bs
+	var no_rr: int = mods & ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
+	var ev = AttackSequence.evaluate_hit_roll(new_raw, attack_bs, no_rr, crit_threshold, rng, fail_band)
+	var old_raw = hit_evals[i].get("raw", 0)
+	hit_evals[i] = {"raw": old_raw, "final": ev.final_roll, "is_hit": ev.is_hit, "is_crit": ev.is_crit, "rerolled": true}
+	if i < modified_rolls.size():
+		modified_rolls[i] = ev.final_roll
+	reroll_data.append({"original": old_raw, "rerolled_to": new_raw})
+	ModifierLedger.note(ledger, src, ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "one hit roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
+	print("RulesEngine: [sm11e] %s — %s re-rolls one hit roll: %d -> %d (%s)" % [src, str(actor_unit.get("id", "?")), int(old_raw), new_raw, "hit" if ev.is_hit else "miss"])
+	if ev.is_hit:
+		out.hit = 1
+		if ev.is_crit:
+			out.crit = 1
+	return out
+
+## WP-M2a IRONSTORM AUTO-TARGETERS / MARTIAL PARAGON: "re-roll one wound roll".
+static func sm11e_reroll_one_wound(actor_unit: Dictionary, is_melee: bool, wound_evals: Array, wound_rolls: Array, reroll_data: Array, mods: int, wound_threshold: int, crit_threshold: int, rng: RNGService, ledger: Array) -> Dictionary:
+	var out := {"wound": 0, "crit": 0, "index": -1}
+	if GameConstants.edition < 11:
+		return out
+	var smd = load("res://scripts/codex/space_marines/SMDetachmentsA.gd")
+	var src: String = str(smd.reroll_one_source(actor_unit, "wound", is_melee))
+	if src == "":
+		return out
+	var i: int = cus11e_det().magna_pick_index(wound_evals, "is_wound")
+	if i < 0:
+		return out
+	smd.reroll_one_consume(actor_unit, "wound", src)
+	var new_raw: int = rng.roll_d6(1)[0]
+	var no_rr: int = mods & ~(WoundModifier.REROLL_ONES | WoundModifier.REROLL_FAILED | WoundModifier.REROLL_ONES_TWOS)
+	var ev = AttackSequence.evaluate_wound_roll(new_raw, no_rr, wound_threshold, crit_threshold, rng)
+	var old_raw = wound_evals[i].get("raw", 0)
+	wound_evals[i] = {"raw": old_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail, "rerolled": true}
+	reroll_data.append({"original": old_raw, "rerolled_to": new_raw})
+	ModifierLedger.note(ledger, src, ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "one wound roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
+	print("RulesEngine: [sm11e] %s — %s re-rolls one wound roll: %d -> %d (%s)" % [src, str(actor_unit.get("id", "?")), int(old_raw), new_raw, "wound" if ev.is_wound else "fail"])
+	out.index = i
+	if ev.is_wound and not ev.auto_fail:
+		out.wound = 1
+		if ev.is_crit:
+			out.crit = 1
+	return out
+
 ## Melee weapon-ability grants (Martial Mastery, Flawless Bladework, From the
 ## Hall of Armouries, Auric Exemplar): {sustained, lethal, devastating: source,
 ## cleave: int, cleave_source}.
@@ -10235,6 +10324,7 @@ static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weap
 	# Hunter's Eye, Ferocious Strike, A Giant Amongst Giants) ride the same aggregator.
 	load("res://scripts/codex/space_wolves/SWDetachments11e.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
 	SWAbilities11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-S4: Space Wolves (11e) datasheet abilities ride the same aggregator
+	load("res://scripts/codex/space_marines/SMDetachmentsA.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-M2a: Codex: Space Marines (11e) detachments A (Laurels, Gunnery Honours, Combined Deployment, Venator, Vanguard Ambushers, Ancient Exhortation)
 	return ab_mods
 
 ## Fold the datasheet-ability hit modifiers into HitModifier bits (+ ledger).
@@ -10268,6 +10358,8 @@ static func ork11e_ab_wound_bits(bits: int, ledger: Array, ab: Dictionary) -> in
 	match str(ab.get("wound_reroll", "")):
 		"ones":
 			bits |= WoundModifier.REROLL_ONES
+		"ones_twos":  # WP-M2a Venator Omni-auspex (assault doctrine): re-roll wound rolls of 1-2
+			bits |= WoundModifier.REROLL_ONES_TWOS
 		"failed":
 			bits |= WoundModifier.REROLL_FAILED
 	return bits
@@ -14256,6 +14348,11 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		hits += int(cus11e_mh_m.hit)
 		critical_hits += int(cus11e_mh_m.crit)
 		regular_hits += int(cus11e_mh_m.hit) - int(cus11e_mh_m.crit)
+		# WP-M2a Martial Paragon: re-roll one hit roll (melee).
+		var sm11e_mh_m: Dictionary = sm11e_reroll_one_hit(attacker_unit, true, hit_evals, modified_rolls, melee_hit_reroll_data, ws_per_attack, ws, melee_hit_modifiers, melee_crit_threshold, rng, 1, melee_hit_mod_ledger)
+		hits += int(sm11e_mh_m.hit)
+		critical_hits += int(sm11e_mh_m.crit)
+		regular_hits += int(sm11e_mh_m.hit) - int(sm11e_mh_m.crit)
 
 		# SUSTAINED HITS: Generate bonus hits on critical hits
 		if sustained_data.value > 0 and critical_hits > 0:
@@ -14604,6 +14701,16 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 		if int(cus11e_mw_m.crit) > 0:
 			all_critical_wound_count += 1
 		if weapon_has_devastating_wounds and int(cus11e_mw_m.crit) > 0:
+			critical_wound_count += 1
+		else:
+			regular_wound_count += 1
+	# WP-M2a Martial Paragon: re-roll one wound roll (melee).
+	var sm11e_mw_m: Dictionary = sm11e_reroll_one_wound(attacker_unit, true, wound_evals, wound_rolls, melee_wound_reroll_data, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng, melee_wound_mod_ledger)
+	if int(sm11e_mw_m.wound) > 0:
+		wounds_from_rolls += 1
+		if int(sm11e_mw_m.crit) > 0:
+			all_critical_wound_count += 1
+		if weapon_has_devastating_wounds and int(sm11e_mw_m.crit) > 0:
 			critical_wound_count += 1
 		else:
 			regular_wound_count += 1

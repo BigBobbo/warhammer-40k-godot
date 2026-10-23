@@ -105,7 +105,7 @@ func _on_phase_enter() -> void:
 		# Codex: Adeptus Custodes AQUILA COMMANDER — start of the battle round,
 		# +1CP if your WARLORD has it (bonus-CP cap respected; CustodesKatah.gd).
 		_cus11e_katah().on_battle_round_start(battle_round)
-		# Codex: Space Marines (11e) TRANSHUMAN STRATEGIST — +1CP if a Space Wolves WARLORD has it (SWArmyRules11e.gd, WP-S2).
+		# Codex: Space Marines (11e) TRANSHUMAN STRATEGIST — +1CP if a Space Marine WARLORD has it (SWArmyRules11e.gd, WP-S2 / WP-M2a).
 		SW11eArmyRules.on_battle_round_start(battle_round)
 
 	# Step 0b: Initialize secondary mission decks on first command phase
@@ -595,7 +595,8 @@ func get_available_actions() -> Array:
 	actions.append_array(SW11eDetachments.command_actions(current_player))
 	# Combat Doctrines selection (Space Marines — Gladius Task Force) (P2-27)
 	# (10e path; a Space Wolves army uses the codex army rule above instead.)
-	if faction_mgr and faction_mgr.player_has_detachment(current_player, "Gladius Task Force") and not SW11eArmyRules.Common.is_sw_army(current_player):
+	# (10e only — at 11e every Space Marine army uses the codex army rule above, WP-M2a.)
+	if faction_mgr and GameConstants.edition < 11 and faction_mgr.player_has_detachment(current_player, "Gladius Task Force"):
 		var available_doctrines = faction_mgr.get_available_doctrines(current_player)
 		var active_doctrine = faction_mgr.get_active_doctrine(current_player)
 		if available_doctrines.size() > 0 and active_doctrine == "":
@@ -796,7 +797,7 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
 			# Codex: Space Marines (11e) Space Wolves Combat Doctrines (WP-S2).
-			if SW11eArmyRules.Common.is_sw_army(get_current_player()):
+			if GameConstants.edition >= 11:  # Codex: Space Marines (11e) army rule, every SM army (WP-M2a)
 				errors = SW11eArmyRules.validate_action(get_current_player(), action)
 		"USE_HOWLING_ONSLAUGHT":
 			# Codex: Space Marines (11e) Saga of the Great Wolf (WP-S2).
@@ -1652,8 +1653,9 @@ func _validate_select_combat_doctrine(action: Dictionary) -> Array:
 		errors.append("Missing doctrine_key for Combat Doctrine selection")
 		return errors
 
-	# Codex: Space Marines (11e) Space Wolves: the army rule (SWArmyRules11e.gd, WP-S2).
-	if SW11eArmyRules.Common.is_sw_army(current_player):
+	# Codex: Space Marines (11e): the army rule for every Space Marine army (SWArmyRules11e.gd, WP-S2 / WP-M2a);
+	# at 11e the 10e Gladius path below never runs (a non-SM army is refused there).
+	if GameConstants.edition >= 11:
 		return SW11eArmyRules.validate_action(current_player, action)
 
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
@@ -1685,8 +1687,9 @@ func _handle_select_combat_doctrine(action: Dictionary) -> Dictionary:
 	var current_player = get_current_player()
 	var doctrine_key = action.get("doctrine_key", "")
 
-	# Codex: Space Marines (11e) Space Wolves: the army rule (SWArmyRules11e.gd, WP-S2).
-	if SW11eArmyRules.Common.is_sw_army(current_player):
+	# Codex: Space Marines (11e): the army rule for every Space Marine army (SWArmyRules11e.gd, WP-S2 / WP-M2a);
+	# at 11e the 10e Gladius path below never runs (a non-SM army is refused there).
+	if GameConstants.edition >= 11:
 		return _handle_sw11e_doctrine(action)
 
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
@@ -1712,8 +1715,9 @@ func _handle_select_combat_doctrine(action: Dictionary) -> Dictionary:
 
 func _handle_skip_combat_doctrine(_action: Dictionary) -> Dictionary:
 	var current_player = get_current_player()
-	# Codex: Space Marines (11e) Space Wolves: the army rule (SWArmyRules11e.gd, WP-S2).
-	if SW11eArmyRules.Common.is_sw_army(current_player):
+	# Codex: Space Marines (11e): the army rule for every Space Marine army (SWArmyRules11e.gd, WP-S2 / WP-M2a);
+	# at 11e the 10e Gladius path below never runs (a non-SM army is refused there).
+	if GameConstants.edition >= 11:
 		return _handle_sw11e_doctrine(_action)
 	log_phase_message("COMBAT DOCTRINES: Player %d skips doctrine selection this round" % current_player)
 
@@ -2633,6 +2637,8 @@ func _finish_end_command(auto_changes: Array, auto_resolved: Array) -> Dictionar
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if faction_mgr:
 		faction_mgr.on_command_phase_end(current_player)
+	# WP-M2a Codex: Space Marines (11e) Redoubtable Machine Spirit: "At the end of your Command phase, heals 1 wound."
+	auto_changes.append_array(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").on_command_phase_end(current_player))
 
 	# Warn about pending secondary mission interactions
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")

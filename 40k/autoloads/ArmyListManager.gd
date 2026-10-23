@@ -1137,6 +1137,9 @@ func _apply_sw11e_enhancements(unit_id: String, unit: Dictionary, army_data: Dic
 	if GameConstants.edition < 11:
 		return
 	load("res://scripts/codex/space_wolves/SWEnhancements11e.gd").apply_list_build(unit_id, unit, load("res://scripts/codex/ArmyDetachments11e.gd").names_from_army(army_data))
+	# WP-M2a: Codex: Space Marines (11e) detachments A enhancements — Standard of the Emperor Ascendant,
+	# Artificer Armour, Redoubtable Machine Spirit (SMDetachmentsA.gd; idempotent).
+	load("res://scripts/codex/space_marines/SMDetachmentsA.gd").apply_list_build(unit_id, unit, load("res://scripts/codex/ArmyDetachments11e.gd").names_from_army(army_data))
 
 func _apply_enhancement_granted_abilities(unit_id: String, unit: Dictionary) -> void:
 	"""Append enhancement-granted abilities/keywords to the unit's meta lists

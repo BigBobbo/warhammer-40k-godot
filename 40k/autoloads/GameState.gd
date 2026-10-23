@@ -714,6 +714,9 @@ func _unit_has_scout_own(unit_id: String) -> bool:
 	# this unit has Scouts 6"."
 	if GameConstants.edition >= 11 and float(_ork11e_enh().scouts_distance(unit)) > 0.0:
 		return true
+	# WP-M2a Codex: Space Marines (11e) Spearpoint War Leader: "This unit has Scouts 6"".
+	if GameConstants.edition >= 11 and float(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").scouts_distance(unit)) > 0.0:
+		return true
 	return false
 
 func _get_scout_distance_from_abilities(abilities: Array) -> float:
@@ -800,6 +803,10 @@ func get_scout_distance(unit_id: String) -> float:
 		var o5_scouts := float(_ork11e_enh().scouts_distance(unit))
 		if o5_scouts > 0.0:
 			return o5_scouts
+		# WP-M2a Spearpoint War Leader (Tacticus Attack Force): Scouts 6" for the bearer's unit.
+		var sm11e_scouts := float(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").scouts_distance(unit))
+		if sm11e_scouts > 0.0:
+			return maxf(sm11e_scouts, _get_scout_distance_from_abilities(unit.get("meta", {}).get("abilities", [])))
 	# Check own abilities first
 	var own_abilities = unit.get("meta", {}).get("abilities", [])
 	var own_distance = _get_scout_distance_from_abilities(own_abilities)

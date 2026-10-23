@@ -22344,6 +22344,11 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	if not sw11e_pick_w.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sw11e_pick_w.get("name", ""), sw11e_pick_w.get("target_unit_id", "")])
 		return sw11e_pick_w
+	# WP-M2a Codex: Space Marines (11e) detachment-rule / enhancement cards (SMDetachmentsA.gd) — synchronous.
+	var sm11e_pick_w: Dictionary = load("res://scripts/codex/space_marines/SMDetachmentsA.gd").ai_decide(player, window_id, offers, ctx)
+	if not sm11e_pick_w.is_empty():
+		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sm11e_pick_w.get("name", ""), sm11e_pick_w.get("target_unit_id", "")])
+		return sm11e_pick_w
 	offers = offers.filter(func(o): return not ork11e_det.is_rule_offer(o))
 	if offers.is_empty():
 		_add_thinking_step("Window %s: declining its rule choice(s)" % window_id)
