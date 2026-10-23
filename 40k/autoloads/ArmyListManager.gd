@@ -260,6 +260,7 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			_apply_wargear_stat_bonuses(unit_id, unit)
 			# WP-S4: Space Wolves Storm Shield (+1 W / 4+ InSv) and Blizzard Shield (4+ InSv) bearers.
 			load("res://scripts/codex/space_wolves/SWAbilities11e.gd").apply_list_build(unit_id, unit)
+			load("res://scripts/codex/space_marines/SMAbilitiesB.gd").apply_list_build(unit_id, unit)  # WP-M4b: Lieutenant Storm Shield, Impulsor Shield Dome / Orbital Comms Array
 
 			# Issue #396: enhancement-driven stat bonuses (Da Biggest Boss +2W).
 			_apply_enhancement_stat_bonuses(unit_id, unit)
@@ -731,6 +732,7 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 		_apply_wargear_stat_bonuses(unit_id, unit)
 		# WP-S4: Space Wolves Storm Shield / Blizzard Shield bearers (idempotent).
 		load("res://scripts/codex/space_wolves/SWAbilities11e.gd").apply_list_build(unit_id, unit)
+		load("res://scripts/codex/space_marines/SMAbilitiesB.gd").apply_list_build(unit_id, unit)  # WP-M4b: Lieutenant Storm Shield, Impulsor Shield Dome / Orbital Comms Array (idempotent)
 
 		# WP-O5: Codex: Orks (11e) enhancement list-build effects (cloud /
 		# browser-builder armies take this path, not load_army_list).

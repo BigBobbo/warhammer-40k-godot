@@ -572,6 +572,8 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 	# within 6" of a friendly SPACE WOLVES CHARACTER (SWAbilities11e.model_oc).
 	if GameConstants.edition >= 11:
 		oc = int(load("res://scripts/codex/space_wolves/SWAbilities11e.gd").model_oc(unit, model, oc))
+		# WP-M4b LORD OF THE PYROCLASTS (Adrax Agatone): an enemy unit engaged with his unit has -1 OC.
+		oc = int(load("res://scripts/codex/space_marines/SMAbilitiesB.gd").model_oc(unit, model, oc))
 	return maxi(oc, 0)
 
 ## Codex: Adeptus Custodes (11e) Moritoi Ancients OC bonus for `unit` (0 at 10e

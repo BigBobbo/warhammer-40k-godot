@@ -673,8 +673,7 @@ static func is_sm_army(player: int) -> bool:
 			return true
 	return false
 
-# ===========================================================================
-# LIBRARIUS — psyker-level budget for every ADEPTUS ASTARTES PSYKER (WP-M2a)
+# ====================================================================# LIBRARIUS — psyker-level budget for every ADEPTUS ASTARTES PSYKER (WP-M2a)
 # ===========================================================================
 # "ADEPTUS ASTARTES PSYKER units with this ability have a psyker level of 1 or
 # higher, specified in that unit's abilities. Each psychic ability has a
@@ -820,3 +819,24 @@ static func librarius_use_diffs(unit_id: String, power_name: String, psychic_lev
 		{"op": "set", "path": "units.%s.flags.%s" % [unit_id, LIBRARIUS_F_PHASE], "value": _librarius_phase_key()},
 		{"op": "set", "path": "units.%s.flags.%s" % [unit_id, LIBRARIUS_F_PHASE_NAMES], "value": names},
 	]
+=======
+# ---------------------------------------------------------------------------
+# WP-M4b: Strategic Acumen ledger (Codex: Space Marines 11e). "When a friendly
+# Captain unit uses its Strategic Acumen ability" (Demi-company Commander,
+# Lieutenant / Lieutenant in Phobos Armour — SMAbilitiesB.gd): every package
+# whose Captain uses Strategic Acumen records it here, so a Lieutenant of any
+# package can follow it:
+#   state.players[p].sm11e_last_strategic_acumen = {captain, doctrine, phase_key}
+# ---------------------------------------------------------------------------
+
+const SM11E_LAST_ACUMEN := "sm11e_last_strategic_acumen"
+
+## The diff that records a Strategic Acumen use (phase_key = "round:active:phase").
+static func sm11e_record_strategic_acumen(player: int, captain_id: String, doctrine: String, phase_key: String) -> Dictionary:
+	return {"op": "set", "path": "players.%s.%s" % [str(player), SM11E_LAST_ACUMEN],
+		"value": {"captain": captain_id, "doctrine": doctrine, "phase_key": phase_key}}
+
+## The last Strategic Acumen use of `player` ({} when none).
+static func sm11e_last_strategic_acumen(player: int) -> Dictionary:
+	var v = state().get("players", {}).get(str(player), {}).get(SM11E_LAST_ACUMEN, {})
+	return v if v is Dictionary else {}

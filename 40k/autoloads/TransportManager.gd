@@ -183,7 +183,7 @@ func can_disembark(unit_id: String) -> Dictionary:
 	# Check if transport has advanced or fell back
 	var transport_flags = transport.get("flags", {})
 	print("TransportManager: can_disembark — transport flags: %s" % str(transport_flags))
-	if transport_flags.get("advanced", false):
+	if transport_flags.get("advanced", false) and not load("res://scripts/codex/space_marines/SMAbilitiesB.gd").transport_allows_shock_disembark(transport):  # WP-M4b Rapid Disembarkation (Impulsor)
 		return {"valid": false, "reason": "Cannot disembark from transport that Advanced"}
 
 	if transport_flags.get("fell_back", false):

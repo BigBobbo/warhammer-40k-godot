@@ -84,6 +84,10 @@ func enter_phase(state_snapshot: Dictionary) -> void:
 	# WP-M2b: Codex: Space Marines (11e) Tactical Insight (doctrine sync) + Narthecis Gauntlet Command-phase card.
 	load("res://scripts/codex/space_marines/SMDetachmentsB.gd").on_phase_enter(int(phase_type))
 	_ev_deferred.append_array(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").phase_start_entries(int(phase_type), _ev_deferred))
+	# WP-M4b: Codex: Space Marines M4b start-of-phase ability cards (Strategic Acumen,
+	# Spiritual Leader, Rampart, Teleport Homer, Tigurius' / the Librarian's psychic
+	# powers, Haywire Mine, Signum Array) — SMAbilitiesB.gd.
+	_ev_deferred.append_array(load("res://scripts/codex/space_marines/SMAbilitiesB.gd").phase_start_entries(int(phase_type), _ev_deferred))
 	_on_phase_enter()
 	# (A phase that ended inside its own entry does not carry them over.)
 	var pm_now = get_node_or_null("/root/PhaseManager")

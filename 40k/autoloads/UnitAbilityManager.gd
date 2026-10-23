@@ -513,6 +513,335 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# WP-M4b: Codex: Space Marines (11e) datasheet abilities of the M4b datasheets.
+	# The rules live in scripts/codex/space_marines/SMAbilitiesB.gd; these rows
+	# only describe them (condition "sm11e" is never evaluated here). Names the
+	# M4b datasheets share with other packages (Strategic Acumen, Raise the
+	# Banner, Teleport Homer, Assault Ramp, Librarian, Psychic Hood, Shield Dome)
+	# get no row here: the integrator adds one shared row.
+	# ======================================================================
+	"Bolter Discipline": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Shooting phase: ranged attacks +1 to hit while this unit or the target is within range of an objective (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Tactical Mainstay": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Engaged / battle-shocked does not prevent starting an action; starting an action does not prevent shooting (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Divinator-class Auspexes": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per phase, your Shooting phase, a friendly ADEPTUS ASTARTES unit is selected to shoot: a visible enemy unit within 18\" is scanned (ranged attacks vs it re-roll hit rolls of 1) (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Flexible Asset": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "An advance / fall-back move does not prevent this unit from being eligible to start an action (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Deeds of Legend": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While within range of an objective: melee +1 A (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Refuse to Yield": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks allocated to this model have -1 D (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Spiritual Leader": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle round, start of any phase: a friendly battle-shocked ADEPTUS ASTARTES unit within 6\" is no longer battle-shocked (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Unyielding in the Face of the Foe": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While controlling an objective: +1 to save rolls (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Fury of the First": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target a unit within 9\" have +1 AP (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Demi-company Commander": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per turn: when a friendly Captain uses Strategic Acumen, the selected doctrine is active for this unit too (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Tactical Precision": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit's attacks have [LETHAL HITS] against non-MONSTER/VEHICLE units (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Targeted Intercession": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "If this unit made a charge move this turn: melee +1 S and +1 AP (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Thunderstrike": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ranged attacks that target a MONSTER/VEHICLE unit have +1 to wound (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Shattered Defences": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Shooting phase, when this unit has shot: an enemy MONSTER/VEHICLE unit hit - friendly ADEPTUS ASTARTES ranged attacks vs it +1 AP (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Chief Librarian": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psyker level 3 (Librarius): Prescience, Telepathic Assault (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Hood of Hellfire": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Feel No Pain 4+ against psychic attacks and mortal wounds (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Prescience": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 2, your Movement phase: +1 Sv until the start of your next turn (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Telepathic Assault": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 1, your Shooting phase: a visible enemy unit within 24\" suffers 2D3 mortal wounds (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Reaping Tally": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ranged attacks that target a non-MONSTER/VEHICLE unit have +1 AP (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Chameleoline Cloaks": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit has -3\" detection range (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Special-issue Optics and Ammunition": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When selected to shoot: ranged attacks [IGNORES COVER], or an enemy unit within 24\" has +6\" detection range until this unit has shot (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Priority Target Acquisition": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ranged attacks that target a unit within 12\" have +1 S (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Rites of Thermal Appeasement": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "+1 to hazard rolls for its Plasma Incinerator and Plasma Pistol weapons (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Close-quarters Firestorm": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target an enemy unit within 9\" have +1 S (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Lord of the Pyroclasts": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "An enemy unit engaged with this unit has -1 OC (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Unto the Anvil": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Melee attacks re-roll wound rolls of 1 (assault doctrine active: re-roll wound rolls) (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Rampart": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle (per army), start of any phase: this model has a 2+ invulnerable save until the end of the phase (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Icon of Obstinacy": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target this unit have -1 to hit (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Wrath of the Machine Spirit": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ranged attacks that target a unit within 12\" have [DEVASTATING WOUNDS] against non-MONSTER/VEHICLE units (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Veteran Marksmen": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ranged attacks re-roll hit rolls of 1 (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Veil of Time": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 1, selected to advance: the advance roll is changed to a 6 (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Force Dome": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 1, your Movement phase: 4+ invulnerable save until the start of your next turn (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Targeter Optics": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ranged attacks that target a visible enemy unit have [IGNORES COVER] (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Siege Captain": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This model's attacks that target a FORTIFICATION/MONSTER/VEHICLE unit have +2 S, AP and D (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Signum Array": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Shooting phase: a visible enemy unit within 18\" cannot have the benefit of cover (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Rapid Disembarkation": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "After this unit's advance move in your Movement phase, embarked units can make a shock disembark move (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Orbital Comms Array": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Wargear: this unit has Scouts 6\" (applied at army load) (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Never Shall the Standard Fall": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While within range of an objective: attacks with S greater than this unit's T have -1 to wound (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Suppression Fire": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Shooting phase, when this unit has shot: an enemy unit hit by its Twin Macro-accelerator Cannon is suppressed (-1 to hit) until the start of your next turn (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+	"Tactical Fluidity": {
+		"condition": "sm11e",  # WP-M4b: Codex: Space Marines (11e) rule lives in SMAbilitiesB.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle round: after shooting (unengaged) a normal move of up to D6\"; or at the end of your opponent's Fight phase (engaged) a fall-back move of up to 6\" (Codex: Space Marines 11e, SMAbilitiesB)."
+	},
+
+	# ======================================================================
 	# ALWAYS-ON UNIT ABILITIES
 	# ======================================================================
 
@@ -1173,6 +1502,10 @@ const ABILITY_EFFECTS: Dictionary = {
 
 	# Space Marines Intercessor Squad — sticky objectives
 	# Same mechanic as Ork Boyz "Get Da Good Bitz" — resolved by MissionManager
+	# WP-M4b: 10e index ability. No Codex: Space Marines (11e) datasheet carries it
+	# (the 11e Intercessor Squad has Bolter Discipline / Tactical Mainstay; the
+	# 11e "secured" rule is Raise the Banner — SMAbilitiesB.gd); retired for an
+	# 11e Space Marine army in has_sticky_objectives_ability below.
 	"Objective Secured": {
 		"condition": "end_of_command",
 		"effects": [],
@@ -1187,6 +1520,9 @@ const ABILITY_EFFECTS: Dictionary = {
 	# target only one enemy unit with all attacks.
 	# MA-29: Uses target_weapon_names to filter the +2 Attacks bonus to bolt rifle weapons only.
 	# The single-target constraint is not yet enforced (would need ShootingPhase prompt).
+	# WP-M4b: 10e index ability, on no Codex: Space Marines (11e) datasheet; its
+	# "on_shooting_selection" condition is never evaluated by _apply_unit_abilities,
+	# so it applies to nothing (kept only as the 10e description).
 	"Target Elimination": {
 		"condition": "on_shooting_selection",
 		"effects": [{"type": "plus_attacks", "value": 2}],
@@ -3038,6 +3374,10 @@ func has_sticky_objectives_ability(unit_id: String) -> bool:
 	for ability in abilities:
 		var ability_name = _get_ability_name(ability)
 		if ability_name in ["Objective Secured"]:  # WP-O6: "Get Da Good Bitz" is on no Codex: Orks (11e) datasheet
+			# WP-M4b: retired for a Codex: Space Marines (11e) army (no codex datasheet has it).
+			if GameConstants.edition >= 11 and load("res://scripts/codex/space_wolves/SWCommon.gd").is_sm_army(int(unit.get("owner", 0))):
+				print("UnitAbilityManager: Objective Secured on %s ignored — retired for Codex: Space Marines (11e) armies" % unit_id)
+				continue
 			return true
 	return false
 

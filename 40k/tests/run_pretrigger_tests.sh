@@ -251,6 +251,7 @@ TESTS=(
     "tests/test_sm11e_army_rules.gd"
     "tests/test_sm11e_detachments_a.gd"
     "tests/test_sm11e_stratagems_a.gd"
+    "tests/test_sm11e_abilities_b.gd"
     "tests/test_ork_codex_framework.gd"
     "tests/test_ork_codex_fight.gd"
     "tests/test_ork_codex_shooting.gd"

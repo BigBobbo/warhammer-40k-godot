@@ -139,6 +139,9 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 	# of the turn, being engaged / battle-shocked does not prevent the unit
 	# from being eligible to start an action.
 	var conservai: bool = _cus11e_conservai(unit)
+	# WP-M4b TACTICAL MAINSTAY (Codex: Space Marines 11e, Intercessor Squad): the same
+	# "being engaged / battle-shocked does not prevent ... eligible to start an action".
+	conservai = conservai or bool(_sm11e_abilities_b().action_ignores_engaged_and_shocked(unit))
 	if flags.get("battle_shocked", false) and not conservai:
 		reasons.append("battle-shocked units are not eligible to start an action")
 
@@ -167,6 +170,9 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 	# unit from being eligible to start an action" (WP-C46).
 	if not mind_on_mission:
 		mind_on_mission = load("res://scripts/codex/custodes/CustodesDetachments.gd").move_keeps_action_eligibility(unit)
+	# WP-M4b FLEXIBLE ASSET (Codex: Space Marines 11e, Scout Squad): the advance / fall-back move does not bar the unit.
+	if not mind_on_mission:
+		mind_on_mission = bool(_sm11e_abilities_b().move_keeps_action_eligibility(unit))
 	if ((flags.get("advanced", false) or flags.get("fell_back", false)) and not mind_on_mission) \
 			or flags.get("cannot_start_action", false):
 		reasons.append("made an advance or fall-back move this turn")
@@ -212,7 +218,7 @@ static func start_action(unit_id: String, action_id: String, board: Dictionary, 
 		# 16.01: until end of turn — not eligible to declare a charge…
 		{"op": "set", "path": StateSchema.path_unit_flag(unit_id, "cannot_charge"), "value": true},
 	]
-	if not titanic and not _cus11e_conservai(unit):
+	if not titanic and not _cus11e_conservai(unit) and not bool(_sm11e_abilities_b().action_keeps_shooting(unit)):  # WP-M4b: Tactical Mainstay
 		# …and not eligible to shoot (TITANIC units may still shoot; so may a
 		# Codex: Adeptus Custodes unit under CONSERVAI — CustodesKatah.gd).
 		changes.append({"op": "set", "path": StateSchema.path_unit_flag(unit_id, "cannot_shoot"), "value": true})
@@ -222,6 +228,10 @@ static func start_action(unit_id: String, action_id: String, board: Dictionary, 
 ## (CustodesKatah.gd; loaded lazily).
 static func _cus11e_conservai(unit: Dictionary) -> bool:
 	return load("res://scripts/codex/custodes/CustodesKatah.gd").conservai_active(unit)
+
+## WP-M4b: Codex: Space Marines (11e) M4b datasheet abilities (SMAbilitiesB.gd; loaded lazily).
+static func _sm11e_abilities_b():
+	return load("res://scripts/codex/space_marines/SMAbilitiesB.gd")
 
 
 ## Movement cancels an in-progress action (16.01 Completing), except
