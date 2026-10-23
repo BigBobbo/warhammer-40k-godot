@@ -1119,6 +1119,10 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 
 	for unit_id in units:
 		var unit = units[unit_id]
+		# 19.01: an attached CHARACTER is not a separate shooter — it shoots in
+		# its bodyguard's row (that unit's weapon list carries its guns).
+		if current_phase.has_method("shooting_actor_for") and current_phase.shooting_actor_for(unit_id) != unit_id:
+			continue
 		if current_phase._can_unit_shoot(unit) or unit_id in units_shot:
 			# Apply the default filter unless it's a reference/active row.
 			if not show_all \
@@ -1132,6 +1136,16 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 			var _unit_meta = unit.get("meta", {})
 			var unit_name = _unit_meta.get("display_name", _unit_meta.get("name", unit_id))
 			var alive_count = RulesEngine.count_alive_models(unit)
+			# 19.01: name the attached CHARACTER(s) shooting in this row.
+			for char_id in RulesEngine.attached_character_ids(unit_id, GameState.state):
+				var char_unit = units.get(str(char_id), {})
+				if char_unit.is_empty() or RulesEngine.count_alive_models(char_unit) <= 0:
+					continue
+				if current_phase.has_method("shooting_actor_for") and current_phase.shooting_actor_for(str(char_id)) != unit_id:
+					continue
+				var _char_meta = char_unit.get("meta", {})
+				unit_name += " + %s" % _char_meta.get("display_name", _char_meta.get("name", char_id))
+				alive_count += RulesEngine.count_alive_models(char_unit)
 			unit_name += " (%d)" % alive_count
 
 			# Show status for units that have shot or performed an action
@@ -3825,6 +3839,14 @@ func _select_shooter_by_unit_id(unit_id: String) -> void:
 	if not current_phase or unit_id == "":
 		return
 
+	# 19.01: an attached CHARACTER shoots in its bodyguard's activation (the
+	# Attached unit is one unit) — clicking the character selects that unit.
+	if current_phase.has_method("shooting_actor_for"):
+		var routed_id: String = current_phase.shooting_actor_for(unit_id)
+		if routed_id != unit_id:
+			print("ShootingController: %s is attached to %s — selecting the Attached unit" % [unit_id, routed_id])
+			unit_id = routed_id
+
 	# Clear previous LoS visualizations (comprehensive cleanup)
 	if los_debug_visual and is_instance_valid(los_debug_visual):
 		los_debug_visual.clear_all_debug_visuals()
@@ -4278,6 +4300,9 @@ func _build_auto_shoot_plan() -> Array:
 	for unit_id in units:
 		var unit = units[unit_id]
 		if not current_phase._can_unit_shoot(unit) or unit_id in units_shot:
+			continue
+		# 19.01: an attached CHARACTER's guns fire in its bodyguard's SHOOT.
+		if current_phase.has_method("shooting_actor_for") and current_phase.shooting_actor_for(unit_id) != unit_id:
 			continue
 		# Skip the currently active shooter (user is already working on it)
 		if unit_id == active_shooter_id and not weapon_assignments.is_empty():
