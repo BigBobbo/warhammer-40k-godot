@@ -22446,8 +22446,13 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 				"defensive":
 					threshold = 1.5 * float(max(1, cost))
 			considered.append("%s on %s: %.1f (need %.1f)" % [offer.get("name", sid), tid, score, threshold])
-			if score >= threshold and score > best_score:
-				best_score = score
+			# Integration (Codex: Space Marines 11e): a free card (0 CP — a
+			# datasheet ability such as Strategic Acumen) beats a paid stratagem
+			# with a similar effect (ADAPTIVE STRATEGY): paid offers rank 1 lower.
+			# The threshold still uses the raw score; paid-vs-paid order is unchanged.
+			var rank := score - (1.0 if cost > 0 else 0.0)
+			if score >= threshold and rank > best_score:
+				best_score = rank
 				var ctx_out := {}
 				# Secondary choice (objective / second unit): take the first
 				# legal option — the handler lists them best-first.

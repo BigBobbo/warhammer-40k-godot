@@ -404,7 +404,12 @@ func _section_registry() -> void:
 	for k in B.IDS:
 		all_impl = all_impl and bool(B.IMPLEMENTED.get(k, false))
 	_check("every id IMPLEMENTED", all_impl and B.IMPLEMENTED.size() == 24)
-	_check("the dispatcher (SMCodex11e) loads SMCodexB and registers 24 ids", Dispatcher.all_implemented_ids().size() == 24, str(Dispatcher.all_implemented_ids().size()))
+	# Integration: M3a's dispatcher registers its own 24 (SMCodexA*) + SMCodexB's 24.
+	var disp_ids: Array = Dispatcher.all_implemented_ids()
+	var b_all_in := true
+	for k in B.IDS:
+		b_all_in = b_all_in and k in disp_ids
+	_check("the dispatcher (SMCodex11e) loads SMCodexB and registers its 24 ids (48 with M3a's)", b_all_in and disp_ids.size() == 48, str(disp_ids.size()))
 	var loaded := 0
 	for s in SM.get_faction_stratagems_for_player(1):
 		var csv := str(s.get("csv_id", ""))
