@@ -1,0 +1,134 @@
+{
+  "id": "sm11e_det_wrath_of_the_chapter",
+  "covers": [
+    "codex.space_marines.detachment.tacticus_attack_force.wrath_of_the_chapter",
+    "dialogs.CommandRerollDialog.free_ability",
+    "phases.MovementPhase.advance",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Tacticus Attack Force \u2014 WRATH OF THE CHAPTER (WP-M2a): 'Friendly TACTICUS units can re-roll advance rolls.' Fixture sm11e_m2a_marines_active. Movement phase (P2 at 0 CP): the Intercessors (TACTICUS) advance (the panel's Advance, a seed whose roll is below 6): the re-roll dialog offers the FREE Wrath of the Chapter re-roll (no CP); a REAL click on the re-roll button re-rolls the advance roll (Game Log), and no CP is spent.",
+  "fixture": "sm11e_m2a_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions \u2014 not under test), auto wound allocation",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the Movement phase",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement phase_start (Damocles card \u2014 not under test here) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_ADVANCE",
+        "actor_unit_id": "U_INTERCESSOR_SQUAD_A",
+        "player": 1,
+        "payload": {
+          "rng_seed": 502
+        }
+      },
+      "comment": "the movement panel's Advance"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CommandRerollDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"CommandRerollDialog\").free_ability_name",
+      "equals": "Wrath of the Chapter"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(22.000000, 44.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.200000, 1.200000)\nm.view_zoom = 1.200000\nm.view_offset = focus - vp / (2.0 * 1.200000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_wrath_of_the_chapter_free_reroll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/UseRerollButton",
+      "comment": "REAL click: take the free re-roll"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"Wrath of the Chapter\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_wrath_rerolled"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sm11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

@@ -1,0 +1,366 @@
+{
+  "id": "sm11e_ar_combat_doctrines",
+  "covers": [
+    "codex.space_marines.army_rules.combat_doctrines",
+    "codex.space_marines.army_rules.transhuman_strategist",
+    "codex.space_wolves.SWArmyRules11e",
+    "phases.CommandPhase.sw11e_doctrine",
+    "ui.CommandController.sw11e_doctrines",
+    "rules.effects.advance_and_charge",
+    "codex.space_marines.detachment.tacticus.wrath_of_the_chapter",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) army rules for a GENERIC Space Marines army (WP-M2a). Fixture sm11e_m2a_marines_active (P1 faction Space Marines, Command phase of round 2, WARLORD Captain; layout in tests/helpers/gen_sm11e_m2a_fixtures.gd). (1) Transhuman Strategist: loading the round-2 start gave P1 +1CP (6 +1 Command phase +1 = 8) and the Game Log names it. (2) The Command panel shows the COMBAT DOCTRINES block (it used to be Space Wolves only); a REAL click on ASSAULT DOCTRINE selects it: 'Active: Assault Doctrine', the other buttons are disabled for this Command phase, the Game Log names it. (3) End Command Phase (real click). Movement: the Intercessors advance (the panel's Advance; the free Wrath of the Chapter re-roll is offered \u2014 kept) and move 3\" north. (4) Setup privilege: straight to the Charge phase, P2 at 0 CP. The charge panel lists the ADVANCED Intercessors; a real click picks them, the Gretchin are targeted and Declare Charge is accepted.",
+  "fixture": "sm11e_m2a_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"Transhuman Strategist\")",
+      "comment": "Transhuman Strategist on the Game Log",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_devastator",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_tactical",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox\")\ntree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer\").ensure_control_visible(b)\nreturn true",
+      "comment": "scroll the doctrines block into view",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_generic_sm_doctrines_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "comment": "REAL click on ASSAULT DOCTRINE"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "factions.1.sw11e_doctrine",
+      "equals": "assault"
+    },
+    {
+      "act": "expect_state",
+      "path": "factions.1.sw11e_doctrines_used.assault",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrineStatus\").text.begins_with(\"Active: Assault Doctrine\")",
+      "equals": true
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_devastator",
+      "property": "disabled",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"Assault Doctrine active\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return load(\"res://scripts/codex/space_wolves/SWCommon.gd\").doctrine_active_id(\"U_INTERCESSOR_SQUAD_A\", \"assault\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox\")\ntree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer\").ensure_control_visible(b)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_assault_doctrine_selected"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/EndCommandPhaseButton",
+      "comment": "End Command Phase",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return GameState.get_current_phase() == 7",
+      "equals": true,
+      "timeout_s": 8.0,
+      "poll_s": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement phase_start (Damocles-class Uplink card \u2014 not under test) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions \u2014 not under test), auto wound allocation",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_ADVANCE",
+        "actor_unit_id": "U_INTERCESSOR_SQUAD_A",
+        "player": 1
+      },
+      "comment": "the movement panel's Advance"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton",
+      "comment": "the advance re-roll dialog (Wrath of the Chapter free re-roll / Command Re-roll \u2014 not under test here): keep"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.move(\"U_INTERCESSOR_SQUAD_A\", 0.0, -3.0)",
+      "comment": "the advance move (drag + Confirm Move)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_INTERCESSOR_SQUAD_A.flags.advanced",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(22.000000, 40.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.100000, 1.100000)\nm.view_zoom = 1.100000\nm.view_offset = focus - vp / (2.0 * 1.100000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_intercessors_advanced"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(9)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the Charge phase",
+      "equals": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in range(cc.unit_selector.get_item_count()):\n\tout.append(str(cc.unit_selector.get_item_metadata(i)))\nprint(\"[sm11e scen] charge list: \", out)\nreturn out.find(\"U_INTERCESSOR_SQUAD_A\")",
+      "comment": "the charge panel lists the ADVANCED Intercessors",
+      "expect_min": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar idx = -1\nfor i in range(cc.unit_selector.get_item_count()):\n\tif str(cc.unit_selector.get_item_metadata(i)) == \"U_INTERCESSOR_SQUAD_A\":\n\t\tidx = i\ncc.unit_selector.select(idx)\ncc.unit_selector.item_selected.emit(idx)\nreturn idx",
+      "comment": "pick the Intercessors row of the charge panel (the item_selected signal a click sends)",
+      "expect_min": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nreturn main.charge_controller.active_unit_id",
+      "equals": "U_INTERCESSOR_SQUAD_A"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "04_advanced_unit_can_charge"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return PhaseManager.get_current_phase_instance().pending_charges.has(\"U_INTERCESSOR_SQUAD_A\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05_charge_declared_after_advance"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sm11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

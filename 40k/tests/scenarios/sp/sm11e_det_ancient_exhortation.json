@@ -1,0 +1,246 @@
+{
+  "id": "sm11e_det_ancient_exhortation",
+  "covers": [
+    "codex.space_marines.enhancements.standard_of_the_emperor_ascendant",
+    "codex.space_marines.enhancements.laurels_of_triumph",
+    "stratagem.window.unit_selected_to_fight",
+    "dialogs.StratagemDialog.rule_card",
+    "phases.FightPhase.unit_selected_to_fight",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Gladius Task Force enhancement STANDARD OF THE EMPEROR ASCENDANT \u2014 ANCIENT EXHORTATION (once per battle, per army: when this unit is selected to fight, its melee attacks have +1 A until the end of the phase) (WP-M2a). Fixture sm11e_m2a_marines_active (the Ancient, engaged with the Boyz, carries the Standard: list build OC +1, Ld 5+, FNP 5+). Fight phase (P2 at 0 CP, auto wound allocation): both players end their pile-in; a REAL click selects the Ancient to fight; the unit_selected_to_fight window shows the free ANCIENT EXHORTATION card; a REAL click on Use: no CP, the Game Log names it, the attack resolves with one more attack than the profile (the hit dice block's total_attacks).",
+  "fixture": "sm11e_m2a_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions \u2014 not under test), auto wound allocation",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.players[\"1\"][\"cp\"] = 0\nreturn true",
+      "comment": "setup privilege: P1 at 0 CP too (no stratagem cards \u2014 not under test)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(10)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the Fight phase",
+      "equals": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "Pile In step: no pile-in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "Pile In step: no pile-in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(9.000000, 30.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.600000, 1.600000)\nm.view_zoom = 1.600000\nm.view_offset = focus - vp / (2.0 * 1.600000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return RulesEngine.get_unit_fnp(GameState.state.units[\"U_ANCIENT_A\"])",
+      "comment": "list build: the Ancient has Feel No Pain 5+",
+      "equals": 5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_ANCIENT_A",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_ANCIENT_A",
+      "comment": "REAL click: select the Ancient to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_selected_to_fight"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_ancient_exhortation/Buttons/Use_sm11e_rule_ancient_exhortation_U_ANCIENT_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_ancient_exhortation/Buttons/Use_sm11e_rule_ancient_exhortation_U_ANCIENT_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_ancient_exhortation_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_ancient_exhortation/Buttons/Use_sm11e_rule_ancient_exhortation_U_ANCIENT_A",
+      "comment": "REAL click on Use"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the window re-opens with the remaining cards (if any) \u2014 declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 0
+    },
+    {
+      "act": "expect_state",
+      "path": "factions.1.sm11e_exhortation_used",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"ANCIENT EXHORTATION\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_ancient_exhortation_used"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nmain.get_node(\"FightController\").fight_resolution_dock.debug_click_through(14)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar best = -1\nvar base_a = 0\nfor b in H.phase().dice_log:\n\tif typeof(b) == TYPE_DICTIONARY and str(b.get(\"context\", \"\")) == \"hit_roll_melee\":\n\t\tvar prof = RulesEngine.get_weapon_profile(str(b.get(\"weapon\", \"\")), GameState.state)\n\t\tbase_a = int(str(prof.get(\"attacks\", \"0\")).to_int())\n\t\tbest = int(b.get(\"total_attacks\", -1))\n\t\tprint(\"[sm11e scen] exhortation block total_attacks=\", best, \" profile A=\", base_a, \" weapon=\", b.get(\"weapon\", \"\"))\nreturn best - base_a",
+      "comment": "the Ancient's melee attack has profile A + 1",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03_ancient_fought_with_plus_one_attack"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sm11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

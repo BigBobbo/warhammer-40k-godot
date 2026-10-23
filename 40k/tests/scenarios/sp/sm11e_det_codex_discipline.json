@@ -1,0 +1,193 @@
+{
+  "id": "sm11e_det_codex_discipline",
+  "covers": [
+    "codex.space_marines.detachment.gladius_task_force.codex_discipline",
+    "codex.space_wolves.SWArmyRules11e",
+    "ui.CommandController.sw11e_doctrines",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Gladius Task Force \u2014 CODEX DISCIPLINE (WP-M2a): 'You can select one combat doctrine one additional time per battle.' Fixture sm11e_m2a_marines_active. Setup privilege: the army already used the assault doctrine (round 1) and P1's Command phase is re-entered (the panel rebuilt). The COMBAT DOCTRINES block still offers ASSAULT DOCTRINE marked '(Codex Discipline)'; a REAL click selects it a second time (used count 2, Game Log 'Codex Discipline'). Then (setup privilege) a later Command phase: tactical and devastator remain, assault is spent ('(used)', disabled).",
+  "fixture": "sm11e_m2a_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.factions[\"1\"][\"sw11e_doctrines_used\"] = {\"assault\": 1}\nPhaseManager.transition_to_phase(6)\nreturn int(GameState.get_battle_round())",
+      "comment": "setup privilege: the assault doctrine was already selected once this battle; the Command phase re-entered (panel rebuilt)",
+      "equals": 2
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "comment": "the new round's secondary-mission review (not under test) is closed"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault\").text.contains(\"CODEX DISCIPLINE\") or tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault\").text.contains(\"Codex Discipline\")",
+      "comment": "the button says this is Codex Discipline's extra selection",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox\")\ntree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer\").ensure_control_visible(b)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_codex_discipline_assault_again"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "comment": "REAL click on ASSAULT DOCTRINE (second time)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "factions.1.sw11e_doctrine",
+      "equals": "assault"
+    },
+    {
+      "act": "expect_state",
+      "path": "factions.1.sw11e_doctrines_used.assault",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"Codex Discipline\")",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "screenshot",
+      "label": "02_assault_selected_second_time"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.factions[\"1\"][\"sw11e_doctrine_decided_round\"] = 0\nPhaseManager.transition_to_phase(6)\nreturn int(GameState.state.factions[\"1\"][\"sw11e_doctrines_used\"][\"assault\"])",
+      "comment": "setup privilege: a later Command phase (the decision marker cleared, the panel rebuilt)",
+      "equals": 2
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "comment": "the new round's secondary-mission review (not under test) is closed"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "property": "disabled",
+      "equals": true
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_tactical",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox\")\ntree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer\").ensure_control_visible(b)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "03_assault_spent_after_two"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sm11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}
