@@ -85,7 +85,11 @@ func _raw_ranged_total(unit: Dictionary) -> int:
 # sw11e_gw_import_2000.json: a real GW-app Space Wolves list whose generic Space
 # Marine datasheets (Scout Squad, Outrider Squad, ...) are still 40kdc 1.4.5
 # index kits — out of the ratchet until Codex: Space Marines covers them (WP-M).
-const RATCHET_EXCLUDED_FILES := ["ork11e_codex_test.json", "sw11e_gw_import_2000.json"]
+# sm11e_codex_test.json: every generic Codex: Space Marines datasheet at its
+# default kit — 7 of them (Infernus, Infiltrator, Incursor, Reiver Squads,
+# Company Heroes, Wardens of Ultramar, Eradicators with Heavy Bolters) do not
+# resolve per model yet (WP-M4 follow-up), kept out of the ratchet.
+const RATCHET_EXCLUDED_FILES := ["ork11e_codex_test.json", "sw11e_gw_import_2000.json", "sm11e_codex_test.json"]
 
 # WP-O1b: what a model "carries" is counted in WEAPONS, not profiles. Codex
 # weapons often print several profiles (Choppa – Hunter / – Standard, Smash

@@ -1328,87 +1328,70 @@
   }
  },
  {
-  "id": "gladiator-lancer-wgo-mfm-1",
-  "unit_id": "gladiator-lancer",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "icarus-rocket-pod"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "gladiator-lancer-wgo-mfm-2",
-  "unit_id": "gladiator-lancer",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "ironhail-heavy-stubber"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "gladiator-lancer-wgo-mfm-3",
-  "unit_id": "gladiator-lancer",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "storm-bolter",
-   "storm-bolter"
-  ],
-  "replacement": [
-   "fragstorm-grenade-launcher",
-   "fragstorm-grenade-launcher"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "terminator-squad-wgo-mfm-1",
+  "id": "terminator-squad-wgo-wh-1",
   "unit_id": "terminator-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Terminator Sergeant can have their Power Fist replaced with one of the following:• 1 Chainfist • 1 Power Weapon",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Terminator Sergeant"
+  },
+  "replaces": [
+   "power-fist-terminator-squad"
+  ],
+  "replacement_choice": [
+   [
+    "chainfist-terminator-squad"
+   ],
+   [
+    "power-weapon-terminator-squad"
+   ]
+  ]
+ },
+ {
+  "id": "terminator-squad-wgo-wh-2",
+  "unit_id": "terminator-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "Any number of Terminator models can each have their Power Fist replaced with 1 Chainfist.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "any_number": true,
+   "model_name": "Terminator"
+  },
   "replaces": [
    "power-fist-terminator-squad"
   ],
   "replacement": [
    "chainfist-terminator-squad"
-  ],
-  "model_constraint": {
-   "model_name": "Terminator",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "terminator-squad-wgo-mfm-2",
+  "id": "terminator-squad-wgo-wh-3",
   "unit_id": "terminator-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "For every 5 models in this unit, 1 Terminator model can have their Storm Bolter replaced with one of the following:• 1 Assault Cannon • 1 Heavy Flamer • 1 Cyclone Missile Launcher and 1 Storm Bolter (that model’s Storm Bolter cannot be replaced).",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 5,
+   "max": 1,
+   "model_name": "Terminator"
+  },
   "replaces": [
    "storm-bolter-terminator-squad"
   ],
@@ -1423,36 +1406,7 @@
     "cyclone-missile-launcher-terminator-squad",
     "storm-bolter-terminator-squad"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Terminator",
-   "per_n_models": 5
-  }
- },
- {
-  "id": "terminator-squad-wgo-mfm-4",
-  "unit_id": "terminator-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "power-fist-terminator-squad"
-  ],
-  "replacement_choice": [
-   [
-    "chainfist-terminator-squad"
-   ],
-   [
-    "power-weapon-terminator-squad"
-   ]
-  ],
-  "model_constraint": {
-   "model_name": "Terminator Sergeant",
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "marshal-wgo-mfm-1",
@@ -1673,133 +1627,119 @@
   }
  },
  {
-  "id": "sternguard-veteran-squad-wgo-mfm-1",
+  "id": "sternguard-veteran-squad-wgo-wh-1",
   "unit_id": "sternguard-veteran-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replacement_choice": [
-   [
-    "power-weapon-sternguard-veteran-squad"
-   ],
-   [
-    "astartes-chainsword-sternguard-veteran-squad"
-   ],
-   [
-    "power-fist-sternguard-veteran-squad"
-   ]
-  ],
+  "rules_text": "The Sternguard Veteran Sergeant can have their Chainsword replaced with one of the following:• 1 Power Fist • 1 Power Weapon",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "model_name": "Sternguard Veteran Sergeant",
-   "any_number": true
-  }
- },
- {
-  "id": "sternguard-veteran-squad-wgo-mfm-2",
-  "unit_id": "sternguard-veteran-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1,
+   "model_name": "Sternguard Veteran Sergeant"
   },
-  "is_free": true,
   "replaces": [
-   "sternguard-bolt-rifle"
+   "chainsword-sternguard-veteran-squad"
   ],
   "replacement_choice": [
-   [
-    "power-weapon-sternguard-veteran-squad"
-   ],
-   [
-    "astartes-chainsword-sternguard-veteran-squad"
-   ],
    [
     "power-fist-sternguard-veteran-squad"
    ],
    [
-    "combi-weapon-sternguard-veteran-squad"
+    "power-weapon-sternguard-veteran-squad"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Sternguard Veteran Sergeant",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "sternguard-veteran-squad-wgo-mfm-3",
+  "id": "sternguard-veteran-squad-wgo-wh-2",
   "unit_id": "sternguard-veteran-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "For every 5 models in this unit, 1 Sternguard Veteran model can have their Artificer Firearm replaced with one of the following:• 1 Heavy Bolter • 1 Pyrecannon",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 5,
+   "max": 1,
+   "model_name": "Sternguard Veteran"
+  },
   "replaces": [
    "artificer-firearm-sternguard-veteran-squad"
   ],
   "replacement_choice": [
    [
-    "pyrecannon-sternguard-veteran-squad"
+    "heavy-bolter-sternguard-veteran-squad"
    ],
    [
-    "sternguard-heavy-bolter"
+    "pyrecannon-sternguard-veteran-squad"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Sternguard Veteran",
-   "per_n_models": 5
-  }
+  ]
  },
  {
-  "id": "land-raider-crusader-wgo-mfm-1",
+  "id": "land-raider-crusader-wgo-wh-1",
   "unit_id": "land-raider-crusader",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replacement": [
-   "multi-melta-land-raider-crusader"
-  ],
+  "rules_text": "This model can be equipped with 1 Hunter-killer Missile.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "land-raider-crusader-wgo-mfm-2",
-  "unit_id": "land-raider-crusader",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1
   },
-  "is_free": true,
+  "replaces": [],
   "replacement": [
    "hunter-killer-missile-land-raider-crusader"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "land-raider-crusader-wgo-mfm-3",
+  "id": "land-raider-crusader-wgo-wh-2",
   "unit_id": "land-raider-crusader",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model can be equipped with 1 Multi-melta.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
+  "replacement": [
+   "multi-melta-land-raider-crusader"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "land-raider-crusader-wgo-wh-3",
+  "unit_id": "land-raider-crusader",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model can be equipped with 1 Storm Bolter.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
   "replacement": [
    "storm-bolter-land-raider-crusader"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
   "id": "castellan-wgo-mfm-1",
@@ -1840,37 +1780,21 @@
   }
  },
  {
-  "id": "impulsor-wgo-mfm-1",
+  "id": "impulsor-wgo-wh-1",
   "unit_id": "impulsor",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "storm-bolter-impulsor"
-  ],
-  "replacement": [
-   "fragstorm-grenade-launcher-impulsor"
-  ],
+  "rules_text": "This model can be equipped with one of the following:• 1 Bellicatus Missile Array • 1 Orbital Comms Array • 1 Ironhail Skytalon Array • 1 Shield Dome",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "impulsor-wgo-mfm-2",
-  "unit_id": "impulsor",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1
   },
-  "is_free": true,
+  "replaces": [],
   "replacement_choice": [
-   [
-    "ironhail-skytalon-array"
-   ],
    [
     "bellicatus-missile-array"
    ],
@@ -1878,181 +1802,116 @@
     "orbital-comms-array-aura"
    ],
    [
+    "ironhail-skytalon-array"
+   ],
+   [
     "shield-dome"
    ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "impulsor-wgo-mfm-3",
+  "id": "impulsor-wgo-wh-2",
   "unit_id": "impulsor",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Storm Bolters can be replaced with 1 Fragstorm Grenade Launchers.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "storm-bolter-impulsor"
+  ],
+  "replacement": [
+   "fragstorm-grenade-launcher-impulsor"
+  ]
+ },
+ {
+  "id": "impulsor-wgo-wh-3",
+  "unit_id": "impulsor",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model can be equipped with 1 Ironhail Heavy Stubber.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
   "replacement": [
    "ironhail-heavy-stubber-impulsor"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "repulsor-executioner-wgo-mfm-1",
+  "id": "repulsor-executioner-wgo-wh-1",
   "unit_id": "repulsor-executioner",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replacement": [
-   "icarus-rocket-pod"
-  ],
+  "rules_text": "This model’s Heavy Laser Destroyer can be replaced with 1 Macro Plasma Incinerator.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "repulsor-executioner-wgo-mfm-2",
-  "unit_id": "repulsor-executioner",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1
   },
-  "is_free": true,
   "replaces": [
    "heavy-laser-destroyer"
   ],
   "replacement": [
    "macro-plasma-incinerator"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "repulsor-executioner-wgo-mfm-3",
-  "unit_id": "repulsor-executioner",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "ironhail-heavy-stubber"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "gladiator-valiant-wgo-mfm-1",
-  "unit_id": "gladiator-valiant",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "ironhail-heavy-stubber"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "gladiator-valiant-wgo-mfm-2",
-  "unit_id": "gladiator-valiant",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "icarus-rocket-pod"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "repulsor-wgo-mfm-1",
+  "id": "repulsor-wgo-wh-1",
   "unit_id": "repulsor",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Heavy Onslaught Gatling Cannon can be replaced with 1 Las-talon.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "heavy-onslaught-gatling-cannon-repulsor"
   ],
   "replacement": [
    "las-talon-repulsor"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "repulsor-wgo-mfm-2",
+  "id": "repulsor-wgo-wh-2",
   "unit_id": "repulsor",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Twin Heavy Bolter can be replaced with 1 Twin Lascannon.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "twin-heavy-bolter-repulsor"
   ],
   "replacement": [
    "twin-lascannon-repulsor"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "gladiator-reaper-wgo-mfm-1",
-  "unit_id": "gladiator-reaper",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "ironhail-heavy-stubber"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "gladiator-reaper-wgo-mfm-2",
-  "unit_id": "gladiator-reaper",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "icarus-rocket-pod"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "death-company-dreadnought-wgo-mfm-1",
@@ -3908,14 +3767,19 @@
   }
  },
  {
-  "id": "captain-in-gravis-armour-wgo-mfm-1",
+  "id": "captain-in-gravis-armour-wgo-wh-1",
   "unit_id": "captain-in-gravis-armour",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Master-crafted Heavy Bolt Rifle and Master-crafted Power Weapon can be replaced with one of the following:• 1 Boltstorm Gauntlet and 1 Relic Blade • 1 Boltstorm Gauntlet and 1 Relic Chainsword • 1 Boltstorm Gauntlet and 1 Relic Power Fist",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "master-crafted-heavy-bolt-rifle",
    "master-crafted-power-weapon-captain-in-gravis-armour"
@@ -3931,50 +3795,25 @@
    ],
    [
     "boltstorm-gauntlet",
-    "relic-fist"
+    "relic-power-fist"
    ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "assault-intercessor-squad-wgo-mfm-1",
+  "id": "assault-intercessor-squad-wgo-wh-1",
   "unit_id": "assault-intercessor-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "astartes-chainsword-assault-intercessor-squad"
-  ],
-  "replacement_choice": [
-   [
-    "power-fist-assault-intercessor-squad"
-   ],
-   [
-    "thunder-hammer-assault-intercessor-squad"
-   ],
-   [
-    "power-weapon-assault-intercessor-squad"
-   ]
-  ],
+  "rules_text": "The Assault Intercessor Sergeant can have their Heavy Bolt Pistol replaced with one of the following:• 1 Hand Flamer • 1 Plasma Pistol",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "model_name": "Assault Intercessor Sergeant",
-   "any_number": true
-  }
- },
- {
-  "id": "assault-intercessor-squad-wgo-mfm-2",
-  "unit_id": "assault-intercessor-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1,
+   "model_name": "Assault Intercessor Sergeant"
   },
-  "is_free": true,
   "replaces": [
    "heavy-bolt-pistol-assault-intercessor-squad"
   ],
@@ -3985,107 +3824,55 @@
    [
     "plasma-pistol-assault-intercessor-squad"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Assault Intercessor Sergeant",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "inceptor-squad-wgo-mfm-1",
+  "id": "assault-intercessor-squad-wgo-wh-2",
+  "unit_id": "assault-intercessor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "The Assault Intercessor Sergeant can have their Chainsword replaced with one of the following:• 1 Power Fist • 1 Power Weapon • 1 Thunder Hammer",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Assault Intercessor Sergeant"
+  },
+  "replaces": [
+   "chainsword-assault-intercessor-squad"
+  ],
+  "replacement_choice": [
+   [
+    "power-fist-assault-intercessor-squad"
+   ],
+   [
+    "power-weapon-assault-intercessor-squad"
+   ],
+   [
+    "thunder-hammer-assault-intercessor-squad"
+   ]
+  ]
+ },
+ {
+  "id": "inceptor-squad-wgo-wh-1",
   "unit_id": "inceptor-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "All models in this unit can each have their Assault Bolters replaced with 1 Plasma Exterminators.",
+  "source": "wahapedia-11e@2026-10-21",
   "replaces": [
    "assault-bolters-inceptor-squad"
   ],
   "replacement": [
    "plasma-exterminators-inceptor-squad"
-  ],
-  "model_constraint": {
-   "model_name": "Inceptor",
-   "any_number": true
-  }
- },
- {
-  "id": "inceptor-squad-wgo-mfm-2",
-  "unit_id": "inceptor-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "assault-bolters-inceptor-squad"
-  ],
-  "replacement": [
-   "plasma-exterminators-inceptor-squad"
-  ],
-  "model_constraint": {
-   "model_name": "Inceptor Sergeant",
-   "any_number": true
-  }
- },
- {
-  "id": "ancient-in-terminator-armour-wgo-mfm-1",
-  "unit_id": "ancient-in-terminator-armour",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "storm-bolter-ancient-in-terminator-armour",
-   "power-fist-ancient-in-terminator-armour"
-  ],
-  "replacement_choice": [
-   [
-    "twin-lightning-claws-ancient-in-terminator-armour"
-   ],
-   [
-    "terminator-storm-shield",
-    "thunder-hammer-ancient-in-terminator-armour"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "ancient-in-terminator-armour-wgo-mfm-2",
-  "unit_id": "ancient-in-terminator-armour",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "power-fist-ancient-in-terminator-armour"
-  ],
-  "replacement_choice": [
-   [
-    "power-weapon-ancient-in-terminator-armour"
-   ],
-   [
-    "close-combat-weapon-ancient-in-terminator-armour"
-   ],
-   [
-    "thunder-hammer-ancient-in-terminator-armour"
-   ],
-   [
-    "chainfist-ancient-in-terminator-armour"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "eradicator-squad-wgo-mfm-1",
@@ -4175,24 +3962,26 @@
   }
  },
  {
-  "id": "terminator-assault-squad-wgo-mfm-1",
+  "id": "terminator-assault-squad-wgo-wh-1",
   "unit_id": "terminator-assault-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "Any number of models can each have their Twin Lightning Claws replaced with 1 Storm Shield and 1 Thunder Hammer.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "any_number": true
+  },
   "replaces": [
    "twin-lightning-claws-terminator-assault-squad"
   ],
   "replacement": [
    "storm-shield",
    "thunder-hammer-terminator-assault-squad"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "predator-destructor-wgo-mfm-1",
@@ -4250,123 +4039,109 @@
   }
  },
  {
-  "id": "bladeguard-veteran-squad-wgo-mfm-1",
+  "id": "bladeguard-veteran-squad-wgo-wh-1",
   "unit_id": "bladeguard-veteran-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Bladeguard Veteran Sergeant can have their Heavy bolt pistol replaced with one of the following:• 1 Neo-volkite Pistol • 1 Plasma Pistol",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Bladeguard Veteran Sergeant"
+  },
   "replaces": [
    "heavy-bolt-pistol-bladeguard-veteran-squad"
   ],
   "replacement_choice": [
    [
-    "plasma-pistol-bladeguard-veteran-squad"
+    "neo-volkite-pistol"
    ],
    [
-    "neo-volkite-pistol"
+    "plasma-pistol-bladeguard-veteran-squad"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Bladeguard Veteran Sergeant",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "firestrike-servo-turrets-wgo-mfm-1",
+  "id": "firestrike-servo-turrets-wgo-wh-1",
   "unit_id": "firestrike-servo-turrets",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "Any number of models can each have their Twin Firestrike Las-talon replaced with 1 Twin Firestrike Autocannon.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "any_number": true
+  },
   "replaces": [
    "twin-firestrike-las-talon"
   ],
   "replacement": [
    "twin-firestrike-autocannon"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "captain-in-terminator-armour-wgo-mfm-1",
+  "id": "captain-in-terminator-armour-wgo-wh-1",
   "unit_id": "captain-in-terminator-armour",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "storm-bolter-captain-in-terminator-armour"
-  ],
-  "replacement": [
-   "combi-weapon-captain-in-terminator-armour"
-  ],
+  "rules_text": "This model’s Relic Weapon can be replaced with 1 Relic Fist.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "captain-in-terminator-armour-wgo-mfm-2",
-  "unit_id": "captain-in-terminator-armour",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1
   },
-  "is_free": true,
   "replaces": [
    "relic-weapon-captain-in-terminator-armour"
   ],
   "replacement": [
    "relic-fist-captain-in-terminator-armour"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "captain-with-jump-pack-wgo-mfm-1",
-  "unit_id": "captain-with-jump-pack",
+  "id": "captain-in-terminator-armour-wgo-wh-2",
+  "unit_id": "captain-in-terminator-armour",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Storm Bolter can be replaced with 1 Combi-weapon.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
-   "heavy-bolt-pistol-captain-with-jump-pack",
-   "astartes-chainsword-captain-with-jump-pack"
+   "storm-bolter-captain-in-terminator-armour"
   ],
-  "replacement_choice": [
-   [
-    "thunder-hammer-captain-with-jump-pack",
-    "relic-shield"
-   ],
-   [
-    "astartes-chainsword-captain-with-jump-pack",
-    "relic-shield"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "replacement": [
+   "combi-weapon-captain-in-terminator-armour"
+  ]
  },
  {
-  "id": "captain-with-jump-pack-wgo-mfm-2",
+  "id": "captain-with-jump-pack-wgo-wh-1",
   "unit_id": "captain-with-jump-pack",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Heavy Bolt Pistol can be replaced with one of the following:• 1 Hand Flamer • 1 Plasma Pistol",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "heavy-bolt-pistol-captain-with-jump-pack"
   ],
@@ -4377,22 +4152,24 @@
    [
     "plasma-pistol-captain-with-jump-pack"
    ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "captain-with-jump-pack-wgo-mfm-3",
+  "id": "captain-with-jump-pack-wgo-wh-2",
   "unit_id": "captain-with-jump-pack",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Chainsword can be replaced with one of the following:• 1 Power Fist • 1 Relic Weapon",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
-   "astartes-chainsword-captain-with-jump-pack"
+   "chainsword"
   ],
   "replacement_choice": [
    [
@@ -4401,10 +4178,36 @@
    [
     "relic-weapon-captain-with-jump-pack"
    ]
-  ],
+  ]
+ },
+ {
+  "id": "captain-with-jump-pack-wgo-wh-3",
+  "unit_id": "captain-with-jump-pack",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Heavy Bolt Pistol and Chainsword can be replaced with one of the following:• 1 Thunder Hammer and 1 Relic Shield • 1 Chainsword and 1 Relic Shield",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
+   "max": 1
+  },
+  "replaces": [
+   "heavy-bolt-pistol-captain-with-jump-pack",
+   "chainsword"
+  ],
+  "replacement_choice": [
+   [
+    "thunder-hammer-captain-with-jump-pack",
+    "relic-shield"
+   ],
+   [
+    "chainsword",
+    "relic-shield"
+   ]
+  ]
  },
  {
   "id": "hammerfall-bunker-wgo-mfm-1",
@@ -4420,27 +4223,6 @@
   ],
   "replacement": [
    "hammerfall-heavy-flamer-array"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "librarian-in-terminator-armour-wgo-mfm-1",
-  "unit_id": "librarian-in-terminator-armour",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement_choice": [
-   [
-    "storm-bolter-librarian-in-terminator-armour"
-   ],
-   [
-    "combi-weapon-librarian-in-terminator-armour"
-   ]
   ],
   "model_constraint": {
    "any_number": true
@@ -4745,427 +4527,385 @@
   }
  },
  {
-  "id": "hellblaster-squad-wgo-mfm-1",
+  "id": "hellblaster-squad-wgo-wh-1",
   "unit_id": "hellblaster-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Hellblaster Sergeant can have their Bolt Pistol replaced with 1 Plasma Pistol.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Hellblaster Sergeant"
+  },
   "replaces": [
    "bolt-pistol-hellblaster-squad"
   ],
   "replacement": [
    "plasma-pistol-hellblaster-squad"
-  ],
-  "model_constraint": {
-   "model_name": "Hellblaster Sergeant",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "heavy-intercessor-squad-wgo-mfm-1",
+  "id": "heavy-intercessor-squad-wgo-wh-1",
   "unit_id": "heavy-intercessor-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "For every 5 models in this unit, 1 Heavy Intercessor model can have their Heavy Bolt Rifle replaced with 1 Heavy Bolter.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 5,
+   "max": 1,
+   "model_name": "Heavy Intercessor"
+  },
   "replaces": [
    "heavy-bolt-rifle"
   ],
   "replacement": [
    "heavy-bolter-heavy-intercessor-squad"
-  ],
-  "model_constraint": {
-   "model_name": "Heavy Intercessor",
-   "per_n_models": 5
-  }
+  ]
  },
  {
-  "id": "scout-squad-wgo-mfm-1",
+  "id": "scout-squad-wgo-wh-1",
   "unit_id": "scout-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Scout Sergeant can have their Boltgun replaced with 1 Shotgun.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Scout Sergeant"
+  },
+  "replaces": [
+   "boltgun-scout-squad"
+  ],
+  "replacement": [
+   "shotgun"
+  ]
+ },
+ {
+  "id": "scout-squad-wgo-wh-2",
+  "unit_id": "scout-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "The Scout Sergeant can have their Combat Knife replaced with 1 Chainsword.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Scout Sergeant"
+  },
+  "replaces": [
+   "combat-knife-scout-squad"
+  ],
+  "replacement": [
+   "chainsword-scout-squad"
+  ]
+ },
+ {
+  "id": "scout-squad-wgo-wh-3",
+  "unit_id": "scout-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "Any number of Scout models can each have their Boltgun replaced with 1 Shotgun.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "any_number": true,
+   "model_name": "Scout"
+  },
+  "replaces": [
+   "boltgun-scout-squad"
+  ],
+  "replacement": [
+   "shotgun"
+  ]
+ },
+ {
+  "id": "scout-squad-wgo-wh-4",
+  "unit_id": "scout-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "For every 5 models in this unit, 1 Scout model can have their Boltgun replaced with 1 Sniper Rifle.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 5,
+   "max": 1,
+   "model_name": "Scout"
+  },
+  "replaces": [
+   "boltgun-scout-squad"
+  ],
+  "replacement": [
+   "sniper-rifle"
+  ]
+ },
+ {
+  "id": "scout-squad-wgo-wh-5",
+  "unit_id": "scout-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "For every 5 models in this unit, 1 Scout model can have their Boltgun replaced with one of the following:• 1 Heavy Bolter • 1 Missile Launcher",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 5,
+   "max": 1,
+   "model_name": "Scout"
+  },
   "replaces": [
    "boltgun-scout-squad"
   ],
   "replacement_choice": [
-   [
-    "astartes-shotgun"
-   ],
-   [
-    "combat-knife-scout-squad"
-   ],
    [
     "heavy-bolter-scout-squad"
    ],
    [
     "missile-launcher-scout-squad"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Scout",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "scout-squad-wgo-mfm-2",
-  "unit_id": "scout-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "boltgun-scout-squad"
-  ],
-  "replacement": [
-   "scout-sniper-rifle"
-  ],
-  "model_constraint": {
-   "model_name": "Scout",
-   "per_n_models": 5
-  }
- },
- {
-  "id": "scout-squad-wgo-mfm-3",
-  "unit_id": "scout-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "boltgun-scout-squad"
-  ],
-  "replacement_choice": [
-   [
-    "astartes-chainsword-scout-squad"
-   ],
-   [
-    "astartes-shotgun"
-   ],
-   [
-    "combat-knife-scout-squad"
-   ]
-  ],
-  "model_constraint": {
-   "model_name": "Scout Sergeant",
-   "any_number": true
-  }
- },
- {
-  "id": "brutalis-dreadnought-wgo-mfm-1",
+  "id": "brutalis-dreadnought-wgo-wh-1",
   "unit_id": "brutalis-dreadnought",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Bolt Rifles and Brutalis Fists can be replaced with 1 Brutalis Talons.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "bolt-rifles",
+   "brutalis-fists"
+  ],
+  "replacement": [
+   "brutalis-talons"
+  ]
+ },
+ {
+  "id": "brutalis-dreadnought-wgo-wh-2",
+  "unit_id": "brutalis-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Twin Heavy Bolter can be replaced with 1 Twin Multi-melta.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "twin-heavy-bolter-brutalis-dreadnought"
   ],
   "replacement": [
    "twin-multi-melta-brutalis-dreadnought"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "brutalis-dreadnought-wgo-mfm-2",
-  "unit_id": "brutalis-dreadnought",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "brutalis-bolt-rifles",
-   "brutalis-fists"
-  ],
-  "replacement": [
-   "brutalis-talons"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "land-raider-wgo-mfm-1",
+  "id": "land-raider-wgo-wh-1",
   "unit_id": "land-raider",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replacement": [
-   "storm-bolter-land-raider"
-  ],
+  "rules_text": "This model can be equipped with 1 Hunter-killer Missile.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "land-raider-wgo-mfm-2",
-  "unit_id": "land-raider",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1
   },
-  "is_free": true,
+  "replaces": [],
   "replacement": [
    "hunter-killer-missile-land-raider"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "land-raider-wgo-mfm-3",
+  "id": "land-raider-wgo-wh-2",
   "unit_id": "land-raider",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model can be equipped with 1 Multi-melta.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
   "replacement": [
    "multi-melta-land-raider"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "lieutenant-wgo-mfm-1",
+  "id": "land-raider-wgo-wh-3",
+  "unit_id": "land-raider",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model can be equipped with 1 Storm Bolter.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
+  "replacement": [
+   "storm-bolter-land-raider"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "lieutenant-wgo-wh-1",
   "unit_id": "lieutenant",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "bolt-pistol-lieutenant",
-   "master-crafted-bolter-lieutenant"
-  ],
-  "replacement_choice": [
-   [
-    "heavy-bolt-pistol-lieutenant",
-    "master-crafted-power-weapon-lieutenant"
-   ],
-   [
-    "heavy-bolt-pistol-lieutenant",
-    "power-fist-lieutenant"
-   ],
-   [
-    "heavy-bolt-pistol-lieutenant",
-    "plasma-pistol-lieutenant"
-   ]
-  ],
+  "rules_text": "This model’s Master-crafted Bolter and Bolt Pistol can be replaced with 1 Neo-volkite Pistol and 1 Master-crafted Power Weapon.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "lieutenant-wgo-mfm-2",
-  "unit_id": "lieutenant",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1
   },
-  "is_free": true,
-  "replaces": [
-   "bolt-pistol-lieutenant",
-   "master-crafted-bolter-lieutenant",
-   "close-combat-weapon-lieutenant"
-  ],
-  "replacement_choice": [
-   [
-    "master-crafted-power-weapon-lieutenant",
-    "power-fist-lieutenant",
-    "heavy-bolt-pistol-lieutenant"
-   ],
-   [
-    "power-fist-lieutenant",
-    "power-fist-lieutenant",
-    "heavy-bolt-pistol-lieutenant"
-   ],
-   [
-    "power-fist-lieutenant",
-    "heavy-bolt-pistol-lieutenant",
-    "plasma-pistol-lieutenant"
-   ],
-   [
-    "heavy-bolt-pistol-lieutenant",
-    "master-crafted-power-weapon-lieutenant",
-    "master-crafted-power-weapon-lieutenant"
-   ],
-   [
-    "heavy-bolt-pistol-lieutenant",
-    "master-crafted-power-weapon-lieutenant",
-    "plasma-pistol-lieutenant"
-   ],
-   [
-    "storm-shield",
-    "master-crafted-power-weapon-lieutenant",
-    "neo-volkite-pistol-lieutenant"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "lieutenant-wgo-mfm-3",
-  "unit_id": "lieutenant",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
   "replaces": [
    "master-crafted-bolter-lieutenant",
-   "close-combat-weapon-lieutenant"
+   "bolt-pistol-lieutenant"
   ],
-  "replacement_choice": [
-   [
-    "power-fist-lieutenant",
-    "master-crafted-power-weapon-lieutenant"
-   ],
-   [
-    "power-fist-lieutenant",
-    "power-fist-lieutenant"
-   ],
-   [
-    "master-crafted-power-weapon-lieutenant",
-    "master-crafted-power-weapon-lieutenant"
-   ],
-   [
-    "plasma-pistol-lieutenant",
-    "master-crafted-power-weapon-lieutenant"
-   ],
-   [
-    "plasma-pistol-lieutenant",
-    "power-fist-lieutenant"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "replacement": [
+   "neo-volkite-pistol-lieutenant",
+   "master-crafted-power-weapon-lieutenant"
+  ]
  },
  {
-  "id": "lieutenant-wgo-mfm-4",
+  "id": "lieutenant-wgo-wh-2",
   "unit_id": "lieutenant",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "close-combat-weapon-lieutenant"
+  "rules_text": "If this model is equipped with 1 Neo-volkite Pistol, it can be equipped with 1 Storm Shield (this model’s 1 Neo-volkite Pistol cannot be replaced).",
+  "source": "wahapedia-11e@2026-10-21",
+  "replaces": [],
+  "replacement": [
+   "storm-shield-lieutenant"
   ],
-  "replacement_choice": [
-   [
-    "power-fist-lieutenant"
-   ],
-   [
-    "master-crafted-power-weapon-lieutenant"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "lieutenant-wgo-mfm-5",
+  "id": "lieutenant-wgo-wh-3",
   "unit_id": "lieutenant",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "bolt-pistol-lieutenant",
-   "close-combat-weapon-lieutenant"
-  ],
-  "replacement_choice": [
-   [
-    "heavy-bolt-pistol-lieutenant",
-    "master-crafted-power-weapon-lieutenant"
-   ],
-   [
-    "power-fist-lieutenant",
-    "heavy-bolt-pistol-lieutenant"
-   ]
-  ],
+  "rules_text": "This model’s Bolt Pistol can be replaced with 1 Heavy Bolt Pistol.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "lieutenant-wgo-mfm-6",
-  "unit_id": "lieutenant",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1
   },
-  "is_free": true,
-  "replaces": [
-   "master-crafted-bolter-lieutenant"
-  ],
-  "replacement_choice": [
-   [
-    "master-crafted-power-weapon-lieutenant"
-   ],
-   [
-    "plasma-pistol-lieutenant"
-   ],
-   [
-    "power-fist-lieutenant"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "lieutenant-wgo-mfm-7",
-  "unit_id": "lieutenant",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
   "replaces": [
    "bolt-pistol-lieutenant"
   ],
   "replacement": [
    "heavy-bolt-pistol-lieutenant"
-  ],
+  ]
+ },
+ {
+  "id": "lieutenant-wgo-wh-4",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Master-crafted Bolter can be replaced with one of the following:• 1 Master-crafted Power Weapon • 1 Plasma Pistol • 1 Power Fist",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
+   "max": 1
+  },
+  "replaces": [
+   "master-crafted-bolter-lieutenant"
+  ],
+  "replacement_choice": [
+   [
+    "master-crafted-power-weapon-lieutenant"
+   ],
+   [
+    "plasma-pistol-lieutenant"
+   ],
+   [
+    "power-fist-lieutenant"
+   ]
+  ]
+ },
+ {
+  "id": "lieutenant-wgo-wh-5",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Ceramite Fists can be replaced with one of the following:• 1 Master-crafted Power Weapon • 1 Power Fist",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "ceramite-fists-lieutenant"
+  ],
+  "replacement_choice": [
+   [
+    "master-crafted-power-weapon-lieutenant"
+   ],
+   [
+    "power-fist-lieutenant"
+   ]
+  ]
  },
  {
   "id": "stormtalon-gunship-wgo-mfm-1",
@@ -5246,14 +4986,20 @@
   }
  },
  {
-  "id": "eliminator-squad-wgo-mfm-1",
+  "id": "eliminator-squad-wgo-wh-1",
   "unit_id": "eliminator-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Eliminator Sergeant can have their Bolt Sniper Rifle replaced with one of the following:• 1 Instigator Bolt Carbine • 1 Las Fusil",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Eliminator Sergeant"
+  },
   "replaces": [
    "bolt-sniper-rifle-eliminator-squad"
   ],
@@ -5264,96 +5010,136 @@
    [
     "las-fusil-eliminator-squad"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Eliminator Sergeant",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "eliminator-squad-wgo-mfm-2",
+  "id": "eliminator-squad-wgo-wh-2",
   "unit_id": "eliminator-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "All Eliminator models in this unit can each have their Bolt Sniper Rifle replaced with 1 Las Fusil.",
+  "source": "wahapedia-11e@2026-10-21",
   "replaces": [
    "bolt-sniper-rifle-eliminator-squad"
   ],
   "replacement": [
    "las-fusil-eliminator-squad"
-  ],
-  "model_constraint": {
-   "model_name": "Eliminator",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "outrider-squad-wgo-mfm-1",
+  "id": "outrider-squad-wgo-wh-1",
   "unit_id": "outrider-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "onslaught-gatling-cannon"
-  ],
-  "replacement": [
-   "multi-melta"
-  ],
+  "rules_text": "The Outrider Sergeant can have their Chainsword replaced with one of the following:• 1 Power Weapon • 1 Thunder Hammer",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "model_name": "Invader ATV",
-   "any_number": true
-  }
+   "max": 1,
+   "model_name": "Outrider Sergeant"
+  },
+  "replaces": [
+   "chainsword-outrider-squad"
+  ],
+  "replacement_choice": [
+   [
+    "power-weapon-outrider-squad"
+   ],
+   [
+    "thunder-hammer-outrider-squad"
+   ]
+  ]
  },
  {
-  "id": "desolation-squad-wgo-mfm-1",
+  "id": "outrider-squad-wgo-wh-2",
+  "unit_id": "outrider-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "For every 3 models in this unit, 1 model can have their Heavy Bolt Pistol replaced with 1 Plasma Pistol.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 3,
+   "max": 1
+  },
+  "replaces": [
+   "heavy-bolt-pistol-outrider-squad"
+  ],
+  "replacement": [
+   "plasma-pistol-outrider-squad"
+  ]
+ },
+ {
+  "id": "desolation-squad-wgo-wh-1",
   "unit_id": "desolation-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Desolation Sergeant can have their Superfrag Rocket Launcher replaced with 1 Vengor Launcher.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Desolation Sergeant"
+  },
+  "replaces": [
+   "superfrag-rocket-launcher-desolation-squad"
+  ],
+  "replacement": [
+   "vengor-launcher-desolation-squad"
+  ]
+ },
+ {
+  "id": "desolation-squad-wgo-wh-2",
+  "unit_id": "desolation-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "The Desolation Sergeant can have their Superkrak Rocket Launcher replaced with 1 Vengor Launcher.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Desolation Sergeant"
+  },
+  "replaces": [
+   "superkrak-rocket-launcher-desolation-squad"
+  ],
+  "replacement": [
+   "vengor-launcher-desolation-squad"
+  ]
+ },
+ {
+  "id": "desolation-squad-wgo-wh-3",
+  "unit_id": "desolation-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "All models in this unit can each have their Superfrag Rocket Launcher replaced with 1 Superkrak Rocket Launcher.",
+  "source": "wahapedia-11e@2026-10-21",
   "replaces": [
    "superfrag-rocket-launcher-desolation-squad"
   ],
   "replacement": [
    "superkrak-rocket-launcher-desolation-squad"
-  ],
-  "model_constraint": {
-   "model_name": "Desolation Marine",
-   "any_number": true
-  }
- },
- {
-  "id": "desolation-squad-wgo-mfm-2",
-  "unit_id": "desolation-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "superfrag-rocket-launcher-desolation-squad"
-  ],
-  "replacement_choice": [
-   [
-    "vengor-launcher-desolation-squad"
-   ],
-   [
-    "superkrak-rocket-launcher-desolation-squad"
-   ]
-  ],
-  "model_constraint": {
-   "model_name": "Desolation Sergeant",
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "centurion-assault-squad-wgo-mfm-1",
@@ -5781,142 +5567,145 @@
   }
  },
  {
-  "id": "redemptor-dreadnought-wgo-mfm-1",
+  "id": "redemptor-dreadnought-wgo-wh-1",
   "unit_id": "redemptor-dreadnought",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model can be equipped with 1 Icarus Rocket Pod.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
   "replacement": [
    "icarus-rocket-pod"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "redemptor-dreadnought-wgo-mfm-2",
+  "id": "redemptor-dreadnought-wgo-wh-2",
   "unit_id": "redemptor-dreadnought",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Fragstorm Grenade Launchers can be replaced with 1 Storm Bolters.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
-   "heavy-onslaught-gatling-cannon"
+   "fragstorm-grenade-launchers-redemptor-dreadnought"
   ],
   "replacement": [
-   "macro-plasma-incinerator"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+   "storm-bolters-redemptor-dreadnought"
+  ]
  },
  {
-  "id": "redemptor-dreadnought-wgo-mfm-3",
+  "id": "redemptor-dreadnought-wgo-wh-3",
   "unit_id": "redemptor-dreadnought",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Heavy Flamer can be replaced with 1 Onslaught Gatling Cannon.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "heavy-flamer-redemptor-dreadnought"
   ],
   "replacement": [
    "onslaught-gatling-cannon"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "redemptor-dreadnought-wgo-mfm-4",
+  "id": "redemptor-dreadnought-wgo-wh-4",
   "unit_id": "redemptor-dreadnought",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Heavy Onslaught Gatling Cannon can be replaced with 1 Macro Plasma Incinerator.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
-   "twin-fragstorm-grenade-launcher"
+   "heavy-onslaught-gatling-cannon"
   ],
   "replacement": [
-   "twin-storm-bolter-redemptor-dreadnought"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+   "macro-plasma-incinerator"
+  ]
  },
  {
-  "id": "ancient-wgo-mfm-1",
+  "id": "ancient-wgo-wh-1",
   "unit_id": "ancient",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Bolt Rifle can be replaced with 1 Power Weapon.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "bolt-rifle-ancient"
   ],
   "replacement": [
    "power-weapon-ancient"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "chaplain-in-terminator-armour-wgo-mfm-1",
+  "id": "chaplain-in-terminator-armour-wgo-wh-1",
   "unit_id": "chaplain-in-terminator-armour",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Storm Bolter can be replaced with 1 Relic Shield.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "storm-bolter-chaplain-in-terminator-armour"
   ],
   "replacement": [
    "relic-shield"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "incursor-squad-wgo-mfm-1",
-  "unit_id": "incursor-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "haywire-mine"
-  ],
-  "model_constraint": {
-   "model_name": "Incursor",
-   "any_number": true
-  }
- },
- {
-  "id": "assault-intercessors-with-jump-packs-wgo-mfm-1",
+  "id": "assault-intercessors-with-jump-packs-wgo-wh-1",
   "unit_id": "assault-intercessors-with-jump-packs",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Assault Intercessor Sergeant with Jump Pack can have their Heavy Bolt Pistol replaced with one of the following:• 1 Hand Flamer • 1 Plasma Pistol",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Assault Intercessor Sergeant with Jump Pack"
+  },
   "replaces": [
    "heavy-bolt-pistol-assault-intercessors-with-jump-packs"
   ],
@@ -5927,23 +5716,25 @@
    [
     "plasma-pistol-assault-intercessors-with-jump-packs"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Assault Intercessor Sergeant with Jump Pack",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "assault-intercessors-with-jump-packs-wgo-mfm-2",
+  "id": "assault-intercessors-with-jump-packs-wgo-wh-2",
   "unit_id": "assault-intercessors-with-jump-packs",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Assault Intercessor Sergeant with Jump Pack can have their Chainsword replaced with one of the following:• 1 Power Fist • 1 Power Weapon",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Assault Intercessor Sergeant with Jump Pack"
+  },
   "replaces": [
-   "astartes-chainsword-assault-intercessors-with-jump-packs"
+   "chainsword-assault-intercessors-with-jump-packs"
   ],
   "replacement_choice": [
    [
@@ -5952,197 +5743,134 @@
    [
     "power-weapon-assault-intercessors-with-jump-packs"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Assault Intercessor Sergeant with Jump Pack",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "assault-intercessors-with-jump-packs-wgo-mfm-3",
+  "id": "assault-intercessors-with-jump-packs-wgo-wh-3",
   "unit_id": "assault-intercessors-with-jump-packs",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "For every 5 models in this unit, 1 Assault Intercessor with Jump Pack model can have their Heavy Bolt Pistol replaced with 1 Plasma Pistol.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 5,
+   "max": 1,
+   "model_name": "Assault Intercessor with Jump Pack"
+  },
   "replaces": [
    "heavy-bolt-pistol-assault-intercessors-with-jump-packs"
   ],
   "replacement": [
    "plasma-pistol-assault-intercessors-with-jump-packs"
-  ],
-  "model_constraint": {
-   "model_name": "Assault Intercessors with Jump Packs",
-   "per_n_models": 5
-  }
+  ]
  },
  {
-  "id": "vanguard-veteran-squad-with-jump-packs-wgo-mfm-1",
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-wh-1",
   "unit_id": "vanguard-veteran-squad-with-jump-packs",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Vanguard Veteran Sergeant with Jump Pack can have their Relic Blade replaced with one of the following:• 1 Power Fist • 1 Thunder Hammer",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Vanguard Veteran Sergeant with Jump Pack"
+  },
   "replaces": [
-   "bolt-pistol"
+   "relic-blade-vanguard-veteran-squad-with-jump-packs"
   ],
   "replacement_choice": [
    [
-    "hand-flamer"
+    "power-fist-vanguard-veteran-squad-with-jump-packs"
    ],
    [
-    "inferno-pistol"
-   ],
-   [
-    "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
-   ],
-   [
-    "grav-pistol"
-   ],
-   [
-    "storm-shield"
+    "thunder-hammer-vanguard-veteran-squad-with-jump-packs"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Vanguard Veteran Sergeant with Jump Pack",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "vanguard-veteran-squad-with-jump-packs-wgo-mfm-2",
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-wh-2",
   "unit_id": "vanguard-veteran-squad-with-jump-packs",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "bolt-pistol",
-   "vanguard-veteran-weapon"
-  ],
-  "replacement_choice": [
-   [
-    "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs",
-    "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
-   ],
-   [
-    "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs",
-    "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
-   ]
-  ],
+  "rules_text": "The Vanguard Veteran Sergeant with Jump Pack can have their Heavy Bolt Pistol replaced with 1 Plasma Pistol.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "model_name": "Vanguard Veteran Sergeant with Jump Pack",
-   "any_number": true
-  }
+   "max": 1,
+   "model_name": "Vanguard Veteran Sergeant with Jump Pack"
+  },
+  "replaces": [
+   "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
+  ],
+  "replacement": [
+   "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
+  ]
  },
  {
-  "id": "vanguard-veteran-squad-with-jump-packs-wgo-mfm-3",
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-wh-3",
   "unit_id": "vanguard-veteran-squad-with-jump-packs",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "All models in this unit can each have their Heavy Bolt Pistol replaced with 1 Combat Shield.",
+  "source": "wahapedia-11e@2026-10-21",
   "replaces": [
-   "bolt-pistol",
-   "vanguard-veteran-weapon"
+   "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
   ],
-  "replacement_choice": [
-   [
-    "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs",
-    "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
-   ],
-   [
-    "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs",
-    "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
-   ]
-  ],
-  "model_constraint": {
-   "model_name": "Vanguard Veteran with Jump Pack",
-   "any_number": true
-  }
+  "replacement": [
+   "combat-shield"
+  ]
  },
  {
-  "id": "vanguard-veteran-squad-with-jump-packs-wgo-mfm-4",
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-wh-4",
   "unit_id": "vanguard-veteran-squad-with-jump-packs",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "For every 5 models in this unit, up to 2 Vanguard Veteran with Jump Pack models can each have their Heavy Bolt Pistol replaced with 1 Plasma Pistol.",
+  "source": "wahapedia-11e@2026-10-21",
   "replaces": [
-   "bolt-pistol"
+   "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
   ],
-  "replacement_choice": [
-   [
-    "storm-shield"
-   ],
-   [
-    "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
-   ],
-   [
-    "hand-flamer"
-   ],
-   [
-    "grav-pistol"
-   ],
-   [
-    "inferno-pistol"
-   ]
-  ],
-  "model_constraint": {
-   "model_name": "Vanguard Veteran with Jump Pack",
-   "any_number": true
-  }
+  "replacement": [
+   "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
+  ]
  },
  {
-  "id": "aggressor-squad-wgo-mfm-1",
+  "id": "aggressor-squad-wgo-wh-1",
   "unit_id": "aggressor-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "All models in this unit can each have their Flamestorm Gauntlets replaced with 1 Auto Boltstorm Gauntlets and 1 Fragstorm Grenade Launcher.",
+  "source": "wahapedia-11e@2026-10-21",
   "replaces": [
    "flamestorm-gauntlets-aggressor-squad"
   ],
   "replacement": [
    "auto-boltstorm-gauntlets-aggressor-squad",
    "fragstorm-grenade-launcher-aggressor-squad"
-  ],
-  "model_constraint": {
-   "model_name": "Aggressor",
-   "any_number": true
-  }
- },
- {
-  "id": "aggressor-squad-wgo-mfm-2",
-  "unit_id": "aggressor-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "flamestorm-gauntlets-aggressor-squad"
-  ],
-  "replacement": [
-   "auto-boltstorm-gauntlets-aggressor-squad",
-   "fragstorm-grenade-launcher-aggressor-squad"
-  ],
-  "model_constraint": {
-   "model_name": "Aggressor Sergeant",
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "stormhawk-interceptor-wgo-mfm-1",
@@ -6188,17 +5916,22 @@
   }
  },
  {
-  "id": "captain-wgo-mfm-1",
+  "id": "captain-wgo-wh-1",
   "unit_id": "captain",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Master-crafted Bolter and Heavy Bolt Pistol can be replaced with one of the following:• 1 Neo-volkite Pistol • 1 Plasma Pistol",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
-   "heavy-bolt-pistol-captain",
-   "master-crafted-bolter"
+   "master-crafted-bolter",
+   "heavy-bolt-pistol-captain"
   ],
   "replacement_choice": [
    [
@@ -6207,34 +5940,49 @@
    [
     "plasma-pistol-captain"
    ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "captain-wgo-mfm-2",
+  "id": "captain-wgo-wh-2",
   "unit_id": "captain",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Master-crafted Bolter can be replaced with 1 Relic Shield (this model’s Master-crafted Power Weapon cannot be replaced).",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "master-crafted-bolter"
+  ],
+  "replacement": [
+   "relic-shield"
+  ]
+ },
+ {
+  "id": "captain-wgo-wh-3",
+  "unit_id": "captain",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Master-crafted Power Weapon can be replaced with 1 Power Fist.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "master-crafted-power-weapon-captain"
   ],
-  "replacement_choice": [
-   [
-    "master-crafted-power-weapon-captain"
-   ],
-   [
-    "power-fist-captain"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "replacement": [
+   "power-fist-captain"
+  ]
  },
  {
   "id": "predator-annihilator-wgo-mfm-1",
@@ -6357,81 +6105,26 @@
   }
  },
  {
-  "id": "chaplain-with-jump-pack-wgo-mfm-1",
-  "unit_id": "chaplain-with-jump-pack",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "bolt-pistol"
-  ],
-  "replacement_choice": [
-   [
-    "absolvor-bolt-pistol-chaplain-with-jump-pack"
-   ],
-   [
-    "grav-pistol"
-   ],
-   [
-    "plasma-pistol-chaplain-with-jump-pack"
-   ],
-   [
-    "storm-bolter"
-   ],
-   [
-    "power-fist-chaplain-with-jump-pack"
-   ],
-   [
-    "inferno-pistol"
-   ],
-   [
-    "hand-flamer"
-   ],
-   [
-    "boltgun"
-   ],
-   [
-    "combi-weapon-chaplain-with-jump-pack"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "intercessor-squad-wgo-mfm-1",
+  "id": "intercessor-squad-wgo-wh-1",
   "unit_id": "intercessor-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replacement": [
-   "astartes-grenade-launcher"
-  ],
+  "rules_text": "The Intercessor Sergeant can have their Knives and Fists replaced with one of the following:• 1 Chainsword • 1 Power Fist • 1 Power Weapon • 1 Thunder Hammer",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "per_n_models": 5
-  }
- },
- {
-  "id": "intercessor-squad-wgo-mfm-3",
-  "unit_id": "intercessor-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1,
+   "model_name": "Intercessor Sergeant"
   },
-  "is_free": true,
   "replaces": [
-   "close-combat-weapon"
+   "close-combat-weapon-intercessor-squad"
   ],
   "replacement_choice": [
    [
-    "astartes-chainsword-intercessor-squad"
+    "chainsword-intercessor-squad"
    ],
    [
     "power-fist-intercessor-squad"
@@ -6442,25 +6135,30 @@
    [
     "thunder-hammer-intercessor-squad"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Intercessor Sergeant",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "intercessor-squad-wgo-mfm-4",
+  "id": "intercessor-squad-wgo-wh-2",
   "unit_id": "intercessor-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Intercessor Sergeant can have their Bolt Rifle replaced with one of the following:• 1 Chainsword • 1 Hand Flamer • 1 Plasma Pistol • 1 Power Weapon",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Intercessor Sergeant"
+  },
   "replaces": [
    "bolt-rifle-intercessor-squad"
   ],
   "replacement_choice": [
+   [
+    "chainsword-intercessor-squad"
+   ],
    [
     "hand-flamer-intercessor-squad"
    ],
@@ -6469,356 +6167,328 @@
    ],
    [
     "power-weapon-intercessor-squad"
-   ],
-   [
-    "astartes-chainsword-intercessor-squad"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Intercessor Sergeant",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "astraeus-wgo-mfm-1",
+  "id": "intercessor-squad-wgo-wh-3",
+  "unit_id": "intercessor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "For every 5 models in this unit, 1 Intercessor model can be equipped with 1 Grenade Launcher.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 5,
+   "max": 1,
+   "model_name": "Intercessor"
+  },
+  "replaces": [],
+  "replacement": [
+   "astartes-grenade-launcher-intercessor-squad"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "astraeus-wgo-wh-1",
   "unit_id": "astraeus",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "twin-heavy-bolter"
-  ],
-  "replacement": [
-   "twin-lascannon"
-  ],
+  "rules_text": "This model's 2 Astareus Las-rippers can be replaced with 2 Plasma Eradicator.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "astraeus-wgo-mfm-2",
-  "unit_id": "astraeus",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1
   },
-  "is_free": true,
   "replaces": [
-   "astraeus-las-ripper",
-   "astraeus-las-ripper"
+   "astareus-las-ripper"
   ],
   "replacement": [
-   "plasma-eradicator",
    "plasma-eradicator"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "astraeus-wgo-mfm-3",
+  "id": "astraeus-wgo-wh-2",
   "unit_id": "astraeus",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model can be equipped with 1 Ironhail Heavy Stubber",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
   "replacement": [
    "ironhail-heavy-stubber"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "land-raider-redeemer-wgo-mfm-1",
+  "id": "astraeus-wgo-wh-3",
+  "unit_id": "astraeus",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model's Twin Heavy Bolter can be replaced with 1 Twin Lascannon.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "twin-heavy-bolter-astraeus"
+  ],
+  "replacement": [
+   "twin-lascannon-astraeus"
+  ]
+ },
+ {
+  "id": "land-raider-redeemer-wgo-wh-1",
   "unit_id": "land-raider-redeemer",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model can be equipped with 1 Hunter-killer Missile.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
   "replacement": [
    "hunter-killer-missile-land-raider-redeemer"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "land-raider-redeemer-wgo-mfm-2",
+  "id": "land-raider-redeemer-wgo-wh-2",
   "unit_id": "land-raider-redeemer",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model can be equipped with 1 Multi-melta.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
   "replacement": [
    "multi-melta-land-raider-redeemer"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "land-raider-redeemer-wgo-mfm-3",
+  "id": "land-raider-redeemer-wgo-wh-3",
   "unit_id": "land-raider-redeemer",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model can be equipped with 1 Storm Bolter.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
   "replacement": [
    "storm-bolter-land-raider-redeemer"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "thunderhawk-gunship-wgo-mfm-1",
+  "id": "thunderhawk-gunship-wgo-wh-1",
   "unit_id": "thunderhawk-gunship",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "thunderhawk-cluster-bombs"
-  ],
-  "replacement": [
-   "hellstrike-missile-battery"
-  ],
+  "rules_text": "This model's Thunderhawk Heavy Cannon can be replaced with 1 Turbo-laser Destructor.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "thunderhawk-gunship-wgo-mfm-2",
-  "unit_id": "thunderhawk-gunship",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
+   "max": 1
   },
-  "is_free": true,
   "replaces": [
    "thunderhawk-heavy-cannon"
   ],
   "replacement": [
    "turbo-laser-destructor"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "rhino-wgo-mfm-1",
+  "id": "thunderhawk-gunship-wgo-wh-2",
+  "unit_id": "thunderhawk-gunship",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Thunderhawk cluster bombs can be replaced with 1 hellstrike missile battery.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "wargear:thunderhawk-cluster-bombs"
+  ],
+  "replacement": [
+   "hellstrike-missile-battery"
+  ]
+ },
+ {
+  "id": "thunderhawk-gunship-wgo-wh-3",
+  "unit_id": "thunderhawk-gunship",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Thunderhawk heavy cannon can be replaced with 1 turbo-laser destructor.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "thunderhawk-heavy-cannon"
+  ],
+  "replacement": [
+   "turbo-laser-destructor"
+  ]
+ },
+ {
+  "id": "rhino-wgo-wh-1",
   "unit_id": "rhino",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model can be equipped with 1 Hunter-killer Missile.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
   "replacement": [
    "hunter-killer-missile-rhino"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "invader-atv-wgo-mfm-1",
+  "id": "invader-atv-wgo-wh-1",
   "unit_id": "invader-atv",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "All models in this unit can each have their Onslaught Gatling Cannon replaced with 1 Multi-melta.",
+  "source": "wahapedia-11e@2026-10-21",
   "replaces": [
    "onslaught-gatling-cannon-invader-atv"
   ],
   "replacement": [
    "multi-melta-invader-atv"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "infiltrator-squad-wgo-mfm-1",
+  "id": "infiltrator-squad-wgo-wh-1",
   "unit_id": "infiltrator-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "1 model can be equipped with 1 Helix Gauntlet.",
+  "source": "wahapedia-11e@2026-10-21",
   "model_constraint": {
-   "model_name": "Infiltrator",
-   "max_count": 1
+   "max": 1
   },
+  "replaces": [],
   "replacement": [
    "helix-gauntlet"
-  ]
+  ],
+  "max_count": 1
  },
  {
-  "id": "reiver-squad-wgo-mfm-1",
+  "id": "reiver-squad-wgo-wh-1",
   "unit_id": "reiver-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replaces": [
-   "combat-knife"
-  ],
+  "rules_text": "This unit can be equipped with 1 Grav-chutes",
+  "source": "wahapedia-11e@2026-10-21",
+  "replaces": [],
   "replacement": [
-   "close-combat-weapon",
-   "bolt-carbine"
+   "grav-chutes"
   ],
-  "model_constraint": {
-   "model_name": "Reiver",
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "reiver-squad-wgo-mfm-2",
+  "id": "reiver-squad-wgo-wh-2",
   "unit_id": "reiver-squad",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This unit can be equipped with 1 Grapnel Launchers",
+  "source": "wahapedia-11e@2026-10-21",
+  "replaces": [],
   "replacement": [
-   "reiver-grav-chute"
+   "grapnel-launchers"
   ],
-  "model_constraint": {
-   "model_name": "Reiver",
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
-  "id": "reiver-squad-wgo-mfm-3",
-  "unit_id": "reiver-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "grapnel-launcher"
-  ],
-  "model_constraint": {
-   "model_name": "Reiver Sergeant",
-   "any_number": true
-  }
- },
- {
-  "id": "reiver-squad-wgo-mfm-4",
-  "unit_id": "reiver-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "grapnel-launcher"
-  ],
-  "model_constraint": {
-   "model_name": "Reiver",
-   "any_number": true
-  }
- },
- {
-  "id": "reiver-squad-wgo-mfm-5",
-  "unit_id": "reiver-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "combat-knife"
-  ],
-  "replacement": [
-   "bolt-carbine",
-   "close-combat-weapon"
-  ],
-  "model_constraint": {
-   "model_name": "Reiver Sergeant",
-   "any_number": true
-  }
- },
- {
-  "id": "reiver-squad-wgo-mfm-6",
-  "unit_id": "reiver-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "close-combat-weapon",
-   "bolt-carbine"
-  ],
-  "model_constraint": {
-   "model_name": "Reiver Sergeant",
-   "any_number": true
-  }
- },
- {
-  "id": "reiver-squad-wgo-mfm-7",
-  "unit_id": "reiver-squad",
-  "faction_id": "adeptus-astartes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "reiver-grav-chute"
-  ],
-  "model_constraint": {
-   "model_name": "Reiver Sergeant",
-   "any_number": true
-  }
- },
- {
-  "id": "invictor-tactical-warsuit-wgo-mfm-1",
+  "id": "invictor-tactical-warsuit-wgo-wh-1",
   "unit_id": "invictor-tactical-warsuit",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Incendium Cannon can be replaced with 1 Twin Ironhail Autocannon.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "incendium-cannon"
   ],
   "replacement": [
    "twin-ironhail-autocannon"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "venerable-dreadnought-wgo-wh-1",
@@ -6950,7 +6620,7 @@
    "model_name": "Grey Hunter Pack Leader"
   },
   "replaces": [
-   "chainsword"
+   "chainsword-grey-hunters"
   ],
   "replacement_choice": [
    [
@@ -7022,7 +6692,7 @@
    "model_name": "Blood Claw Pack Leader"
   },
   "replaces": [
-   "chainsword"
+   "chainsword-blood-claws"
   ],
   "replacement": [
    "power-weapon"
@@ -7322,7 +6992,7 @@
   "source": "wahapedia-11e@2026-10-21",
   "replaces": [],
   "replacement": [
-   "haywire-mine"
+   "haywire-mine-wolf-scouts"
   ],
   "max_count": 1
  },
@@ -7370,300 +7040,111 @@
   ]
  },
  {
-  "id": "land-speeder-wgo-mfm-1",
+  "id": "land-speeder-wgo-wh-1",
   "unit_id": "land-speeder",
   "faction_id": "adeptus-astartes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Onslaught Gatling Cannon can be replaced with 1 Pyrecannon.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "onslaught-gatling-cannon"
   ],
   "replacement": [
-   "heavy-flamer"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+   "pyrecannon"
+  ]
  },
  {
-  "id": "captain-on-bike-wgo-plasma-pistol",
+  "id": "captain-on-bike-wgo-wh-1",
   "unit_id": "captain-on-bike",
   "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Heavy Bolt Pistol can be replaced with 1 Plasma Pistol.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "heavy-bolt-pistol-captain-on-bike"
   ],
   "replacement": [
-   "plasma-pistol"
-  ],
-  "model_constraint": {
-   "any_number": true
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
+   "plasma-pistol-captain-on-bike"
+  ]
  },
  {
-  "id": "captain-on-bike-wgo-thunder-hammer",
+  "id": "captain-on-bike-wgo-wh-2",
   "unit_id": "captain-on-bike",
   "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Master-crafted Power Weapon can be replaced with 1 Thunder Hammer.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "master-crafted-power-weapon-captain-on-bike"
   ],
   "replacement": [
    "thunder-hammer-captain-on-bike"
-  ],
-  "model_constraint": {
-   "any_number": true
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
+  ]
  },
  {
-  "id": "lieutenant-wgo-neo-volkite-power-weapon",
-  "unit_id": "lieutenant",
-  "faction_id": "adeptus-astartes",
-  "replaces": [
-   "master-crafted-bolter-lieutenant",
-   "bolt-pistol-lieutenant"
-  ],
-  "replacement": [
-   "neo-volkite-pistol-lieutenant",
-   "master-crafted-power-weapon-lieutenant"
-  ],
-  "model_constraint": {
-   "any_number": true
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
- },
- {
-  "id": "lieutenant-wgo-ceramite-fists",
-  "unit_id": "lieutenant",
-  "faction_id": "adeptus-astartes",
-  "replaces": [
-   "ceramite-fists-lieutenant"
-  ],
-  "replacement_choice": [
-   [
-    "master-crafted-power-weapon-lieutenant"
-   ],
-   [
-    "power-fist-lieutenant"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
- },
- {
-  "id": "lieutenant-in-phobos-armour-wgo-1",
+  "id": "lieutenant-in-phobos-armour-wgo-wh-1",
   "unit_id": "lieutenant-in-phobos-armour",
   "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Special-issue Bolt Pistol can be replaced with 1 Master-crafted Bolt Carbine.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
-   "bolt-pistol-lieutenant-in-phobos-armour"
+   "special-issue-bolt-pistol-lieutenant-in-phobos-armour"
   ],
   "replacement": [
    "master-crafted-bolt-carbine-lieutenant-in-phobos-armour"
-  ],
-  "model_constraint": {
-   "model_name": "Lieutenant in Phobos Armour",
-   "any_number": true
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
+  ]
  },
  {
-  "id": "vanguard-veteran-squad-with-jump-packs-wgo-codex-1",
-  "unit_id": "vanguard-veteran-squad-with-jump-packs",
+  "id": "eradicator-squad-with-melta-rifles-wgo-wh-1",
+  "unit_id": "eradicator-squad-with-melta-rifles",
   "faction_id": "adeptus-astartes",
-  "replaces": [
-   "relic-blade-vanguard-veteran-squad-with-jump-packs"
-  ],
-  "replacement_choice": [
-   [
-    "power-fist-vanguard-veteran-squad-with-jump-packs"
-   ],
-   [
-    "thunder-hammer-vanguard-veteran-squad-with-jump-packs"
-   ]
-  ],
-  "model_constraint": {
-   "model_name": "Vanguard Veteran Sergeant with Jump Pack",
-   "max_count": 1
-  },
-  "is_free": true,
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
-  }
- },
- {
-  "id": "vanguard-veteran-squad-with-jump-packs-wgo-codex-2",
-  "unit_id": "vanguard-veteran-squad-with-jump-packs",
-  "faction_id": "adeptus-astartes",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "For every 3 models in this unit, 1 Eradicator model can have their Melta Rifle replaced with 1 Multi-melta.",
+  "source": "wahapedia-11e@2026-10-21",
+  "model_constraint": {
+   "per_n_models": 3,
+   "max": 1,
+   "model_name": "Eradicator"
+  },
   "replaces": [
-   "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
+   "melta-rifle-eradicator-squad-with-melta-rifles"
   ],
   "replacement": [
-   "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
-  ],
-  "model_constraint": {
-   "model_name": "Vanguard Veteran Sergeant with Jump Pack",
-   "max_count": 1
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
- },
- {
-  "id": "vanguard-veteran-squad-with-jump-packs-wgo-codex-3",
-  "unit_id": "vanguard-veteran-squad-with-jump-packs",
-  "faction_id": "adeptus-astartes",
-  "replaces": [
-   "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
-  ],
-  "replacement": [
-   "combat-shield"
-  ],
-  "model_constraint": {
-   "any_number": true
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
- },
- {
-  "id": "vanguard-veteran-squad-with-jump-packs-wgo-codex-4",
-  "unit_id": "vanguard-veteran-squad-with-jump-packs",
-  "faction_id": "adeptus-astartes",
-  "replaces": [
-   "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
-  ],
-  "replacement": [
-   "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
-  ],
-  "model_constraint": {
-   "model_name": "Vanguard Veteran with Jump Pack",
-   "per_n_models": 5,
-   "max_count": 2
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
- },
- {
-  "id": "scout-squad-wgo-codex-11e-sergeant-chainsword",
-  "unit_id": "scout-squad",
-  "faction_id": "adeptus-astartes",
-  "replaces": [
-   "combat-knife-scout-squad"
-  ],
-  "replacement": [
-   "astartes-chainsword-scout-squad"
-  ],
-  "model_constraint": {
-   "model_name": "Scout Sergeant",
-   "any_number": true
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
- },
- {
-  "id": "scout-squad-wgo-codex-11e-special-weapon",
-  "unit_id": "scout-squad",
-  "faction_id": "adeptus-astartes",
-  "replaces": [
-   "boltgun-scout-squad"
-  ],
-  "replacement_choice": [
-   [
-    "heavy-bolter-scout-squad"
-   ],
-   [
-    "missile-launcher-scout-squad"
-   ]
-  ],
-  "model_constraint": {
-   "model_name": "Scout",
-   "per_n_models": 5
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
- },
- {
-  "id": "outrider-squad-wgo-codex-11e-sergeant-melee",
-  "unit_id": "outrider-squad",
-  "faction_id": "adeptus-astartes",
-  "replaces": [
-   "astartes-chainsword-outrider-squad"
-  ],
-  "replacement_choice": [
-   [
-    "power-weapon-outrider-squad"
-   ],
-   [
-    "thunder-hammer-outrider-squad"
-   ]
-  ],
-  "model_constraint": {
-   "model_name": "Outrider Sergeant",
-   "any_number": true
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
- },
- {
-  "id": "outrider-squad-wgo-codex-11e-plasma-pistol",
-  "unit_id": "outrider-squad",
-  "faction_id": "adeptus-astartes",
-  "replaces": [
-   "heavy-bolt-pistol-outrider-squad"
-  ],
-  "replacement": [
-   "plasma-pistol-outrider-squad"
-  ],
-  "model_constraint": {
-   "per_n_models": 3
-  },
-  "is_free": true,
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  }
+   "multi-melta-eradicator-squad-with-melta-rifles"
+  ]
  },
  {
   "id": "telemon-heavy-dreadnought-wgo-wh-1",

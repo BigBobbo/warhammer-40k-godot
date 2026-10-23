@@ -3581,6 +3581,7 @@
      "EXPLOSIVES",
      "IMPERIUM",
      "INFANTRY",
+     "INTERCESSOR SQUAD",
      "TACTICUS"
     ],
     "stats": {
@@ -3591,45 +3592,19 @@
      "leadership": 6,
      "objective_control": 2
     },
-    "points": 80,
+    "points": 85,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [],
     "weapons": [
-     {
-      "name": "Astartes grenade launcher – Frag",
-      "type": "Ranged",
-      "range": "24",
-      "attacks": "D3",
-      "ballistic_skill": "3",
-      "strength": "4",
-      "ap": "0",
-      "damage": "1",
-      "special_rules": "blast",
-      "abilities": [
-       {
-        "id": "blast"
-       }
-      ]
-     },
-     {
-      "name": "Astartes grenade launcher – Krak",
-      "type": "Ranged",
-      "range": "24",
-      "attacks": "1",
-      "ballistic_skill": "3",
-      "strength": "9",
-      "ap": "-2",
-      "damage": "D3"
-     },
      {
       "name": "Bolt Pistol",
       "type": "Ranged",
       "range": "12",
       "attacks": "1",
       "ballistic_skill": "3",
-      "strength": "4",
-      "ap": "0",
+      "strength": "5",
+      "ap": "-1",
       "damage": "1",
       "special_rules": "close quarters",
       "abilities": [
@@ -3644,17 +3619,17 @@
       "range": "24",
       "attacks": "1",
       "ballistic_skill": "3",
-      "strength": "5",
+      "strength": "6",
       "ap": "-1",
       "damage": "2",
-      "special_rules": "heavy, rapid fire 1",
+      "special_rules": "rapid fire 1, heavy",
       "abilities": [
-       {
-        "id": "heavy"
-       },
        {
         "id": "rapid_fire",
         "x": 1
+       },
+       {
+        "id": "heavy"
        }
       ]
      },
@@ -3731,7 +3706,7 @@
       ]
      },
      {
-      "name": "Plasma pistol – Standard",
+      "name": "Plasma Pistol – Standard",
       "type": "Ranged",
       "range": "12",
       "attacks": "1",
@@ -3747,7 +3722,7 @@
       ]
      },
      {
-      "name": "Plasma pistol – Supercharge",
+      "name": "Plasma Pistol – Supercharge",
       "type": "Ranged",
       "range": "12",
       "attacks": "1",
@@ -3764,26 +3739,6 @@
         "id": "hazardous"
        }
       ]
-     },
-     {
-      "name": "Astartes chainsword",
-      "type": "Melee",
-      "range": "Melee",
-      "attacks": "5",
-      "weapon_skill": "3",
-      "strength": "5",
-      "ap": "-1",
-      "damage": "1"
-     },
-     {
-      "name": "Close combat weapon",
-      "type": "Melee",
-      "range": "Melee",
-      "attacks": "3",
-      "weapon_skill": "3",
-      "strength": "4",
-      "ap": "0",
-      "damage": "1"
      },
      {
       "name": "Knives and Fists",
@@ -3811,12 +3766,12 @@
       "range": "Melee",
       "attacks": "4",
       "weapon_skill": "3",
-      "strength": "8",
+      "strength": "5",
       "ap": "-2",
-      "damage": "2"
+      "damage": "1"
      },
      {
-      "name": "Thunder hammer",
+      "name": "Thunder Hammer",
       "type": "Melee",
       "range": "Melee",
       "attacks": "3",
@@ -3839,14 +3794,14 @@
       "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n• You can only select each combat doctrine once per battle.\n• Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
      },
      {
-      "name": "Objective Secured",
+      "name": "Bolter Discipline",
       "type": "Datasheet",
-      "description": "The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives)."
+      "description": "In your Shooting phase, if any of the following apply, this unit's ranged attacks have +1 to hit rolls:\n• This unit is within range of an objective.\n• The target of that attack is within range of an objective."
      },
      {
-      "name": "Target Elimination",
+      "name": "Tactical Mainstay",
       "type": "Datasheet",
-      "description": "Until the end of the phase, add 2 to the unit's Attacks characteristic."
+      "description": "• Being engaged/battle-shocked does not prevent this unit from being eligible to start an action.\n• When this unit starts an action, that action does not prevent this unit from being eligible to shoot."
      }
     ],
     "unit_composition": [
@@ -3917,6 +3872,7 @@
     "name": "Captain",
     "keywords": [
      "ADEPTUS ASTARTES",
+     "CAPTAIN",
      "CHARACTER",
      "EXPLOSIVES",
      "IMPERIUM",
@@ -3932,27 +3888,11 @@
      "objective_control": 1,
      "invuln": 4
     },
-    "points": 80,
+    "points": 90,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [],
     "weapons": [
-     {
-      "name": "Bolt Pistol",
-      "type": "Ranged",
-      "range": "12",
-      "attacks": "1",
-      "ballistic_skill": "2",
-      "strength": "4",
-      "ap": "0",
-      "damage": "1",
-      "special_rules": "pistol",
-      "abilities": [
-       {
-        "id": "pistol"
-       }
-      ]
-     },
      {
       "name": "Heavy Bolt Pistol",
       "type": "Ranged",
@@ -3970,7 +3910,7 @@
       ]
      },
      {
-      "name": "Master-crafted bolter",
+      "name": "Master-crafted Bolter",
       "type": "Ranged",
       "range": "24",
       "attacks": "2",
@@ -3978,19 +3918,19 @@
       "strength": "5",
       "ap": "-1",
       "damage": "2",
-      "special_rules": "assault, rapid fire 1",
+      "special_rules": "rapid fire 1, assault",
       "abilities": [
-       {
-        "id": "assault"
-       },
        {
         "id": "rapid_fire",
         "x": 1
+       },
+       {
+        "id": "assault"
        }
       ]
      },
      {
-      "name": "Neo-volkite pistol",
+      "name": "Neo-volkite Pistol",
       "type": "Ranged",
       "range": "12",
       "attacks": "1",
@@ -4033,18 +3973,18 @@
       "strength": "8",
       "ap": "-3",
       "damage": "2",
-      "special_rules": "close quarters, hazardous",
+      "special_rules": "hazardous, close quarters",
       "abilities": [
        {
-        "id": "close_quarters"
+        "id": "hazardous"
        },
        {
-        "id": "hazardous"
+        "id": "close_quarters"
        }
       ]
      },
      {
-      "name": "Master-crafted power weapon",
+      "name": "Master-crafted Power Weapon",
       "type": "Melee",
       "range": "Melee",
       "attacks": "6",
@@ -4054,7 +3994,7 @@
       "damage": "2"
      },
      {
-      "name": "Power fist",
+      "name": "Power Fist",
       "type": "Melee",
       "range": "Melee",
       "attacks": "5",
@@ -4074,6 +4014,21 @@
       "name": "Leader",
       "type": "Core",
       "description": "The unit gains the Leader ability."
+     },
+     {
+      "name": "Transhuman Strategist",
+      "type": "Faction",
+      "description": "At the start of the battle round, if a model with this ability is your WARLORD, gain 1CP."
+     },
+     {
+      "name": "Strategic Acumen",
+      "type": "Datasheet",
+      "description": "In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase."
+     },
+     {
+      "name": "Finest Hour",
+      "type": "Datasheet",
+      "description": "In the Fight phase, when this unit is selected to fight, you can use this ability. If you do, this model's melee attacks have:\n• +3 A.\n• [Devastating Wounds]."
      }
     ],
     "unit_composition": [
@@ -4090,11 +4045,13 @@
       "CRUSADER SQUAD",
       "DEATHWATCH VETERANS",
       "DECIMUS KILL TEAM",
+      "DESOLATION SQUAD",
       "FORTIS KILL TEAM",
       "HELLBLASTER SQUAD",
       "INFERNUS SQUAD",
       "INNER CIRCLE COMPANIONS",
       "INTERCESSOR SQUAD",
+      "STERNGUARD VETERAN SQUAD",
       "SWORD BRETHREN SQUAD",
       "TACTICAL SQUAD",
       "VICTRIX HONOUR GUARD"

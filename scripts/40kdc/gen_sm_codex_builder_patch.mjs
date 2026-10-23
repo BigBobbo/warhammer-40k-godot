@@ -92,7 +92,14 @@ async function main() {
 
   // --- datasheets -----------------------------------------------------------
   const sources = new Map(read('Source').map(s => [s.id, s.name]));
-  const sheets = read('Datasheets').filter(d => !/Legends/i.test(sources.get(d.source_id) ?? '') && d.name !== 'Example Wargear');
+  const allSheets = read('Datasheets').filter(d => !/Legends/i.test(sources.get(d.source_id) ?? '') && d.name !== 'Example Wargear');
+  // A chapter prints its own variant of some generic datasheets under the same
+  // name (Black Templars Gladiator Valiant 145 pts vs the Space Marines one at
+  // 165): the 40kdc record is the generic datasheet, so the chapter variant
+  // must not overwrite its points.
+  const GENERIC_SOURCES = new Set(['Space Marines', 'Space Marines (Forge World)']);
+  const genericNames = new Set(allSheets.filter(d => GENERIC_SOURCES.has(sources.get(d.source_id))).map(d => key(d.name)));
+  const sheets = allSheets.filter(d => GENERIC_SOURCES.has(sources.get(d.source_id)) || !genericNames.has(key(d.name)));
   const legendNames = new Set(read('Datasheets').filter(d => /Legends/i.test(sources.get(d.source_id) ?? '')).map(d => key(d.name)));
   const costs = new Map();
   for (const r of read('Datasheets_models_cost')) {

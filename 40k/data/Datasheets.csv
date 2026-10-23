@@ -172,7 +172,7 @@ adeptus-astartes::astraeus|Astraeus|adeptus-astartes|
 adeptus-astartes::land-raider-redeemer|Land Raider Redeemer|adeptus-astartes|
 adeptus-astartes::thunderhawk-gunship|Thunderhawk Gunship|adeptus-astartes|
 adeptus-astartes::rhino|Rhino|adeptus-astartes|
-adeptus-astartes::invader-atv|Invader ATV|adeptus-astartes|
+adeptus-astartes::invader-atv|Invader ATVs|adeptus-astartes|
 adeptus-astartes::infiltrator-squad|Infiltrator Squad|adeptus-astartes|
 adeptus-astartes::ballistus-dreadnought|Ballistus Dreadnought|adeptus-astartes|
 adeptus-astartes::infernus-squad|Infernus Squad|adeptus-astartes|
@@ -1011,3 +1011,7 @@ world-eaters::chaos-terminators|Chaos Terminators|world-eaters|
 world-eaters::khorne-lord-of-skulls|Khorne Lord of Skulls|world-eaters|
 world-eaters::chaos-spawn|Chaos Spawn|world-eaters|
 world-eaters::goremongers|Goremongers|world-eaters|
+adeptus-astartes::captain-on-bike|Captain on Bike|adeptus-astartes|
+adeptus-astartes::eradicator-squad-with-melta-rifles|Eradicator Squad with Melta Rifles|adeptus-astartes|
+adeptus-astartes::kaius-konorius|Kaius Konorius|adeptus-astartes|
+adeptus-astartes::marneus-calgar|Marneus Calgar|adeptus-astartes|

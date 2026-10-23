@@ -70,23 +70,49 @@ const REPO = join(here, '..', '..');
 const FACTIONS = {
   'adeptus-custodes': { waha: 'AC', dir: 'custodes', mode: 'full', keyword: 'Adeptus Custodes' },
   'orks': { waha: 'ORK', dir: 'orks', mode: 'overlay', keyword: 'Orks' },
-  // Codex: Space Marines (11e) — scoped to the Space Wolves chapter for now
-  // (sources / detachments below). Every other Adeptus Astartes datasheet and
-  // detachment keeps its 40kdc record; a weapon a Space Wolves datasheet prints
-  // differently from a shared 40kdc record gets its own per-unit copy instead of
-  // rewriting the shared one (see `scoped`).
+  // Codex: Space Marines (11e) — scoped (sources / detachment groups below):
+  // the generic Space Marine datasheets + Forge World and the Space Wolves
+  // chapter. Other chapters' datasheets and detachments (Blood Angels, Dark
+  // Angels, ...) keep their 40kdc records; a weapon an imported datasheet prints
+  // differently from a 40kdc record those still share gets a per-unit copy
+  // instead of rewriting the shared one (see `scoped`).
   'adeptus-astartes': {
     waha: 'SM', dir: 'space-marines', mode: 'full', keyword: 'Adeptus Astartes',
-    sources: ['Space Wolves'],
-    detachments: ['Champions of Fenris', 'Saga of the Beastslayer', 'Saga of the Great Wolf'],
-    // 40kdc files the chapter detachments under the chapter faction; the
-    // records (ids, external refs) are kept and refreshed in place.
-    detachmentFaction: 'space-wolves',
-    // pre-codex Space Wolves detachments Codex: Space Marines dropped
-    supersede: ['Saga of the Hunter', 'Saga of the Bold', 'Legends of Saga and Song', 'Veterans of the Fang'],
-    // The codex army rule every Space Wolves army's units get (Oath of Moment
-    // is gone from Codex: Space Marines; Combat Doctrines replaced it).
-    chapterArmyRules: ['combat-doctrines'],
+    sources: ['Space Marines', 'Space Marines (Forge World)', 'Space Wolves'],
+    // Detachments by owning 40kdc faction. Existing records (ids, external
+    // refs) are refreshed in place; a codex detachment with no record gets
+    // one. `supersede`: pre-codex detachments the codex dropped (kept for old
+    // rosters, marked superseded_by_codex).
+    detachmentGroups: [
+      {
+        faction: 'space-wolves',
+        names: ['Champions of Fenris', 'Saga of the Beastslayer', 'Saga of the Great Wolf'],
+        supersede: ['Saga of the Hunter', 'Saga of the Bold', 'Legends of Saga and Song', 'Veterans of the Fang'],
+      },
+      {
+        faction: 'adeptus-astartes',
+        names: ['Gladius Task Force', 'Ironstorm Spearhead', 'Stormlance Task Force', 'Gauntlet Task Force',
+          'Phobos Shadow Force', 'Tacticus Attack Force', 'Phobos Shock Force', 'Terminator Storm Force',
+          'Assault Brethren', 'Gravis Linebreaker Force', 'Devastator Brethren', 'Gravis Siege Force',
+          'Tactical Brethren', 'Ironclad Champions', 'Tacticus Firestorm Force'],
+        supersede: ['1st Company Task Force', 'Librarius Conclave', 'Vanguard Spearhead', 'Orbital Assault Force',
+          'Anvil Siege Force', 'Firestorm Assault Force', 'Fulguris Task Force', 'Subversion Assets',
+          'Armoured Speartip', 'Bastion Task Force', 'Headhunter Task Force'],
+        // 40kdc also files a copy of every generic detachment under each
+        // chapter faction (index data): those copies are superseded, so a
+        // chapter army resolves the generic codex record.
+        supersedeChapterCopies: true,
+      },
+    ],
+    // The codex army rule (Oath of Moment is gone from Codex: Space Marines;
+    // Combat Doctrines replaced it) — on the Space Marines faction and the
+    // imported chapter.
+    armyRules: ['combat-doctrines'],
+    armyRuleFactions: ['adeptus-astartes', 'space-wolves'],
+    // Army rules the codex retired: a datasheet record not re-imported yet that
+    // still lists one (other chapters' units) must not bring it back
+    // (gameformat.unitAbilities reads `retired_rule_ids`).
+    retiredRules: ['oath-of-moment'],
   },
 };
 
@@ -550,6 +576,7 @@ function main() {
     const weaponGroups = new Map(); // base name key -> {name, profiles: []}
     for (const r of wRows) {
       const full = stripHtml(r.name);
+      if (!full.trim()) continue; // a blank export row (Drop Pod: no weapons)
       const [base, profName] = full.split(/\s+[-–]\s+/, 2);
       const key = normName(base);
       if (!weaponGroups.has(key)) weaponGroups.set(key, { name: base.trim(), rows: [] });
@@ -857,7 +884,9 @@ function main() {
     if (mode === 'full' || !existing) {
       // keep 40kdc's spelling when only the case differs (Wahapedia prints
       // "Ulrik The Slayer"; the codex and 40kdc "Ulrik the Slayer")
-      unit.name = existing && existing.name.toLowerCase() === ds.name.toLowerCase() ? existing.name : ds.name;
+      // (or only the apostrophes: Wahapedia's "Kor’sarro Khan" is 40kdc's "Kor'sarro Khan")
+      const plain = n => n.replace(/[‘’]/g, "'").toLowerCase();
+      unit.name = existing && plain(existing.name) === plain(ds.name) ? existing.name : ds.name;
       if (role) unit.role = role; else delete unit.role;
       unit.profiles = profiles;
       unit.points = points;
@@ -1027,9 +1056,11 @@ function main() {
   }
 
   // --------------------------------------------- detachments + enhancements
-  if (mode === 'full' && cfg.detachmentFaction) {
-    scopedDetachments(snap, data, factionId, cfg, SOURCE, log);
-    overlayEnhancements(snap, data, factionId, SOURCE, log, cfg.detachmentFaction, cfg.detachments);
+  if (mode === 'full' && cfg.detachmentGroups) {
+    for (const g of cfg.detachmentGroups) {
+      scopedDetachments(snap, data, factionId, g, SOURCE, log);
+      overlayEnhancements(snap, data, factionId, SOURCE, log, g.faction, g.names);
+    }
   } else if (mode === 'full') importDetachments(snap, data, factionId, SOURCE, unitIdByWahaId, log, cfg.detachments ?? null);
   // overlay: the 40kdc detachments stay; only their enhancement lists are
   // refreshed from the codex (WP-O5) — ids kept, points / restrictions /
@@ -1067,23 +1098,23 @@ function main() {
     data.wargearOptions = rest;
   }
 
-  // army rules on the faction record
+  // army rules on the faction record(s)
   const fac = data.factions.find(f => f.id === factionId);
-  if (fac && !cfg.detachmentFaction) fac.source_codex = SOURCE;
-  if (cfg.detachmentFaction) {
-    const chapter = data.factions.find(f => f.id === cfg.detachmentFaction);
-    if (chapter) {
-      if (cfg.chapterArmyRules) {
-        const missing = cfg.chapterArmyRules.filter(id => !newAbilities.has(id) && !abilityById.has(id));
-        if (missing.length) throw new Error(`chapter army rule(s) not imported: ${missing.join(', ')}`);
-        if (JSON.stringify(chapter.faction_rule_ids ?? null) !== JSON.stringify(cfg.chapterArmyRules)) {
-          log(`- faction ${chapter.id}: faction_rule_ids ${JSON.stringify(chapter.faction_rule_ids ?? null)} -> ${JSON.stringify(cfg.chapterArmyRules)}`);
-        }
-        chapter.faction_rule_ids = cfg.chapterArmyRules;
+  if (fac) fac.source_codex = SOURCE;
+  if (cfg.armyRules) {
+    const missing = cfg.armyRules.filter(id => !newAbilities.has(id) && !abilityById.has(id));
+    if (missing.length) throw new Error(`army rule(s) not imported: ${missing.join(', ')}`);
+    for (const fid of cfg.armyRuleFactions ?? [factionId]) {
+      const f = data.factions.find(x => x.id === fid);
+      if (!f) continue;
+      if (JSON.stringify(f.faction_rule_ids ?? null) !== JSON.stringify(cfg.armyRules)) {
+        log(`- faction ${f.id}: faction_rule_ids ${JSON.stringify(f.faction_rule_ids ?? null)} -> ${JSON.stringify(cfg.armyRules)}`);
       }
-      chapter.source_codex = SOURCE;
+      f.faction_rule_ids = cfg.armyRules;
+      f.source_codex = SOURCE;
     }
   }
+  if (cfg.retiredRules && fac) fac.retired_rule_ids = cfg.retiredRules;
 
   // Ability names the game dispatches on (UnitAbilityManager /
   // FactionAbilityManager / ArmyListManager tables) that no codex datasheet of
@@ -1208,7 +1239,16 @@ export function parseOption(r, i, unitId, factionId, resolveWeapon, SOURCE) {
     if (!id) unresolved.push(n);
     return id ?? `wargear:${slug(n)}`;
   });
-  const splitItems = s => s.split(/\s+and\s+|,\s*/i).map(x => x.trim().replace(/\.$/, '')).filter(Boolean);
+  // "1 Relic Shield (this model's ... cannot be replaced)": the parenthetical
+  // is a note, not part of the item. A comma item that names one weapon as a
+  // whole ("Knives and Fists") is not split on "and".
+  const cleanItem = x => x.replace(/\s*\([^)]*\)/g, '').trim().replace(/\.$/, '');
+  const splitItems = s => s.replace(/\s*\([^)]*\)/g, '').split(/,\s*/).flatMap(part => {
+    const whole = cleanItem(part);
+    if (!whole) return [];
+    if (/\s+and\s+/i.test(whole) && resolveWeapon(whole.replace(/^\d+\s+/, ''))) return [whole];
+    return whole.split(/\s+and\s+/i).map(cleanItem).filter(Boolean);
+  });
   let m;
   // model constraint
   if ((m = text.match(/^Any number of (?:([^:]+?) )?models? can each/i))) rec.model_constraint = { any_number: true, ...(m[1] ? { model_name: m[1] } : {}) };
@@ -1230,7 +1270,7 @@ export function parseOption(r, i, unitId, factionId, resolveWeapon, SOURCE) {
       // ("one of the following: 1 Helfrost Cannon, 1 Multi-melta"): each comma
       // item is ONE alternative ("1 Boltgun and 1 Storm Shield" = a bundle).
       rec.replacement_choice = rhs.split(/,\s*/).map(s => s.trim()).filter(Boolean)
-        .map(s => ids(s.split(/\s+and\s+/i).map(x => x.trim().replace(/\.$/, '')).filter(Boolean)));
+        .map(s => ids(splitItems(s)));
     } else rec.replacement = ids(splitItems(rhs));
   } else if ((m = text.match(/can be equipped with (?:(?:up to )?(\d+) )?(?:one of the following:)?\s*(.+)$/i))) {
     rec.replaces = [];
@@ -1343,9 +1383,9 @@ const PAGE_ONLY_DETACHMENT_RULES = {
     'Restrictions: Your army can include SPACE WOLVES units, but it cannot include any ADEPTUS ASTARTES units drawn from any other Chapter.' },
 };
 
-function scopedDetachments(snap, data, factionId, cfg, SOURCE, log) {
-  const detFaction = cfg.detachmentFaction;
-  const onlyKeys = new Set(cfg.detachments.map(normName));
+function scopedDetachments(snap, data, factionId, group, SOURCE, log) {
+  const detFaction = group.faction;
+  const onlyKeys = new Set(group.names.map(normName));
   const dets = snap.detachments.filter(d => onlyKeys.has(normName(stripHtml(d.name))));
   for (const d of dets) {
     const name = stripHtml(d.name);
@@ -1382,7 +1422,19 @@ function scopedDetachments(snap, data, factionId, cfg, SOURCE, log) {
     const was = old ? `${old.detachment_points} DP, rule ${old.detachment_rule_id}` : 'NEW';
     log(`- detachment ${detFaction}/${id} (${was}) -> ${rec.detachment_points} DP ${rec.force_dispositions.join(',')}, rule ${ruleId}${ruleText && !stripHtml(rule?.description ?? '') ? ' (page-only text)' : ''}, ${rec.stratagem_ids.length} stratagems`);
   }
-  for (const n of cfg.supersede ?? []) {
+  if (group.supersedeChapterCopies) {
+    const chapters = new Set(data.factions.filter(f => f.parent_faction_id === factionId).map(f => f.id));
+    const keys = new Set([...group.names, ...(group.supersede ?? [])].map(normName));
+    let n = 0;
+    for (const d of data.detachments) {
+      if (chapters.has(d.faction_id) && keys.has(normName(d.name)) && d.superseded_by_codex !== SOURCE) {
+        d.superseded_by_codex = SOURCE;
+        n++;
+      }
+    }
+    if (n) log(`- ${n} chapter copies of the generic detachments marked superseded (chapter armies use the ${factionId} codex records)`);
+  }
+  for (const n of group.supersede ?? []) {
     const od = data.detachments.find(x => x.faction_id === detFaction && normName(x.name) === normName(n));
     if (!od) continue;
     if (od.superseded_by_codex !== SOURCE) log(`- detachment ${detFaction}/${od.id}: not in the codex — kept, marked superseded`);
@@ -1549,6 +1601,16 @@ function overlayEnhancements(snap, data, factionId, SOURCE, log, detFactionId = 
       rec.legend = stripHtml(e.legend).trim();
       rec.source = SOURCE;
       delete rec.superseded_by_codex;
+      // 40kdc repeats a generic detachment's enhancements once per chapter
+      // copy of the detachment, under the SAME id (13 "artificer-armour-
+      // gladius-task-force" records): they are one enhancement — keep every
+      // copy identical rather than retiring the others.
+      for (const twin of owned) {
+        if (twin === rec || twin.id !== rec.id) continue;
+        for (const k of Object.keys(twin)) if (!(k in rec)) delete twin[k];
+        Object.assign(twin, structuredClone(rec));
+        used.add(twin);
+      }
       ids.push(rec.id);
       if (changes.length) log(`- ${det.id} / ${rec.id}: ${changes.join('; ')}`);
     }

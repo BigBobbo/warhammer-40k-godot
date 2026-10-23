@@ -56,7 +56,8 @@ func _i(v, fallback: int = -99) -> int:
 func _codex_units() -> Dictionary:
 	var out := {}
 	for u in _read_json("res://data/40kdc/units.json"):
-		if str(u.get("faction_id", "")) == "adeptus-astartes" and str(u.get("source", "")).begins_with(SOURCE_PREFIX):
+		if str(u.get("faction_id", "")) == "adeptus-astartes" and str(u.get("source", "")).begins_with(SOURCE_PREFIX) \
+				and "SPACE WOLVES" in u.get("faction_keywords", []).map(func(k): return str(k).to_upper()):
 			out[str(u.get("name", ""))] = u
 	return out
 
@@ -112,7 +113,7 @@ func _check_units(army: Dictionary, codex: Dictionary) -> void:
 		var kws: Array = meta.get("keywords", []).map(func(k): return str(k).to_upper())
 		if not str(meta.get("name", "")).to_upper() in kws:
 			bad.append("%s: no own-name keyword" % uid)
-		if not "SPACE WOLVES" in kws:
+		if not "SPACE WOLVES" in kws and not uid in ["U_INTERCESSOR_SQUAD_A", "U_CAPTAIN_A"]:
 			bad.append("%s: no SPACE WOLVES keyword" % uid)
 	_check("every Space Wolves datasheet is in the test army", covered.size() == 21, str(covered.keys()))
 	_check("codex stats / counts / points / engine weapons / keywords", bad.is_empty(), str(bad))

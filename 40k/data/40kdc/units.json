@@ -3147,7 +3147,6 @@
     "T": 10,
     "W": 12,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 3
    }
@@ -3161,16 +3160,41 @@
    },
    {
     "models": 1,
-    "cost": 170,
+    "cost": 160,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 180,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 180,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 160,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 180,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
    "Vehicle",
-   "Frame",
+   "Smoke",
    "Imperium",
-   "Smoke"
+   "Frame",
+   "Gladiator Lancer"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -3184,21 +3208,19 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull-gladiator-lancer",
-   "fragstorm-grenade-launcher",
-   "icarus-rocket-pod",
-   "ironhail-heavy-stubber",
-   "lancer-laser-destroyer",
-   "storm-bolter",
-   "defensive-array-gladiator-lancer"
+   "defensive-array-gladiator-lancer",
+   "laser-destroyer",
+   "armoured-hull-gladiator-lancer"
   ],
   "ability_ids": [
-   "aquilon-optics",
-   "deadly-demise-d3"
+   "damaged-4",
+   "deadly-demise-d3",
+   "combat-doctrines",
+   "aquilon-optics"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -3223,13 +3245,24 @@
     "namespace": "mfm",
     "id": "5f3b31db-62e7-4b4e-9699-ad0d4bdd33fc"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "terminator-squad",
   "name": "Terminator Squad",
   "faction_id": "adeptus-astartes",
   "profiles": [
+   {
+    "name": "Terminator Sergeant",
+    "M": 5,
+    "T": 6,
+    "W": 3,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 6,
+    "OC": 1
+   },
    {
     "name": "Terminator",
     "M": 5,
@@ -3244,18 +3277,83 @@
   "points": [
    {
     "models": 5,
-    "cost": 160
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 320
+    "models": 5,
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 380,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 380,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 230,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 230,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 420,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 420,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 380,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 230,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 420,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
+   "Deathwing",
+   "Terminator",
    "Infantry",
    "Imperium",
-   "Terminator"
+   "Terminator Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -3270,22 +3368,22 @@
   },
   "weapon_ids": [
    "assault-cannon-terminator-squad",
-   "chainfist-terminator-squad",
    "cyclone-missile-launcher-terminator-squad",
    "heavy-flamer-terminator-squad",
+   "storm-bolter-terminator-squad",
+   "chainfist-terminator-squad",
    "power-fist-terminator-squad",
-   "power-weapon-terminator-squad",
-   "storm-bolter-terminator-squad"
+   "power-weapon-terminator-squad"
   ],
   "ability_ids": [
    "deep-strike",
-   "fury-of-the-first",
-   "judgement-of-the-weak",
-   "teleport-homer"
+   "combat-doctrines",
+   "teleport-homer",
+   "fury-of-the-first"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -3330,7 +3428,22 @@
     "namespace": "mfm",
     "id": "6ad781cd-6ee5-493b-8114-44363a3ae071"
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Cyclone Missile Launcher",
+    "cost": 10
+   },
+   {
+    "name": "Cyclone Missile Launcher",
+    "cost": 10
+   },
+   {
+    "name": "Cyclone Missile Launcher",
+    "cost": 10
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "marshal",
@@ -3723,12 +3836,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Sternguard Veteran Sergeant",
+    "M": 6,
+    "T": 5,
+    "W": 2,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
     "name": "Sternguard Veteran",
     "M": 6,
     "T": 5,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -3736,17 +3857,81 @@
   "points": [
    {
     "models": 5,
-    "cost": 100
+    "cost": 105,
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 200
+    "models": 5,
+    "cost": 105,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 210,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 210,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 120,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 120,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 225,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 225,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 105,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 210,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 120,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 225,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
+   "Explosives",
    "Infantry",
-   "Grenades",
+   "Deathwing",
    "Imperium",
    "Tacticus",
    "Sternguard Veteran Squad"
@@ -3763,24 +3948,22 @@
    "max": 10
   },
   "weapon_ids": [
-   "astartes-chainsword-sternguard-veteran-squad",
-   "combi-weapon-sternguard-veteran-squad",
-   "power-fist-sternguard-veteran-squad",
-   "power-weapon-sternguard-veteran-squad",
-   "pyrecannon-sternguard-veteran-squad",
-   "sternguard-bolt-pistol",
-   "sternguard-bolt-rifle",
-   "sternguard-heavy-bolter",
    "artificer-firearm-sternguard-veteran-squad",
-   "ceramite-fists-sternguard-veteran-squad"
+   "bolt-pistol-sternguard-veteran-squad",
+   "heavy-bolter-sternguard-veteran-squad",
+   "pyrecannon-sternguard-veteran-squad",
+   "ceramite-fists-sternguard-veteran-squad",
+   "chainsword-sternguard-veteran-squad",
+   "power-fist-sternguard-veteran-squad",
+   "power-weapon-sternguard-veteran-squad"
   ],
   "ability_ids": [
-   "sternguard-focus",
-   "virtuous-onslaught"
+   "combat-doctrines",
+   "veteran-marksmen"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -3834,7 +4017,8 @@
     "namespace": "mfm",
     "id": "f7aff398-85bb-4f56-bd37-bfc91532214c"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "land-raider-crusader",
@@ -3847,7 +4031,6 @@
     "T": 12,
     "W": 16,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 5
    }
@@ -3855,24 +4038,50 @@
   "points": [
    {
     "models": 1,
-    "cost": 220,
+    "cost": 230,
     "unit_count_min": 1,
-    "unit_count_max": 2
+    "unit_count_max": 1
    },
    {
     "models": 1,
-    "cost": 240,
-    "unit_count_min": 3,
+    "cost": 230,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 250,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 250,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 230,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 250,
+    "unit_count_min": 2,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Explosives",
+   "Deathwing",
    "Frame",
+   "Transport",
    "Imperium",
+   "Explosives",
+   "Vehicle",
    "Smoke",
-   "Transport"
+   "Land Raider Crusader"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -3886,24 +4095,40 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-tracks",
    "hunter-killer-missile-land-raider-crusader",
    "hurricane-bolter-land-raider-crusader",
    "multi-melta-land-raider-crusader",
    "storm-bolter-land-raider-crusader",
-   "twin-assault-cannon-land-raider-crusader"
+   "twin-assault-cannon-land-raider-crusader",
+   "armoured-tracks"
   ],
   "ability_ids": [
-   "assault-ramp",
+   "damaged-6",
    "deadly-demise-d6",
-   "legacy-of-jerulas"
+   "combat-doctrines",
+   "assault-ramp",
+   "fury-of-the-machine-spirit"
   ],
   "transport_capacity": {
-   "capacity": 16
+   "capacity": 16,
+   "rules_text": "This model has a transport capacity of 16 Adeptus Astartes Infantry models. It cannot transport Jump Pack models. Each Gravis/Terminator model takes up the space of 2 models.",
+   "exclusion_keywords": [
+    "Jump Pack"
+   ],
+   "multipliers": [
+    {
+     "keyword": "Gravis",
+     "spaces": 2
+    },
+    {
+     "keyword": "Terminator",
+     "spaces": 2
+    }
+   ]
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -3934,7 +4159,8 @@
     "namespace": "mfm",
     "id": "fff20f1b-855e-45e3-9a7c-81254a215fc4"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "chaplain-grimaldus",
@@ -4190,12 +4416,35 @@
     "T": 9,
     "W": 11,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 2
    }
   ],
   "points": [
+   {
+    "models": 1,
+    "cost": 70,
+    "unit_count_min": 1,
+    "unit_count_max": 3
+   },
+   {
+    "models": 1,
+    "cost": 70,
+    "unit_count_min": 1,
+    "unit_count_max": 3
+   },
+   {
+    "models": 1,
+    "cost": 80,
+    "unit_count_min": 4,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 80,
+    "unit_count_min": 4,
+    "unit_count_max": null
+   },
    {
     "models": 1,
     "cost": 70,
@@ -4211,10 +4460,11 @@
   ],
   "keywords": [
    "Vehicle",
+   "Transport",
+   "Imperium",
    "Dedicated Transport",
    "Frame",
-   "Imperium",
-   "Transport"
+   "Impulsor"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -4228,29 +4478,38 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull-impulsor",
    "bellicatus-missile-array",
    "fragstorm-grenade-launcher-impulsor",
    "ironhail-heavy-stubber-impulsor",
    "ironhail-skytalon-array",
-   "storm-bolter-impulsor"
+   "storm-bolter-impulsor",
+   "armoured-hull-impulsor"
   ],
   "ability_ids": [
-   "assault-vehicle",
-   "firing-deck-6",
+   "deadly-demise-d3",
+   "firing-deck-7",
+   "combat-doctrines",
+   "rapid-disembarkation",
    "orbital-comms-array-aura",
-   "shield-dome",
-   "deadly-demise-d3"
+   "shield-dome"
   ],
   "transport_capacity": {
    "capacity": 7,
    "exclusion_keywords": [
+    "Terminator",
     "Jump Pack"
+   ],
+   "rules_text": "This model has a transport capacity of 7 Adeptus Astartes Infantry models. It cannot transport Terminator/Jump Pack models. Each Gravis model takes up the space of 2 models.",
+   "multipliers": [
+    {
+     "keyword": "Gravis",
+     "spaces": 2
+    }
    ]
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -4291,7 +4550,22 @@
     "namespace": "mfm",
     "id": "ef2ccd76-4552-40b5-ab0f-c806ac456686"
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Orbital Comms Array",
+    "cost": 10
+   },
+   {
+    "name": "Orbital Comms Array",
+    "cost": 10
+   },
+   {
+    "name": "Orbital Comms Array",
+    "cost": 10
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "repulsor-executioner",
@@ -4304,7 +4578,6 @@
     "T": 12,
     "W": 16,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 5
    }
@@ -4312,22 +4585,48 @@
   "points": [
    {
     "models": 1,
-    "cost": 240,
+    "cost": 260,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
     "cost": 260,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 280,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 280,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 260,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 280,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
+   "Imperium",
    "Smoke",
    "Transport",
-   "Imperium",
+   "Deathwing",
+   "Vehicle",
+   "Frame",
    "Repulsor Executioner"
   ],
   "faction_keywords": [
@@ -4342,26 +4641,39 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull-repulsor-executioner",
+   "defensive-array",
    "heavy-laser-destroyer",
    "heavy-onslaught-gatling-cannon",
-   "icarus-rocket-pod",
-   "ironhail-heavy-stubber",
    "macro-plasma-incinerator",
-   "repulsor-executioner-defensive-array",
    "twin-heavy-bolter-repulsor-executioner",
-   "twin-icarus-ironhail-heavy-stubber"
+   "armoured-hull-repulsor-executioner"
   ],
   "ability_ids": [
-   "executioner",
-   "deadly-demise-d6"
+   "damaged-6",
+   "deadly-demise-d6",
+   "combat-doctrines",
+   "executioner"
   ],
   "transport_capacity": {
-   "capacity": 7
+   "capacity": 7,
+   "rules_text": "This model has a transport capacity of 7 Adeptus Astartes Infantry models. It cannot transport Jump Pack models. Each Gravis/Terminator model takes up the space of 2 models.",
+   "exclusion_keywords": [
+    "Jump Pack"
+   ],
+   "multipliers": [
+    {
+     "keyword": "Gravis",
+     "spaces": 2
+    },
+    {
+     "keyword": "Terminator",
+     "spaces": 2
+    }
+   ]
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -4470,7 +4782,22 @@
     "namespace": "mfm",
     "id": "6843a410-d0fa-4b3e-8cd5-a000eb3cf015"
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Heavy Laser Destroyer",
+    "cost": 10
+   },
+   {
+    "name": "Heavy Laser Destroyer",
+    "cost": 10
+   },
+   {
+    "name": "Heavy Laser Destroyer",
+    "cost": 10
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladiator-valiant",
@@ -4483,7 +4810,6 @@
     "T": 10,
     "W": 12,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 3
    }
@@ -4491,22 +4817,47 @@
   "points": [
    {
     "models": 1,
-    "cost": 150,
+    "cost": 165,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 160,
+    "cost": 165,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 185,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 185,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 165,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 185,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
    "Frame",
+   "Vehicle",
+   "Smoke",
    "Imperium",
-   "Smoke"
+   "Gladiator Valiant"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -4520,20 +4871,20 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull-gladiator-valiant",
-   "icarus-rocket-pod",
-   "ironhail-heavy-stubber",
+   "defensive-array-gladiator-valiant",
    "multi-melta-gladiator-valiant",
    "twin-las-talon",
-   "defensive-array-gladiator-valiant"
+   "armoured-hull-gladiator-valiant"
   ],
   "ability_ids": [
-   "priority-target-acquisition",
-   "deadly-demise-d3"
+   "damaged-4",
+   "deadly-demise-d3",
+   "combat-doctrines",
+   "priority-target-acquisition"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -4558,7 +4909,8 @@
     "namespace": "mfm",
     "id": "c75a736d-2aac-40ad-bab0-78e768d49831"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "crusade-ancient",
@@ -4646,7 +4998,6 @@
     "T": 12,
     "W": 16,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 5
    }
@@ -4654,23 +5005,49 @@
   "points": [
    {
     "models": 1,
-    "cost": 170,
+    "cost": 190,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
     "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 210,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 210,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 210,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Frame",
    "Imperium",
+   "Frame",
+   "Vehicle",
    "Smoke",
-   "Transport"
+   "Deathwing",
+   "Transport",
+   "Repulsor"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -4684,25 +5061,40 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull-repulsor",
+   "defensive-array",
    "heavy-onslaught-gatling-cannon-repulsor",
    "hunter-slayer-missile",
    "las-talon-repulsor",
-   "repulsor-defensive-array",
    "twin-heavy-bolter-repulsor",
-   "twin-lascannon-repulsor"
+   "twin-lascannon-repulsor",
+   "armoured-hull-repulsor"
   ],
   "ability_ids": [
-   "emergency-combat-embarkation",
-   "stabilised-disembarkation",
-   "deadly-demise-d6"
+   "damaged-6",
+   "deadly-demise-d6",
+   "combat-doctrines",
+   "combat-embarkation"
   ],
   "transport_capacity": {
-   "capacity": 14
+   "capacity": 14,
+   "rules_text": "This model has a transport capacity of 14 Adeptus Astartes Infantry models. It cannot transport Jump Pack models. Each Gravis/Terminator model takes up the space of 2 models.",
+   "exclusion_keywords": [
+    "Jump Pack"
+   ],
+   "multipliers": [
+    {
+     "keyword": "Gravis",
+     "spaces": 2
+    },
+    {
+     "keyword": "Terminator",
+     "spaces": 2
+    }
+   ]
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -4733,7 +5125,8 @@
     "namespace": "mfm",
     "id": "7102909d-95e0-42d3-99e3-e21364ba2365"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladiator-reaper",
@@ -4746,7 +5139,6 @@
     "T": 10,
     "W": 12,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 3
    }
@@ -4754,22 +5146,47 @@
   "points": [
    {
     "models": 1,
-    "cost": 160,
+    "cost": 165,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 170,
+    "cost": 165,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 185,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 185,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 165,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 185,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
    "Vehicle",
-   "Frame",
    "Imperium",
-   "Smoke"
+   "Smoke",
+   "Frame",
+   "Gladiator Reaper"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -4783,19 +5200,19 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull-gladiator-reaper",
-   "icarus-rocket-pod",
-   "ironhail-heavy-stubber",
+   "defensive-array-gladiator-reaper",
    "twin-heavy-onslaught-gatling-cannon",
-   "defensive-array-gladiator-reaper"
+   "armoured-hull-gladiator-reaper"
   ],
   "ability_ids": [
-   "reaping-tally",
-   "deadly-demise-d3"
+   "deadly-demise-d3",
+   "damaged-4",
+   "combat-doctrines",
+   "reaping-tally"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -4820,7 +5237,8 @@
     "namespace": "mfm",
     "id": "55fb581c-0805-4e4a-a6f4-9aea8aadf019"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "death-company-dreadnought",
@@ -8588,16 +9006,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 80
+    "cost": 90
+   },
+   {
+    "models": 1,
+    "cost": 90
+   },
+   {
+    "models": 1,
+    "cost": 90
    }
   ],
   "keywords": [
-   "Infantry",
+   "Gravis",
+   "Imperium",
    "Captain",
    "Character",
    "Explosives",
-   "Gravis",
-   "Imperium"
+   "Infantry",
+   "Captain In Gravis Armour"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -8614,18 +9041,20 @@
    "boltstorm-gauntlet",
    "master-crafted-heavy-bolt-rifle",
    "master-crafted-power-weapon-captain-in-gravis-armour",
-   "power-fist-captain-in-gravis-armour",
    "relic-blade",
    "relic-chainsword",
-   "relic-fist"
+   "relic-power-fist"
   ],
   "ability_ids": [
    "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
+   "strategic-acumen",
    "refuse-to-yield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -8643,7 +9072,8 @@
     "namespace": "mfm",
     "id": "9b35ef53-6653-4a41-b1fb-28449fa871df"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adrax-agatone",
@@ -8654,7 +9084,7 @@
    {
     "name": "Adrax Agatone",
     "M": 6,
-    "T": 4,
+    "T": 5,
     "W": 5,
     "Sv": 2,
     "invuln_sv": 4,
@@ -8665,21 +9095,22 @@
   "points": [
    {
     "models": 1,
-    "cost": 80
+    "cost": 90
    }
   ],
   "keywords": [
-   "Infantry",
-   "Captain",
-   "Character",
-   "Epic Hero",
-   "Explosives",
    "Imperium",
-   "Tacticus"
+   "Tacticus",
+   "Explosives",
+   "Epic Hero",
+   "Character",
+   "Captain",
+   "Infantry",
+   "Adrax Agatone"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Salamanders"
+   "Salamanders",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -8695,12 +9126,14 @@
   ],
   "ability_ids": [
    "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
    "lord-of-the-pyroclasts",
    "unto-the-anvil"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -8718,7 +9151,8 @@
     "namespace": "mfm",
     "id": "9c310043-5651-467f-b623-aa52a974ab9f"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "assault-intercessor-squad",
@@ -8727,12 +9161,20 @@
   "role": "battleline",
   "profiles": [
    {
+    "name": "Assault Intercessor Sergeant",
+    "M": 6,
+    "T": 5,
+    "W": 2,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
     "name": "Assault Intercessor",
     "M": 6,
     "T": 5,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 2
    }
@@ -8740,20 +9182,36 @@
   "points": [
    {
     "models": 5,
-    "cost": 75,
-    "models_max": 9
+    "cost": 85
+   },
+   {
+    "models": 5,
+    "cost": 85
    },
    {
     "models": 10,
-    "cost": 150
+    "cost": 170
+   },
+   {
+    "models": 10,
+    "cost": 170
+   },
+   {
+    "models": 5,
+    "cost": 85
+   },
+   {
+    "models": 10,
+    "cost": 170
    }
   ],
   "keywords": [
    "Infantry",
-   "Battleline",
-   "Explosives",
+   "Tacticus",
    "Imperium",
-   "Tacticus"
+   "Explosives",
+   "Battleline",
+   "Assault Intercessor Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -8767,20 +9225,21 @@
    "max": 10
   },
   "weapon_ids": [
-   "astartes-chainsword-assault-intercessor-squad",
    "hand-flamer-assault-intercessor-squad",
    "heavy-bolt-pistol-assault-intercessor-squad",
    "plasma-pistol-assault-intercessor-squad",
+   "chainsword-assault-intercessor-squad",
    "power-fist-assault-intercessor-squad",
    "power-weapon-assault-intercessor-squad",
    "thunder-hammer-assault-intercessor-squad"
   ],
   "ability_ids": [
+   "combat-doctrines",
    "targeted-intercession"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -8809,7 +9268,8 @@
     "namespace": "mfm",
     "id": "3e9ac9da-6be5-45b0-8a24-98ba99800556"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "inceptor-squad",
@@ -8817,12 +9277,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Inceptor Sergeant",
+    "M": 10,
+    "T": 6,
+    "W": 3,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
     "name": "Inceptor",
     "M": 10,
     "T": 6,
     "W": 3,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -8830,37 +9298,84 @@
   "points": [
    {
     "models": 3,
-    "cost": 125,
-    "unit_count_min": 1,
-    "unit_count_max": 2
-   },
-   {
-    "models": 4,
-    "models_max": 6,
-    "cost": 250,
+    "cost": 130,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 3,
-    "cost": 140,
+    "cost": 130,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 260,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 260,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 150,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 4,
-    "models_max": 6,
-    "cost": 265,
+    "models": 3,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 280,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 280,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 3,
+    "cost": 130,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 260,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 280,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
-   "Fly",
-   "Gravis",
+   "Jump Pack",
    "Imperium",
-   "Jump Pack"
+   "Gravis",
+   "Fly",
+   "Infantry",
+   "Inceptor Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -8879,12 +9394,14 @@
    "ceramite-fists-inceptor-squad"
   ],
   "ability_ids": [
+   "deep-strike",
+   "combat-doctrines",
    "meteoric-descent",
-   "deep-strike"
+   "parabolic-jetleap"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -8901,7 +9418,8 @@
     "namespace": "mfm",
     "id": "72d48b65-499b-44d0-aede-31b4ef0ab3d6"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ancient-in-terminator-armour",
@@ -8923,15 +9441,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 65
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
    }
   ],
   "keywords": [
+   "Ancient",
    "Infantry",
-   "Character",
-   "Imperium",
+   "Deathwing",
    "Terminator",
-   "Ancient"
+   "Imperium",
+   "Character",
+   "Ancient In Terminator Armour"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -8945,22 +9473,19 @@
    "max": 1
   },
   "weapon_ids": [
-   "chainfist-ancient-in-terminator-armour",
-   "close-combat-weapon-ancient-in-terminator-armour",
-   "power-fist-ancient-in-terminator-armour",
-   "power-weapon-ancient-in-terminator-armour",
    "storm-bolter-ancient-in-terminator-armour",
-   "thunder-hammer-ancient-in-terminator-armour",
-   "twin-lightning-claws-ancient-in-terminator-armour"
+   "master-crafted-power-weapon-ancient-in-terminator-armour"
   ],
   "ability_ids": [
-   "keep-the-banner-high",
-   "leader",
-   "terminator-storm-shield"
+   "deep-strike",
+   "support",
+   "combat-doctrines",
+   "raise-the-banner",
+   "never-shall-the-standard-fall"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -8984,7 +9509,8 @@
     "namespace": "mfm",
     "id": "eff3e091-a068-49b7-9a0a-6eb02e546be4"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "storm-speeder-hailstrike",
@@ -8997,7 +9523,6 @@
     "T": 9,
     "W": 11,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 3
    }
@@ -9005,13 +9530,37 @@
   "points": [
    {
     "models": 1,
-    "cost": 105,
+    "cost": 110,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 115,
+    "cost": 110,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 120,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 120,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 110,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 120,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -9019,7 +9568,10 @@
   "keywords": [
    "Vehicle",
    "Fly",
+   "Speeder",
    "Imperium",
+   "Frame",
+   "Ravenwing",
    "Storm Speeder Hailstrike"
   ],
   "faction_keywords": [
@@ -9035,18 +9587,19 @@
   },
   "weapon_ids": [
    "fragstorm-grenade-launcher-storm-speeder-hailstrike",
+   "ironhail-heavy-stubber-array-storm-speeder-hailstrike",
    "onslaught-gatling-cannon-storm-speeder-hailstrike",
-   "armoured-impact",
-   "ironhail-heavy-stubber-array-storm-speeder-hailstrike"
+   "armoured-impact"
   ],
   "ability_ids": [
-   "hailstrike",
+   "deadly-demise-d3",
    "deep-strike",
-   "deadly-demise-d3"
+   "combat-doctrines",
+   "hailstrike"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -9073,7 +9626,8 @@
     "namespace": "mfm",
     "id": "54a4856a-0fc2-4682-9979-90c99b31847e"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "techmarine",
@@ -9087,7 +9641,6 @@
     "T": 5,
     "W": 4,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -9096,13 +9649,21 @@
    {
     "models": 1,
     "cost": 55
+   },
+   {
+    "models": 1,
+    "cost": 55
+   },
+   {
+    "models": 1,
+    "cost": 55
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
-   "Grenades",
    "Imperium",
+   "Explosives",
+   "Character",
+   "Infantry",
    "Tacticus",
    "Techmarine"
   ],
@@ -9120,18 +9681,17 @@
   "weapon_ids": [
    "forge-bolter",
    "grav-pistol-techmarine",
-   "omnissiah-power-axe",
-   "servo-arm"
+   "omnissian-power-axe-and-servo-arm"
   ],
   "ability_ids": [
-   "blessing-of-the-omnissiah",
    "leader",
+   "combat-doctrines",
    "techmarine",
-   "vengeance-of-the-omnissiah"
+   "blessings-of-the-omnissiah"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -9149,7 +9709,8 @@
     "namespace": "mfm",
     "id": "5b2cab09-f686-462b-801a-5a3a9ff3703d"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "korsarro-khan",
@@ -9158,9 +9719,9 @@
   "role": "epic-hero",
   "profiles": [
    {
-    "name": "Kor’sarro Khan",
+    "name": "Kor'sarro Khan",
     "M": 6,
-    "T": 4,
+    "T": 5,
     "W": 5,
     "Sv": 3,
     "invuln_sv": 4,
@@ -9171,17 +9732,18 @@
   "points": [
    {
     "models": 1,
-    "cost": 55
+    "cost": 80
    }
   ],
   "keywords": [
-   "Infantry",
-   "Captain",
-   "Character",
    "Epic Hero",
+   "Character",
+   "Captain",
+   "Infantry",
    "Explosives",
+   "Tacticus",
    "Imperium",
-   "Tacticus"
+   "Kor’sarro Khan"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -9196,16 +9758,20 @@
    "max": 1
   },
   "weapon_ids": [
+   "anzuq-korsarro-khan",
    "bolt-pistol-korsarro-khan",
-   "moonfang",
-   "anzuq-korsarro-khan"
+   "moonfang"
   ],
   "ability_ids": [
-   "leader"
+   "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
+   "trophy-taker",
+   "for-the-khan"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -9223,7 +9789,8 @@
     "namespace": "mfm",
     "id": "24701e79-346a-4721-b25d-d5d2f2f6a8e8"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "suboden-khan",
@@ -9234,7 +9801,7 @@
    {
     "name": "Suboden Khan",
     "M": 12,
-    "T": 5,
+    "T": 6,
     "W": 8,
     "Sv": 3,
     "invuln_sv": 4,
@@ -9245,44 +9812,47 @@
   "points": [
    {
     "models": 1,
-    "cost": 90
+    "cost": 105
    }
   ],
   "keywords": [
+   "Imperium",
    "Mounted",
    "Captain",
    "Character",
    "Epic Hero",
    "Explosives",
-   "Imperium"
+   "Suboden Khan"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "White Scars"
+   "White Scars",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "oval",
    "width": 90,
-   "length": 52.5
+   "length": 52
   },
   "model_count": {
    "min": 1,
    "max": 1
   },
   "weapon_ids": [
-   "heavy-bolt-pistol-suboden-khan",
    "onslaught-gatling-cannon-suboden-khan",
-   "power-sword",
-   "stormtooth"
+   "heavy-bolt-pistol-suboden-khan",
+   "stormtooth",
+   "power-sword"
   ],
   "ability_ids": [
    "leader",
-   "skilled-riders",
-   "spear-of-chogoris"
+   "combat-doctrines",
+   "transhuman-strategist",
+   "spear-of-chogoris",
+   "skilled-riders"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -9300,7 +9870,8 @@
     "namespace": "mfm",
     "id": "aee9c464-e423-4637-91c1-9bb2f3d20f55"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "aethon-shaan",
@@ -9311,7 +9882,7 @@
    {
     "name": "Aethon Shaan",
     "M": 14,
-    "T": 4,
+    "T": 5,
     "W": 5,
     "Sv": 3,
     "invuln_sv": 4,
@@ -9322,24 +9893,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 100
+    "cost": 105
    }
   ],
   "keywords": [
-   "Infantry",
    "Chapter Master",
    "Character",
-   "Epic Hero",
    "Explosives",
+   "Infantry",
    "Fly",
    "Imperium",
    "Jump Pack",
    "Smoke",
-   "Tacticus"
+   "Tacticus",
+   "Epic Hero",
+   "Aethon Shaan"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Raven Guard"
+   "Raven Guard",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -9350,20 +9922,21 @@
    "max": 1
   },
   "weapon_ids": [
-   "claws-of-severax",
-   "heavy-bolt-pistol-aethon-shaan"
+   "heavy-bolt-pistol-aethon-shaan",
+   "claws-of-severax"
   ],
   "ability_ids": [
-   "blackwing-mantle",
-   "chapter-master-of-the-raven-guard",
-   "master-of-shadows",
    "deep-strike",
+   "lone-operative",
    "stealth",
-   "lone-operative"
+   "combat-doctrines",
+   "transhuman-strategist",
+   "master-of-shadows",
+   "blackwing-mantle"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -9380,7 +9953,8 @@
     "namespace": "mfm",
     "id": "ca050262-bc18-446d-96c2-827fdbd24173"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "eradicator-squad",
@@ -9485,7 +10059,6 @@
     "T": 5,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -9493,24 +10066,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 70,
-    "unit_count_min": 1,
-    "unit_count_max": 2
+    "cost": 75
    },
    {
     "models": 1,
-    "cost": 80,
-    "unit_count_min": 3,
-    "unit_count_max": null
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
-   "Explosives",
-   "Imperium",
+   "Tacticus",
    "Psyker",
-   "Tacticus"
+   "Imperium",
+   "Explosives",
+   "Character",
+   "Infantry",
+   "Librarian"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -9525,16 +10099,21 @@
   },
   "weapon_ids": [
    "bolt-pistol-librarian",
-   "force-weapon",
-   "smite"
+   "smite",
+   "force-weapon"
   ],
   "ability_ids": [
    "leader",
-   "mental-fortress-psychic"
+   "combat-doctrines",
+   "librarius",
+   "librarian",
+   "psychic-hood",
+   "veil-of-time-psychic",
+   "force-dome"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -9555,7 +10134,8 @@
     "namespace": "mfm",
     "id": "aec1fcef-ecec-4fe6-8312-5c1a8ea81571"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "darnath-lysander",
@@ -9577,24 +10157,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 100
+    "cost": 160
    }
   ],
   "keywords": [
+   "Imperium",
+   "Terminator",
+   "Epic Hero",
    "Infantry",
    "Captain",
    "Character",
-   "Epic Hero",
-   "Imperium",
-   "Terminator"
+   "Darnath Lysander"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Imperial Fists"
+   "Imperial Fists",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
-   "diameter": 40
+   "diameter": 50
   },
   "model_count": {
    "min": 1,
@@ -9604,15 +10185,16 @@
    "fist-of-dorn"
   ],
   "ability_ids": [
-   "icon-of-obstinacy",
-   "inspiring-commander",
+   "deep-strike",
    "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
    "rampart",
-   "deep-strike"
+   "icon-of-obstinacy"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -9630,7 +10212,8 @@
     "namespace": "mfm",
     "id": "60e20a9e-9cc1-42e5-8d11-28b39f688634"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "dreadnought",
@@ -9720,7 +10303,17 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
-    "name": "Assault Terminator",
+    "name": "Terminator Sergeant",
+    "M": 5,
+    "T": 6,
+    "W": 3,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
+    "name": "Terminator",
     "M": 5,
     "T": 6,
     "W": 3,
@@ -9733,18 +10326,83 @@
   "points": [
    {
     "models": 5,
-    "cost": 155
+    "cost": 170,
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 310
+    "models": 5,
+    "cost": 170,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 340,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 340,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 210,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 210,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 380,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 380,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 170,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 340,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 210,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 380,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
+   "Deathwing",
+   "Terminator",
    "Imperium",
-   "Terminator"
+   "Infantry",
+   "Terminator Assault Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -9763,14 +10421,14 @@
   ],
   "ability_ids": [
    "deep-strike",
-   "oath-of-moment",
-   "storm-shield",
+   "combat-doctrines",
    "teleport-homer",
-   "terminatus-assault"
+   "terminatus-assault",
+   "storm-shield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -9802,7 +10460,22 @@
     "namespace": "mfm",
     "id": "f508b10f-ae04-476b-aede-33a9b80011eb"
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Storm Shield",
+    "cost": 5
+   },
+   {
+    "name": "Storm Shield",
+    "cost": 5
+   },
+   {
+    "name": "Storm Shield",
+    "cost": 5
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "predator-destructor",
@@ -9890,6 +10563,16 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Bladeguard Veteran Sergeant",
+    "M": 6,
+    "T": 5,
+    "W": 3,
+    "Sv": 3,
+    "invuln_sv": 4,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
     "name": "Bladeguard Veteran",
     "M": 6,
     "T": 5,
@@ -9903,35 +10586,83 @@
   "points": [
    {
     "models": 3,
-    "cost": 80,
-    "unit_count_min": 1,
-    "unit_count_max": 2
-   },
-   {
-    "models": 6,
-    "cost": 160,
+    "cost": 90,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 3,
     "cost": 90,
-    "unit_count_min": 3,
-    "unit_count_max": null,
-    "models_max": 5
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
     "models": 6,
-    "cost": 170,
+    "cost": 180,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 180,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 110,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 3,
+    "cost": 110,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 200,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 200,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 3,
+    "cost": 90,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 180,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 110,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 200,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
-   "Grenades",
    "Imperium",
+   "Deathwing",
    "Tacticus",
+   "Explosives",
+   "Infantry",
    "Bladeguard Veteran Squad"
   ],
   "faction_keywords": [
@@ -9947,16 +10678,17 @@
   },
   "weapon_ids": [
    "heavy-bolt-pistol-bladeguard-veteran-squad",
-   "master-crafted-power-weapon-bladeguard-veteran-squad",
    "neo-volkite-pistol",
-   "plasma-pistol-bladeguard-veteran-squad"
+   "plasma-pistol-bladeguard-veteran-squad",
+   "master-crafted-power-sword"
   ],
   "ability_ids": [
+   "combat-doctrines",
    "bladeguard"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10009,7 +10741,8 @@
     "namespace": "mfm",
     "id": "00b5af06-1b59-463a-80c9-1e064372fca0"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestrike-servo-turrets",
@@ -10022,7 +10755,6 @@
     "T": 6,
     "W": 6,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 2
    }
@@ -10030,17 +10762,34 @@
   "points": [
    {
     "models": 1,
-    "cost": 75
+    "cost": 80
+   },
+   {
+    "models": 1,
+    "cost": 80
    },
    {
     "models": 2,
-    "cost": 150
+    "cost": 160
+   },
+   {
+    "models": 2,
+    "cost": 160
+   },
+   {
+    "models": 1,
+    "cost": 80
+   },
+   {
+    "models": 2,
+    "cost": 160
    }
   ],
   "keywords": [
-   "Vehicle",
    "Artillery",
-   "Imperium"
+   "Imperium",
+   "Vehicle",
+   "Firestrike Servo-turrets"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -10059,11 +10808,12 @@
    "hovering-bulk-firestrike-servo-turrets"
   ],
   "ability_ids": [
+   "combat-doctrines",
    "sentinel-protocols"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10080,7 +10830,8 @@
     "namespace": "mfm",
     "id": "1417a9a5-f1d5-48cd-bd9d-354aed864678"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "storm-speeder-hammerstrike",
@@ -10093,12 +10844,35 @@
     "T": 9,
     "W": 11,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 3
    }
   ],
   "points": [
+   {
+    "models": 1,
+    "cost": 140,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 140,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
    {
     "models": 1,
     "cost": 140,
@@ -10113,9 +10887,12 @@
    }
   ],
   "keywords": [
+   "Imperium",
+   "Ravenwing",
+   "Speeder",
+   "Frame",
    "Vehicle",
    "Fly",
-   "Imperium",
    "Storm Speeder Hammerstrike"
   ],
   "faction_keywords": [
@@ -10136,13 +10913,14 @@
    "armoured-impact"
   ],
   "ability_ids": [
-   "hammerstrike",
+   "deadly-demise-d3",
    "deep-strike",
-   "deadly-demise-d3"
+   "combat-doctrines",
+   "hammerstrike"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10169,7 +10947,8 @@
     "namespace": "mfm",
     "id": "750213fe-1d77-4558-b009-242facf389cc"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "tor-garadon",
@@ -10191,20 +10970,21 @@
   "points": [
    {
     "models": 1,
-    "cost": 80
+    "cost": 90
    }
   ],
   "keywords": [
-   "Infantry",
-   "Captain",
-   "Character",
    "Epic Hero",
    "Gravis",
-   "Imperium"
+   "Imperium",
+   "Character",
+   "Infantry",
+   "Captain",
+   "Tor Garadon"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Imperial Fists"
+   "Imperial Fists",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -10220,12 +11000,14 @@
   ],
   "ability_ids": [
    "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
    "siege-captain",
    "signum-array"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10243,7 +11025,8 @@
     "namespace": "mfm",
     "id": "9e47f883-718a-41f8-82f7-59a3325a3419"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "judiciar",
@@ -10257,23 +11040,32 @@
     "T": 5,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
+    "invuln_sv": 4,
     "Ld": 6,
     "OC": 1,
-    "invuln_sv_melee": 4
+    "invuln_note": "Against melee attacks only"
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 55
+    "cost": 50
+   },
+   {
+    "models": 1,
+    "cost": 50
+   },
+   {
+    "models": 1,
+    "cost": 50
    }
   ],
   "keywords": [
+   "Tacticus",
+   "Imperium",
    "Infantry",
    "Character",
-   "Imperium",
-   "Tacticus"
+   "Judiciar"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -10291,13 +11083,14 @@
    "executioner-relic-blade"
   ],
   "ability_ids": [
-   "leader",
-   "silent-fury",
+   "fights-first",
+   "support",
+   "combat-doctrines",
    "tempormortis"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10315,7 +11108,8 @@
     "namespace": "mfm",
     "id": "b62309dc-f481-4317-a781-3bff77861a22"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "victrix-honour-guard",
@@ -10328,7 +11122,24 @@
     "T": 5,
     "W": 3,
     "Sv": 2,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
+    "name": "Chapter Ancient",
+    "M": 6,
+    "T": 5,
+    "W": 3,
+    "Sv": 2,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
+    "name": "Chapter Champion",
+    "M": 6,
+    "T": 5,
+    "W": 3,
+    "Sv": 2,
     "Ld": 6,
     "OC": 2
    }
@@ -10336,35 +11147,37 @@
   "points": [
    {
     "models": 3,
-    "cost": 110,
+    "cost": 120,
     "unit_count_min": 1,
-    "unit_count_max": 1
+    "unit_count_max": 2
    },
    {
-    "models": 4,
-    "models_max": 6,
-    "cost": 230,
+    "models": 6,
+    "cost": 250,
     "unit_count_min": 1,
-    "unit_count_max": 1
+    "unit_count_max": 2
    },
    {
     "models": 3,
-    "cost": 130,
-    "unit_count_min": 2,
+    "cost": 150,
+    "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 4,
-    "models_max": 6,
-    "cost": 250,
-    "unit_count_min": 2,
+    "models": 6,
+    "cost": 280,
+    "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
+   "Champion",
+   "Epic Hero",
    "Imperium",
-   "Tacticus"
+   "Infantry",
+   "Tacticus",
+   "Ancient",
+   "Victrix Honour Guard"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -10375,22 +11188,23 @@
    "diameter": 40
   },
   "model_count": {
-   "min": 3,
-   "max": 6
+   "min": 1,
+   "max": 8
   },
   "weapon_ids": [
    "master-crafted-bolt-carbine",
-   "master-crafted-power-weapon-victrix-honour-guard",
-   "blades-of-honour"
+   "blades-of-honour",
+   "master-crafted-power-weapon-victrix-honour-guard"
   ],
   "ability_ids": [
-   "banner-of-macragge",
+   "combat-doctrines",
    "glory-of-ultramar",
-   "ultramarines-honour-guard"
+   "honour-guard-of-macragge",
+   "banner-of-macragge"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10429,7 +11243,15 @@
     "namespace": "mfm",
     "id": "5ab7a6a5-3db3-4595-b8a4-c031bdc3ef31"
    }
-  ]
+  ],
+  "role": "epic-hero",
+  "wargear_points": [
+   {
+    "name": "Banner of Macragge",
+    "cost": 15
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "captain-in-terminator-armour",
@@ -10451,22 +11273,32 @@
   "points": [
    {
     "models": 1,
-    "cost": 85
+    "cost": 90
+   },
+   {
+    "models": 1,
+    "cost": 90
+   },
+   {
+    "models": 1,
+    "cost": 90
    }
   ],
   "keywords": [
    "Infantry",
+   "Captain",
    "Character",
    "Imperium",
    "Terminator",
-   "Captain"
+   "Deathwing",
+   "Captain In Terminator Armour"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
-   "diameter": 50
+   "diameter": 40
   },
   "model_count": {
    "min": 1,
@@ -10474,18 +11306,21 @@
   },
   "weapon_ids": [
    "combi-weapon-captain-in-terminator-armour",
+   "storm-bolter-captain-in-terminator-armour",
    "relic-fist-captain-in-terminator-armour",
-   "relic-weapon-captain-in-terminator-armour",
-   "storm-bolter-captain-in-terminator-armour"
+   "relic-weapon-captain-in-terminator-armour"
   ],
   "ability_ids": [
+   "deep-strike",
    "leader",
-   "unstoppable-valour",
-   "deep-strike"
+   "combat-doctrines",
+   "transhuman-strategist",
+   "strategic-acumen",
+   "unstoppable-valour"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10509,7 +11344,8 @@
     "namespace": "mfm",
     "id": "41a69db5-a94f-4ebb-ad38-61825edb4adc"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "roboute-guilliman",
@@ -10531,16 +11367,17 @@
   "points": [
    {
     "models": 1,
-    "cost": 355
+    "cost": 415
    }
   ],
   "keywords": [
+   "Primarch",
    "Monster",
    "Character",
    "Epic Hero",
    "Imperium",
    "Mobile",
-   "Primarch"
+   "Roboute Guilliman"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -10555,18 +11392,22 @@
    "max": 1
   },
   "weapon_ids": [
-   "emperors-sword",
-   "hand-of-dominion"
+   "hand-of-dominion",
+   "emperors-sword"
   ],
   "ability_ids": [
-   "armour-of-fate",
+   "feel-no-pain-5",
+   "combat-doctrines",
+   "transhuman-strategist",
+   "codex-adept",
+   "primarch-of-the-xiii",
    "author-of-the-codex",
-   "supreme-commander",
-   "ultramarines-bodyguard"
+   "leader-of-astartes",
+   "supreme-commander"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10583,7 +11424,8 @@
     "namespace": "mfm",
     "id": "dd5a0468-2839-49f6-9036-c37de8ef5ac7"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "drop-pod",
@@ -10597,12 +11439,35 @@
     "T": 7,
     "W": 8,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 0
    }
   ],
   "points": [
+   {
+    "models": 1,
+    "cost": 60,
+    "unit_count_min": 1,
+    "unit_count_max": 3
+   },
+   {
+    "models": 1,
+    "cost": 60,
+    "unit_count_min": 1,
+    "unit_count_max": 3
+   },
+   {
+    "models": 1,
+    "cost": 70,
+    "unit_count_min": 4,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 70,
+    "unit_count_min": 4,
+    "unit_count_max": null
+   },
    {
     "models": 1,
     "cost": 60,
@@ -10617,11 +11482,12 @@
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Dedicated Transport",
-   "Frame",
+   "Transport",
    "Imperium",
-   "Transport"
+   "Frame",
+   "Dedicated Transport",
+   "Vehicle",
+   "Drop Pod"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -10636,22 +11502,24 @@
   },
   "weapon_ids": [],
   "ability_ids": [
-   "combat-disembarkation",
-   "deployment-complete",
-   "designer-s-note",
-   "drop-pod-assault",
+   "deadly-demise-1",
    "deep-strike",
-   "deadly-demise-1"
+   "combat-doctrines",
+   "drop-pod-assault",
+   "deployment-complete"
   ],
   "transport_capacity": {
    "capacity": 12,
    "exclusion_keywords": [
-    "Jump Pack"
-   ]
+    "Gravis",
+    "Jump Pack",
+    "Terminator"
+   ],
+   "rules_text": "This model has a transport capacity of 12 Adeptus Astartes Infantry models. It cannot transport Gravis/Jump Pack/Terminator models."
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10668,7 +11536,8 @@
     "namespace": "mfm",
     "id": "64e980d2-c0c6-436e-bb92-6111b5e08f39"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "captain-with-jump-pack",
@@ -10690,18 +11559,27 @@
   "points": [
    {
     "models": 1,
-    "cost": 75
+    "cost": 90
+   },
+   {
+    "models": 1,
+    "cost": 90
+   },
+   {
+    "models": 1,
+    "cost": 90
    }
   ],
   "keywords": [
+   "Character",
+   "Tacticus",
+   "Jump Pack",
+   "Imperium",
    "Infantry",
    "Captain",
-   "Character",
    "Explosives",
    "Fly",
-   "Imperium",
-   "Jump Pack",
-   "Tacticus"
+   "Captain With Jump Pack"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -10715,23 +11593,26 @@
    "max": 1
   },
   "weapon_ids": [
-   "astartes-chainsword-captain-with-jump-pack",
    "hand-flamer-captain-with-jump-pack",
    "heavy-bolt-pistol-captain-with-jump-pack",
    "plasma-pistol-captain-with-jump-pack",
+   "chainsword",
    "power-fist-captain-with-jump-pack",
    "relic-weapon-captain-with-jump-pack",
    "thunder-hammer-captain-with-jump-pack"
   ],
   "ability_ids": [
-   "angel-s-wrath",
+   "deep-strike",
    "leader",
-   "relic-shield",
-   "deep-strike"
+   "combat-doctrines",
+   "transhuman-strategist",
+   "strategic-acumen",
+   "angel-s-wrath",
+   "relic-shield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10756,7 +11637,8 @@
     "namespace": "mfm",
     "id": "83072ad0-5846-4eed-a450-ef10b98ca9c7"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "storm-speeder-thunderstrike",
@@ -10769,7 +11651,6 @@
     "T": 9,
     "W": 11,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 3
    }
@@ -10777,21 +11658,48 @@
   "points": [
    {
     "models": 1,
-    "cost": 135,
+    "cost": 140,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 145,
+    "cost": 140,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 140,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 150,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
+   "Imperium",
+   "Ravenwing",
    "Vehicle",
    "Fly",
-   "Imperium",
+   "Frame",
+   "Speeder",
    "Storm Speeder Thunderstrike"
   ],
   "faction_keywords": [
@@ -10806,19 +11714,21 @@
    "max": 1
   },
   "weapon_ids": [
-   "thunderstrike-las-talon",
-   "armoured-impact",
    "stormfury-missile-launcher-storm-speeder-thunderstrike",
-   "thunderstrike-icarus-rocket-pod-storm-speeder-thunderstrike"
+   "thunderstrike-icarus-rocket-pod-storm-speeder-thunderstrike",
+   "thunderstrike-las-talon",
+   "armoured-impact"
   ],
   "ability_ids": [
-   "thunderstrike",
+   "deadly-demise-d3",
    "deep-strike",
-   "deadly-demise-d3"
+   "combat-doctrines",
+   "thunderstrike",
+   "shattered-defences"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -10845,7 +11755,8 @@
     "namespace": "mfm",
     "id": "a1a41202-50d3-4e09-b70c-e6163071eebd"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hammerfall-bunker",
@@ -11010,14 +11921,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 85
+    "cost": 80
+   },
+   {
+    "models": 1,
+    "cost": 80
+   },
+   {
+    "models": 1,
+    "cost": 80
    }
   ],
   "keywords": [
    "Infantry",
+   "Character",
    "Imperium",
    "Psyker",
-   "Terminator"
+   "Terminator",
+   "Deathwing",
+   "Librarian In Terminator Armour"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -11031,19 +11953,23 @@
    "max": 1
   },
   "weapon_ids": [
-   "combi-weapon-librarian-in-terminator-armour",
-   "force-weapon",
    "smite",
-   "storm-bolter-librarian-in-terminator-armour"
+   "storm-bolter-librarian-in-terminator-armour",
+   "force-weapon"
   ],
   "ability_ids": [
+   "deep-strike",
    "leader",
-   "veil-of-time-psychic",
-   "deep-strike"
+   "combat-doctrines",
+   "librarius",
+   "librarian",
+   "psychic-hood",
+   "might-of-heroes",
+   "thunderous-force"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -11070,7 +11996,8 @@
     "namespace": "mfm",
     "id": "2d2d2d93-7d9a-4dfe-9645-7288e2a4d986"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "devastator-squad",
@@ -11185,9 +12112,9 @@
   "role": "epic-hero",
   "profiles": [
    {
-    "name": "Vulkan He’stan",
+    "name": "Vulkan He'stan",
     "M": 6,
-    "T": 4,
+    "T": 5,
     "W": 5,
     "Sv": 2,
     "invuln_sv": 4,
@@ -11198,16 +12125,17 @@
   "points": [
    {
     "models": 1,
-    "cost": 95
+    "cost": 105
    }
   ],
   "keywords": [
    "Infantry",
    "Character",
-   "Epic Hero",
    "Explosives",
    "Imperium",
-   "Tacticus"
+   "Tacticus",
+   "Epic Hero",
+   "Vulkan He’stan"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -11215,7 +12143,7 @@
   ],
   "base_size_mm": {
    "shape": "round",
-   "diameter": 32
+   "diameter": 40
   },
   "model_count": {
    "min": 1,
@@ -11227,12 +12155,16 @@
    "spear-of-vulkan"
   ],
   "ability_ids": [
+   "feel-no-pain-6",
    "leader",
-   "feel-no-pain-6"
+   "combat-doctrines",
+   "transhuman-strategist",
+   "seeker-of-the-unfound",
+   "forgefather"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -11250,7 +12182,8 @@
     "namespace": "mfm",
     "id": "19b5427c-58eb-41ae-af6d-611e4f59721c"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "centurion-devastator-squad",
@@ -11340,12 +12273,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
-    "name": "Hellblaster Squad",
+    "name": "Hellblaster Sergeant",
     "M": 6,
     "T": 5,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
+    "name": "Hellblaster",
+    "M": 6,
+    "T": 5,
+    "W": 2,
+    "Sv": 3,
     "Ld": 6,
     "OC": 1
    }
@@ -11353,19 +12294,83 @@
   "points": [
    {
     "models": 5,
-    "cost": 110
+    "cost": 115,
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 220
+    "models": 5,
+    "cost": 115,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 230,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 230,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 130,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 130,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 245,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 245,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 115,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 230,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 130,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 245,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
-   "Explosives",
+   "Tacticus",
    "Imperium",
-   "Tacticus"
+   "Explosives",
+   "Infantry",
+   "Hellblaster Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -11385,11 +12390,12 @@
    "close-combat-weapon-hellblaster-squad"
   ],
   "ability_ids": [
-   "for-the-chapter"
+   "combat-doctrines",
+   "rites-of-thermal-appeasement"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -11406,7 +12412,8 @@
     "namespace": "mfm",
     "id": "1db34bd3-5f48-4d1b-b222-87decab7dfc2"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "heavy-intercessor-squad",
@@ -11415,12 +12422,20 @@
   "role": "battleline",
   "profiles": [
    {
-    "name": "Heavy Intercessor Squad",
+    "name": "Heavy Intercessor Sergeant",
     "M": 5,
     "T": 6,
     "W": 3,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
+    "name": "Heavy Intercessor",
+    "M": 5,
+    "T": 6,
+    "W": 3,
+    "Sv": 3,
     "Ld": 6,
     "OC": 2
    }
@@ -11428,20 +12443,36 @@
   "points": [
    {
     "models": 5,
-    "cost": 100
+    "cost": 115
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 200
+    "models": 5,
+    "cost": 115
+   },
+   {
+    "models": 10,
+    "cost": 230
+   },
+   {
+    "models": 10,
+    "cost": 230
+   },
+   {
+    "models": 5,
+    "cost": 115
+   },
+   {
+    "models": 10,
+    "cost": 230
    }
   ],
   "keywords": [
+   "Explosives",
    "Infantry",
    "Battleline",
-   "Explosives",
    "Gravis",
-   "Imperium"
+   "Imperium",
+   "Heavy Intercessor Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -11461,11 +12492,12 @@
    "close-combat-weapon-heavy-intercessor-squad"
   ],
   "ability_ids": [
+   "combat-doctrines",
    "unyielding-in-the-face-of-the-foe"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -11482,7 +12514,8 @@
     "namespace": "mfm",
     "id": "26fd651a-711f-41d9-a072-d9c9be32bd0f"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "iron-father-feirros",
@@ -11496,7 +12529,6 @@
     "T": 6,
     "W": 6,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -11509,10 +12541,11 @@
   ],
   "keywords": [
    "Infantry",
-   "Character",
-   "Epic Hero",
+   "Imperium",
    "Gravis",
-   "Imperium"
+   "Epic Hero",
+   "Character",
+   "Iron Father Feirros"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -11533,14 +12566,17 @@
    "medusan-manipuli"
   ],
   "ability_ids": [
-   "iron-father",
+   "feel-no-pain-5",
    "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
    "master-of-the-forge",
-   "rites-of-tempering"
+   "rites-of-tempering",
+   "iron-father"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -11558,7 +12594,8 @@
     "namespace": "mfm",
     "id": "4cdce960-e935-45fc-82e0-fcc28c665015"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "scout-squad",
@@ -11566,12 +12603,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Scout Sergeant",
+    "M": 6,
+    "T": 4,
+    "W": 2,
+    "Sv": 4,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
     "name": "Scout",
     "M": 6,
     "T": 4,
     "W": 2,
     "Sv": 4,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -11579,36 +12624,35 @@
   "points": [
    {
     "models": 5,
-    "cost": 65,
-    "unit_count_min": 1,
-    "unit_count_max": 2
-   },
-   {
-    "models": 6,
-    "models_max": 10,
-    "cost": 120,
-    "unit_count_min": 1,
-    "unit_count_max": 2
+    "cost": 65
    },
    {
     "models": 5,
-    "cost": 75,
-    "unit_count_min": 3,
-    "unit_count_max": null
+    "cost": 65
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 130,
-    "unit_count_min": 3,
-    "unit_count_max": null
+    "models": 10,
+    "cost": 120
+   },
+   {
+    "models": 10,
+    "cost": 120
+   },
+   {
+    "models": 5,
+    "cost": 65
+   },
+   {
+    "models": 10,
+    "cost": 120
    }
   ],
   "keywords": [
-   "Infantry",
-   "Explosives",
+   "Smoke",
    "Imperium",
-   "Smoke"
+   "Explosives",
+   "Infantry",
+   "Scout Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -11622,23 +12666,24 @@
    "max": 10
   },
   "weapon_ids": [
-   "astartes-chainsword-scout-squad",
-   "astartes-shotgun",
    "bolt-pistol-scout-squad",
    "boltgun-scout-squad",
-   "combat-knife-scout-squad",
    "heavy-bolter-scout-squad",
    "missile-launcher-scout-squad",
-   "scout-sniper-rifle"
+   "shotgun",
+   "sniper-rifle",
+   "chainsword-scout-squad",
+   "combat-knife-scout-squad"
   ],
   "ability_ids": [
-   "guerrilla-tactics-vanguard-spearhead",
    "infiltrators",
-   "scouts-6"
+   "scouts-6",
+   "combat-doctrines",
+   "flexible-asset"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -11668,7 +12713,8 @@
     "namespace": "mfm",
     "id": "bd4d9b1a-0394-45e8-a88d-b5c54f69233a"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "marneus-calgar-in-armour-of-antilochus",
@@ -11757,7 +12803,6 @@
     "T": 6,
     "W": 5,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -11765,16 +12810,24 @@
   "points": [
    {
     "models": 1,
-    "cost": 70
+    "cost": 60
+   },
+   {
+    "models": 1,
+    "cost": 60
+   },
+   {
+    "models": 1,
+    "cost": 60
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
-   "Imperium",
-   "Gravis",
    "Apothecary",
-   "Biologis"
+   "Imperium",
+   "Infantry",
+   "Gravis",
+   "Character",
+   "Apothecary Biologis"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -11789,16 +12842,16 @@
   },
   "weapon_ids": [
    "absolvor-bolt-pistol-apothecary-biologis",
-   "close-combat-weapon-apothecary-biologis"
+   "servo-armature"
   ],
   "ability_ids": [
-   "leader",
-   "surgical-precision",
-   "vivispectrum"
+   "support",
+   "combat-doctrines",
+   "vivispectral-analysis-targeting"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -11819,7 +12872,8 @@
     "namespace": "mfm",
     "id": "61579253-8a18-457d-88ae-60d7ac022a63"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "brutalis-dreadnought",
@@ -11832,7 +12886,6 @@
     "T": 10,
     "W": 12,
     "Sv": 2,
-    "invuln_sv": 4,
     "Ld": 6,
     "OC": 4
    }
@@ -11840,22 +12893,48 @@
   "points": [
    {
     "models": 1,
-    "cost": 150,
+    "cost": 160,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
     "cost": 160,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 180,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 180,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 160,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 180,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
    "Vehicle",
+   "Walker",
+   "Deathwing",
    "Dreadnought",
    "Imperium",
-   "Walker"
+   "Brutalis Dreadnought"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -11869,20 +12948,22 @@
    "max": 1
   },
   "weapon_ids": [
-   "brutalis-bolt-rifles",
-   "brutalis-fists",
-   "brutalis-talons",
+   "bolt-rifles",
    "twin-heavy-bolter-brutalis-dreadnought",
    "twin-icarus-ironhail-heavy-stubber-brutalis-dreadnought",
-   "twin-multi-melta-brutalis-dreadnought"
+   "twin-multi-melta-brutalis-dreadnought",
+   "brutalis-fists",
+   "brutalis-talons"
   ],
   "ability_ids": [
-   "brutalis-charge",
-   "deadly-demise-d3"
+   "damaged-4",
+   "deadly-demise-d3",
+   "combat-doctrines",
+   "brutalis-charge"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -11905,7 +12986,8 @@
     "namespace": "mfm",
     "id": "601d1b93-87e2-408c-8706-e4e35ac4adf0"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarian-in-phobos-armour",
@@ -11919,7 +13001,6 @@
     "T": 4,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -11927,16 +13008,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 70
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
-   "Explosives",
    "Imperium",
    "Phobos",
-   "Psyker"
+   "Psyker",
+   "Explosives",
+   "Infantry",
+   "Character",
+   "Librarian In Phobos Armour"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -11951,17 +13041,25 @@
   },
   "weapon_ids": [
    "bolt-pistol-librarian-in-phobos-armour",
-   "force-weapon",
-   "smite"
+   "smite",
+   "force-weapon"
   ],
   "ability_ids": [
+   "deep-strike",
+   "infiltrators",
    "leader",
+   "scouts-6",
+   "stealth",
+   "combat-doctrines",
+   "librarius",
+   "librarian",
+   "psychic-hood",
    "shrouding-psychic",
-   "infiltrators"
+   "soul-sight"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -11982,7 +13080,8 @@
     "namespace": "mfm",
     "id": "a993bfbc-d3b1-4e0b-9ea7-7a90457b165b"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "apothecary",
@@ -11996,7 +13095,6 @@
     "T": 5,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -12004,13 +13102,20 @@
   "points": [
    {
     "models": 1,
-    "cost": 40
+    "cost": 45
+   },
+   {
+    "models": 1,
+    "cost": 45
+   },
+   {
+    "models": 1,
+    "cost": 45
    }
   ],
   "keywords": [
    "Infantry",
    "Character",
-   "Grenades",
    "Imperium",
    "Tacticus",
    "Apothecary"
@@ -12028,16 +13133,17 @@
   },
   "weapon_ids": [
    "absolvor-bolt-pistol-apothecary",
-   "close-combat-weapon-apothecary",
-   "reductor-pistol"
+   "reductor-pistol",
+   "servo-armature"
   ],
   "ability_ids": [
-   "gene-seed-recovery",
-   "leader"
+   "support",
+   "combat-doctrines",
+   "narthecium"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -12062,7 +13168,8 @@
     "namespace": "mfm",
     "id": "848cfd43-e850-4440-aadb-e26cd4946454"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "land-raider",
@@ -12075,7 +13182,6 @@
     "T": 12,
     "W": 16,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 5
    }
@@ -12083,22 +13189,48 @@
   "points": [
    {
     "models": 1,
-    "cost": 220,
+    "cost": 245,
     "unit_count_min": 1,
-    "unit_count_max": 2
+    "unit_count_max": 1
    },
    {
     "models": 1,
-    "cost": 240,
-    "unit_count_min": 3,
+    "cost": 245,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 265,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 265,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 245,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 265,
+    "unit_count_min": 2,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Smoke",
    "Transport",
    "Imperium",
+   "Deathwing",
+   "Vehicle",
+   "Frame",
+   "Smoke",
    "Land Raider"
   ],
   "faction_keywords": [
@@ -12113,24 +13245,40 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-tracks",
    "godhammer-lascannon",
    "hunter-killer-missile-land-raider",
    "multi-melta-land-raider",
    "storm-bolter-land-raider",
-   "twin-heavy-bolter-land-raider"
+   "twin-heavy-bolter-land-raider",
+   "armoured-tracks"
   ],
   "ability_ids": [
-   "assault-ramp",
+   "damaged-6",
    "deadly-demise-d6",
-   "oath-of-moment"
+   "combat-doctrines",
+   "assault-ramp",
+   "power-of-the-machine-spirit-ironstorm-spearhead"
   ],
   "transport_capacity": {
-   "capacity": 12
+   "capacity": 14,
+   "rules_text": "This model has a transport capacity of 14 Adeptus Astartes Infantry models. It cannot transport Jump Pack models. Each Gravis/Terminator model takes up the space of 2 models.",
+   "exclusion_keywords": [
+    "Jump Pack"
+   ],
+   "multipliers": [
+    {
+     "keyword": "Gravis",
+     "spaces": 2
+    },
+    {
+     "keyword": "Terminator",
+     "spaces": 2
+    }
+   ]
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -12153,7 +13301,8 @@
     "namespace": "mfm",
     "id": "cce87254-8728-43fb-a14f-cd26a324e342"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "lieutenant",
@@ -12167,7 +13316,6 @@
     "T": 5,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -12175,15 +13323,23 @@
   "points": [
    {
     "models": 1,
-    "cost": 45
+    "cost": 50
+   },
+   {
+    "models": 1,
+    "cost": 50
+   },
+   {
+    "models": 1,
+    "cost": 50
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
-   "Grenades",
-   "Imperium",
    "Tacticus",
+   "Character",
+   "Infantry",
+   "Explosives",
+   "Imperium",
    "Lieutenant"
   ],
   "faction_keywords": [
@@ -12199,23 +13355,24 @@
   },
   "weapon_ids": [
    "bolt-pistol-lieutenant",
-   "close-combat-weapon-lieutenant",
    "heavy-bolt-pistol-lieutenant",
    "master-crafted-bolter-lieutenant",
-   "master-crafted-power-weapon-lieutenant",
    "neo-volkite-pistol-lieutenant",
    "plasma-pistol-lieutenant",
-   "power-fist-lieutenant",
-   "ceramite-fists-lieutenant"
+   "ceramite-fists-lieutenant",
+   "master-crafted-power-weapon-lieutenant",
+   "power-fist-lieutenant"
   ],
   "ability_ids": [
-   "leader",
+   "support",
+   "combat-doctrines",
+   "demi-company-commander",
    "tactical-precision",
-   "target-priority"
+   "storm-shield-lieutenant"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -12233,7 +13390,8 @@
     "namespace": "mfm",
     "id": "0ec8b8b9-7906-4ab2-87d8-54e8a6e76484"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "chief-librarian-tigurius",
@@ -12255,20 +13413,21 @@
   "points": [
    {
     "models": 1,
-    "cost": 85
+    "cost": 115
    }
   ],
   "keywords": [
-   "Infantry",
    "Character",
-   "Epic Hero",
+   "Infantry",
+   "Tacticus",
    "Explosives",
    "Psyker",
-   "Tacticus"
+   "Epic Hero",
+   "Chief Librarian Tigurius"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Ultramarines"
+   "Ultramarines",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -12280,17 +13439,22 @@
   },
   "weapon_ids": [
    "bolt-pistol-chief-librarian-tigurius",
-   "rod-of-tigurius",
-   "storm-of-the-emperors-wrath"
+   "storm-of-the-emperors-wrath",
+   "rod-of-tigurius"
   ],
   "ability_ids": [
-   "hood-of-hellfire",
    "leader",
-   "master-of-prescience-psychic"
+   "combat-doctrines",
+   "librarius",
+   "transhuman-strategist",
+   "chief-librarian",
+   "hood-of-hellfire",
+   "prescience-librarius-conclave",
+   "telepathic-assault"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -12308,7 +13472,8 @@
     "namespace": "mfm",
     "id": "399140e8-8abf-43e9-a48e-30583dbce343"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormtalon-gunship",
@@ -12411,17 +13576,18 @@
   "points": [
    {
     "models": 1,
-    "cost": 100
+    "cost": 115
    }
   ],
   "keywords": [
-   "Infantry",
-   "Captain",
    "Character",
    "Epic Hero",
    "Explosives",
    "Imperium",
-   "Tacticus"
+   "Tacticus",
+   "Captain",
+   "Infantry",
+   "Captain Titus"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -12441,14 +13607,17 @@
    "master-crafted-chainsword-captain-titus"
   ],
   "ability_ids": [
-   "demetrian-titus",
-   "honour-of-ultramar",
+   "feel-no-pain-5",
+   "leader",
+   "transhuman-strategist",
+   "combat-doctrines",
    "press-the-attack",
-   "feel-no-pain-5"
+   "righteous-fury",
+   "honour-of-ultramar"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -12466,7 +13635,8 @@
     "namespace": "mfm",
     "id": "2d6d9a94-ad2f-425e-853e-4bce65e228c7"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "razorback",
@@ -12563,12 +13733,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Eliminator Sergeant",
+    "M": 8,
+    "T": 4,
+    "W": 2,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
     "name": "Eliminator",
     "M": 8,
     "T": 4,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -12576,15 +13754,24 @@
   "points": [
    {
     "models": 3,
-    "cost": 75
+    "cost": 85
+   },
+   {
+    "models": 3,
+    "cost": 85
+   },
+   {
+    "models": 3,
+    "cost": 85
    }
   ],
   "keywords": [
-   "Infantry",
-   "Explosives",
-   "Imperium",
    "Phobos",
-   "Smoke"
+   "Smoke",
+   "Imperium",
+   "Explosives",
+   "Infantry",
+   "Eliminator Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -12605,14 +13792,15 @@
    "ceramite-fists-eliminator-squad"
   ],
   "ability_ids": [
-   "mark-the-target",
-   "reposition-under-covering-fire",
+   "infiltrators",
    "stealth",
-   "infiltrators"
+   "combat-doctrines",
+   "chameleoline-cloaks",
+   "special-issue-optics-and-ammunition"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -12629,7 +13817,8 @@
     "namespace": "mfm",
     "id": "c30d0b57-6613-4b18-a71b-a082d22a2e4b"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "outrider-squad",
@@ -12637,12 +13826,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Outrider Sergeant",
+    "M": 12,
+    "T": 6,
+    "W": 4,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
     "name": "Outrider",
     "M": 12,
     "T": 6,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 2
    }
@@ -12650,18 +13847,35 @@
   "points": [
    {
     "models": 3,
-    "cost": 70,
-    "models_max": 5
+    "cost": 80
+   },
+   {
+    "models": 3,
+    "cost": 80
    },
    {
     "models": 6,
-    "cost": 140
+    "cost": 160
+   },
+   {
+    "models": 6,
+    "cost": 160
+   },
+   {
+    "models": 3,
+    "cost": 80
+   },
+   {
+    "models": 6,
+    "cost": 160
    }
   ],
   "keywords": [
+   "Ravenwing",
    "Mounted",
    "Explosives",
-   "Imperium"
+   "Imperium",
+   "Outrider Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -12669,29 +13883,27 @@
   "base_size_mm": {
    "shape": "oval",
    "width": 90,
-   "length": 52.5
+   "length": 52
   },
   "model_count": {
    "min": 3,
-   "max": 7
+   "max": 6
   },
   "weapon_ids": [
-   "astartes-chainsword-outrider-squad",
-   "bolt-pistol",
    "heavy-bolt-pistol-outrider-squad",
-   "multi-melta",
-   "onslaught-gatling-cannon",
-   "twin-bolt-rifle-outrider-squad",
    "plasma-pistol-outrider-squad",
+   "twin-bolt-rifle-outrider-squad",
+   "chainsword-outrider-squad",
    "power-weapon-outrider-squad",
    "thunder-hammer-outrider-squad"
   ],
   "ability_ids": [
-   "thunderous-impact"
+   "combat-doctrines",
+   "full-throttle-assault"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -12730,7 +13942,8 @@
     "namespace": "mfm",
     "id": "d5a5b4f6-c63e-421d-9a58-5a0df13bee8b"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "desolation-squad",
@@ -12738,12 +13951,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
-    "name": "Desolation Squad",
+    "name": "Desolation Sergeant",
     "M": 6,
     "T": 5,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
+    "name": "Desolation Marine",
+    "M": 6,
+    "T": 5,
+    "W": 2,
+    "Sv": 3,
     "Ld": 6,
     "OC": 1
    }
@@ -12751,22 +13972,47 @@
   "points": [
    {
     "models": 5,
-    "cost": 180,
+    "cost": 140,
     "unit_count_min": 1,
-    "unit_count_max": 1
+    "unit_count_max": 2
    },
    {
     "models": 5,
-    "cost": 210,
-    "unit_count_min": 2,
+    "cost": 140,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 140,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 150,
+    "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
-   "Explosives",
+   "Tacticus",
    "Imperium",
-   "Tacticus"
+   "Explosives",
+   "Infantry",
+   "Desolation Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -12788,11 +14034,12 @@
    "close-combat-weapon-desolation-squad"
   ],
   "ability_ids": [
+   "combat-doctrines",
    "targeter-optics"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -12809,7 +14056,22 @@
     "namespace": "mfm",
     "id": "3ea51431-bb1e-42a8-b25c-0eb01615c79b"
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Vengor Launcher",
+    "cost": 5
+   },
+   {
+    "name": "Vengor Launcher",
+    "cost": 5
+   },
+   {
+    "name": "Vengor Launcher",
+    "cost": 5
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "centurion-assault-squad",
@@ -13169,16 +14431,17 @@
   "points": [
    {
     "models": 1,
-    "cost": 105
+    "cost": 115
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
    "Epic Hero",
+   "Character",
+   "Infantry",
    "Explosives",
+   "Tacticus",
    "Imperium",
-   "Tacticus"
+   "Cato Sicarius"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -13197,13 +14460,16 @@
    "talassarian-tempest-blade"
   ],
   "ability_ids": [
+   "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
    "captain-of-the-honour-guard",
    "knight-champion-of-macragge",
-   "leader"
+   "honour-or-death"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -13221,7 +14487,8 @@
     "namespace": "mfm",
     "id": "65df5837-39c7-4d85-b9fb-b66459cb7cdc"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "wardens-of-ultramar",
@@ -13235,7 +14502,6 @@
     "T": 3,
     "W": 3,
     "Sv": 4,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    },
@@ -13245,19 +14511,8 @@
     "T": 5,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 2
-   },
-   {
-    "name": "Dainal Kornelius",
-    "M": 6,
-    "T": 3,
-    "W": 3,
-    "Sv": 4,
-    "invuln_sv": null,
-    "Ld": 6,
-    "OC": 1
    },
    {
     "name": "Gaius Silva",
@@ -13267,7 +14522,8 @@
     "Sv": 4,
     "invuln_sv": 5,
     "Ld": 6,
-    "OC": 1
+    "OC": 1,
+    "invuln_note": "Gaius Silva only"
    },
    {
     "name": "Lucia Vestha",
@@ -13275,7 +14531,6 @@
     "T": 3,
     "W": 3,
     "Sv": 4,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    },
@@ -13287,21 +14542,33 @@
     "Sv": 3,
     "invuln_sv": 4,
     "Ld": 6,
+    "OC": 1,
+    "invuln_note": "Veteran Sergeant Metaurus only"
+   },
+   {
+    "name": "Dainal Komelius",
+    "M": 6,
+    "T": 3,
+    "W": 3,
+    "Sv": 4,
+    "Ld": 6,
     "OC": 1
    }
   ],
   "points": [
    {
     "models": 6,
-    "cost": 120
+    "cost": 115
    }
   ],
   "keywords": [
+   "Tacticus",
+   "Psyker",
+   "Explosives",
    "Infantry",
    "Epic Hero",
-   "Explosives",
    "Imperium",
-   "Tacticus"
+   "Wardens of Ultramar"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -13315,22 +14582,22 @@
    "archeotech-laspistol",
    "astropathic-blast",
    "bolt-rifle-wardens-of-ultramar",
-   "close-combat-weapon-wardens-of-ultramar",
-   "force-stave",
    "heavy-bolt-pistol-wardens-of-ultramar",
+   "ceramite-fists-wardens-of-ultramar",
+   "force-stave",
    "master-crafted-power-weapon-wardens-of-ultramar",
    "power-weapon-wardens-of-ultramar",
-   "ceramite-fists-wardens-of-ultramar"
+   "ultramarian-combat-weapons"
   ],
   "ability_ids": [
-   "heroes-of-ultramar",
-   "refractor-field",
-   "second-company-banner",
+   "support",
+   "combat-doctrines",
+   "raise-the-banner",
    "strategium-command"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -13348,7 +14615,12 @@
     "namespace": "mfm",
     "id": "7750b656-3226-4916-a2aa-ab2137314b17"
    }
-  ]
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 28.5
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "redemptor-dreadnought",
@@ -13361,7 +14633,6 @@
     "T": 10,
     "W": 12,
     "Sv": 2,
-    "invuln_sv": 4,
     "Ld": 6,
     "OC": 4
    }
@@ -13369,13 +14640,37 @@
   "points": [
    {
     "models": 1,
-    "cost": 195,
+    "cost": 170,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 210,
+    "cost": 170,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 190,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 190,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 170,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 190,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -13384,7 +14679,9 @@
    "Vehicle",
    "Dreadnought",
    "Imperium",
-   "Walker"
+   "Walker",
+   "Deathwing",
+   "Redemptor Dreadnought"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -13398,24 +14695,24 @@
    "max": 1
   },
   "weapon_ids": [
+   "fragstorm-grenade-launchers-redemptor-dreadnought",
    "heavy-flamer-redemptor-dreadnought",
    "heavy-onslaught-gatling-cannon",
    "icarus-rocket-pod",
    "macro-plasma-incinerator",
    "onslaught-gatling-cannon",
-   "redemptor-fist",
-   "twin-fragstorm-grenade-launcher",
-   "twin-storm-bolter-redemptor-dreadnought",
-   "fragstorm-grenade-launchers-redemptor-dreadnought",
-   "storm-bolters-redemptor-dreadnought"
+   "storm-bolters-redemptor-dreadnought",
+   "redemptor-fist"
   ],
   "ability_ids": [
-   "duty-eternal",
-   "deadly-demise-d3"
+   "damaged-4",
+   "deadly-demise-d3",
+   "combat-doctrines",
+   "duty-eternal"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -13444,7 +14741,22 @@
     "namespace": "mfm",
     "id": "2c43e025-56f1-4c11-b17d-ce935bbaca67"
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Macro Plasma Incinerator",
+    "cost": 10
+   },
+   {
+    "name": "Macro Plasma Incinerator",
+    "cost": 10
+   },
+   {
+    "name": "Macro Plasma Incinerator",
+    "cost": 10
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ancient",
@@ -13458,7 +14770,6 @@
     "T": 5,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 2
    }
@@ -13467,14 +14778,23 @@
    {
     "models": 1,
     "cost": 40
+   },
+   {
+    "models": 1,
+    "cost": 40
+   },
+   {
+    "models": 1,
+    "cost": 40
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
-   "Explosives",
    "Imperium",
-   "Tacticus"
+   "Character",
+   "Infantry",
+   "Explosives",
+   "Tacticus",
+   "Ancient"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -13490,16 +14810,18 @@
   "weapon_ids": [
    "bolt-pistol-ancient",
    "bolt-rifle-ancient",
-   "power-weapon-ancient",
-   "ceramite-fists-ancient"
+   "ceramite-fists-ancient",
+   "power-weapon-ancient"
   ],
   "ability_ids": [
-   "leader",
-   "unbreakable-duty"
+   "support",
+   "combat-doctrines",
+   "raise-the-banner",
+   "honour-of-the-company"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -13521,7 +14843,8 @@
     "namespace": "mfm",
     "id": "6d01dddf-c440-4751-93ff-54502221c9f8"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "pedro-kantor",
@@ -13622,39 +14945,51 @@
    {
     "models": 1,
     "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
    }
   ],
   "keywords": [
    "Infantry",
    "Character",
    "Imperium",
+   "Chaplain",
    "Terminator",
-   "Chaplain"
+   "Deathwing",
+   "Chaplain In Terminator Armour"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
-   "diameter": 40
+   "diameter": 50
   },
   "model_count": {
    "min": 1,
    "max": 1
   },
   "weapon_ids": [
-   "crozius-arcanum-chaplain-in-terminator-armour",
-   "storm-bolter-chaplain-in-terminator-armour"
+   "storm-bolter-chaplain-in-terminator-armour",
+   "crozius-arcanum-chaplain-in-terminator-armour"
   ],
   "ability_ids": [
+   "deep-strike",
    "leader",
+   "combat-doctrines",
    "litany-of-hate",
-   "recitation-of-faith",
-   "deep-strike"
+   "zealous-fortitude",
+   "relic-shield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -13678,7 +15013,8 @@
     "namespace": "mfm",
     "id": "b9fd77d2-e5f3-4dc1-a81a-020313851109"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "lieutenant-with-combi-weapon",
@@ -13692,7 +15028,6 @@
     "T": 4,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -13700,16 +15035,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 95
+    "cost": 85
+   },
+   {
+    "models": 1,
+    "cost": 85
+   },
+   {
+    "models": 1,
+    "cost": 85
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
+   "Phobos",
+   "Smoke",
    "Explosives",
    "Imperium",
-   "Phobos",
-   "Smoke"
+   "Infantry",
+   "Character",
+   "Lieutenant with Combi-weapon"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -13727,17 +15071,17 @@
    "paired-combat-blades-lieutenant-with-combi-weapon"
   ],
   "ability_ids": [
-   "evade-and-survive",
-   "last-survivor",
-   "priority-objective-identified",
-   "stealth",
+   "feel-no-pain-5",
    "infiltrators",
    "lone-operative",
-   "feel-no-pain-5"
+   "stealth",
+   "combat-doctrines",
+   "priority-target-identified",
+   "evade-and-survive"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -13754,7 +15098,8 @@
     "namespace": "mfm",
     "id": "abe8a2c9-02cd-45ed-b490-3068d69b51f5"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "incursor-squad",
@@ -13762,12 +15107,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Incursor Sergeant",
+    "M": 8,
+    "T": 4,
+    "W": 2,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
     "name": "Incursor",
     "M": 8,
     "T": 4,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -13775,37 +15128,84 @@
   "points": [
    {
     "models": 5,
-    "cost": 85,
-    "unit_count_min": 1,
-    "unit_count_max": 2
-   },
-   {
-    "models": 6,
-    "models_max": 10,
-    "cost": 150,
+    "cost": 90,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 5,
-    "cost": 95,
+    "cost": 90,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 170,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 170,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 100,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 160,
+    "models": 5,
+    "cost": 100,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 180,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 180,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 90,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 170,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 100,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 180,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
+   "Phobos",
+   "Smoke",
    "Infantry",
    "Explosives",
    "Imperium",
-   "Phobos",
-   "Smoke"
+   "Incursor Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -13824,13 +15224,14 @@
    "paired-combat-blades-incursor-squad"
   ],
   "ability_ids": [
-   "haywire-mine",
-   "multi-spectrum-array",
-   "scouts-6"
+   "scouts-6",
+   "combat-doctrines",
+   "divinator-class-auspexes",
+   "haywire-mine"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -13856,7 +15257,8 @@
     "namespace": "mfm",
     "id": "d54c22f1-7947-4013-b6f1-c2e2f824721b"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "assault-intercessors-with-jump-packs",
@@ -13864,12 +15266,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
-    "name": "Assault Intercessors with Jump Packs",
+    "name": "Assault Intercessor with Jump Pack",
     "M": 12,
     "T": 5,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
+    "name": "Assault Intercessor Sergeant with Jump Pack",
+    "M": 12,
+    "T": 5,
+    "W": 2,
+    "Sv": 3,
     "Ld": 6,
     "OC": 1
    }
@@ -13877,37 +15287,85 @@
   "points": [
    {
     "models": 5,
-    "cost": 85,
-    "unit_count_min": 1,
-    "unit_count_max": 2
-   },
-   {
-    "models": 10,
-    "cost": 160,
+    "cost": 95,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 5,
     "cost": 95,
-    "unit_count_min": 3,
-    "unit_count_max": null,
-    "models_max": 9
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
     "models": 10,
-    "cost": 170,
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 105,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 105,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 200,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 200,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 95,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 105,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 200,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
-   "Explosives",
    "Fly",
+   "Explosives",
+   "Infantry",
    "Imperium",
+   "Tacticus",
    "Jump Pack",
-   "Tacticus"
+   "Assault Intercessors With Jump Packs"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -13921,20 +15379,21 @@
    "max": 10
   },
   "weapon_ids": [
-   "astartes-chainsword-assault-intercessors-with-jump-packs",
    "hand-flamer-assault-intercessors-with-jump-packs",
    "heavy-bolt-pistol-assault-intercessors-with-jump-packs",
    "plasma-pistol-assault-intercessors-with-jump-packs",
+   "chainsword-assault-intercessors-with-jump-packs",
    "power-fist-assault-intercessors-with-jump-packs",
    "power-weapon-assault-intercessors-with-jump-packs"
   ],
   "ability_ids": [
-   "hammer-of-wrath",
-   "deep-strike"
+   "deep-strike",
+   "combat-doctrines",
+   "hammer-of-wrath"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -13981,7 +15440,8 @@
     "namespace": "mfm",
     "id": "d1a72666-0a03-4a30-8ce6-1733ccd0ab29"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "caanok-var",
@@ -13992,7 +15452,7 @@
    {
     "name": "Caanok Var",
     "M": 5,
-    "T": 5,
+    "T": 6,
     "W": 6,
     "Sv": 2,
     "invuln_sv": 4,
@@ -14003,20 +15463,21 @@
   "points": [
    {
     "models": 1,
-    "cost": 90
+    "cost": 100
    }
   ],
   "keywords": [
+   "Terminator",
    "Infantry",
    "Captain",
    "Character",
    "Epic Hero",
    "Imperium",
-   "Terminator"
+   "Caanok Var"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Iron Hands"
+   "Iron Hands",
+   "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -14027,19 +15488,21 @@
    "max": 1
   },
   "weapon_ids": [
-   "axiom",
-   "storm-bolter-caanok-var"
+   "storm-bolter-caanok-var",
+   "axiom"
   ],
   "ability_ids": [
-   "cerebrex-logic-engine",
-   "cold-and-calculating",
-   "leader",
    "deep-strike",
-   "feel-no-pain-5"
+   "feel-no-pain-5",
+   "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
+   "cold-and-calculating",
+   "cerebrex-logic-engine"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -14057,7 +15520,8 @@
     "namespace": "mfm",
     "id": "911a0552-404b-4c2b-a114-726c525230a0"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-veteran-squad-with-jump-packs",
@@ -14065,12 +15529,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
-    "name": "Vanguard Veteran with Jump Pack",
+    "name": "Vanguard Veteran Sergeant",
     "M": 12,
     "T": 5,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
+    "name": "Vanguard Veteran",
+    "M": 12,
+    "T": 5,
+    "W": 2,
+    "Sv": 3,
     "Ld": 6,
     "OC": 1
    }
@@ -14078,37 +15550,86 @@
   "points": [
    {
     "models": 5,
-    "cost": 100,
-    "unit_count_min": 1,
-    "unit_count_max": 2
-   },
-   {
-    "models": 10,
-    "cost": 200,
+    "cost": 110,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 5,
     "cost": 110,
-    "unit_count_min": 3,
-    "unit_count_max": null,
-    "models_max": 9
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
     "models": 10,
-    "cost": 210,
+    "cost": 220,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 220,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 130,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 130,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 240,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 240,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 110,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 220,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 130,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 240,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
-   "Explosives",
-   "Fly",
-   "Imperium",
    "Jump Pack",
-   "Tacticus"
+   "Tacticus",
+   "Deathwing",
+   "Fly",
+   "Explosives",
+   "Imperium",
+   "Infantry",
+   "Vanguard Veteran Squad With Jump Packs"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -14122,25 +15643,22 @@
    "max": 10
   },
   "weapon_ids": [
-   "bolt-pistol",
-   "grav-pistol",
-   "hand-flamer",
-   "inferno-pistol",
-   "plasma-pistol-vanguard-veteran-squad-with-jump-packs",
-   "vanguard-veteran-weapon",
-   "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs",
    "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs",
+   "plasma-pistol-vanguard-veteran-squad-with-jump-packs",
+   "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs",
    "power-fist-vanguard-veteran-squad-with-jump-packs",
    "relic-blade-vanguard-veteran-squad-with-jump-packs",
    "thunder-hammer-vanguard-veteran-squad-with-jump-packs"
   ],
   "ability_ids": [
+   "deep-strike",
+   "combat-doctrines",
    "vanguard-assault",
-   "deep-strike"
+   "combat-shield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -14193,7 +15711,8 @@
     "namespace": "mfm",
     "id": "2151c904-7486-4787-97ee-1fa9208981d4"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "company-heroes",
@@ -14201,12 +15720,38 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
-    "name": "Company Veteran",
+    "name": "Ancient",
     "M": 6,
     "T": 5,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
+    "name": "Company Champion",
+    "M": 6,
+    "T": 5,
+    "W": 4,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
+    "name": "Company veteran with bolt rifle",
+    "M": 6,
+    "T": 5,
+    "W": 4,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
+    "name": "Company Veteran with heavy bolter",
+    "M": 6,
+    "T": 5,
+    "W": 4,
+    "Sv": 3,
     "Ld": 6,
     "OC": 2
    }
@@ -14214,14 +15759,50 @@
   "points": [
    {
     "models": 4,
-    "cost": 105
+    "cost": 125,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 4,
+    "cost": 125,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 4,
+    "cost": 145,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 4,
+    "cost": 145,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 4,
+    "cost": 125,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 4,
+    "cost": 145,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
    "Explosives",
+   "Tacticus",
+   "Champion",
+   "Infantry",
+   "Character",
+   "Ancient",
    "Imperium",
-   "Tacticus"
+   "Company Heroes"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -14235,21 +15816,20 @@
    "max": 4
   },
   "weapon_ids": [
-   "bolt-pistol",
-   "bolt-rifle",
+   "bolt-pistol-company-heroes",
    "master-crafted-bolt-rifle",
    "master-crafted-heavy-bolter",
-   "master-crafted-power-weapon-company-heroes",
    "combat-knife-company-heroes",
-   "bolt-pistol-company-heroes"
+   "master-crafted-power-weapon-company-heroes"
   ],
   "ability_ids": [
-   "command-squad",
-   "company-heroes"
+   "combat-doctrines",
+   "raise-the-banner",
+   "command-squad"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -14266,7 +15846,9 @@
     "namespace": "mfm",
     "id": "fe69f0c0-d8c6-465d-8a88-6d453b5c5af5"
    }
-  ]
+  ],
+  "role": "character",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "aggressor-squad",
@@ -14274,12 +15856,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Aggressor Sergeant",
+    "M": 5,
+    "T": 6,
+    "W": 3,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
     "name": "Aggressor",
     "M": 5,
     "T": 6,
     "W": 3,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -14287,35 +15877,34 @@
   "points": [
    {
     "models": 3,
-    "cost": 80,
-    "unit_count_min": 1,
-    "unit_count_max": 2
-   },
-   {
-    "models": 4,
-    "models_max": 6,
-    "cost": 165,
-    "unit_count_min": 1,
-    "unit_count_max": 2
+    "cost": 90
    },
    {
     "models": 3,
-    "cost": 90,
-    "unit_count_min": 3,
-    "unit_count_max": null
+    "cost": 90
    },
    {
-    "models": 4,
-    "models_max": 6,
-    "cost": 175,
-    "unit_count_min": 3,
-    "unit_count_max": null
+    "models": 6,
+    "cost": 180
+   },
+   {
+    "models": 6,
+    "cost": 180
+   },
+   {
+    "models": 3,
+    "cost": 90
+   },
+   {
+    "models": 6,
+    "cost": 180
    }
   ],
   "keywords": [
-   "Infantry",
+   "Imperium",
    "Gravis",
-   "Imperium"
+   "Infantry",
+   "Aggressor Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -14335,11 +15924,12 @@
    "twin-power-fists-aggressor-squad"
   ],
   "ability_ids": [
-   "close-quarters-firepower"
+   "combat-doctrines",
+   "close-quarters-firestorm"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -14356,7 +15946,8 @@
     "namespace": "mfm",
     "id": "f7219f56-0d7e-46f0-bb56-73fc596ee09e"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormhawk-interceptor",
@@ -14460,15 +16051,24 @@
   "points": [
    {
     "models": 1,
-    "cost": 80
+    "cost": 90
+   },
+   {
+    "models": 1,
+    "cost": 90
+   },
+   {
+    "models": 1,
+    "cost": 90
    }
   ],
   "keywords": [
+   "Explosives",
+   "Tacticus",
+   "Imperium",
    "Infantry",
    "Character",
-   "Explosives",
-   "Imperium",
-   "Tacticus"
+   "Captain"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -14482,20 +16082,24 @@
    "max": 1
   },
   "weapon_ids": [
-   "bolt-pistol-captain",
    "heavy-bolt-pistol-captain",
    "master-crafted-bolter",
-   "master-crafted-power-weapon-captain",
    "neo-volkite-pistol-captain",
    "plasma-pistol-captain",
+   "master-crafted-power-weapon-captain",
    "power-fist-captain"
   ],
   "ability_ids": [
-   "leader"
+   "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
+   "strategic-acumen",
+   "finest-hour",
+   "relic-shield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -14513,7 +16117,8 @@
     "namespace": "mfm",
     "id": "5ddc8777-1516-4b72-b5a1-05685ed1cecb"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "predator-annihilator",
@@ -14615,15 +16220,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 70
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
    }
   ],
   "keywords": [
+   "Ravenwing",
    "Mounted",
    "Chaplain",
    "Character",
    "Explosives",
-   "Imperium"
+   "Imperium",
+   "Chaplain On Bike"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -14631,7 +16246,7 @@
   "base_size_mm": {
    "shape": "oval",
    "width": 90,
-   "length": 52.5
+   "length": 52
   },
   "model_count": {
    "min": 1,
@@ -14639,16 +16254,18 @@
   },
   "weapon_ids": [
    "absolvor-bolt-pistol-chaplain-on-bike",
-   "crozius-arcanum-chaplain-on-bike",
-   "twin-bolt-rifle"
+   "twin-bolt-rifle",
+   "crozius-arcanum-chaplain-on-bike"
   ],
   "ability_ids": [
-   "catechism-of-fire",
-   "leader"
+   "leader",
+   "combat-doctrines",
+   "litany-of-hate",
+   "catechism-of-fire"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -14672,7 +16289,8 @@
     "namespace": "mfm",
     "id": "5faa2f68-6a43-45d9-97d8-4f0e3d8146e4"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormraven-gunship",
@@ -14864,16 +16482,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 70
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
    }
   ],
   "keywords": [
-   "Infantry",
-   "Captain",
    "Character",
+   "Captain",
+   "Infantry",
+   "Phobos",
    "Explosives",
    "Imperium",
-   "Phobos"
+   "Captain In Phobos Armour"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -14887,19 +16514,24 @@
    "max": 1
   },
   "weapon_ids": [
+   "instigator-bolt-carbine-captain-in-phobos-armour",
    "bolt-pistol-captain-in-phobos-armour",
-   "combat-knife-captain-in-phobos-armour",
-   "instigator-bolt-carbine-captain-in-phobos-armour"
+   "combat-knife-captain-in-phobos-armour"
   ],
   "ability_ids": [
+   "deep-strike",
+   "infiltrators",
    "leader",
-   "master-of-deceit",
+   "scouts-6",
    "stealth",
-   "infiltrators"
+   "combat-doctrines",
+   "transhuman-strategist",
+   "strategic-acumen",
+   "tactical-fluidity"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -14917,7 +16549,8 @@
     "namespace": "mfm",
     "id": "e804eb6a-4f46-402b-9a59-61e87ba44d6a"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "chaplain-with-jump-pack",
@@ -14940,50 +16573,52 @@
    {
     "models": 1,
     "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
+   },
+   {
+    "models": 1,
+    "cost": 75
    }
   ],
   "keywords": [
-   "Infantry",
-   "Chaplain",
-   "Character",
    "Explosives",
-   "Fly",
-   "Imperium",
    "Jump Pack",
-   "Tacticus"
+   "Fly",
+   "Character",
+   "Tacticus",
+   "Imperium",
+   "Chaplain",
+   "Infantry",
+   "Chaplain With Jump Pack"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
   ],
   "base_size_mm": {
    "shape": "round",
-   "diameter": 32
+   "diameter": 40
   },
   "model_count": {
    "min": 1,
    "max": 1
   },
   "weapon_ids": [
-   "bolt-pistol",
-   "boltgun",
-   "combi-weapon-chaplain-with-jump-pack",
-   "crozius-arcanum-chaplain-with-jump-pack",
-   "grav-pistol",
-   "hand-flamer",
-   "inferno-pistol",
-   "plasma-pistol-chaplain-with-jump-pack",
-   "power-fist-chaplain-with-jump-pack",
-   "storm-bolter",
-   "absolvor-bolt-pistol-chaplain-with-jump-pack"
+   "absolvor-bolt-pistol-chaplain-with-jump-pack",
+   "crozius-arcanum-chaplain-with-jump-pack"
   ],
   "ability_ids": [
-   "exhortation-of-rage",
+   "deep-strike",
    "leader",
-   "deep-strike"
+   "combat-doctrines",
+   "litany-of-hate",
+   "exhortation-of-rage"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15008,7 +16643,8 @@
     "namespace": "mfm",
     "id": "387ec5bd-26a4-459d-8763-a78df521262b"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "intercessor-squad",
@@ -15017,12 +16653,20 @@
   "role": "battleline",
   "profiles": [
    {
+    "name": "Intercessor Sergeant",
+    "M": 6,
+    "T": 5,
+    "W": 2,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 2
+   },
+   {
     "name": "Intercessor",
     "M": 6,
     "T": 5,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 2
    }
@@ -15030,20 +16674,36 @@
   "points": [
    {
     "models": 5,
-    "cost": 80
+    "cost": 85
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 150
+    "models": 5,
+    "cost": 85
+   },
+   {
+    "models": 10,
+    "cost": 170
+   },
+   {
+    "models": 10,
+    "cost": 170
+   },
+   {
+    "models": 5,
+    "cost": 85
+   },
+   {
+    "models": 10,
+    "cost": 170
    }
   ],
   "keywords": [
-   "Infantry",
-   "Battleline",
+   "Tacticus",
    "Explosives",
+   "Infantry",
    "Imperium",
-   "Tacticus"
+   "Battleline",
+   "Intercessor Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -15057,26 +16717,25 @@
    "max": 10
   },
   "weapon_ids": [
-   "astartes-chainsword-intercessor-squad",
-   "astartes-grenade-launcher",
    "bolt-pistol-intercessor-squad",
    "bolt-rifle-intercessor-squad",
-   "close-combat-weapon",
+   "astartes-grenade-launcher-intercessor-squad",
    "hand-flamer-intercessor-squad",
    "plasma-pistol-intercessor-squad",
+   "chainsword-intercessor-squad",
+   "close-combat-weapon-intercessor-squad",
    "power-fist-intercessor-squad",
    "power-weapon-intercessor-squad",
-   "thunder-hammer-intercessor-squad",
-   "astartes-grenade-launcher-intercessor-squad",
-   "close-combat-weapon-intercessor-squad"
+   "thunder-hammer-intercessor-squad"
   ],
   "ability_ids": [
-   "objective-secured",
-   "target-elimination"
+   "combat-doctrines",
+   "bolter-discipline",
+   "tactical-mainstay"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15102,7 +16761,8 @@
     "namespace": "mfm",
     "id": "2f94186b-7ca5-482d-9b25-5b50201347a0"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "astraeus",
@@ -15115,27 +16775,52 @@
     "T": 12,
     "W": 24,
     "Sv": 2,
-    "invuln_sv": null,
+    "invuln_sv": 5,
     "Ld": 6,
     "OC": 8,
-    "invuln_sv_ranged": 5
+    "invuln_note": "Against ranged attacks only"
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 525,
+    "cost": 550,
     "unit_count_min": 1,
     "unit_count_max": 1
    },
    {
     "models": 1,
-    "cost": 575,
+    "cost": 550,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 650,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 650,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 550,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 650,
     "unit_count_min": 2,
     "unit_count_max": null
    }
   ],
   "keywords": [
+   "Frame",
    "Vehicle",
    "Titanic",
    "Imperium",
@@ -15153,21 +16838,24 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull-astraeus",
-   "astraeus-las-ripper",
+   "astareus-las-ripper",
    "ironhail-heavy-stubber",
    "plasma-eradicator",
-   "storm-bolter",
-   "twin-heavy-bolter",
-   "twin-lascannon",
-   "twin-macro-accelerator-cannon"
+   "storm-bolter-astraeus",
+   "twin-heavy-bolter-astraeus",
+   "twin-lascannon-astraeus",
+   "twin-macro-accelerator-cannon",
+   "armoured-hull-astraeus"
   ],
   "ability_ids": [
-   "deadly-demise-d6-2"
+   "deadly-demise-d62",
+   "damaged-8",
+   "combat-doctrines",
+   "suppression-fire"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15184,7 +16872,8 @@
     "namespace": "mfm",
     "id": "291197e5-6b94-4275-bbe2-cb2177e1411f"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "land-raider-redeemer",
@@ -15197,7 +16886,6 @@
     "T": 12,
     "W": 16,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 5
    }
@@ -15205,24 +16893,50 @@
   "points": [
    {
     "models": 1,
-    "cost": 260,
+    "cost": 245,
     "unit_count_min": 1,
-    "unit_count_max": 2
+    "unit_count_max": 1
    },
    {
     "models": 1,
-    "cost": 280,
-    "unit_count_min": 3,
+    "cost": 245,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 265,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 265,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 245,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 265,
+    "unit_count_min": 2,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Explosives",
-   "Frame",
-   "Imperium",
+   "Deathwing",
    "Smoke",
-   "Transport"
+   "Imperium",
+   "Vehicle",
+   "Frame",
+   "Transport",
+   "Explosives",
+   "Land Raider Redeemer"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -15236,23 +16950,40 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-tracks",
    "flamestorm-cannon",
    "hunter-killer-missile-land-raider-redeemer",
    "multi-melta-land-raider-redeemer",
    "storm-bolter-land-raider-redeemer",
-   "twin-assault-cannon-land-raider-redeemer"
+   "twin-assault-cannon-land-raider-redeemer",
+   "armoured-tracks"
   ],
   "ability_ids": [
+   "damaged-6",
+   "deadly-demise-d6",
+   "combat-doctrines",
    "assault-ramp",
-   "deadly-demise-d6"
+   "wrath-of-the-machine-spirit"
   ],
   "transport_capacity": {
-   "capacity": 14
+   "capacity": 14,
+   "rules_text": "This model has a transport capacity of 14 Adeptus Astartes Infantry models. It cannot transport Jump Pack models. Each Gravis/Terminator model takes up the space of 2 models.",
+   "exclusion_keywords": [
+    "Jump Pack"
+   ],
+   "multipliers": [
+    {
+     "keyword": "Gravis",
+     "spaces": 2
+    },
+    {
+     "keyword": "Terminator",
+     "spaces": 2
+    }
+   ]
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15275,7 +17006,8 @@
     "namespace": "mfm",
     "id": "3fdf331d-4e93-4d52-a78e-5d5f14c3dc32"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "thunderhawk-gunship",
@@ -15284,11 +17016,10 @@
   "profiles": [
    {
     "name": "Thunderhawk Gunship",
-    "M": 20,
+    "M": 14,
     "T": 12,
     "W": 30,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 0
    }
@@ -15296,16 +17027,48 @@
   "points": [
    {
     "models": 1,
-    "cost": 840
+    "cost": 850,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 850,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 950,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 950,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 850,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 950,
+    "unit_count_min": 2,
+    "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Titanic",
-   "Fly",
-   "Aircraft",
    "Transport",
    "Imperium",
+   "Fly",
+   "Vehicle",
+   "Ravenwing",
+   "Titanic",
    "Thunderhawk Gunship"
   ],
   "faction_keywords": [
@@ -15320,23 +17083,24 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull-thunderhawk-gunship",
+   "lascannon-thunderhawk-gunship",
    "hellstrike-missile-battery",
-   "lascannon",
    "thunderhawk-heavy-cannon",
    "turbo-laser-destructor",
-   "twin-heavy-bolter"
+   "twin-heavy-bolter-thunderhawk-gunship",
+   "armoured-hull-thunderhawk-gunship"
   ],
   "ability_ids": [
+   "deadly-demise-d62",
+   "damaged-10",
+   "hover",
+   "combat-doctrines",
    "aerial-assault",
-   "thunderhawk",
-   "thunderhawk-cluster-bombs",
-   "deadly-demise-d6-2",
-   "hover"
+   "thunderhawk-cluster-bombs"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15353,7 +17117,30 @@
     "namespace": "mfm",
     "id": "0c966839-270e-4d74-a70f-617a7744d895"
    }
-  ]
+  ],
+  "transport_capacity": {
+   "capacity": 30,
+   "rules_text": "This model has a transport capacity of 30 Adeptus Astartes Infantry models. Or Adeptus Astartes Mounted models. Each Jump Pack, Gravis, Terminator model takes up the space of 2 models. Each ADEPTUS ASTARTES MOUNTED model takes up the space of 4 models.",
+   "multipliers": [
+    {
+     "keyword": "Jump Pack",
+     "spaces": 2
+    },
+    {
+     "keyword": "Gravis",
+     "spaces": 2
+    },
+    {
+     "keyword": "Terminator",
+     "spaces": 2
+    },
+    {
+     "keyword": "Adeptus Astartes Mounted",
+     "spaces": 4
+    }
+   ]
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "rhino",
@@ -15367,7 +17154,6 @@
     "T": 9,
     "W": 10,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 2
    }
@@ -15375,13 +17161,37 @@
   "points": [
    {
     "models": 1,
-    "cost": 65,
+    "cost": 70,
     "unit_count_min": 1,
     "unit_count_max": 3
    },
    {
     "models": 1,
-    "cost": 75,
+    "cost": 70,
+    "unit_count_min": 1,
+    "unit_count_max": 3
+   },
+   {
+    "models": 1,
+    "cost": 80,
+    "unit_count_min": 4,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 80,
+    "unit_count_min": 4,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 70,
+    "unit_count_min": 1,
+    "unit_count_max": 3
+   },
+   {
+    "models": 1,
+    "cost": 80,
     "unit_count_min": 4,
     "unit_count_max": null
    }
@@ -15389,10 +17199,11 @@
   "keywords": [
    "Vehicle",
    "Dedicated Transport",
-   "Frame",
    "Imperium",
    "Smoke",
-   "Transport"
+   "Frame",
+   "Transport",
+   "Rhino"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -15406,25 +17217,28 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-tracks-rhino",
    "hunter-killer-missile-rhino",
-   "storm-bolter-rhino"
+   "storm-bolter-rhino",
+   "armoured-tracks-rhino"
   ],
   "ability_ids": [
+   "deadly-demise-d3",
    "firing-deck-2",
-   "self-repair",
-   "truesilver-aegis-aura",
-   "deadly-demise-d3"
+   "combat-doctrines",
+   "veiling-smoke"
   ],
   "transport_capacity": {
    "capacity": 12,
    "exclusion_keywords": [
-    "Jump Pack"
-   ]
+    "Gravis",
+    "Jump Pack",
+    "Terminator"
+   ],
+   "rules_text": "This model has a transport capacity of 12 Adeptus Astartes Infantry models. It cannot transport Gravis/Jump Pack/Terminator models."
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15441,11 +17255,12 @@
     "namespace": "mfm",
     "id": "2af79aee-3a97-4283-911b-8558d6cb44e5"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "invader-atv",
-  "name": "Invader ATV",
+  "name": "Invader ATVs",
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
@@ -15454,7 +17269,6 @@
     "T": 6,
     "W": 8,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 2
    }
@@ -15462,14 +17276,84 @@
   "points": [
    {
     "models": 1,
-    "cost": 60
+    "cost": 65,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 65,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 2,
+    "cost": 130,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 2,
+    "cost": 130,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 75,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 75,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 2,
+    "cost": 140,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 2,
+    "cost": 140,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 65,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 2,
+    "cost": 130,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 75,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 2,
+    "cost": 140,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
-   "Mounted",
    "Vehicle",
    "Frame",
-   "Imperium"
+   "Imperium",
+   "Ravenwing",
+   "Mounted",
+   "Invader ATVs"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -15480,7 +17364,7 @@
   },
   "model_count": {
    "min": 1,
-   "max": 1
+   "max": 2
   },
   "weapon_ids": [
    "bolt-pistol-invader-atv",
@@ -15490,11 +17374,12 @@
    "armoured-impact-invader-atv"
   ],
   "ability_ids": [
-   "outrider-escort"
+   "combat-doctrines",
+   "aggressive-reconnaissance"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15521,7 +17406,22 @@
     "namespace": "mfm",
     "id": "aa6a8aac-523d-4373-ae57-40d2a5673aa6"
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Multi-melta",
+    "cost": 5
+   },
+   {
+    "name": "Multi-melta",
+    "cost": 5
+   },
+   {
+    "name": "Multi-melta",
+    "cost": 5
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "infiltrator-squad",
@@ -15529,12 +17429,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Infiltrator Sergeant",
+    "M": 8,
+    "T": 4,
+    "W": 2,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
     "name": "Infiltrator",
     "M": 8,
     "T": 4,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -15542,37 +17450,35 @@
   "points": [
    {
     "models": 5,
-    "cost": 110,
-    "unit_count_min": 1,
-    "unit_count_max": 2
-   },
-   {
-    "models": 6,
-    "models_max": 10,
-    "cost": 180,
-    "unit_count_min": 1,
-    "unit_count_max": 2
+    "cost": 85
    },
    {
     "models": 5,
-    "cost": 120,
-    "unit_count_min": 3,
-    "unit_count_max": null
+    "cost": 85
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 190,
-    "unit_count_min": 3,
-    "unit_count_max": null
+    "models": 10,
+    "cost": 150
+   },
+   {
+    "models": 10,
+    "cost": 150
+   },
+   {
+    "models": 5,
+    "cost": 85
+   },
+   {
+    "models": 10,
+    "cost": 150
    }
   ],
   "keywords": [
-   "Infantry",
-   "Grenades",
    "Smoke",
-   "Imperium",
    "Phobos",
+   "Infantry",
+   "Explosives",
+   "Imperium",
    "Infiltrator Squad"
   ],
   "faction_keywords": [
@@ -15592,12 +17498,14 @@
    "ceramite-fists-infiltrator-squad"
   ],
   "ability_ids": [
+   "infiltrators",
+   "combat-doctrines",
    "omni-scramblers",
-   "infiltrators"
+   "helix-gauntlet"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15630,7 +17538,8 @@
     "namespace": "mfm",
     "id": "1cbb50bd-dd61-47ed-bad2-1fbe43c96cd2"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ballistus-dreadnought",
@@ -15643,7 +17552,6 @@
     "T": 10,
     "W": 12,
     "Sv": 2,
-    "invuln_sv": 4,
     "Ld": 6,
     "OC": 4
    }
@@ -15657,16 +17565,42 @@
    },
    {
     "models": 1,
-    "cost": 160,
+    "cost": 150,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 170,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 170,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 150,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 170,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Dreadnought",
+   "Walker",
    "Imperium",
-   "Walker"
+   "Dreadnought",
+   "Vehicle",
+   "Deathwing",
+   "Ballistus Dreadnought"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -15680,18 +17614,20 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-feet",
    "ballistus-lascannon",
    "ballistus-missile-launcher",
-   "storm-bolters-ballistus-dreadnought"
+   "storm-bolters-ballistus-dreadnought",
+   "armoured-feet"
   ],
   "ability_ids": [
-   "ballistus-strike",
-   "deadly-demise-d3"
+   "damaged-4",
+   "deadly-demise-d3",
+   "combat-doctrines",
+   "ballistus-strike"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15714,7 +17650,8 @@
     "namespace": "mfm",
     "id": "6f090a62-3938-4647-a993-94f090b204f2"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "infernus-squad",
@@ -15722,12 +17659,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
-    "name": "Infernus Squad",
+    "name": "Infernus Sergeant",
     "M": 6,
     "T": 5,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
+    "name": "Infernus Marine",
+    "M": 6,
+    "T": 5,
+    "W": 2,
+    "Sv": 3,
     "Ld": 6,
     "OC": 1
    }
@@ -15735,19 +17680,83 @@
   "points": [
    {
     "models": 5,
-    "cost": 85
+    "cost": 95,
+    "unit_count_min": 1,
+    "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 180
+    "models": 5,
+    "cost": 95,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 105,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 105,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 200,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 200,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 5,
+    "cost": 95,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 10,
+    "cost": 190,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 5,
+    "cost": 105,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 10,
+    "cost": 200,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
    "Explosives",
+   "Infantry",
+   "Tacticus",
    "Imperium",
-   "Tacticus"
+   "Infernus Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -15766,11 +17775,12 @@
    "close-combat-weapon-infernus-squad"
   ],
   "ability_ids": [
-   "incendiary-terror"
+   "combat-doctrines",
+   "driven-from-cover"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15787,7 +17797,8 @@
     "namespace": "mfm",
     "id": "84342745-031a-414d-a3f2-d9b32a8cc52d"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "kayvaan-shrike",
@@ -15809,18 +17820,21 @@
   "points": [
    {
     "models": 1,
-    "cost": 100
+    "cost": 95
    }
   ],
   "keywords": [
-   "Infantry",
+   "Smoke",
+   "Phobos",
+   "Jump Pack",
+   "Character",
    "Captain",
+   "Infantry",
    "Explosives",
    "Fly",
+   "Epic Hero",
    "Imperium",
-   "Jump Pack",
-   "Phobos",
-   "Smoke"
+   "Kayvaan Shrike"
   ],
   "faction_keywords": [
    "Adeptus Astartes",
@@ -15836,19 +17850,20 @@
   },
   "weapon_ids": [
    "blackout",
-   "the-ravens-talons"
+   "ravens-talons"
   ],
   "ability_ids": [
-   "echo-of-the-ravenspire",
-   "leader",
-   "trifold-path-of-shadow",
    "deep-strike",
-   "stealth",
-   "lone-operative"
+   "leader",
+   "lone-operative",
+   "combat-doctrines",
+   "transhuman-strategist",
+   "trifold-path-of-shadow",
+   "echo-of-the-ravenspire"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -15866,7 +17881,8 @@
     "namespace": "mfm",
     "id": "cb262cc7-d6e9-4a4a-a155-65e5a0917eee"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "uriel-ventris",
@@ -15956,7 +17972,6 @@
     "T": 4,
     "W": 4,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -15964,16 +17979,25 @@
   "points": [
    {
     "models": 1,
-    "cost": 45
+    "cost": 40
+   },
+   {
+    "models": 1,
+    "cost": 40
+   },
+   {
+    "models": 1,
+    "cost": 40
    }
   ],
   "keywords": [
-   "Infantry",
    "Character",
    "Explosives",
-   "Imperium",
    "Phobos",
-   "Smoke"
+   "Smoke",
+   "Imperium",
+   "Infantry",
+   "Lieutenant In Phobos Armour"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -15987,20 +18011,22 @@
    "max": 1
   },
   "weapon_ids": [
-   "bolt-pistol-lieutenant-in-phobos-armour",
    "master-crafted-bolt-carbine-lieutenant-in-phobos-armour",
+   "special-issue-bolt-pistol-lieutenant-in-phobos-armour",
    "monomolecular-combat-blades-lieutenant-in-phobos-armour"
   ],
   "ability_ids": [
-   "leader",
-   "strategic-dispersal",
    "deep-strike",
    "infiltrators",
-   "scouts-6"
+   "scouts-6",
+   "support",
+   "combat-doctrines",
+   "demi-company-commander",
+   "tactical-precision"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16018,7 +18044,8 @@
     "namespace": "mfm",
     "id": "99994996-bdc4-47f1-807d-4da9dcfb1aa1"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "reiver-squad",
@@ -16026,12 +18053,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Reiver Sergeant",
+    "M": 8,
+    "T": 4,
+    "W": 2,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
     "name": "Reiver",
     "M": 8,
     "T": 4,
     "W": 2,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -16039,12 +18074,27 @@
   "points": [
    {
     "models": 5,
-    "cost": 75
+    "cost": 85
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 150
+    "models": 5,
+    "cost": 85
+   },
+   {
+    "models": 10,
+    "cost": 165
+   },
+   {
+    "models": 10,
+    "cost": 165
+   },
+   {
+    "models": 5,
+    "cost": 85
+   },
+   {
+    "models": 10,
+    "cost": 165
    }
   ],
   "keywords": [
@@ -16052,7 +18102,8 @@
    "Explosives",
    "Imperium",
    "Phobos",
-   "Smoke"
+   "Smoke",
+   "Reiver Squad"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -16067,21 +18118,20 @@
   },
   "weapon_ids": [
    "bolt-carbine",
-   "close-combat-weapon",
-   "combat-knife",
    "special-issue-bolt-pistol-reiver-squad",
    "combat-knife-reiver-squad"
   ],
   "ability_ids": [
-   "fearsome-assault",
-   "grapnel-launcher",
-   "reiver-grav-chute",
+   "scouts-6",
+   "combat-doctrines",
    "terror-troops-aura",
-   "scouts-6"
+   "fearsome-assault",
+   "grapnel-launchers",
+   "grav-chutes"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16098,7 +18148,8 @@
     "namespace": "mfm",
     "id": "9b535b98-681a-4812-b574-e95134a681e4"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "chaplain",
@@ -16121,14 +18172,22 @@
    {
     "models": 1,
     "cost": 60
+   },
+   {
+    "models": 1,
+    "cost": 60
+   },
+   {
+    "models": 1,
+    "cost": 60
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
-   "Explosives",
    "Imperium",
    "Tacticus",
+   "Infantry",
+   "Explosives",
+   "Character",
    "Chaplain"
   ],
   "faction_keywords": [
@@ -16148,11 +18207,13 @@
   ],
   "ability_ids": [
    "leader",
+   "combat-doctrines",
+   "litany-of-hate",
    "spiritual-leader"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16170,7 +18231,8 @@
     "namespace": "mfm",
     "id": "9bf2422a-3f70-4aa2-9dcc-5d8aa9b71e90"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "invictor-tactical-warsuit",
@@ -16183,7 +18245,6 @@
     "T": 9,
     "W": 12,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 4
    }
@@ -16191,14 +18252,46 @@
   "points": [
    {
     "models": 1,
-    "cost": 125
+    "cost": 135,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 135,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 1,
+    "cost": 135,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 150,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Walker",
-   "Imperium",
    "Phobos",
+   "Vehicle",
+   "Imperium",
+   "Walker",
    "Invictor Tactical Warsuit"
   ],
   "faction_keywords": [
@@ -16216,18 +18309,20 @@
    "fragstorm-grenade-launcher-invictor-tactical-warsuit",
    "heavy-bolter-invictor-tactical-warsuit",
    "incendium-cannon",
-   "invictor-fist",
+   "ironhail-heavy-stubbers-invictor-tactical-warsuit",
    "twin-ironhail-autocannon",
-   "ironhail-heavy-stubbers-invictor-tactical-warsuit"
+   "invictor-fist"
   ],
   "ability_ids": [
+   "damaged-4",
+   "deadly-demise-d3",
    "scouts-8",
-   "vanguard-support",
-   "deadly-demise-d3"
+   "combat-doctrines",
+   "forward-assault-warsuit"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16244,7 +18339,8 @@
     "namespace": "mfm",
     "id": "3a9c16f7-9a55-485f-a801-917265a17065"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bladeguard-ancient",
@@ -16266,16 +18362,26 @@
   "points": [
    {
     "models": 1,
-    "cost": 40
+    "cost": 70
+   },
+   {
+    "models": 1,
+    "cost": 70
+   },
+   {
+    "models": 1,
+    "cost": 70
    }
   ],
   "keywords": [
-   "Infantry",
-   "Ancient",
-   "Character",
    "Explosives",
+   "Character",
    "Imperium",
-   "Tacticus"
+   "Tacticus",
+   "Deathwing",
+   "Ancient",
+   "Infantry",
+   "Bladeguard Ancient"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -16293,12 +18399,14 @@
    "relics-of-battle-bladeguard-ancient"
   ],
   "ability_ids": [
-   "deeds-of-heroism",
-   "leader"
+   "support",
+   "combat-doctrines",
+   "raise-the-banner",
+   "deeds-of-legend"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -16322,7 +18430,8 @@
     "namespace": "mfm",
     "id": "93e9d10f-372d-42e2-9545-3354f9e9b3e8"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "venerable-dreadnought",
@@ -16683,7 +18792,7 @@
    "bolt-carbine-grey-hunters",
    "bolt-pistol-grey-hunters",
    "plasma-pistol-grey-hunters",
-   "chainsword",
+   "chainsword-grey-hunters",
    "power-weapon",
    "power-fist"
   ],
@@ -16852,7 +18961,7 @@
    "leader",
    "combat-doctrines",
    "healing-balms",
-   "litany-of-hate"
+   "litany-of-hate-wolf-priest"
   ],
   "game_version": {
    "edition": "11th",
@@ -17232,7 +19341,7 @@
   "weapon_ids": [
    "bolt-pistol-blood-claws",
    "plasma-pistol-blood-claws",
-   "chainsword",
+   "chainsword-blood-claws",
    "power-weapon"
   ],
   "ability_ids": [
@@ -18055,7 +20164,7 @@
    "combat-doctrines",
    "deadly-stalkers",
    "hunting-hounds-wolf-scouts",
-   "haywire-mine"
+   "haywire-mine-wolf-scouts"
   ],
   "game_version": {
    "edition": "11th",
@@ -18259,12 +20368,20 @@
   "faction_id": "adeptus-astartes",
   "profiles": [
    {
+    "name": "Eradicator Sergeant",
+    "M": 5,
+    "T": 6,
+    "W": 3,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
     "name": "Eradicator",
     "M": 5,
     "T": 6,
     "W": 3,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 1
    }
@@ -18272,25 +20389,94 @@
   "points": [
    {
     "models": 3,
-    "cost": 80
+    "cost": 100,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 100,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 215,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 215,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 130,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 3,
+    "cost": 130,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 245,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 245,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 3,
+    "cost": 100,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 215,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 130,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 245,
+    "unit_count_min": 3,
+    "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
-   "Explosives",
+   "Imperium",
    "Gravis",
-   "Imperium"
+   "Explosives",
+   "Infantry",
+   "Eradicator Squad with Heavy Bolters"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
   ],
   "model_count": {
    "min": 3,
-   "max": 3
+   "max": 6
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -18304,7 +20490,8 @@
    "diameter": 40
   },
   "ability_ids": [
-   "overlapping-detonations"
+   "combat-doctrines",
+   "overlapping-destruction"
   ],
   "external_refs": [
    {
@@ -18319,7 +20506,8 @@
     "namespace": "mfm",
     "id": "9a12ed08-8333-4f62-860e-946b35f3e3f6"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "land-speeder",
@@ -18332,7 +20520,6 @@
     "T": 8,
     "W": 9,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 3
    }
@@ -18341,14 +20528,24 @@
    {
     "models": 1,
     "cost": 105
+   },
+   {
+    "models": 1,
+    "cost": 105
+   },
+   {
+    "models": 1,
+    "cost": 105
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Fly",
    "Frame",
    "Imperium",
-   "Speeder"
+   "Speeder",
+   "Ravenwing",
+   "Vehicle",
+   "Fly",
+   "Land Speeder"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -18359,17 +20556,16 @@
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
   "weapon_ids": [
-   "onslaught-gatling-cannon",
    "multi-melta-land-speeder",
+   "onslaught-gatling-cannon",
+   "pyrecannon",
    "stormfury-missile-launcher",
-   "heavy-flamer",
-   "armoured-impact",
-   "pyrecannon"
+   "armoured-impact"
   ],
   "conditional_keywords": [
    {
@@ -18382,8 +20578,9 @@
    }
   ],
   "ability_ids": [
-   "purgation-run",
-   "deep-strike"
+   "deep-strike",
+   "combat-doctrines",
+   "purgation-run"
   ],
   "external_refs": [
    {
@@ -18398,7 +20595,13 @@
     "namespace": "mfm",
     "id": "c56c8e39-c3b7-4e5e-83d9-62e07801563d"
    }
-  ]
+  ],
+  "base_size_mm": {
+   "shape": "oval",
+   "width": 105,
+   "length": 70
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "assault-force-captain",
@@ -19614,9 +21817,12 @@
   ],
   "keywords": [
    "Mounted",
-   "Character",
+   "Imperium",
+   "Ravenwing",
    "Explosives",
-   "Imperium"
+   "Character",
+   "Captain",
+   "Captain on Bike"
   ],
   "faction_keywords": [
    "Adeptus Astartes"
@@ -19627,16 +21833,45 @@
   },
   "weapon_ids": [
    "heavy-bolt-pistol-captain-on-bike",
-   "plasma-pistol",
-   "twin-bolt-rifle",
+   "plasma-pistol-captain-on-bike",
+   "twin-bolt-rifle-captain-on-bike",
    "master-crafted-power-weapon-captain-on-bike",
    "thunder-hammer-captain-on-bike"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
-  "is_legend": false
+  "is_legend": false,
+  "points": [
+   {
+    "models": 1,
+    "cost": 110
+   },
+   {
+    "models": 1,
+    "cost": 110
+   },
+   {
+    "models": 1,
+    "cost": 110
+   }
+  ],
+  "base_size_mm": {
+   "shape": "oval",
+   "width": 90,
+   "length": 52
+  },
+  "ability_ids": [
+   "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
+   "strategic-acumen",
+   "into-the-fray"
+  ],
+  "points_provisional": false,
+  "source": "wahapedia-11e@2026-10-21",
+  "attachment_role": "leader"
  },
  {
   "id": "kaius-konorius",
@@ -19657,14 +21892,15 @@
   ],
   "keywords": [
    "Infantry",
-   "Character",
    "Epic Hero",
    "Explosives",
-   "Tacticus"
+   "Tacticus",
+   "Character",
+   "Kaius Konorius"
   ],
   "faction_keywords": [
-   "Adeptus Astartes",
-   "Ultramarines"
+   "Ultramarines",
+   "Adeptus Astartes"
   ],
   "model_count": {
    "min": 1,
@@ -19676,9 +21912,227 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
-  "is_legend": false
+  "is_legend": false,
+  "points": [
+   {
+    "models": 1,
+    "cost": 100
+   }
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 40
+  },
+  "ability_ids": [
+   "support",
+   "combat-doctrines",
+   "veteran-bodyguard",
+   "calgars-champion"
+  ],
+  "points_provisional": false,
+  "source": "wahapedia-11e@2026-10-21",
+  "attachment_role": "leader"
+ },
+ {
+  "id": "marneus-calgar",
+  "name": "Marneus Calgar",
+  "faction_id": "adeptus-astartes",
+  "role": "epic-hero",
+  "profiles": [
+   {
+    "name": "Marneus Calgar",
+    "M": 6,
+    "T": 6,
+    "W": 6,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 6,
+    "OC": 1
+   }
+  ],
+  "points": [
+   {
+    "models": 1,
+    "cost": 180
+   }
+  ],
+  "keywords": [
+   "Imperium",
+   "Terminator",
+   "Epic Hero",
+   "Character",
+   "Chapter Master",
+   "Infantry",
+   "Marneus Calgar"
+  ],
+  "faction_keywords": [
+   "Adeptus Astartes",
+   "Ultramarines"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 50
+  },
+  "model_count": {
+   "min": 1,
+   "max": 1
+  },
+  "weapon_ids": [
+   "gauntlets-of-ultramar-marneus-calgar"
+  ],
+  "ability_ids": [
+   "deep-strike",
+   "leader",
+   "combat-doctrines",
+   "transhuman-strategist",
+   "codex-adept",
+   "master-tactician",
+   "thunderhawk-insertion"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-21",
+  "attachment_role": "leader"
+ },
+ {
+  "id": "eradicator-squad-with-melta-rifles",
+  "name": "Eradicator Squad with Melta Rifles",
+  "faction_id": "adeptus-astartes",
+  "profiles": [
+   {
+    "name": "Eradicator Sergeant",
+    "M": 5,
+    "T": 6,
+    "W": 3,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   },
+   {
+    "name": "Eradicator",
+    "M": 5,
+    "T": 6,
+    "W": 3,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   }
+  ],
+  "points": [
+   {
+    "models": 3,
+    "cost": 100,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 100,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 200,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 200,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 120,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 3,
+    "cost": 120,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 220,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 220,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 3,
+    "cost": 100,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 6,
+    "cost": 200,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 120,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   },
+   {
+    "models": 6,
+    "cost": 220,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   }
+  ],
+  "keywords": [
+   "Infantry",
+   "Explosives",
+   "Gravis",
+   "Imperium",
+   "Eradicator Squad with Melta Rifles"
+  ],
+  "faction_keywords": [
+   "Adeptus Astartes"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 40
+  },
+  "model_count": {
+   "min": 3,
+   "max": 6
+  },
+  "weapon_ids": [
+   "bolt-pistol-eradicator-squad-with-melta-rifles",
+   "melta-rifle-eradicator-squad-with-melta-rifles",
+   "multi-melta-eradicator-squad-with-melta-rifles",
+   "ceramite-fists"
+  ],
+  "ability_ids": [
+   "combat-doctrines",
+   "total-obliteration"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "telemon-heavy-dreadnought",

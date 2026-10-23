@@ -29,6 +29,15 @@ const REPO = join(HERE, '..', '..');
 const FACTIONS = {
   'adeptus-custodes': { dir: 'custodes', name: 'Adeptus Custodes' },
   'orks': { dir: 'orks', name: 'Orks' },
+  // Codex: Space Marines (11e), the generic detachments (Space Marines and
+  // every chapter; the chapter-only ones and Boarding Actions excluded).
+  'space-marines': {
+    dir: 'space-marines', name: 'Space Marines', out: 'space_marines',
+    detachments: ['Gladius Task Force', 'Ironstorm Spearhead', 'Stormlance Task Force', 'Gauntlet Task Force',
+      'Phobos Shadow Force', 'Tacticus Attack Force', 'Phobos Shock Force', 'Terminator Storm Force',
+      'Assault Brethren', 'Gravis Linebreaker Force', 'Devastator Brethren', 'Gravis Siege Force',
+      'Tactical Brethren', 'Ironclad Champions', 'Tacticus Firestorm Force'],
+  },
   // Codex: Space Marines (11e), Space Wolves chapter detachments only.
   'space-wolves': {
     dir: 'space-marines', name: 'Space Marines', out: 'space_wolves',
@@ -273,7 +282,7 @@ function diff(doc, curatedPath) {
 
 const factionId = argValue('faction');
 if (!FACTIONS[factionId]) {
-  console.error('usage: node curate-from-wahapedia.mjs --faction adeptus-custodes|orks|space-wolves [--out file] [--diff curated-file]');
+  console.error('usage: node curate-from-wahapedia.mjs --faction adeptus-custodes|orks|space-wolves|space-marines [--out file] [--diff curated-file]');
   process.exit(2);
 }
 const doc = build(factionId);

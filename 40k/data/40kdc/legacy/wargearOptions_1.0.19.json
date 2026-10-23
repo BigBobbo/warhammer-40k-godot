@@ -1396,5 +1396,3365 @@
    "max_count": 1
   },
   "frozen_from": "40kdc-data 1.0.19"
+ },
+ {
+  "id": "gladiator-lancer-wgo-mfm-1",
+  "unit_id": "gladiator-lancer",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "icarus-rocket-pod"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "gladiator-lancer-wgo-mfm-2",
+  "unit_id": "gladiator-lancer",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "ironhail-heavy-stubber"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "gladiator-lancer-wgo-mfm-3",
+  "unit_id": "gladiator-lancer",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter",
+   "storm-bolter"
+  ],
+  "replacement": [
+   "fragstorm-grenade-launcher",
+   "fragstorm-grenade-launcher"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "terminator-squad-wgo-mfm-1",
+  "unit_id": "terminator-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "power-fist-terminator-squad"
+  ],
+  "replacement": [
+   "chainfist-terminator-squad"
+  ],
+  "model_constraint": {
+   "model_name": "Terminator",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "terminator-squad-wgo-mfm-2",
+  "unit_id": "terminator-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter-terminator-squad"
+  ],
+  "replacement_choice": [
+   [
+    "assault-cannon-terminator-squad"
+   ],
+   [
+    "heavy-flamer-terminator-squad"
+   ],
+   [
+    "cyclone-missile-launcher-terminator-squad",
+    "storm-bolter-terminator-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Terminator",
+   "per_n_models": 5
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "terminator-squad-wgo-mfm-4",
+  "unit_id": "terminator-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "power-fist-terminator-squad"
+  ],
+  "replacement_choice": [
+   [
+    "chainfist-terminator-squad"
+   ],
+   [
+    "power-weapon-terminator-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Terminator Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "sternguard-veteran-squad-wgo-mfm-1",
+  "unit_id": "sternguard-veteran-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement_choice": [
+   [
+    "power-weapon-sternguard-veteran-squad"
+   ],
+   [
+    "astartes-chainsword-sternguard-veteran-squad"
+   ],
+   [
+    "power-fist-sternguard-veteran-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Sternguard Veteran Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "sternguard-veteran-squad-wgo-mfm-2",
+  "unit_id": "sternguard-veteran-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "sternguard-bolt-rifle"
+  ],
+  "replacement_choice": [
+   [
+    "power-weapon-sternguard-veteran-squad"
+   ],
+   [
+    "astartes-chainsword-sternguard-veteran-squad"
+   ],
+   [
+    "power-fist-sternguard-veteran-squad"
+   ],
+   [
+    "combi-weapon-sternguard-veteran-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Sternguard Veteran Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "sternguard-veteran-squad-wgo-mfm-3",
+  "unit_id": "sternguard-veteran-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "artificer-firearm-sternguard-veteran-squad"
+  ],
+  "replacement_choice": [
+   [
+    "pyrecannon-sternguard-veteran-squad"
+   ],
+   [
+    "sternguard-heavy-bolter"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Sternguard Veteran",
+   "per_n_models": 5
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "land-raider-crusader-wgo-mfm-1",
+  "unit_id": "land-raider-crusader",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "multi-melta-land-raider-crusader"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "land-raider-crusader-wgo-mfm-2",
+  "unit_id": "land-raider-crusader",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "hunter-killer-missile-land-raider-crusader"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "land-raider-crusader-wgo-mfm-3",
+  "unit_id": "land-raider-crusader",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "storm-bolter-land-raider-crusader"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "impulsor-wgo-mfm-1",
+  "unit_id": "impulsor",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter-impulsor"
+  ],
+  "replacement": [
+   "fragstorm-grenade-launcher-impulsor"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "impulsor-wgo-mfm-2",
+  "unit_id": "impulsor",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement_choice": [
+   [
+    "ironhail-skytalon-array"
+   ],
+   [
+    "bellicatus-missile-array"
+   ],
+   [
+    "orbital-comms-array-aura"
+   ],
+   [
+    "shield-dome"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "impulsor-wgo-mfm-3",
+  "unit_id": "impulsor",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "ironhail-heavy-stubber-impulsor"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "repulsor-executioner-wgo-mfm-1",
+  "unit_id": "repulsor-executioner",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "icarus-rocket-pod"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "repulsor-executioner-wgo-mfm-2",
+  "unit_id": "repulsor-executioner",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-laser-destroyer"
+  ],
+  "replacement": [
+   "macro-plasma-incinerator"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "repulsor-executioner-wgo-mfm-3",
+  "unit_id": "repulsor-executioner",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "ironhail-heavy-stubber"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "gladiator-valiant-wgo-mfm-1",
+  "unit_id": "gladiator-valiant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "ironhail-heavy-stubber"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "gladiator-valiant-wgo-mfm-2",
+  "unit_id": "gladiator-valiant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "icarus-rocket-pod"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "repulsor-wgo-mfm-1",
+  "unit_id": "repulsor",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-onslaught-gatling-cannon-repulsor"
+  ],
+  "replacement": [
+   "las-talon-repulsor"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "repulsor-wgo-mfm-2",
+  "unit_id": "repulsor",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "twin-heavy-bolter-repulsor"
+  ],
+  "replacement": [
+   "twin-lascannon-repulsor"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "gladiator-reaper-wgo-mfm-1",
+  "unit_id": "gladiator-reaper",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "ironhail-heavy-stubber"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "gladiator-reaper-wgo-mfm-2",
+  "unit_id": "gladiator-reaper",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "icarus-rocket-pod"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "captain-in-gravis-armour-wgo-mfm-1",
+  "unit_id": "captain-in-gravis-armour",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "master-crafted-heavy-bolt-rifle",
+   "master-crafted-power-weapon-captain-in-gravis-armour"
+  ],
+  "replacement_choice": [
+   [
+    "boltstorm-gauntlet",
+    "relic-blade"
+   ],
+   [
+    "boltstorm-gauntlet",
+    "relic-chainsword"
+   ],
+   [
+    "boltstorm-gauntlet",
+    "relic-fist"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "assault-intercessor-squad-wgo-mfm-1",
+  "unit_id": "assault-intercessor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "astartes-chainsword-assault-intercessor-squad"
+  ],
+  "replacement_choice": [
+   [
+    "power-fist-assault-intercessor-squad"
+   ],
+   [
+    "thunder-hammer-assault-intercessor-squad"
+   ],
+   [
+    "power-weapon-assault-intercessor-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Assault Intercessor Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "assault-intercessor-squad-wgo-mfm-2",
+  "unit_id": "assault-intercessor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-bolt-pistol-assault-intercessor-squad"
+  ],
+  "replacement_choice": [
+   [
+    "hand-flamer-assault-intercessor-squad"
+   ],
+   [
+    "plasma-pistol-assault-intercessor-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Assault Intercessor Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "inceptor-squad-wgo-mfm-1",
+  "unit_id": "inceptor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "assault-bolters-inceptor-squad"
+  ],
+  "replacement": [
+   "plasma-exterminators-inceptor-squad"
+  ],
+  "model_constraint": {
+   "model_name": "Inceptor",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "inceptor-squad-wgo-mfm-2",
+  "unit_id": "inceptor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "assault-bolters-inceptor-squad"
+  ],
+  "replacement": [
+   "plasma-exterminators-inceptor-squad"
+  ],
+  "model_constraint": {
+   "model_name": "Inceptor Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "ancient-in-terminator-armour-wgo-mfm-1",
+  "unit_id": "ancient-in-terminator-armour",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter-ancient-in-terminator-armour",
+   "power-fist-ancient-in-terminator-armour"
+  ],
+  "replacement_choice": [
+   [
+    "twin-lightning-claws-ancient-in-terminator-armour"
+   ],
+   [
+    "terminator-storm-shield",
+    "thunder-hammer-ancient-in-terminator-armour"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "ancient-in-terminator-armour-wgo-mfm-2",
+  "unit_id": "ancient-in-terminator-armour",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "power-fist-ancient-in-terminator-armour"
+  ],
+  "replacement_choice": [
+   [
+    "power-weapon-ancient-in-terminator-armour"
+   ],
+   [
+    "close-combat-weapon-ancient-in-terminator-armour"
+   ],
+   [
+    "thunder-hammer-ancient-in-terminator-armour"
+   ],
+   [
+    "chainfist-ancient-in-terminator-armour"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "terminator-assault-squad-wgo-mfm-1",
+  "unit_id": "terminator-assault-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "twin-lightning-claws-terminator-assault-squad"
+  ],
+  "replacement": [
+   "storm-shield",
+   "thunder-hammer-terminator-assault-squad"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "bladeguard-veteran-squad-wgo-mfm-1",
+  "unit_id": "bladeguard-veteran-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-bolt-pistol-bladeguard-veteran-squad"
+  ],
+  "replacement_choice": [
+   [
+    "plasma-pistol-bladeguard-veteran-squad"
+   ],
+   [
+    "neo-volkite-pistol"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Bladeguard Veteran Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "firestrike-servo-turrets-wgo-mfm-1",
+  "unit_id": "firestrike-servo-turrets",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "twin-firestrike-las-talon"
+  ],
+  "replacement": [
+   "twin-firestrike-autocannon"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "captain-in-terminator-armour-wgo-mfm-1",
+  "unit_id": "captain-in-terminator-armour",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter-captain-in-terminator-armour"
+  ],
+  "replacement": [
+   "combi-weapon-captain-in-terminator-armour"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "captain-in-terminator-armour-wgo-mfm-2",
+  "unit_id": "captain-in-terminator-armour",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "relic-weapon-captain-in-terminator-armour"
+  ],
+  "replacement": [
+   "relic-fist-captain-in-terminator-armour"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "captain-with-jump-pack-wgo-mfm-1",
+  "unit_id": "captain-with-jump-pack",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-bolt-pistol-captain-with-jump-pack",
+   "astartes-chainsword-captain-with-jump-pack"
+  ],
+  "replacement_choice": [
+   [
+    "thunder-hammer-captain-with-jump-pack",
+    "relic-shield"
+   ],
+   [
+    "astartes-chainsword-captain-with-jump-pack",
+    "relic-shield"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "captain-with-jump-pack-wgo-mfm-2",
+  "unit_id": "captain-with-jump-pack",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-bolt-pistol-captain-with-jump-pack"
+  ],
+  "replacement_choice": [
+   [
+    "hand-flamer-captain-with-jump-pack"
+   ],
+   [
+    "plasma-pistol-captain-with-jump-pack"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "captain-with-jump-pack-wgo-mfm-3",
+  "unit_id": "captain-with-jump-pack",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "astartes-chainsword-captain-with-jump-pack"
+  ],
+  "replacement_choice": [
+   [
+    "power-fist-captain-with-jump-pack"
+   ],
+   [
+    "relic-weapon-captain-with-jump-pack"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "librarian-in-terminator-armour-wgo-mfm-1",
+  "unit_id": "librarian-in-terminator-armour",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement_choice": [
+   [
+    "storm-bolter-librarian-in-terminator-armour"
+   ],
+   [
+    "combi-weapon-librarian-in-terminator-armour"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "hellblaster-squad-wgo-mfm-1",
+  "unit_id": "hellblaster-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol-hellblaster-squad"
+  ],
+  "replacement": [
+   "plasma-pistol-hellblaster-squad"
+  ],
+  "model_constraint": {
+   "model_name": "Hellblaster Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "heavy-intercessor-squad-wgo-mfm-1",
+  "unit_id": "heavy-intercessor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-bolt-rifle"
+  ],
+  "replacement": [
+   "heavy-bolter-heavy-intercessor-squad"
+  ],
+  "model_constraint": {
+   "model_name": "Heavy Intercessor",
+   "per_n_models": 5
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "scout-squad-wgo-mfm-1",
+  "unit_id": "scout-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "boltgun-scout-squad"
+  ],
+  "replacement_choice": [
+   [
+    "astartes-shotgun"
+   ],
+   [
+    "combat-knife-scout-squad"
+   ],
+   [
+    "heavy-bolter-scout-squad"
+   ],
+   [
+    "missile-launcher-scout-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Scout",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "scout-squad-wgo-mfm-2",
+  "unit_id": "scout-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "boltgun-scout-squad"
+  ],
+  "replacement": [
+   "scout-sniper-rifle"
+  ],
+  "model_constraint": {
+   "model_name": "Scout",
+   "per_n_models": 5
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "scout-squad-wgo-mfm-3",
+  "unit_id": "scout-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "boltgun-scout-squad"
+  ],
+  "replacement_choice": [
+   [
+    "astartes-chainsword-scout-squad"
+   ],
+   [
+    "astartes-shotgun"
+   ],
+   [
+    "combat-knife-scout-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Scout Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "brutalis-dreadnought-wgo-mfm-1",
+  "unit_id": "brutalis-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "twin-heavy-bolter-brutalis-dreadnought"
+  ],
+  "replacement": [
+   "twin-multi-melta-brutalis-dreadnought"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "brutalis-dreadnought-wgo-mfm-2",
+  "unit_id": "brutalis-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "brutalis-bolt-rifles",
+   "brutalis-fists"
+  ],
+  "replacement": [
+   "brutalis-talons"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "land-raider-wgo-mfm-1",
+  "unit_id": "land-raider",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "storm-bolter-land-raider"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "land-raider-wgo-mfm-2",
+  "unit_id": "land-raider",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "hunter-killer-missile-land-raider"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "land-raider-wgo-mfm-3",
+  "unit_id": "land-raider",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "multi-melta-land-raider"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "lieutenant-wgo-mfm-1",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol-lieutenant",
+   "master-crafted-bolter-lieutenant"
+  ],
+  "replacement_choice": [
+   [
+    "heavy-bolt-pistol-lieutenant",
+    "master-crafted-power-weapon-lieutenant"
+   ],
+   [
+    "heavy-bolt-pistol-lieutenant",
+    "power-fist-lieutenant"
+   ],
+   [
+    "heavy-bolt-pistol-lieutenant",
+    "plasma-pistol-lieutenant"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "lieutenant-wgo-mfm-2",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol-lieutenant",
+   "master-crafted-bolter-lieutenant",
+   "close-combat-weapon-lieutenant"
+  ],
+  "replacement_choice": [
+   [
+    "master-crafted-power-weapon-lieutenant",
+    "power-fist-lieutenant",
+    "heavy-bolt-pistol-lieutenant"
+   ],
+   [
+    "power-fist-lieutenant",
+    "power-fist-lieutenant",
+    "heavy-bolt-pistol-lieutenant"
+   ],
+   [
+    "power-fist-lieutenant",
+    "heavy-bolt-pistol-lieutenant",
+    "plasma-pistol-lieutenant"
+   ],
+   [
+    "heavy-bolt-pistol-lieutenant",
+    "master-crafted-power-weapon-lieutenant",
+    "master-crafted-power-weapon-lieutenant"
+   ],
+   [
+    "heavy-bolt-pistol-lieutenant",
+    "master-crafted-power-weapon-lieutenant",
+    "plasma-pistol-lieutenant"
+   ],
+   [
+    "storm-shield",
+    "master-crafted-power-weapon-lieutenant",
+    "neo-volkite-pistol-lieutenant"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "lieutenant-wgo-mfm-3",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "master-crafted-bolter-lieutenant",
+   "close-combat-weapon-lieutenant"
+  ],
+  "replacement_choice": [
+   [
+    "power-fist-lieutenant",
+    "master-crafted-power-weapon-lieutenant"
+   ],
+   [
+    "power-fist-lieutenant",
+    "power-fist-lieutenant"
+   ],
+   [
+    "master-crafted-power-weapon-lieutenant",
+    "master-crafted-power-weapon-lieutenant"
+   ],
+   [
+    "plasma-pistol-lieutenant",
+    "master-crafted-power-weapon-lieutenant"
+   ],
+   [
+    "plasma-pistol-lieutenant",
+    "power-fist-lieutenant"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "lieutenant-wgo-mfm-4",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "close-combat-weapon-lieutenant"
+  ],
+  "replacement_choice": [
+   [
+    "power-fist-lieutenant"
+   ],
+   [
+    "master-crafted-power-weapon-lieutenant"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "lieutenant-wgo-mfm-5",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol-lieutenant",
+   "close-combat-weapon-lieutenant"
+  ],
+  "replacement_choice": [
+   [
+    "heavy-bolt-pistol-lieutenant",
+    "master-crafted-power-weapon-lieutenant"
+   ],
+   [
+    "power-fist-lieutenant",
+    "heavy-bolt-pistol-lieutenant"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "lieutenant-wgo-mfm-6",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "master-crafted-bolter-lieutenant"
+  ],
+  "replacement_choice": [
+   [
+    "master-crafted-power-weapon-lieutenant"
+   ],
+   [
+    "plasma-pistol-lieutenant"
+   ],
+   [
+    "power-fist-lieutenant"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "lieutenant-wgo-mfm-7",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol-lieutenant"
+  ],
+  "replacement": [
+   "heavy-bolt-pistol-lieutenant"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "eliminator-squad-wgo-mfm-1",
+  "unit_id": "eliminator-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-sniper-rifle-eliminator-squad"
+  ],
+  "replacement_choice": [
+   [
+    "instigator-bolt-carbine-eliminator-squad"
+   ],
+   [
+    "las-fusil-eliminator-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Eliminator Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "eliminator-squad-wgo-mfm-2",
+  "unit_id": "eliminator-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-sniper-rifle-eliminator-squad"
+  ],
+  "replacement": [
+   "las-fusil-eliminator-squad"
+  ],
+  "model_constraint": {
+   "model_name": "Eliminator",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "outrider-squad-wgo-mfm-1",
+  "unit_id": "outrider-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "onslaught-gatling-cannon"
+  ],
+  "replacement": [
+   "multi-melta"
+  ],
+  "model_constraint": {
+   "model_name": "Invader ATV",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "desolation-squad-wgo-mfm-1",
+  "unit_id": "desolation-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "superfrag-rocket-launcher-desolation-squad"
+  ],
+  "replacement": [
+   "superkrak-rocket-launcher-desolation-squad"
+  ],
+  "model_constraint": {
+   "model_name": "Desolation Marine",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "desolation-squad-wgo-mfm-2",
+  "unit_id": "desolation-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "superfrag-rocket-launcher-desolation-squad"
+  ],
+  "replacement_choice": [
+   [
+    "vengor-launcher-desolation-squad"
+   ],
+   [
+    "superkrak-rocket-launcher-desolation-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Desolation Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "redemptor-dreadnought-wgo-mfm-1",
+  "unit_id": "redemptor-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "icarus-rocket-pod"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "redemptor-dreadnought-wgo-mfm-2",
+  "unit_id": "redemptor-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-onslaught-gatling-cannon"
+  ],
+  "replacement": [
+   "macro-plasma-incinerator"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "redemptor-dreadnought-wgo-mfm-3",
+  "unit_id": "redemptor-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-flamer-redemptor-dreadnought"
+  ],
+  "replacement": [
+   "onslaught-gatling-cannon"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "redemptor-dreadnought-wgo-mfm-4",
+  "unit_id": "redemptor-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "twin-fragstorm-grenade-launcher"
+  ],
+  "replacement": [
+   "twin-storm-bolter-redemptor-dreadnought"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "ancient-wgo-mfm-1",
+  "unit_id": "ancient",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-rifle-ancient"
+  ],
+  "replacement": [
+   "power-weapon-ancient"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "chaplain-in-terminator-armour-wgo-mfm-1",
+  "unit_id": "chaplain-in-terminator-armour",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter-chaplain-in-terminator-armour"
+  ],
+  "replacement": [
+   "relic-shield"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "incursor-squad-wgo-mfm-1",
+  "unit_id": "incursor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "haywire-mine"
+  ],
+  "model_constraint": {
+   "model_name": "Incursor",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "assault-intercessors-with-jump-packs-wgo-mfm-1",
+  "unit_id": "assault-intercessors-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-bolt-pistol-assault-intercessors-with-jump-packs"
+  ],
+  "replacement_choice": [
+   [
+    "hand-flamer-assault-intercessors-with-jump-packs"
+   ],
+   [
+    "plasma-pistol-assault-intercessors-with-jump-packs"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Assault Intercessor Sergeant with Jump Pack",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "assault-intercessors-with-jump-packs-wgo-mfm-2",
+  "unit_id": "assault-intercessors-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "astartes-chainsword-assault-intercessors-with-jump-packs"
+  ],
+  "replacement_choice": [
+   [
+    "power-fist-assault-intercessors-with-jump-packs"
+   ],
+   [
+    "power-weapon-assault-intercessors-with-jump-packs"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Assault Intercessor Sergeant with Jump Pack",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "assault-intercessors-with-jump-packs-wgo-mfm-3",
+  "unit_id": "assault-intercessors-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-bolt-pistol-assault-intercessors-with-jump-packs"
+  ],
+  "replacement": [
+   "plasma-pistol-assault-intercessors-with-jump-packs"
+  ],
+  "model_constraint": {
+   "model_name": "Assault Intercessors with Jump Packs",
+   "per_n_models": 5
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-mfm-1",
+  "unit_id": "vanguard-veteran-squad-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol"
+  ],
+  "replacement_choice": [
+   [
+    "hand-flamer"
+   ],
+   [
+    "inferno-pistol"
+   ],
+   [
+    "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
+   ],
+   [
+    "grav-pistol"
+   ],
+   [
+    "storm-shield"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Vanguard Veteran Sergeant with Jump Pack",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-mfm-2",
+  "unit_id": "vanguard-veteran-squad-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol",
+   "vanguard-veteran-weapon"
+  ],
+  "replacement_choice": [
+   [
+    "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs",
+    "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
+   ],
+   [
+    "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs",
+    "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Vanguard Veteran Sergeant with Jump Pack",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-mfm-3",
+  "unit_id": "vanguard-veteran-squad-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol",
+   "vanguard-veteran-weapon"
+  ],
+  "replacement_choice": [
+   [
+    "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs",
+    "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
+   ],
+   [
+    "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs",
+    "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Vanguard Veteran with Jump Pack",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-mfm-4",
+  "unit_id": "vanguard-veteran-squad-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol"
+  ],
+  "replacement_choice": [
+   [
+    "storm-shield"
+   ],
+   [
+    "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
+   ],
+   [
+    "hand-flamer"
+   ],
+   [
+    "grav-pistol"
+   ],
+   [
+    "inferno-pistol"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Vanguard Veteran with Jump Pack",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "aggressor-squad-wgo-mfm-1",
+  "unit_id": "aggressor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "flamestorm-gauntlets-aggressor-squad"
+  ],
+  "replacement": [
+   "auto-boltstorm-gauntlets-aggressor-squad",
+   "fragstorm-grenade-launcher-aggressor-squad"
+  ],
+  "model_constraint": {
+   "model_name": "Aggressor",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "aggressor-squad-wgo-mfm-2",
+  "unit_id": "aggressor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "flamestorm-gauntlets-aggressor-squad"
+  ],
+  "replacement": [
+   "auto-boltstorm-gauntlets-aggressor-squad",
+   "fragstorm-grenade-launcher-aggressor-squad"
+  ],
+  "model_constraint": {
+   "model_name": "Aggressor Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "captain-wgo-mfm-1",
+  "unit_id": "captain",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "heavy-bolt-pistol-captain",
+   "master-crafted-bolter"
+  ],
+  "replacement_choice": [
+   [
+    "neo-volkite-pistol-captain"
+   ],
+   [
+    "plasma-pistol-captain"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "captain-wgo-mfm-2",
+  "unit_id": "captain",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "master-crafted-power-weapon-captain"
+  ],
+  "replacement_choice": [
+   [
+    "master-crafted-power-weapon-captain"
+   ],
+   [
+    "power-fist-captain"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "chaplain-with-jump-pack-wgo-mfm-1",
+  "unit_id": "chaplain-with-jump-pack",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol"
+  ],
+  "replacement_choice": [
+   [
+    "absolvor-bolt-pistol-chaplain-with-jump-pack"
+   ],
+   [
+    "grav-pistol"
+   ],
+   [
+    "plasma-pistol-chaplain-with-jump-pack"
+   ],
+   [
+    "storm-bolter"
+   ],
+   [
+    "power-fist-chaplain-with-jump-pack"
+   ],
+   [
+    "inferno-pistol"
+   ],
+   [
+    "hand-flamer"
+   ],
+   [
+    "boltgun"
+   ],
+   [
+    "combi-weapon-chaplain-with-jump-pack"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "intercessor-squad-wgo-mfm-1",
+  "unit_id": "intercessor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "astartes-grenade-launcher"
+  ],
+  "model_constraint": {
+   "per_n_models": 5
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "intercessor-squad-wgo-mfm-3",
+  "unit_id": "intercessor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "close-combat-weapon"
+  ],
+  "replacement_choice": [
+   [
+    "astartes-chainsword-intercessor-squad"
+   ],
+   [
+    "power-fist-intercessor-squad"
+   ],
+   [
+    "power-weapon-intercessor-squad"
+   ],
+   [
+    "thunder-hammer-intercessor-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Intercessor Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "intercessor-squad-wgo-mfm-4",
+  "unit_id": "intercessor-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-rifle-intercessor-squad"
+  ],
+  "replacement_choice": [
+   [
+    "hand-flamer-intercessor-squad"
+   ],
+   [
+    "plasma-pistol-intercessor-squad"
+   ],
+   [
+    "power-weapon-intercessor-squad"
+   ],
+   [
+    "astartes-chainsword-intercessor-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Intercessor Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "astraeus-wgo-mfm-1",
+  "unit_id": "astraeus",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "twin-heavy-bolter"
+  ],
+  "replacement": [
+   "twin-lascannon"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "astraeus-wgo-mfm-2",
+  "unit_id": "astraeus",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "astraeus-las-ripper",
+   "astraeus-las-ripper"
+  ],
+  "replacement": [
+   "plasma-eradicator",
+   "plasma-eradicator"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "astraeus-wgo-mfm-3",
+  "unit_id": "astraeus",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "ironhail-heavy-stubber"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "land-raider-redeemer-wgo-mfm-1",
+  "unit_id": "land-raider-redeemer",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "hunter-killer-missile-land-raider-redeemer"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "land-raider-redeemer-wgo-mfm-2",
+  "unit_id": "land-raider-redeemer",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "multi-melta-land-raider-redeemer"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "land-raider-redeemer-wgo-mfm-3",
+  "unit_id": "land-raider-redeemer",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "storm-bolter-land-raider-redeemer"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "thunderhawk-gunship-wgo-mfm-1",
+  "unit_id": "thunderhawk-gunship",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "thunderhawk-cluster-bombs"
+  ],
+  "replacement": [
+   "hellstrike-missile-battery"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "thunderhawk-gunship-wgo-mfm-2",
+  "unit_id": "thunderhawk-gunship",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "thunderhawk-heavy-cannon"
+  ],
+  "replacement": [
+   "turbo-laser-destructor"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "rhino-wgo-mfm-1",
+  "unit_id": "rhino",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "hunter-killer-missile-rhino"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "invader-atv-wgo-mfm-1",
+  "unit_id": "invader-atv",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "onslaught-gatling-cannon-invader-atv"
+  ],
+  "replacement": [
+   "multi-melta-invader-atv"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "infiltrator-squad-wgo-mfm-1",
+  "unit_id": "infiltrator-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "model_constraint": {
+   "model_name": "Infiltrator",
+   "max_count": 1
+  },
+  "replacement": [
+   "helix-gauntlet"
+  ],
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "reiver-squad-wgo-mfm-1",
+  "unit_id": "reiver-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "combat-knife"
+  ],
+  "replacement": [
+   "close-combat-weapon",
+   "bolt-carbine"
+  ],
+  "model_constraint": {
+   "model_name": "Reiver",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "reiver-squad-wgo-mfm-2",
+  "unit_id": "reiver-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "reiver-grav-chute"
+  ],
+  "model_constraint": {
+   "model_name": "Reiver",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "reiver-squad-wgo-mfm-3",
+  "unit_id": "reiver-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "grapnel-launcher"
+  ],
+  "model_constraint": {
+   "model_name": "Reiver Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "reiver-squad-wgo-mfm-4",
+  "unit_id": "reiver-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "grapnel-launcher"
+  ],
+  "model_constraint": {
+   "model_name": "Reiver",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "reiver-squad-wgo-mfm-5",
+  "unit_id": "reiver-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "combat-knife"
+  ],
+  "replacement": [
+   "bolt-carbine",
+   "close-combat-weapon"
+  ],
+  "model_constraint": {
+   "model_name": "Reiver Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "reiver-squad-wgo-mfm-6",
+  "unit_id": "reiver-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "close-combat-weapon",
+   "bolt-carbine"
+  ],
+  "model_constraint": {
+   "model_name": "Reiver Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "reiver-squad-wgo-mfm-7",
+  "unit_id": "reiver-squad",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "reiver-grav-chute"
+  ],
+  "model_constraint": {
+   "model_name": "Reiver Sergeant",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "invictor-tactical-warsuit-wgo-mfm-1",
+  "unit_id": "invictor-tactical-warsuit",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "incendium-cannon"
+  ],
+  "replacement": [
+   "twin-ironhail-autocannon"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "venerable-dreadnought-wgo-mfm-1",
+  "unit_id": "venerable-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "assault-cannon",
+   "storm-bolter",
+   "dreadnought-combat-weapon"
+  ],
+  "replacement": [
+   "fenrisian-great-axe",
+   "heavy-flamer",
+   "blizzard-shield"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "venerable-dreadnought-wgo-mfm-2",
+  "unit_id": "venerable-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter"
+  ],
+  "replacement": [
+   "heavy-flamer"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "venerable-dreadnought-wgo-mfm-3",
+  "unit_id": "venerable-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "assault-cannon",
+   "storm-bolter"
+  ],
+  "replacement_choice": [
+   [
+    "heavy-flamer",
+    "helfrost-cannon"
+   ],
+   [
+    "multi-melta",
+    "heavy-flamer"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "venerable-dreadnought-wgo-mfm-4",
+  "unit_id": "venerable-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "assault-cannon",
+   "dreadnought-combat-weapon"
+  ],
+  "replacement": [
+   "fenrisian-great-axe",
+   "blizzard-shield"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "venerable-dreadnought-wgo-mfm-5",
+  "unit_id": "venerable-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "assault-cannon"
+  ],
+  "replacement_choice": [
+   [
+    "multi-melta"
+   ],
+   [
+    "helfrost-cannon"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "thunderwolf-cavalry-wgo-mfm-1",
+  "unit_id": "thunderwolf-cavalry",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol"
+  ],
+  "replacement_choice": [
+   [
+    "storm-shield"
+   ],
+   [
+    "boltgun"
+   ],
+   [
+    "plasma-pistol-thunderwolf-cavalry"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Thunderwolf Cavalry Pack Leader",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "thunderwolf-cavalry-wgo-mfm-2",
+  "unit_id": "thunderwolf-cavalry",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol"
+  ],
+  "replacement_choice": [
+   [
+    "plasma-pistol-thunderwolf-cavalry"
+   ],
+   [
+    "storm-shield"
+   ],
+   [
+    "boltgun"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Thunderwolf Cavalry",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "grey-hunters-wgo-mfm-1",
+  "unit_id": "grey-hunters",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "astartes-chainsword-grey-hunters"
+  ],
+  "replacement_choice": [
+   [
+    "power-fist"
+   ],
+   [
+    "power-weapon"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Grey Hunter Pack Leader",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "grey-hunters-wgo-mfm-2",
+  "unit_id": "grey-hunters",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-carbine-grey-hunters"
+  ],
+  "replacement": [
+   "plasma-pistol-grey-hunters"
+  ],
+  "model_constraint": {
+   "model_name": "Grey Hunter Pack Leader",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-guard-headtakers-wgo-mfm-1",
+  "unit_id": "wolf-guard-headtakers",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "master-crafted-power-weapon-wolf-guard-headtakers",
+   "storm-shield"
+  ],
+  "replacement": [
+   "paired-master-crafted-power-weapons"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "blood-claws-wgo-mfm-1",
+  "unit_id": "blood-claws",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "bolt-pistol"
+  ],
+  "replacement": [
+   "plasma-pistol-blood-claws"
+  ],
+  "model_constraint": {
+   "model_name": "Blood Claw Pack Leader",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "blood-claws-wgo-mfm-2",
+  "unit_id": "blood-claws",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "astartes-chainsword-blood-claws"
+  ],
+  "replacement": [
+   "power-weapon"
+  ],
+  "model_constraint": {
+   "model_name": "Blood Claw Pack Leader",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-guard-terminators-wgo-mfm-1",
+  "unit_id": "wolf-guard-terminators",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter-wolf-guard-terminators"
+  ],
+  "replacement": [
+   "storm-shield"
+  ],
+  "model_constraint": {
+   "model_name": "Wolf Guard Terminator",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-guard-terminators-wgo-mfm-2",
+  "unit_id": "wolf-guard-terminators",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter-wolf-guard-terminators",
+   "master-crafted-power-weapon-wolf-guard-terminators"
+  ],
+  "replacement": [
+   "power-fist",
+   "assault-cannon-wolf-guard-terminators"
+  ],
+  "model_constraint": {
+   "model_name": "Wolf Guard Terminator",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-guard-terminators-wgo-mfm-3",
+  "unit_id": "wolf-guard-terminators",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter-wolf-guard-terminators",
+   "master-crafted-power-weapon-wolf-guard-terminators"
+  ],
+  "replacement_choice": [
+   [
+    "twin-lightning-claws-wolf-guard-terminators"
+   ],
+   [
+    "relic-greataxe"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Wolf Guard Terminator Pack Leader",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-guard-terminators-wgo-mfm-4",
+  "unit_id": "wolf-guard-terminators",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter-wolf-guard-terminators"
+  ],
+  "replacement": [
+   "storm-shield"
+  ],
+  "model_constraint": {
+   "model_name": "Wolf Guard Terminator Pack Leader",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wulfen-dreadnought-wgo-mfm-1",
+  "unit_id": "wulfen-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter",
+   "great-wolf-claw"
+  ],
+  "replacement": [
+   "heavy-flamer",
+   "blizzard-shield"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wulfen-dreadnought-wgo-mfm-2",
+  "unit_id": "wulfen-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "fenrisian-great-axe"
+  ],
+  "replacement_choice": [
+   [
+    "storm-bolter",
+    "blizzard-shield"
+   ],
+   [
+    "blizzard-shield",
+    "heavy-flamer"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wulfen-dreadnought-wgo-mfm-3",
+  "unit_id": "wulfen-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter"
+  ],
+  "replacement": [
+   "heavy-flamer"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wulfen-dreadnought-wgo-mfm-4",
+  "unit_id": "wulfen-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "great-wolf-claw"
+  ],
+  "replacement": [
+   "blizzard-shield"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wulfen-dreadnought-wgo-mfm-5",
+  "unit_id": "wulfen-dreadnought",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter",
+   "fenrisian-great-axe"
+  ],
+  "replacement": [
+   "blizzard-shield",
+   "heavy-flamer",
+   "heavy-flamer"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wulfen-with-storm-shields-wgo-mfm-1",
+  "unit_id": "wulfen-with-storm-shields",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "death-totem"
+  ],
+  "replacement": [
+   "stormfrag-auto-launcher"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "bjorn-the-fell-handed-wgo-mfm-1",
+  "unit_id": "bjorn-the-fell-handed",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "assault-cannon-bjorn-the-fell-handed"
+  ],
+  "replacement_choice": [
+   [
+    "multi-melta-bjorn-the-fell-handed"
+   ],
+   [
+    "helfrost-cannon"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-guard-battle-leader-wgo-mfm-1",
+  "unit_id": "wolf-guard-battle-leader",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "master-crafted-power-weapon-wolf-guard-battle-leader"
+  ],
+  "replacement": [
+   "thunder-hammer-wolf-guard-battle-leader"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-guard-battle-leader-wgo-mfm-2",
+  "unit_id": "wolf-guard-battle-leader",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-shield"
+  ],
+  "replacement_choice": [
+   [
+    "master-crafted-heavy-bolt-pistol"
+   ],
+   [
+    "master-crafted-bolt-carbine-wolf-guard-battle-leader"
+   ],
+   [
+    "plasma-pistol-wolf-guard-battle-leader"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-scouts-wgo-mfm-1",
+  "unit_id": "wolf-scouts",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "plasma-pistol-wolf-scouts"
+  ],
+  "replacement": [
+   "plasma-gun"
+  ],
+  "model_constraint": {
+   "model_name": "Wolf Scout",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-scouts-wgo-mfm-2",
+  "unit_id": "wolf-scouts",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "plasma-pistol-wolf-scouts"
+  ],
+  "replacement": [
+   "instigator-bolt-carbine"
+  ],
+  "model_constraint": {
+   "model_name": "Wolf Scout",
+   "per_n_models": 12
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-scouts-wgo-mfm-3",
+  "unit_id": "wolf-scouts",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement": [
+   "haywire-mine"
+  ],
+  "model_constraint": {
+   "model_name": "Wolf Scout",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wolf-scouts-wgo-mfm-4",
+  "unit_id": "wolf-scouts",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "plasma-pistol-wolf-scouts",
+   "combat-blade"
+  ],
+  "replacement": [
+   "thunderclap",
+   "runic-stave",
+   "bolt-pistol"
+  ],
+  "model_constraint": {
+   "model_name": "Wolf Scout",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "wulfen-wgo-mfm-1",
+  "unit_id": "wulfen",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "death-totem"
+  ],
+  "replacement": [
+   "stormfrag-auto-launcher"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "land-speeder-wgo-mfm-1",
+  "unit_id": "land-speeder",
+  "faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "onslaught-gatling-cannon"
+  ],
+  "replacement": [
+   "heavy-flamer"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "captain-on-bike-wgo-plasma-pistol",
+  "unit_id": "captain-on-bike",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "heavy-bolt-pistol-captain-on-bike"
+  ],
+  "replacement": [
+   "plasma-pistol"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "captain-on-bike-wgo-thunder-hammer",
+  "unit_id": "captain-on-bike",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "master-crafted-power-weapon-captain-on-bike"
+  ],
+  "replacement": [
+   "thunder-hammer-captain-on-bike"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "lieutenant-wgo-neo-volkite-power-weapon",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "master-crafted-bolter-lieutenant",
+   "bolt-pistol-lieutenant"
+  ],
+  "replacement": [
+   "neo-volkite-pistol-lieutenant",
+   "master-crafted-power-weapon-lieutenant"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "lieutenant-wgo-ceramite-fists",
+  "unit_id": "lieutenant",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "ceramite-fists-lieutenant"
+  ],
+  "replacement_choice": [
+   [
+    "master-crafted-power-weapon-lieutenant"
+   ],
+   [
+    "power-fist-lieutenant"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "lieutenant-in-phobos-armour-wgo-1",
+  "unit_id": "lieutenant-in-phobos-armour",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "bolt-pistol-lieutenant-in-phobos-armour"
+  ],
+  "replacement": [
+   "master-crafted-bolt-carbine-lieutenant-in-phobos-armour"
+  ],
+  "model_constraint": {
+   "model_name": "Lieutenant in Phobos Armour",
+   "any_number": true
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-codex-1",
+  "unit_id": "vanguard-veteran-squad-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "relic-blade-vanguard-veteran-squad-with-jump-packs"
+  ],
+  "replacement_choice": [
+   [
+    "power-fist-vanguard-veteran-squad-with-jump-packs"
+   ],
+   [
+    "thunder-hammer-vanguard-veteran-squad-with-jump-packs"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Vanguard Veteran Sergeant with Jump Pack",
+   "max_count": 1
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-codex-2",
+  "unit_id": "vanguard-veteran-squad-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
+  ],
+  "replacement": [
+   "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
+  ],
+  "model_constraint": {
+   "model_name": "Vanguard Veteran Sergeant with Jump Pack",
+   "max_count": 1
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-codex-3",
+  "unit_id": "vanguard-veteran-squad-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
+  ],
+  "replacement": [
+   "combat-shield"
+  ],
+  "model_constraint": {
+   "any_number": true
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "vanguard-veteran-squad-with-jump-packs-wgo-codex-4",
+  "unit_id": "vanguard-veteran-squad-with-jump-packs",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs"
+  ],
+  "replacement": [
+   "plasma-pistol-vanguard-veteran-squad-with-jump-packs"
+  ],
+  "model_constraint": {
+   "model_name": "Vanguard Veteran with Jump Pack",
+   "per_n_models": 5,
+   "max_count": 2
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "scout-squad-wgo-codex-11e-sergeant-chainsword",
+  "unit_id": "scout-squad",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "combat-knife-scout-squad"
+  ],
+  "replacement": [
+   "astartes-chainsword-scout-squad"
+  ],
+  "model_constraint": {
+   "model_name": "Scout Sergeant",
+   "any_number": true
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "scout-squad-wgo-codex-11e-special-weapon",
+  "unit_id": "scout-squad",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "boltgun-scout-squad"
+  ],
+  "replacement_choice": [
+   [
+    "heavy-bolter-scout-squad"
+   ],
+   [
+    "missile-launcher-scout-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Scout",
+   "per_n_models": 5
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "outrider-squad-wgo-codex-11e-sergeant-melee",
+  "unit_id": "outrider-squad",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "astartes-chainsword-outrider-squad"
+  ],
+  "replacement_choice": [
+   [
+    "power-weapon-outrider-squad"
+   ],
+   [
+    "thunder-hammer-outrider-squad"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Outrider Sergeant",
+   "any_number": true
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "outrider-squad-wgo-codex-11e-plasma-pistol",
+  "unit_id": "outrider-squad",
+  "faction_id": "adeptus-astartes",
+  "replaces": [
+   "heavy-bolt-pistol-outrider-squad"
+  ],
+  "replacement": [
+   "plasma-pistol-outrider-squad"
+  ],
+  "model_constraint": {
+   "per_n_models": 3
+  },
+  "is_free": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "frozen_from": "40kdc-data 1.4.5"
  }
 ]

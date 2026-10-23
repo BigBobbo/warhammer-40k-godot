@@ -607,6 +607,14 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     if (ruleFaction !== factionId) {
       for (const r of factionRuleAbilities(factionId)) if (!ruleNames.has(normName(r.name))) retired.add(normName(r.name));
     }
+    // Army rules a codex retired (Codex: Space Marines: Oath of Moment) —
+    // listed on the faction (and so on its chapters) as retired_rule_ids.
+    for (const fid of new Set([factionId, ruleFaction, factions.find(f => f.id === factionId)?.parent_faction_id].filter(Boolean))) {
+      for (const rid of factions.find(f => f.id === fid)?.retired_rule_ids ?? []) {
+        const rec = abilities.find(a => a.ability_id === rid);
+        retired.add(normName(rec?.name ?? rid.replace(/-/g, ' ')));
+      }
+    }
     for (const aid of dcUnit.ability_ids ?? []) {
       const rec = ares.resolve(factionId, aid);
       if (rec && ruleNames.has(normName(rec.name))) continue; // the army rule, listed once
