@@ -17115,7 +17115,9 @@ static func _cus11e_ai_step_select(kind: String, unit_id: String, player: int) -
 	if GameConstants.edition < 11 or unit_id == "":
 		return {}
 	var window_id := "unit_selected_to_pile_in" if kind == "pile_in" else "unit_selected_to_consolidate"
-	if not load("res://scripts/codex/custodes/CustodesCodex11e.gd").player_has_window_stratagem(player, window_id):
+	# (+ Codex: Space Marines (11e) TACTICAL FOCUS — SMCodex11e.gd, the same consolidate window.)
+	if not load("res://scripts/codex/custodes/CustodesCodex11e.gd").player_has_window_stratagem(player, window_id) \
+			and not load("res://scripts/codex/space_marines/SMCodex11e.gd").player_has_window_stratagem(player, window_id):
 		return {}
 	var pm = Engine.get_main_loop().root.get_node_or_null("/root/PhaseManager") if Engine.get_main_loop() else null
 	var phase = pm.current_phase_instance if pm != null else null
@@ -21457,6 +21459,10 @@ static func _codex_for_strat(strat: Dictionary):
 	var swc = load("res://scripts/codex/space_wolves/SWCodex11e.gd")
 	if swc != null and swc.handles(strat):
 		return swc
+	# Codex: Space Marines (11e) generic detachment stratagems (SMCodex11e.gd, WP-M3a).
+	var smc = load("res://scripts/codex/space_marines/SMCodex11e.gd")
+	if smc != null and smc.handles(strat):
+		return smc
 	return null
 
 ## WP-O6: Codex: Orks (11e) datasheet abilities (loaded on first use, like _ork_codex).

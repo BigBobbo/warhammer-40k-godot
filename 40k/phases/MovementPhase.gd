@@ -250,6 +250,10 @@ func get_unit_movement(unit: Dictionary) -> float:
 	# Madcap Artillery 'smashed' (-2").
 	if GameConstants.edition >= 11:
 		var o6_move: float = OrkAbilities11eScript.move_modifier(unit) + float(_cus11e_abilities().move_modifier(unit))  # WP-C7: Seeker's Instincts +2"
+		# Codex: Space Marines (11e) MIGHT OF THE MACHINE SPIRIT (SMCodex11e.gd): harmful M modifiers ignored.
+		if o6_move < 0.0 and _sm11e_codex().ignores_move_penalties(unit):
+			DebugLogger.info(str("MovementPhase: Might of the Machine Spirit — ignoring a %.0f\" M modifier for %s" % [o6_move, unit.get("meta", {}).get("name", "?")]))
+			o6_move = 0.0
 		if o6_move != 0.0:
 			var pre_o6 = movement
 			movement = maxf(0.0, movement + o6_move)
@@ -1297,6 +1301,13 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 	# advance rolls to a 6" — always taken; it is a roll, so modifiers apply.
 	if _sw11e_abilities().advance_roll_six(unit_id):
 		log_phase_message("Advance: %s → Wind Walker — advance roll changed to a 6" % unit.get("meta", {}).get("name", unit_id))
+		return _resolve_advance_roll(unit_id, 6, true)
+
+	# Codex: Space Marines (11e) SUDDEN ONSLAUGHT (SMCodex11e.gd): "can change its
+	# advance rolls to a 6" — used in the unit_selected_to_move window just answered.
+	if _sm11e_codex().advance_roll_six(unit_id):
+		log_phase_message("Advance: %s → Sudden Onslaught — advance roll changed to a 6" % unit.get("meta", {}).get("name", unit_id))
+		GameEventLog.add_player_entry(int(unit.get("owner", 0)), "SUDDEN ONSLAUGHT: %s's advance roll is a 6" % unit.get("meta", {}).get("name", unit_id))
 		return _resolve_advance_roll(unit_id, 6, true)
 
 	# Roll D6 for advance (with deterministic seed for multiplayer)
@@ -5500,6 +5511,8 @@ func _resume_after_selected_to_move(ctx: Dictionary, _window_result: Dictionary)
 			return _process_begin_advance_after_windows(action)
 		"fall_back":
 			return _process_begin_fall_back_after_windows(action)
+		"disembark":  # Codex: Space Marines (11e) AGGRESSIVE DISEMBARKATION (SMCodex11e.gd)
+			return _process_disembark_unit_after_windows(action)
 	return create_result(true, [])
 
 ## Resume point for unit_ended_normal_move: the remaining post-move prompts.
@@ -5876,6 +5889,8 @@ func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
 		_cus11e_codex().on_unit_has_attacked(str(shooter))
 		# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE (SWCodex11e.gd).
 		load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(str(shooter))
+		# Codex: Space Marines (11e) ARMOUR OF CONTEMPT ends "until that enemy unit has attacked" (SMCodex11e.gd).
+		load("res://scripts/codex/space_marines/SMCodex11e.gd").on_unit_has_attacked(str(shooter))
 	var summary := "%s: %s → %s: %d hit(s), %d wound(s), %d model(s) slain" % [source, unit_name, target_name, hits, wounds, casualties]
 	log_phase_message(summary)
 	GameEventLog.add_player_entry(player, summary)
@@ -8322,6 +8337,10 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 				pos_vec = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
 			var range_result = TransportManager.is_position_within_disembark_range(pos_vec, g_unit.models[i], transport, setup_range_inches)
 			DebugLogger.info(str("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches))
+			# Codex: Space Marines (11e) AGGRESSIVE DISEMBARKATION (SMCodex11e.gd): WITHIN (not wholly within) the set-up distance.
+			if not range_result.within_range and _sm11e_codex().disembark_range_ok(unit_id, range_result, setup_range_inches):
+				DebugLogger.info("MovementPhase: Aggressive Disembarkation — %s model %d set up within (not wholly within) %.0f\" of the transport" % [str(gid), int(i), setup_range_inches])
+				range_result["within_range"] = true
 
 			if not range_result.within_range:
 				# 18.04 / 18.06: each model is set up WHOLLY within the set-up distance.
@@ -8464,6 +8483,22 @@ func _process_disembark_unit(action: Dictionary) -> Dictionary:
 	var validation = TransportManager.can_disembark(unit_id)
 	if not validation.valid:
 		return create_result(false, [], validation.reason)
+
+	# Codex: Space Marines (11e) AGGRESSIVE DISEMBARKATION (SMCodex11e.gd): "when a
+	# friendly ADEPTUS ASTARTES unit embarked within a TRANSPORT is selected to
+	# move" — the owner's unit_selected_to_move window (move_type "disembark")
+	# opens first, only when that player has such a stratagem.
+	if GameConstants.edition >= 11 and _sm11e_codex().player_has_window_stratagem(int(unit.get("owner", 0)), "unit_selected_to_move"):
+		var dis_stm := _ork11e_open_selected_to_move_windows(action, "disembark")
+		if dis_stm.paused:
+			return create_result(true, dis_stm.diffs)
+		return _ork11e_merge_diffs(_process_disembark_unit_after_windows(action), dis_stm.diffs)
+	return _process_disembark_unit_after_windows(action)
+
+## The disembark once the unit_selected_to_move window (if any) has closed.
+func _process_disembark_unit_after_windows(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var unit = get_unit(unit_id)
 
 	# Show disembark dialog
 	call_deferred("_show_disembark_dialog", unit_id)

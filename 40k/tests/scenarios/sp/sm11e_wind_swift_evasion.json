@@ -1,0 +1,268 @@
+{
+  "id": "sm11e_wind_swift_evasion",
+  "covers": [
+    "codex.space_marines.stratagems.wind-swift-evasion",
+    "codex.space_marines.SMCodex11e",
+    "stratagem.window.fight_phase_end",
+    "phases.FightPhase.fight_phase_end"
+  ],
+  "description": "Codex: Space Marines (11e) WIND-SWIFT EVASION (Stormlance Task Force, 1 CP) at the end of the Fight phase — WP-M3a. Fixture sm11e_m3a_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3a_fixtures.gd). Setup privileges: the Space Marine player gets the seven WP-M3a detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test), straight to the phase under test. Every engaged unit counts as having fought (setup privilege); the phase ends its Fight and Consolidate steps (REAL clicks); fight_phase_end opens for Player 1 (active first); a REAL click on the Outriders (MOUNTED, eligible to fight, still engaged with the Nobz) spends 1 CP; they make a FALL-BACK move: the move panel opens, REAL clicks on Auto-move and Confirm move; the Outriders end unengaged.",
+  "fixture": "sm11e_m3a_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the seven WP-M3a detachments, the Ork player 0 CP",
+      "equals": "7 detachments"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.frame(36, 34, 1.2)",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true,
+      "comment": "the other player's pile-in half (if offered)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar fp = H.phase()\nfor uid in GameState.state.units:\n\tif fp.sequencer_11e.eligible_to_fight(uid, GameState.state):\n\t\tfp.sequencer_11e.mark_fought(uid, GameState.state)\nreturn fp.get_end_fight_status().step_over",
+      "comment": "setup privilege: every engaged unit counts as having fought (the fights themselves are not under test)",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "comment": "the other player's consolidation half (if offered)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.window_id()",
+      "equals": "fight_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn 10 == int(GameState.get_current_phase())",
+      "comment": "the phase waits for the decision before it ends",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_wind_swift_evasion/Buttons/Use_faction_sm_stormlance_task_force_wind_swift_evasion_U_OUTRIDER_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_wind_swift_evasion/Buttons/Use_faction_sm_stormlance_task_force_wind_swift_evasion_U_OUTRIDER_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_wind_swift_evasion_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_wind_swift_evasion/Buttons/Use_faction_sm_stormlance_task_force_wind_swift_evasion_U_OUTRIDER_SQUAD_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/AutoButton",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn str(H.phase().sm11e_fight_move.get(\"move_kind\", \"\"))",
+      "comment": "engaged: a fall-back move",
+      "equals": "fall_back"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.flag(\"U_OUTRIDER_SQUAD_A\", \"fell_back\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_wind_swift_evasion_move_panel"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/AutoButton",
+      "comment": "REAL click: Auto-move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/ConfirmButton",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_wind_swift_evasion_staged"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/ConfirmButton",
+      "comment": "REAL click: Confirm move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.common().is_engaged(\"U_OUTRIDER_SQUAD_A\")",
+      "comment": "the Outriders are no longer engaged",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.phase().sm11e_fight_move.is_empty() if H.phase() != null and \"sm11e_fight_move\" in H.phase() else true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.log_count(\"WIND-SWIFT EVASION (fall-back move): Outrider Squad made its move\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "04_sm11e_wind_swift_evasion_moved"
+    }
+  ],
+  "transition_to_phase": 10
+}

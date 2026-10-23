@@ -1,0 +1,164 @@
+{
+  "id": "sm11e_layered_ceramite",
+  "covers": [
+    "codex.space_marines.stratagems.layered-ceramite",
+    "codex.space_marines.SMCodex11e",
+    "ui.stratagem_panel",
+    "rules.feel_no_pain.mortal_wounds"
+  ],
+  "description": "Codex: Space Marines (11e) LAYERED CERAMITE (Ironstorm Spearhead, 1 CP, any phase) — WP-M3a. Fixture sm11e_m3a_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3a_fixtures.gd). Setup privileges: the Space Marine player gets the seven WP-M3a detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test), straight to the phase under test. A REAL click opens the S (stratagem) panel; a REAL click on LAYERED CERAMITE's Use button opens the target picker (only ADEPTUS ASTARTES VEHICLE units); a REAL click on the Gladiator Lancer spends 1 CP; it has Feel No Pain 5+ against mortal wounds this phase.",
+  "fixture": "sm11e_m3a_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marine player gets the seven WP-M3a detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test)",
+      "equals": "7 detachments"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.frame(16, 46, 1.2)",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton",
+      "comment": "REAL click: open the S (stratagem) panel"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/StratagemPanel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/StratagemPanel/Scroll/List/Strat_faction_sm_ironstorm_spearhead_layered_ceramite/Row/Use_faction_sm_ironstorm_spearhead_layered_ceramite",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/StratagemPanel/Scroll/List/Strat_faction_sm_ironstorm_spearhead_layered_ceramite/Row/Use_faction_sm_ironstorm_spearhead_layered_ceramite",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_layered_ceramite_s_panel"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/StratagemPanel/Scroll/List/Strat_faction_sm_ironstorm_spearhead_layered_ceramite/Row/Use_faction_sm_ironstorm_spearhead_layered_ceramite",
+      "comment": "REAL click on the panel's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_GLADIATOR_LANCER_A",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn main.get_tree().root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_HELLBLASTER_SQUAD_A\") == null",
+      "comment": "no INFANTRY unit in the target list",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_layered_ceramite_pick_unit"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_GLADIATOR_LANCER_A",
+      "comment": "REAL click on the friendly VEHICLE"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.flag(\"U_GLADIATOR_LANCER_A\", \"sm11e_layered_ceramite\")",
+      "equals": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn str(RulesEngine.get_unit_fnp_vs(H.unit(\"U_GLADIATOR_LANCER_A\"), false, true)) + \"/\" + str(RulesEngine.get_unit_fnp_vs(H.unit(\"U_GLADIATOR_LANCER_A\"), false, false))",
+      "comment": "FNP 5+ against mortal wounds only",
+      "equals": "5/0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar r = RulesEngine.apply_mortal_wounds(\"U_GLADIATOR_LANCER_A\", 6, GameState.create_snapshot(), RulesEngine.make_rng())\nprint(\"[sm11e scen] LAYERED CERAMITE: 6 mortal wounds -> FNP rolls %s, %d applied\" % [str(r.get(\"fnp_rolls\", [])), int(r.get(\"wounds_applied\", 0))])\nreturn not r.get(\"fnp_rolls\", []).is_empty()",
+      "comment": "6 mortal wounds on a board copy: the engine rolls Feel No Pain",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.log_count(\"Used LAYERED CERAMITE\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_layered_ceramite_used"
+    }
+  ],
+  "transition_to_phase": 7
+}

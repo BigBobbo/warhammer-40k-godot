@@ -1,0 +1,156 @@
+{
+  "id": "sm11e_sudden_onslaught",
+  "covers": [
+    "codex.space_marines.stratagems.sudden-onslaught",
+    "codex.space_marines.SMCodex11e",
+    "stratagem.window.unit_selected_to_move",
+    "phases.MovementPhase.unit_selected_to_move"
+  ],
+  "description": "Codex: Space Marines (11e) SUDDEN ONSLAUGHT (Stormlance Task Force, 1 CP) — WP-M3a. Fixture sm11e_m3a_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3a_fixtures.gd). Setup privileges: the seven WP-M3a detachments, the Ork player 0 CP. The movement panel's Advance (BEGIN_ADVANCE) for the Land Speeder (SPEEDER) opens unit_selected_to_move; a REAL click spends 1 CP; its advance roll is changed to a 6 (move cap = M + 6\").",
+  "fixture": "sm11e_m3a_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marine player gets the seven WP-M3a detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test)",
+      "equals": "7 detachments"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.frame(20, 44, 1.2)",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_ADVANCE",
+        "actor_unit_id": "U_LAND_SPEEDER_A",
+        "player": 1
+      },
+      "comment": "the movement panel's Advance button"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_selected_to_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_sudden_onslaught/Buttons/Use_faction_sm_stormlance_task_force_sudden_onslaught_U_LAND_SPEEDER_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_sudden_onslaught/Buttons/Use_faction_sm_stormlance_task_force_sudden_onslaught_U_LAND_SPEEDER_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_sudden_onslaught_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_sudden_onslaught/Buttons/Use_faction_sm_stormlance_task_force_sudden_onslaught_U_LAND_SPEEDER_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn int(H.phase().active_moves.get(\"U_LAND_SPEEDER_A\", {}).get(\"advance_roll\", 0))",
+      "comment": "the advance roll is a 6",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn float(H.phase().active_moves[\"U_LAND_SPEEDER_A\"].move_cap_inches) == H.phase().get_unit_movement(H.unit(\"U_LAND_SPEEDER_A\")) + 6.0",
+      "comment": "move cap = M + 6\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.log_count(\"SUDDEN ONSLAUGHT\")",
+      "expect_min": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_sudden_onslaught_advance_6"
+    }
+  ],
+  "transition_to_phase": 7
+}

@@ -225,6 +225,16 @@ func execute_action(action: Dictionary) -> Dictionary:
 			# ISS-024: no refresh needed — the snapshot property reads
 			# live state.
 
+		# Codex: Space Marines (11e) MORTIS SNARES (SMCodex11e.gd): an enemy unit that ended a
+		# move within range of a snared objective (diffs already applied; recorded with the action).
+		if _ev_outer:
+			var sm11e_snare: Array = _sm11e_codex().on_action_applied(str(GameStateData.Phase.find_key(phase_type)).capitalize())
+			if not sm11e_snare.is_empty():
+				if result.get("changes", null) is Array:
+					result.changes.append_array(sm11e_snare)
+				else:
+					result["changes"] = sm11e_snare
+
 		# Units this action destroyed / battle-shocked open their event
 		# windows now (design §3: unit_destroyed, unit_battle_shocked,
 		# enemy_unit_has_attacked) — before the action is recorded.
@@ -504,6 +514,10 @@ static func _cus11e_abilities():
 ## SWAbilities11e.gd): the phase_start cards and the phases' passive hooks.
 static func _sw11e_abilities():
 	return load("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+
+## Codex: Space Marines (11e) generic detachment stratagems (WP-M3a) — loaded lazily.
+static func _sm11e_codex():
+	return load("res://scripts/codex/space_marines/SMCodex11e.gd")
 
 ## Codex: Adeptus Custodes SUPERHUMAN FOCUS (WP-C5, CustodesCodex11e.gd): the
 ## phase_end window ("End of any phase", both players, active first). Called by
@@ -997,6 +1011,8 @@ func _window_events_begin(action: Dictionary) -> void:
 	_ev_depth += 1
 	if _ev_depth != 1:
 		return
+	# Codex: Space Marines (11e) MORTIS SNARES (SMCodex11e.gd): settled positions before the action.
+	_sm11e_codex().on_action_begin(str(action.get("type", "")))
 	# An action that names its own attacker (atomic SHOOT, Fire Overwatch)
 	# wins over the phase's selected unit: a unit can be selected (e.g. the
 	# shooting panel's auto-selected shooter) while another unit's atomic

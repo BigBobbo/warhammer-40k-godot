@@ -915,6 +915,11 @@ func set_phase(phase: BasePhase) -> void:
 		# every dice_rolled / fight_stage_paused emission.
 		if phase.has_signal("fighting_begun") and not phase.fighting_begun.is_connected(_on_fighting_begun_staged):
 			phase.fighting_begun.connect(_on_fighting_begun_staged)
+		# Codex: Space Marines (11e) WIND-SWIFT EVASION (SMCodex11e.gd): the end-of-phase move panel.
+		if phase.has_signal("ork11e_reactive_move_started") and not phase.ork11e_reactive_move_started.is_connected(_on_sm11e_move_started):
+			phase.ork11e_reactive_move_started.connect(_on_sm11e_move_started)
+			phase.ork11e_reactive_move_updated.connect(_on_sm11e_move_updated)
+			phase.ork11e_reactive_move_ended.connect(_on_sm11e_move_ended)
 
 		print("DEBUG: FightController signals connected, setting up UI")
 
@@ -1714,6 +1719,10 @@ func _on_auto_fight_pressed() -> void:
 # AcceptDialog) is open; _unhandled_input would never fire then.
 func _input(event: InputEvent) -> void:
 	if not current_phase or not current_phase is FightPhase:
+		return
+	# Codex: Space Marines (11e) WIND-SWIFT EVASION: board drags move the unit.
+	if _sm11e_move_active:
+		_sm11e_handle_move_input(event)
 		return
 
 	# Debug: Log when pile-in mode is active
@@ -2974,7 +2983,9 @@ func _on_consolidation_unit_chosen(unit_id: String) -> void:
 ## the move starts on cus11e_step_unit_ready). Returns true when routed.
 func _cus11e_route_step_unit(action_type: String, window_id: String, unit_id: String) -> bool:
 	var owner := int(GameState.get_unit(unit_id).get("owner", 0))
-	if not load("res://scripts/codex/custodes/CustodesCodex11e.gd").player_has_window_stratagem(owner, window_id):
+	# Codex: Space Marines (11e) TACTICAL FOCUS (SMCodex11e.gd) rides the same unit_selected_to_consolidate window.
+	if not load("res://scripts/codex/custodes/CustodesCodex11e.gd").player_has_window_stratagem(owner, window_id) \
+			and not load("res://scripts/codex/space_marines/SMCodex11e.gd").player_has_window_stratagem(owner, window_id):
 		return false
 	print("[FightController] %s: %s may open %s first" % [action_type, unit_id, window_id])
 	emit_signal("fight_action_requested", {"type": action_type, "unit_id": unit_id, "player": owner})
@@ -4752,3 +4763,112 @@ func _on_acrobatic_escape_dialog_closed(dialog: Node = null) -> void:
 		return
 	_disable_pile_in_mode()
 	acrobatic_escape_active = false
+
+
+# ============================================================================
+# Codex: Space Marines (11e) WIND-SWIFT EVASION (SMCodex11e.gd) — the
+# end-of-Fight-phase normal / fall-back move. FightPhase pauses on the move and
+# emits ork11e_reactive_move_started for a HUMAN decider; the same move panel
+# as the Shooting phase's reactive moves (Ork11eReactiveMovePanel) holds the
+# buttons, and this controller turns board drags into ORK11E_REACTIVE_MOVE_STAGE.
+# ============================================================================
+
+var _sm11e_move_active: bool = false
+var _sm11e_drag_start = null
+var _sm11e_drag_on_unit: bool = false
+
+func _on_sm11e_move_started(info: Dictionary) -> void:
+	var player := int(info.get("player", 0))
+	print("FightController: Codex: Space Marines move started — %s %s (P%d, up to %.0f\")" % [
+		info.get("source", "?"), info.get("unit_id", "?"), player, float(info.get("max_inches", 0))])
+	var ai_node = get_node_or_null("/root/AIPlayer")
+	if ai_node and ai_node.is_ai_player(player):
+		return
+	if NetworkManager.is_networked() and NetworkManager.get_local_player() != player:
+		return
+	_sm11e_move_active = true
+	_sm11e_drag_start = null
+	var stale = get_tree().root.get_node_or_null("Ork11eReactiveMovePanel")
+	if stale:
+		stale.name = "Ork11eReactiveMovePanel_stale"
+		stale.queue_free()
+	var panel = preload("res://scripts/Ork11eReactiveMovePanel.gd").new()
+	panel.name = "Ork11eReactiveMovePanel"
+	get_tree().root.add_child(panel)
+	panel.setup(info, self)
+	DialogUtils.popup_at_bottom(panel)
+
+func _on_sm11e_move_updated(info: Dictionary) -> void:
+	var panel = get_tree().root.get_node_or_null("Ork11eReactiveMovePanel")
+	if panel and panel.has_method("refresh"):
+		panel.refresh(info)
+
+func _on_sm11e_move_ended(info: Dictionary) -> void:
+	print("FightController: Codex: Space Marines move ended — %s" % str(info))
+	_sm11e_move_active = false
+	_sm11e_drag_start = null
+	var panel = get_tree().root.get_node_or_null("Ork11eReactiveMovePanel")
+	if panel:
+		panel.name = "Ork11eReactiveMovePanelClosing"
+		panel.hide()
+		panel.queue_free()
+
+## The move panel's buttons and board drags land here.
+func ork11e_dispatch_reactive_move_action(action: Dictionary) -> void:
+	print("FightController: Codex: Space Marines move action %s" % str(action.get("type", "")))
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false) and not result.get("pending", false):
+		var err := str(result.get("error", "Move refused"))
+		print("FightController: move action failed: %s" % err)
+		var toast = get_node_or_null("/root/ToastManager")
+		if toast:
+			toast.show_error(err)
+	var main_node = SceneRefs.main()
+	if main_node and main_node.has_method("update_after_fight_action"):
+		main_node.update_after_fight_action()
+
+## Left press + release on the board: dragging FROM one of the moving unit's
+## models moves the whole unit by the drag vector; a click elsewhere moves the
+## unit's centre to that point. The phase clamps to the maximum distance.
+func _sm11e_handle_move_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton) or event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if get_viewport().gui_get_hovered_control() != null:
+		return
+	var board_root = SceneRefs.board_root()
+	var pos: Vector2 = board_root.get_local_mouse_position() if board_root else get_global_mouse_position()
+	var fu: Dictionary = current_phase.sm11e_fight_move if "sm11e_fight_move" in current_phase else {}
+	if fu.is_empty():
+		return
+	if event.pressed:
+		_sm11e_drag_start = pos
+		_sm11e_drag_on_unit = false
+		for key in fu.get("origin", {}):
+			var parts = str(key).rsplit(":", true, 1)
+			var m = GameState.get_unit(parts[0]).get("models", [])[int(parts[1])]
+			var mp = m.get("position", null)
+			var mv: Vector2 = Vector2(float(mp.x), float(mp.y)) if mp is Dictionary else (mp if mp is Vector2 else Vector2.INF)
+			if mv != Vector2.INF and mv.distance_to(pos) <= Measurement.base_radius_px(int(m.get("base_mm", 32))) + 4.0:
+				_sm11e_drag_on_unit = true
+				break
+		get_viewport().set_input_as_handled()
+		return
+	if _sm11e_drag_start == null:
+		return
+	var start: Vector2 = _sm11e_drag_start
+	_sm11e_drag_start = null
+	var current_t: Vector2 = fu.get("translation", Vector2.ZERO)
+	var new_t: Vector2
+	if _sm11e_drag_on_unit:
+		new_t = current_t + (pos - start)
+	else:
+		var centroid := Vector2.ZERO
+		var origin: Dictionary = fu.get("origin", {})
+		for key in origin:
+			centroid += origin[key]
+		if not origin.is_empty():
+			centroid /= float(origin.size())
+		new_t = pos - centroid
+	get_viewport().set_input_as_handled()
+	ork11e_dispatch_reactive_move_action({"type": "ORK11E_REACTIVE_MOVE_STAGE", "player": int(fu.get("player", 0)),
+		"payload": {"translation": {"x": new_t.x, "y": new_t.y}}})

@@ -384,10 +384,45 @@ func _has_required_keywords(unit: Dictionary, required_keywords: Array) -> bool:
 		return false
 
 	var unit_keywords = unit.meta.keywords
+	var every_word := true
 	for keyword in required_keywords:
 		if not keyword in unit_keywords:
-			return false
+			every_word = false
+			break
+	if every_word:
+		return true
+	# The capacity text is split per word ("SPACE MARINES INFANTRY" ->
+	# SPACE, MARINES, INFANTRY), so a multi-word keyword never matched word by
+	# word: match runs of words against the unit's (multi-word) keywords.
+	# Codex: Space Marines (11e, WP-M3a): the TRANSPORT text prints SPACE
+	# MARINES for the ADEPTUS ASTARTES faction keyword of its units.
+	return _keyword_runs_match(unit_keywords, required_keywords)
 
+func _keyword_runs_match(unit_keywords: Array, words: Array) -> bool:
+	var candidates: Array = []
+	for kw in unit_keywords:
+		candidates.append(str(kw).to_upper())
+	if "ADEPTUS ASTARTES" in candidates:
+		candidates.append("SPACE MARINES")
+	candidates.sort_custom(func(a, b): return str(a).split(" ").size() > str(b).split(" ").size())
+	var i := 0
+	while i < words.size():
+		var matched := false
+		for kw in candidates:
+			var parts: PackedStringArray = str(kw).split(" ")
+			if i + parts.size() > words.size():
+				continue
+			var ok := true
+			for j in range(parts.size()):
+				if str(words[i + j]).to_upper() != parts[j]:
+					ok = false
+					break
+			if ok:
+				i += parts.size()
+				matched = true
+				break
+		if not matched:
+			return false
 	return true
 
 # P3-32: Check if unit has any excluded keywords (e.g., JUMP PACK)
