@@ -52,6 +52,17 @@
       "equals": 5
     },
     {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "scroll the charge panel's list so the Terminator Squad row is visible (the panel's scroll bar)",
+      "script": "var ul = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector\")\nul.get_v_scroll_bar().value = ul.get_v_scroll_bar().max_value\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
       "act": "click_item_list",
       "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
       "index": 5,

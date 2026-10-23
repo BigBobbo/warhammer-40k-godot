@@ -7,7 +7,7 @@
     "codex.space_marines.SMDetachmentsB",
     "debug_log.no_errors"
   ],
-  "description": "Codex: Space Marines (11e) Tactical Brethren enhancement LAURELS OF VIGILANCE (WP-M2b): (once per battle round, per army) FIRE OVERWATCH / HEROIC INTERVENTION on a friendly ADEPTUS ASTARTES BATTLELINE unit within 12\" of the bearer is -1CP. Fixture sm11e_m2b_marines_active (the Lieutenant carries it, ~5\" from the Intercessor Squad — BATTLELINE). Setup privileges: it is the Ork player's Movement phase (active player 2), the Space Marine player has 0 CP (P2 0 CP too). At the end of the Ork Movement phase the FIRE OVERWATCH window opens for the Space Marine player although it has 0 CP: only the discounted Intercessor Squad is offered; a REAL click on Use + the Meganobz as target: P1 still has 0 CP afterwards and the Game Log names Laurels of Vigilance.",
+  "description": "Codex: Space Marines (11e) Tactical Brethren enhancement LAURELS OF VIGILANCE (WP-M2b): (once per battle round, per army) FIRE OVERWATCH / HEROIC INTERVENTION on a friendly ADEPTUS ASTARTES BATTLELINE unit within 12\" of the bearer is -1CP. Fixture sm11e_m2b_marines_active (the Lieutenant carries it, ~5\" from the Intercessor Squad — BATTLELINE). The HUD Skip Overwatch toggle is turned OFF with a real click. Setup privileges: it is the Ork player's Movement phase (active player 2), the Space Marine player has 0 CP (P2 0 CP too). At the end of the Ork Movement phase the FIRE OVERWATCH window opens for the Space Marine player although it has 0 CP: only the discounted Intercessor Squad is offered; a REAL click on Use + the Meganobz as target: P1 still has 0 CP afterwards and the Game Log names Laurels of Vigilance.",
   "fixture": "sm11e_m2b_marines_active",
   "edition": 11,
   "rng_seed": 42,
@@ -51,6 +51,21 @@
       "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn StratagemManager.preview_cp_cost(1, \"fire_overwatch\", \"U_INTERCESSOR_SQUAD_A\")",
       "comment": "the Intercessors' Fire Overwatch costs 0CP",
       "equals": 0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "comment": "REAL click: turn the HUD's Skip Overwatch toggle OFF (it is ON by default)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "property": "button_pressed",
+      "equals": false
     },
     {
       "act": "dispatch_action",
