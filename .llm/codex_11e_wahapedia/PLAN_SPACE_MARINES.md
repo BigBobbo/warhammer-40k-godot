@@ -1,6 +1,6 @@
 # Codex: Space Marines (11e) — generic datasheets, detachments, army rules — plan
 
-Status: ACTIVE (2026-10-23). Owner ask: "update all of the generic Space Marine
+Status: SHIPPED (2026-10-23, version 1.51.0) — M1–M5 merged; see "Integration result" at the end. Owner ask: "update all of the generic Space Marine
 datasheets, strats and abilities similar to how you did with the Space Wolves".
 Follows PLAN_SPACE_WOLVES.md (shipped) and the contract IMPLEMENTATION.md —
 read both; this file lists only what differs.
@@ -68,3 +68,34 @@ Shared rules for all packages:
 Merge all packages; full gate; every `sm11e_*` + `sw11e_*` scenario;
 AI-vs-AI games with a generic Space Marine army; live screenshots; one
 version_history entry; push.
+
+## Integration result (M5, 2026-10-23)
+
+- Merged M2a, M2b, M3a, M3b, M4a, M4b, M4c. Conflicts were additive hook lines,
+  except: M2a/M2b shared the `sm11e_rule_` card prefix (M2b now matches its
+  exact id); M3b's stub dispatcher dropped for M3a's (which already forwards
+  `on_unit_has_attacked` to SMCodexB); UnitAbilityManager description blocks of
+  M4a and M4b kept side by side. All Librarius implementations share one flag
+  set (`sw11e_psy_*`), so every Librarian spends one budget.
+- Integrator fixes: COMBINED DEPLOYMENT / SHADOW MASTERS once per shot (the AI
+  re-used COMBINED DEPLOYMENT ~19,700 times in AI-vs-AI before the fix); the AI
+  prefers a free ability card over a paid stratagem with the same effect
+  (Strategic Acumen over ADAPTIVE STRATEGY); tests / scenarios updated where a
+  new window (SUDDEN ONSLAUGHT, the Gladius selected-to-shoot stratagems) now
+  legitimately opens first.
+- Full gate: 12576 checks across 173 tests; the only failure left is the known
+  test_custodes_lions_silent_hunters XFAIL (the two others were fixed and the 23
+  AI-stratagem test files re-run green). All 133 `sm11e_*` + `sw11e_*` windowed
+  scenarios PASS. AI-vs-AI (fixture sm11e_m2a_marines_active, generic Space
+  Marines with 7 detachments vs Orks): 3/3 games completed to round 5, no
+  stalls, 0 ERROR lines. Live MCP session: doctrine block + Assault Doctrine for a
+  generic army, ADAPTIVE STRATEGY (CP 8 -> 7), verify_delivery PASS.
+
+Known follow-ups:
+- Imperium's Sword (Assault Brethren): the source prints no weapon profile.
+- Redeployment-step UI (Cyber-familiar, Strategium Command), like Space Wolves.
+- Duplicate weapons on one model fire once (engine-wide: Land Raider, Thunderhawk).
+- Victrix Honour Guard per-model loadout; Teleport Homer token not drawn.
+- Laurels of Vigilance card shows the undiscounted cost; Telepathic Assault does
+  not apply psychic-only FNP; bodyguard engagement ignores the attached leader.
+- The sm11e_m2a fixture's Ork side scores 0 VP in AI-vs-AI (small opposing list).
