@@ -30,7 +30,7 @@
       "act": "execute_script",
       "multiline": true,
       "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
-      "comment": "setup privilege: P2 at 0 CP (no Ork reactions \u2014 not under test), auto wound allocation",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions — not under test), auto wound allocation",
       "equals": true
     },
     {
@@ -74,7 +74,7 @@
     {
       "act": "click_node",
       "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_damocles_uplink/Buttons/Use_sm11e_rule_damocles_uplink_U_INTERCESSOR_SQUAD_A_assault",
-      "comment": "REAL click: Intercessor Squad \u2014 Assault Doctrine"
+      "comment": "REAL click: Intercessor Squad — Assault Doctrine"
     },
     {
       "act": "wait_seconds",
@@ -124,7 +124,7 @@
     {
       "act": "click_if_visible",
       "node": "/root/StratagemDialog/Content/DeclineButton",
-      "comment": "shooting phase_start (Auspex card \u2014 not under test here) declined"
+      "comment": "shooting phase_start (Auspex card — not under test here) declined"
     },
     {
       "act": "wait_seconds",
@@ -142,6 +142,13 @@
       "multiline": true,
       "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.shoot(1, \"U_IMPULSOR_A\", \"U_DEFF_DREAD_A\", \"storm_bolter\", 5)",
       "comment": "the Impulsor shoots the Deff Dread (the shooting panel's SHOOT)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "integration: Gladius stratagems (WP-M3a) now open unit_selected_to_shoot first — decline it (not under test), then the shot resolves",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar ph = H.phase()\nif H.window_id() != \"unit_selected_to_shoot\":\n\treturn true\nvar w = ph.get_pending_stratagem_window()\nph.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": \"unit_selected_to_shoot\"})\nif H.window_id() == \"unit_has_shot\":\n\treturn true\nreturn H.shoot(1, \"U_IMPULSOR_A\", \"U_DEFF_DREAD_A\", \"storm_bolter\", 5)",
       "equals": true
     },
     {
