@@ -1402,7 +1402,7 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 				for s in spots:
 					opts.append({"id": str(s.id), "label": str(s.label)})
 				out.append(_entry(hid, {"label": Common.unit_name(hid), "holder": hid,
-					"secondary": {"kind": "unit", "prompt": "Teleport Homer: where is %s's token set up?" % Common.unit_name(hid), "options": opts}}))
+					"secondary": {"kind": "objective", "prompt": "Teleport Homer: where is %s's token set up?" % Common.unit_name(hid), "options": opts}}))
 		"strategic_acumen":
 			if window_id != "phase_start" or phase != PH_COMMAND or not own_turn:
 				return out
@@ -1512,13 +1512,15 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 			var hid2 := group_holder(shooter2, slug) if shooter2 != "" else ""
 			if hid2 == "" or used_this_phase(hid2, slug):
 				return out
-			var e2 := _entry(head_id(shooter2), {"holder": hid2, "label": Common.group_label(hid2), "require_variant": true, "ai_variant": "cover",
-				"variants": [{"id": "cover", "label": "[IGNORES COVER]", "cp_cost": 0}]})
+			# Two entries on the same unit (one per option), so only the
+			# detection option asks for an enemy unit.
+			out.append(_entry(head_id(shooter2), {"holder": hid2, "label": Common.group_label(hid2), "require_variant": true, "ai_variant": "cover",
+				"variants": [{"id": "cover", "label": "[IGNORES COVER]", "cp_cost": 0}]}))
 			var det_cands := _enemies_in_range(hid2, player, OPTICS_RANGE_IN, false)
 			if not det_cands.is_empty():
-				(e2.variants as Array).append({"id": "detection", "label": "+6\" detection range on an enemy unit", "cp_cost": 0})
-				e2["secondary"] = _unit_options(det_cands, "Special-issue Optics: select one enemy unit within 24\" (+6\" detection range until this unit has shot) — ignored for [IGNORES COVER]")
-			out.append(e2)
+				out.append(_entry(head_id(shooter2), {"holder": hid2, "label": Common.group_label(hid2), "require_variant": true, "ai_variant": "detection",
+					"variants": [{"id": "detection", "label": "+6\" detection range on an enemy unit", "cp_cost": 0}],
+					"secondary": _unit_options(det_cands, "Special-issue Optics: select one enemy unit within 24\" — +6\" detection range until this unit has shot")}))
 		"signum_array":
 			if not own_turn or phase != PH_SHOOTING:
 				return out
@@ -1595,12 +1597,15 @@ static func use(player: int, sid: String, target_unit_id: String, context: Dicti
 	var slug := slug_of(sid)
 	var window_id := str(context.get("window_id", ""))
 	var entry: Dictionary = {}
+	var variant := str(context.get("variant_id", ""))
 	for t in _targets(slug, player, window_id, context):
-		if str(t.get("unit_id", "")) == target_unit_id:
+		if str(t.get("unit_id", "")) != target_unit_id:
+			continue
+		# Several entries on one unit (Special-issue Optics): the one offering the chosen option.
+		if entry.is_empty() or (t.get("variants", []) as Array).any(func(v): return str(v.get("id", "")) == variant):
 			entry = t
 	if entry.is_empty():
 		return {"success": false, "error": "%s cannot be used on %s now" % [display(slug), Common.unit_name(target_unit_id)], "diffs": []}
-	var variant := str(context.get("variant_id", ""))
 	if bool(entry.get("require_variant", false)):
 		var vok := false
 		for v in entry.get("variants", []):
@@ -1609,8 +1614,7 @@ static func use(player: int, sid: String, target_unit_id: String, context: Dicti
 		if not vok:
 			return {"success": false, "error": "%s needs one of its options" % display(slug), "diffs": []}
 	var secondary := str(context.get("secondary_id", ""))
-	var needs_secondary := entry.has("secondary") and not (slug == "special_issue_optics" and variant != "detection")
-	if needs_secondary:
+	if entry.has("secondary"):
 		var ok := false
 		for o in entry.secondary.get("options", []):
 			if str(o.get("id", "")) == secondary:

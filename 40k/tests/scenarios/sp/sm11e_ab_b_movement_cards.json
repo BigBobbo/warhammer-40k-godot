@@ -1,0 +1,179 @@
+{
+  "id": "sm11e_ab_b_movement_cards",
+  "covers": [
+    "scripts.codex.space_marines.SMAbilitiesB",
+    "stratagem.window.phase_start",
+    "dialogs.StratagemDialog",
+    "codex.space_marines.datasheet_abilities.prescience",
+    "codex.space_marines.datasheet_abilities.force_dome",
+    "codex.space_marines.datasheet_abilities.rampart",
+    "codex.space_marines.librarius"
+  ],
+  "description": "WP-M4b Movement-phase psychic abilities + Rampart through the real phase_start window. Fixture sm11e_m4b_move (P1 Space Marines, round 2): Tigurius leads Intercessors, a Librarian alone, Darnath Lysander leads Terminators. PRESCIENCE (psychic level 2): real click \u2014 psychic roll logged, the Intercessors' Sv 3+ -> 2+, Librarius 2/3 spent. FORCE DOME: real click \u2014 4+ invulnerable save. RAMPART (once per battle, per army): real click \u2014 Lysander's model 2+ invulnerable save until the end of the phase. No CP spent.",
+  "fixture": "sm11e_m4b_move",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "sm_abilities_b": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_prescience",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_force_dome",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_rampart",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\").meta.stats.save)",
+      "comment": "Intercessors 3+ before Prescience",
+      "equals": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_movement_phase_start_cards"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_prescience/Buttons/Use_sm11e_ab_b_prescience_U_INTERCESSOR_SQUAD_A",
+      "comment": "real click: Prescience (psychic level 2)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\").meta.stats.save)",
+      "comment": "+1 Sv for Tigurius' unit",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_CHIEF_LIBRARIAN_TIGURIUS_A\").flags.get(\"sw11e_psy_used\", 0))",
+      "comment": "Librarius: 2 of Tigurius' 3 psyker levels spent",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_force_dome",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_force_dome/Buttons/Use_sm11e_ab_b_force_dome_U_LIBRARIAN_A",
+      "comment": "real click: Force Dome"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_LIBRARIAN_A\").models[0].get(\"invuln\", 0))",
+      "comment": "Force Dome: 4+ invulnerable save",
+      "equals": 4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_rampart",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_rampart/Buttons/Use_sm11e_ab_b_rampart_U_TERMINATOR_SQUAD_A",
+      "comment": "real click: Rampart (once per battle)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_DARNATH_LYSANDER_A\").models[0].get(\"invuln\", 0))",
+      "comment": "Rampart: Lysander has a 2+ invulnerable save",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Prescience (Chief Librarian Tigurius): psychic roll\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Force Dome (Librarian): psychic roll\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Rampart: Darnath Lysander has a 2+\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_movement_cards_resolved_log"
+    },
+    {
+      "act": "execute_script",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4b] debug-log ERROR: \", l)\nreturn n",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "equals": 0
+    }
+  ]
+}

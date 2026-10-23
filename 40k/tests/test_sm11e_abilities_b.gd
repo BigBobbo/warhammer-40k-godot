@@ -947,8 +947,12 @@ func _section_optics_signum() -> void:
 	_place("U_BOYZ_B", 10, 30)
 	var ctx := {"phase": "shooting", "unit_id": "U_ELIMINATOR_SQUAD_A"}
 	var o := _offer(1, "unit_selected_to_shoot", ctx, "special_issue_optics")
-	var t: Dictionary = o.get("targets", [{}])[0] if not o.is_empty() else {}
-	_check("Optics: offered when the Eliminators are selected to shoot, two options", t.get("variants", []).size() == 2, str(t.get("variants", [])))
+	var vids: Array = []
+	for t in o.get("targets", []):
+		for v in t.get("variants", []):
+			vids.append(str(v.get("id", "")))
+	_check("Optics: offered when the Eliminators are selected to shoot, two options", vids == ["cover", "detection"], str(vids))
+	_check("Optics: only the detection option asks for an enemy unit", o.get("targets", []).filter(func(t): return t.has("secondary")).size() == 1)
 	_check("Optics: before — no [IGNORES COVER] on the bolt pistols", not bool(_mods("U_ELIMINATOR_SQUAD_A", "U_BOYZ_B", false).get("ignores_cover", false)))
 	var r := _use(1, "special_issue_optics", "U_ELIMINATOR_SQUAD_A", "unit_selected_to_shoot", ctx, "", "cover")
 	_check("Optics [IGNORES COVER]: ranged attacks ignore cover", r.get("success", false) and bool(_mods("U_ELIMINATOR_SQUAD_A", "U_BOYZ_B", false).get("ignores_cover", false)), str(r))

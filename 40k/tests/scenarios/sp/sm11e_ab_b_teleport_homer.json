@@ -1,0 +1,122 @@
+{
+  "id": "sm11e_ab_b_teleport_homer",
+  "covers": [
+    "scripts.codex.space_marines.SMAbilitiesB",
+    "stratagem.window.phase_start",
+    "dialogs.StratagemDialog",
+    "codex.space_marines.datasheet_abilities.teleport_homer"
+  ],
+  "description": "WP-M4b TELEPORT HOMER at the start of the battle. Fixture sm11e_m4b_round1 (battle round 1, P1 Space Marines' Command phase): the Terminator Squad is in Deep Strike reserves. The phase_start window offers Teleport Homer; a real click opens the token-spot picker (the objective markers) and a real pick sets the token up on the centre objective (Rapid Ingress within 3\" of it is then -1 CP). No CP spent.",
+  "fixture": "sm11e_m4b_round1",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "sm_abilities_b": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_teleport_homer",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_teleport_homer_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_teleport_homer/Buttons/Use_sm11e_ab_b_teleport_homer_U_TERMINATOR_SQUAD_A",
+      "comment": "real click: Teleport Homer"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemChoiceDialog/Content/Choice_obj_obj_center",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_teleport_homer_spots"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemChoiceDialog/Content/Choice_obj_obj_center",
+      "comment": "real click: on the centre objective"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "str(GameState.get_unit(\"U_TERMINATOR_SQUAD_A\").flags.get(\"sm11e_ab_homer\", {}).get(\"label\", \"\")).contains(\"CENTER\")",
+      "comment": "the token is set up on the centre objective",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Teleport Homer: Terminator Squad's token is set up\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "03_teleport_homer_set_up_log"
+    },
+    {
+      "act": "execute_script",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4b] debug-log ERROR: \", l)\nreturn n",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "equals": 0
+    }
+  ]
+}
