@@ -1597,9 +1597,16 @@ func end_board_examine() -> void:
 		_board_examine_bar.modulate = Color(1, 1, 1, 1)
 	if _reactive_stratagem_overlay:
 		_reactive_stratagem_overlay.color = REACTIVE_OVERLAY_DIM
+		# begin_board_examine() forces the overlay visible even when no MA-42
+		# "waiting" block was up (e.g. the human's OWN window vs the AI). Only
+		# keep it up if a waiting block is genuinely pending — otherwise the
+		# input-blocking overlay (with its stale "Waiting for opponent's
+		# stratagem decision..." banner) outlived the decision and soft-locked
+		# the game (2026-10-22 report).
+		_reactive_stratagem_overlay.visible = _reactive_stratagem_pending
 	if _reactive_stratagem_overlay_panel:
 		_reactive_stratagem_overlay_panel.visible = true
-	print("Main: board-examine mode OFF")
+	print("Main: board-examine mode OFF (blocking overlay %s)" % ("kept" if _reactive_stratagem_pending else "hidden"))
 
 
 func is_board_examining() -> bool:
