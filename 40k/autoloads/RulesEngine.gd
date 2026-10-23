@@ -1095,7 +1095,7 @@ static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service:
 	var new_raw = rng_service.roll_d6(1)[0]
 	var ev = AttackSequence.evaluate_hit_roll(new_raw, attack_bs, mods_no_reroll, int(hit_context.get("critical_hit_threshold", 6)), rng_service, int(hit_context.get("hit_fail_band", 1)))
 	var old_eval = evals[die_index]
-	evals[die_index] = {"raw": new_raw, "final": ev.final_roll, "is_hit": ev.is_hit, "is_crit": ev.is_crit, "rerolled": true}
+	evals[die_index] = {"raw": new_raw, "final": ev.final_roll, "is_hit": ev.is_hit, "is_crit": ev.is_crit, "rerolled": true, "reroll_from": int(old_eval.get("raw", 0)), "reroll_to": new_raw}
 	hit_context["hit_rolls"][die_index] = new_raw
 	hit_context["modified_rolls"][die_index] = ev.final_roll
 
@@ -1166,7 +1166,7 @@ static func reroll_wound_die(wound_context: Dictionary, die_index: int, board: D
 	var new_raw = rng_service.roll_d6(1)[0]
 	var ev = AttackSequence.evaluate_wound_roll(new_raw, mods_no_reroll, int(wound_context.get("wound_threshold", 4)), int(wound_context.get("critical_wound_threshold", 6)), rng_service)
 	var old_eval = evals[die_index]
-	evals[die_index] = {"raw": new_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail, "rerolled": true}
+	evals[die_index] = {"raw": new_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail, "rerolled": true, "reroll_from": int(old_eval.get("raw", 0)), "reroll_to": new_raw}
 	wound_context["wound_rolls"][die_index] = new_raw
 
 	var has_dev = bool(wound_context.get("weapon_has_devastating_wounds", false))
@@ -2871,7 +2871,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 				ork11e_attack_mods |= HitModifier.PLUS_ONE
 			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, ork11e_attack_mods, critical_hit_threshold, rng, hit_fail_band)
 			modified_rolls.append(hit_eval.final_roll)
-			hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit, "rerolled": hit_eval.rerolled})
+			hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit, "rerolled": hit_eval.rerolled, "reroll_from": hit_eval.reroll_from, "reroll_to": hit_eval.reroll_to})
 			if hit_eval.rerolled:
 				reroll_data.append({
 					"original": hit_eval.reroll_from,
@@ -3392,7 +3392,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 			for roll in wound_rolls:
 				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, wound_modifiers, wound_threshold, critical_wound_threshold, rng)
-				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
+				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled, "reroll_from": wound_eval.reroll_from, "reroll_to": wound_eval.reroll_to})
 				if wound_eval.rerolled:
 					wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -3412,7 +3412,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		for roll in wound_rolls:
 			# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 			var wound_eval = AttackSequence.evaluate_wound_roll(roll, wound_modifiers, wound_threshold, critical_wound_threshold, rng)
-			wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
+			wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled, "reroll_from": wound_eval.reroll_from, "reroll_to": wound_eval.reroll_to})
 			if wound_eval.rerolled:
 				wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 			if wound_eval.auto_fail:
@@ -5072,7 +5072,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one failed hit roll (auto-resolve).
 			hit_eval = _cus11e_codex().auto_single_reroll_hit(hit_eval, roll, actor_unit, attack_bs, ork11e_attack_mods, critical_hit_threshold, rng, hit_fail_band, indirect_consequences)
 			modified_rolls.append(hit_eval.final_roll)
-			cus11e_ar_hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit, "rerolled": hit_eval.rerolled})
+			cus11e_ar_hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit, "rerolled": hit_eval.rerolled, "reroll_from": hit_eval.reroll_from, "reroll_to": hit_eval.reroll_to})
 			if hit_eval.rerolled:
 				reroll_data.append({
 					"original": hit_eval.reroll_from,
@@ -5499,7 +5499,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
 				# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one failed wound roll (auto-resolve).
 				wound_eval = _cus11e_codex().auto_single_reroll_wound(wound_eval, roll, actor_unit, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
-				cus11e_ar_wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
+				cus11e_ar_wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled, "reroll_from": wound_eval.reroll_from, "reroll_to": wound_eval.reroll_to})
 				if wound_eval.rerolled:
 					ar_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -5521,7 +5521,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var wound_eval = AttackSequence.evaluate_wound_roll(roll, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
 			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one failed wound roll (auto-resolve).
 			wound_eval = _cus11e_codex().auto_single_reroll_wound(wound_eval, roll, actor_unit, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
-			cus11e_ar_wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
+			cus11e_ar_wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled, "reroll_from": wound_eval.reroll_from, "reroll_to": wound_eval.reroll_to})
 			if wound_eval.rerolled:
 				ar_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 			if wound_eval.auto_fail:
@@ -8700,7 +8700,9 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 			result[model_id] = _get_model_weapon_ids(unit, model, "Ranged")
 
 	# Include attached character weapons (combined unit shoots together)
-	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+	# 19.01: both sides of the linkage — a leader linked only by its own
+	# `attached_to` (no forward entry) still shoots with its Attached unit.
+	var attached_chars = attached_character_ids(unit_id, {"units": units})
 	for char_id in attached_chars:
 		var char_unit = units.get(char_id, {})
 		if char_unit.is_empty():
@@ -10321,7 +10323,7 @@ static func cus11e_magna_reroll_hit(actor_unit: Dictionary, hit_evals: Array, mo
 	var no_rr: int = mods & ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 	var ev = AttackSequence.evaluate_hit_roll(new_raw, attack_bs, no_rr, crit_threshold, rng, fail_band)
 	var old_raw = hit_evals[i].get("raw", 0)
-	hit_evals[i] = {"raw": old_raw, "final": ev.final_roll, "is_hit": ev.is_hit, "is_crit": ev.is_crit, "rerolled": true}
+	hit_evals[i] = {"raw": old_raw, "final": ev.final_roll, "is_hit": ev.is_hit, "is_crit": ev.is_crit, "rerolled": true, "reroll_from": old_raw, "reroll_to": new_raw}
 	if i < modified_rolls.size():
 		modified_rolls[i] = ev.final_roll
 	reroll_data.append({"original": old_raw, "rerolled_to": new_raw})
@@ -10357,7 +10359,7 @@ static func cus11e_magna_reroll_wound(actor_unit: Dictionary, wound_evals: Array
 	var no_rr: int = mods & ~(WoundModifier.REROLL_ONES | WoundModifier.REROLL_FAILED | WoundModifier.REROLL_ONES_TWOS)
 	var ev = AttackSequence.evaluate_wound_roll(new_raw, no_rr, wound_threshold, crit_threshold, rng)
 	var old_raw = wound_evals[i].get("raw", 0)
-	wound_evals[i] = {"raw": old_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail, "rerolled": true}
+	wound_evals[i] = {"raw": old_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail, "rerolled": true, "reroll_from": old_raw, "reroll_to": new_raw}
 	reroll_data.append({"original": old_raw, "rerolled_to": new_raw})
 	ModifierLedger.note(ledger, rr_src, ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "one wound roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
 	print("RulesEngine: [cus11e] %s — %s re-rolls one wound roll: %d -> %d (%s)" % [rr_src.to_upper(), str(actor_unit.get("id", "?")), int(old_raw), new_raw, "wound" if ev.is_wound else "fail"])
@@ -14565,7 +14567,7 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			var attack_ws = ws_per_attack[i] if i < ws_per_attack.size() else ws
 			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_ws, melee_hit_modifiers, melee_crit_threshold, rng)
 			modified_rolls.append(hit_eval.final_roll)
-			hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit, "rerolled": hit_eval.rerolled})
+			hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit, "rerolled": hit_eval.rerolled, "reroll_from": hit_eval.reroll_from, "reroll_to": hit_eval.reroll_to})
 			if hit_eval.rerolled:
 				melee_hit_reroll_data.append({
 					"original": hit_eval.reroll_from,
@@ -14892,7 +14894,7 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 			for roll in wound_rolls:
 				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng)
-				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
+				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled, "reroll_from": wound_eval.reroll_from, "reroll_to": wound_eval.reroll_to})
 				if wound_eval.rerolled:
 					melee_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -14916,7 +14918,7 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 			for roll in wound_rolls:
 				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng)
-				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
+				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled, "reroll_from": wound_eval.reroll_from, "reroll_to": wound_eval.reroll_to})
 				if wound_eval.rerolled:
 					melee_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:

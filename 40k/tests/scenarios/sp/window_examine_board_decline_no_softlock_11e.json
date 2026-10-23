@@ -1,0 +1,47 @@
+{
+  "id": "window_examine_board_decline_no_softlock_11e",
+  "covers": [
+    "scripts.Main.board_examine",
+    "scripts.ReactiveDecisionUI.board_examine",
+    "dialogs.StratagemDialog.window_mode",
+    "stratagem.window.phase_start"
+  ],
+  "description": "PLAYER REPORT (2026-10-22): given a stratagem decision on MY OWN turn (vs the AI), toggling 'Examine Board', going back to the decision and declining left the input-blocking overlay up with 'Waiting for opponent's stratagem decision...' — a soft lock. Root cause: begin_board_examine() forced the MA-42 overlay visible, end_board_examine() never hid it, and hide_reactive_stratagem_waiting() early-outs when no waiting block was pending. This drives the real path on the P1 phase_start window: toggle Examine Board -> click 'Back to the decision' -> click Decline, then asserts the window is closed, the overlay is gone and the phase is playable.",
+  "fixture": "cus11e_c7_round1",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "custodes_abilities": true,
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 6 },
+    { "act": "click_if_visible", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "comment": "secondary mission review (not under test)" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 6.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 1,
+      "comment": "the decider is the ACTIVE human player — no 'waiting for opponent' block should ever be up" },
+    { "act": "execute_script", "script": "tree.current_scene._reactive_stratagem_overlay.visible", "equals": false },
+    { "act": "screenshot", "label": "01_own_window_open" },
+
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/ExamineBoard/ExamineBoardToggle", "comment": "real click: Examine Board on" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/Main/ReactiveStratagemOverlay/BoardExamineBar", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "02_examining_board" },
+
+    { "act": "click_node", "node": "/root/Main/ReactiveStratagemOverlay/BoardExamineBar/Content/BoardExamineReturnButton", "comment": "real click: Back to the decision" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 2.0 },
+    { "act": "execute_script", "script": "tree.current_scene._reactive_stratagem_overlay.visible", "equals": false,
+      "comment": "FIX: returning from the board look must not leave the blocking overlay behind" },
+    { "act": "screenshot", "label": "03_back_to_decision" },
+
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "real click: say no" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()", "equals": false },
+    { "act": "execute_script", "script": "tree.current_scene._reactive_stratagem_overlay.visible", "equals": false,
+      "comment": "FIX: no stale 'Waiting for opponent's stratagem decision...' block after declining" },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nreturn d == null or not d.visible", "equals": true },
+    { "act": "screenshot", "label": "04_declined_board_playable" }
+  ]
+}

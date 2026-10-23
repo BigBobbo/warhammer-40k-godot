@@ -1807,6 +1807,7 @@ func _staged_fight_roll_hits(carry_changes: Array) -> Dictionary:
 		"reroll_available": can_reroll,
 		"hit_rolls": hc.get("hit_rolls", []),
 		"modified_rolls": hc.get("modified_rolls", []),
+		"die_evals": hc.get("hit_evals", []),  # per-die re-roll provenance (Captain-General etc.) for the dock chips
 		"hits": hc.get("hits", 0),
 		"threshold": str(hc.get("ws", hc.get("bs", 4))) + "+",
 		# Named provenance for every hit modifier that applied — the dock lists
@@ -1870,6 +1871,7 @@ func _staged_fight_continue_to_wounds() -> Dictionary:
 		"total_weapons": assignments.size(),
 		"reroll_available": can_reroll,
 		"wound_rolls": wc.get("wound_rolls", []),
+		"die_evals": wc.get("wound_evals", []),
 		"wounds": wounds,
 		"target_name": get_unit(assignments[idx].get("target", "")).get("meta", {}).get("name", ""),
 		"threshold": str(wc.get("wound_threshold", 4)) + "+",
@@ -2039,6 +2041,7 @@ func _process_use_fight_reroll(action: Dictionary) -> Dictionary:
 			"reroll_available": false,
 			"hit_rolls": uhc.get("hit_rolls", []),
 			"modified_rolls": uhc.get("modified_rolls", []),
+			"die_evals": uhc.get("hit_evals", []),
 			"hits": uhc.get("hits", 0),
 			"modifier_ledger": uhc.get("modifier_ledger", [])
 		})
@@ -2071,6 +2074,7 @@ func _process_use_fight_reroll(action: Dictionary) -> Dictionary:
 		emit_signal("fight_stage_paused", "wounds", {
 			"reroll_available": false,
 			"wound_rolls": rr.get("wound_context", {}).get("wound_rolls", []),
+			"die_evals": rr.get("wound_context", {}).get("wound_evals", []),
 			"wounds": new_wounds,
 			"modifier_ledger": rr.get("wound_context", {}).get("modifier_ledger", [])
 		})

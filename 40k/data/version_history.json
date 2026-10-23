@@ -29,6 +29,53 @@
       ]
     },
     {
+      "version": "1.49.5",
+      "date": "2026-10-22",
+      "summary": "Fix: a unit with an attached CHARACTER shoots as one unit, in one activation.",
+      "changes": [
+        "An attached CHARACTER (e.g. Trajann Valoris) is no longer listed or selectable as a separate shooter. Its weapons are in its bodyguard unit's weapon list, so the whole unit picks all its targets together and then rolls.",
+        "Clicking the character's token selects its whole unit. The shooter list shows one row, e.g. \"Custodian Guard + Trajann Valoris (4)\".",
+        "Once that unit has shot (or skipped), neither the bodyguard nor the character can be selected again that phase.",
+        "Fixed a leader linked to its unit only from the character's side being left out of the unit's weapon list."
+      ]
+    },
+    {
+      "version": "1.49.4",
+      "date": "2026-10-22",
+      "summary": "Fix: when a unit with an attached CHARACTER performs an action, the whole attached unit gives up shooting.",
+      "changes": [
+        "Starting or performing an action in the Shooting phase (Hold Position, Cleanse, mission actions, etc.) with a bodyguard unit now also marks its attached CHARACTER(s) as having acted — they can no longer be selected to shoot separately, and they cannot charge that turn.",
+        "The same applies the other way round: if the CHARACTER starts the action, its bodyguard unit gives up shooting too, and the attached unit can only start one action per turn."
+      ]
+    },
+    {
+      "version": "1.49.3",
+      "date": "2026-10-22",
+      "summary": "Automatic re-rolls (e.g. Trajann's Captain-General re-roll of 1s) are now visible: re-rolled dice show their new result instead of the original 1.",
+      "changes": [
+        "Attack dock: the status line lists every automatic re-roll (\"Re-rolled: 1→5, 1→2\"), and re-rolled dice show their new face with a blue outline.",
+        "Re-rolled dice are locked out of Command Re-roll (a dice can never be re-rolled twice) instead of being offered and refused.",
+        "Dice tray and Game Log hit/wound rows name the re-rolls (\"re-rolled 1→5\"), so a re-roll that came up 1 again is no longer mistaken for one that never happened."
+      ]
+    },
+    {
+      "version": "1.49.2",
+      "date": "2026-10-22",
+      "summary": "Game log wound rows now show [LETHAL HITS] auto-wounds, so the number of saves matches what the log says.",
+      "changes": [
+        "Fixed: when [LETHAL HITS] applied (e.g. Sentinel Guard's Stand Vigil near an objective) the wound row read e.g. 'Wound (5+): 1 2 3 3 5 5 \u2014 6/6' even though only 2 dice wounded. It now reads '\u2014 2/6 +4 Lethal Hits = 6': critical hits auto-wound without rolling, which is why 6 saves were rolled.",
+        "The step-by-step roll summary in the Shooting panel splits rolled wounds from Lethal Hits auto-wounds the same way."
+      ]
+    },
+    {
+      "version": "1.49.1",
+      "date": "2026-10-22",
+      "summary": "Fix: using 'Examine Board' on your own stratagem decision no longer soft-locks the game after you go back and decline.",
+      "changes": [
+        "Toggling 'Examine Board' on a stratagem popup during your own turn, returning to the decision and choosing No used to leave a 'Waiting for opponent's stratagem decision...' banner blocking the board forever. The banner is now cleared as soon as you return, and the game carries on after you decide."
+      ]
+    },
+    {
       "version": "1.49.0",
       "date": "2026-10-22",
       "summary": "Army builder: Codex: Space Marines points and detachments, and GW app list imports for Space Wolves and other chapters now work.",

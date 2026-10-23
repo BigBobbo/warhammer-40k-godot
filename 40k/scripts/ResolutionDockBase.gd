@@ -68,9 +68,28 @@ func _pause_signal_name() -> String:
 func _reroll_action_type() -> String:
 	return ""
 
-## Which rolls the Command Re-roll chips show at this pause.
+## Which rolls the Command Re-roll chips show at this pause. The raw roll
+## lists keep an automatically re-rolled die's ORIGINAL value (a Captain-General
+## re-rolled 1 still reads 1), so swap in the re-rolled face from die_evals —
+## otherwise a re-rolled 1 that became a hit shows as a red 1.
 func _chip_rolls(_stage: String, info: Dictionary) -> Array:
-	return info.get("hit_rolls", info.get("wound_rolls", []))
+	var rolls: Array = (info.get("hit_rolls", info.get("wound_rolls", [])) as Array).duplicate()
+	var evals: Array = info.get("die_evals", [])
+	for i in range(mini(rolls.size(), evals.size())):
+		var e = evals[i]
+		if typeof(e) == TYPE_DICTIONARY and bool(e.get("rerolled", false)) and int(e.get("reroll_to", 0)) > 0:
+			rolls[i] = int(e.reroll_to)
+	return rolls
+
+## "1→5, 1→2" for every die re-rolled at this pause ("" when none) — named in
+## the status line so an automatic re-roll (Captain-General, Oath of Moment, …)
+## is visible even when it came up a 1 again.
+static func _reroll_summary(info: Dictionary) -> String:
+	var parts: Array = []
+	for e in info.get("die_evals", []):
+		if typeof(e) == TYPE_DICTIONARY and bool(e.get("rerolled", false)) and int(e.get("reroll_to", 0)) > 0:
+			parts.append("%d→%d" % [int(e.get("reroll_from", e.get("raw", 0))), int(e.reroll_to)])
+	return ", ".join(parts)
 
 ## Primary button pressed in a state the base doesn't own.
 func _primary_pressed_other(_state: String) -> void:
@@ -390,12 +409,18 @@ func _on_stage_paused(stage: String, info: Dictionary) -> void:
 		var hit_thr := " %s" % thr if thr != "" else ""
 		status_label.text = "%s — hit roll%s: %d hit(s)." % [
 			str(info.get("weapon_name", "Weapon")), hit_thr, int(info.get("hits", 0))]
+		var hit_rr := _reroll_summary(info)
+		if hit_rr != "":
+			status_label.text += " Re-rolled: %s." % hit_rr
 	else:
 		state = "staged_wounds"
 		primary_button.text = _stage_primary_text("wounds")
 		var wnd_thr := " %s" % thr if thr != "" else ""
 		status_label.text = "Wound roll%s — %d wound(s) caused; %s will make saves." % [
 			wnd_thr, int(info.get("wounds", 0)), str(info.get("target_name", "the target"))]
+		var wnd_rr := _reroll_summary(info)
+		if wnd_rr != "":
+			status_label.text += " Re-rolled: %s." % wnd_rr
 	primary_button.disabled = false
 	fast_button.visible = true
 	fast_button.text = "Fast Roll ⏩"
@@ -523,6 +548,7 @@ func _populate_reroll_chips(stage: String, info: Dictionary) -> void:
 	var rolls: Array = _chip_rolls(stage, info)
 	if rolls.is_empty():
 		return
+	var evals: Array = info.get("die_evals", [])
 	reroll_label.text = "Command Re-roll (1 CP) — click a %s die to re-roll it:" % ("hit" if stage == "hits" else "wound")
 	# Codex: Adeptus Custodes PRIME TARGET (CustodesCodex11e.gd): the phase names a free re-roll source.
 	if str(info.get("reroll_label", "")) != "":
@@ -543,7 +569,33 @@ func _populate_reroll_chips(stage: String, info: Dictionary) -> void:
 		die.expand_icon = true
 		die.custom_minimum_size = CHIP_SIZE
 		die.tooltip_text = "Re-roll this %d with Command Re-roll (1 CP)" % v
-		die.pressed.connect(_on_reroll_die.bind(stage, i))
+		# A die an ability already re-rolled can never be re-rolled again — show
+		# its re-rolled face, locked, instead of offering it (the engine refuses).
+		var ev = evals[i] if i < evals.size() else {}
+		if typeof(ev) == TYPE_DICTIONARY and bool(ev.get("rerolled", false)):
+			die.disabled = true
+			# Keep the re-rolled face bright (the default disabled icon is near
+			# black) and outline it — same blue as the dice tray's re-roll ring.
+			die.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, 1))
+			var rr_box := StyleBoxFlat.new()
+			rr_box.bg_color = Color(0, 0, 0, 0)
+			rr_box.set_border_width_all(2)
+			rr_box.border_color = Color(0.5, 0.85, 1.0)
+			rr_box.set_corner_radius_all(4)
+			die.add_theme_stylebox_override("disabled", rr_box)
+			var mark := Label.new()
+			mark.name = "RerolledMark"
+			mark.text = "↻"
+			mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			mark.add_theme_font_size_override("font_size", 16)
+			mark.add_theme_color_override("font_color", Color(0.5, 0.85, 1.0))
+			mark.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+			mark.add_theme_constant_override("outline_size", 5)
+			mark.position = Vector2(CHIP_SIZE.x - 11, -9)
+			die.add_child(mark)
+			die.tooltip_text = "Already re-rolled (%d→%d) — a dice can never be re-rolled more than once" % [int(ev.get("reroll_from", ev.get("raw", 0))), v]
+		else:
+			die.pressed.connect(_on_reroll_die.bind(stage, i))
 		reroll_row.add_child(die)
 
 func _on_reroll_die(stage: String, die_index: int) -> void:

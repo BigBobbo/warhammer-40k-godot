@@ -844,7 +844,7 @@ func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
 			return _make_dice_row(
 				"[color=#AACCEE][b]Hit[/b] (%s):[/color]" % threshold_str,
 				rolls_raw, threshold_int, true,
-				"[color=#AACCEE]— %d/%d[/color]" % [successes, total]
+				"[color=#AACCEE]— %d/%d%s[/color]" % [successes, total, _reroll_suffix(data.get("rerolls", []))]
 			)
 		"to_wound":
 			var successes = data.get("successes", 0)
@@ -852,10 +852,18 @@ func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
 			# LV-4: show a non-zero net wound modifier next to the target number.
 			var wm_net := int(data.get("wound_modifier_net", 0))
 			var wm_text := (", %+d to wound" % wm_net) if wm_net != 0 else ""
+			# [LETHAL HITS] auto-wounds never roll, so they are not among the
+			# dice shown — split them out instead of reporting e.g. "6/6" for
+			# 2 rolled wounds + 4 auto-wounds.
+			var lethal_auto := int(data.get("lethal_hits_auto_wounds", 0))
+			var wound_suffix := "[color=#EEAA77]— %d/%d[/color]" % [successes, total]
+			if lethal_auto > 0:
+				wound_suffix = "[color=#EEAA77]— %d/%d[/color] [color=#E890E8]+%d Lethal Hits[/color] [color=#EEAA77]= %d[/color]" % [
+					successes - lethal_auto, total, lethal_auto, successes]
 			return _make_dice_row(
 				"[color=#EEAA77][b]Wound[/b] (%s%s):[/color]" % [threshold_str, wm_text],
 				rolls_raw, threshold_int, true,
-				"[color=#EEAA77]— %d/%d[/color]" % [successes, total]
+				wound_suffix + "[color=#EEAA77]%s[/color]" % _reroll_suffix(data.get("wound_rerolls", data.get("rerolls", [])))
 			)
 		# "save" is the 11e allocation batch's engine-internal context; blocks
 		# normally arrive normalized to "save_roll", but accept both (and both
@@ -914,6 +922,17 @@ func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
 			)
 		_:
 			return null
+
+## " (re-rolled 1→5, 1→2)" for a dice row. The dice drawn are the ORIGINAL
+## rolls, so without this an automatically re-rolled 1 (Captain-General, Oath
+## of Moment, …) looks like it was never re-rolled.
+static func _reroll_suffix(rerolls: Array) -> String:
+	if rerolls.is_empty():
+		return ""
+	var parts: Array = []
+	for rr in rerolls:
+		parts.append("%d→%d" % [int(rr.get("original", 0)), int(rr.get("rerolled_to", rr.get("new", 0)))])
+	return " (re-rolled %s)" % ", ".join(parts)
 
 func _make_dice_row(prefix_bbcode: String, rolls: Array, threshold: int, use_threshold_colors: bool, suffix_bbcode: String, normal_size: int = 10, bold_size: int = 11) -> Control:
 	"""Build a single HBox row: [prefix RichTextLabel] [DiceRowVisual] [suffix RichTextLabel]."""

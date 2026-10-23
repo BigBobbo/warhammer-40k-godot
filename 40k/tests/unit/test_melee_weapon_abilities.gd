@@ -115,7 +115,11 @@ func test_basic_melee_attack_produces_dice():
 	}]
 	var board = _make_board(weapons)
 	var action = _make_action("chainsword")
+	# Seeded: an unseeded all-miss roll (1.2% for 4 attacks at 3+) produces no
+	# wound block and failed this test intermittently in CI.
+	rules_engine.set_test_seed(42)
 	var result = rules_engine.resolve_melee_attacks(action, board)
+	rules_engine.set_test_seed(-1)
 
 	assert_true(result.success, "Melee resolution should succeed")
 	assert_true(result.dice.size() >= 2, "Should have at least hit and wound dice blocks")

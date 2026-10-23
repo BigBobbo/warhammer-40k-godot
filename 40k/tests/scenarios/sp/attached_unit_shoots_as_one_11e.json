@@ -1,0 +1,162 @@
+{
+  "id": "attached_unit_shoots_as_one_11e",
+  "covers": [
+    "phases.ShootingPhase.attached_unit_single_activation_19_01",
+    "ui.ShootingController.shooter_list_attached_unit"
+  ],
+  "fixture": "audit_387_waaagh_energy",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "User report 2026-10-22: an attached CHARACTER (Trajann) could be selected and shoot on its own, and its bodyguard could then be selected later in the same Shooting phase. 19.01: an Attached unit is ONE unit \u2014 it is selected to shoot once (10.02) and selects targets for all its weapons before any attack is resolved (04.02). Boyz F lead by two Warbosses: the shooter list offers one 'Boyz + Warboss + Warboss in Mega Armour' row and no Warboss rows; clicking a Warboss token selects the Boyz (whose weapon list carries the Warbosses' guns); the whole Attached unit shoots in one SHOOT; afterwards every component is marked shot and neither Warboss can be selected or SHOOT again.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_C.attached_to",
+      "equals": "U_BOYZ_F"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.attached_to",
+      "equals": "U_BOYZ_F"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set_auto_allocate_wounds(true)\nreturn SettingsService.get_auto_allocate_wounds()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar ids = []\nfor a in ph.get_available_actions():\n\tif str(a.get(\"type\", \"\")) == \"SELECT_SHOOTER\":\n\t\tids.append(str(a.actor_unit_id))\nreturn \"%s|%s|%s\" % [str(\"U_BOYZ_F\" in ids), str(\"U_WARBOSS_C\" in ids), str(\"U_WARBOSS_IN_MEGA_ARMOUR_D\" in ids)]",
+      "equals": "true|false|false"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node(\"ShootingController\")\nsc._refresh_unit_list(false)\nvar l = tree.root.find_child(\"ShooterUnitList\", true, false)\nvar row = \"\"\nfor i in l.get_item_count():\n\tvar uid = str(l.get_item_metadata(i))\n\tif uid == \"U_WARBOSS_C\" or uid == \"U_WARBOSS_IN_MEGA_ARMOUR_D\":\n\t\treturn \"warboss row listed separately\"\n\tif uid == \"U_BOYZ_F\":\n\t\trow = l.get_item_text(i)\nreturn row.contains(\"+ Warboss\") and row.contains(\"Mega Armour\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node(\"ShootingController\")\nsc._select_shooter_by_unit_id(\"U_WARBOSS_C\")\nreturn PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_BOYZ_F"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var w = RulesEngine.get_unit_weapons(\"U_BOYZ_F\", GameState.create_snapshot())\nreturn w.has(\"U_WARBOSS_C:m1\") and w.has(\"U_WARBOSS_IN_MEGA_ARMOUR_D:m1\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var l = tree.root.find_child(\"ShooterUnitList\", true, false)\nfor i in l.get_item_count():\n\tif str(l.get_item_metadata(i)) == \"U_BOYZ_F\":\n\t\tl.select(i)\n\t\tl.ensure_current_is_visible()\n\t\treturn l.get_item_text(i).contains(\"[ACTIVE]\")\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_warboss_click_selects_attached_unit"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node(\"ShootingController\")\nvar plan = sc._build_auto_shoot_plan()\nvar entry = {}\nfor e in plan:\n\tif e.unit_id == \"U_WARBOSS_C\" or e.unit_id == \"U_WARBOSS_IN_MEGA_ARMOUR_D\":\n\t\treturn \"warboss planned separately\"\n\tif e.unit_id == \"U_BOYZ_F\":\n\t\tentry = e\nif entry.is_empty():\n\treturn \"no boyz plan\"\nvar char_bearers = 0\nfor a in entry.assignments:\n\tfor mid in a.model_ids:\n\t\tif str(mid).begins_with(\"U_WARBOSS\"):\n\t\t\tchar_bearers += 1\nsc.emit_signal(\"shoot_action_requested\", {\"type\": \"SHOOT\", \"actor_unit_id\": \"U_BOYZ_F\", \"payload\": {\"assignments\": entry.assignments}})\nreturn char_bearers > 0",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().units_that_shot.has(\"U_BOYZ_F\")",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_F.flags.has_shot",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_C.flags.has_shot",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.flags.has_shot",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_WARBOSS_C"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SHOOT",
+        "actor_unit_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+        "payload": {
+          "assignments": [
+            {
+              "weapon_id": "big_shoota_ranged",
+              "target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+              "model_ids": [
+                "m1"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node(\"ShootingController\")\nsc._refresh_unit_list(false)\nvar l = tree.root.find_child(\"ShooterUnitList\", true, false)\nfor i in l.get_item_count():\n\tif str(l.get_item_metadata(i)) == \"U_BOYZ_F\":\n\t\tl.select(i)\n\t\tl.ensure_current_is_visible()\n\t\treturn l.get_item_text(i).ends_with(\"[SHOT]\")\nreturn \"missing\"",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_attached_unit_shot_once_warbosses_locked"
+    }
+  ]
+}
