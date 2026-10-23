@@ -1033,10 +1033,25 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	else:
 		log_phase_message("Battle-shock test for %s: 2D6 = %d (%d + %d) vs Ld %d" % [unit_name, roll_total, die1, die2, leadership])
 
+	# WP-M2b Tempered in Battle (Aura) (Codex: Space Marines 11e): "can re-roll leadership rolls" —
+	# a failed roll is re-rolled for free (always taken; a die is never re-rolled twice, so no Command Re-roll after it).
+	var sm11e_tb_src: String = str(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").battle_shock_reroll_source(unit_id)) if not test_passed else ""
+	if sm11e_tb_src != "":
+		var tb_old: int = roll_total
+		die1 = rng_inst.rng.randi_range(1, 6)
+		die2 = rng_inst.rng.randi_range(1, 6)
+		roll_total = die1 + die2
+		effective_roll = roll_total + battle_shock_bonus
+		test_passed = effective_roll >= leadership
+		log_phase_message("%s: %s re-rolls its battle-shock roll %d -> %d (%d + %d) vs Ld %d — %s" % [sm11e_tb_src, unit_name, tb_old, roll_total, die1, die2, leadership, "passed" if test_passed else "failed"])
+		var tb_gel = get_node_or_null("/root/GameEventLog")
+		if tb_gel:
+			tb_gel.add_player_entry(int(unit.get("owner", 0)), "%s: %s re-rolls its battle-shock roll (was %d, now %d vs Ld %d) — %s" % [sm11e_tb_src, unit_name, tb_old, roll_total, leadership, "passed" if test_passed else "FAILED"])
+
 	# Check if Command Re-roll is available (only offer on failed tests).
 	# Not for the END_COMMAND auto-resolve: the phase ends in that same action,
 	# so a paused re-roll decision would strand the test unresolved.
-	if not test_passed and not action.has("dice_roll") and not action.get("auto_resolve", false):
+	if not test_passed and sm11e_tb_src == "" and not action.has("dice_roll") and not action.get("auto_resolve", false):
 		var current_player = get_current_player()
 		var strat_manager = get_node_or_null("/root/StratagemManager")
 		if strat_manager:

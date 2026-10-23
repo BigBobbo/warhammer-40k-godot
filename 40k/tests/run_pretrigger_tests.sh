@@ -242,6 +242,7 @@ TESTS=(
     "tests/test_wahapedia_11e_import_data.gd"
     "tests/test_sw11e_codex_data.gd"
     "tests/test_sm11e_codex_data.gd"
+    "tests/test_sm11e_detachments_b.gd"
     "tests/test_sw11e_stratagems.gd"
     "tests/test_sw11e_army_rules.gd"
     "tests/test_sw11e_detachments.gd"

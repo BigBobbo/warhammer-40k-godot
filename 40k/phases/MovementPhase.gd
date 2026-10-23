@@ -1353,6 +1353,9 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 	# WP-M2a Codex: Space Marines (11e) Wrath of the Chapter / Supercharged Engines: "can re-roll advance rolls" (free).
 	if free_rr_source == "" and tw_override == 0 and advance_roll < 6 and GameConstants.edition >= 11 and not (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)):
 		free_rr_source = str(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").free_advance_reroll_source(unit))
+	# WP-M2b: Codex: Space Marines (11e) Honour of Vigilance (devastator doctrine): "can re-roll advance rolls" — same free re-roll.
+	if free_rr_source == "" and tw_override == 0 and advance_roll < 6 and not (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)):
+		free_rr_source = str(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").free_advance_reroll_source(unit))
 	if strat_manager and free_rr_source == "" and not ork11e_roll_changed:  # (WP-O34: a changed 6 is not re-rolled)
 		var reroll_check = strat_manager.is_command_reroll_available(current_player, unit_id)
 		reroll_available = reroll_check.available
@@ -4114,7 +4117,8 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 	var battle_round = GameState.get_battle_round()
 	# WP-S4 HIGH KING OF FENRIS (Space Wolves, Logan Grimnar): this unit's ingress move treats the battle round as one higher.
 	battle_round = _sw11e_abilities().ingress_battle_round(unit, battle_round)
-	if battle_round < 2 and not _cus11e_det().can_ingress_first_round(unit) and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit):
+	if battle_round < 2 and not _cus11e_det().can_ingress_first_round(unit) and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit) \
+			and not load("res://scripts/codex/space_marines/SMDetachmentsB.gd").can_ingress_first_round(unit):  # WP-M2b Corporeum Reliquary (Codex: Space Marines 11e)
 		errors.append("Reserves cannot arrive until Battle Round 2 (currently Round %d)" % battle_round)
 		return {"valid": false, "errors": errors}
 
@@ -7556,6 +7560,8 @@ func _cus11e_lightning_descent_reserves(player: int) -> Array:
 		return out
 	for rid in GameState.get_reserves_for_player(player):
 		if _cus11e_det().can_ingress_first_round(get_unit(str(rid))):
+			out.append(rid)
+		elif load("res://scripts/codex/space_marines/SMDetachmentsB.gd").can_ingress_first_round(get_unit(str(rid))):  # WP-M2b Corporeum Reliquary (Codex: Space Marines 11e)
 			out.append(rid)
 	# WP-S4 HIGH KING OF FENRIS (Space Wolves): the selected unit can arrive in battle round 1.
 	for hk_id in _sw11e_abilities().high_king_first_round_units(player):

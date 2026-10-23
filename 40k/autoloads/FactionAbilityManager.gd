@@ -2157,6 +2157,10 @@ func get_redeploy_enhancement(player: int) -> Dictionary:
 		var sw11e_rd: Dictionary = load("res://scripts/codex/space_wolves/SWEnhancements11e.gd").redeploy_enhancement(player)
 		if not sw11e_rd.is_empty():
 			return sw11e_rd
+		# WP-M2b Cyber-familiar (Codex: Space Marines 11e, Tacticus Firestorm Force): up to three ADEPTUS ASTARTES INFANTRY units.
+		var sm11e_rd: Dictionary = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").redeploy_enhancement(player)
+		if not sm11e_rd.is_empty():
+			return sm11e_rd
 	for entry in REDEPLOY_ENHANCEMENTS:
 		if has_enhancement(player, entry.name):
 			return entry
@@ -2523,6 +2527,15 @@ func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: St
 	var d2 = rng.rng.randi_range(1, 6)
 	var total = d1 + d2 + roll_modifier
 	var passed = total >= ld
+	# WP-M2b Tempered in Battle (Aura) (Codex: Space Marines 11e): a failed leadership roll is re-rolled (free, always taken).
+	var sm11e_tb_src: String = str(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").battle_shock_reroll_source(unit_id)) if (not passed and GameConstants.edition >= 11) else ""
+	if sm11e_tb_src != "":
+		var tb_old: int = total
+		d1 = rng.rng.randi_range(1, 6)
+		d2 = rng.rng.randi_range(1, 6)
+		total = d1 + d2 + roll_modifier
+		passed = total >= ld
+		print("FactionAbilityManager: %s — %s re-rolls the battle-shock roll %d -> %d vs Ld %d" % [sm11e_tb_src, unit_id, tb_old, total, ld])
 	# State diffs of the result (applied here as before; returned so callers
 	# that build an action result can record them for replay / network).
 	var shock_diffs: Array = []
@@ -2550,9 +2563,10 @@ func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: St
 		if unit_name == "":
 			unit_name = unit.get("meta", {}).get("name", unit_id)
 		game_event_log.add_player_entry(int(unit.get("owner", 0)),
-			"%s: %s takes a Battle-shock test (%d vs Ld %d) — %s" % [
-				source, unit_name, total, ld, "passed" if passed else "FAILED"])
-	return {"success": true, "passed": passed, "total": total, "leadership": ld, "dice": [d1, d2], "diffs": shock_diffs}
+			"%s: %s takes a Battle-shock test (%d vs Ld %d) — %s%s" % [
+				source, unit_name, total, ld, "passed" if passed else "FAILED",
+				(" (re-rolled: %s)" % sm11e_tb_src) if sm11e_tb_src != "" else ""])  # WP-M2b Tempered in Battle
+	return {"success": true, "passed": passed, "total": total, "leadership": ld, "dice": [d1, d2], "diffs": shock_diffs, "rerolled_by": sm11e_tb_src}
 
 static func _status_is_deployed(status) -> bool:
 	"""Unit status can be an int enum (live game) or a String (army JSON that

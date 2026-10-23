@@ -558,6 +558,9 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 		# "has +2 OC" — every model of it (WP-C46). Same order as above: only
 		# a model that already has OC gets it.
 		oc += _custodes_11e_oc_bonus(unit)
+		# WP-M2b Immovable Conquerors (Codex: Space Marines 11e, Gravis Siege Force): "This unit has +1 OC".
+		if GameConstants.edition >= 11:
+			oc += int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").oc_bonus(unit))
 	# Codex: Space Marines (11e) CURSE OF THE WULFEN: +1 OC (INFANTRY) / +3 OC
 	# (VEHICLE) near a Space Wolves CHARACTER / WOLF PRIEST (SWArmyRules11e.gd,
 	# WP-S2). Outside the "already has OC" gate: the Wulfen datasheets print

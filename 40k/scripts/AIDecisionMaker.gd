@@ -22349,6 +22349,11 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	if not sm11e_pick_w.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sm11e_pick_w.get("name", ""), sm11e_pick_w.get("target_unit_id", "")])
 		return sm11e_pick_w
+	# WP-M2b: Codex: Space Marines (11e) generic detachments B free rule cards (Narthecis Gauntlet).
+	sm11e_pick_w = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").ai_decide(player, window_id, offers, ctx)
+	if not sm11e_pick_w.is_empty():
+		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sm11e_pick_w.get("name", ""), sm11e_pick_w.get("target_unit_id", "")])
+		return sm11e_pick_w
 	offers = offers.filter(func(o): return not ork11e_det.is_rule_offer(o))
 	if offers.is_empty():
 		_add_thinking_step("Window %s: declining its rule choice(s)" % window_id)

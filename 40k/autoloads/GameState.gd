@@ -717,6 +717,9 @@ func _unit_has_scout_own(unit_id: String) -> bool:
 	# WP-M2a Codex: Space Marines (11e) Spearpoint War Leader: "This unit has Scouts 6"".
 	if GameConstants.edition >= 11 and float(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").scouts_distance(unit)) > 0.0:
 		return true
+	# WP-M2b Relentless Advance (Codex: Space Marines 11e): "This unit has Scouts 5\"".
+	if GameConstants.edition >= 11 and float(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").scouts_distance(unit)) > 0.0:
+		return true
 	return false
 
 func _get_scout_distance_from_abilities(abilities: Array) -> float:
@@ -810,6 +813,9 @@ func get_scout_distance(unit_id: String) -> float:
 	# Check own abilities first
 	var own_abilities = unit.get("meta", {}).get("abilities", [])
 	var own_distance = _get_scout_distance_from_abilities(own_abilities)
+	# WP-M2b Relentless Advance (Codex: Space Marines 11e): Scouts 5" — the better of it and a native Scouts.
+	if GameConstants.edition >= 11:
+		own_distance = maxf(own_distance, float(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").scouts_distance(unit)))
 	if own_distance > 0.0:
 		return own_distance
 	# Check inherited from embarked units (use smallest distance)

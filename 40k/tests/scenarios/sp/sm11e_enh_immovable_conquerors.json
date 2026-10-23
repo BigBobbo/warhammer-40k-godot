@@ -1,0 +1,71 @@
+{
+  "id": "sm11e_enh_immovable_conquerors",
+  "covers": [
+    "codex.space_marines.enhancements.immovable_conquerors",
+    "autoloads.MissionManager.model_oc",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Gravis Siege Force enhancement (Upgrade) IMMOVABLE CONQUERORS (WP-M2b): this unit has +1 OC. Fixture sm11e_m2b_marines_active (the Heavy Intercessor Squad carries it and stands on obj_home_2). Setup privilege: CP 0 for both. The Heavy Intercessors' models count OC 3 (2 + 1) towards obj_home_2: 5 models = 15 OC for P1 there (MissionManager's control check), which the objective readout uses.",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}})\nvar u = H.unit(\"U_HEAVY_INTERCESSOR_SQUAD_A\")\nreturn int(MissionManager.model_oc(u, u.models[0]))",
+      "comment": "setup privilege; a Heavy Intercessor model's OC",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar obj = load(\"res://scripts/codex/space_wolves/SWCommon.gd\").objective_by_id(\"obj_home_2\")\nvar oc = MissionManager._unit_oc_in_range(\"U_HEAVY_INTERCESSOR_SQUAD_A\", H.unit(\"U_HEAVY_INTERCESSOR_SQUAD_A\"), obj, [], GameState.state.units) if MissionManager.has_method(\"_unit_oc_in_range\") else -1\nprint(\"[sm11e immovable] OC in range of obj_home_2: \", oc)\nreturn oc",
+      "comment": "the unit's OC on obj_home_2: 5 x 3",
+      "equals": 15
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(22, 55, 1.4)\nvar hov = true\nreturn hov",
+      "equals": true
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_HEAVY_INTERCESSOR_SQUAD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "01_immovable_conquerors_oc"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

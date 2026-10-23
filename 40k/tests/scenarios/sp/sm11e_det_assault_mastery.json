@@ -1,0 +1,105 @@
+{
+  "id": "sm11e_det_assault_mastery",
+  "covers": [
+    "codex.space_marines.detachments.assault_brethren.assault_mastery",
+    "codex.space_wolves.SWArmyRules11e.doctrine_limit",
+    "scripts.CommandController.doctrines",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Assault Brethren — ASSAULT MASTERY (WP-M2b): you can select the assault doctrine one additional time per battle. A chapter army can take the generic detachments (SM-D1): fixture sw11e_s2_wolves_active (P1 Space Wolves, Command phase of round 2 — the army whose Combat Doctrines selection UI ships today). Setup privileges: P1's detachments = Assault Brethren + Champions of Fenris, the assault doctrine already selected once this battle (sw11e_doctrines_used.assault = 1, the SWCommon doctrine-state key), the Command panel rebuilt. The COMBAT DOCTRINES block offers ASSAULT DOCTRINE again, labelled '(Assault Mastery)'; a REAL click selects it a second time (used = 2) and the button then reads '(used)'.",
+  "fixture": "sw11e_s2_wolves_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nGameState.state.factions[\"1\"][\"detachment\"] = \"Assault Brethren\"\nGameState.state.factions[\"1\"][\"detachments\"] = [\"Assault Brethren\", \"Champions of Fenris\"]\nGameState.state.factions[\"1\"][\"sw11e_doctrines_used\"] = {\"assault\": 1}\nvar cc = tree.root.get_node(\"Main\").get_node_or_null(\"CommandController\")\nif cc and cc.has_method(\"_refresh_ui\"):\n\tcc._refresh_ui()\nelif cc and cc.has_method(\"refresh_ui\"):\n\tcc.refresh_ui()\nreturn load(\"res://scripts/codex/space_wolves/SWArmyRules11e.gd\").doctrine_available(1, \"assault\")",
+      "comment": "setup privileges (see description)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar b = tree.root.get_node_or_null(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault\")\nif b == null:\n\treturn \"no button\"\ntree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer\").ensure_control_visible(b)\nprint(\"[sm11e mastery] \", b.text, \" disabled=\", b.disabled)\nreturn b.text.contains(\"Assault Mastery\") and not b.disabled",
+      "comment": "ASSAULT DOCTRINE is offered again, labelled (Assault Mastery)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_assault_doctrine_offered_again_assault_mastery"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault",
+      "comment": "REAL click on ASSAULT DOCTRINE (second selection)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "factions.1.sw11e_doctrine",
+      "equals": "assault"
+    },
+    {
+      "act": "expect_state",
+      "path": "factions.1.sw11e_doctrines_used.assault",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar b = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_assault\")\ntree.root.get_node(\"Main/HUD_Right/VBoxContainer/CommandScrollContainer\").ensure_control_visible(b)\nreturn b.text.contains(\"(used)\") and b.disabled",
+      "comment": "after the second selection: (used)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Assault Doctrine active\")",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_assault_doctrine_selected_second_time"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

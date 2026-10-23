@@ -783,6 +783,11 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	if sw11e_cb > 0:
 		log_phase_message("Encircling Jaws (Master of Wolves) — +%d to the charge roll" % sw11e_cb)
 	charge_bonus += sw11e_cb
+	# WP-M2b: Codex: Space Marines (11e) Death Blow (Terminator Storm Force): ADEPTUS ASTARTES TERMINATOR units +1 to charge rolls.
+	var sm11e_cb: int = int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").charge_roll_bonus(unit_for_charge_bonus))
+	if sm11e_cb > 0:
+		log_phase_message("Death Blow (Terminator Storm Force) — +%d to the charge roll" % sm11e_cb)
+	charge_bonus += sm11e_cb
 	# WP-O6: Codex: Orks (11e) datasheet abilities — Trophy Hunters, Waaagh!
 	# Banner (+1 to charge rolls), Thundering Stampede aura (+1, BEAST SNAGGA).
 	if GameConstants.edition >= 11:
