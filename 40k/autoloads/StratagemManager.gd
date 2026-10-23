@@ -135,6 +135,8 @@ const WINDOW_WHEN_TEXT: Dictionary = {
 	# SHIELD OF HONOUR, and Conservai.
 	"fight_phase_start": "the Fight phase starts",
 	"command_phase_main": "your Command phase is under way",
+	# Codex: Space Marines (11e) WP-M3b (SMCodexB.gd): FOR THE EMPEROR! "Command phase" (either player's).
+	"command_phase_opponent": "your opponent's Command phase is under way",
 	# Codex: Adeptus Custodes stratagems (WP-C5, CustodesCodex11e.gd).
 	"phase_end": "a phase ends",
 	"unit_ended_advance_move": "one of your units ends an Advance move",

@@ -250,6 +250,8 @@ func _start_battle_shock_step(deferred: Dictionary) -> Dictionary:
 	# and the Command step's prompts — the Codex: Adeptus Custodes CONSERVAI
 	# ka'tah (CustodesKatah.gd) — opens just before battle_shock_step_start.
 	var bss_entries: Array = [{"player": player, "window_id": "command_phase_main", "ctx": {"phase": "command"}}]
+	# Codex: Space Marines (11e) WP-M3b (SMCodexB.gd): FOR THE EMPEROR! "Command phase" — the opponent's window, after the active player's.
+	bss_entries.append_array(load("res://scripts/codex/space_marines/SMCodexB.gd").opponent_command_window_entries(player))
 	# Codex: Orks (11e) War Cry "at the start of the Command phase" — not "your"
 	# (WP-O34): the opponent's War Cry window, after the active player's window
 	# (active player first — 11e sequencing), before the Battle-shock step.

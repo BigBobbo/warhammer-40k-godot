@@ -6112,7 +6112,11 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 				# PISTOL RULES: If in engagement, only Pistol weapons can be used
 				# Issue #370 (BGNT): MONSTER and VEHICLE units can fire any weapon in
 				# engagement range per Big Guns Never Tire (BS -1 penalty applies).
-				if actor_in_engagement and not is_pistol_weapon(weapon_id, board) and not is_monster_or_vehicle(actor_unit):
+				# 11e (10.06 / 24.27): [CLOSE-QUARTERS] counts as [PISTOL] here, incl.
+				# WP-M3b POINT-BLANK BRUTALITY's granted [CLOSE-QUARTERS] (SMCodexB.gd).
+				var vs_cq: bool = GameConstants.edition >= 11 and (_snap_is_close_quarters_weapon(weapon_id, board) \
+					or load("res://scripts/codex/space_marines/SMCodexB.gd").weapon_gets_close_quarters(weapon_profile, actor_unit))
+				if actor_in_engagement and not is_pistol_weapon(weapon_id, board) and not vs_cq and not is_monster_or_vehicle(actor_unit):
 					errors.append("Non-Pistol weapon '%s' cannot be fired while in engagement range" % weapon_profile.get("name", weapon_id))
 
 				# ASSAULT RULES: If unit Advanced, only Assault weapons can be used
@@ -7254,6 +7258,13 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first
 					continue
 
 				var is_pistol = is_pistol_weapon(weapon_id, board)
+				# 11e 10.06 / 24.27: a [CLOSE-QUARTERS] weapon is what [PISTOL] was — an
+				# engaged unit fires it at the units it is engaged with (the 11e data
+				# prints "close quarters", never PISTOL). WP-M3b: found while validating
+				# POINT-BLANK BRUTALITY, whose granted [CLOSE-QUARTERS] (SMCodexB.gd) counts too.
+				if not is_pistol and actor_in_engagement and GameConstants.edition >= 11:
+					is_pistol = _snap_is_close_quarters_weapon(weapon_id, board) \
+						or load("res://scripts/codex/space_marines/SMCodexB.gd").weapon_gets_close_quarters(get_weapon_profile(weapon_id, board), actor_unit)
 
 				# ENGAGEMENT RANGE WEAPON RULES:
 				if actor_in_engagement:
@@ -10454,6 +10465,7 @@ static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weap
 	load("res://scripts/codex/space_marines/SMDetachmentsB.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-M2b: Codex: Space Marines (11e) generic detachments B (Enduring Vengeance, Walking Fortress, enhancements)
 	_sm11e_abilities_b().merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-M4b: Codex: Space Marines (11e) M4b datasheet abilities ride the same aggregator
 	SMAbilitiesC11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-M4c: Space Marines (11e) M4c datasheet abilities ride the same aggregator
+	load("res://scripts/codex/space_marines/SMCodexB.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # Codex: Space Marines (11e) WP-M3b (SMCodexB.gd): detachment stratagem attack modifiers
 	return ab_mods
 
 ## WP-M4b: Codex: Space Marines (11e) M4b datasheet abilities (scripts/codex/space_marines/SMAbilitiesB.gd), loaded lazily.

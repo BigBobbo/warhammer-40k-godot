@@ -1,0 +1,169 @@
+{
+  "id": "sm11e_armour_of_contempt_devastator_brethren",
+  "covers": [
+    "codex.space_marines.stratagems.armour-of-contempt",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.enemy_targets_unit_shooting",
+    "rules.ap.minus_one"
+  ],
+  "description": "Codex: Space Marines (11e) ARMOUR OF CONTEMPT (Devastator Brethren, 1 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_reactive (P1 Orks ACTIVE vs P2 Space Marines, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). In the Ork player's Shooting phase the Flash Gitz are selected to shoot and target the Hellblaster Squad (ASSIGN_TARGET + Confirm Targets — the shooting panel's actions); the defender's reactive dialog (the enemy_targets_unit_shooting window folded in) offers ARMOUR OF CONTEMPT; a real click spends 1 CP; attacks that target the Hellblasters have -1 AP until the Flash Gitz have attacked.",
+  "fixture": "sm11e_m3b_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nH.shift(\"U_FLASH_GITZ_A\", 0, 3)\nreturn H.setup(2, {\"cp\": {\"1\": 0}})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(26, 34, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_FLASH_GITZ_A",
+        "player": 1
+      },
+      "comment": "the Ork player's shooting panel unit pick"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the Ork player's own unit_selected_to_shoot window (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.assign_and_confirm(1, \"U_FLASH_GITZ_A\", \"U_HELLBLASTER_SQUAD_A\")",
+      "comment": "the Ork player targets the Hellblasters (ASSIGN_TARGET + Confirm Targets)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.phase().awaiting_reactive_stratagem",
+      "comment": "the defender's reactive dialog (enemy_targets_unit_shooting fold-in)",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_devastator_brethren_armour_of_contempt/Buttons/Use_faction_sm_devastator_brethren_armour_of_contempt_U_HELLBLASTER_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_devastator_brethren_armour_of_contempt/Buttons/Use_faction_sm_devastator_brethren_armour_of_contempt_U_HELLBLASTER_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_armour_of_contempt_devastator_brethren_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_devastator_brethren_armour_of_contempt/Buttons/Use_faction_sm_devastator_brethren_armour_of_contempt_U_HELLBLASTER_SQUAD_A",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nvar f = H.flag(\"U_HELLBLASTER_SQUAD_A\", \"sm11e_aoc\")\nreturn typeof(f) == TYPE_DICTIONARY and \"U_FLASH_GITZ_A\" in f.get(\"attacker_ids\", [])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn EffectPrimitivesData.get_effect_worsen_ap(H.unit(\"U_HELLBLASTER_SQUAD_A\"))",
+      "comment": "attacks that target the Hellblasters have -1 AP",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"Used ARMOUR OF CONTEMPT\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_armour_of_contempt_devastator_brethren_used"
+    }
+  ],
+  "transition_to_phase": 7
+}

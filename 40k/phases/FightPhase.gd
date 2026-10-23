@@ -3127,6 +3127,9 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		# Codex: Space Marines (11e) A WORTHY DEATH (SMCodex11e.gd): same mechanic, 4+, no modifier.
 		if not ard and _sm11e_codex().is_fod_mode(mode):
 			mod_info = _sm11e_codex().fod_roll(uid, idx)
+		# Codex: Space Marines (11e) WP-M3b DUTY IN DEATH (SMCodexB.gd): 4+, +1 with the assault doctrine.
+		if not ard and load("res://scripts/codex/space_marines/SMCodexB.gd").is_fod_mode(mode):
+			mod_info = load("res://scripts/codex/space_marines/SMCodexB.gd").fod_roll(uid, idx)
 			fod_pass = int(mod_info.get("pass", fod_pass))
 		# WP-S4: the Space Wolves rule's own threshold (Heroic Last Stand 2+, the others 4+), no modifier.
 		if not sw_fod.is_empty():

@@ -5140,7 +5140,7 @@ func _ork11e_post_shot_ctx(shooter_id: String) -> Dictionary:
 		var du = GameState.get_unit(duid)
 		if not du.is_empty() and du.get("models", []).filter(func(m): return m.get("alive", true)).size() < int(_sm11e_pre_shot_alive[duid]):
 			destroyed.append(duid)
-	return {"hit_unit_ids": hit.keys(), "wounded_unit_ids": wounded, "targeted_unit_ids": targeted.keys(), "hit_by_weapon": hit_by_weapon, "models_destroyed_unit_ids": destroyed}
+	return {"hit_unit_ids": hit.keys(), "wounded_unit_ids": wounded, "targeted_unit_ids": targeted.keys(), "hit_by_weapon": hit_by_weapon, "models_destroyed_unit_ids": destroyed, "destroyed_unit_ids": destroyed}  # WP-M4c Glory of Ultramar / WP-M3b HAIL OF VENGEANCE
 
 func _ork11e_queue_post_shot(a_type: String, shot_before: int, result: Dictionary) -> void:
 	if a_type in _ORK11E_NOT_SHOOTING_ACTIONS or result.get("throat_slittas", false):
@@ -5206,7 +5206,8 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 			{"player": other, "window_id": "enemy_has_shot", "ctx": {"phase": "shooting", "attacker_unit_id": shooter_id,
 				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids,
 				"targeted_unit_ids": shot.targeted_unit_ids,  # targeted: Space Wolves IMPETUOSITY / BATTLE INSTINCTS
-				"models_destroyed_unit_ids": shot.models_destroyed_unit_ids}}],  # WP-M4c Glory of Ultramar
+				"models_destroyed_unit_ids": shot.models_destroyed_unit_ids,  # WP-M4c Glory of Ultramar
+				"destroyed_unit_ids": shot.get("destroyed_unit_ids", [])}}],  # WP-M3b HAIL OF VENGEANCE
 			"_ork11e_resume_after_post_shot_windows", {"unit_id": shooter_id})
 		merged.append_array(consume_window_diffs())
 		if paused:

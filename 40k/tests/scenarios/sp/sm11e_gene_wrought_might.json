@@ -1,0 +1,213 @@
+{
+  "id": "sm11e_gene_wrought_might",
+  "covers": [
+    "codex.space_marines.stratagems.gene-wrought-might",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.unit_selected_to_fight",
+    "rules.weapon.lance",
+    "codex.space_marines.combat_doctrines.assault"
+  ],
+  "description": "Codex: Space Marines (11e) GENE-WROUGHT MIGHT (Assault Brethren, 1 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). Setup privileges as in every WP-M3b scenario plus the assault doctrine active for P1's army (doctrine state; the selection UI is WP-M2a's). The fight list's real click selects the Heavy Intercessor Squad (engaged with the Nobz); unit_selected_to_fight opens; a real click on 'Use on Heavy Intercessor Squad' spends 1 CP; its melee attacks have [LANCE] (effect_grant_lance) and — with the assault doctrine — +1 AP (the attack aggregator returns ap 1 for melee, 0 for ranged).",
+  "fixture": "sm11e_m3b_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}, \"doctrine\": \"assault\"})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test); the assault doctrine is active (army combat doctrine state — the selection UI is WP-M2a's)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nPhaseManager.transition_to_phase(10)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "Pile In step: no pile-in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "Pile In step: no pile-in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(17, 31, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_HEAVY_INTERCESSOR_SQUAD_A",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_HEAVY_INTERCESSOR_SQUAD_A",
+      "comment": "REAL click: the unit is selected to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_selected_to_fight"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_assault_brethren_gene_wrought_might/Buttons/Use_faction_sm_assault_brethren_gene_wrought_might_U_HEAVY_INTERCESSOR_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_assault_brethren_gene_wrought_might/Buttons/Use_faction_sm_assault_brethren_gene_wrought_might_U_HEAVY_INTERCESSOR_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_gene_wrought_might_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_assault_brethren_gene_wrought_might/Buttons/Use_faction_sm_assault_brethren_gene_wrought_might_U_HEAVY_INTERCESSOR_SQUAD_A",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.flag(\"U_HEAVY_INTERCESSOR_SQUAD_A\", \"effect_grant_lance\") == true and H.flag(\"U_HEAVY_INTERCESSOR_SQUAD_A\", \"sm11e_gene_wrought\") == true",
+      "comment": "melee [LANCE] grant + marker",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn int(H.mods(\"U_HEAVY_INTERCESSOR_SQUAD_A\", \"U_NOBZ_A\", true).get(\"ap\", 0))",
+      "comment": "assault doctrine: +1 AP on melee attacks",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn int(H.mods(\"U_HEAVY_INTERCESSOR_SQUAD_A\", \"U_NOBZ_A\", false).get(\"ap\", 0))",
+      "comment": "…not on ranged attacks",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"Used GENE-WROUGHT MIGHT\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_gene_wrought_might_used"
+    }
+  ],
+  "transition_to_phase": 9
+}

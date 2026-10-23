@@ -253,6 +253,7 @@ TESTS=(
     "tests/test_sm11e_stratagems_a.gd"
     "tests/test_sm11e_abilities_b.gd"
     "tests/test_sm11e_abilities_c.gd"  # WP-M4c: Space Marines (11e) M4c datasheet abilities
+    "tests/test_sm11e_stratagems_b.gd"
     "tests/test_ork_codex_framework.gd"
     "tests/test_ork_codex_fight.gd"
     "tests/test_ork_codex_shooting.gd"

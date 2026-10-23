@@ -1,0 +1,176 @@
+{
+  "id": "sm11e_suppression_volleys",
+  "covers": [
+    "codex.space_marines.stratagems.suppression-volleys",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.unit_has_shot",
+    "rules.battle_shock.forced"
+  ],
+  "description": "Codex: Space Marines (11e) SUPPRESSION VOLLEYS (Gravis Siege Force, 1 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). Setup privilege: the Flash Gitz are moved 16\" forward. The Eradicator Squad with Heavy Bolters (GRAVIS) shoots the Flash Gitz; unit_has_shot opens; a real click on Use and a real click on the secondary pick (one enemy unit hit by those attacks: the Flash Gitz) spend 1 CP; the Flash Gitz make a battle-shock roll with -1 (Game Log names the dice, the -1 and the result).",
+  "fixture": "sm11e_m3b_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nH.shift(\"U_FLASH_GITZ_A\", 0, 16)\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(33, 41, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.shoot(\"U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A\", \"U_FLASH_GITZ_A\")",
+      "comment": "the unit shoots (the shooting panel's unit pick + SHOOT)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decline_until_window(\"unit_has_shot\") >= 0",
+      "comment": "the shooter's own unit_selected_to_shoot window (not under test) is declined first",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_has_shot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gravis_siege_force_suppression_volleys/Buttons/Use_faction_sm_gravis_siege_force_suppression_volleys_U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gravis_siege_force_suppression_volleys/Buttons/Use_faction_sm_gravis_siege_force_suppression_volleys_U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn \"U_FLASH_GITZ_A\" in H.phase().get_pending_stratagem_window().get(\"ctx\", {}).get(\"hit_unit_ids\", [])",
+      "comment": "the window's ctx names the unit hit",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_suppression_volleys_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gravis_siege_force_suppression_volleys/Buttons/Use_faction_sm_gravis_siege_force_suppression_volleys_U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_FLASH_GITZ_A",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_suppression_volleys_secondary_pick"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_FLASH_GITZ_A",
+      "comment": "REAL click on the secondary pick"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"SUPPRESSION VOLLEYS: Flash Gitz makes a battle-shock roll\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_suppression_volleys_battle_shock_roll"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"Used SUPPRESSION VOLLEYS\")",
+      "expect_min": 1
+    }
+  ],
+  "transition_to_phase": 7
+}
