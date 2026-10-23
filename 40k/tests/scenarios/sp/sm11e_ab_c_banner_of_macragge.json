@@ -62,9 +62,10 @@
     },
     {
       "act": "execute_script",
-      "script": "load(\"res://autoloads/EffectPrimitives.gd\").has_effect_minus_one_wound_defense(GameState.get_unit(\"U_VICTRIX_HONOUR_GUARD_A\"))",
+      "script": "return load(\"res://autoloads/EffectPrimitives.gd\").has_effect_minus_one_wound_defense(GameState.get_unit(\"U_VICTRIX_HONOUR_GUARD_A\"))",
       "comment": "Honour Guard of Macragge: attacks that target the Victrix have -1 to wound",
-      "equals": true
+      "equals": true,
+      "multiline": true
     },
     {
       "act": "expect_node_visible",

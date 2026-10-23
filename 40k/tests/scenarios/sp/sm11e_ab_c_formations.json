@@ -14,14 +14,46 @@
   "disable_ai": true,
   "sm_abilities_c": true,
   "steps": [
-    {"act": "wait_seconds", "seconds": 1.0},
-    {"act": "expect_phase", "equals": 0},
-    {"act": "expect_node_visible", "node": "/root/Main/FormationsDialog", "timeout_s": 8.0},
-    {"act": "expect_node_visible", "node": "/root/Main/FormationsDialog/MainVBox", "timeout_s": 2.0},
-    {"act": "execute_script", "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantHeader\", true, false) != null", "comment": "the Codex: Space Marines section is shown", "equals": true},
-    {"act": "execute_script", "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantApply_U_MARNEUS_CALGAR_A_thunderhawk_insertion\", true, false) != null and tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantApply_U_CAANOK_VAR_A_cerebrex_logic_engine\", true, false) != null", "comment": "one row per ability (Calgar, Caanok Var)", "equals": true},
-    {"act": "execute_script", "script": "GameState.unit_has_deep_strike(\"U_INTERCESSOR_SQUAD_A\")", "comment": "no Deep Strike before", "equals": false},
-    {"act": "screenshot", "label": "01_formations_codex_section"},
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/FormationsDialog",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/FormationsDialog/MainVBox",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantHeader\", true, false) != null",
+      "comment": "the Codex: Space Marines section is shown",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantApply_U_MARNEUS_CALGAR_A_thunderhawk_insertion\", true, false) != null and tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantApply_U_CAANOK_VAR_A_cerebrex_logic_engine\", true, false) != null",
+      "comment": "one row per ability (Calgar, Caanok Var)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.unit_has_deep_strike(\"U_INTERCESSOR_SQUAD_A\")",
+      "comment": "no Deep Strike before",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_formations_codex_section"
+    },
     {
       "act": "execute_script",
       "script": "var opt = tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantPick_U_MARNEUS_CALGAR_A_thunderhawk_insertion\", true, false)\nfor i in range(opt.item_count):\n\tif str(opt.get_item_metadata(i)) == \"U_INTERCESSOR_SQUAD_A\":\n\t\topt.select(i)\nreturn str(opt.get_item_metadata(opt.selected))",
@@ -36,11 +68,32 @@
       "comment": "GRAVIS/PHOBOS/TACTICUS units only (Caanok Var is a TERMINATOR)",
       "equals": true
     },
-    {"act": "click_node", "button_text": "Apply", "comment": "real click: Apply on the first row (Thunderhawk Insertion)"},
-    {"act": "wait_seconds", "seconds": 1.0},
-    {"act": "execute_script", "script": "GameState.unit_has_deep_strike(\"U_INTERCESSOR_SQUAD_A\")", "comment": "Thunderhawk Insertion: the Intercessors have Deep Strike", "equals": true},
-    {"act": "expect_node_visible", "node": "/root/Main/FormationsDialog/MainVBox", "timeout_s": 3.0},
-    {"act": "execute_script", "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantApply_U_MARNEUS_CALGAR_A_thunderhawk_insertion\", true, false) == null", "comment": "the rebuilt form no longer offers Thunderhawk Insertion (once)", "equals": true},
+    {
+      "act": "click_node",
+      "button_text": "Apply",
+      "comment": "real click: Apply on the first row (Thunderhawk Insertion)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.unit_has_deep_strike(\"U_INTERCESSOR_SQUAD_A\")",
+      "comment": "Thunderhawk Insertion: the Intercessors have Deep Strike",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/FormationsDialog/MainVBox",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantApply_U_MARNEUS_CALGAR_A_thunderhawk_insertion\", true, false) == null",
+      "comment": "the rebuilt form no longer offers Thunderhawk Insertion (once)",
+      "equals": true
+    },
     {
       "act": "execute_script",
       "script": "var opt = tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantPick_U_CAANOK_VAR_A_cerebrex_logic_engine\", true, false)\nfor i in range(opt.item_count):\n\tif str(opt.get_item_metadata(i)) == \"U_HELLBLASTER_SQUAD_A\":\n\t\topt.select(i)\nreturn str(opt.get_item_metadata(opt.selected))",
@@ -48,13 +101,41 @@
       "comment": "pick the Hellblaster Squad in the Cerebrex Logic Engine picker",
       "equals": "U_HELLBLASTER_SQUAD_A"
     },
-    {"act": "click_node", "button_text": "Apply", "comment": "real click: Apply (Cerebrex Logic Engine)"},
-    {"act": "wait_seconds", "seconds": 1.0},
-    {"act": "execute_script", "script": "\"%s,%s\" % [str(GameState.unit_has_scout(\"U_HELLBLASTER_SQUAD_A\")), str(GameState.get_scout_distance(\"U_HELLBLASTER_SQUAD_A\"))]", "comment": "Cerebrex Logic Engine: the Hellblasters have Scouts 6\"", "equals": "true,6"},
-    {"act": "execute_script", "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantHeader\", true, false) == null", "comment": "nothing left to choose: the section is gone after the rebuild", "equals": true},
-    {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Thunderhawk Insertion (Marneus Calgar): Intercessor Squad has Deep Strike\")", "expect_min": 1},
-    {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Cerebrex Logic Engine (Caanok Var): Hellblaster Squad has Scouts 6\")", "expect_min": 1},
-    {"act": "screenshot", "label": "02_formations_after_choices"},
+    {
+      "act": "click_node",
+      "button_text": "Apply",
+      "comment": "real click: Apply (Cerebrex Logic Engine)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "\"%s,%s\" % [str(GameState.unit_has_scout(\"U_HELLBLASTER_SQUAD_A\")), str(GameState.get_scout_distance(\"U_HELLBLASTER_SQUAD_A\"))]",
+      "comment": "Cerebrex Logic Engine: the Hellblasters have Scouts 6\"",
+      "equals": "true,6.0"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantHeader\", true, false) == null",
+      "comment": "nothing left to choose: the section is gone after the rebuild",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Thunderhawk Insertion (Marneus Calgar): Intercessor Squad has Deep Strike\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Cerebrex Logic Engine (Caanok Var): Hellblaster Squad has Scouts 6\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_formations_after_choices"
+    },
     {
       "act": "execute_script",
       "multiline": true,

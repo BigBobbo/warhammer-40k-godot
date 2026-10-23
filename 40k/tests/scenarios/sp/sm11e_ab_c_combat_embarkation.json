@@ -50,7 +50,7 @@
     },
     {
       "act": "execute_script",
-      "script": "not \"U_INTERCESSOR_SQUAD_A\" in MoveTypes.get_type(\"charge\")._targets_within(\"U_BOYZ_B\", GameState.state, 12.0)",
+      "multiline": true, "script": "return not \"U_INTERCESSOR_SQUAD_A\" in MoveTypes.get_type(\"charge\")._targets_within(\"U_BOYZ_B\", GameState.state, 12.0)",
       "comment": "the Boyz can no longer select the Intercessors as a charge target",
       "equals": true
     },

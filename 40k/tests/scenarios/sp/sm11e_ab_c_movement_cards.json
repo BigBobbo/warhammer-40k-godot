@@ -18,14 +18,44 @@
   "disable_ai": true,
   "sm_abilities_c": true,
   "steps": [
-    {"act": "wait_seconds", "seconds": 0.8},
-    {"act": "expect_phase", "equals": 7},
-    {"act": "expect_state", "path": "meta.active_player", "equals": 1},
-    {"act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 6.0},
-    {"act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id", "equals": "phase_start"},
-    {"act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_master_tactician", "timeout_s": 2.0},
-    {"act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_seeker_of_the_unfound", "timeout_s": 2.0},
-    {"act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_master_tactician/Buttons/Use_sm11e_abc_master_tactician_U_INTERCESSOR_SQUAD_A_assault", "timeout_s": 2.0},
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_master_tactician",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_seeker_of_the_unfound",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_master_tactician/Buttons/Use_sm11e_abc_master_tactician_U_INTERCESSOR_SQUAD_A_assault",
+      "timeout_s": 2.0
+    },
     {
       "act": "execute_script",
       "script": "var SWC = load(\"res://scripts/codex/space_wolves/SWCommon.gd\")\nreturn SWC.active_doctrines(GameState.get_unit(\"U_MARNEUS_CALGAR_A\")).size()",
@@ -33,16 +63,34 @@
       "comment": "Codex Adept: the assault, devastator and tactical doctrines are active for Calgar's unit",
       "equals": 3
     },
-    {"act": "screenshot", "label": "01_movement_ability_cards"},
+    {
+      "act": "screenshot",
+      "label": "01_movement_ability_cards"
+    },
     {
       "act": "click_node",
       "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_master_tactician/Buttons/Use_sm11e_abc_master_tactician_U_INTERCESSOR_SQUAD_A_assault",
       "comment": "real click: Master Tactician — the assault doctrine for the Intercessor Squad"
     },
-    {"act": "wait_seconds", "seconds": 0.8},
-    {"act": "expect_state", "path": "units.U_INTERCESSOR_SQUAD_A.flags.sw11e_doctrine", "equals": "assault"},
-    {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Master Tactician (Marneus Calgar): the Assault Doctrine is active for Intercessor Squad\")", "expect_min": 1},
-    {"act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_seeker_of_the_unfound", "timeout_s": 4.0},
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_INTERCESSOR_SQUAD_A.flags.sw11e_doctrine",
+      "equals": "assault"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Master Tactician (Marneus Calgar): the Assault Doctrine is active for Intercessor Squad\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_seeker_of_the_unfound",
+      "timeout_s": 4.0
+    },
     {
       "act": "execute_script",
       "script": "var u = GameState.get_unit(\"U_VULKAN_HE_STAN_A\")\nreturn MissionManager.model_oc(u, u.models[0])",
@@ -55,12 +103,33 @@
       "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_seeker_of_the_unfound/Buttons/Use_sm11e_abc_seeker_of_the_unfound_U_VULKAN_HE_STAN_A",
       "comment": "real click: Seeker of the Unfound"
     },
-    {"act": "wait_seconds", "seconds": 0.6},
-    {"act": "expect_node_visible", "node": "/root/StratagemChoiceDialog/Content/Choice_obj_nml_2", "timeout_s": 3.0},
-    {"act": "screenshot", "label": "02_seeker_objective_picker"},
-    {"act": "click_node", "node": "/root/StratagemChoiceDialog/Content/Choice_obj_nml_2", "comment": "real click: the objective Vulkan stands next to"},
-    {"act": "wait_seconds", "seconds": 0.8},
-    {"act": "expect_state", "path": "units.U_VULKAN_HE_STAN_A.flags.sm11e_abc_seeker_objective", "equals": "obj_nml_2"},
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemChoiceDialog/Content/Choice_obj_nml_2",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_seeker_objective_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemChoiceDialog/Content/Choice_obj_nml_2",
+      "comment": "real click: the objective Vulkan stands next to"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_VULKAN_HE_STAN_A.flags.sm11e_abc_seeker_objective",
+      "equals": "obj_nml_2"
+    },
     {
       "act": "execute_script",
       "script": "var u = GameState.get_unit(\"U_VULKAN_HE_STAN_A\")\nreturn \"%d,%d\" % [MissionManager.model_oc(u, u.models[0]), RulesEngine.get_unit_fnp(u)]",
@@ -68,9 +137,20 @@
       "comment": "within range of the chosen objective: OC 10 and Feel No Pain 4+",
       "equals": "10,4"
     },
-    {"act": "expect_cp", "player": 1, "delta_from_start": 0},
-    {"act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "decline any other open window (not under test)"},
-    {"act": "wait_seconds", "seconds": 0.5},
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
     {
       "act": "execute_script",
       "script": "var u = GameState.get_unit(\"U_ANCIENT_A\")\nreturn MissionManager.model_oc(u, u.models[0])",
@@ -84,13 +164,48 @@
       "comment": "the home objective is not secured yet",
       "equals": false
     },
-    {"act": "screenshot", "label": "03_before_end_movement"},
-    {"act": "click_node", "node": "/root/Main/PhaseActionButton", "comment": "real click: End Movement"},
-    {"act": "wait_seconds", "seconds": 1.0},
-    {"act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "movement_phase_end windows (not under test)"},
-    {"act": "wait_seconds", "seconds": 0.6},
-    {"act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "movement_phase_end windows (not under test)"},
-    {"act": "wait_seconds", "seconds": 0.6},
+    {
+      "act": "screenshot",
+      "label": "03_before_end_movement"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "comment": "real click: End Movement"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "real path: OK on the End Movement Phase? confirm (units not selected remain stationary)",
+      "script": "var mn = tree.root.get_node(\"Main\")\nif mn._phase_end_confirm != null and mn._phase_end_confirm.visible:\n\tmn._phase_end_confirm.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement_phase_end windows (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement_phase_end windows (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
     {
       "act": "execute_script",
       "script": "var s = MissionManager.is_objective_secured(\"obj_home_2\")\nreturn \"%s,%d\" % [str(s.get(\"secured\", false)), int(s.get(\"player\", 0))]",
@@ -98,9 +213,19 @@
       "comment": "Raise the Banner: at the end of P1's Movement phase the objective the Ancient controls is secured",
       "equals": "true,1"
     },
-    {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Raise the Banner: Ancient secures objective\")", "expect_min": 1},
-    {"act": "wait_seconds", "seconds": 0.4},
-    {"act": "screenshot", "label": "04_raise_the_banner_secured"},
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Raise the Banner: Ancient secures objective\")",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "04_raise_the_banner_secured"
+    },
     {
       "act": "execute_script",
       "multiline": true,
