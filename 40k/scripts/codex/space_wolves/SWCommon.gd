@@ -522,7 +522,7 @@ static func _game_constants_edition() -> int:
 ## datasheet of a Space Wolves army carries it (the army converter lists the
 ## chapter's army rule on every unit).
 static func has_combat_doctrines(u: Dictionary) -> bool:
-	return has_ability(u, "Combat Doctrines") and is_sw_army(int(u.get("owner", 0)))
+	return has_ability(u, "Combat Doctrines") and is_sm_army(int(u.get("owner", 0)))
 
 # ---------------------------------------------------------------------------
 # Combat Doctrines state (owned by WP-S2, SWArmyRules11e.gd; read by all)
@@ -641,5 +641,34 @@ static func group_in(unit_id: String, ids) -> bool:
 		return false
 	for gid in attached_group_ids(unit_id):
 		if gid in ids:
+			return true
+	return false
+
+# ===========================================================================
+# Codex: Space Marines (11e) — every Space Marine army (WP-M1)
+# ===========================================================================
+
+const SM_ARMY_NAMES := ["space marines", "adeptus astartes", "black templars", "blood angels",
+	"crimson fists", "dark angels", "deathwatch", "imperial fists", "iron hands", "raven guard",
+	"salamanders", "space wolves", "ultramarines", "white scars"]
+
+## True when `player`'s army follows Codex: Space Marines (11e): its faction
+## is Space Marines / Adeptus Astartes or a Space Marine chapter, or (an army
+## file without a faction block) its units are ADEPTUS ASTARTES. The generic
+## Codex: Space Marines rules (Combat Doctrines, Transhuman Strategist,
+## Librarius, the generic detachments, datasheet abilities) gate on this;
+## the Space Wolves specifics keep gating on is_sw_army.
+static func is_sm_army(player: int) -> bool:
+	if int(_game_constants_edition()) < 11:
+		return false
+	var fac = state().get("factions", {}).get(str(player), {})
+	var fname := norm_name(str(fac.get("name", ""))) if fac is Dictionary else ""
+	if fname in SM_ARMY_NAMES:
+		return true
+	if fname != "":
+		return false
+	for uid in state().get("units", {}):
+		var u: Dictionary = state()["units"][uid]
+		if int(u.get("owner", 0)) == player and has_keyword(u, "ADEPTUS ASTARTES"):
 			return true
 	return false
