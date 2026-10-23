@@ -1,0 +1,246 @@
+{
+  "id": "sm11e_masterful_tactics",
+  "covers": [
+    "codex.space_marines.stratagems.masterful-tactics",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.enemy_ended_move",
+    "rules.move.reactive_normal_move",
+    "codex.space_marines.combat_doctrines.tactical"
+  ],
+  "description": "Codex: Space Marines (11e) MASTERFUL TACTICS (Tactical Brethren, 1 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_reactive (P1 Orks ACTIVE vs P2 Space Marines, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). Setup privileges plus: the Kommandos placed ~6\" in front of the Hellblasters; the tactical doctrine active for the Space Marines army. The Ork player's Kommandos make a normal move (BEGIN_NORMAL_MOVE + drag + Confirm Move) ending within 8\" of the unengaged Hellblaster Squad (TACTICUS INFANTRY); enemy_ended_move opens for the Space Marines player; a real click spends 1 CP; with the tactical doctrine the Hellblasters can make a normal move of up to 6\" (no D6); they make it and the Orks get the phase back.",
+  "fixture": "sm11e_m3b_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nH.move_to(\"U_KOMMANDOS_A\", 30.0, 35.5)\nreturn H.setup(2, {\"cp\": {\"1\": 0}, \"doctrine\": \"tactical\"})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test); the tactical doctrine is active (army combat doctrine state — the selection UI is WP-M2a's)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nPhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(27, 40, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_NORMAL_MOVE",
+        "actor_unit_id": "U_KOMMANDOS_A",
+        "player": 1
+      },
+      "comment": "the Ork player's BEGIN_NORMAL_MOVE"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the Ork player's own unit_selected_to_move window (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.move(\"U_KOMMANDOS_A\", 0.0, 1.5)",
+      "comment": "the Ork move (drag + Confirm Move): it ends within 8\" of the Hellblasters",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.tag_prompts()"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/FireOverwatchDialog/Content/Buttons/DeclineButton",
+      "comment": "Fire Overwatch (not under test) declined"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.settle()",
+      "comment": "belt-and-braces: nothing else left waiting"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decline_until_window(\"enemy_ended_move\") >= 0",
+      "comment": "the Ork player's own unit_ended_normal_move window (not under test) is declined first",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.window_id()",
+      "equals": "enemy_ended_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tactical_brethren_masterful_tactics/Buttons/Use_faction_sm_tactical_brethren_masterful_tactics_U_HELLBLASTER_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tactical_brethren_masterful_tactics/Buttons/Use_faction_sm_tactical_brethren_masterful_tactics_U_HELLBLASTER_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_masterful_tactics_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tactical_brethren_masterful_tactics/Buttons/Use_faction_sm_tactical_brethren_masterful_tactics_U_HELLBLASTER_SQUAD_A",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn str(H.phase()._ork11e_reactive_move.get(\"unit_id\", \"\"))",
+      "equals": "U_HELLBLASTER_SQUAD_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn float(H.phase()._ork11e_reactive_move.get(\"max_inches\", 0.0))",
+      "comment": "tactical doctrine: a normal move of up to 6\" (no D6)",
+      "equals": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"MASTERFUL TACTICS: Hellblaster Squad has the tactical doctrine\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_masterful_tactics_reactive_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.move(\"U_HELLBLASTER_SQUAD_A\", -2.0, 2.0)",
+      "comment": "P2 makes the move (drag + Confirm Move)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.tag_prompts()"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/FireOverwatchDialog/Content/Buttons/DeclineButton",
+      "comment": "Fire Overwatch (not under test) declined"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.settle()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "comment": "the Orks have the phase back",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_masterful_tactics_moved"
+    }
+  ]
+}

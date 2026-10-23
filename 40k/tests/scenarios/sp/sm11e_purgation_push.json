@@ -1,0 +1,215 @@
+{
+  "id": "sm11e_purgation_push",
+  "covers": [
+    "codex.space_marines.stratagems.purgation-push",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.unit_has_shot",
+    "rules.move.reactive_normal_move",
+    "rules.objectives.range"
+  ],
+  "description": "Codex: Space Marines (11e) PURGATION PUSH (Gravis Linebreaker Force, 1 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). Setup privilege: the Flash Gitz are moved 16\" forward (within range of the Eradicators). The Eradicator Squad with Heavy Bolters (GRAVIS, a few inches short of obj_nml_2) shoots the Flash Gitz; unit_has_shot opens; a real click spends 1 CP; the reactive-move panel opens for a normal move of up to 5\" that must end within range of an objective; real clicks on Auto-move and Confirm move the unit onto obj_nml_2's range; the unit is then not eligible to declare a charge (cannot_charge) or embark this turn.",
+  "fixture": "sm11e_m3b_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nH.shift(\"U_FLASH_GITZ_A\", 0, 16)\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(33, 41, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.shoot(\"U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A\", \"U_FLASH_GITZ_A\")",
+      "comment": "the unit shoots (the shooting panel's unit pick + SHOOT)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decline_until_window(\"unit_has_shot\") >= 0",
+      "comment": "the shooter's own unit_selected_to_shoot window (not under test) is declined first",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_has_shot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gravis_linebreaker_force_purgation_push/Buttons/Use_faction_sm_gravis_linebreaker_force_purgation_push_U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gravis_linebreaker_force_purgation_push/Buttons/Use_faction_sm_gravis_linebreaker_force_purgation_push_U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn \"U_FLASH_GITZ_A\" in H.phase().get_pending_stratagem_window().get(\"ctx\", {}).get(\"hit_unit_ids\", [])",
+      "comment": "the window's ctx names the unit hit",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_purgation_push_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gravis_linebreaker_force_purgation_push/Buttons/Use_faction_sm_gravis_linebreaker_force_purgation_push_U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Ork11eReactiveMovePanel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nvar info = H.phase().ork11e_reactive_move_info()\nreturn info.kind == \"normal\" and float(info.max_inches) == 5.0 and str(info.end_condition) == \"within_objective_range\"",
+      "comment": "a normal move of up to 5\" that must end within range of an objective",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn ResourceLoader.load(\"res://scripts/rules/ReactiveMove11e.gd\").group_within_objective_range(GameState.state, \"U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A\")",
+      "comment": "not within range of an objective yet",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_purgation_push_move_panel"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/AutoButton",
+      "comment": "REAL click: Auto-move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/ConfirmButton",
+      "comment": "REAL click: Confirm"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn ResourceLoader.load(\"res://scripts/rules/ReactiveMove11e.gd\").group_within_objective_range(GameState.state, \"U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A\")",
+      "comment": "the unit ended within range of obj_nml_2",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.flag(\"U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A\", \"cannot_charge\")",
+      "comment": "not eligible to declare a charge this turn",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn load(\"res://scripts/codex/space_marines/SMCodexB.gd\").embark_blocked(H.unit(\"U_ERADICATOR_SQUAD_WITH_HEAVY_BOLTERS_A\"))",
+      "comment": "not eligible to embark this turn",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_purgation_push_moved"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"Used PURGATION PUSH\")",
+      "expect_min": 1
+    }
+  ],
+  "transition_to_phase": 7
+}

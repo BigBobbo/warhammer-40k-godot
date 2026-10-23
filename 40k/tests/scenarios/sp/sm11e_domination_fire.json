@@ -1,0 +1,183 @@
+{
+  "id": "sm11e_domination_fire",
+  "covers": [
+    "codex.space_marines.stratagems.domination-fire",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.unit_has_shot",
+    "rules.hit.minus_one"
+  ],
+  "description": "Codex: Space Marines (11e) DOMINATION FIRE (Tactical Brethren, 1 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). The Hellblaster Squad shoots the Flash Gitz; unit_has_shot opens; a real click on Use and on the secondary pick (the Flash Gitz, hit by those attacks) spend 1 CP; the Flash Gitz are suppressed until the start of P1's next turn — their attacks have -1 to hit (attack aggregator hit_minus) — the end of the Shooting phase does not end it.",
+  "fixture": "sm11e_m3b_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nH.shift(\"U_FLASH_GITZ_A\", 0, 3)\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(26, 34, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.shoot(\"U_HELLBLASTER_SQUAD_A\", \"U_FLASH_GITZ_A\")",
+      "comment": "the unit shoots (the shooting panel's unit pick + SHOOT)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decline_until_window(\"unit_has_shot\") >= 0",
+      "comment": "the shooter's own unit_selected_to_shoot window (not under test) is declined first",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_has_shot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tactical_brethren_domination_fire/Buttons/Use_faction_sm_tactical_brethren_domination_fire_U_HELLBLASTER_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tactical_brethren_domination_fire/Buttons/Use_faction_sm_tactical_brethren_domination_fire_U_HELLBLASTER_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn \"U_FLASH_GITZ_A\" in H.phase().get_pending_stratagem_window().get(\"ctx\", {}).get(\"hit_unit_ids\", [])",
+      "comment": "the window's ctx names the unit hit",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_domination_fire_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tactical_brethren_domination_fire/Buttons/Use_faction_sm_tactical_brethren_domination_fire_U_HELLBLASTER_SQUAD_A",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_FLASH_GITZ_A",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_domination_fire_secondary_pick"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_FLASH_GITZ_A",
+      "comment": "REAL click on the secondary pick"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nvar f = H.flag(\"U_FLASH_GITZ_A\", \"sm11e_suppressed\")\nreturn typeof(f) == TYPE_DICTIONARY and int(f.get(\"player\", 0)) == 1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn bool(H.mods(\"U_FLASH_GITZ_A\", \"U_HELLBLASTER_SQUAD_A\", false).get(\"hit_minus\", false))",
+      "comment": "the Flash Gitz' attacks have -1 to hit",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_domination_fire_suppressed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"Used DOMINATION FIRE\")",
+      "expect_min": 1
+    }
+  ],
+  "transition_to_phase": 7
+}

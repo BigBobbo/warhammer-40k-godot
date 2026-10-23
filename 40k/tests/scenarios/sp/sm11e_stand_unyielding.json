@@ -1,0 +1,167 @@
+{
+  "id": "sm11e_stand_unyielding",
+  "covers": [
+    "codex.space_marines.stratagems.stand-unyielding",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.movement_phase_end",
+    "rules.objectives.secured"
+  ],
+  "description": "Codex: Space Marines (11e) STAND UNYIELDING (Gravis Siege Force, 1 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). Setup privilege: objective control is recomputed. END_MOVEMENT (the End Movement Phase button's action) opens movement_phase_end; STAND UNYIELDING is offered on the Eradicator Squad with Melta Rifles (GRAVIS, controlling obj_home_2); a real click on Use and on the objective pick spend 1 CP; obj_home_2 becomes secured by P1 (14.03).",
+  "fixture": "sm11e_m3b_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nMissionManager.check_all_objectives()\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement_phase_start (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(20, 52, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      },
+      "comment": "the End Movement Phase button's action"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.window_id()",
+      "equals": "movement_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gravis_siege_force_stand_unyielding/Buttons/Use_faction_sm_gravis_siege_force_stand_unyielding_U_ERADICATOR_SQUAD_WITH_MELTA_RIFLES_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gravis_siege_force_stand_unyielding/Buttons/Use_faction_sm_gravis_siege_force_stand_unyielding_U_ERADICATOR_SQUAD_WITH_MELTA_RIFLES_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_stand_unyielding_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gravis_siege_force_stand_unyielding/Buttons/Use_faction_sm_gravis_siege_force_stand_unyielding_U_ERADICATOR_SQUAD_WITH_MELTA_RIFLES_A",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemChoiceDialog/Content/Choice_obj_home_2",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_stand_unyielding_secondary_pick"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemChoiceDialog/Content/Choice_obj_home_2",
+      "comment": "REAL click on the secondary pick"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn int(load(\"res://scripts/codex/space_wolves/SWCommon.gd\").objective_secured_by(\"obj_home_2\"))",
+      "comment": "obj_home_2 is secured by P1",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"Used STAND UNYIELDING\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_stand_unyielding_secured"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    }
+  ],
+  "transition_to_phase": 7
+}

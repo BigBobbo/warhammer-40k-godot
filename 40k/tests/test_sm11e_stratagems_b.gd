@@ -647,9 +647,23 @@ func _section_shooting_buffs() -> void:
 			blast_w = wp
 	var iu := _unit("U_INTERCESSOR_SQUAD_A")
 	_check("before: the bolt rifle is not allowed in close-quarters shooting", not CQ.weapon_allowed(bolt_rifle, iu, GS.state).allowed)
+	var wir0: Array = RE.get_eligible_targets("U_INTERCESSOR_SQUAD_A", GS.state).get("U_GRETCHIN_C", {}).get("weapons_in_range", [])
+	_check("engaged: the [CLOSE-QUARTERS] bolt pistol can target the engaged Gretchin (11e 10.06), the bolt rifle not", "bolt_pistol_ranged" in wir0 and not wir0.any(func(x): return str(x).begins_with("bolt_rifle")), str(wir0))
+	var vs0 = RE.validate_shoot({"type": "SHOOT", "actor_unit_id": "U_INTERCESSOR_SQUAD_A", "payload": {"assignments": [{"weapon_id": "bolt_pistol_ranged", "target_unit_id": "U_GRETCHIN_C", "model_ids": ["m1"]}]}}, GS.state)
+	_check("engaged: the atomic SHOOT accepts the [CLOSE-QUARTERS] bolt pistol", bool(vs0.get("valid", false)), str(vs0.get("errors", [])))
+	var vsr = RE.validate_shoot({"type": "SHOOT", "actor_unit_id": "U_INTERCESSOR_SQUAD_A", "payload": {"assignments": [{"weapon_id": "bolt_rifle___focused_fire_ranged", "target_unit_id": "U_GRETCHIN_C", "model_ids": ["m1"]}]}}, GS.state)
+	_check("engaged: …and refuses a bolt rifle (no stratagem)", not bool(vsr.get("valid", true)), str(vsr))
 	r2 = SM.use_stratagem(1, pb, "U_INTERCESSOR_SQUAD_A", {"window_id": w, "unit_id": "U_INTERCESSOR_SQUAD_A"})
 	_check("POINT-BLANK BRUTALITY succeeds", r2.get("success", false), str(r2.get("error", "")))
 	_check("after: the bolt rifle has [CLOSE-QUARTERS] (allowed)", CQ.weapon_allowed(bolt_rifle, iu, GS.state).allowed)
+	var rifle_id := ""
+	for wid in RE.get_unit_weapons("U_INTERCESSOR_SQUAD_A", GS.state).get("m1", []):
+		if str(wid).begins_with("bolt_rifle") and rifle_id == "":
+			rifle_id = str(wid)
+	var vs = RE.validate_shoot({"type": "SHOOT", "actor_unit_id": "U_INTERCESSOR_SQUAD_A", "payload": {"assignments": [{"weapon_id": rifle_id, "target_unit_id": "U_GRETCHIN_C", "model_ids": ["m1"]}]}}, GS.state)
+	_check("after: the atomic SHOOT (AI / auto path) accepts the bolt rifle while engaged", bool(vs.get("valid", false)), "%s %s" % [rifle_id, str(vs.get("errors", []))])
+	var wir1: Array = RE.get_eligible_targets("U_INTERCESSOR_SQUAD_A", GS.state).get("U_GRETCHIN_C", {}).get("weapons_in_range", [])
+	_check("after: the bolt rifle can target the engaged Gretchin", wir1.any(func(x): return str(x).begins_with("bolt_rifle")), str(wir1))
 	if not blast_w.is_empty():
 		_check("a [BLAST] weapon is excluded", not CQ.weapon_allowed(blast_w, iu, GS.state).allowed, str(blast_w.get("name", "")))
 	_check("close-quarters shooting eligible", bool(CQ.eligible("U_INTERCESSOR_SQUAD_A", GS.state).get("eligible", false)))
