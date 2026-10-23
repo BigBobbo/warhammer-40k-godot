@@ -133,8 +133,8 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var u = GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\")\nvar last: int = u.models.size() - 1\nfor i in range(0, last):\n\tu.models[i][\"alive\"] = false\n\tu.models[i][\"current_wounds\"] = 0\nu.models[last][\"position\"] = {\"x\": float(u.models[last].position.x), \"y\": float(u.models[last].position.y) + 1.9 * 40.0}\ntree.current_scene._recreate_unit_visuals()\nreturn true",
-      "comment": "setup privilege: one Intercessor left, stepped back just out of Engagement Range (still in coherency with the Captain), so the Captain's own attacks are the ones rolled against the Gretchin",
+      "script": "var u = GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\")\nvar last: int = u.models.size() - 1\nfor i in range(0, last):\n\tu.models[i][\"alive\"] = false\n\tu.models[i][\"current_wounds\"] = 0\nvar cap = GameState.get_unit(\"U_CAPTAIN_A\")\ncap.models[0][\"position\"] = {\"x\": 22.5 * 40.0, \"y\": 31.0 * 40.0}\ntree.current_scene._recreate_unit_visuals()\nreturn RulesEngine.is_unit_engaged(\"U_INTERCESSOR_SQUAD_A\", GameState.state) and RulesEngine.is_unit_engaged(\"U_CAPTAIN_A\", GameState.state)",
+      "comment": "setup privilege: one Intercessor left (still engaged) and the Captain stepped in front of the middle Gretchin (in coherency, in Engagement Range of several Gretchin), so the Gretchin survive the bodyguard's attacks and the Captain's own attacks are rolled",
       "equals": true
     },
     {
