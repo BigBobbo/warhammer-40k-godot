@@ -197,6 +197,22 @@ static func turn_stamp() -> String:
 static func phase_stamp() -> String:
 	return "%d:%d:%d" % [Common.battle_round(), Common.active_player(), Common.current_phase()]
 
+## Once per shot (integration fix): COMBINED DEPLOYMENT / SHADOW MASTERS trigger
+## "when a unit has shot" — one use per shooting unit per phase. Without this the
+## card was re-offered on every window reopen and the AI used it forever.
+const F_SHOT_RULE_USED := "sm11e_shot_rule_used"  # {sid: phase_stamp} on the shooter's head unit
+
+static func _shot_rule_used(shooter: String, sid: String) -> bool:
+	var f = Common.unit(Common.head_id(shooter)).get("flags", {}).get(F_SHOT_RULE_USED, {})
+	return f is Dictionary and str(f.get(sid, "")) == phase_stamp()
+
+static func _shot_rule_used_diffs(shooter: String, sid: String) -> Array:
+	var head := Common.head_id(shooter)
+	var f = Common.unit(head).get("flags", {}).get(F_SHOT_RULE_USED, {})
+	var d: Dictionary = (f as Dictionary).duplicate() if f is Dictionary else {}
+	d[sid] = phase_stamp()
+	return [{"op": "set", "path": "units.%s.flags.%s" % [head, F_SHOT_RULE_USED], "value": d}]
+
 ## The unit and its Attached-unit components as dicts. The caller's own dict
 ## stands for its unit (a resolver's board copy may differ from GameState).
 static func group_units(u: Dictionary) -> Array:
@@ -730,6 +746,8 @@ static func _combined_offers(player: int, ctx: Dictionary) -> Array:
 	var su := Common.unit(shooter)
 	if su.is_empty() or int(su.get("owner", 0)) != player or not group_kw(su, "ADEPTUS ASTARTES") or not group_kw(su, "TRANSPORT"):
 		return []
+	if _shot_rule_used(shooter, RULE_COMBINED):
+		return []
 	var opts: Array = []
 	var seen: Dictionary = {}
 	for hid in ctx.get("hit_unit_ids", []):
@@ -771,6 +789,8 @@ static func _shadow_offers(player: int, ctx: Dictionary) -> Array:
 	if su.is_empty() or int(su.get("owner", 0)) != player or not Common.is_on_battlefield(su):
 		return []
 	if not (group_kw(su, "PHOBOS") or group_kw(su, "SCOUT SQUAD")):
+		return []
+	if _shot_rule_used(shooter, RULE_SHADOW):
 		return []
 	var variants: Array = [{"id": "hidden", "label": "Stay hidden: those attacks do not prevent it from being hidden"}]
 	if Common.engaged_enemy_ids(shooter).is_empty():
@@ -981,6 +1001,12 @@ static func use_rule_offer(player: int, sid: String, target_unit_id: String, ctx
 			res = _use_damocles(player, target_unit_id, ctx)
 		_:
 			res = {"success": false, "error": "unknown Codex: Space Marines rule offer %s" % sid, "diffs": []}
+	if res.get("success", false) and sid in [RULE_COMBINED, RULE_SHADOW]:
+		var used := _shot_rule_used_diffs(target_unit_id, sid)
+		Common.apply_diffs(used)
+		var all_diffs: Array = res.get("diffs", [])
+		all_diffs.append_array(used)
+		res["diffs"] = all_diffs
 	if res.get("success", false):
 		res["rule_use"] = true
 		if not res.has("reopen_window"):

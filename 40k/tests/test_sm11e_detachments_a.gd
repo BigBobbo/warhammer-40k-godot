@@ -645,6 +645,9 @@ func _section_gauntlet() -> void:
 	_check("not when nothing was hit", _offer(1, "unit_has_shot", {"phase": "shooting", "unit_id": IMPULSOR, "hit_unit_ids": []}, D.RULE_COMBINED).is_empty())
 	var r := _use(1, D.RULE_COMBINED, IMPULSOR, {"secondary_id": DREAD, "hit_unit_ids": [DREAD, GRETS]})
 	_check("used: the Deff Dread is assailed", r.get("success", false) and str(_flags(DREAD).get(D.F_ASSAILED, "")) == D.turn_stamp(), str(r))
+	# Integration regression (AI-vs-AI loop): once per shot — the reopened unit_has_shot window no longer offers it.
+	_check("once per shot: COMBINED DEPLOYMENT not re-offered after use", _offer(1, "unit_has_shot", ctx, D.RULE_COMBINED).is_empty())
+	_check("... and the AI then declines (no endless re-use)", str(load("res://scripts/AIDecisionMaker.gd").decide_window_stratagem(1, "unit_has_shot", root.get_node("StratagemManager").get_all_window_offers(1, "unit_has_shot", ctx), ctx).get("stratagem_id", "")) != D.RULE_COMBINED)
 	_check("a unit not hit cannot be picked", not _use(1, D.RULE_COMBINED, IMPULSOR, {"secondary_id": BOYZ, "hit_unit_ids": [DREAD]}).get("success", false))
 	_check("Intercessors that did NOT disembark: no [SUSTAINED HITS 1]", int(_mods(INTER, DREAD, false).get("sustained", 0)) == 0)
 	_flags(INTER)["disembarked_this_turn"] = true
@@ -712,6 +715,7 @@ func _section_shadow() -> void:
 	var r := _use(1, D.RULE_SHADOW, INFIL, {"variant_id": "hidden"})
 	_check("stay-hidden used", r.get("success", false), str(r))
 	_check("... the Infiltrators are hidden again", D.unit_is_hidden(_unit(INFIL)))
+	_check("once per shot: SHADOW MASTERS not re-offered after use", _offer(1, "unit_has_shot", {"phase": "shooting", "unit_id": INFIL}, D.RULE_SHADOW).is_empty())
 	_check("Game Log line", _game_log_contains("SHADOW MASTERS"))
 	# Choice 2: normal move of up to D6" (no charge).
 	_restore()
