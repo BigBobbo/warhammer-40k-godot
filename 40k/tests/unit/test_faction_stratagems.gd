@@ -432,13 +432,15 @@ func test_load_faction_stratagems_sm_gladius():
 	_loader.load_faction_codes()
 	var strats = _loader.load_faction_stratagems("Space Marines", "Gladius Task Force")
 	assert_true(strats.size() > 0, "Should load at least one stratagem")
+	# Codex: Space Marines (11e) Gladius Task Force: STORM OF DEVASTATION (the
+	# 10e index STORM OF FIRE moved to Devastator Brethren).
 	var found_storm = false
 	for s in strats:
-		if "STORM OF FIRE" in s.name:
+		if "STORM OF DEVASTATION" in s.name:
 			found_storm = true
 			assert_eq(s.cp_cost, 1)
 			assert_eq(s.faction_id, "SM")
-	assert_true(found_storm, "Should find STORM OF FIRE")
+	assert_true(found_storm, "Should find STORM OF DEVASTATION")
 
 func test_load_faction_stratagems_skips_boarding_actions():
 	"""Should skip Boarding Actions detachment stratagems."""
@@ -594,14 +596,15 @@ func test_shipped_detachment_stratagems_fully_implemented():
 func test_epic_deed_timing_column_overrides_once_per_battle_default():
 	"""An Epic Deed Stratagem whose 11e timing column says once-per-phase: the
 	timing column must win over the legacy 'Epic Deed => once per battle' text
-	default. (Used to pin CAREEN!, which Codex: Orks removed; ONLY IN DEATH DOES
-	DUTY END — Gladius Task Force — is the same shape.)"""
+	default. (Used to pin CAREEN!, which Codex: Orks removed, then ONLY IN DEATH
+	DOES DUTY END, which Codex: Space Marines removed; FINAL REDEMPTION — Adepta
+	Sororitas, Penitent Host — is the same shape.)"""
 	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Space Marines", "Gladius Task Force")
-	var oidde = _find_strat(strats, "ONLY IN DEATH DOES DUTY END")
-	assert_not_null(oidde, "Should find ONLY IN DEATH DOES DUTY END")
+	var strats = _loader.load_faction_stratagems("Adepta Sororitas", "Penitent Host")
+	var oidde = _find_strat(strats, "FINAL REDEMPTION")
+	assert_not_null(oidde, "Should find FINAL REDEMPTION")
 	if oidde:
-		assert_true("Epic Deed" in oidde.type, "ONLY IN DEATH DOES DUTY END should be typed as an Epic Deed Stratagem")
+		assert_true("Epic Deed" in oidde.type, "FINAL REDEMPTION should be typed as an Epic Deed Stratagem")
 		assert_eq(oidde.restrictions.once_per, "phase",
 			"timing column (once-per-phase) should override the Epic Deed once-per-battle default")
 
