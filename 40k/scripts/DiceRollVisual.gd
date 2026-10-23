@@ -234,6 +234,9 @@ func _draw_dice_set(dice_set: Array, x_offset: float, y_offset: float, alpha: fl
 				pip_color = Color(COLOR_DIE_TEXT, die_alpha)
 			_draw_round_pips(x, y, die.display_value, pip_color)
 
+			# Re-rolled by an ability: outline so it reads as "this is the re-roll".
+			if not is_old and die.settled and die.get("rerolled", false):
+				draw_rect(Rect2(x - 1, y - 1, DIE_SIZE + 2, DIE_SIZE + 2), Color(0.5, 0.85, 1.0, die_alpha), false, 2.0)
 			# Strikethrough for old dice, X for natural 1s on new dice
 			if is_old:
 				# Diagonal strikethrough on old dice
@@ -396,8 +399,28 @@ func show_dice_roll(dice_data: Dictionary) -> void:
 			"value": roll_value,
 			"display_value": randi_range(1, 6),
 			"color": Color.WHITE,
-			"settled": false
+			"settled": false,
+			"rerolled": false
 		})
+	# rolls_raw keeps an automatically re-rolled die's ORIGINAL value (a
+	# Captain-General re-rolled 1 still reads 1). Settle those dice on their
+	# re-rolled face, outlined, and name the re-rolls in the label — otherwise
+	# an applied re-roll looks like it never happened.
+	var rerolls: Array = dice_data.get("rerolls", [])
+	if rerolls.is_empty() and context == "to_wound":
+		rerolls = dice_data.get("wound_rerolls", [])
+	var rr_parts: Array = []
+	for rr in rerolls:
+		var from_v := int(rr.get("original", 0))
+		var to_v := int(rr.get("rerolled_to", rr.get("new", 0)))
+		rr_parts.append("%d→%d" % [from_v, to_v])
+		for die in _dice_data:
+			if not die.rerolled and int(die.value) == from_v:
+				die.value = to_v
+				die.rerolled = true
+				break
+	if not rr_parts.is_empty():
+		_context_label += " — re-rolled %s" % ", ".join(rr_parts)
 
 	# Calculate needed height
 	var num_rows = ceili(float(_dice_data.size()) / MAX_DICE_PER_ROW)
