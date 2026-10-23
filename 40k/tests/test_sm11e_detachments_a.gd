@@ -592,6 +592,12 @@ func _section_stormlance() -> void:
 		_restore()
 		mv = _enter_clear(PHASE_MOVEMENT)
 		var r: Dictionary = mv.execute_action({"type": "BEGIN_ADVANCE", "actor_unit_id": OUTRIDERS, "player": 1, "payload": {"rng_seed": 300 + s}})
+		# Stormlance's SUDDEN ONSLAUGHT (WP-M3a) opens unit_selected_to_move first: decline it.
+		var guard := 0
+		while r.has("stratagem_window_opened") and guard < 4:
+			var pw: Dictionary = r.stratagem_window_opened
+			r = mv.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": int(pw.get("player", 1)), "window_id": str(pw.get("window_id", ""))})
+			guard += 1
 		if bool(r.get("awaiting_reroll", false)) and str(mv._reroll_pending_data.get("free_ability", "")) == "Supercharged Engines":
 			got_free = true
 			var cp_before := int(GS.state.players["1"].cp)

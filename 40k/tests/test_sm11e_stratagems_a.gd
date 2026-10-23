@@ -328,8 +328,13 @@ func _ranged_ab(board_off: Dictionary, board_on: Dictionary, shooter: String, ta
 	for wid in per:
 		asg.append({"weapon_id": wid, "target_unit_id": target, "model_ids": per[wid]})
 	var out := [0, 0, 0, 0, 0, 0]
+	var sm_det_a = load("res://scripts/codex/space_marines/SMDetachmentsA.gd")
 	for sd in seeds:
+		# Ironstorm / Martial Paragon "re-roll one hit / wound roll" is a once-per-phase
+		# ledger (WP-M2a): clear it so A and B each start the phase fresh.
+		sm_det_a.reset_reroll_ledger()
 		var a = RE.resolve_shoot({"actor_unit_id": shooter, "payload": {"assignments": asg}}, board_off.duplicate(true), RE.RNGService.new(int(sd)))
+		sm_det_a.reset_reroll_ledger()
 		var b = RE.resolve_shoot({"actor_unit_id": shooter, "payload": {"assignments": asg}}, board_on.duplicate(true), RE.RNGService.new(int(sd)))
 		out[0] += _sum_successes(a.get("dice", []), "to_hit")
 		out[1] += _sum_successes(b.get("dice", []), "to_hit")
@@ -581,7 +586,7 @@ func _section_attack_buffs() -> void:
 		m["current_wounds"] = 99
 	var off_b: Dictionary = board.duplicate(true)
 	off_b.units.U_GLADIATOR_LANCER_A.flags.erase("sm11e_headhunter")
-	var ab := _ranged_ab(off_b, board, "U_GLADIATOR_LANCER_A", "U_MEK_GUNZ_A", range(8200, 8240))
+	var ab := _ranged_ab(off_b, board, "U_GLADIATOR_LANCER_A", "U_MEK_GUNZ_A", range(8200, 8500))  # default kit = 1 laser destroyer + defensive array: low volume, needs a wide sample
 	_check("A/B HEADHUNTER vs a T20 VEHICLE: same hits (%d), more wounds lost (%d -> %d)" % [ab[0], ab[4], ab[5]], ab[0] == ab[1] and ab[5] > ab[4], str(ab))
 	SM.on_phase_end(PHASE_SHOOTING)
 	_check("expiry: sm11e_headhunter cleared", not _flags("U_GLADIATOR_LANCER_A").has("sm11e_headhunter"))

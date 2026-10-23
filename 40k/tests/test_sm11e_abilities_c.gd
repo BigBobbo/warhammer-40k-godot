@@ -442,7 +442,8 @@ func _section_loadouts() -> void:
 		["U_OUTRIDER_SQUAD_A", ["1x Thunder Hammer", "2x Chainsword", "1x Plasma Pistol", "2x Heavy Bolt Pistol", "3x Twin Bolt Rifle"], "Melee",
 			[["thunder hammer"], ["chainsword"], ["chainsword"]]],
 		["U_OUTRIDER_SQUAD_A", ["1x Thunder Hammer", "2x Chainsword", "1x Plasma Pistol", "2x Heavy Bolt Pistol", "3x Twin Bolt Rifle"], "Ranged",
-			[["plasma pistol", "twin bolt rifle"], ["heavy bolt pistol", "twin bolt rifle"], ["heavy bolt pistol", "twin bolt rifle"]]],
+			# Integration (RULINGS WP-M4b): a swap any model can take goes to the rank-and-file before the Sergeant.
+			[["heavy bolt pistol", "twin bolt rifle"], ["plasma pistol", "twin bolt rifle"], ["heavy bolt pistol", "twin bolt rifle"]]],
 		["U_ASSAULT_INTERCESSORS_WITH_JUMP_PACKS_A", ["1x Plasma Pistol", "4x Heavy Bolt Pistol", "1x Power Fist", "4x Chainsword"], "Melee",
 			[["power fist"], ["chainsword"], ["chainsword"], ["chainsword"], ["chainsword"]]],
 	]
