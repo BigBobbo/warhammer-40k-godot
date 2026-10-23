@@ -1608,7 +1608,9 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 			# Skip the per-unit search when the stratagem cannot be used at all
 			# (CP, once per turn, not the opponent's turn, ...).
 			var fo_gate = can_use_stratagem(player, strat_id, "", wctx)
-			if not fo_gate.can_use:
+			# WP-M2b Laurels of Vigilance: a player short of the base CP may still afford it on a discounted unit (per-target check below).
+			if not fo_gate.can_use and not (GameConstants.edition >= 11 and str(fo_gate.reason).begins_with("Not enough CP") \
+					and load("res://scripts/codex/space_marines/SMDetachmentsB.gd").cp_discount_possible(player, strat_id)):
 				print("StratagemManager: window %s — FIRE OVERWATCH not offered: %s" % [window_id, fo_gate.reason])
 				continue
 			candidates = get_fire_overwatch_offer_targets_11e(player)

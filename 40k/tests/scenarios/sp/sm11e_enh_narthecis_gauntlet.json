@@ -1,0 +1,123 @@
+{
+  "id": "sm11e_enh_narthecis_gauntlet",
+  "covers": [
+    "codex.space_marines.enhancements.narthecis_gauntlet",
+    "stratagem.window.phase_start",
+    "dialogs.StratagemDialog.rule_card",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Gravis Siege Force enhancement NARTHECIS GAUNTLET (WP-M2b): in your Command phase, the bearer's unit heals D3+1 wounds. Fixture sm11e_m2b_marines_active (the Apothecary Biologis carries it). Setup privileges: the Apothecary Biologis has 1 wound left (of 5), CP 0 for both, the Command phase re-entered. The phase_start window of the Command phase shows the free NARTHECIS GAUNTLET card; a REAL click on Use heals D3+1 (Game Log line), no CP is spent, and the card is not offered again this phase.",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}, \"wound\": {\"U_APOTHECARY_BIOLOGIS_A\": 1}})\nPhaseManager.transition_to_phase(6)\nreturn int(H.unit(\"U_APOTHECARY_BIOLOGIS_A\").models[0].current_wounds)",
+      "comment": "setup privileges (see description)",
+      "equals": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")",
+      "equals": "phase_start"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_enh_narthecis_gauntlet/Buttons/Use_sm11e_rule_enh_narthecis_gauntlet_U_APOTHECARY_BIOLOGIS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(16, 55, 1.4)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_narthecis_gauntlet_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_enh_narthecis_gauntlet/Buttons/Use_sm11e_rule_enh_narthecis_gauntlet_U_APOTHECARY_BIOLOGIS_A",
+      "comment": "REAL click on Use"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar w = int(H.unit(\"U_APOTHECARY_BIOLOGIS_A\").models[0].current_wounds)\nprint(\"[sm11e narthecis] wounds now \", w)\nreturn w >= 3 and w <= 5",
+      "comment": "healed D3+1 (2-4) wounds from 1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"NARTHECIS GAUNTLET\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.det().window_offers(1, \"phase_start\", {}).is_empty()",
+      "comment": "not offered again this phase",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_narthecis_gauntlet_healed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

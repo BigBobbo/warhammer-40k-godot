@@ -1,0 +1,133 @@
+{
+  "id": "sm11e_enh_corporeum_reliquary",
+  "covers": [
+    "codex.space_marines.enhancements.corporeum_reliquary",
+    "phases.MovementPhase.reinforcements",
+    "scripts.Main.reinforcement_list",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Terminator Storm Force enhancement CORPOREUM RELIQUARY (WP-M2b): in your first Movement phase, the bearer's unit can make an ingress move. Fixture sm11e_m2b_marines_active (the Librarian in Terminator Armour carries it). Setup privileges: battle round 1, the Librarian in reserves (deep strike), CP 0 for both, straight to the Movement phase. The unit list shows the REINFORCEMENTS section with the Librarian in battle round 1 (no other reserve unit could arrive yet); the panel's placement (PLACE_REINFORCEMENT, more than 9\" from every enemy) succeeds: the Librarian arrives via an ingress move.",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}, \"round\": 1, \"reserves\": [\"U_LIBRARIAN_IN_TERMINATOR_ARMOUR_A\", \"U_CHAPLAIN_A\"]})\nPhaseManager.transition_to_phase(7)\nreturn GameState.get_battle_round()",
+      "comment": "setup privileges (see description; the Chaplain is a control unit in reserves without the enhancement)",
+      "equals": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar m = tree.root.get_node(\"Main\")\nif m.has_method(\"refresh_unit_list\"):\n\tm.refresh_unit_list()\nvar ul = m.unit_list\nvar items = []\nfor i in range(ul.get_item_count()):\n\titems.append(ul.get_item_text(i))\nprint(\"[sm11e corporeum] unit list: \", items)\nvar s = \" | \".join(items)\nreturn s.contains(\"REINFORCEMENTS\") and s.contains(\"Librarian in Terminator Armour\") and not s.contains(\"Chaplain\")",
+      "comment": "the REINFORCEMENTS section lists the Librarian (not the Chaplain) in battle round 1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(40, 50, 1.0)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_reinforcements_list_round_1"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PLACE_REINFORCEMENT",
+        "unit_id": "U_LIBRARIAN_IN_TERMINATOR_ARMOUR_A",
+        "model_positions": [
+          [
+            1600.0,
+            2120.0
+          ]
+        ]
+      },
+      "comment": "the deep-strike placement (more than 9\" from every enemy unit)"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_LIBRARIAN_IN_TERMINATOR_ARMOUR_A.status",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_LIBRARIAN_IN_TERMINATOR_ARMOUR_A.flags.arrived_from_reserves",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PLACE_REINFORCEMENT",
+        "unit_id": "U_CHAPLAIN_A",
+        "model_positions": [
+          [
+            160.0,
+            2120.0
+          ]
+        ]
+      },
+      "comment": "control: the Chaplain (no enhancement) cannot arrive in battle round 1"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_librarian_arrived_round_1"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

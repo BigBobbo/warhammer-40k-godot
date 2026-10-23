@@ -1,0 +1,159 @@
+{
+  "id": "sm11e_enh_laurels_of_vigilance",
+  "covers": [
+    "codex.space_marines.enhancements.laurels_of_vigilance",
+    "stratagem.fire_overwatch_11e",
+    "autoloads.StratagemManager.cp_discount",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Tactical Brethren enhancement LAURELS OF VIGILANCE (WP-M2b): (once per battle round, per army) FIRE OVERWATCH / HEROIC INTERVENTION on a friendly ADEPTUS ASTARTES BATTLELINE unit within 12\" of the bearer is -1CP. Fixture sm11e_m2b_marines_active (the Lieutenant carries it, ~5\" from the Intercessor Squad — BATTLELINE). Setup privileges: it is the Ork player's Movement phase (active player 2), the Space Marine player has 0 CP (P2 0 CP too). At the end of the Ork Movement phase the FIRE OVERWATCH window opens for the Space Marine player although it has 0 CP: only the discounted Intercessor Squad is offered; a REAL click on Use + the Meganobz as target: P1 still has 0 CP afterwards and the Game Log names Laurels of Vigilance.",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}, \"active\": 2, \"place\": {\"U_MEGANOBZ_A\": [36.0, 24.0]}})\nPhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privileges (see description; the Meganobz moved 4\" closer — still out of engagement)",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn StratagemManager.preview_cp_cost(1, \"fire_overwatch\", \"U_INTERCESSOR_SQUAD_A\")",
+      "comment": "the Intercessors' Fire Overwatch costs 0CP",
+      "equals": 0
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 2
+      },
+      "comment": "the Ork player ends the Movement phase (movement panel's End Movement)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar w = PhaseManager.get_current_phase_instance().get_pending_stratagem_window()\nprint(\"[sm11e laurels] window \", w)\nreturn str(w.get(\"window_id\", \"\"))",
+      "equals": "movement_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar dlg = tree.root.get_node(\"StratagemDialog\")\nvar ids = []\nfor n in dlg.find_children(\"Use_*\", \"\", true, false):\n\tids.append(str(n.name))\nprint(\"[sm11e laurels] use buttons: \", ids)\nreturn ids.has(\"Use_fire_overwatch_11e_U_INTERCESSOR_SQUAD_A\") and ids.size() == 1",
+      "comment": "only the discounted Intercessor Squad can use FIRE OVERWATCH at 0CP",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(36, 32, 1.0)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fire_overwatch_offered_at_0cp"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_INTERCESSOR_SQUAD_A",
+      "comment": "REAL click on Use"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_MEGANOBZ_A",
+      "comment": "REAL click: the Meganobz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn load(\"res://tests/helpers/cus11e_c5_scen.gd\").settle()"
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Laurels of Vigilance\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "factions.1.sm11e_laurels_of_vigilance_round",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "02_fire_overwatch_used_laurels_of_vigilance"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

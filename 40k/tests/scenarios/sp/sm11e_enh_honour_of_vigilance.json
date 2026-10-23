@@ -1,0 +1,129 @@
+{
+  "id": "sm11e_enh_honour_of_vigilance",
+  "covers": [
+    "codex.space_marines.enhancements.honour_of_vigilance",
+    "phases.MovementPhase.advance_reroll",
+    "dialogs.CommandRerollDialog",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Devastator Brethren enhancement HONOUR OF VIGILANCE (WP-M2b): the bearer's unit's ranged attacks have [LETHAL HITS]; if the devastator doctrine is active for the unit, it can re-roll advance rolls. Fixture sm11e_m2b_marines_active (the Ancient carries it). Setup privileges: the devastator doctrine is active for P1's army (SWCommon doctrine state factions.1.sw11e_doctrine = devastator — M2a ships the selection UI for every Space Marine army), CP 0 for both, straight to the Movement phase. The movement panel's Advance (BEGIN_ADVANCE, seeded): the re-roll dialog offers a FREE re-roll branded HONOUR OF VIGILANCE; a REAL click on Re-roll re-rolls the advance without CP.",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}, \"doctrine\": \"devastator\"})\nPhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privileges (see description)",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(10, 46, 1.4)\nRulesEngine.set_test_seed(2)\nreturn H.det().free_advance_reroll_source(H.unit(\"U_ANCIENT_A\"))",
+      "equals": "Honour of Vigilance"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_ADVANCE",
+        "actor_unit_id": "U_ANCIENT_A",
+        "player": 1
+      },
+      "comment": "the movement panel's Advance"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CommandRerollDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar t: String = tree.root.get_node(\"CommandRerollDialog\").find_child(\"HeaderLabel\", true, false).text\nprint(\"[sm11e honour] reroll header: \", t)\nreturn t.contains(\"HONOUR OF VIGILANCE\") and t.contains(\"FREE RE-ROLL\")",
+      "comment": "the free re-roll is branded HONOUR OF VIGILANCE",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_honour_of_vigilance_free_advance_reroll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/UseRerollButton",
+      "emit_pressed": true,
+      "comment": "REAL click: Re-roll"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Honour of Vigilance\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_advance_rerolled_no_cp"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

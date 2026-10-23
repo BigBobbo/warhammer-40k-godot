@@ -506,6 +506,18 @@ static func stratagem_cp_discount(player: int, stratagem_id: String, target_unit
 			return {"discount": 1, "source": "Laurels of Vigilance (%s)" % Common.unit_name(str(b.get("id", ""))), "player": player, "target": target_unit_id}
 	return {}
 
+## True when a Laurels of Vigilance discount could still apply to some unit of
+## `player` this battle round (StratagemManager: a player short of the base CP
+## is offered the window and the per-target check decides).
+static func cp_discount_possible(player: int, stratagem_id: String) -> bool:
+	var sid := stratagem_id.replace("_11e", "")
+	if not enabled() or (sid != "fire_overwatch" and sid != "heroic_intervention"):
+		return false
+	var f = Common.state().get("factions", {}).get(str(player), {})
+	if f is Dictionary and int(f.get(FK_LAURELS_ROUND, 0)) == Common.battle_round():
+		return false
+	return not bearers(player, LAURELS_VIGILANCE).is_empty()
+
 static func record_cp_discount(disc: Dictionary) -> Array:
 	if disc.is_empty():
 		return []

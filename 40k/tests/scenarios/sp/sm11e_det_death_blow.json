@@ -1,0 +1,143 @@
+{
+  "id": "sm11e_det_death_blow",
+  "covers": [
+    "codex.space_marines.detachments.terminator_storm_force.death_blow",
+    "phases.ChargePhase.charge_roll",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Terminator Storm Force — DEATH BLOW (WP-M2b): friendly ADEPTUS ASTARTES TERMINATOR units have +1 to charge rolls. Fixture sm11e_m2b_marines_active (P1 Space Marines with the eight group-B detachments; the Terminator Squad is 9\" from the Gretchin). Setup privileges: CP 0 for both players (no Command Re-roll / reactions — not under test), straight to the Charge phase. A real click on the Terminator Squad row of the charge panel, a click on the Gretchin, Declare Charge, Roll Charge (seed 3: 4 + 4): the charge roll is 2D6 + 1 = 9 (Death Blow), the Game Log / dice show the bonus and the 9\" charge succeeds.",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}})\nPhaseManager.transition_to_phase(9)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privileges (see description)",
+      "equals": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(16, 45, 1.3)\nvar cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in range(cc.unit_selector.get_item_count()):\n\tout.append(str(cc.unit_selector.get_item_metadata(i)))\nprint(\"[sm11e death blow] charge list: \", out)\nreturn out.find(\"U_TERMINATOR_SQUAD_A\")",
+      "comment": "the charge panel's unit list (index of the Terminator Squad)",
+      "equals": 5
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 5,
+      "comment": "REAL click: the Terminator Squad"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_TERMINATOR_SQUAD_A"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton",
+      "comment": "REAL click: Declare Charge"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(3)",
+      "comment": "deterministic dice for the charge roll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton",
+      "comment": "REAL click: Roll Charge"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar d = H.dice(\"charge_roll\")\nreturn int(d.get(\"charge_bonus\", 0)) == 1 and int(d.get(\"total\", 0)) == int(d.rolls[0]) + int(d.rolls[1]) + 1",
+      "comment": "the charge roll carries Death Blow +1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn not bool(H.dice(\"charge_roll\").get(\"charge_failed\", true))",
+      "comment": "2D6 8 + 1 = 9 reaches the Gretchin 9\" away",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_death_blow_charge_roll_plus_one"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

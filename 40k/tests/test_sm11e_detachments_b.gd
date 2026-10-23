@@ -721,8 +721,22 @@ func _section_laurels() -> void:
 	_check("Terminators (not BATTLELINE): full cost", int(SM.preview_cp_cost(1, "fire_overwatch", TERMS)) >= 1)
 	_check("Assault Intercessors (BATTLELINE, > 12\" away): full cost", int(SM.preview_cp_cost(1, "fire_overwatch", AINT)) >= 1)
 	_check("a different stratagem: no", B.stratagem_cp_discount(1, "rapid_ingress", INT).is_empty())
+	_check("a discount is possible this round (the 0CP window gate)", B.cp_discount_possible(1, "fire_overwatch_11e"))
+	GS.state.players["1"]["cp"] = 0
+	GS.state.meta["active_player"] = 2
+	GS.state.meta["phase"] = PHASE_MOVEMENT
+	var fo_offers: Array = SM.get_window_offers(1, "movement_phase_end", {})
+	var fo_rows: Array = []
+	for o in fo_offers:
+		if str(o.stratagem_id) == "fire_overwatch_11e":
+			fo_rows = o.targets.map(func(t): return str(t.unit_id))
+	_check("0CP: FIRE OVERWATCH offered for the discounted Intercessors only (%s)" % str(fo_rows), fo_rows == [INT], str(fo_offers))
+	GS.state.players["1"]["cp"] = 6
+	GS.state.meta["active_player"] = 1
+	GS.state.meta["phase"] = PHASE_COMMAND
 	var disc: Dictionary = B.stratagem_cp_discount(1, "fire_overwatch_11e", INT)
 	B.record_cp_discount(disc)
+	_check("after the use: no discount possible this round", not B.cp_discount_possible(1, "fire_overwatch"))
 	_check("once per battle round: spent", B.stratagem_cp_discount(1, "fire_overwatch", INT).is_empty())
 	_check("Game Log line", _game_log_contains("Laurels of Vigilance"))
 	GS.state.meta["battle_round"] = 3

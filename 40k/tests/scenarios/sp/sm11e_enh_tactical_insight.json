@@ -1,0 +1,189 @@
+{
+  "id": "sm11e_enh_tactical_insight",
+  "covers": [
+    "codex.space_marines.enhancements.tactical_insight",
+    "phases.MovementPhase.fall_back",
+    "phases.ShootingPhase.eligibility",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Tactical Brethren enhancement TACTICAL INSIGHT (WP-M2b): the tactical doctrine is active for the bearer's (Captain's) unit in addition to any other combat doctrine (written as SWCommon's per-unit additional doctrine at every phase start). Fixture sm11e_m2b_marines_active (the Captain carries it; no army doctrine is active). Setup privileges: CP 0 for both, the Captain is placed in engagement range of the Gretchin, straight to the Movement phase. The movement panel's Fall Back (BEGIN_FALL_BACK, drag 4\" away + Confirm Move); then the Shooting phase: the shooting panel's unit pick SELECTS the Captain — the TACTICAL DOCTRINE lets a unit that fell back shoot.",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}, \"place\": {\"U_CAPTAIN_A\": [16.0, 41.6]}})\nPhaseManager.transition_to_phase(7)\nreturn RulesEngine.is_unit_engaged(\"U_CAPTAIN_A\", GameState.state)",
+      "comment": "setup privileges (see description)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn load(\"res://scripts/codex/space_wolves/SWCommon.gd\").active_doctrines(H.unit(\"U_CAPTAIN_A\"))",
+      "comment": "the Captain has the tactical doctrine (Tactical Insight)",
+      "equals": [
+        "tactical"
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(16, 43, 1.4)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_FALL_BACK",
+        "actor_unit_id": "U_CAPTAIN_A",
+        "player": 1
+      },
+      "comment": "the movement panel's Fall Back"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn load(\"res://tests/helpers/cus11e_c5_scen.gd\").move(\"U_CAPTAIN_A\", 0.0, 4.0)",
+      "comment": "the fall-back move: drag 4\" + Confirm Move",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn load(\"res://tests/helpers/cus11e_c5_scen.gd\").settle()"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CAPTAIN_A.flags.fell_back",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_captain_fell_back"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "on to the Shooting phase",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CAPTAIN_A",
+        "player": 1
+      },
+      "comment": "the shooting panel's unit pick: the Captain that fell back"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(16, 45, 1.3)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_fell_back_captain_selected_to_shoot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

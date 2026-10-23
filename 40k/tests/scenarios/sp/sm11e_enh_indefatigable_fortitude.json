@@ -1,0 +1,181 @@
+{
+  "id": "sm11e_enh_indefatigable_fortitude",
+  "covers": [
+    "codex.space_marines.enhancements.indefatigable_fortitude",
+    "phases.FightPhase",
+    "RulesEngine.wound_penalty",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Gravis Linebreaker Force enhancement INDEFATIGABLE FORTITUDE (WP-M2b): attacks that target the bearer's unit with S greater than its T have -1 to wound. Fixture sm11e_m2b_marines_active. Setup privileges: the Captain in Gravis Armour carries Indefatigable Fortitude and leads the Heavy Intercessors; the unit is moved OFF the objective (so Indomitable Defence does not apply) to (22\", 47\"); the Meganobz in base contact north of it; it is the Ork player's turn (active player 2), CP 0 for both, straight to the Fight phase. Both players end their pile-in; a REAL click selects the Meganobz to fight; all attacks at the Heavy Intercessors (S10 vs T6): the wound_roll_melee ledger names Indefatigable Fortitude.",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}, \"active\": 2, \"enh\": {\"U_CAPTAIN_IN_GRAVIS_ARMOUR_A\": [\"Indefatigable Fortitude\"]}, \"attach\": {\"U_CAPTAIN_IN_GRAVIS_ARMOUR_A\": \"U_HEAVY_INTERCESSOR_SQUAD_A\"}, \"place\": {\"U_HEAVY_INTERCESSOR_SQUAD_A\": [22.0, 47.0], \"U_CAPTAIN_IN_GRAVIS_ARMOUR_A\": [22.0, 49.3], \"U_MEGANOBZ_A\": [22.0, 44.0]}})\nPhaseManager.transition_to_phase(10)\nreturn RulesEngine.is_unit_engaged(\"U_HEAVY_INTERCESSOR_SQUAD_A\", GameState.state) and not load(\"res://scripts/codex/space_wolves/SWCommon.gd\").group_in_range_of_any_objective(\"U_HEAVY_INTERCESSOR_SQUAD_A\")",
+      "comment": "setup privileges (see description)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(22, 46, 1.4)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "fight_phase_start (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true,
+      "comment": "End Pile In (each player)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true,
+      "comment": "End Pile In (each player)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_MEGANOBZ_A",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_MEGANOBZ_A",
+      "emit_pressed": true,
+      "comment": "REAL click: select the unit to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "unit_selected_to_fight (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.ledger_has(\"wound_roll_melee\", \"Indefatigable Fortitude\")",
+      "comment": "the Meganobz' wound rolls carry Indefatigable Fortitude -1",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_indefatigable_fortitude_minus_one_to_wound"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.show_dice_tab()",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_dice_log_indefatigable_fortitude"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}
