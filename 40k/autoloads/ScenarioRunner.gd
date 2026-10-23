@@ -291,6 +291,7 @@ func _run_scenario() -> void:
 	_sw11e_abilities_policy_arm()  # WP-S4: Space Wolves datasheet-ability cards
 	_sm11e_abilities_b_policy_arm()  # WP-M4b: Codex: Space Marines M4b datasheet-ability cards
 	_sm11e_c_abilities_policy_arm()  # WP-M4c: Space Marines (M4c datasheets) ability cards
+	_sm11e_abilities_a_policy_arm()  # WP-M4a: Codex: Space Marines (11e) M4a datasheet-ability cards
 
 	# 2) Load fixture (optional)
 	var fixture: String = _scenario.get("fixture", "")
@@ -1963,6 +1964,19 @@ func _sm11e_c_abilities_policy_arm() -> void:
 		print("[ScenarioRunner] sm_abilities_c: true — Space Marines (M4c) datasheet-ability cards will be offered")
 	else:
 		print("[ScenarioRunner] sm_abilities_c policy: Space Marines (M4c) datasheet-ability cards are not offered in this scenario (opt in with \"sm_abilities_c\": true); passive abilities still apply")
+# WP-M4a: Codex: Space Marines (11e) generic datasheet abilities (M4a list,
+# SMAbilitiesA.gd) — the same policy: cards only when the scenario opts in with
+# top-level "sm_abilities_a": true; passive abilities always apply.
+func _sm11e_abilities_a_policy_arm() -> void:
+	var sm = load("res://scripts/codex/space_marines/SMAbilitiesA.gd")
+	if sm == null:
+		return
+	var opt_in := bool(_scenario.get("sm_abilities_a", false))
+	sm.offers_suppressed = not opt_in
+	if opt_in:
+		print("[ScenarioRunner] sm_abilities_a: true — Codex: Space Marines (M4a) datasheet-ability cards will be offered")
+	else:
+		print("[ScenarioRunner] sm_abilities_a policy: Codex: Space Marines (M4a) datasheet-ability cards are not offered in this scenario (opt in with \"sm_abilities_a\": true); passive abilities still apply")
 
 func _katah_policy_on_phase_changed(new_phase) -> void:
 	if int(new_phase) != int(GameStateData.Phase.COMMAND):

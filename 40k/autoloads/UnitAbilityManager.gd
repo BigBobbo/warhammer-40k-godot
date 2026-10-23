@@ -888,6 +888,389 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle, your Shooting phase: a visible enemy unit within 6\" \u2014 D6 2+: D3 mortal wounds (2D3 vs a VEHICLE) (Codex: Space Marines 11e, Space Wolves \u2014 SWAbilities11e)."
 	},
 
+	# WP-M4a: Codex: Space Marines (11e) — generic datasheet / wargear abilities
+	# of the M4a datasheets. The rules live in
+	# scripts/codex/space_marines/SMAbilitiesA.gd; these rows only describe
+	# them (condition "sm11e_m4a" is never evaluated here).
+	# ======================================================================
+	"Vivispectral Analysis Targeting": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit's attacks have [LETHAL HITS] against non-VEHICLE units (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Assault Ramp": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Movement phase, when this unit ends a normal move: embarked units can make an assault disembark move (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Power of the Machine Spirit": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit's ranged attacks can re-roll one hit roll and one wound roll (per phase) (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Fury of the Machine Spirit": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ranged attacks that target a unit within 12\" have [LETHAL HITS] (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Bladeguard": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per turn, Fight phase (selected to fight / targeted): melee +1 to hit, or attacks that target this unit -1 to hit (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Strategic Acumen": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Command phase: select one combat doctrine to be active for this unit until your next Command phase (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Finest Hour": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle, selected to fight: this model's melee attacks have +3 A and [DEVASTATING WOUNDS] (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Relic Shield": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This model has +1 W (applied at army load when the roster takes it) (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Priority Target Identified": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle, your Command phase: a terrain feature is identified — enemy units within it have +3\" detection range until the end of the turn (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Evade and Survive": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per phase, opponent's Movement phase: an enemy unit ends a move within 8\" — normal move of up to D3+3\" (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Librarian": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psyker level 1 (Librarius): the psychic abilities of this datasheet (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Psychic Hood": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit has Feel No Pain 4+ against psychic attacks (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Might of Heroes": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 1, Fight phase: this unit's melee attacks have +2 S this phase (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Thunderous Force": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 1, your Shooting phase: this unit's ranged attacks have +6\" Range this phase (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Angel's Wrath": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit has +1 to advance rolls and charge rolls (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Sentinel Protocols": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Fire Overwatch on this unit regardless of other uses (once per phase): its snap-shooting attacks hit on unmodified 4+ (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Drop Pod Assault": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Starts in strategic reserves; can ingress in your first Movement phase; embarked units disembark (more than 8\" from enemy units) as it is set up (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Deployment Complete": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once set up and emptied, units cannot embark within this unit (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Ballistus Strike": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ranged attacks that target an enemy unit within 24\" have [SUSTAINED HITS 1] (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Catechism of Fire": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Selected to shoot: a visible enemy unit — this unit's ranged attacks that target it have [DEVASTATING WOUNDS] (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Exhortation of Rage": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "At or below half-strength: this unit's melee attacks re-roll wound rolls (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Hammerstrike": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ranged attacks that target an enemy unit within a terrain area have [SUSTAINED HITS 1] (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Zealous Fortitude": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This unit has Feel No Pain 4+ against mortal wounds (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Teleport Homer": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle: a Teleport Homer token — Rapid Ingress -1 CP, set up within 3\" of it and not within 8\" of an enemy unit (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Terminatus Assault": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Charged this turn: Lightning Claws [SUSTAINED HITS 1] vs non-MONSTER/VEHICLE, Thunder Hammers vs MONSTER/VEHICLE (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Shrouding": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 1, when an enemy unit targets this unit: attacks that target it have -1 to hit until the end of the phase (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Soul Sight": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Psychic level 1, your Shooting phase: ranged attacks that target the selected enemy unit have [IGNORES COVER] (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Hailstrike": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Has shot: an enemy unit hit — friendly ADEPTUS ASTARTES ranged attacks that target it have [IGNORES COVER] this phase (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Meteoric Descent": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Made an ingress move this turn: this unit's ranged attacks have +1 to hit (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Parabolic Jetleap": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "End of your opponent's Fight phase, unengaged: place this unit in strategic reserves (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Driven from Cover": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Has shot: an enemy unit hit — friendly ADEPTUS ASTARTES ranged attacks that target it have [IGNORES COVER] this phase (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Master of the Forge": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Movement phase, start or end of this unit's move: a friendly AA VEHICLE model within 3\" heals 3 and ignores BS/hit/wound modifiers until your next Movement phase (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Rites of Tempering": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Attacks that target this unit with S greater than its T have -1 to wound (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Iron Father": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Within 3\" of a friendly ADEPTUS ASTARTES VEHICLE unit: Lone Operative (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Unstoppable Valour": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "You can re-roll charge rolls for this unit (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Brutalis Charge": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per phase: Crushing Impact on this unit regardless of other uses, -1 CP (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Codex Adept": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "The assault, devastator and tactical doctrines are active for this unit (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Primarch of the XIII": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Aura: friendly ADEPTUS ASTARTES units within 6\" re-roll hit rolls of 1 and wound rolls of 1 (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Author of the Codex": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Movement phase: a visible friendly AA unit within 12\" gets an additional combat doctrine until your next Command phase (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Leader of Astartes": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Within 3\" of a friendly ADEPTUS ASTARTES INFANTRY unit: Lone Operative (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Aerial Assault": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Movement phase, ends a normal move: embarked units whose models all have Deep Strike can make an assault disembark move (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Thunderhawk Cluster Bombs": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Ends a normal/advance move: an enemy unit moved over — six D6, each 3+ is 1 mortal wound (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Techmarine": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Within 3\" of a friendly ADEPTUS ASTARTES VEHICLE unit: Lone Operative (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Blessings of the Omnissiah": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Your Movement phase, start or end of this unit's move: a friendly AA VEHICLE model within 3\" heals D3 and ignores hit/wound modifiers until your next Movement phase (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Vanguard Assault": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Charged this turn: this unit's melee attacks have +1 A (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Combat Shield": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This model has a 5+ invulnerable save (applied at army load) (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+	"Forward Assault Warsuit": {
+		"condition": "sm11e_m4a",  # WP-M4a: rule lives in SMAbilitiesA.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Start of the first battle round: an enemy unit is this unit's mark — re-roll wound rolls of 1 against it (re-selected when destroyed) (Codex: Space Marines 11e \u2014 SMAbilitiesA)."
+	},
+
+	# ======================================================================
 	# ======================================================================
 	# WP-M4b: Codex: Space Marines (11e) datasheet abilities of the M4b datasheets.
 	# The rules live in scripts/codex/space_marines/SMAbilitiesB.gd; these rows
@@ -2321,7 +2704,7 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [
 			{"type": "set_effect_fnp", "value": 6}
 		],
-		"description": "Bearer's unit has Feel No Pain 6+"
+		"description": "Bearer's unit has Feel No Pain 6+ (10e index row — display only). Codex: Space Marines 11e: in your Command phase, this unit heals D3 wounds (SMAbilitiesA, WP-M4a)."
 	},
 
 	"Infiltrator Comms Array": {

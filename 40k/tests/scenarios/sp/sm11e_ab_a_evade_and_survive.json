@@ -1,0 +1,203 @@
+{
+  "id": "sm11e_ab_a_evade_and_survive",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.evade_and_survive",
+    "scripts.codex.space_marines.SMAbilitiesA",
+    "stratagem.window.enemy_ended_move"
+  ],
+  "description": "WP-M4a EVADE AND SURVIVE through the real enemy_ended_move window. Fixture sm11e_m4a_enemy_turn (P2 Orks' Movement phase): the Boyz move 6\" and end within 8\" of the Lieutenant with Combi-weapon; P1's card is offered, a real click rolls D3+3 and starts the reactive normal move, the Lieutenant moves 3\" back. Once per phase.",
+  "fixture": "sm11e_m4a_enemy_turn",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "sm_abilities_a": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_NORMAL_MOVE",
+        "actor_unit_id": "U_BOYZ_B",
+        "player": 2
+      },
+      "comment": "the Ork player's BEGIN_NORMAL_MOVE"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.move(\"U_BOYZ_B\", 0.0, 6.0)",
+      "comment": "the Boyz move 6\" toward the Lieutenant: they end within 8\"",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.tag_prompts()"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/FireOverwatchDialog/Content/Buttons/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "enemy_ended_move"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_evade_and_survive",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_evade_and_survive_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_evade_and_survive/Buttons/Use_sm11e_ab_a_evade_and_survive_U_LIEUTENANT_WITH_COMBI_WEAPON_A",
+      "comment": "REAL click (P1): Evade and Survive"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Evade and Survive: Lieutenant with Combi-weapon rolls D3+3\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn str(H.phase()._ork11e_reactive_move.get(\"unit_id\", \"\"))",
+      "comment": "P1's normal move of up to D3+3\" is under way",
+      "equals": "U_LIEUTENANT_WITH_COMBI_WEAPON_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar cap := float(H.phase().active_moves.get(\"U_LIEUTENANT_WITH_COMBI_WEAPON_A\", {}).get(\"move_cap_inches\", -1.0))\nprint(\"[sm11e-m4a] evade and survive cap \", cap)\nreturn cap >= 4.0 and cap <= 6.0",
+      "comment": "the move is capped at D3+3\"",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_evade_and_survive_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.move(\"U_LIEUTENANT_WITH_COMBI_WEAPON_A\", 0.0, 3.0)",
+      "comment": "P1 makes the move away from the Boyz (staged + Confirm Move)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.tag_prompts()"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/FireOverwatchDialog/Content/Buttons/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var S = load(\"res://scripts/codex/space_marines/SMAbilitiesA.gd\")\nreturn S.used_this_phase(\"U_LIEUTENANT_WITH_COMBI_WEAPON_A\", \"evade_and_survive\")",
+      "comment": "once per phase",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "float(GameState.get_unit(\"U_LIEUTENANT_WITH_COMBI_WEAPON_A\").models[0].position.y) / 40.0 > 43.0",
+      "comment": "the Lieutenant moved 3\" back",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_lieutenant_moved"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4a] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

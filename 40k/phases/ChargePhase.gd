@@ -826,6 +826,11 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	if int(smc_cb.get("bonus", 0)) > 0:
 		charge_bonus += int(smc_cb.bonus)
 		log_phase_message("Charge roll +%d (%s)" % [int(smc_cb.bonus), str(smc_cb.source)])
+	# WP-M4a ANGEL'S WRATH (Captain with Jump Pack): +1 to charge rolls.
+	var sm_aw: Dictionary = _sm11e_abilities_a().roll_bonus(unit_id)
+	if int(sm_aw.get("bonus", 0)) > 0:
+		charge_bonus += int(sm_aw.bonus)
+		log_phase_message("Charge roll +%d (%s)" % [int(sm_aw.bonus), str(sm_aw.source)])
 	charge_bonus = int(_cus11e_codex().charge_roll_modifier(unit_for_charge_bonus, charge_bonus))
 	if charge_bonus > 0:
 		total_distance += charge_bonus

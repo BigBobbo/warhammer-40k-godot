@@ -7491,6 +7491,9 @@ static func _get_omni_scrambler_positions_from_snapshot(snapshot: Dictionary, de
 			if aname == "Omni-scramblers":
 				has_omni = true
 				break
+		# WP-M4a: the 10e Omni-scramblers 12" denial is retired for Codex: Space Marines (11e) armies.
+		if has_omni and load("res://scripts/codex/space_marines/SMAbilitiesA.gd").omni_scramblers_denial_retired(unit):
+			has_omni = false
 		# Codex: Adeptus Custodes (11e) Arae-Shrike: enemy units making an
 		# ingress move cannot be set up within 12" of the bearer's unit — the
 		# same 12" denial ring as Omni-scramblers (WP-C46).
@@ -22252,6 +22255,10 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 			if strat_entry.has("window_id") and load("res://scripts/codex/space_wolves/SWAbilities11e.gd").handles_id(str(strat_id)):
 				score = float(load("res://scripts/codex/space_wolves/SWAbilities11e.gd").ai_score(defending_player, str(strat_id), unit_id,
 					str(strat_entry.get("window_id", "")), strat_entry.get("window_ctx", {})))
+			# WP-M4a: a Codex: Space Marines ability card folded into the reactive dialog (Shrouding).
+			elif strat_entry.has("window_id") and load("res://scripts/codex/space_marines/SMAbilitiesA.gd").handles_id(str(strat_id)):
+				score = float(load("res://scripts/codex/space_marines/SMAbilitiesA.gd").ai_score(defending_player, str(strat_id), unit_id,
+					str(strat_entry.get("window_id", "")), strat_entry.get("window_ctx", {})))
 			elif strat_entry.has("window_id") and _codex_for_strat(strat) != null:
 				# Window offer folded into the shooting reactive dialog: the
 				# codex handler scores it (its effects list is just a marker).
@@ -22420,6 +22427,10 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 				var smc_ab = load("res://scripts/codex/space_marines/SMAbilitiesC.gd")
 				if smc_ab.handles_id(sid):
 					score = float(smc_ab.ai_score(player, sid, tid, window_id, ctx))
+				# WP-M4a: Codex: Space Marines (11e) M4a ability offers ("sm11e_ab_a_*") are scored by SMAbilitiesA.
+				var sm_ab_a = load("res://scripts/codex/space_marines/SMAbilitiesA.gd")
+				if sm_ab_a.handles_id(sid):
+					score = float(sm_ab_a.ai_score(player, sid, tid, window_id, ctx))
 			elif is_codex:
 				score = codex.ai_score(strat, player, tid, window_id, ctx)
 			elif units.has(tid):

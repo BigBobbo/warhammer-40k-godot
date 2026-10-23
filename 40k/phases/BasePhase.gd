@@ -91,6 +91,8 @@ func enter_phase(state_snapshot: Dictionary) -> void:
 	# WP-M4c: Space Marines (M4c datasheets) start-of-phase cards (Strategic Acumen, Narthecium,
 	# Master of Shadows, Seeker of the Unfound, Forgefather, Overlapping Destruction, Master Tactician).
 	_ev_deferred.append_array(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").phase_start_entries(int(phase_type), _ev_deferred))
+	# WP-M4a: Space Marines start-of-phase cards (Teleport Homer, Forward Assault Warsuit, Author of the Codex, Thunderous Force, Soul Sight, Omni-scramblers, Might of Heroes).
+	_ev_deferred.append_array(_sm11e_abilities_a().phase_start_entries(int(phase_type), _ev_deferred))
 	_on_phase_enter()
 	# (A phase that ended inside its own entry does not carry them over.)
 	var pm_now = get_node_or_null("/root/PhaseManager")
@@ -525,6 +527,10 @@ static func _sw11e_abilities():
 ## Codex: Space Marines (11e) generic detachment stratagems (WP-M3a) — loaded lazily.
 static func _sm11e_codex():
 	return load("res://scripts/codex/space_marines/SMCodex11e.gd")
+## WP-M4a: Codex: Space Marines (11e) generic datasheet abilities, M4a list
+## (SMAbilitiesA.gd): the phase_start cards and the phases' passive hooks.
+static func _sm11e_abilities_a():
+	return load("res://scripts/codex/space_marines/SMAbilitiesA.gd")
 
 ## Codex: Adeptus Custodes SUPERHUMAN FOCUS (WP-C5, CustodesCodex11e.gd): the
 ## phase_end window ("End of any phase", both players, active first). Called by

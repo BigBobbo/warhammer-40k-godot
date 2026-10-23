@@ -1,0 +1,347 @@
+{
+  "id": "sm11e_ab_a_movement_cards",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.author_of_the_codex",
+    "codex.space_marines.datasheet_abilities.codex_adept",
+    "codex.space_marines.datasheet_abilities.blessings_of_the_omnissiah",
+    "codex.space_marines.datasheet_abilities.assault_ramp",
+    "scripts.codex.space_marines.SMAbilitiesA",
+    "stratagem.window.phase_start",
+    "stratagem.window.unit_selected_to_move",
+    "stratagem.window.unit_ended_normal_move"
+  ],
+  "description": "WP-M4a Movement-phase datasheet abilities through the real windows. Fixture sm11e_m4a_move (P1 Space Marines, round 2): Roboute Guilliman 10\" from Intercessors, a Techmarine next to a damaged Redemptor Dreadnought (6 W), a Land Raider with a Terminator Squad embarked. AUTHOR OF THE CODEX (phase_start): real click on the Assault Doctrine variant + real pick of the Intercessors - assault doctrine active for them in addition (Codex Adept: all three active for Guilliman). BLESSINGS OF THE OMNISSIAH (unit_selected_to_move): real click + pick - the Redemptor heals D3 and ignores hit/wound modifiers. ASSAULT RAMP: the Land Raider makes a 2\" normal move, a real click on End This Unit's Move opens unit_ended_normal_move, a real click on the card starts the assault-disembark follow-up (DisembarkDialog, assault mode).",
+  "fixture": "sm11e_m4a_move",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "sm_abilities_a": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_author_of_the_codex",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_author_of_the_codex/Buttons/Use_sm11e_ab_a_author_of_the_codex_U_ROBOUTE_GUILLIMAN_A_assault",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_author_of_the_codex_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_author_of_the_codex/Buttons/Use_sm11e_ab_a_author_of_the_codex_U_ROBOUTE_GUILLIMAN_A_assault",
+      "comment": "REAL click: Author of the Codex - Assault Doctrine"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_INTERCESSOR_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_author_friendly_unit_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_INTERCESSOR_SQUAD_A",
+      "comment": "REAL click: the Intercessors (visible, within 12\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var C = load(\"res://scripts/codex/space_wolves/SWCommon.gd\")\nreturn C.doctrine_active_id(\"U_INTERCESSOR_SQUAD_A\", \"assault\")",
+      "comment": "assault doctrine active for the Intercessors (in addition)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var C = load(\"res://scripts/codex/space_wolves/SWCommon.gd\")\nreturn C.doctrine_active_id(\"U_ROBOUTE_GUILLIMAN_A\", \"assault\") and C.doctrine_active_id(\"U_ROBOUTE_GUILLIMAN_A\", \"devastator\") and C.doctrine_active_id(\"U_ROBOUTE_GUILLIMAN_A\", \"tactical\")",
+      "comment": "Codex Adept: all three doctrines are active for Guilliman",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Author of the Codex: Assault Doctrine is active for\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_TECHMARINE_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "unit_selected_to_move"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_blessings_of_the_omnissiah",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_blessings_of_the_omnissiah_card"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_REDEMPTOR_DREADNOUGHT_A\").models[0].current_wounds",
+      "comment": "the Redemptor starts on 6 wounds",
+      "equals": 6
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_blessings_of_the_omnissiah/Buttons/Use_sm11e_ab_a_blessings_of_the_omnissiah_U_TECHMARINE_A",
+      "comment": "REAL click: Blessings of the Omnissiah"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_REDEMPTOR_DREADNOUGHT_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_REDEMPTOR_DREADNOUGHT_A",
+      "comment": "REAL click: the Redemptor within 3\""
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var cw := int(GameState.get_unit(\"U_REDEMPTOR_DREADNOUGHT_A\").models[0].current_wounds)\nprint(\"[sm11e-m4a] blessings: redemptor wounds now \", cw)\nreturn cw >= 7 and cw <= 9",
+      "comment": "healed D3",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_REDEMPTOR_DREADNOUGHT_A\").flags.has(\"sm11e_aba_blessed\")",
+      "comment": "its attacks ignore hit/wound modifiers until your next Movement phase",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Blessings of the Omnissiah (Techmarine)\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_LAND_RAIDER_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/DisembarkDialog/VBox/Buttons/CancelButton"
+    },
+    {
+      "act": "execute_script",
+      "script": "for c in tree.root.get_children():\n\tif c is Window and c != tree.root and str(c.name) == \"DisembarkDialog\":\n\t\tc.hide()\n\t\tc.queue_free()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "the Land Raider's pre-move disembark prompt - not under test"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.has(\"U_LAND_RAIDER_A\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.get_unit(\"U_LAND_RAIDER_A\")\nvar ok := true\nfor m in u.models:\n\tif not m.get(\"alive\", true) or m.get(\"position\", null) == null:\n\t\tcontinue\n\tvar p = m.position\n\tvar r = NetworkIntegration.route_action({\"type\": \"STAGE_MODEL_MOVE\", \"player\": 1, \"actor_unit_id\": \"U_LAND_RAIDER_A\", \"payload\": {\"model_id\": str(m.id), \"dest\": [float(p.x) + 0.0, float(p.y) - 80.0], \"rotation\": float(m.get(\"rotation\", 0.0))}})\n\tif not r.get(\"success\", false):\n\t\tprint(\"[sm11e-m4a] stage failed \", m.id, \" \", r.get(\"error\", r.get(\"errors\", \"\")))\n\t\tok = false\ntree.current_scene._recreate_unit_visuals()\nreturn ok",
+      "comment": "the Land Raider makes a 2\" normal move (staged)",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "unit_ended_normal_move"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_assault_ramp",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "04_assault_ramp_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_assault_ramp/Buttons/Use_sm11e_ab_a_assault_ramp_U_LAND_RAIDER_A",
+      "comment": "REAL click: Assault Ramp"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().is_ork11e_assault_disembark_pending(\"U_TERMINATOR_SQUAD_A\")",
+      "comment": "the Terminators may disembark although the Land Raider moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var mt = load(\"res://scripts/rules/movetypes/MoveTypes.gd\")\nreturn str(mt.get_type(\"disembark\").select_mode(\"U_TERMINATOR_SQUAD_A\", GameState.state).mode)",
+      "comment": "an ASSAULT DISEMBARK MOVE (18.06)",
+      "equals": "assault",
+      "multiline": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/DisembarkDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Assault Ramp: units embarked within\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "05_assault_ramp_disembark_dialog"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4a] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

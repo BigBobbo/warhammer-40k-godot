@@ -166,6 +166,8 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 	load("res://scripts/codex/space_marines/SMAbilitiesB.gd").on_phase_transition(int(GameState.get_current_phase()), int(new_phase))  # WP-M4b: Codex: Space Marines M4b ability expiry
 	# WP-M4c: Space Marines (M4c datasheets) ability expiry + Codex Adept / Skilled Riders grants (every peer).
 	load("res://scripts/codex/space_marines/SMAbilitiesC.gd").on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
+	# WP-M4a: Codex: Space Marines (11e) M4a datasheet abilities — expiry, Codex Adept / Author of the Codex doctrines.
+	load("res://scripts/codex/space_marines/SMAbilitiesA.gd").on_phase_transition(int(GameState.get_current_phase()), int(new_phase))
 
 	# Update game state to new phase
 	GameState.set_phase(new_phase)

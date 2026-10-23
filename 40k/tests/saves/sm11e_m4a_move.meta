@@ -1,0 +1,64 @@
+{
+	"created_at": 1792724265.53564,
+	"game_state": {
+		"active_player": 1,
+		"battle_round": 2,
+		"game_id": "c02b1ee3-2b22-48a0-b65b-3033f9c810e94c65",
+		"is_multiplayer": false,
+		"phase": 6,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 2,
+		"turn_number": 1
+	},
+	"preview": {
+		"battle_round": 2,
+		"players": {
+			"1": {
+				"alive_models": 14,
+				"alive_units": 6,
+				"cp": 6,
+				"detachment": "Gladius Task Force + Assault Brethren",
+				"faction": "Space Marines",
+				"points": 20000.0,
+				"primary_vp": 0.0,
+				"secondary_vp": 0.0,
+				"total_models": 14,
+				"total_units": 6,
+				"unit_names": [
+					"Land Raider",
+					"Roboute Guilliman",
+					"Techmarine",
+					"Intercessor Squad",
+					"Terminator Squad",
+					"Redemptor Dreadnought"
+				],
+				"vp": 0.0
+			},
+			"2": {
+				"alive_models": 10,
+				"alive_units": 1,
+				"cp": 6,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 3000.0,
+				"primary_vp": 0.0,
+				"secondary_vp": 0.0,
+				"total_models": 10,
+				"total_units": 1,
+				"unit_names": [
+					"Boyz"
+				],
+				"vp": 0.0
+			}
+		}
+	},
+	"save_info": {
+		"description": "",
+		"save_type": "manual",
+		"tags": []
+	},
+	"version": "1.3.0"
+}

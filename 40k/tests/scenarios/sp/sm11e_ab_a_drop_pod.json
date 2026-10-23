@@ -1,0 +1,134 @@
+{
+  "id": "sm11e_ab_a_drop_pod",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.drop_pod_assault",
+    "scripts.codex.space_marines.SMAbilitiesA",
+    "phases.MovementPhase",
+    "scripts.rules.movetypes.DisembarkMove"
+  ],
+  "description": "WP-M4a DROP POD ASSAULT. Fixture sm11e_m4a_drop_pod (battle round 1, P1 Movement): the Drop Pod is in strategic reserves with Intercessors embarked. It is listed among the round-1 arrivals and set up (PLACE_REINFORCEMENT); the new sm11e_drop_pod_landed window offers the Drop Pod Assault card, a real click starts the assault-disembark follow-up (DisembarkDialog, assault mode) and a set-up within 8\" of the Boyz is refused.",
+  "fixture": "sm11e_m4a_drop_pod",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "sm_abilities_a": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "comment": "the secondary-mission review (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_DROP_POD_A\" in PhaseManager.get_current_phase_instance()._cus11e_lightning_descent_reserves(1)",
+      "comment": "Drop Pod Assault: the Drop Pod may arrive in the first battle round",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pos := [{\"x\": 22.0 * 40.0, \"y\": 30.0 * 40.0}]\nvar r = NetworkIntegration.route_action({\"type\": \"PLACE_REINFORCEMENT\", \"player\": 1, \"unit_id\": \"U_DROP_POD_A\", \"model_positions\": pos, \"placement_type\": \"deep_strike\"})\nprint(\"[sm11e-m4a] drop pod placement: \", r.get(\"success\", false), \" \", r.get(\"error\", r.get(\"errors\", \"\")))\ntree.current_scene._recreate_unit_visuals()\nreturn r.get(\"success\", false)",
+      "comment": "the Drop Pod is set up (ingress move, round 1)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "sm11e_drop_pod_landed"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_drop_pod_assault",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_drop_pod_landed_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_drop_pod_assault/Buttons/Use_sm11e_ab_a_drop_pod_assault_U_DROP_POD_A",
+      "comment": "REAL click: Drop Pod Assault - the embarked Intercessors disembark"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().is_ork11e_assault_disembark_pending(\"U_INTERCESSOR_SQUAD_A\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var mt = load(\"res://scripts/rules/movetypes/MoveTypes.gd\")\nreturn str(mt.get_type(\"disembark\").select_mode(\"U_INTERCESSOR_SQUAD_A\", GameState.state).mode)",
+      "comment": "an assault disembark move",
+      "equals": "assault",
+      "multiline": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/DisembarkDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar pod = GameState.get_unit(\"U_DROP_POD_A\").models[0].position\nvar c := Vector2(float(pod.x), float(pod.y)) / 40.0\nvar n: int = GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\").models.size()\nvar pos := []\nfor i in range(n):\n\tvar a := PI + PI * float(i) / float(maxi(1, n - 1))\n\tvar p := c + Vector2(cos(a), sin(a)) * 2.3\n\tpos.append([p.x * 40.0, p.y * 40.0])\nvar boyz = GameState.get_unit(\"U_BOYZ_B\")\nvar saved := []\nfor i in range(boyz.models.size()):\n\tsaved.append(boyz.models[i].position)\n\tboyz.models[i].position = {\"x\": (c.x - 6.0 + (i % 10) * 1.3) * 40.0, \"y\": (c.y - 9.0 - (i / 10) * 1.3) * 40.0}\nvar v: Dictionary = ph._validate_confirm_disembark({\"type\": \"CONFIRM_DISEMBARK\", \"actor_unit_id\": \"U_INTERCESSOR_SQUAD_A\", \"player\": 1, \"payload\": {\"positions\": pos}})\nfor i in range(boyz.models.size()):\n\tboyz.models[i].position = saved[i]\nvar v2: Dictionary = ph._validate_confirm_disembark({\"type\": \"CONFIRM_DISEMBARK\", \"actor_unit_id\": \"U_INTERCESSOR_SQUAD_A\", \"player\": 1, \"payload\": {\"positions\": pos}})\nprint(\"[sm11e-m4a] drop pod near-enemy disembark: \", v, \" | Boyz back far away: \", v2)\nreturn str(v.get(\"errors\", [])).contains(\"more than 8\") and bool(v2.get(\"valid\", false))",
+      "comment": "setup privilege: the Boyz are moved ~6\" from the set-up ring for this check only (restored after); the same set-up is refused within 8\" (Drop Pod Assault) and valid once the Boyz are back",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_drop_pod_disembark_dialog"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Drop Pod Assault: the units embarked within\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4a] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

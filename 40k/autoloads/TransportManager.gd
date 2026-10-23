@@ -162,6 +162,10 @@ func can_embark(unit_id: String, transport_id: String) -> Dictionary:
 		if u_flags.get("set_up_this_turn", false) or u_flags.get("arrived_from_reserves", false) \
 				or u_flags.get("deep_struck", false):
 			return {"valid": false, "reason": "Unit was set up on the battlefield this turn (18.02)"}
+		# WP-M4a DEPLOYMENT COMPLETE (Drop Pod): set up and emptied — units cannot embark within it.
+		var dc_reason: String = load("res://scripts/codex/space_marines/SMAbilitiesA.gd").embark_block_reason(transport_id)
+		if dc_reason != "":
+			return {"valid": false, "reason": dc_reason}
 
 	return {"valid": true}
 

@@ -895,7 +895,8 @@ static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	# WP-C7: + Codex: Adeptus Custodes (11e) Swift Onslaught / Seeker's Instincts.
 	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false) or _cus11e_abilities().charge_reroll_source(unit) != "" \
 		or _sw11e_abilities().reroll_source(unit) != "" \
-		or _sm11e_abc().charge_reroll_source(unit) != ""  # WP-S4: Bestial Fury (Space Wolves); WP-M4c: Master of Shadows
+		or _sm11e_abc().charge_reroll_source(unit) != "" \
+		or load("res://scripts/codex/space_marines/SMAbilitiesA.gd").charge_reroll_source(unit) != ""  # WP-S4: Bestial Fury (Space Wolves); WP-M4c: Master of Shadows; WP-M4a: Unstoppable Valour
 
 static func has_effect_reroll_advance(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted Advance re-roll (Bloodthirsty Belligerence, Superfuelled Boiler)."""

@@ -69,7 +69,9 @@ func select_mode(unit_id: String, board: Dictionary, context: Dictionary = {}) -
 	# Codex: Orks (11e) READIED BRAWLERS: units embarked in the WAGON make an
 	# ASSAULT DISEMBARK MOVE (18.06) instead — set-up 3", no AFTER MOVING
 	# restriction (eligibility is the same as 18.04's, checked above).
-	if _ork_codex_movement().transport_grants_assault_disembark(transport):
+	# WP-M4a ASSAULT RAMP / AERIAL ASSAULT / DROP POD ASSAULT (Codex: Space Marines 11e): the same assault disembark move.
+	if _ork_codex_movement().transport_grants_assault_disembark(transport) \
+			or load("res://scripts/codex/space_marines/SMAbilitiesA.gd").transport_grants_assault_disembark(transport):
 		return {"mode": "assault", "mandatory": true, "available": ["assault"]}
 	# WP-M4b ASSAULT RAMP (Codex: Space Marines 11e, Land Raider Redeemer): after its
 	# normal move the embarked units make an assault disembark move (18.06).
