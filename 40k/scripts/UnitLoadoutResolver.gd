@@ -372,11 +372,17 @@ static func _base_kit_slugs(unit: Dictionary, meta: Dictionary, weapons: Array, 
 	_ensure_options_loaded()
 	var replaced := {}
 	var option_rows: Array = [] if unit_slug.ends_with(LEGACY_SLUG_SUFFIX) else _options_by_unit.get(unit_slug, [])
+	# WP-M4a: an option whose bundle is a non-weapon item (Codex: Space Marines
+	# 11e Relic Shield — "Master-crafted Bolter can be replaced with 1 Relic
+	# Shield") is taken when the roster's wargear names that item, too.
+	var wargear_items := {}
+	for ws in _parse_wargear_slugs(meta.get("wargear", [])):
+		wargear_items[ws] = true
 	for opt in option_rows:
 		var taken := false
 		for bundle in opt.get("bundles", []):
 			for b in bundle:
-				if selected.has(b) and not defaults.has(b):
+				if (selected.has(b) or wargear_items.has(b)) and not defaults.has(b):
 					taken = true
 		if taken:
 			for r in opt.get("replaces", []):

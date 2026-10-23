@@ -1,0 +1,277 @@
+{
+  "id": "sm11e_ab_a_fight_cards",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.might_of_heroes",
+    "codex.space_marines.datasheet_abilities.finest_hour",
+    "codex.space_marines.librarius",
+    "scripts.codex.space_marines.SMAbilitiesA",
+    "stratagem.window.phase_start",
+    "stratagem.window.unit_selected_to_fight"
+  ],
+  "description": "WP-M4a Fight-phase datasheet abilities through the real windows. Fixture sm11e_m4a_fight (P1 Space Marines, round 2): a Librarian in Terminator Armour leads Terminators engaged with Nobz, a Captain leads Intercessors engaged with Gretchin. MIGHT OF HEROES (phase_start, psychic level 1): real click - the Terminators' melee +2 S. FINEST HOUR (unit_selected_to_fight, once per battle): the Intercessors are selected to fight with a real click, a real click on the card - the Captain's melee +3 A and [DEVASTATING WOUNDS]; the attacks are resolved and the dice log shows the extra attacks.",
+  "fixture": "sm11e_m4a_fight",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "sm_abilities_a": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_might_of_heroes",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_might_of_heroes_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_might_of_heroes/Buttons/Use_sm11e_ab_a_might_of_heroes_U_TERMINATOR_SQUAD_A",
+      "comment": "REAL click: Might of Heroes (psychic level 1)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_TERMINATOR_SQUAD_A\"), GameState.get_unit(\"U_NOBZ_A\"), {\"name\": \"x\", \"type\": \"Melee\"}, true, GameState.state)\nreturn int(m.get(\"strength\", 0))",
+      "comment": "the Terminators' melee attacks have +2 S this phase",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Might of Heroes (Librarian in Terminator Armour): psychic roll\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_INTERCESSOR_SQUAD_A",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_INTERCESSOR_SQUAD_A",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "unit_selected_to_fight"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_finest_hour",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_finest_hour_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_finest_hour/Buttons/Use_sm11e_ab_a_finest_hour_U_INTERCESSOR_SQUAD_A",
+      "comment": "REAL click: Finest Hour (once per battle)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_CAPTAIN_A\"), GameState.get_unit(\"U_GRETCHIN_C\"), {\"name\": \"x\", \"type\": \"Melee\"}, true, GameState.state)\nreturn int(m.get(\"attacks\", 0)) == 3 and bool(m.get(\"devastating\", false))",
+      "comment": "the Captain's melee attacks have +3 A and [DEVASTATING WOUNDS]",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "UnitAbilityManager.is_once_per_battle_used(\"U_CAPTAIN_A\", \"Finest Hour\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Finest Hour (once per battle)\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_attack_assignment_after_finest_hour"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)",
+      "comment": "resolve the attacks through the resolution dock"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n := 0\nfor d in PhaseManager.get_current_phase_instance().dice_log:\n\tif str(d.get(\"context\", \"\")) == \"hit_roll_melee\" and str(d.get(\"weapon\", \"\")).contains(\"power_weapon\"):\n\t\tn = maxi(n, int(d.get(\"total_attacks\", 0)))\nprint(\"[sm11e-m4a] finest hour: captain melee attacks rolled \", n)\nreturn n >= 8",
+      "comment": "the resolver rolled the Captain's MC Power Weapon with +3 A (5 + 3)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_finest_hour_attacks_resolved"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4a] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

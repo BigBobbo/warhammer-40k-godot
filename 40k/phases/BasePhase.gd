@@ -79,6 +79,8 @@ func enter_phase(state_snapshot: Dictionary) -> void:
 	# WP-S4: Space Wolves start-of-phase ability cards (Slayer's Oath, Headhunters,
 	# Healing Balms, High King of Fenris, Njal's psychic powers, Haywire Mine).
 	_ev_deferred.append_array(_sw11e_abilities().phase_start_entries(int(phase_type), _ev_deferred))
+	# WP-M4a: Space Marines start-of-phase cards (Teleport Homer, Forward Assault Warsuit, Author of the Codex, Thunderous Force, Soul Sight, Omni-scramblers, Might of Heroes).
+	_ev_deferred.append_array(_sm11e_abilities_a().phase_start_entries(int(phase_type), _ev_deferred))
 	_on_phase_enter()
 	# (A phase that ended inside its own entry does not carry them over.)
 	var pm_now = get_node_or_null("/root/PhaseManager")
@@ -499,6 +501,11 @@ static func _cus11e_abilities():
 ## SWAbilities11e.gd): the phase_start cards and the phases' passive hooks.
 static func _sw11e_abilities():
 	return load("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+
+## WP-M4a: Codex: Space Marines (11e) generic datasheet abilities, M4a list
+## (SMAbilitiesA.gd): the phase_start cards and the phases' passive hooks.
+static func _sm11e_abilities_a():
+	return load("res://scripts/codex/space_marines/SMAbilitiesA.gd")
 
 ## Codex: Adeptus Custodes SUPERHUMAN FOCUS (WP-C5, CustodesCodex11e.gd): the
 ## phase_end window ("End of any phase", both players, active first). Called by

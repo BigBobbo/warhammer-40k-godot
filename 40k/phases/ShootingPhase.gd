@@ -4933,7 +4933,9 @@ func _reactive_window_context(action: Dictionary) -> Dictionary:
 	var strat = StratagemManager.get_stratagem(str(action.get("stratagem_id", "")))
 	var windows = strat.get("timing", {}).get("windows", [])
 	# WP-S4: the Space Wolves STORM CALLER card has no stratagem row — it is a window offer too.
-	if "enemy_targets_unit_shooting" in windows or _sw11e_abilities().handles_id(str(action.get("stratagem_id", ""))):
+	# WP-M4a: + the Codex: Space Marines SHROUDING card (Librarian in Phobos Armour).
+	if "enemy_targets_unit_shooting" in windows or _sw11e_abilities().handles_id(str(action.get("stratagem_id", ""))) \
+			or _sm11e_abilities_a().handles_id(str(action.get("stratagem_id", ""))):
 		var target_ids: Array = []
 		for assignment in confirmed_assignments:
 			var tid = str(assignment.get("target_unit_id", ""))

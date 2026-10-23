@@ -1,0 +1,507 @@
+{
+  "id": "sm11e_ab_a_shooting_cards",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.thunderous_force",
+    "codex.space_marines.datasheet_abilities.soul_sight",
+    "codex.space_marines.datasheet_abilities.omni_scramblers",
+    "codex.space_marines.datasheet_abilities.catechism_of_fire",
+    "codex.space_marines.datasheet_abilities.driven_from_cover",
+    "codex.space_marines.librarius",
+    "scripts.codex.space_marines.SMAbilitiesA",
+    "stratagem.window.phase_start",
+    "stratagem.window.unit_selected_to_shoot",
+    "stratagem.window.unit_has_shot"
+  ],
+  "description": "WP-M4a Shooting-phase datasheet abilities through the real windows. Fixture sm11e_m4a_shoot (P1 Space Marines, round 2): a Librarian in Terminator Armour leads Terminators, a Librarian in Phobos Armour leads Infiltrators, a Chaplain on Bike leads Outriders, an Infernus Squad; Boyz and Gretchin. THUNDEROUS FORCE (psychic level 1): real click - +6\" Range, Librarius budget spent. SOUL SIGHT: real click + pick - ranged attacks vs the Boyz [IGNORES COVER]. OMNI-SCRAMBLERS: real click, the picker lists only enemies within 18\", real pick - the Boyz are detected (+3\" detection range). CATECHISM OF FIRE (unit_selected_to_shoot): real click + pick - [DEVASTATING WOUNDS] vs the Boyz. DRIVEN FROM COVER (unit_has_shot after the Infernus Squad's real shot): real click + pick of the Gretchin - friendly AA ranged attacks ignore cover vs them. No CP spent.",
+  "fixture": "sm11e_m4a_shoot",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "sm_abilities_a": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_thunderous_force",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_soul_sight",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_omni_scramblers",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shooting_phase_start_cards"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_thunderous_force/Buttons/Use_sm11e_ab_a_thunderous_force_U_TERMINATOR_SQUAD_A",
+      "comment": "REAL click: Thunderous Force (psychic level 1)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var S = load(\"res://scripts/codex/space_marines/SMAbilitiesA.gd\")\nreturn S.range_bonus_inches(GameState.get_unit(\"U_TERMINATOR_SQUAD_A\"), {\"type\": \"Ranged\"})",
+      "comment": "+6\" Range for the Terminators' ranged attacks this phase",
+      "equals": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var S = load(\"res://scripts/codex/space_marines/SMAbilitiesA.gd\")\nreturn S.psychic_levels_used(GameState.get_unit(\"U_LIBRARIAN_IN_TERMINATOR_ARMOUR_A\"))",
+      "comment": "Librarius: the Librarian's psyker level 1 is spent this battle round",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Thunderous Force (Librarian in Terminator Armour): psychic roll\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_soul_sight",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_soul_sight/Buttons/Use_sm11e_ab_a_soul_sight_U_INFILTRATOR_SQUAD_A",
+      "comment": "REAL click: Soul Sight (psychic level 1)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_soul_sight_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "comment": "REAL click: the Boyz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_INFERNUS_SQUAD_A\"), GameState.get_unit(\"U_BOYZ_B\"), {\"name\": \"x\", \"type\": \"Ranged\"}, false, GameState.state)\nreturn bool(m.get(\"ignores_cover\", false))",
+      "comment": "ranged attacks that target the Boyz have [IGNORES COVER]",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_omni_scramblers",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_omni_scramblers/Buttons/Use_sm11e_ab_a_omni_scramblers_U_INFILTRATOR_SQUAD_A",
+      "comment": "REAL click: Omni-scramblers"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_GRETCHIN_C\") == null",
+      "comment": "only visible enemy units within 18\"",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "comment": "REAL click: the Boyz are detected"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var S = load(\"res://scripts/codex/space_marines/SMAbilitiesA.gd\")\nreturn S.detection_range_bonus(GameState.get_unit(\"U_BOYZ_B\"))",
+      "comment": "detected: +3\" detection range this phase",
+      "equals": 3.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_OUTRIDER_SQUAD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "unit_selected_to_shoot"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_catechism_of_fire",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_catechism_of_fire_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_catechism_of_fire/Buttons/Use_sm11e_ab_a_catechism_of_fire_U_OUTRIDER_SQUAD_A",
+      "comment": "REAL click: Catechism of Fire"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "comment": "REAL click: the Boyz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_OUTRIDER_SQUAD_A\"), GameState.get_unit(\"U_BOYZ_B\"), {\"name\": \"x\", \"type\": \"Ranged\"}, false, GameState.state)\nreturn bool(m.get(\"devastating\", false))",
+      "comment": "the Outriders' (and Chaplain's) ranged attacks vs the Boyz have [DEVASTATING WOUNDS]",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Catechism of Fire: \")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "comment": "a P1 window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_INFERNUS_SQUAD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "comment": "a P1 window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_INFERNUS_SQUAD_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.assign_and_confirm(1, \"U_INFERNUS_SQUAD_A\", \"U_GRETCHIN_C\", \"pyreblaster\")",
+      "comment": "the Infernus Squad's Pyreblasters at the Gretchin",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "comment": "a P2 window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_node",
+      "button_text": "Fast Roll ⏩"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "comment": "a P2 window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "unit_has_shot"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_driven_from_cover",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "04_driven_from_cover_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_driven_from_cover/Buttons/Use_sm11e_ab_a_driven_from_cover_U_INFERNUS_SQUAD_A",
+      "comment": "REAL click: Driven from Cover"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_GRETCHIN_C",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_GRETCHIN_C",
+      "comment": "REAL click: the Gretchin (hit by those attacks)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_OUTRIDER_SQUAD_A\"), GameState.get_unit(\"U_GRETCHIN_C\"), {\"name\": \"x\", \"type\": \"Ranged\"}, false, GameState.state)\nreturn bool(m.get(\"ignores_cover\", false))",
+      "comment": "friendly ADEPTUS ASTARTES ranged attacks vs the Gretchin have [IGNORES COVER] this phase",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Driven from Cover: friendly ADEPTUS ASTARTES\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "comment": "a P1 window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "comment": "a P2 window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "05_shooting_cards_resolved_log"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4a] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

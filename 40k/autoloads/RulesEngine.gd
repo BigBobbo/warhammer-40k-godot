@@ -2463,6 +2463,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			bs_per_attack[i] = 7
 		print("RulesEngine: [OVERWATCH] Forcing BS=7 — only unmodified 6s will hit")
 		critical_hit_threshold = _snap_critical_hit_threshold_11e(critical_hit_threshold)
+		# WP-M4a SENTINEL PROTOCOLS (Firestrike Servo-turrets): this unit's snap-shooting attacks hit on unmodified 4+.
+		if SMAbilitiesAScript.snap_hit_threshold(actor_unit) > 0:
+			bs = SMAbilitiesAScript.snap_hit_threshold(actor_unit)
+			for sm_i in range(bs_per_attack.size()):
+				bs_per_attack[sm_i] = bs
+			print("RulesEngine: [WP-M4a] Sentinel Protocols — snap shooting hits on unmodified %d+" % bs)
 
 	var cover_worsened_attacks = 0  # 13.08 — attacks whose BS the benefit of cover worsened
 	var hit_threshold_display = str(bs) + "+"  # rebuilt from the effective per-attack BS before display
@@ -2830,6 +2836,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if is_overwatch and GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
 			hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 			print("RulesEngine: [11e 15.09] SNAP — hit re-rolls suppressed")
+		# WP-M4a SENTINEL PROTOCOLS: snap-shooting attacks hit on UNMODIFIED 4+ — no hit-roll modifier applies.
+		if is_overwatch and SMAbilitiesAScript.snap_hit_threshold(actor_unit) > 0 and (hit_modifiers & (HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)):
+			hit_modifiers &= ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
+			print("RulesEngine: [WP-M4a] Sentinel Protocols — unmodified 4+: hit-roll modifiers dropped")
 		# DRIVE-BY BUSTIN': a batch mixing Firing Deck and the transport's own
 		# weapons gets the +1 only on its Firing Deck attacks.
 		var ork11e_fd_mixed: bool = ork11e_drive_by_bustin_active(actor_unit) and ork11e_fd_attack.has(true) and ork11e_fd_attack.has(false)
@@ -4630,6 +4640,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			bs_per_attack[i] = 7
 		print("RulesEngine: [OVERWATCH][auto-resolve] Forcing BS=7 — only unmodified 6s will hit")
 		critical_hit_threshold = _snap_critical_hit_threshold_11e(critical_hit_threshold)
+		# WP-M4a SENTINEL PROTOCOLS (Firestrike Servo-turrets): this unit's snap-shooting attacks hit on unmodified 4+.
+		if SMAbilitiesAScript.snap_hit_threshold(actor_unit) > 0:
+			bs = SMAbilitiesAScript.snap_hit_threshold(actor_unit)
+			for sm_i in range(bs_per_attack.size()):
+				bs_per_attack[sm_i] = bs
+			print("RulesEngine: [WP-M4a] Sentinel Protocols — snap shooting hits on unmodified %d+" % bs)
 
 	var cover_worsened_attacks = 0  # 13.08 — attacks whose BS the benefit of cover worsened
 	var hit_threshold_display = str(bs) + "+"  # rebuilt from the effective per-attack BS before display
@@ -4982,6 +4998,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if is_overwatch and GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
 			hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 			print("RulesEngine: [11e 15.09] SNAP — hit re-rolls suppressed")
+		# WP-M4a SENTINEL PROTOCOLS: snap-shooting attacks hit on UNMODIFIED 4+ — no hit-roll modifier applies.
+		if is_overwatch and SMAbilitiesAScript.snap_hit_threshold(actor_unit) > 0 and (hit_modifiers & (HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)):
+			hit_modifiers &= ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
+			print("RulesEngine: [WP-M4a] Sentinel Protocols — unmodified 4+: hit-roll modifiers dropped")
 		# DRIVE-BY BUSTIN': a batch mixing Firing Deck and the transport's own
 		# weapons gets the +1 only on its Firing Deck attacks.
 		var ork11e_fd_mixed: bool = ork11e_drive_by_bustin_active(actor_unit) and ork11e_fd_attack.has(true) and ork11e_fd_attack.has(false)
@@ -9686,6 +9706,9 @@ static func has_lone_operative(unit: Dictionary) -> bool:
 	# WP-S4: Space Wolves Iron Priest — Lone Operative while within 3" of a friendly SPACE WOLVES VEHICLE.
 	if GameConstants.edition >= 11 and SWAbilities11eScript.conditional_lone_operative(unit):
 		return true
+	# WP-M4a: Iron Father / Techmarine (3" of an AA VEHICLE), Leader of Astartes (3" of AA INFANTRY).
+	if GameConstants.edition >= 11 and SMAbilitiesAScript.conditional_lone_operative(unit):
+		return true
 	return false
 
 
@@ -10053,7 +10076,8 @@ static func ork11e_det_range_bonus(actor_unit: Dictionary, weapon_profile: Dicti
 		return 0.0
 	# + WP-O5 Targetin' Squigs (+3" R, excluding [TORRENT]) — different rules stack.
 	return ork11e_det().range_bonus_inches(actor_unit, weapon_profile) + cus11e_det().range_bonus_inches(actor_unit, weapon_profile) \
-		+ float(ork11e_enh().range_bonus(actor_unit, weapon_profile))
+		+ float(ork11e_enh().range_bonus(actor_unit, weapon_profile)) \
+		+ SMAbilitiesAScript.range_bonus_inches(actor_unit, weapon_profile)  # WP-M4a THUNDEROUS FORCE (Librarian in Terminator Armour): +6" R
 
 # ---------------------------------------------------------------------------
 # Codex: Adeptus Custodes (11e) detachment rules + enhancements (WP-C46) — the
@@ -10111,14 +10135,24 @@ static func cus11e_apply_wound_effects(bits: int, ledger: Array, attacker: Dicti
 ## unit's attacks (once per selection to attack — CustodesDetachments). Re-rolls
 ## the first failed die that was not re-rolled already; mutates hit_evals /
 ## modified_rolls / reroll_data and returns {hit: 0|1, crit: 0|1} for the tallies.
-static func cus11e_magna_reroll_hit(actor_unit: Dictionary, hit_evals: Array, modified_rolls: Array, reroll_data: Array, bs_per_attack: Array, bs: int, mods: int, crit_threshold: int, rng: RNGService, fail_band: int, ledger: Array) -> Dictionary:
+static func cus11e_magna_reroll_hit(actor_unit: Dictionary, hit_evals: Array, modified_rolls: Array, reroll_data: Array, bs_per_attack: Array, bs: int, mods: int, crit_threshold: int, rng: RNGService, fail_band: int, ledger: Array, ranged: bool = true) -> Dictionary:
 	var out := {"hit": 0, "crit": 0}
-	if GameConstants.edition < 11 or not cus11e_det().magna_imperator_available(actor_unit, "hit"):
+	if GameConstants.edition < 11:
+		return out
+	var rr_src := ""
+	if cus11e_det().magna_imperator_available(actor_unit, "hit"):
+		rr_src = "Magna Imperator"
+	elif ranged and SMAbilitiesAScript.machine_spirit_available(actor_unit, "hit"):  # WP-M4a POWER OF THE MACHINE SPIRIT (Land Raider): re-roll one hit roll
+		rr_src = "Power of the Machine Spirit"
+	if rr_src == "":
 		return out
 	var i: int = cus11e_det().magna_pick_index(hit_evals, "is_hit")
 	if i < 0:
 		return out
-	cus11e_det().magna_imperator_consume(actor_unit, "hit")
+	if rr_src == "Magna Imperator":
+		cus11e_det().magna_imperator_consume(actor_unit, "hit")
+	else:
+		SMAbilitiesAScript.machine_spirit_consume(actor_unit, "hit")
 	var new_raw: int = rng.roll_d6(1)[0]
 	var attack_bs: int = int(bs_per_attack[i]) if i < bs_per_attack.size() else bs
 	var no_rr: int = mods & ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
@@ -10128,8 +10162,8 @@ static func cus11e_magna_reroll_hit(actor_unit: Dictionary, hit_evals: Array, mo
 	if i < modified_rolls.size():
 		modified_rolls[i] = ev.final_roll
 	reroll_data.append({"original": old_raw, "rerolled_to": new_raw})
-	ModifierLedger.note(ledger, "Magna Imperator", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "one hit roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
-	print("RulesEngine: [cus11e] MAGNA IMPERATOR — %s re-rolls one hit roll: %d -> %d (%s)" % [str(actor_unit.get("id", "?")), int(old_raw), new_raw, "hit" if ev.is_hit else "miss"])
+	ModifierLedger.note(ledger, rr_src, ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "one hit roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
+	print("RulesEngine: [cus11e] %s — %s re-rolls one hit roll: %d -> %d (%s)" % [rr_src.to_upper(), str(actor_unit.get("id", "?")), int(old_raw), new_raw, "hit" if ev.is_hit else "miss"])
 	if ev.is_hit:
 		out.hit = 1
 		if ev.is_crit:
@@ -10138,22 +10172,32 @@ static func cus11e_magna_reroll_hit(actor_unit: Dictionary, hit_evals: Array, mo
 
 ## MAGNA IMPERATOR: re-roll ONE failed wound roll. wound_evals entries are
 ## {raw, is_wound, is_crit, auto_fail, rerolled}; returns {wound, crit} (0|1).
-static func cus11e_magna_reroll_wound(actor_unit: Dictionary, wound_evals: Array, wound_rolls: Array, reroll_data: Array, mods: int, wound_threshold: int, crit_threshold: int, rng: RNGService, ledger: Array) -> Dictionary:
+static func cus11e_magna_reroll_wound(actor_unit: Dictionary, wound_evals: Array, wound_rolls: Array, reroll_data: Array, mods: int, wound_threshold: int, crit_threshold: int, rng: RNGService, ledger: Array, ranged: bool = true) -> Dictionary:
 	var out := {"wound": 0, "crit": 0, "index": -1}
-	if GameConstants.edition < 11 or not cus11e_det().magna_imperator_available(actor_unit, "wound"):
+	if GameConstants.edition < 11:
+		return out
+	var rr_src := ""
+	if cus11e_det().magna_imperator_available(actor_unit, "wound"):
+		rr_src = "Magna Imperator"
+	elif ranged and SMAbilitiesAScript.machine_spirit_available(actor_unit, "wound"):  # WP-M4a POWER OF THE MACHINE SPIRIT: re-roll one wound roll
+		rr_src = "Power of the Machine Spirit"
+	if rr_src == "":
 		return out
 	var i: int = cus11e_det().magna_pick_index(wound_evals, "is_wound")
 	if i < 0:
 		return out
-	cus11e_det().magna_imperator_consume(actor_unit, "wound")
+	if rr_src == "Magna Imperator":
+		cus11e_det().magna_imperator_consume(actor_unit, "wound")
+	else:
+		SMAbilitiesAScript.machine_spirit_consume(actor_unit, "wound")
 	var new_raw: int = rng.roll_d6(1)[0]
 	var no_rr: int = mods & ~(WoundModifier.REROLL_ONES | WoundModifier.REROLL_FAILED | WoundModifier.REROLL_ONES_TWOS)
 	var ev = AttackSequence.evaluate_wound_roll(new_raw, no_rr, wound_threshold, crit_threshold, rng)
 	var old_raw = wound_evals[i].get("raw", 0)
 	wound_evals[i] = {"raw": old_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail, "rerolled": true}
 	reroll_data.append({"original": old_raw, "rerolled_to": new_raw})
-	ModifierLedger.note(ledger, "Magna Imperator", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "one wound roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
-	print("RulesEngine: [cus11e] MAGNA IMPERATOR — %s re-rolls one wound roll: %d -> %d (%s)" % [str(actor_unit.get("id", "?")), int(old_raw), new_raw, "wound" if ev.is_wound else "fail"])
+	ModifierLedger.note(ledger, rr_src, ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "one wound roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
+	print("RulesEngine: [cus11e] %s — %s re-rolls one wound roll: %d -> %d (%s)" % [rr_src.to_upper(), str(actor_unit.get("id", "?")), int(old_raw), new_raw, "wound" if ev.is_wound else "fail"])
 	out.index = i
 	if ev.is_wound and not ev.auto_fail:
 		out.wound = 1
@@ -10225,6 +10269,8 @@ const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.
 const CustodesAbilities11eScript = preload("res://scripts/codex/custodes/CustodesAbilities.gd")
 # WP-S4: Codex: Space Marines (11e) Space Wolves DATASHEET abilities (scripts/codex/space_wolves/SWAbilities11e.gd).
 const SWAbilities11eScript = preload("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+# WP-M4a: Codex: Space Marines (11e) generic DATASHEET abilities, M4a list (scripts/codex/space_marines/SMAbilitiesA.gd).
+const SMAbilitiesAScript = preload("res://scripts/codex/space_marines/SMAbilitiesA.gd")
 
 static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weapon_profile: Dictionary, is_melee: bool, board: Dictionary, bearer_ids: Array = []) -> Dictionary:
 	if GameConstants.edition < 11:
@@ -10235,6 +10281,7 @@ static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weap
 	# Hunter's Eye, Ferocious Strike, A Giant Amongst Giants) ride the same aggregator.
 	load("res://scripts/codex/space_wolves/SWDetachments11e.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
 	SWAbilities11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-S4: Space Wolves (11e) datasheet abilities ride the same aggregator
+	SMAbilitiesAScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-M4a: Codex: Space Marines (11e) generic datasheet abilities (M4a list)
 	return ab_mods
 
 ## Fold the datasheet-ability hit modifiers into HitModifier bits (+ ledger).
@@ -10287,7 +10334,8 @@ static func sw11e_ignore_wound_penalties(bits: int, ledger: Array, ab: Dictionar
 static func ork11e_ab_wound_penalty(target_unit: Dictionary, strength: int, toughness: int) -> bool:
 	return GameConstants.edition >= 11 and (OrkAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness) \
 		or CustodesAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness)  # WP-C7: Unyielding Ancient / Praesidium Shield (Sentinel Guard)
-		or SWAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness))  # WP-S4: Legendary Tenacity / Rugged Resilience (Space Wolves)
+		or SWAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness)  # WP-S4: Legendary Tenacity / Rugged Resilience (Space Wolves)
+		or SMAbilitiesAScript.incoming_wound_penalty(target_unit, strength, toughness))  # WP-M4a: Rites of Tempering (Iron Father Feirros)
 
 ## The ledger name of the S > T -1 to wound above (Hardy Bioniks, or the
 ## Custodes Unyielding Ancient / Praesidium Shield — WP-C7).
@@ -10295,6 +10343,8 @@ static func ork11e_ab_wound_penalty_name(target_unit: Dictionary, strength: int,
 	var cus_src: String = CustodesAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)
 	if cus_src == "":
 		cus_src = SWAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)  # WP-S4: Legendary Tenacity / Rugged Resilience
+	if cus_src == "":
+		cus_src = SMAbilitiesAScript.incoming_wound_penalty_source(target_unit, strength, toughness)  # WP-M4a: Rites of Tempering
 	return cus_src if cus_src != "" else "Hardy Bioniks"
 
 const ORK11E_FLAG_CLOSE_RANGE_DAKKA := "ork11e_close_range_dakka"
@@ -14252,7 +14302,7 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 					regular_hits += 1
 
 		# Codex: Adeptus Custodes MAGNA IMPERATOR (Emperor's Chosen, WP-C46): re-roll one hit roll (melee).
-		var cus11e_mh_m: Dictionary = cus11e_magna_reroll_hit(attacker_unit, hit_evals, modified_rolls, melee_hit_reroll_data, ws_per_attack, ws, melee_hit_modifiers, melee_crit_threshold, rng, 1, melee_hit_mod_ledger)
+		var cus11e_mh_m: Dictionary = cus11e_magna_reroll_hit(attacker_unit, hit_evals, modified_rolls, melee_hit_reroll_data, ws_per_attack, ws, melee_hit_modifiers, melee_crit_threshold, rng, 1, melee_hit_mod_ledger, false)
 		hits += int(cus11e_mh_m.hit)
 		critical_hits += int(cus11e_mh_m.crit)
 		regular_hits += int(cus11e_mh_m.hit) - int(cus11e_mh_m.crit)
@@ -14598,7 +14648,7 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 						regular_wound_count += 1
 
 	# Codex: Adeptus Custodes MAGNA IMPERATOR (Emperor's Chosen, WP-C46): re-roll one wound roll (melee).
-	var cus11e_mw_m: Dictionary = cus11e_magna_reroll_wound(attacker_unit, wound_evals, wound_rolls, melee_wound_reroll_data, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng, melee_wound_mod_ledger)
+	var cus11e_mw_m: Dictionary = cus11e_magna_reroll_wound(attacker_unit, wound_evals, wound_rolls, melee_wound_reroll_data, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng, melee_wound_mod_ledger, false)
 	if int(cus11e_mw_m.wound) > 0:
 		wounds_from_rolls += 1
 		if int(cus11e_mw_m.crit) > 0:
@@ -16419,6 +16469,8 @@ static func _conditional_fnp(unit: Dictionary, is_psychic: bool, is_mortal: bool
 	# Codex: Space Marines (11e) Space Wolves WOLF TOTEMS (SWCodex11e.gd): Feel No Pain 5+ against mortal wounds.
 	if is_mortal:
 		best = _better_fnp(best, int(_sw11e_codex().fnp_vs_mortal(unit)))
+	# WP-M4a: Psychic Hood (FNP 4+ vs psychic attacks) / Zealous Fortitude (FNP 4+ vs mortal wounds).
+	best = _better_fnp(best, int(SMAbilitiesAScript.fnp_vs(unit, is_psychic, is_mortal)))
 	return best
 
 static func _better_fnp(a: int, b: int) -> int:

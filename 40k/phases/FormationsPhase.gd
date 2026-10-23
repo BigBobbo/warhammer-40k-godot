@@ -1163,6 +1163,8 @@ func _build_formation_changes() -> Array:
 			log_phase_message("Applied: %d units embarked in %s" % [embark_ids.size(), transport_name])
 
 		# Reserves declarations
+		# WP-M4a DROP POD ASSAULT: "This unit must start the battle in strategic reserves" — added when undeclared.
+		formations["reserves"].append_array(load("res://scripts/codex/space_marines/SMAbilitiesA.gd").forced_reserves(player, formations["reserves"]))
 		for entry in formations["reserves"]:
 			var unit_id = entry["unit_id"]
 			var reserve_type = entry["reserve_type"]

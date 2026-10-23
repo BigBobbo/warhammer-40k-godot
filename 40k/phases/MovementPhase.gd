@@ -1456,6 +1456,14 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int, is_roll: bool = t
 		log_phase_message("%s: %s advance roll %d %+d = %d" % [str(sw_fv.source), unit_id, sw_raw, int(sw_fv.bonus), advance_roll])
 		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
 			"type": "Fervour of the Ancients", "roll": sw_raw, "result": "Advance roll %d %+d = %d" % [sw_raw, int(sw_fv.bonus), advance_roll]})
+	# WP-M4a ANGEL'S WRATH (Captain with Jump Pack): +1 to advance rolls (this unit).
+	var sm_aw: Dictionary = _sm11e_abilities_a().roll_bonus(unit_id) if is_roll else {"bonus": 0}
+	if int(sm_aw.get("bonus", 0)) != 0:
+		var sm_raw := advance_roll
+		advance_roll += int(sm_aw.bonus)
+		log_phase_message("%s: %s advance roll %d %+d = %d" % [str(sm_aw.source), unit_id, sm_raw, int(sm_aw.bonus), advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": str(sm_aw.source), "roll": sm_raw, "result": "Advance roll %d %+d = %d" % [sm_raw, int(sm_aw.bonus), advance_roll]})
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
@@ -2389,6 +2397,10 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 						errors.append("%sModel %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [g_label, i, omni.get("unit_name", "unknown"), edge_dist])
 						break
 
+	# WP-M4a TELEPORT HOMER: a Rapid Ingress that uses the token sets the unit up within 3" of it.
+	if errors.is_empty() and model_positions is Array:
+		errors.append_array(_sm11e_abilities_a().homer_setup_errors(unit_id, model_positions))
+
 	# Check unit coherency
 	if errors.is_empty():
 		var final_models = []
@@ -2579,6 +2591,12 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 	# Clear Rapid Ingress state
 	_rapid_ingress_unit_id = ""
 	_rapid_ingress_player = 0
+
+	# WP-M4a TELEPORT HOMER: the token this set-up used is removed.
+	var sm_homer_ri: Array = _sm11e_abilities_a().on_reinforcement_set_up(unit_id)
+	if not sm_homer_ri.is_empty():
+		PhaseManager.apply_state_changes(sm_homer_ri)
+		changes.append_array(sm_homer_ri)
 
 	# P2-88: Check for Fire Overwatch opportunity after Rapid Ingress unit is set up
 	# Balance Dataslate timing: "just after an enemy unit is set up"
@@ -3715,6 +3733,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	if (move_data.mode == "NORMAL" or move_data.mode == "ADVANCE") and GameConstants.edition >= 11:
 		var uenm_window := "unit_ended_normal_move" if move_data.mode == "NORMAL" else "unit_ended_advance_move"
 		var uenm_ctx := {"phase": "movement", "unit_id": unit_id}
+		uenm_ctx["sm11e_from_positions"] = _sm11e_from_positions(unit_id, move_data)  # WP-M4a THUNDERHAWK CLUSTER BOMBS: "moved over"
 		var uenm_staged := _ork11e_stage_move_positions(changes)
 		var uenm_opened := open_stratagem_window(get_current_player(), uenm_window, uenm_ctx, "_resume_after_unit_ended_normal_move")
 		_ork11e_restore_move_positions(uenm_staged)
@@ -4106,7 +4125,9 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 	var battle_round = GameState.get_battle_round()
 	# WP-S4 HIGH KING OF FENRIS (Space Wolves, Logan Grimnar): this unit's ingress move treats the battle round as one higher.
 	battle_round = _sw11e_abilities().ingress_battle_round(unit, battle_round)
-	if battle_round < 2 and not _cus11e_det().can_ingress_first_round(unit) and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit):
+	# WP-M4a DROP POD ASSAULT: "In your first Movement phase, this unit can make an ingress move."
+	if battle_round < 2 and not _cus11e_det().can_ingress_first_round(unit) and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit) \
+			and not _sm11e_abilities_a().can_ingress_first_round(unit):
 		errors.append("Reserves cannot arrive until Battle Round 2 (currently Round %d)" % battle_round)
 		return {"valid": false, "errors": errors}
 
@@ -4690,6 +4711,17 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	if MissionManager:
 		MissionManager.call_deferred("check_all_objectives", false)
 
+	# WP-M4a TELEPORT HOMER: the token this set-up used is removed.
+	var sm_homer: Array = _sm11e_abilities_a().on_reinforcement_set_up(unit_id)
+	if not sm_homer.is_empty():
+		PhaseManager.apply_state_changes(sm_homer)
+		changes.append_array(sm_homer)
+	# WP-M4a DROP POD ASSAULT: the embarked units disembark as the Drop Pod lands
+	# (the owner's sm11e_drop_pod_landed window) before the opponent reacts.
+	var sm_dp := _sm11e_drop_pod_window(unit_id, changes)
+	if not sm_dp.is_empty():
+		return sm_dp
+
 	# Codex: Orks (11e) enemy_ended_move: the arrival is an ingress move
 	# (20.04). The opponent's window opens once the Fire Overwatch prompt
 	# below has resolved (its decline / use paths open it), else right away.
@@ -4705,6 +4737,65 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		result.merge(ow_result.result_extra)
 		return result
 
+	return _ork11e_with_enemy_ended_move(create_result(true, changes))
+
+## WP-M4a DROP POD ASSAULT (SMAbilitiesA.drop_pod_landed): a Drop Pod with
+## embarked units was just set up — open its owner's sm11e_drop_pod_landed
+## window (the "Drop Pod Assault" card starts the assault-disembark follow-up;
+## an AI owner decides and disembarks synchronously). {} = nothing to do (the
+## caller continues its own set-up tail).
+func _sm11e_drop_pod_window(unit_id: String, changes: Array) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {}
+	var dp: Dictionary = _sm11e_abilities_a().drop_pod_landed(unit_id)
+	if dp.is_empty():
+		return {}
+	PhaseManager.apply_state_changes(dp.get("diffs", []))
+	changes.append_array(dp.get("diffs", []))
+	if (dp.get("units", []) as Array).is_empty():
+		return {}
+	var owner := int(get_unit(unit_id).get("owner", get_current_player()))
+	if open_stratagem_window(owner, "sm11e_drop_pod_landed", {"phase": "movement", "unit_id": unit_id}, "_sm11e_resume_after_drop_pod_window"):
+		log_phase_message("Drop Pod Assault: waiting for Player %d to disembark the units in %s" % [owner, unit_id])
+		var paused: Array = changes.duplicate()
+		paused.append_array(consume_window_diffs())
+		return create_result(true, paused)
+	changes.append_array(consume_window_diffs())
+	return _sm11e_reinforcement_tail(unit_id, changes)
+
+## Resume of the sm11e_drop_pod_landed window: the rest of the set-up (Fire
+## Overwatch, the opponent's enemy_ended_move window).
+func _sm11e_resume_after_drop_pod_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _sm11e_reinforcement_tail(str(ctx.get("unit_id", "")), [])
+
+## WP-M4a: the moving unit's start positions {model_id: {x, y}} (px) from the
+## move's original_positions ("<unit>:<model>" keys) — JSON-safe window ctx.
+func _sm11e_from_positions(unit_id: String, move_data: Dictionary) -> Dictionary:
+	var out := {}
+	var orig = move_data.get("original_positions", {})
+	if typeof(orig) != TYPE_DICTIONARY:
+		return out
+	for k in orig:
+		var parts := str(k).split(":")
+		if parts.size() != 2 or parts[0] != unit_id:
+			continue
+		var p = orig[k]
+		if p is Vector2:
+			out[parts[1]] = {"x": p.x, "y": p.y}
+		elif p is Dictionary:
+			out[parts[1]] = {"x": float(p.get("x", 0.0)), "y": float(p.get("y", 0.0))}
+	return out
+
+## The tail of _process_place_reinforcement (same steps, in the same order).
+func _sm11e_reinforcement_tail(unit_id: String, changes: Array) -> Dictionary:
+	if GameConstants.edition >= 11:
+		_ork11e_eem_pending = {"unit_id": unit_id, "move_type": "ingress"}
+		_ork11e_pending_move_changes = []
+	var ow_result = _check_fire_overwatch_opportunity(unit_id, "reinforcement set up")
+	if ow_result.triggered:
+		var result = create_result(true, changes)
+		result.merge(ow_result.result_extra)
+		return result
 	return _ork11e_with_enemy_ended_move(create_result(true, changes))
 
 func _process_end_movement(action: Dictionary) -> Dictionary:
@@ -6044,6 +6135,12 @@ func _snap_finish() -> Array:
 	_window_result_extra["fire_overwatch_summary"] = summary
 	_window_result_extra["dice"] = dice
 	_window_result_extra["log_text"] = str(st.get("log_text", ""))
+	# WP-M4a SENTINEL PROTOCOLS: a use that does not count against (or ignores) the
+	# once-per-phase limit — the movement_phase_end window is offered again.
+	if str(st.get("source", "FIRE OVERWATCH")) == "FIRE OVERWATCH":
+		var sm_re: Dictionary = _sm11e_abilities_a().fire_overwatch_reoffer(int(st.get("player", 0)), {"phase": "movement", "engaged_at_phase_start": _engagement_at_phase_start.keys()})
+		if not sm_re.is_empty():
+			_window_queue.push_front(sm_re)
 	emit_signal("overwatch_result", shooter_id, target_id, res_like)
 	call_deferred("_ork11e_refresh_board_visuals")
 	return out
@@ -6361,6 +6458,7 @@ func _ork11e_refresh_board_visuals() -> void:
 func _ork11e_begin_assault_disembark(player: int, followup: Dictionary) -> bool:
 	var transport_id := str(followup.get("transport_id", ""))
 	var units: Array = Ork11eMovement.assault_disembark_candidates(transport_id)
+	units = _sm11e_abilities_a().filter_assault_disembark(transport_id, units)  # WP-M4a AERIAL ASSAULT: Deep Strike units only
 	if units.is_empty():
 		_window_sync_diffs.append_array(_ork11e_readied_brawlers_off(transport_id))
 		return false
@@ -6529,7 +6627,9 @@ func _ork11e_readied_brawlers_off(transport_id: String) -> Array:
 	var t := get_unit(transport_id)
 	if not t.is_empty():
 		t.get("flags", {}).erase(Ork11eMovement.FLAG_READIED_BRAWLERS)
-	return [{"op": "remove", "path": "units.%s.flags.%s" % [transport_id, Ork11eMovement.FLAG_READIED_BRAWLERS]}]
+	var off: Array = [{"op": "remove", "path": "units.%s.flags.%s" % [transport_id, Ork11eMovement.FLAG_READIED_BRAWLERS]}]
+	off.append_array(_sm11e_abilities_a().assault_disembark_off_diffs(transport_id))  # WP-M4a Assault Ramp / Aerial Assault / Drop Pod: the grant is spent
+	return off
 
 ## CONFIRM_DISEMBARK tail: when the READIED BRAWLERS follow-up is running,
 ## move on to the next embarked unit, or finish the follow-up.
@@ -6542,6 +6642,7 @@ func _ork11e_after_assault_disembark(unit_id: String, dis_changes: Array) -> Dic
 func _ork11e_assault_disembark_next(changes: Array) -> Dictionary:
 	var tid := str(_ork11e_assault_disembark.get("transport_id", ""))
 	var eligible: Array = Ork11eMovement.assault_disembark_candidates(tid)
+	eligible = _sm11e_abilities_a().filter_assault_disembark(tid, eligible)  # WP-M4a AERIAL ASSAULT
 	var still: Array = []
 	for uid in _ork11e_assault_disembark.get("remaining", []):
 		if uid in eligible:
@@ -7551,6 +7652,10 @@ func _cus11e_lightning_descent_reserves(player: int) -> Array:
 	for hk_id in _sw11e_abilities().high_king_first_round_units(player):
 		if not hk_id in out:
 			out.append(hk_id)
+	# WP-M4a DROP POD ASSAULT: Drop Pods can arrive in their player's first Movement phase.
+	for rid in GameState.get_reserves_for_player(player):
+		if _sm11e_abilities_a().can_ingress_first_round(get_unit(str(rid))) and not rid in out:
+			out.append(rid)
 	return out
 
 func get_available_actions() -> Array:
@@ -8357,6 +8462,11 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 			for placed in final_models:
 				if Measurement.models_overlap(placed, other_model):
 					return {"valid": false, "errors": ["Disembark position overlaps a model from %s" % other_id]}
+	# WP-M4a DROP POD ASSAULT: units disembarking as the Drop Pod lands are set up more than 8" from enemy units.
+	for dp_gid in group_positions:
+		var dp_err: Array = _sm11e_abilities_a().disembark_setup_errors(str(dp_gid), TransportManager.align_disembark_positions(get_unit(str(dp_gid)), group_positions[dp_gid]))
+		if not dp_err.is_empty():
+			return {"valid": false, "errors": dp_err}
 
 	return {"valid": true, "errors": []}
 

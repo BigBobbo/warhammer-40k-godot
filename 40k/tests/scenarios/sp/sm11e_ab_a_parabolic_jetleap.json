@@ -1,0 +1,127 @@
+{
+  "id": "sm11e_ab_a_parabolic_jetleap",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.parabolic_jetleap",
+    "scripts.codex.space_marines.SMAbilitiesA",
+    "stratagem.window.fight_phase_end"
+  ],
+  "description": "WP-M4a PARABOLIC JETLEAP through the real fight_phase_end window. Fixture sm11e_m4a_enemy_turn transitioned to the P2 Orks' Fight phase (nobody engaged): at the end of the phase P1 is offered the card, a real click places the unengaged Inceptor Squad in strategic reserves.",
+  "fixture": "sm11e_m4a_enemy_turn",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "sm_abilities_a": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "fight_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_parabolic_jetleap",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_parabolic_jetleap_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_parabolic_jetleap/Buttons/Use_sm11e_ab_a_parabolic_jetleap_U_INCEPTOR_SQUAD_A",
+      "comment": "REAL click (P1): Parabolic Jetleap"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_INCEPTOR_SQUAD_A\").status)",
+      "comment": "the Inceptors are in strategic reserves",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "str(GameState.get_unit(\"U_INCEPTOR_SQUAD_A\").get(\"reserve_type\", \"\"))",
+      "equals": "strategic_reserves"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_INCEPTOR_SQUAD_A\").models[0].position == null",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Parabolic Jetleap: Inceptor Squad is placed in strategic reserves\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_inceptors_in_reserves"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4a] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

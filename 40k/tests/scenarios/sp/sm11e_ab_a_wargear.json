@@ -1,0 +1,125 @@
+{
+  "id": "sm11e_ab_a_wargear",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.relic_shield",
+    "codex.space_marines.datasheet_abilities.storm_shield",
+    "codex.space_marines.datasheet_abilities.combat_shield",
+    "scripts.codex.space_marines.SMAbilitiesA",
+    "autoloads.ArmyListManager",
+    "scripts.UnitLoadoutResolver"
+  ],
+  "description": "WP-M4a wargear on the table (list build). Fixture sm11e_m4a_wargear (P1 Command phase): a Captain with a Relic Shield (6 W), a Terminator Assault Squad with two Storm Shields (two 4 W bearers), Vanguard Veterans with Combat Shields (5+ invulnerable save), a Land Raider with no roster wargear (it fires its printed default kit only). The allocation groups / invulnerable saves are read live and the Storm Shield wound chips are hovered for the screenshot.",
+  "fixture": "sm11e_m4a_wargear",
+  "edition": 11,
+  "rng_seed": 11,
+  "disable_ai": true,
+  "sm_abilities_a": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "comment": "the secondary-mission review (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_CAPTAIN_A\").models[0].wounds)",
+      "comment": "Relic Shield: the Captain has 6 W (5 +1)",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var groups: Array = Allocation.build_groups(GameState.get_unit(\"U_TERMINATOR_ASSAULT_SQUAD_A\"))\nvar out := []\nfor g in groups:\n\tout.append(\"%d:%d\" % [int(g.w), g.model_indices.size()])\nout.sort()\nprint(\"[sm11e-m4a] terminator assault allocation groups \", out)\nreturn out",
+      "comment": "Storm Shield: two 4 W models, three 3 W models (two allocation groups)",
+      "equals": [
+        "3:3",
+        "4:2"
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.get_unit(\"U_VANGUARD_VETERAN_SQUAD_WITH_JUMP_PACKS_A\")\nvar n := 0\nfor m in u.models:\n\tif RulesEngine._get_model_effective_invuln(m, u, int(m.get(\"invuln\", 0))) == 5:\n\t\tn += 1\nreturn n",
+      "comment": "Combat Shield: every Vanguard Veteran has a 5+ invulnerable save",
+      "equals": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var names := []\nfor mid in RulesEngine.get_unit_weapons(\"U_LAND_RAIDER_A\", GameState.state):\n\tfor wid in RulesEngine.get_unit_weapons(\"U_LAND_RAIDER_A\", GameState.state)[mid]:\n\t\tnames.append(str(wid))\nnames.sort()\nprint(\"[sm11e-m4a] land raider weapons \", names)\nreturn \"multi_melta_ranged\" in names or \"hunter_killer_missile_ranged\" in names",
+      "comment": "default kit: the Land Raider fires its printed loadout, not every option",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar focus := Vector2(880.0, 1840.0)\nvar z := 1.4\nvar vp: Vector2 = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(z, z)\nm.view_zoom = z\nm.view_offset = focus - vp / (2.0 * z)\nreturn true",
+      "comment": "frame the units"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_TERMINATOR_ASSAULT_SQUAD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "01_storm_shield_wound_chips"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_CAPTAIN_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "02_captain_relic_shield_selected"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4a] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

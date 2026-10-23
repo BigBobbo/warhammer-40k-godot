@@ -1062,6 +1062,9 @@ func get_omni_scrambler_positions(deploying_player: int) -> Array:
 			if name == "Omni-scramblers":
 				has_omni = true
 				break
+		# WP-M4a: Codex: Space Marines (11e) Omni-scramblers is a Shooting-phase "detected" rule — the 10e 12" denial is retired there.
+		if has_omni and load("res://scripts/codex/space_marines/SMAbilitiesA.gd").omni_scramblers_denial_retired(unit):
+			has_omni = false
 		if not has_omni:
 			continue
 		var unit_name = unit.get("meta", {}).get("name", uid)

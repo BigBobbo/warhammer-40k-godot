@@ -1,0 +1,231 @@
+{
+  "id": "sm11e_ab_a_bladeguard",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.bladeguard",
+    "scripts.codex.space_marines.SMAbilitiesA",
+    "stratagem.window.enemy_targets_unit_fight"
+  ],
+  "description": "WP-M4a BLADEGUARD (once per turn) through the real enemy_targets_unit_fight window. Fixture sm11e_m4a_enemy_fight (P2 Orks' Fight phase): the Boyz charged the Bladeguard Veterans; they are selected to fight and their attacks are assigned with real clicks; P1's card shows both options, a real click on '-1 to hit against us' gives the Boyz' attacks -1 to hit; the attacks resolve.",
+  "fixture": "sm11e_m4a_enemy_fight",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "sm_abilities_a": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_B",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_B",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "comment": "a P2 window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "enemy_targets_unit_fight"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_bladeguard/Buttons/Use_sm11e_ab_a_bladeguard_U_BLADEGUARD_VETERAN_SQUAD_A_defend",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_bladeguard/Buttons/Use_sm11e_ab_a_bladeguard_U_BLADEGUARD_VETERAN_SQUAD_A_attack",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_bladeguard_card_two_options"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_bladeguard/Buttons/Use_sm11e_ab_a_bladeguard_U_BLADEGUARD_VETERAN_SQUAD_A_defend",
+      "comment": "REAL click (P1): Bladeguard - attacks that target this unit -1 to hit"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_BOYZ_B\"), GameState.get_unit(\"U_BLADEGUARD_VETERAN_SQUAD_A\"), {\"name\": \"x\", \"type\": \"Melee\"}, true, GameState.state)\nreturn bool(m.get(\"hit_minus\", false))",
+      "comment": "the Boyz' attacks against the Bladeguard have -1 to hit",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var S = load(\"res://scripts/codex/space_marines/SMAbilitiesA.gd\")\nreturn S.used_this_turn(\"U_BLADEGUARD_VETERAN_SQUAD_A\", \"bladeguard\")",
+      "comment": "once per turn",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Bladeguard (once per turn): attacks that target\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)",
+      "comment": "resolve the Boyz' attacks through the resolution dock"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_bladeguard_defended_attacks_resolved"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4a] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}
