@@ -21457,6 +21457,10 @@ static func _codex_for_strat(strat: Dictionary):
 	var swc = load("res://scripts/codex/space_wolves/SWCodex11e.gd")
 	if swc != null and swc.handles(strat):
 		return swc
+	# Codex: Space Marines (11e) generic stratagems (SMCodex11e.gd; WP-M3b stub hook — the integrator keeps M3a's version).
+	var smc = load("res://scripts/codex/space_marines/SMCodex11e.gd")
+	if smc != null and smc.handles(strat):
+		return smc
 	return null
 
 ## WP-O6: Codex: Orks (11e) datasheet abilities (loaded on first use, like _ork_codex).

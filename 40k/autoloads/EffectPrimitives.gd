@@ -738,8 +738,9 @@ static func has_effect_worsen_ap(unit: Dictionary) -> bool:
 static func get_effect_worsen_ap(unit: Dictionary) -> int:
 	"""Get the effect-granted AP worsen value (0 if none)."""
 	# WP-O6: + Codex: Orks (11e) Arrogant Invulnerability (-1 AP for attacks that target the unit).
-	return maxi(maxi(int(unit.get("flags", {}).get(FLAG_WORSEN_AP, 0)), int(_ork_abilities().defence_mods_now(unit).get("ap_worsen", 0))),
-		int(_cus11e_abilities().defence_mods_now(unit).get("ap_worsen", 0)))  # WP-C7: Living Fortress (-1 AP)
+	return maxi(maxi(maxi(int(unit.get("flags", {}).get(FLAG_WORSEN_AP, 0)), int(_ork_abilities().defence_mods_now(unit).get("ap_worsen", 0))),
+		int(_cus11e_abilities().defence_mods_now(unit).get("ap_worsen", 0))),  # WP-C7: Living Fortress (-1 AP)
+		int(load("res://scripts/codex/space_marines/SMCodexB.gd").ap_worsen(unit)))  # Codex: Space Marines (11e) WP-M3b (SMCodexB.gd): ARMOUR OF CONTEMPT -1 AP
 
 static func has_effect_improve_ap(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted AP improvement."""
@@ -790,7 +791,9 @@ static func get_effect_minus_damage(unit: Dictionary) -> int:
 	var best_minus := maxi(maxi(int(unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0)), int(_ork_abilities().defence_mods_now(unit).get("damage_minus", 0))),
 		int(_cus11e_abilities().defence_mods_now(unit).get("damage_minus", 0)))  # WP-C7: Guardian Eternal (ranged -1 D)
 	# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE (SWCodex11e.gd): attacks that target the unit have -1 D.
-	return maxi(best_minus, int(_sw11e_codex().damage_minus(unit)))
+	best_minus = maxi(best_minus, int(_sw11e_codex().damage_minus(unit)))
+	# Codex: Space Marines (11e) WP-M3b (SMCodexB.gd): TACTICAL DREADNOUGHT FORTITUDE -1 D.
+	return maxi(best_minus, int(load("res://scripts/codex/space_marines/SMCodexB.gd").damage_minus(unit)))
 
 static func has_effect_crit_hit_on(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted critical hit threshold."""

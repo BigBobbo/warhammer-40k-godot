@@ -140,6 +140,33 @@ const CONFIRMED_WINDOWS = {
   // "Any phase, when … suffers a mortal wound": no reactive hook exists at the
   // many mortal-wound sites — S panel, used before the mortal wound (ruling).
   'wolf-totems-saga-of-the-great-wolf': [],
+  // Codex: Space Marines — generic detachments of WP-M2b (WP-M3b stratagem
+  // pass confirmed all 24 — space_marines/SMCodexB.gd, RULINGS.md § WP-M3b).
+  'tactical-dreadnought-fortitude-terminator-storm-force': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'merciless-veterans-terminator-storm-force': ['unit_selected_to_shoot'],
+  'gunship-extraction-terminator-storm-force': ['fight_phase_end'],
+  'armour-of-contempt-assault-brethren': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'duty-in-death-assault-brethren': ['enemy_targets_unit_fight'],
+  'gene-wrought-might-assault-brethren': ['unit_selected_to_fight'],
+  'armoured-impact-gravis-linebreaker-force': ['unit_ended_charge_move'],
+  'annihilating-force-gravis-linebreaker-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'purgation-push-gravis-linebreaker-force': ['unit_has_shot'],
+  'armour-of-contempt-devastator-brethren': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'hail-of-vengeance-devastator-brethren': ['enemy_has_shot'],
+  'storm-of-fire-devastator-brethren': ['unit_selected_to_shoot'],
+  'suppression-volleys-gravis-siege-force': ['unit_has_shot'],
+  'stand-unyielding-gravis-siege-force': ['movement_phase_end'],
+  'annihilating-force-gravis-siege-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'armour-of-contempt-tactical-brethren': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'domination-fire-tactical-brethren': ['unit_has_shot'],
+  'masterful-tactics-tactical-brethren': ['enemy_ended_move'],
+  'adamantine-terror-ironclad-champions': ['fight_phase_start'],
+  'upstoppable-advance-ironclad-champions': ['unit_selected_to_move', 'unit_declares_charge'],
+  'mercy-is-weakness-ironclad-champions': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'point-blank-brutality-tacticus-firestorm-force': ['unit_selected_to_shoot'],
+  // "Command phase" (either player's): your command_phase_main + the opponent's command_phase_opponent (new, WP-M3b).
+  'for-the-emperor-tacticus-firestorm-force': ['command_phase_main', 'command_phase_opponent'],
+  'relentless-assault-tacticus-firestorm-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
 };
 
 // Editorial duration phrases (see orks_codex_11e.json): where the printed

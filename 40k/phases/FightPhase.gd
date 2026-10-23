@@ -2909,6 +2909,8 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	_cus11e_codex().on_unit_has_attacked(unit_id)
 	# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE ends "until that enemy unit has attacked" (SWCodex11e.gd).
 	load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(unit_id)
+	# Codex: Space Marines (11e) WP-M3b (SMCodexB.gd): TACTICAL DREADNOUGHT FORTITUDE / ARMOUR OF CONTEMPT end "until that enemy unit has attacked".
+	load("res://scripts/codex/space_marines/SMCodexB.gd").on_unit_has_attacked(unit_id)
 	# Codex: Adeptus Custodes INDOMITABLE GUARDIANS (CustodesCodex11e.gd): the
 	# opponent's enemy_has_fought window ("Your opponent's Fight phase, when an
 	# enemy unit has fought") opens before the next selection / Counter-Offensive.
@@ -3082,6 +3084,10 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		# Codex: Adeptus Custodes DUTY UNTO DEATH (CustodesCodex11e.gd): same mechanic, 3+ (+1 for a CHARACTER model).
 		if not ard and _cus11e_codex().is_fod_mode(mode):
 			mod_info = _cus11e_codex().fod_roll(uid, idx)
+			fod_pass = int(mod_info.get("pass", fod_pass))
+		# Codex: Space Marines (11e) WP-M3b DUTY IN DEATH (SMCodexB.gd): 4+, +1 with the assault doctrine.
+		if not ard and load("res://scripts/codex/space_marines/SMCodexB.gd").is_fod_mode(mode):
+			mod_info = load("res://scripts/codex/space_marines/SMCodexB.gd").fod_roll(uid, idx)
 			fod_pass = int(mod_info.get("pass", fod_pass))
 		# WP-S4: the Space Wolves rule's own threshold (Heroic Last Stand 2+, the others 4+), no modifier.
 		if not sw_fod.is_empty():

@@ -636,6 +636,9 @@ const KNOWN_WINDOWS = new Set([
   'phase_end', 'unit_ended_advance_move', 'unit_selected_to_ingress',
   'unit_selected_to_pile_in', 'unit_selected_to_consolidate',
   'enemy_has_fought', 'charge_phase_start', 'charge_phase_end',
+  // Codex: Space Marines (WP-M3b, SMCodexB.gd): the non-active player's
+  // Command phase window (FOR THE EMPEROR! "Command phase", either player's).
+  'command_phase_opponent',
 ]);
 const KNOWN_TURN_COLUMNS = new Set(['Your turn', "Opponent's turn", "Either player's turn"]);
 

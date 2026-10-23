@@ -123,6 +123,10 @@ func can_embark(unit_id: String, transport_id: String) -> Dictionary:
 	if unit.get("embarked_in", null) != null:
 		return {"valid": false, "reason": "Unit is already embarked"}
 
+	# Codex: Space Marines (11e) WP-M3b PURGATION PUSH (SMCodexB.gd): not eligible to embark until the end of the turn.
+	if load("res://scripts/codex/space_marines/SMCodexB.gd").embark_blocked(unit):
+		return {"valid": false, "reason": "PURGATION PUSH: this unit is not eligible to embark within a TRANSPORT until the end of the turn"}
+
 	# P3-32: Check excluded keywords (e.g., JUMP PACK cannot embark in Battlewagon)
 	var excluded_keywords = transport.transport_data.get("excluded_keywords", [])
 	if excluded_keywords.size() > 0 and _has_any_excluded_keyword(unit, excluded_keywords):

@@ -5862,6 +5862,8 @@ func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
 		_cus11e_codex().on_unit_has_attacked(str(shooter))
 		# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE (SWCodex11e.gd).
 		load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(str(shooter))
+		# Codex: Space Marines (11e) WP-M3b (SMCodexB.gd): TACTICAL DREADNOUGHT FORTITUDE / ARMOUR OF CONTEMPT end "until that enemy unit has attacked".
+		load("res://scripts/codex/space_marines/SMCodexB.gd").on_unit_has_attacked(str(shooter))
 	var summary := "%s: %s → %s: %d hit(s), %d wound(s), %d model(s) slain" % [source, unit_name, target_name, hits, wounds, casualties]
 	log_phase_message(summary)
 	GameEventLog.add_player_entry(player, summary)
