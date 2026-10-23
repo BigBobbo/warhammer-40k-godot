@@ -360,7 +360,7 @@ often require reading the right column carefully.
   `Esc`. Don't auto-open.
 
 **Anti-pattern.** Don't show static stat profiles when contextual data
-exists. If a unit has +1 to hit from a Stratagem, the panel must say
+exists. If a unit has +1 to hit from Oath of Moment, the panel must say
 `BS 2+` (modified), not `BS 3+` (raw) — or it teaches the player to
 distrust the panel.
 
