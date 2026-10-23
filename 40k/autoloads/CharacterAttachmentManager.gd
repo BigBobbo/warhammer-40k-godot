@@ -82,6 +82,14 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 	var upper_bg_keywords = []
 	for kw in bg_keywords:
 		upper_bg_keywords.append(str(kw).to_upper())
+	# Every datasheet carries its own name as a keyword, but the 40kdc records
+	# of datasheets no codex import has rewritten yet omit it (a Space Wolves
+	# list's Terminator Assault Squad / Outrider Squad): Logan Grimnar's
+	# "TERMINATOR ASSAULT SQUAD" must still match. (Same rule the importer
+	# applies to the datasheets it writes — wahapedia-import.mjs.)
+	var bg_name := str(bodyguard.get("meta", {}).get("name", "")).to_upper()
+	if bg_name != "" and not bg_name in upper_bg_keywords:
+		upper_bg_keywords.append(bg_name)
 	var has_match = false
 	for lead_keyword in can_lead:
 		if str(lead_keyword).to_upper() in upper_bg_keywords:

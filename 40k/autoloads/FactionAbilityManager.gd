@@ -261,6 +261,13 @@ func detect_faction_abilities(player: int) -> Array:
 				if ability_name not in abilities:
 					abilities.append(ability_name)
 
+	# Codex: Space Marines (11e) dropped Oath of Moment: a Space Wolves army
+	# never has it, even when a generic datasheet (or a roster saved before the
+	# codex) still lists it on a unit (WP-S5).
+	if "Oath of Moment" in abilities and load("res://scripts/codex/space_wolves/SWCommon.gd").is_sw_army(player):
+		abilities.erase("Oath of Moment")
+		print("FactionAbilityManager: Player %d is a Space Wolves (codex) army — Oath of Moment not active" % player)
+
 	_player_abilities[str(player)] = abilities
 	print("FactionAbilityManager: Player %d has faction abilities: %s" % [player, str(abilities)])
 	return abilities

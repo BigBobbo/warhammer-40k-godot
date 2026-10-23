@@ -73,6 +73,7 @@ func _run() -> void:
 	_check_army_rule(army)
 	_check_spot_values(army)
 	_check_stratagems()
+	_check_gw_import()
 
 func _check_units(army: Dictionary, codex: Dictionary) -> void:
 	var bad := []
@@ -259,3 +260,35 @@ func _check_stratagems() -> void:
 		FSL = load("res://autoloads/FactionStratagemLoader.gd").new()
 		FSL.load_faction_codes()
 	_check("faction 'Space Wolves' maps to stratagem code SW", FSL.get_faction_code("Space Wolves") == "SW")
+
+# The GW-app list "Gaelcon Awoo" (server/tests/fixtures/gw-space-wolves-2000.txt)
+# converted by the army builder: a Space Wolves army with generic Space Marine
+# datasheets. No unit brings back Oath of Moment (40kdc's Terminator Assault
+# Squad lists it), and every "Attached Unit" of the list can attach (the
+# generic bodyguards' 40kdc records lack their own-name keyword). WP-S5.
+func _check_gw_import() -> void:
+	var gw: Dictionary = root.get_node("ArmyListManager").load_army_list("sw11e_gw_import_2000", 1)
+	_check("GW import: loads, 12 units, 2000 pts", gw.get("units", {}).size() == 12 and
+		gw["units"].values().reduce(func(acc, u): return acc + int(u["meta"]["points"]), 0) == 2000)
+	var oath := []
+	for uid in gw["units"]:
+		for a in gw["units"][uid]["meta"].get("abilities", []):
+			if str(a.get("name", "") if a is Dictionary else a) == "Oath of Moment":
+				oath.append(uid)
+	_check("GW import: no unit lists Oath of Moment", oath.is_empty(), str(oath))
+	var GS = root.get_node("GameState")
+	var saved_units = GS.state.get("units", {})
+	var saved_factions = GS.state.get("factions", {})
+	GS.state["units"] = gw["units"]
+	GS.state["factions"] = {"1": gw.get("faction", {}), "2": {"name": "Orks"}}
+	var FAM = root.get_node("FactionAbilityManager")
+	_check("GW import: Oath of Moment is not an active faction ability", not "Oath of Moment" in FAM.detect_faction_abilities(1))
+	var CAM = root.get_node("CharacterAttachmentManager")
+	for pair in [["U_LOGAN_GRIMNAR_A", "U_TERMINATOR_ASSAULT_SQUAD_A"], ["U_ANCIENT_IN_TERMINATOR_ARMOUR_A", "U_TERMINATOR_ASSAULT_SQUAD_A"],
+			["U_CHAPLAIN_ON_BIKE_A", "U_OUTRIDER_SQUAD_A"], ["U_CAPTAIN_ON_BIKE_A", "U_WULFEN_WITH_STORM_SHIELDS_A"]]:
+		var r: Dictionary = CAM.can_attach(pair[0], pair[1])
+		_check("GW import: %s can attach to %s" % pair, bool(r.get("valid", false)), str(r))
+	_check("GW import: an illegal pairing is still refused (Chaplain on Bike -> Grey Hunters)",
+		not bool(CAM.can_attach("U_CHAPLAIN_ON_BIKE_A", "U_GREY_HUNTERS_A").get("valid", true)))
+	GS.state["units"] = saved_units
+	GS.state["factions"] = saved_factions

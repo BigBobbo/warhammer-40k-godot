@@ -600,9 +600,17 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
       abilitiesOut.push({ name: canonicalName(rule.name), type: 'Faction', description: safeDescribe(rule) });
       ruleNames.add(normName(rule.name));
     }
+    // The parent's army rules the chapter's codex dropped (Oath of Moment for
+    // Space Wolves): a generic datasheet that still lists one in its own
+    // abilities (40kdc's Terminator Assault Squad) must not bring it back.
+    const retired = new Set();
+    if (ruleFaction !== factionId) {
+      for (const r of factionRuleAbilities(factionId)) if (!ruleNames.has(normName(r.name))) retired.add(normName(r.name));
+    }
     for (const aid of dcUnit.ability_ids ?? []) {
       const rec = ares.resolve(factionId, aid);
       if (rec && ruleNames.has(normName(rec.name))) continue; // the army rule, listed once
+      if (rec && retired.has(normName(rec.name))) continue; // a retired parent army rule
       if (hasWargear && rec?.ability_type === 'wargear' && !hasWargear(rec.name)) continue;
       const conv = convertAbility(factionId, dcUnit, aid, warnings);
       if (conv) abilitiesOut.push(conv);

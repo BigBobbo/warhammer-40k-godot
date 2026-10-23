@@ -1,0 +1,2191 @@
+{
+ "faction": {
+  "name": "Space Wolves",
+  "points": 2000,
+  "detachment": "Assault Brethren",
+  "detachments": [
+   "Assault Brethren",
+   "Saga of the Beastslayer",
+   "Stormlance Task Force"
+  ],
+  "force_disposition": "take-and-hold",
+  "player_name": "",
+  "team_name": "GW app import: Gaelcon Awoo (server/tests/fixtures/gw-space-wolves-2000.txt)",
+  "created_date": "2026-10-23",
+  "schema": 2,
+  "edition": 11,
+  "data_source": "40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes) + Wahapedia 11e codex import 2026-10-21 (Codex: Space Marines, Space Wolves)"
+ },
+ "detachments": [
+  {
+   "name": "Assault Brethren",
+   "dp_cost": 1
+  },
+  {
+   "name": "Saga of the Beastslayer",
+   "dp_cost": 1
+  },
+  {
+   "name": "Stormlance Task Force",
+   "dp_cost": 1
+  }
+ ],
+ "units": {
+  "U_LOGAN_GRIMNAR_A": {
+   "id": "U_LOGAN_GRIMNAR_A",
+   "squad_id": "U_LOGAN_GRIMNAR_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Logan Grimnar",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "CHAPTER MASTER",
+     "CHARACTER",
+     "EPIC HERO",
+     "IMPERIUM",
+     "INFANTRY",
+     "LOGAN GRIMNAR",
+     "SPACE WOLVES",
+     "TERMINATOR"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 8,
+     "leadership": 6,
+     "objective_control": 1,
+     "invuln": 4
+    },
+    "points": 150,
+    "is_warlord": true,
+    "enhancements": [],
+    "wargear": [
+     "1x Axe Morkai",
+     "1x Storm Bolter",
+     "1x Tyrnak and Fenrir"
+    ],
+    "weapons": [
+     {
+      "name": "Storm Bolter",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "2",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Axe Morkai \u2013 Strike",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "6",
+      "weapon_skill": "2",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "3"
+     },
+     {
+      "name": "Axe Morkai \u2013 Sweep",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "10",
+      "weapon_skill": "2",
+      "strength": "6",
+      "ap": "-2",
+      "damage": "1",
+      "special_rules": "cleave 1",
+      "abilities": [
+       {
+        "id": "cleave",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Tyrnak and Fenrir",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "6",
+      "weapon_skill": "2",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "extra attacks",
+      "abilities": [
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     },
+     {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
+      "name": "Transhuman Strategist",
+      "type": "Faction",
+      "description": "At the start of the battle round, if a model with this ability is your WARLORD, gain 1CP."
+     },
+     {
+      "name": "High King of Fenris",
+      "type": "Datasheet",
+      "description": "In your Movement phase, select up to one friendly Space Wolves unit in strategic reserves. If you do, when that unit makes an ingress move, treat the current battle round number as being one higher than it actually is."
+     },
+     {
+      "name": "Guile of the Wolf",
+      "type": "Datasheet",
+      "description": "At the start of each phase, the assault doctrine, devastator doctrine and tactical doctrine are active for this unit."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Logan Grimnar",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "TERMINATOR ASSAULT SQUAD",
+      "TERMINATOR SQUAD",
+      "WOLF GUARD TERMINATORS"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 8,
+     "current_wounds": 8,
+     "base_mm": 80,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_ANCIENT_IN_TERMINATOR_ARMOUR_A": {
+   "id": "U_ANCIENT_IN_TERMINATOR_ARMOUR_A",
+   "squad_id": "U_ANCIENT_IN_TERMINATOR_ARMOUR_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Ancient in Terminator Armour",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "ANCIENT",
+     "CHARACTER",
+     "IMPERIUM",
+     "INFANTRY",
+     "TERMINATOR"
+    ],
+    "stats": {
+     "move": 5,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 5,
+     "leadership": 6,
+     "objective_control": 2,
+     "invuln": 4
+    },
+    "points": 75,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x Storm Bolter"
+    ],
+    "weapons": [
+     {
+      "name": "Storm Bolter",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Keep the Banner High",
+      "type": "Datasheet",
+      "description": "While the unit is below its starting strength, while the unit is below half strength, while this model is leading a unit:\n  -> The unit gets +1 to Hit rolls.\n  -> The unit gets +1 to Wound rolls."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     },
+     {
+      "name": "Terminator Storm Shield",
+      "type": "Datasheet",
+      "description": "Modify this model's Wounds characteristic to 6."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Ancient in Terminator Armour",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "DEATHWATCH TERMINATOR SQUAD",
+      "DEATHWING KNIGHTS",
+      "DEATHWING TERMINATOR SQUAD",
+      "TERMINATOR ASSAULT SQUAD",
+      "TERMINATOR SQUAD",
+      "WOLF GUARD TERMINATORS"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 5,
+     "current_wounds": 5,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_TERMINATOR_ASSAULT_SQUAD_A": {
+   "id": "U_TERMINATOR_ASSAULT_SQUAD_A",
+   "squad_id": "U_TERMINATOR_ASSAULT_SQUAD_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Terminator Assault Squad",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "IMPERIUM",
+     "INFANTRY",
+     "TERMINATOR"
+    ],
+    "stats": {
+     "move": 5,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 3,
+     "leadership": 6,
+     "objective_control": 1,
+     "invuln": 4
+    },
+    "points": 395,
+    "is_warlord": false,
+    "enhancements": [
+     "Furious Assault"
+    ],
+    "wargear": [
+     "1x Twin lightning claws",
+     "9x Storm Shield",
+     "9x Thunder Hammer"
+    ],
+    "weapons": [
+     {
+      "name": "Thunder Hammer",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "8",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "devastating wounds",
+      "abilities": [
+       {
+        "id": "devastating_wounds"
+       }
+      ]
+     },
+     {
+      "name": "Twin lightning claws",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "6",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "1",
+      "special_rules": "twin linked",
+      "abilities": [
+       {
+        "id": "twin_linked"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
+      "name": "Storm Shield",
+      "type": "Datasheet",
+      "description": "This model has +1 W."
+     },
+     {
+      "name": "Teleport Homer",
+      "type": "Datasheet",
+      "description": "Once per battle, you can use one Stratagem on this model for 0CP."
+     },
+     {
+      "name": "Terminatus Assault",
+      "type": "Datasheet",
+      "description": "At the start of the Fight phase, enemy units within Engagement Range must take a Battle-shock test."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Assault Terminator Sergeant",
+      "line": 1
+     },
+     {
+      "description": "4-9 Assault Terminator",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m6",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m7",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m8",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m9",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m10",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_CHAPLAIN_ON_BIKE_A": {
+   "id": "U_CHAPLAIN_ON_BIKE_A",
+   "squad_id": "U_CHAPLAIN_ON_BIKE_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Chaplain on Bike",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "CHAPLAIN",
+     "CHARACTER",
+     "EXPLOSIVES",
+     "IMPERIUM",
+     "MOUNTED"
+    ],
+    "stats": {
+     "move": 12,
+     "toughness": 6,
+     "save": 3,
+     "wounds": 5,
+     "leadership": 5,
+     "objective_control": 2,
+     "invuln": 4
+    },
+    "points": 95,
+    "is_warlord": false,
+    "enhancements": [
+     "Imperium's Sword"
+    ],
+    "wargear": [
+     "1x Absolvor Bolt Pistol",
+     "1x Crozius Arcanum",
+     "1x Twin bolt rifle"
+    ],
+    "weapons": [
+     {
+      "name": "Absolvor Bolt Pistol",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "close quarters",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       }
+      ]
+     },
+     {
+      "name": "Twin bolt rifle",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "rapid fire 2, twin linked",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       },
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Crozius Arcanum",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "6",
+      "ap": "-1",
+      "damage": "2",
+      "special_rules": "cleave 1",
+      "abilities": [
+       {
+        "id": "cleave",
+        "x": 1
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Catechism of Fire",
+      "type": "Datasheet",
+      "description": "Until the end of the phase, the unit's weapons gain [DEVASTATING WOUNDS]."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Chaplain on Bike",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "OUTRIDER SQUAD",
+      "RAVENWING BLACK KNIGHTS"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 5,
+     "current_wounds": 5,
+     "base_mm": 90,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 52.5,
+      "width": 90
+     }
+    }
+   ]
+  },
+  "U_OUTRIDER_SQUAD_A": {
+   "id": "U_OUTRIDER_SQUAD_A",
+   "squad_id": "U_OUTRIDER_SQUAD_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Outrider Squad",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "EXPLOSIVES",
+     "IMPERIUM",
+     "MOUNTED"
+    ],
+    "stats": {
+     "move": 12,
+     "toughness": 6,
+     "save": 3,
+     "wounds": 4,
+     "leadership": 6,
+     "objective_control": 2
+    },
+    "points": 80,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x Bolt pistol",
+     "1x Plasma Pistol",
+     "1x Thunder Hammer",
+     "2x Astartes chainsword",
+     "2x Heavy Bolt Pistol",
+     "3x Twin bolt rifle"
+    ],
+    "weapons": [
+     {
+      "name": "Bolt pistol",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol",
+      "abilities": [
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Heavy Bolt Pistol",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "close quarters",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       }
+      ]
+     },
+     {
+      "name": "Plasma Pistol \u2013 Standard",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "1",
+      "special_rules": "close quarters",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       }
+      ]
+     },
+     {
+      "name": "Plasma Pistol \u2013 Supercharge",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "8",
+      "ap": "-3",
+      "damage": "2",
+      "special_rules": "close quarters, hazardous",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       },
+       {
+        "id": "hazardous"
+       }
+      ]
+     },
+     {
+      "name": "Twin bolt rifle",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "2",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "assault, rapid fire 2, twin linked",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 2
+       },
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Astartes chainsword",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Thunder Hammer",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "8",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "devastating wounds",
+      "abilities": [
+       {
+        "id": "devastating_wounds"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Thunderous Impact",
+      "type": "Datasheet",
+      "description": "During the Fight phase, if the unit charged this turn:\n  -> Add 1 to the unit's Strength characteristic.\n  -> Add 1 to the unit's Damage characteristic."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Outrider Sergeant",
+      "line": 1
+     },
+     {
+      "description": "2-5 Outrider",
+      "line": 2
+     },
+     {
+      "description": "0-1 Invader ATV",
+      "line": 3
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 90,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 52.5,
+      "width": 90
+     }
+    },
+    {
+     "id": "m2",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 90,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 52.5,
+      "width": 90
+     }
+    },
+    {
+     "id": "m3",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 90,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 52.5,
+      "width": 90
+     }
+    }
+   ]
+  },
+  "U_CAPTAIN_ON_BIKE_A": {
+   "id": "U_CAPTAIN_ON_BIKE_A",
+   "squad_id": "U_CAPTAIN_ON_BIKE_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Captain on Bike",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "CHARACTER",
+     "EXPLOSIVES",
+     "IMPERIUM",
+     "MOUNTED"
+    ],
+    "stats": {
+     "move": 12,
+     "toughness": 6,
+     "save": 3,
+     "wounds": 6,
+     "leadership": 6,
+     "objective_control": 2,
+     "invuln": 4
+    },
+    "points": 125,
+    "is_warlord": false,
+    "enhancements": [
+     "Wolf-Touched"
+    ],
+    "wargear": [
+     "1x Plasma pistol",
+     "1x Twin bolt rifle"
+    ],
+    "weapons": [
+     {
+      "name": "Plasma pistol \u2013 Standard",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "2",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "1",
+      "special_rules": "pistol",
+      "abilities": [
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Plasma pistol \u2013 Supercharge",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "2",
+      "strength": "8",
+      "ap": "-3",
+      "damage": "2",
+      "special_rules": "hazardous, pistol",
+      "abilities": [
+       {
+        "id": "hazardous"
+       },
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Twin bolt rifle",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "rapid fire 2, twin linked",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       },
+       {
+        "id": "twin_linked"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Captain on Bike",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "OUTRIDER SQUAD",
+      "RAVENWING BLACK KNIGHTS"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 6,
+     "current_wounds": 6,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_WULFEN_WITH_STORM_SHIELDS_A": {
+   "id": "U_WULFEN_WITH_STORM_SHIELDS_A",
+   "squad_id": "U_WULFEN_WITH_STORM_SHIELDS_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Wulfen with Storm Shields",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "IMPERIUM",
+     "INFANTRY",
+     "SPACE WOLVES",
+     "WULFEN",
+     "WULFEN WITH STORM SHIELDS"
+    ],
+    "stats": {
+     "move": 9,
+     "toughness": 6,
+     "save": 4,
+     "wounds": 2,
+     "leadership": 7,
+     "objective_control": 0,
+     "invuln": 4
+    },
+    "points": 250,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "10x Thunder Hammer",
+     "1x Death Totem",
+     "9x Stormfrag Auto-launcher"
+    ],
+    "weapons": [
+     {
+      "name": "Stormfrag Auto-launcher",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "2",
+      "ballistic_skill": "4",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "blast, assault",
+      "abilities": [
+       {
+        "id": "blast"
+       },
+       {
+        "id": "assault"
+       }
+      ]
+     },
+     {
+      "name": "Thunder Hammer \u2013 Hunter",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "10",
+      "ap": "-3",
+      "damage": "3",
+      "special_rules": "devastating wounds, hunter, hunter"
+     },
+     {
+      "name": "Thunder Hammer \u2013 Melee",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "8",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "devastating wounds",
+      "abilities": [
+       {
+        "id": "devastating_wounds"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Curse of the Wulfen",
+      "type": "Faction",
+      "description": "While this unit is within 6\" of a friendly SPACE WOLVES CHARACTER model (excluding WULFEN models) or within 12\" of a friendly WOLF PRIEST model, if this unit is not battle-shocked:\n\u2022 If this unit has INFANTRY, this unit has +1 OC.\n\u2022 If this unit has VEHICLE, this unit has +3 OC.\nBestial Forms: For the purposes of transport capacity, each WULFEN model takes up the space of 2 models."
+     },
+     {
+      "name": "Hammer Blow",
+      "type": "Datasheet",
+      "description": "In the Fight phase, when this unit has fought, select up to one enemy MONSTER/VEHICLE unit hit by those attacks. If you do, that enemy unit is suppressed until the start of your next turn:\n\u2022 While a unit is suppressed, that unit's attacks have -1 to hit rolls."
+     },
+     {
+      "name": "Death Totem",
+      "type": "Datasheet",
+      "description": "This unit's melee attacks can re-roll hit rolls of 1."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "5-10 Wulfen with Storm Shield",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m6",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m7",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m8",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m9",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m10",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_GREY_HUNTERS_A": {
+   "id": "U_GREY_HUNTERS_A",
+   "squad_id": "U_GREY_HUNTERS_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Grey Hunters",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "BATTLELINE",
+     "EXPLOSIVES",
+     "GREY HUNTERS",
+     "IMPERIUM",
+     "INFANTRY",
+     "SPACE WOLVES",
+     "TACTICUS"
+    ],
+    "stats": {
+     "move": 7,
+     "toughness": 5,
+     "save": 3,
+     "wounds": 2,
+     "leadership": 6,
+     "objective_control": 3
+    },
+    "points": 180,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "10x Bolt Carbine",
+     "1x Plasma Pistol",
+     "1x Power fist",
+     "9x Bolt Pistol",
+     "9x Chainsword"
+    ],
+    "weapons": [
+     {
+      "name": "Bolt Carbine",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "3",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "rapid fire 1, assault",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 1
+       },
+       {
+        "id": "assault"
+       }
+      ]
+     },
+     {
+      "name": "Bolt Pistol",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "close quarters",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       }
+      ]
+     },
+     {
+      "name": "Plasma Pistol \u2013 Standard",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "1",
+      "special_rules": "close quarters",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       }
+      ]
+     },
+     {
+      "name": "Plasma Pistol \u2013 Supercharge",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "8",
+      "ap": "-3",
+      "damage": "2",
+      "special_rules": "close quarters, hazardous",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       },
+       {
+        "id": "hazardous"
+       }
+      ]
+     },
+     {
+      "name": "Chainsword",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Power fist",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "8",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Old Greymanes",
+      "type": "Datasheet",
+      "description": "In the Declare Battle Formations step, you can split this unit into two units, each containing as equal a number of models as possible (when splitting a unit in this way, make a note of which models form each of the two new units)."
+     },
+     {
+      "name": "Cunning Hunters",
+      "type": "Datasheet",
+      "description": "In the Fight phase, if this unit is within range of an objective, this unit's melee attacks:\n\u2022 Have +1 S.\n\u2022 Have +1 AP."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Grey Hunter Pack Leader",
+      "line": 1
+     },
+     {
+      "description": "9 Grey Hunter",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m6",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m7",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m8",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m9",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m10",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_SCOUT_SQUAD_A": {
+   "id": "U_SCOUT_SQUAD_A",
+   "squad_id": "U_SCOUT_SQUAD_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Scout Squad",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "EXPLOSIVES",
+     "IMPERIUM",
+     "INFANTRY",
+     "SMOKE"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 4,
+     "save": 4,
+     "wounds": 2,
+     "leadership": 6,
+     "objective_control": 1
+    },
+    "points": 65,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x Astartes chainsword",
+     "1x Missile launcher",
+     "1x Scout sniper rifle",
+     "3x Astartes shotgun",
+     "4x Combat knife",
+     "5x Bolt Pistol"
+    ],
+    "weapons": [
+     {
+      "name": "Astartes shotgun",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "2",
+      "ballistic_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "assault, blast",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "blast"
+       }
+      ]
+     },
+     {
+      "name": "Bolt Pistol",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "close quarters",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       }
+      ]
+     },
+     {
+      "name": "Missile launcher \u2013 Frag",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "D6",
+      "ballistic_skill": "4",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "blast, heavy",
+      "abilities": [
+       {
+        "id": "blast"
+       },
+       {
+        "id": "heavy"
+       }
+      ]
+     },
+     {
+      "name": "Missile launcher \u2013 Krak",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "1",
+      "ballistic_skill": "4",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "D3+3",
+      "special_rules": "heavy",
+      "abilities": [
+       {
+        "id": "heavy"
+       }
+      ]
+     },
+     {
+      "name": "Scout sniper rifle",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "heavy, precision",
+      "abilities": [
+       {
+        "id": "heavy"
+       },
+       {
+        "id": "precision"
+       }
+      ]
+     },
+     {
+      "name": "Astartes chainsword",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Combat knife",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Guerrilla Tactics",
+      "type": "Datasheet",
+      "description": "The unit can be placed into Strategic Reserves."
+     },
+     {
+      "name": "Infiltrators",
+      "type": "Core",
+      "description": "Once per battle, the unit has the Infiltrators ability."
+     },
+     {
+      "name": "Scouts 6\"",
+      "type": "Core",
+      "description": "Before the first battle round, the unit can make a Scout move of up to 6\"."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Scout Sergeant",
+      "line": 1
+     },
+     {
+      "description": "4-9 Scout",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 28.5,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 28.5,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 28.5,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 28.5,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 28.5,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_SCOUT_SQUAD_B": {
+   "id": "U_SCOUT_SQUAD_B",
+   "squad_id": "U_SCOUT_SQUAD_B",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Scout Squad",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "EXPLOSIVES",
+     "IMPERIUM",
+     "INFANTRY",
+     "SMOKE"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 4,
+     "save": 4,
+     "wounds": 2,
+     "leadership": 6,
+     "objective_control": 1
+    },
+    "points": 65,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x Astartes chainsword",
+     "1x Missile launcher",
+     "1x Scout sniper rifle",
+     "3x Astartes shotgun",
+     "4x Combat knife",
+     "5x Bolt Pistol"
+    ],
+    "weapons": [
+     {
+      "name": "Astartes shotgun",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "2",
+      "ballistic_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "assault, blast",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "blast"
+       }
+      ]
+     },
+     {
+      "name": "Bolt Pistol",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "close quarters",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       }
+      ]
+     },
+     {
+      "name": "Missile launcher \u2013 Frag",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "D6",
+      "ballistic_skill": "4",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "blast, heavy",
+      "abilities": [
+       {
+        "id": "blast"
+       },
+       {
+        "id": "heavy"
+       }
+      ]
+     },
+     {
+      "name": "Missile launcher \u2013 Krak",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "1",
+      "ballistic_skill": "4",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "D3+3",
+      "special_rules": "heavy",
+      "abilities": [
+       {
+        "id": "heavy"
+       }
+      ]
+     },
+     {
+      "name": "Scout sniper rifle",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "heavy, precision",
+      "abilities": [
+       {
+        "id": "heavy"
+       },
+       {
+        "id": "precision"
+       }
+      ]
+     },
+     {
+      "name": "Astartes chainsword",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Combat knife",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Guerrilla Tactics",
+      "type": "Datasheet",
+      "description": "The unit can be placed into Strategic Reserves."
+     },
+     {
+      "name": "Infiltrators",
+      "type": "Core",
+      "description": "Once per battle, the unit has the Infiltrators ability."
+     },
+     {
+      "name": "Scouts 6\"",
+      "type": "Core",
+      "description": "Before the first battle round, the unit can make a Scout move of up to 6\"."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Scout Sergeant",
+      "line": 1
+     },
+     {
+      "description": "4-9 Scout",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 28.5,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 28.5,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 28.5,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 28.5,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 28.5,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_THUNDERWOLF_CAVALRY_A": {
+   "id": "U_THUNDERWOLF_CAVALRY_A",
+   "squad_id": "U_THUNDERWOLF_CAVALRY_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Thunderwolf Cavalry",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "EXPLOSIVES",
+     "IMPERIUM",
+     "MOUNTED",
+     "SPACE WOLVES",
+     "THUNDERWOLF CAVALRY"
+    ],
+    "stats": {
+     "move": 12,
+     "toughness": 6,
+     "save": 3,
+     "wounds": 4,
+     "leadership": 6,
+     "objective_control": 2
+    },
+    "points": 260,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "6x Boltgun",
+     "6x Storm Shield",
+     "6x Teeth and Claws",
+     "6x Wolf Guard Weapon"
+    ],
+    "weapons": [
+     {
+      "name": "Boltgun",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "rapid fire 1",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Teeth and Claws",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "extra attacks",
+      "abilities": [
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     },
+     {
+      "name": "Wolf Guard Weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Thunderous Charge",
+      "type": "Datasheet",
+      "description": "If this unit made a charge move this turn, this unit's melee attacks have:\n\u2022 +1 S.\n\u2022 +1 D."
+     },
+     {
+      "name": "Storm Shield",
+      "type": "Datasheet",
+      "description": "This model has a 4+ InSv."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Thunderwolf Cavalry Pack Leader",
+      "line": 1
+     },
+     {
+      "description": "2-5 Thunderwolf Cavalry",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m6",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_THUNDERWOLF_CAVALRY_B": {
+   "id": "U_THUNDERWOLF_CAVALRY_B",
+   "squad_id": "U_THUNDERWOLF_CAVALRY_B",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Thunderwolf Cavalry",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "EXPLOSIVES",
+     "IMPERIUM",
+     "MOUNTED",
+     "SPACE WOLVES",
+     "THUNDERWOLF CAVALRY"
+    ],
+    "stats": {
+     "move": 12,
+     "toughness": 6,
+     "save": 3,
+     "wounds": 4,
+     "leadership": 6,
+     "objective_control": 2
+    },
+    "points": 260,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "6x Boltgun",
+     "6x Storm Shield",
+     "6x Teeth and Claws",
+     "6x Wolf Guard Weapon"
+    ],
+    "weapons": [
+     {
+      "name": "Boltgun",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "rapid fire 1",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Teeth and Claws",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "extra attacks",
+      "abilities": [
+       {
+        "id": "extra_attacks"
+       }
+      ]
+     },
+     {
+      "name": "Wolf Guard Weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Combat Doctrines",
+      "type": "Faction",
+      "description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n\u2022 You can only select each combat doctrine once per battle.\n\u2022 Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit."
+     },
+     {
+      "name": "Thunderous Charge",
+      "type": "Datasheet",
+      "description": "If this unit made a charge move this turn, this unit's melee attacks have:\n\u2022 +1 S.\n\u2022 +1 D."
+     },
+     {
+      "name": "Storm Shield",
+      "type": "Datasheet",
+      "description": "This model has a 4+ InSv."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Thunderwolf Cavalry Pack Leader",
+      "line": 1
+     },
+     {
+      "description": "2-5 Thunderwolf Cavalry",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m6",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  }
+ }
+}

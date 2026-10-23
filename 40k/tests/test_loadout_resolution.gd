@@ -82,7 +82,10 @@ func _raw_ranged_total(unit: Dictionary) -> int:
 # Rokkit Launcha) that are data-limited over-counters by this test's own
 # definition, and counting them would make the legacy-roster ratchet move for
 # reasons unrelated to the resolver.
-const RATCHET_EXCLUDED_FILES := ["ork11e_codex_test.json"]
+# sw11e_gw_import_2000.json: a real GW-app Space Wolves list whose generic Space
+# Marine datasheets (Scout Squad, Outrider Squad, ...) are still 40kdc 1.4.5
+# index kits — out of the ratchet until Codex: Space Marines covers them (WP-M).
+const RATCHET_EXCLUDED_FILES := ["ork11e_codex_test.json", "sw11e_gw_import_2000.json"]
 
 # WP-O1b: what a model "carries" is counted in WEAPONS, not profiles. Codex
 # weapons often print several profiles (Choppa – Hunter / – Standard, Smash
