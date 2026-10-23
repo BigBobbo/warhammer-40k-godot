@@ -705,7 +705,7 @@ func _populate_rule_toggles() -> void:
 		{"id": "save_plus_1", "name": "+1 to Save", "description": "Defender gets +1 to save rolls (capped at +1 per 10e rules)", "phase": "both"},
 		{"id": "save_minus_1", "name": "-1 to Save", "description": "Defender gets -1 to save rolls (capped at -1 per 10e rules)", "phase": "both"},
 		{"id": "torrent", "name": "Torrent", "description": "Auto-hit (no hit roll, no critical hits)", "phase": "shooting"},
-		{"id": "reroll_hits_ones", "name": "Re-roll 1s to Hit", "description": "Re-roll hit rolls of 1 (e.g. Oath of Moment)", "phase": "both"},
+		{"id": "reroll_hits_ones", "name": "Re-roll 1s to Hit", "description": "Re-roll hit rolls of 1", "phase": "both"},
 		{"id": "reroll_hits_failed", "name": "Re-roll All Failed Hits", "description": "Re-roll all failed hit rolls", "phase": "both"},
 		{"id": "reroll_wounds_ones", "name": "Re-roll 1s to Wound", "description": "Re-roll wound rolls of 1", "phase": "both"},
 		{"id": "reroll_wounds_failed", "name": "Re-roll All Failed Wounds", "description": "Re-roll all failed wound rolls (e.g. Twin-linked ability)", "phase": "both"},

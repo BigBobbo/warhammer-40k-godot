@@ -188,7 +188,7 @@ func _on_phase_enter() -> void:
 						names.append(m["name"])
 					game_event_log.add_info_entry("P%d secondaries: %s" % [p, ", ".join(names)])
 
-	# Step 6: Initialize faction abilities (Oath of Moment, etc.)
+	# Step 6: Initialize faction abilities (Waaagh!, etc.)
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if faction_mgr:
 		faction_mgr.on_command_phase_start(current_player)
@@ -576,22 +576,6 @@ func get_available_actions() -> Array:
 				"player": current_player
 			})
 
-	# Oath of Moment target selection (Space Marines)
-	if faction_mgr and faction_mgr.player_has_ability(current_player, "Oath of Moment"):
-		var current_oath_target = faction_mgr.get_oath_of_moment_target(current_player)
-		var eligible_targets = faction_mgr.get_eligible_oath_targets(current_player)
-
-		if eligible_targets.size() > 0:
-			for target_info in eligible_targets:
-				var is_current = (target_info.unit_id == current_oath_target)
-				actions.append({
-					"type": "SELECT_OATH_TARGET",
-					"target_unit_id": target_info.unit_id,
-					"description": "Oath of Moment: %s%s" % [target_info.unit_name, " (current)" if is_current else ""],
-					"player": current_player,
-					"is_current_target": is_current
-				})
-
 	# Codex: Space Marines (11e) Space Wolves COMBAT DOCTRINES (army rule) + Howling Onslaught (WP-S2).
 	actions.append_array(SW11eArmyRules.command_actions(current_player))
 	actions.append_array(SW11eDetachments.command_actions(current_player))
@@ -789,8 +773,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_use_new_orders(action)
 		"REPLACE_SECONDARY_MISSION":
 			errors = _validate_replace_secondary_mission(action)
-		"SELECT_OATH_TARGET":
-			errors = _validate_select_oath_target(action)
 		"CALL_WAAAGH":
 			errors = _validate_call_waaagh(action)
 		"PLANT_WAAAGH_BANNER":
@@ -920,8 +902,6 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_use_new_orders(action)
 		"REPLACE_SECONDARY_MISSION":
 			return _handle_replace_secondary_mission(action)
-		"SELECT_OATH_TARGET":
-			return _handle_select_oath_target(action)
 		"CALL_WAAAGH":
 			return _handle_call_waaagh(action)
 		"PLANT_WAAAGH_BANNER":
@@ -1585,74 +1565,6 @@ func _handle_plant_waaagh_banner(action: Dictionary) -> Dictionary:
 			"player": current_player,
 			"unit_id": unit_id,
 			"unit_name": result.get("unit_name", unit_id),
-			"turn": GameState.get_battle_round()
-		}
-		GameState.add_action_to_phase_log(log_entry)
-
-	return result
-
-# ============================================================================
-# FACTION ABILITIES — OATH OF MOMENT
-# ============================================================================
-
-func _validate_select_oath_target(action: Dictionary) -> Array:
-	var errors = []
-	var target_unit_id = action.get("target_unit_id", "")
-	var current_player = get_current_player()
-
-	if target_unit_id == "":
-		errors.append("Missing target_unit_id for Oath of Moment")
-		return errors
-
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if not faction_mgr:
-		errors.append("FactionAbilityManager not available")
-		return errors
-
-	if not faction_mgr.player_has_ability(current_player, "Oath of Moment"):
-		errors.append("Player %d does not have Oath of Moment" % current_player)
-		return errors
-
-	# Target must be an enemy unit
-	var target = GameState.state.get("units", {}).get(target_unit_id, {})
-	if target.is_empty():
-		errors.append("Target unit not found: %s" % target_unit_id)
-		return errors
-
-	if target.get("owner", 0) == current_player:
-		errors.append("Cannot target own unit with Oath of Moment")
-
-	# Target must have alive models
-	var has_alive = false
-	for model in target.get("models", []):
-		if model.get("alive", true):
-			has_alive = true
-			break
-	if not has_alive:
-		errors.append("Target unit is destroyed")
-
-	return errors
-
-func _handle_select_oath_target(action: Dictionary) -> Dictionary:
-	var target_unit_id = action.get("target_unit_id", "")
-	var current_player = get_current_player()
-
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if not faction_mgr:
-		return {"success": false, "error": "FactionAbilityManager not available"}
-
-	var result = faction_mgr.set_oath_of_moment_target(current_player, target_unit_id)
-
-	if result.success:
-		log_phase_message("OATH OF MOMENT: Player %d marks %s for destruction" % [
-			current_player, result.get("target_name", target_unit_id)])
-
-		# Log to phase log
-		var log_entry = {
-			"type": "SELECT_OATH_TARGET",
-			"player": current_player,
-			"target_unit_id": target_unit_id,
-			"target_name": result.get("target_name", ""),
 			"turn": GameState.get_battle_round()
 		}
 		GameState.add_action_to_phase_log(log_entry)
@@ -2652,10 +2564,6 @@ func _resume_end_command_after_event_windows(_ctx: Dictionary, _window_result: D
 func _finish_end_command(auto_changes: Array, auto_resolved: Array) -> Dictionary:
 	var current_player = get_current_player()
 
-	# Auto-resolve faction abilities (Oath of Moment target selection)
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if faction_mgr:
-		faction_mgr.on_command_phase_end(current_player)
 	# WP-M2a Codex: Space Marines (11e) Redoubtable Machine Spirit: "At the end of your Command phase, heals 1 wound."
 	auto_changes.append_array(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").on_command_phase_end(current_player))
 

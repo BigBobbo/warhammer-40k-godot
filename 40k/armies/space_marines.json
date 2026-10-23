@@ -98,11 +98,6 @@
     ],
     "abilities": [
      {
-      "name": "Oath of Moment",
-      "type": "Faction",
-      "description": "At the start of the Command phase, select one enemy unit (your Oath of Moment target). Until your next Command phase, each time a friendly unit makes an attack against it, you can re-roll the Hit roll."
-     },
-     {
       "name": "Objective Secured",
       "type": "Datasheet",
       "description": "The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives)."
@@ -268,11 +263,6 @@
     ],
     "abilities": [
      {
-      "name": "Oath of Moment",
-      "type": "Faction",
-      "description": "At the start of the Command phase, select one enemy unit (your Oath of Moment target). Until your next Command phase, each time a friendly unit makes an attack against it, you can re-roll the Hit roll."
-     },
-     {
       "name": "Combat Squads",
       "type": "Datasheet",
       "description": "The unit gains the Combat Squads ability."
@@ -410,11 +400,6 @@
      }
     ],
     "abilities": [
-     {
-      "name": "Oath of Moment",
-      "type": "Faction",
-      "description": "At the start of the Command phase, select one enemy unit (your Oath of Moment target). Until your next Command phase, each time a friendly unit makes an attack against it, you can re-roll the Hit roll."
-     },
      {
       "name": "Omni-scramblers",
       "type": "Datasheet",

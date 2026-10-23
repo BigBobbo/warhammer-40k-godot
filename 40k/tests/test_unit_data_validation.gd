@@ -323,7 +323,7 @@ func _create_valid_save_data() -> Dictionary:
 					"keywords": ["INFANTRY", "IMPERIUM"],
 					"stats": {"move": 6, "toughness": 4, "save": 3, "wounds": 2, "leadership": 6, "objective_control": 2},
 					"weapons": [{"name": "Bolt rifle", "type": "Ranged"}],
-					"abilities": [{"name": "Oath of Moment", "type": "Faction"}]
+					"abilities": [{"name": "Combat Doctrines", "type": "Faction"}]
 				},
 				"models": [
 					{"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "alive": true, "status_effects": []},

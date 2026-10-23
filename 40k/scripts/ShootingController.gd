@@ -7320,11 +7320,6 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 	if is_torrent:
 		active_tags.append("Torrent")
 
-	# Faction: Oath of Moment reroll all failed hits
-	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
-		hit_reroll_type = max(hit_reroll_type, 2)
-		active_tags.append("Oath")
-
 	# Effect flags on attacker: +1/-1 to hit
 	if EffectPrimitivesData.has_effect_plus_one_hit(attacker_unit):
 		hit_modifier += 1
@@ -7498,10 +7493,6 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 	if RulesEngine.has_twin_linked(weapon_id):
 		wound_reroll_type = max(wound_reroll_type, 2)
 		active_tags.append("Twin-Linked")
-
-	# Oath of Moment: +1 to wound
-	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
-		wound_modifier += 1
 
 	# Effect flags on attacker: +1/-1 wound
 	if EffectPrimitivesData.has_effect_plus_one_wound(attacker_unit):
