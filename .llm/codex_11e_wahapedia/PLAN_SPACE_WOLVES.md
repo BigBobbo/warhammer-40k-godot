@@ -1,6 +1,6 @@
 # Codex: Space Marines (11e) — Space Wolves — plan
 
-Status: ACTIVE (2026-10-22). Owner ask: "build the 11e Space Marines codex
+Status: SHIPPED (2026-10-23) — S1–S5 merged; see "Integration result" at the end. Owner ask: "build the 11e Space Marines codex
 module, just focus on Space Wolves: abilities, stratagems, wargear options and
 detachments; fully ensure each can be used within the game itself."
 
@@ -76,3 +76,33 @@ Do NOT edit `40k/data/version_history.json` (the integrator does).
 Merge S2, S3, S4; run the full gate (`bash 40k/tests/run_pretrigger_tests.sh`),
 re-run every `sw11e_*` scenario, a full AI-vs-AI game with the Space Wolves test
 army, live screenshots; one `version_history.json` entry; push.
+
+## Integration result (S5, 2026-10-23)
+
+- Merged S2 (army rules, detachments, enhancements), S3 (12 stratagems), S4
+  (datasheet abilities + Librarius); conflicts were additive only.
+- Integrator fixes: inline "one of the following" option choices; Wolf
+  Scouts 12-model role split (1/2/9); role-aware per-model loadouts (Hunting
+  Wolves and shield-armed Terminators carry no gun, a Thunderclap never lands
+  on a Hunting Wolf) — trusted only where every kit id names a weapon; AI
+  never spends WOLF TOTEMS outside the Shooting / Fight phase; AI movement
+  retry declines a paused advance re-roll (was 15 "No active move" errors and
+  a stationary unit).
+- Full gate: 9957 passed, 1 failed (the known test_custodes_lions_silent_hunters
+  XFAIL). All 32 `sw11e_*` windowed scenarios PASS. AI-vs-AI Space Wolves vs
+  Orks (fixture sw11e_s2_wolves_active): 5/5 games completed, no stalls, 0 ERROR
+  lines after the fixes. Live MCP session: doctrine block, Assault Doctrine,
+  GRIMNAR'S COMMAND (CP 8 -> 7), verify_delivery PASS.
+
+Known follow-ups:
+- Per-model characteristics: Hunting Wolves inside Wolf Scouts / Wolf Guard
+  Headtakers use the unit's M / T / Sv (W and OC are right). Engine-wide:
+  meta.model_profiles stats_override is never emitted by the converters
+  (also Gretchin + Runtherd, Kroot Hounds, Repentia Superior, ...).
+- Hunter's Guile / Chariots of the Storm: no Redeployment-step UI (as
+  Castellan's Mark / Kaptin's Hat).
+- WOLF TOTEMS is used before the mortal wounds (S panel), not at the moment.
+- Browser builder does not yet flag Sons of Russ / other-Chapter units.
+- Start-of-phase ability cards are not offered in networked games.
+- Generic Space Marine datasheets and detachments (Gladius etc.) are still
+  index data / 10e rules (SW-D2/D3).
