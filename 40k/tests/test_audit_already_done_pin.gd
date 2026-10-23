@@ -322,10 +322,8 @@ func _test_t022_stratagems_registered() -> void:
 	# also live-witnessed in screenshots.
 
 func _test_t024_faction_abilities() -> void:
-	print("\n-- T-024: Oath of Moment + Waaagh! wired in FactionAbilityManager --")
+	print("\n-- T-024: Waaagh! wired in FactionAbilityManager --")
 	var src = _read("res://autoloads/FactionAbilityManager.gd")
-	_check("Oath of Moment definition present",
-		"\"Oath of Moment\":" in src)
 	_check("Waaagh! mechanic present",
 		"Waaagh!" in src)
 

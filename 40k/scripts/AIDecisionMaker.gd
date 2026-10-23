@@ -5898,17 +5898,6 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			"_ai_description": best_loot.get("description", "Here Be Loot objective selected")
 		}
 
-	# T7-45: Handle faction ability activation (Oath of Moment target selection)
-	var oath_actions = []
-	for action in available_actions:
-		if action.get("type") == "SELECT_OATH_TARGET":
-			oath_actions.append(action)
-	if not oath_actions.is_empty():
-		_add_thinking_step("Selecting Oath of Moment target — evaluating %d enemy units" % oath_actions.size())
-		var best_target = _select_oath_of_moment_target(snapshot, oath_actions, player)
-		if not best_target.is_empty():
-			return best_target
-
 	# Codex: Space Marines (11e) Space Wolves — Combat Doctrines (army rule) and
 	# Howling Onslaught: synchronous picks, SKIP when holding the doctrines, so
 	# the Command phase never stalls (SWArmyRules11e / SWDetachments11e, WP-S2).
@@ -6044,125 +6033,6 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 
 	# All tests and faction abilities done, end command phase
 	return {"type": "END_COMMAND", "_ai_description": "End Command Phase"}
-
-# =============================================================================
-# T7-45: OATH OF MOMENT TARGET SELECTION
-# =============================================================================
-
-static func _select_oath_of_moment_target(snapshot: Dictionary, oath_actions: Array, player: int) -> Dictionary:
-	"""
-	T7-45: Select the best Oath of Moment target based on strategic threat assessment.
-
-	Oath of Moment grants re-roll 1s to hit and wound against the chosen target,
-	so we want to pick the enemy unit we most want dead this turn. This aligns
-	with the focus-fire plan: mark the unit we'll concentrate fire on.
-
-	Scoring factors (reuses _calculate_target_value macro priority):
-	- Points cost (expensive units benefit more from re-rolls)
-	- Damage output (threatening units we need to remove)
-	- Objective presence (units contesting/holding objectives)
-	- Survivability (tough units benefit most from re-roll accuracy boost)
-	- Health status (wounded units close to death are good Oath targets)
-	"""
-	if oath_actions.is_empty():
-		return {}
-
-	var units = snapshot.get("units", {})
-	var best_target_id = ""
-	var best_score = -INF
-	var oath_scored: Array = []  # A6
-	var best_name = ""
-
-	for action in oath_actions:
-		var target_id = action.get("target_unit_id", "")
-		if target_id == "":
-			continue
-
-		var target_unit = units.get(target_id, {})
-		if target_unit.is_empty():
-			continue
-
-		# Base score from macro target priority (threat, points, objectives, abilities)
-		var score = _calculate_target_value(target_unit, snapshot, player)
-
-		# Oath-specific bonus: tough/durable targets benefit more from re-roll accuracy
-		# Re-rolling 1s to hit and wound is more impactful against targets that are
-		# harder to wound (high T) or save well (good Sv/invuln), since each hit matters more.
-		var meta = target_unit.get("meta", {})
-		var stats = meta.get("stats", {})
-		var toughness = int(stats.get("toughness", 4))
-		var save = int(stats.get("save", 4))
-
-		# High toughness bonus (T5+ benefits more from wound re-rolls)
-		if toughness >= 5:
-			score *= 1.0 + (float(toughness - 4) * 0.05)  # T5=1.05, T8=1.20, T12=1.40
-
-		# Good save bonus (2+/3+ save means each unsaved wound is more precious)
-		if save <= 3:
-			score *= 1.1
-
-		# Remaining wounds bonus: units with more wounds remaining = more attacks needed
-		# = more chances for re-rolls to matter
-		var remaining_wounds = _calculate_kill_threshold(target_unit)
-		if remaining_wounds >= 6.0:
-			score *= 1.0 + (remaining_wounds / 50.0)  # Mild bonus, caps at ~1.24 for 12W
-
-		# Units below half strength are closer to being destroyed — good focus targets
-		var total_models = target_unit.get("models", []).size()
-		var alive_models = _get_alive_models(target_unit).size()
-		if total_models > 0 and alive_models > 0 and alive_models * 2 <= total_models:
-			score *= 1.2  # Below half strength — easier to finish off
-
-		# T7-11: Units with invulnerable saves benefit LESS from Oath re-rolls
-		# (re-rolling hits/wounds doesn't help if the invuln negates them anyway)
-		var invuln = _get_target_invulnerable_save(target_unit)
-		if invuln > 0 and invuln <= 4:
-			score *= 0.9  # Good invuln reduces Oath value
-
-		# T7-11: Leader characters providing buffs are high-priority Oath targets
-		# Removing the buffing leader eliminates benefits for the whole bodyguard
-		var keywords = meta.get("keywords", [])
-		if "CHARACTER" in keywords:
-			var leader_abilities = meta.get("abilities", [])
-			for ability in leader_abilities:
-				if ability is Dictionary:
-					var desc = ability.get("description", "").to_lower()
-					if "while" in desc and "leading" in desc:
-						score *= 1.25  # Leader actively providing buffs — high priority
-						break
-
-		# T7-11: Check if the AI has weapons that can efficiently damage this target
-		# Oath re-rolls are wasted if we lack the weapons to hurt the target
-		var friendly_units = _get_units_for_player(snapshot, player)
-		var can_damage_target = _check_army_can_damage_target(target_unit, friendly_units, snapshot)
-		if not can_damage_target:
-			score *= 0.5  # Halve priority if we lack efficient weapons
-
-		var target_name = _dn_meta(meta, target_id)
-		print("AIDecisionMaker: Oath of Moment candidate %s — score %.2f (T%d, Sv%d+, %.0fW remaining, invuln %d+)" % [
-			target_name, score, toughness, save, remaining_wounds, invuln if invuln > 0 else 0])
-
-		oath_scored.append({"description": "Oath: %s" % target_name, "score": score,
-			"key": target_id, "score_breakdown": {"target_priority": score,
-				"toughness": float(toughness), "save": float(save),
-				"remaining_wounds": float(remaining_wounds)}})
-
-		if score > best_score:
-			best_score = score
-			best_target_id = target_id
-			best_name = target_name
-
-	if best_target_id == "":
-		return {}
-
-	_record_choice("oath_of_moment", best_target_id, best_name, oath_scored, best_target_id,
-		{"phase": "command"})
-	print("AIDecisionMaker: T7-45 Oath of Moment target selected: %s (score: %.2f)" % [best_name, best_score])
-	return {
-		"type": "SELECT_OATH_TARGET",
-		"target_unit_id": best_target_id,
-		"_ai_description": "Oath of Moment: mark %s for destruction (priority score: %.1f)" % [best_name, best_score]
-	}
 
 # =============================================================================
 # P2-27: DETACHMENT ABILITY SELECTIONS
@@ -13583,50 +13453,6 @@ static func _calculate_kill_threshold(unit: Dictionary) -> float:
 		if model.get("alive", true):
 			total += float(model.get("current_wounds", model.get("wounds", 1)))
 	return total
-
-# =============================================================================
-# T7-11: ARMY WEAPON EFFICIENCY CHECK (for Oath of Moment)
-# =============================================================================
-
-static func _check_army_can_damage_target(target_unit: Dictionary, friendly_units: Dictionary, snapshot: Dictionary) -> bool:
-	"""T7-11: Check if any friendly unit has weapons that can efficiently damage this target.
-	Returns false if the army mostly has weak weapons against this target (e.g., S3 guns vs T12)."""
-	var target_toughness = int(target_unit.get("meta", {}).get("stats", {}).get("toughness", 4))
-	var target_save = int(target_unit.get("meta", {}).get("stats", {}).get("save", 4))
-	var target_invuln = _get_target_invulnerable_save(target_unit)
-
-	var total_expected_damage = 0.0
-	for uid in friendly_units:
-		var unit = friendly_units[uid]
-		var weapons = unit.get("meta", {}).get("weapons", [])
-		var alive_count = _get_alive_models(unit).size()
-		if alive_count == 0:
-			continue
-		for w in weapons:
-			var w_type = w.get("type", "").to_lower()
-			if w_type != "ranged" and w_type != "melee":
-				continue
-			var attacks_str = w.get("attacks", "1")
-			var attacks = float(attacks_str) if attacks_str.is_valid_float() else _parse_average_damage(attacks_str)
-			var skill_str = w.get("ballistic_skill", w.get("weapon_skill", "4"))
-			var skill = int(skill_str) if skill_str.is_valid_int() else 4
-			var s_str = w.get("strength", "4")
-			var s = int(s_str) if s_str.is_valid_int() else 4
-			var ap_str = w.get("ap", "0")
-			var w_ap = 0
-			if ap_str.begins_with("-"):
-				var ap_num = ap_str.substr(1)
-				w_ap = int(ap_num) if ap_num.is_valid_int() else 0
-			else:
-				w_ap = int(ap_str) if ap_str.is_valid_int() else 0
-			var dmg = _parse_average_damage(w.get("damage", "1"))
-			var p_hit = _hit_probability(skill)
-			var p_wound = _wound_probability(s, target_toughness)
-			var p_unsaved = 1.0 - _save_probability(target_save, w_ap, target_invuln)
-			total_expected_damage += attacks * alive_count * p_hit * p_wound * p_unsaved * dmg
-	# If total expected damage across the army is negligible, we can't hurt this target
-	var target_wounds = _calculate_kill_threshold(target_unit)
-	return total_expected_damage >= target_wounds * 0.3  # Can deal at least 30% of target's wounds
 
 # =============================================================================
 # T7-24: TRADE AND TEMPO AWARENESS

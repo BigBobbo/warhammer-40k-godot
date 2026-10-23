@@ -408,10 +408,6 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Razgit's Magik Map"
  ],
  [
-  "oath of moment",
-  "Oath of Moment"
- ],
- [
   "waaagh",
   "Waaagh!"
  ],

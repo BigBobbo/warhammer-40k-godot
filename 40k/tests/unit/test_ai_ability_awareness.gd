@@ -116,9 +116,6 @@ func _run_tests():
 	# T7-11: Enhanced profile includes new fields
 	test_profile_includes_deadly_demise()
 
-	# T7-11: Oath of Moment prefers leader targets
-	test_oath_prefers_leader_with_buffs()
-
 	# T7-11: Charge score boosted for doomed Deadly Demise vehicles
 	test_charge_score_boosted_by_deadly_demise()
 
@@ -776,41 +773,6 @@ func test_profile_includes_deadly_demise():
 	_assert(profile["has_deadly_demise"], "T7-11: Profile shows has_deadly_demise for vehicle")
 	_assert(profile["deadly_demise_value"] == 6, "T7-11: Profile shows DD value 6 (got %d)" % profile["deadly_demise_value"])
 	_assert(profile["is_doomed"], "T7-11: Profile shows is_doomed for low-health vehicle")
-
-# =========================================================================
-# T7-11: Oath of Moment prefers leader targets with buffs
-# =========================================================================
-
-func test_oath_prefers_leader_with_buffs():
-	var snapshot = _create_test_snapshot()
-	# Regular infantry unit
-	_add_unit(snapshot, "regular", 2, Vector2(400, 0), "Regular Infantry", 5,
-		["INFANTRY"], [_make_ranged_weapon("Lasgun", 4, 3, 0, 1, 1, 24)], 3, 5, 1, 0, {}, [])
-	snapshot.units["regular"]["meta"]["points"] = "100"
-	# Leader character with "while leading" ability
-	_add_unit(snapshot, "leader", 2, Vector2(600, 0), "Captain", 1,
-		["CHARACTER", "INFANTRY"], [_make_melee_weapon("Power Sword", 2, 5, 3, 2, 5)],
-		4, 3, 5, 4, {},
-		[{"name": "Rites of Battle", "type": "Datasheet", "description": "While this model is leading a unit, re-roll hit rolls of 1"}])
-	snapshot.units["leader"]["meta"]["points"] = "100"
-	snapshot.units["leader"]["attachment_data"] = {"attached_characters": []}
-	snapshot.units["leader"]["attached_to"] = "bodyguard_squad"
-
-	# Add a friendly shooter for the AI
-	_add_unit(snapshot, "shooter", 1, Vector2(0, 0), "AI Shooter", 5,
-		["INFANTRY"], [_make_ranged_weapon("Bolt Rifle", 3, 4, 1, 1, 2, 24)], 4, 3, 2, 0, {}, [])
-
-	var oath_actions = [
-		{"type": "SELECT_OATH_TARGET", "target_unit_id": "regular"},
-		{"type": "SELECT_OATH_TARGET", "target_unit_id": "leader"}
-	]
-
-	var result = AIDecisionMaker._select_oath_of_moment_target(snapshot, oath_actions, 1)
-	_assert(result.get("type") == "SELECT_OATH_TARGET",
-		"T7-11: Oath selects a target when leader and regular are available")
-	# The leader (with while-leading buffs and CHARACTER keyword) should be preferred
-	_assert(result.get("target_unit_id") == "leader",
-		"T7-11: Oath prefers leader character with while-leading buffs (got %s)" % result.get("target_unit_id", ""))
 
 # =========================================================================
 # T7-11: Charge score boosted by Deadly Demise on doomed vehicles

@@ -310,7 +310,7 @@ func _setup_right_panel() -> void:
 	# Battle-shock tests and Stratagems section
 	_setup_battle_shock_section(command_panel)
 
-	# Faction abilities section (Oath of Moment, Waaagh!, etc.)
+	# Faction abilities section (Waaagh!, Combat Doctrines, etc.)
 	_setup_faction_abilities_section(command_panel)
 
 	# Show VP status
@@ -707,13 +707,12 @@ func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 		shock_section.add_child(test_btn)
 
 func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
-	"""Build faction abilities display (Oath of Moment, Waaagh!, etc.)."""
+	"""Build faction abilities display (Waaagh!, Combat Doctrines, etc.)."""
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if not faction_mgr:
 		return
 
 	var current_player = GameState.get_active_player()
-	var has_oath = faction_mgr.player_has_ability(current_player, "Oath of Moment")
 	var has_waaagh = faction_mgr.is_waaagh_available(current_player) or faction_mgr.is_waaagh_active(current_player) \
 		or faction_mgr.is_boss_watchin_waaagh_available(current_player)
 	var plant_eligible = faction_mgr.get_plant_waaagh_banner_eligible_units(current_player) if faction_mgr.has_method("get_plant_waaagh_banner_eligible_units") else []
@@ -722,7 +721,7 @@ func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 	var sw11e_rules = load("res://scripts/codex/space_wolves/SWArmyRules11e.gd")
 	var has_sw11e: bool = sw11e_rules.show_command_ui(current_player)
 
-	if not has_oath and not has_waaagh and plant_eligible.size() == 0 and not has_sw11e:
+	if not has_waaagh and plant_eligible.size() == 0 and not has_sw11e:
 		return
 
 	_add_command_gold_separator(command_panel)
@@ -739,10 +738,6 @@ func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 	# --- Plant the Waaagh! Banner (OA-46) ---
 	if plant_eligible.size() > 0:
 		_setup_plant_waaagh_banner_subsection(section, plant_eligible, current_player)
-
-	# --- Oath of Moment (Space Marines) ---
-	if has_oath:
-		_setup_oath_of_moment_subsection(section, faction_mgr, current_player)
 
 	# --- Combat Doctrines / Howling Onslaught (Codex: Space Marines 11e, Space Wolves — WP-S2) ---
 	if has_sw11e:
@@ -831,66 +826,6 @@ func _setup_plant_waaagh_banner_subsection(section: VBoxContainer, plant_eligibl
 		section.add_child(btn)
 
 	_add_command_gold_separator(section)
-
-func _setup_oath_of_moment_subsection(section: VBoxContainer, faction_mgr, current_player: int) -> void:
-	"""Build the Oath of Moment target selection UI for Space Marines."""
-	# Section header
-	var section_title = Label.new()
-	section_title.text = "OATH OF MOMENT"
-	section_title.add_theme_font_size_override("font_size", 18)
-	section_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-	section.add_child(section_title)
-
-	var desc_label = Label.new()
-	desc_label.text = "Select one enemy unit. Re-roll hit and wound rolls of 1 against it."
-	desc_label.add_theme_font_size_override("font_size", 16)
-	desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	section.add_child(desc_label)
-
-	# Show current target
-	var current_target_id = faction_mgr.get_oath_of_moment_target(current_player)
-	if current_target_id != "":
-		var target_unit = GameState.state.get("units", {}).get(current_target_id, {})
-		var target_name = target_unit.get("meta", {}).get("name", current_target_id)
-		var current_label = Label.new()
-		current_label.text = "Current target: %s" % target_name
-		current_label.add_theme_font_size_override("font_size", 16)
-		current_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.3))
-		section.add_child(current_label)
-
-	# Show eligible targets as buttons
-	var eligible_targets = faction_mgr.get_eligible_oath_targets(current_player)
-
-	if eligible_targets.size() == 0:
-		var no_targets = Label.new()
-		no_targets.text = "No eligible enemy targets"
-		no_targets.add_theme_font_size_override("font_size", 16)
-		no_targets.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-		section.add_child(no_targets)
-	else:
-		for target_info in eligible_targets:
-			var is_current = (target_info.unit_id == current_target_id)
-			var btn = Button.new()
-			btn.text = "%s%s" % [target_info.unit_name, " (SELECTED)" if is_current else ""]
-			btn.custom_minimum_size = Vector2(230, 26)
-			btn.add_theme_font_size_override("font_size", 16)
-			_WhiteDwarfTheme.apply_to_button(btn)
-			if is_current:
-				btn.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-				btn.tooltip_text = "Currently targeted by Oath of Moment"
-			else:
-				btn.tooltip_text = "Mark %s for Oath of Moment" % target_info.unit_name
-			btn.pressed.connect(_on_oath_target_pressed.bind(target_info.unit_id))
-			section.add_child(btn)
-
-func _on_oath_target_pressed(target_unit_id: String) -> void:
-	"""Handle Oath of Moment target selection button press."""
-	print("CommandController: Oath of Moment target selected: %s" % target_unit_id)
-	emit_signal("command_action_requested", {
-		"type": "SELECT_OATH_TARGET",
-		"target_unit_id": target_unit_id
-	})
 
 func _on_call_waaagh_pressed() -> void:
 	"""Handle Waaagh! activation button press."""
@@ -1617,7 +1552,7 @@ func _refresh_ui() -> void:
 		_remove_section_with_separator(command_panel, "BattleShockSection")
 		_setup_battle_shock_section(command_panel)
 
-		# Rebuild the faction abilities section to reflect Oath of Moment / Waaagh! changes
+		# Rebuild the faction abilities section to reflect Waaagh! / doctrine changes
 		_remove_section_with_separator(command_panel, "FactionAbilitiesSection")
 		_setup_faction_abilities_section(command_panel)
 

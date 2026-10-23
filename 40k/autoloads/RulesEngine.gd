@@ -2566,12 +2566,6 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 				hit_modifiers |= HitModifier.MINUS_ONE
 				ModifierLedger.note(hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE)
 
-		# OATH OF MOMENT (Codex): Re-roll all hit rolls when ADEPTUS ASTARTES attacks oath target
-		if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
-			hit_modifiers |= HitModifier.REROLL_FAILED
-			ModifierLedger.note(hit_mod_ledger, "Oath of Moment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target is the Oath of Moment target")
-			print("RulesEngine: OATH OF MOMENT — re-roll all failed hits against %s" % target_unit_id)
-
 		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker
 		if EffectPrimitivesData.has_effect_plus_one_hit(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
@@ -2845,7 +2839,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed")
 		# 11e 15.09 SNAP SHOOTING (FIRE OVERWATCH 15.08): "You cannot re-roll
-		# hit rolls." Oath of Moment, re-roll-hits abilities and stratagem
+		# hit rolls." Re-roll-hits abilities and stratagem
 		# flags are all stripped for every snap attack.
 		if is_overwatch and GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
 			hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
@@ -3238,12 +3232,6 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	if weapon_has_twin_linked:
 		wound_modifiers |= WoundModifier.REROLL_FAILED
 		ModifierLedger.note(wound_mod_ledger, "[TWIN-LINKED]", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED)
-
-	# OATH OF MOMENT (Codex): +1 to wound when ADEPTUS ASTARTES attacks oath target
-	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
-		wound_modifiers |= WoundModifier.PLUS_ONE
-		ModifierLedger.note(wound_mod_ledger, "Oath of Moment", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is the Oath of Moment target")
-		print("RulesEngine: OATH OF MOMENT — +1 to wound against %s" % target_unit_id)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker
 	if EffectPrimitivesData.has_effect_plus_one_wound(actor_unit):
@@ -4775,12 +4763,6 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				hit_modifiers |= HitModifier.MINUS_ONE
 				ModifierLedger.note(hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE)
 
-		# OATH OF MOMENT (Codex): Re-roll all hit rolls when ADEPTUS ASTARTES attacks oath target
-		if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
-			hit_modifiers |= HitModifier.REROLL_FAILED
-			ModifierLedger.note(hit_mod_ledger, "Oath of Moment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target is the Oath of Moment target")
-			print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll all failed hits against %s" % target_unit_id)
-
 		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker
 		if EffectPrimitivesData.has_effect_plus_one_hit(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
@@ -5044,7 +5026,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed")
 		# 11e 15.09 SNAP SHOOTING (FIRE OVERWATCH 15.08): "You cannot re-roll
-		# hit rolls." Oath of Moment, re-roll-hits abilities and stratagem
+		# hit rolls." Re-roll-hits abilities and stratagem
 		# flags are all stripped for every snap attack.
 		if is_overwatch and GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
 			hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
@@ -5351,12 +5333,6 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if ar_weapon_has_twin_linked:
 		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
 		ModifierLedger.note(ar_wound_mod_ledger, "[TWIN-LINKED]", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED)
-
-	# OATH OF MOMENT (Codex): +1 to wound when ADEPTUS ASTARTES attacks oath target
-	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
-		ar_wound_modifiers |= WoundModifier.PLUS_ONE
-		ModifierLedger.note(ar_wound_mod_ledger, "Oath of Moment", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is the Oath of Moment target")
-		print("RulesEngine: OATH OF MOMENT (auto-resolve) — +1 to wound against %s" % target_unit_id)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker
 	if EffectPrimitivesData.has_effect_plus_one_wound(actor_unit):
@@ -14476,13 +14452,6 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 				melee_hit_modifiers |= HitModifier.REROLL_FAILED
 				ModifierLedger.note(melee_hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED)
 
-		# OATH OF MOMENT (Codex): Re-roll all hit rolls when ADEPTUS ASTARTES attacks oath target
-		var melee_oath_reroll_hits = FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit)
-		if melee_oath_reroll_hits:
-			melee_hit_modifiers |= HitModifier.REROLL_FAILED
-			ModifierLedger.note(melee_hit_mod_ledger, "Oath of Moment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target is the Oath of Moment target")
-			print("RulesEngine: OATH OF MOMENT (melee) — re-roll all failed hits against %s" % target_name)
-
 		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker (melee)
 		if EffectPrimitivesData.has_effect_plus_one_hit(attacker_unit):
 			melee_hit_modifiers |= HitModifier.PLUS_ONE
@@ -14763,12 +14732,6 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 	if melee_weapon_has_twin_linked:
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
 		ModifierLedger.note(melee_wound_mod_ledger, "[TWIN-LINKED]", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED)
-
-	# OATH OF MOMENT (Codex): +1 to wound when ADEPTUS ASTARTES attacks oath target
-	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
-		melee_wound_modifiers |= WoundModifier.PLUS_ONE
-		ModifierLedger.note(melee_wound_mod_ledger, "Oath of Moment", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is the Oath of Moment target")
-		print("RulesEngine: OATH OF MOMENT (melee) — +1 to wound against %s" % target_name)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker (melee)
 	if EffectPrimitivesData.has_effect_plus_one_wound(attacker_unit):
