@@ -1294,6 +1294,13 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 		log_phase_message("Advance: %s → Wind Walker — advance roll changed to a 6" % unit.get("meta", {}).get("name", unit_id))
 		return _resolve_advance_roll(unit_id, 6, true)
 
+	# WP-M4b VEIL OF TIME (Codex: Space Marines 11e, Librarian; psychic, used in
+	# the unit_selected_to_move window just answered): "this unit can change that
+	# advance roll to a 6" — a roll, so modifiers still apply.
+	if load("res://scripts/codex/space_marines/SMAbilitiesB.gd").veil_of_time_active(unit_id):
+		log_phase_message("Advance: %s → Veil of Time — advance roll changed to a 6" % unit.get("meta", {}).get("name", unit_id))
+		return _resolve_advance_roll(unit_id, 6, true)
+
 	# Roll D6 for advance (with deterministic seed for multiplayer)
 	# T5-MP9: Read seed from action payload (embedded by NetworkManager.submit_action)
 	# so both optimistic client and authoritative host produce the same roll.
@@ -2311,6 +2318,12 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 		if not setup_overlap.valid:
 			return setup_overlap
 
+	# WP-M4b TELEPORT HOMER (Codex: Space Marines 11e, Terminator Squad): a set-up
+	# wholly within 3" of the unit's token uses it — "within 3" of that token and
+	# not within 8" of an enemy unit" replaces the strategic reserves edge rules.
+	var sm11e_homer: bool = model_positions is Array and load("res://scripts/codex/space_marines/SMAbilitiesB.gd").homer_setup_ok(unit_id, model_positions)
+	if sm11e_homer:
+		log_phase_message("Teleport Homer: %s is set up within 3\" of its token (RAPID INGRESS -1 CP)" % unit_id)
 	# Validate model positions — same rules as normal reinforcement placement
 	if model_positions is Array:
 		var board_width = GameState.state.board.size.width
@@ -2356,7 +2369,7 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 
 				# Strategic Reserves: must be within 6" of a battlefield edge
 				# P2-80: Use placement_type for validation
-				if placement_type == "strategic_reserves":
+				if placement_type == "strategic_reserves" and not sm11e_homer:  # WP-M4b: not when the Teleport Homer set-up applies
 					# 20.04 (and 10e's identical wording): set up WHOLLY within 6"
 					# of a battlefield edge — the whole base, not the centre dot.
 					var dist_to_left = pos_inches_x
@@ -2471,6 +2484,9 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 	var model_rotations = action.get("model_rotations", [])
 	var player = _rapid_ingress_player
 	var changes = []
+	# WP-M4b TELEPORT HOMER (Codex: Space Marines 11e): a set-up within 3" of the
+	# token uses it — -1 CP (refunded) and the token is removed (before the move).
+	changes.append_array(load("res://scripts/codex/space_marines/SMAbilitiesB.gd").on_rapid_ingress_setup(str(unit_id), model_positions if model_positions is Array else []))
 
 	# Update model positions
 	for i in range(model_positions.size()):
@@ -3460,6 +3476,9 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			# Codex: Adeptus Custodes (11e) Emissaries Imperatus — Favoured Conservai
 			# rider: the same "does not prevent ... eligible to start an action" (WP-C46).
 			var cus11e_conservai: bool = _cus11e_det().move_keeps_action_eligibility(get_unit(unit_id))
+			# WP-M4b FLEXIBLE ASSET (Codex: Space Marines 11e, Scout Squad): the same rider.
+			var sm11e_flexible: bool = load("res://scripts/codex/space_marines/SMAbilitiesB.gd").move_keeps_action_eligibility(get_unit(unit_id))
+			cus11e_conservai = cus11e_conservai or sm11e_flexible
 			if move_data.mode in ["ADVANCE", "FALL_BACK"] \
 					and (get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_MIND_ON_MISSION, false)
 						or Ork11eDetachments.move_keeps_action_eligibility(get_unit(unit_id))
@@ -3468,6 +3487,8 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				var keep_src: String = "MIND MOSTLY ON THE MISSION"
 				if Ork11eDetachments.move_keeps_action_eligibility(get_unit(unit_id)):
 					keep_src = "Sneaky Little Gitz (Runt Swarm)"
+				elif sm11e_flexible:
+					keep_src = "Flexible Asset (Scout Squad)"
 				elif cus11e_conservai:
 					keep_src = "Conservai (Heralds of the Throne)"
 				log_phase_message("[11e] %s — %s's %s move leaves it eligible to start an action" % [
@@ -5622,6 +5643,7 @@ func _complete_movement_phase(changes: Array) -> Dictionary:
 		# your Movement phase, if this unit is controlling an objective, that
 		# objective is secured."
 		OrkAbilities11eScript.on_movement_phase_end(get_current_player())
+		load("res://scripts/codex/space_marines/SMAbilitiesB.gd").on_movement_phase_end(get_current_player())  # WP-M4b RAISE THE BANNER (Codex: Space Marines 11e): controlled objective is secured
 		var ctx := {"phase": "movement", "engaged_at_phase_start": _engagement_at_phase_start.keys()}
 		if open_stratagem_window_both_players("movement_phase_end", ctx, "_resume_after_movement_phase_end"):
 			log_phase_message("Movement phase end waits for Player %d's movement_phase_end stratagem decision" % get_pending_stratagem_window_decider())

@@ -1998,7 +1998,7 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var save_result = _calculate_save_needed(ow_model_base_save, ap, has_cover, model_invuln, target_unit)
 
 		# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
-		var ow_save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
+		var ow_save_modifier = int(target_unit.get("flags", {}).get("save_modifier", 0)) + int(_sm11e_abilities_b().save_roll_bonus(target_unit))  # WP-M4b: Unyielding in the Face of the Foe (+1 to save rolls)
 		ow_save_modifier = clamp(ow_save_modifier, -1, 1)
 
 		# Roll save
@@ -2036,6 +2036,10 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 			if str(ow_ps.get("note", "")) != "":
 				dmg = int(ow_ps.damage)
 				result.dice.append({"context": "damage_modifier", "source": "Praesidium Shield", "message": str(ow_ps.note)})
+			var ow_ry: Dictionary = _sm11e_abilities_b().allocated_damage(dmg, target_unit, target_model, ow_minus_dmg)  # WP-M4b: Refuse to Yield (-1 D)
+			if str(ow_ry.get("note", "")) != "":
+				dmg = int(ow_ry.damage)
+				result.dice.append({"context": "damage_modifier", "source": "Refuse to Yield", "message": str(ow_ry.note)})
 
 			# Apply damage
 			var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
@@ -2513,6 +2517,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			"total_attacks": total_attacks,
 			"successes": hits,
 			"target_unit_id": target_unit_id,  # enemy_has_shot window: which units were hit
+			"weapon_id": weapon_id,  # WP-M4b Suppression Fire: hits per weapon
 			"message": "Torrent: %d automatic hits" % hits,
 			# Variable attacks tracking
 			"variable_attacks": attacks_roll_log.size() > 0,
@@ -2961,6 +2966,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			"base_attacks": base_attacks,
 			"successes": hits,
 			"target_unit_id": target_unit_id,  # enemy_has_shot window: which units were hit
+			"weapon_id": weapon_id,  # WP-M4b Suppression Fire: hits per weapon
 			# CRITICAL HIT TRACKING (PRP-031)
 			"critical_hits": critical_hits,
 			"regular_hits": regular_hits,
@@ -3631,7 +3637,7 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 				break
 	var models = target_unit.get("models", [])
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
-	var save_modifier = clampi(int(target_unit.get("flags", {}).get("save_modifier", 0)), -1, 1)
+	var save_modifier = clampi(int(target_unit.get("flags", {}).get("save_modifier", 0)) + int(_sm11e_abilities_b().save_roll_bonus(target_unit)), -1, 1)  # WP-M4b: Unyielding in the Face of the Foe (+1 to save rolls)
 	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
 	var melta_value = int(opts.get("melta_value", 0))
 	var melta_box = [int(opts.get("melta_wounds", 0))]
@@ -3697,6 +3703,10 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 				if str(ps_res.get("note", "")) != "":
 					dmg = int(ps_res.damage)
 					result.dice.append({"context": "damage_modifier", "source": "Praesidium Shield", "message": str(ps_res.note)})
+				var ry_res: Dictionary = _sm11e_abilities_b().allocated_damage(dmg, target_unit, models[model_index], minus_dmg)  # WP-M4b: Refuse to Yield (-1 D)
+				if str(ry_res.get("note", "")) != "":
+					dmg = int(ry_res.damage)
+					result.dice.append({"context": "damage_modifier", "source": "Refuse to Yield", "message": str(ry_res.note)})
 			var fnp = unit_fnp_value
 			if model_index >= 0 and model_index < models.size():
 				# Per-model FNP + the conditional grants for this attack (a
@@ -5791,7 +5801,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var save_result = _calculate_save_needed(auto_model_base_save, ap, has_cover, auto_model_invuln, target_unit)
 
 		# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
-		var save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
+		var save_modifier = int(target_unit.get("flags", {}).get("save_modifier", 0)) + int(_sm11e_abilities_b().save_roll_bonus(target_unit))  # WP-M4b: Unyielding in the Face of the Foe
 		save_modifier = clamp(save_modifier, -1, 1)
 
 		# Roll save
@@ -8219,6 +8229,16 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 		for bundle in option.get("bundles", []):
 			for s in bundle:
 				grant_counts[s] = int(grant_counts.get(s, 0)) + 1
+	# WP-M4b: Codex: Space Marines (11e) datasheets — the one-of roles (min = max
+	# = 1 beside other roles: the Sergeant) for the swap ordering below.
+	var sm11e_kits: bool = GameConstants.edition >= 11 and "ADEPTUS ASTARTES" in (meta.get("keywords", []) as Array).map(func(k): return str(k).to_upper())
+	var sm11e_single_roles: Array = []
+	if sm11e_kits:
+		var sm_roles: Array = UnitLoadoutResolver.get_model_roles(ds_key)
+		if sm_roles.size() > 1:
+			for r in sm_roles:
+				if int(r.get("min", 0)) == 1 and int(r.get("max", 0)) == 1:
+					sm11e_single_roles.append(UnitLoadoutResolver.slugify(str(r.get("name", ""))))
 
 	# Apply the swaps the roster took. A model can take several options as long
 	# as each one still finds the weapons it replaces (a Grey Hunter Pack Leader
@@ -8246,6 +8266,14 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 			candidates.append(i)
 		if candidates.is_empty():
 			continue
+		# WP-M4b (Codex: Space Marines 11e): an "any model" swap goes to the
+		# rank-and-file first — the one-of roles (the Sergeant) keep their kit
+		# for their own options (Desolation Squad: 4 Superkrak + a Sergeant's
+		# Vengor Launcher).
+		if sm11e_kits and role_filter == "":
+			var bulk: Array = candidates.filter(func(ci): return not str(role_of[ci]) in sm11e_single_roles)
+			var singles: Array = candidates.filter(func(ci): return str(role_of[ci]) in sm11e_single_roles)
+			candidates = bulk + singles
 
 		for bundle in option.get("bundles", []):
 			# A bundle was taken if the roster names a weapon it grants that the
@@ -8298,6 +8326,60 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 			candidates = candidates.slice(n)
 			if candidates.is_empty():
 				break
+
+	# WP-M4b (Codex: Space Marines 11e): a weapon two swaps can grant (a Scout
+	# Sergeant's OR a Scout's Shotgun; the Desolation Sergeant's two Vengor
+	# swaps) proves nothing above — give each still-missing one to the first
+	# model, option by option, that can still take it (same cap rules).
+	if sm11e_kits:
+		for s in wargear_counts:
+			var want := int(wargear_counts[s])
+			if want <= 0 or int(grant_counts.get(s, 0)) <= 1:
+				continue
+			var have := 0
+			for kit in kits:
+				if kit.has(s):
+					have += 1
+			for option in options:
+				if have >= want:
+					break
+				var amb_bundle: Array = []
+				for bundle in option.get("bundles", []):
+					if s in bundle:
+						amb_bundle = bundle
+				if amb_bundle.is_empty():
+					continue
+				var cap2 := int(option.get("max_count", -1))
+				var per_n2 := int(option.get("per_n_models", -1))
+				if per_n2 > 0:
+					cap2 = int(floor(float(models.size()) / float(per_n2)))
+				var taken := 0
+				for i in range(models.size()):
+					if have >= want or (cap2 >= 0 and taken >= cap2):
+						break
+					var rf := str(option.get("role", ""))
+					if rf != "" and str(role_of[i]) != rf:
+						continue
+					if kits[i].has(s):
+						continue
+					var ok_r := true
+					for gone in option.get("replaces", []):
+						if gone not in kits[i]:
+							ok_r = false
+					if not ok_r or (option.get("replaces", []).is_empty() and swapped.has(i)):
+						continue
+					var kit2: Array = kits[i]
+					for gone in option.get("replaces", []):
+						kit2.erase(gone)
+					for gained in amb_bundle:
+						if gained not in kit2:
+							kit2.append(gained)
+					kits[i] = kit2
+					swapped[i] = true
+					have += 1
+					taken += 1
+			if have > 0:
+				print("[MA-LOADOUT] %s: '%s' (granted by several swaps) given to %d model(s) by option order" % [uname, s, have])
 
 	# Final proof of understanding: every weapon the roster names must be on some
 	# model. If one is missing we misread the roster — say so instead of shipping
@@ -10235,7 +10317,12 @@ static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weap
 	# Hunter's Eye, Ferocious Strike, A Giant Amongst Giants) ride the same aggregator.
 	load("res://scripts/codex/space_wolves/SWDetachments11e.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
 	SWAbilities11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-S4: Space Wolves (11e) datasheet abilities ride the same aggregator
+	_sm11e_abilities_b().merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-M4b: Codex: Space Marines (11e) M4b datasheet abilities ride the same aggregator
 	return ab_mods
+
+## WP-M4b: Codex: Space Marines (11e) M4b datasheet abilities (scripts/codex/space_marines/SMAbilitiesB.gd), loaded lazily.
+static func _sm11e_abilities_b():
+	return load("res://scripts/codex/space_marines/SMAbilitiesB.gd")
 
 ## Fold the datasheet-ability hit modifiers into HitModifier bits (+ ledger).
 static func ork11e_ab_hit_bits(bits: int, ledger: Array, ab: Dictionary) -> int:
@@ -10287,7 +10374,8 @@ static func sw11e_ignore_wound_penalties(bits: int, ledger: Array, ab: Dictionar
 static func ork11e_ab_wound_penalty(target_unit: Dictionary, strength: int, toughness: int) -> bool:
 	return GameConstants.edition >= 11 and (OrkAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness) \
 		or CustodesAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness)  # WP-C7: Unyielding Ancient / Praesidium Shield (Sentinel Guard)
-		or SWAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness))  # WP-S4: Legendary Tenacity / Rugged Resilience (Space Wolves)
+		or SWAbilities11eScript.incoming_wound_penalty(target_unit, strength, toughness)  # WP-S4: Legendary Tenacity / Rugged Resilience (Space Wolves)
+		or _sm11e_abilities_b().incoming_wound_penalty(target_unit, strength, toughness))  # WP-M4b: Never Shall the Standard Fall
 
 ## The ledger name of the S > T -1 to wound above (Hardy Bioniks, or the
 ## Custodes Unyielding Ancient / Praesidium Shield — WP-C7).
@@ -10295,6 +10383,8 @@ static func ork11e_ab_wound_penalty_name(target_unit: Dictionary, strength: int,
 	var cus_src: String = CustodesAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)
 	if cus_src == "":
 		cus_src = SWAbilities11eScript.incoming_wound_penalty_source(target_unit, strength, toughness)  # WP-S4: Legendary Tenacity / Rugged Resilience
+	if cus_src == "":
+		cus_src = _sm11e_abilities_b().incoming_wound_penalty_source(target_unit, strength, toughness)  # WP-M4b: Never Shall the Standard Fall
 	return cus_src if cus_src != "" else "Hardy Bioniks"
 
 const ORK11E_FLAG_CLOSE_RANGE_DAKKA := "ork11e_close_range_dakka"
@@ -11192,9 +11282,13 @@ static func resolve_hazardous_check(
 
 	# 11e 06.03/24.15: a hazard roll of 1-2 fails. 10e/Balance-Dataslate: only a 1.
 	var hazard_fail_threshold: int = 2 if GameConstants.edition >= 11 else 1
+	# WP-M4b RITES OF THERMAL APPEASEMENT (Hellblaster Squad): +1 to hazard rolls for its plasma weapons.
+	var haz_mod: int = int(_sm11e_abilities_b().hazard_roll_modifier(board.get("units", {}).get(actor_unit_id, {}), str(get_weapon_profile(weapon_id, board).get("name", ""))))
+	if haz_mod != 0:
+		print("RulesEngine: [HAZARDOUS] Rites of Thermal Appeasement — %+d to hazard rolls" % haz_mod)
 	var ones_rolled = 0
 	for roll in rolls:
-		if roll <= hazard_fail_threshold:
+		if roll + haz_mod <= hazard_fail_threshold:
 			ones_rolled += 1
 	result.ones_rolled = ones_rolled
 
@@ -14778,7 +14872,7 @@ static func _resolve_melee_assignment_saves(hit_context: Dictionary, w: Dictiona
 	var save_threshold = 7  # Default: impossible to save
 
 	# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
-	var melee_save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
+	var melee_save_modifier = int(target_unit.get("flags", {}).get("save_modifier", 0)) + int(_sm11e_abilities_b().save_roll_bonus(target_unit))  # WP-M4b: Unyielding in the Face of the Foe
 	melee_save_modifier = clamp(melee_save_modifier, -1, 1)
 
 	if wounds_needing_saves > 0:
@@ -16419,6 +16513,7 @@ static func _conditional_fnp(unit: Dictionary, is_psychic: bool, is_mortal: bool
 	# Codex: Space Marines (11e) Space Wolves WOLF TOTEMS (SWCodex11e.gd): Feel No Pain 5+ against mortal wounds.
 	if is_mortal:
 		best = _better_fnp(best, int(_sw11e_codex().fnp_vs_mortal(unit)))
+	best = _better_fnp(best, int(_sm11e_abilities_b().conditional_fnp(unit, is_psychic, is_mortal)))  # WP-M4b: Hood of Hellfire / Psychic Hood (FNP 4+)
 	return best
 
 static func _better_fnp(a: int, b: int) -> int:

@@ -5118,11 +5118,19 @@ func _ork11e_post_shot_ctx(shooter_id: String) -> Dictionary:
 	# (SWCodex11e.gd): "an enemy unit that TARGETED a friendly unit has shot" —
 	# every unit a hit roll of those attacks was made against (hit or not).
 	var targeted := hit.duplicate()
+	# WP-M4b SUPPRESSION FIRE (Codex: Space Marines 11e, Astraeus): "an enemy unit
+	# hit by this model's Twin Macro-accelerator Cannon" — the units hit, per weapon.
+	var hit_by_weapon := {}
 	for j in range(mini(_ork11e_shot_dice_start, dice_log.size()), dice_log.size()):
 		var tb = dice_log[j]
 		if typeof(tb) == TYPE_DICTIONARY and str(tb.get("target_unit_id", "")) != "":
 			targeted[str(tb.get("target_unit_id", ""))] = true
-	return {"hit_unit_ids": hit.keys(), "wounded_unit_ids": wounded, "targeted_unit_ids": targeted.keys()}
+			if str(tb.get("weapon_id", "")) != "" and int(tb.get("successes", 0)) > 0:
+				var hw: Array = hit_by_weapon.get(str(tb.weapon_id), [])
+				if not str(tb.target_unit_id) in hw:
+					hw.append(str(tb.target_unit_id))
+				hit_by_weapon[str(tb.weapon_id)] = hw
+	return {"hit_unit_ids": hit.keys(), "wounded_unit_ids": wounded, "targeted_unit_ids": targeted.keys(), "hit_by_weapon": hit_by_weapon}
 
 func _ork11e_queue_post_shot(a_type: String, shot_before: int, result: Dictionary) -> void:
 	if a_type in _ORK11E_NOT_SHOOTING_ACTIONS or result.get("throat_slittas", false):
@@ -5172,6 +5180,8 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 		_cus11e_codex().on_unit_has_attacked(shooter_id)
 		# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE ends "until that enemy unit has attacked" (SWCodex11e.gd).
 		load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(shooter_id)
+		# WP-M4b SPECIAL-ISSUE OPTICS (Codex: Space Marines 11e): its effects last "until this unit has shot".
+		load("res://scripts/codex/space_marines/SMAbilitiesB.gd").on_unit_has_shot(shooter_id)
 		# WP-O6: Codex: Orks (11e) "when this unit has shot, select one enemy
 		# unit hit" abilities (Rokkit Barrage, Squig Barrage, Bust 'Em, Madcap
 		# Artillery) resolve here when exactly one unit was hit; with 2+ hit
@@ -5179,7 +5189,8 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 		merged.append_array(OrkAbilities11eScript.after_unit_shot(shooter_id, shot.hit_unit_ids))
 		var paused := open_stratagem_windows([
 			{"player": active, "window_id": "unit_has_shot", "ctx": {"phase": "shooting", "unit_id": shooter_id,
-				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}},
+				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids,
+				"hit_by_weapon": shot.get("hit_by_weapon", {})}},  # WP-M4b: Suppression Fire
 			{"player": other, "window_id": "enemy_has_shot", "ctx": {"phase": "shooting", "attacker_unit_id": shooter_id,
 				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids,
 				"targeted_unit_ids": shot.targeted_unit_ids}}],  # targeted: Space Wolves IMPETUOSITY / BATTLE INSTINCTS

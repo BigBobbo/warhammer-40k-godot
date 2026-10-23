@@ -65,6 +65,27 @@ const LEGACY_SLUG_SUFFIX := "-1-0-19"
 # spear – Melee"). The wargear entry only ever names the base weapon.
 const PROFILE_SEPARATORS := [" – ", " — ", " - "]
 
+## WP-M4b: Codex: Space Marines (11e) 40kdc weapon ids whose slug (unit suffix
+## stripped) is not the weapon's name — "close-combat-weapon-intercessor-squad"
+## is the Intercessor's "Knives and Fists" — so the default kit / wargear
+## options never matched the datasheet weapon menu and every model reported
+## every option. Derived from data/40kdc/weapons.json (faction adeptus-astartes:
+## every id used by unitCompositions / wargearOptions whose name slug differs).
+const SM11E_WEAPON_ID_NAME_SLUGS := {
+	"bolt-pistol-company-heroes": "master-crafted-bolt-pistol",
+	"close-combat-weapon-desolation-squad": "ceramite-fists",
+	"close-combat-weapon-heavy-intercessor-squad": "ceramite-fists",
+	"close-combat-weapon-hellblaster-squad": "ceramite-fists",
+	"close-combat-weapon-infernus-squad": "ceramite-fists",
+	"close-combat-weapon-intercessor-squad": "knives-and-fists",
+	"astartes-grenade-launcher-intercessor-squad": "grenade-launcher",
+	"fragstorm-grenade-launcher-impulsor": "fragstorm-grenade-launchers",
+	"storm-bolter-impulsor": "storm-bolters",
+	"combat-knife-reiver-squad": "monomolecular-combat-knife",
+	"fragstorm-grenade-launcher-storm-speeder-hailstrike": "fragstorm-grenade-launchers",
+	"krakstorm-grenade-launcher": "krakstorm-grenade-launchers",
+}
+
 # 40kdc unit_id -> Array[String] of default (base-kit) weapon ids.
 static var _defaults_by_unit: Dictionary = {}
 # 40kdc unit_id -> {model_name_slug: Array[String] of default weapon ids}. Same
@@ -181,6 +202,12 @@ static func get_equipped_weapons(unit: Dictionary) -> Array:
 			selected[s] = true
 
 	if selected.is_empty():
+		# WP-M4b: a Codex: Space Marines (11e) datasheet whose roster lists no
+		# wargear carries its printed default kit ("This model is equipped
+		# with: ...") — the multi-model resolver's CASE D, for one model too.
+		var silent_kit := _sm11e_silent_default_kit(unit, meta, weapons)
+		if not silent_kit.is_empty():
+			return silent_kit
 		# No usable loadout signal — show the datasheet as-is rather than guess.
 		return weapons
 
@@ -204,6 +231,39 @@ static func get_equipped_weapons(unit: Dictionary) -> Array:
 		# Defensive: never blank out the weapons section.
 		print("[LOADOUT-UI] %s: filter matched nothing, showing full datasheet menu" % str(meta.get("name", "?")))
 		return weapons
+	return out
+
+
+## WP-M4b: the default-kit weapons of an 11e ADEPTUS ASTARTES datasheet whose
+## roster wargear is silent — only when the roster lists NO wargear at all and
+## every default weapon is on the unit's menu; [] otherwise (keep the menu).
+static func _sm11e_silent_default_kit(unit: Dictionary, meta: Dictionary, weapons: Array) -> Array:
+	if int(GameConstants.edition) < 11 or not (meta.get("wargear", []) as Array).is_empty():
+		return []
+	var kws: Array = meta.get("keywords", [])
+	if not "ADEPTUS ASTARTES" in kws.map(func(k): return str(k).to_upper()):
+		return []
+	var unit_slug := _slug(datasheet_key(unit))
+	_ensure_compositions_loaded()
+	var raw = _defaults_by_unit.get(unit_slug, [])
+	if typeof(raw) != TYPE_ARRAY or raw.is_empty():
+		return []
+	var menu := _menu_slugs(weapons)
+	var kit := {}
+	for id in raw:
+		var s := _strip_unit_suffix(str(id), unit_slug)
+		if s == "":
+			continue
+		if not menu.has(s):
+			return []
+		kit[s] = true
+	var out: Array = []
+	for w in weapons:
+		if typeof(w) != TYPE_DICTIONARY:
+			continue
+		var wname := str(w.get("name", ""))
+		if kit.has(_slug(wname)) or kit.has(_slug(_base_name(wname))) or str(w.get("granted_by", "")) != "":
+			out.append(w)
 	return out
 
 
@@ -613,6 +673,10 @@ static func _slug_list(ids, unit_slug: String) -> Array:
 ## unit slug ("choppa-tankbustas", "big-shoota-warboss-in-mega-armour"). Strip it
 ## back off so the id matches the datasheet's plain weapon name.
 static func _strip_unit_suffix(id: String, unit_slug: String) -> String:
+	# WP-M4b: a Codex: Space Marines (11e) weapon id that names its weapon
+	# differently (current data only, never a legacy 1.0.19 kit).
+	if not unit_slug.ends_with(LEGACY_SLUG_SUFFIX) and SM11E_WEAPON_ID_NAME_SLUGS.has(id):
+		return str(SM11E_WEAPON_ID_NAME_SLUGS[id])
 	# A legacy key ("boyz-1-0-19") strips the real datasheet slug ("-boyz").
 	var base_slug := unit_slug.trim_suffix(LEGACY_SLUG_SUFFIX)
 	if base_slug != "" and id.ends_with("-" + base_slug):

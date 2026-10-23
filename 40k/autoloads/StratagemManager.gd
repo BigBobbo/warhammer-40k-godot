@@ -48,6 +48,9 @@ const CustodesAbilities = preload("res://scripts/codex/custodes/CustodesAbilitie
 # window pattern ("sw11e_ab_*" ids), plus ANCIENT TACTICIAN's -1 CP and the
 # MURDEROUS HURRICANE snap-shooting ban.
 const SWAbilities = preload("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+# WP-M4b: Codex: Space Marines (11e) M4b datasheet abilities — the same window
+# pattern ("sm11e_ab_b_*" ids, scripts/codex/space_marines/SMAbilitiesB.gd).
+const SMAbilitiesB = preload("res://scripts/codex/space_marines/SMAbilitiesB.gd")
 # Codex: Orks (11e) army / detachment rule choices (WP-O34): free rule offers
 # that ride the window framework (get_window_offers / use_stratagem hooks).
 const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
@@ -912,6 +915,8 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# WP-S4: a Space Wolves datasheet-ability card (no stratagem row) — e.g. STORM CALLER in the reactive dialog.
 	if SWAbilities.handles_id(stratagem_id):
 		return SWAbilities.can_use(player, stratagem_id, target_unit_id, context)
+	if SMAbilitiesB.handles_id(stratagem_id):  # WP-M4b: a Codex: Space Marines M4b datasheet-ability card
+		return SMAbilitiesB.can_use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
 	if not stratagems.has(stratagem_id):
 		return {"can_use": false, "reason": "Unknown stratagem: %s" % stratagem_id}
@@ -1264,6 +1269,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# WP-S4: a Space Wolves datasheet ability offered in a window (0 CP).
 	if SWAbilities.handles_id(stratagem_id):
 		return SWAbilities.use(player, stratagem_id, target_unit_id, context)
+	# WP-M4b: a Codex: Space Marines M4b datasheet ability offered in a window (0 CP).
+	if SMAbilitiesB.handles_id(stratagem_id):
+		return SMAbilitiesB.use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
 	# Codex: Orks (11e) rule choice offered in a window (WP-O34): no CP, no stratagem bookkeeping.
 	if Ork11eDetachments.is_rule_offer_id(stratagem_id):
@@ -1661,6 +1669,7 @@ func get_all_window_offers(player: int, window_id: String, ctx: Dictionary = {})
 	var abil: Array = OrkAbilities.window_offers(player, window_id, wctx)
 	abil.append_array(CustodesAbilities.window_offers(player, window_id, wctx))  # WP-C7: Codex: Adeptus Custodes datasheet abilities
 	abil.append_array(SWAbilities.window_offers(player, window_id, wctx))  # WP-S4: Space Wolves datasheet abilities
+	abil.append_array(SMAbilitiesB.window_offers(player, window_id, wctx))  # WP-M4b: Codex: Space Marines M4b datasheet abilities
 	if not abil.is_empty():
 		print("StratagemManager: get_all_window_offers(P%d, %s) + %d datasheet ability offer(s) %s" % [
 			player, window_id, abil.size(), str(abil.map(func(o): return o.name))])
