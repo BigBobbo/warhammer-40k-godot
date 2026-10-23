@@ -2636,6 +2636,23 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 		})
 		if rebegin == null or not rebegin.get("success", false):
 			break
+		# A re-issued BEGIN_ADVANCE re-rolls the advance and can pause for the
+		# Command Re-roll decision — the move does not exist until it is
+		# answered, so staging now fails with "No active move" on every model
+		# and the unit ends up stationary (WP-S5, seen with Wulfen). Keep the
+		# roll and carry on.
+		if rebegin.get("awaiting_reroll", false):
+			_current_phase_actions += 1
+			var declined = NetworkIntegration.route_action({
+				"type": "DECLINE_COMMAND_REROLL",
+				"actor_unit_id": unit_id,
+				"player": player,
+				"_ai_description": "%s keeps its advance roll (movement retry)" % unit_name
+			})
+			if declined == null or not declined.get("success", false):
+				break
+		elif rebegin.has("stratagem_window_opened"):
+			break
 
 		var snapshot = GameState.create_snapshot(false)
 		var enemies = _get_enemies_for_recompute(player, snapshot)

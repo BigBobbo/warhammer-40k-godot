@@ -809,6 +809,23 @@ func _section_wolf_totems() -> void:
 	_reset_usage()
 	PM.transition_to_phase(PHASE_FIGHT)
 	_check("usable in the Fight phase too (any phase)", SM.can_use_stratagem(2, wt, "U_WULFEN_A").can_use)
+	# AI (WP-S5): it lasts one phase, so the AI never spends it where no mortal
+	# wounds come (it used to fire it in its own Command phase).
+	var Combat = load("res://scripts/codex/space_wolves/SWCodexCombat.gd")
+	var hz_uid := ""
+	for uid in GS.state.units:
+		var uu: Dictionary = GS.state.units[uid]
+		if int(uu.get("owner", 0)) == 2 and Combat.Common.group_points(uid) >= 80:
+			for w in uu.get("meta", {}).get("weapons", []):
+				if "hazardous" in str(w.get("special_rules", "")).to_lower() and str(w.get("type", "")).to_lower() != "melee":
+					hz_uid = uid
+		if hz_uid != "":
+			break
+	if hz_uid != "":
+		GS.state.meta.phase = PHASE_COMMAND
+		_check("AI: WOLF TOTEMS scores 0 in the Command phase (%s, [HAZARDOUS] gun)" % hz_uid, Combat._totems_score(hz_uid) == 0.0)
+		GS.state.meta.phase = PHASE_SHOOTING
+		_check("AI: …and > 0 in the Shooting phase", Combat._totems_score(hz_uid) > 0.0)
 
 
 # ---------------------------------------------------------------------------

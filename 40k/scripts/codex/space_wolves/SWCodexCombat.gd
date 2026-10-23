@@ -426,13 +426,28 @@ static func _multi_damage_share(attacker_id: String, melee: bool) -> float:
 ## WOLF TOTEMS (proactive, the AI's own phase): worth it on a valuable unit
 ## that is about to suffer mortal wounds — its own [HAZARDOUS] weapons, or an
 ## enemy within 12" with [DEVASTATING WOUNDS] weapons.
+## It lasts only until the end of the phase it is used in, so it is worth
+## it only where those mortal wounds come: [HAZARDOUS] ranged weapons in the
+## Shooting phase, [HAZARDOUS] melee or enemy [DEVASTATING WOUNDS] in the Fight
+## phase (never the Command / Movement / Charge phase — WP-S5: the AI spent it
+## in its Command phase, where it expired unused).
 static func _totems_score(uid: String) -> float:
 	if Common.group_points(uid) < 80:
 		return 0.0
+	var phase := Common.current_phase()
+	var shooting := phase == Common.GameStateData.Phase.SHOOTING
+	var fight := phase == Common.GameStateData.Phase.FIGHT
+	if not shooting and not fight:
+		return 0.0
 	for gid in Common.attached_group_ids(uid):
 		for w in Common.unit(str(gid)).get("meta", {}).get("weapons", []):
-			if "hazardous" in str(w.get("special_rules", "")).to_lower():
+			if not "hazardous" in str(w.get("special_rules", "")).to_lower():
+				continue
+			var melee := str(w.get("type", "")).to_lower() == "melee"
+			if (shooting and not melee) or (fight and melee):
 				return 2.2
+	if not fight:
+		return 0.0
 	var player := int(Common.unit(uid).get("owner", 0))
 	for eid in Common.enemy_heads(player):
 		if Common.group_distance_inches(uid, str(eid)) > 12.0:
