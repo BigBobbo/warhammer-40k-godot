@@ -1,0 +1,66 @@
+{
+  "id": "sm11e_ab_c_formations",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.thunderhawk_insertion",
+    "codex.space_marines.datasheet_abilities.cerebrex_logic_engine",
+    "scripts.codex.space_marines.SMAbilitiesC",
+    "phases.FormationsPhase",
+    "scripts.FormationsDeclarationDialog"
+  ],
+  "description": "WP-M4c Codex: Space Marines (11e) THUNDERHAWK INSERTION (Marneus Calgar) and CEREBREX LOGIC ENGINE (Caanok Var) in the Declare Battle Formations step. Fixture sm11e_m4c_formations (Formations, P1 Space Marines declare): the Formations dialog shows a 'CODEX: SPACE MARINES — BATTLE FORMATIONS ABILITIES' section with one picker + Apply per ability. Thunderhawk Insertion: the Intercessor Squad is picked and a real click on Apply gives it Deep Strike (the rebuilt form offers it Deep Strike reserves); Cerebrex Logic Engine: the Hellblaster Squad is picked and Apply gives it Scouts 6\". Each choice is made once — the section is gone after both.",
+  "fixture": "sm11e_m4c_formations",
+  "edition": 11,
+  "rng_seed": 11,
+  "disable_ai": true,
+  "sm_abilities_c": true,
+  "steps": [
+    {"act": "wait_seconds", "seconds": 1.0},
+    {"act": "expect_phase", "equals": 0},
+    {"act": "expect_node_visible", "node": "/root/Main/FormationsDialog", "timeout_s": 8.0},
+    {"act": "expect_node_visible", "node": "/root/Main/FormationsDialog/MainVBox", "timeout_s": 2.0},
+    {"act": "execute_script", "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantHeader\", true, false) != null", "comment": "the Codex: Space Marines section is shown", "equals": true},
+    {"act": "execute_script", "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantApply_U_MARNEUS_CALGAR_A_thunderhawk_insertion\", true, false) != null and tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantApply_U_CAANOK_VAR_A_cerebrex_logic_engine\", true, false) != null", "comment": "one row per ability (Calgar, Caanok Var)", "equals": true},
+    {"act": "execute_script", "script": "GameState.unit_has_deep_strike(\"U_INTERCESSOR_SQUAD_A\")", "comment": "no Deep Strike before", "equals": false},
+    {"act": "screenshot", "label": "01_formations_codex_section"},
+    {
+      "act": "execute_script",
+      "script": "var opt = tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantPick_U_MARNEUS_CALGAR_A_thunderhawk_insertion\", true, false)\nfor i in range(opt.item_count):\n\tif str(opt.get_item_metadata(i)) == \"U_INTERCESSOR_SQUAD_A\":\n\t\topt.select(i)\nreturn str(opt.get_item_metadata(opt.selected))",
+      "multiline": true,
+      "comment": "pick the Intercessor Squad in the Thunderhawk Insertion picker (TACTICUS: eligible)",
+      "equals": "U_INTERCESSOR_SQUAD_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "var opt = tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantPick_U_MARNEUS_CALGAR_A_thunderhawk_insertion\", true, false)\nvar names: Array = []\nfor i in range(opt.item_count):\n\tnames.append(str(opt.get_item_metadata(i)))\nreturn \"U_HELLBLASTER_SQUAD_A\" in names and not \"U_CAANOK_VAR_A\" in names",
+      "multiline": true,
+      "comment": "GRAVIS/PHOBOS/TACTICUS units only (Caanok Var is a TERMINATOR)",
+      "equals": true
+    },
+    {"act": "click_node", "button_text": "Apply", "comment": "real click: Apply on the first row (Thunderhawk Insertion)"},
+    {"act": "wait_seconds", "seconds": 1.0},
+    {"act": "execute_script", "script": "GameState.unit_has_deep_strike(\"U_INTERCESSOR_SQUAD_A\")", "comment": "Thunderhawk Insertion: the Intercessors have Deep Strike", "equals": true},
+    {"act": "expect_node_visible", "node": "/root/Main/FormationsDialog/MainVBox", "timeout_s": 3.0},
+    {"act": "execute_script", "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantApply_U_MARNEUS_CALGAR_A_thunderhawk_insertion\", true, false) == null", "comment": "the rebuilt form no longer offers Thunderhawk Insertion (once)", "equals": true},
+    {
+      "act": "execute_script",
+      "script": "var opt = tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantPick_U_CAANOK_VAR_A_cerebrex_logic_engine\", true, false)\nfor i in range(opt.item_count):\n\tif str(opt.get_item_metadata(i)) == \"U_HELLBLASTER_SQUAD_A\":\n\t\topt.select(i)\nreturn str(opt.get_item_metadata(opt.selected))",
+      "multiline": true,
+      "comment": "pick the Hellblaster Squad in the Cerebrex Logic Engine picker",
+      "equals": "U_HELLBLASTER_SQUAD_A"
+    },
+    {"act": "click_node", "button_text": "Apply", "comment": "real click: Apply (Cerebrex Logic Engine)"},
+    {"act": "wait_seconds", "seconds": 1.0},
+    {"act": "execute_script", "script": "\"%s,%s\" % [str(GameState.unit_has_scout(\"U_HELLBLASTER_SQUAD_A\")), str(GameState.get_scout_distance(\"U_HELLBLASTER_SQUAD_A\"))]", "comment": "Cerebrex Logic Engine: the Hellblasters have Scouts 6\"", "equals": "true,6"},
+    {"act": "execute_script", "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SM11EGrantHeader\", true, false) == null", "comment": "nothing left to choose: the section is gone after the rebuild", "equals": true},
+    {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Thunderhawk Insertion (Marneus Calgar): Intercessor Squad has Deep Strike\")", "expect_min": 1},
+    {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Cerebrex Logic Engine (Caanok Var): Hellblaster Squad has Scouts 6\")", "expect_min": 1},
+    {"act": "screenshot", "label": "02_formations_after_choices"},
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4c] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

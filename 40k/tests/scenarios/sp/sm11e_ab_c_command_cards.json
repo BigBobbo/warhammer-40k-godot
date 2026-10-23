@@ -1,0 +1,117 @@
+{
+  "id": "sm11e_ab_c_command_cards",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.strategic_acumen",
+    "codex.space_marines.datasheet_abilities.narthecium",
+    "codex.space_marines.datasheet_abilities.master_of_shadows",
+    "scripts.codex.space_marines.SMAbilitiesC",
+    "stratagem.window.phase_start",
+    "dialogs.StratagemTargetDialog"
+  ],
+  "description": "WP-M4c Codex: Space Marines (11e) STRATEGIC ACUMEN (Captain on Bike), NARTHECIUM (Apothecary) and MASTER OF SHADOWS (Aethon Shaan) through the real start-of-Command-phase window. Fixture sm11e_m4c_command (P1 Space Marines' Command phase, round 2): the Apothecary leads Intercessors that lost 2 models and a wound; Aethon Shaan stands behind an Assault Intercessor Squad. Real clicks: the tactical-doctrine option of Strategic Acumen (the doctrine becomes active for the Captain), Narthecium (D3+1 healed), Master of Shadows + the Assault Intercessors in the picker (they can re-roll charge rolls). All three are free.",
+  "fixture": "sm11e_m4c_command",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "sm_abilities_c": true,
+  "steps": [
+    {"act": "wait_seconds", "seconds": 0.8},
+    {"act": "expect_phase", "equals": 6},
+    {"act": "expect_state", "path": "meta.active_player", "equals": 1},
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor gid in [\"U_INTERCESSOR_SQUAD_A\", \"U_APOTHECARY_A\"]:\n\tfor m in GameState.get_unit(gid).models:\n\t\tif m.get(\"alive\", true):\n\t\t\tn += int(m.current_wounds)\nprint(\"[sm11e-m4c] narthecium: wounds before = \", n)\nreturn n",
+      "multiline": true,
+      "comment": "3 Intercessors alive, one on 1 W (2+2+1) + the Apothecary's 4 W = 9",
+      "equals": 9
+    },
+    {"act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 6.0},
+    {"act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id", "equals": "phase_start"},
+    {"act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_strategic_acumen", "timeout_s": 2.0},
+    {"act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_narthecium", "timeout_s": 2.0},
+    {"act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_master_of_shadows", "timeout_s": 2.0},
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_strategic_acumen\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {"act": "screenshot", "label": "01_command_ability_cards"},
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_strategic_acumen/Buttons/Use_sm11e_abc_strategic_acumen_U_CAPTAIN_ON_BIKE_A_tactical",
+      "comment": "real click: Strategic Acumen — the tactical doctrine option"
+    },
+    {"act": "wait_seconds", "seconds": 0.8},
+    {"act": "expect_state", "path": "units.U_CAPTAIN_ON_BIKE_A.flags.sw11e_doctrine", "equals": "tactical"},
+    {
+      "act": "execute_script",
+      "script": "load(\"res://scripts/codex/space_wolves/SWCommon.gd\").doctrine_active_id(\"U_CAPTAIN_ON_BIKE_A\", \"tactical\")",
+      "comment": "the tactical doctrine is active for the Captain on Bike until the start of P1's next Command phase",
+      "equals": true
+    },
+    {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Strategic Acumen: the Tactical Doctrine is active\")", "expect_min": 1},
+    {"act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_narthecium", "timeout_s": 4.0},
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_strategic_acumen\") == null",
+      "comment": "Strategic Acumen is used once per Command phase",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_narthecium/Buttons/Use_sm11e_abc_narthecium_U_INTERCESSOR_SQUAD_A",
+      "comment": "real click: Narthecium"
+    },
+    {"act": "wait_seconds", "seconds": 0.8},
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor gid in [\"U_INTERCESSOR_SQUAD_A\", \"U_APOTHECARY_A\"]:\n\tfor m in GameState.get_unit(gid).models:\n\t\tif m.get(\"alive\", true):\n\t\t\tn += int(m.current_wounds)\nprint(\"[sm11e-m4c] narthecium: wounds after = \", n)\nreturn n - 9 >= 2 and n - 9 <= 4",
+      "multiline": true,
+      "comment": "D3+1 wounds healed: the wounded Intercessor first, then destroyed models return with 1 W",
+      "equals": true
+    },
+    {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Narthecium: Intercessor Squad\")", "expect_min": 1},
+    {"act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_master_of_shadows", "timeout_s": 4.0},
+    {"act": "screenshot", "label": "02_after_acumen_and_narthecium"},
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_master_of_shadows/Buttons/Use_sm11e_abc_master_of_shadows_U_AETHON_SHAAN_A",
+      "comment": "real click: Master of Shadows"
+    },
+    {"act": "wait_seconds", "seconds": 0.6},
+    {"act": "expect_node_visible", "node": "/root/StratagemTargetDialog/Content/Pick_U_ASSAULT_INTERCESSOR_SQUAD_A", "timeout_s": 3.0},
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_CAPTAIN_ON_BIKE_A\") == null",
+      "comment": "the Captain on Bike is MOUNTED, not INFANTRY",
+      "equals": true
+    },
+    {"act": "screenshot", "label": "03_master_of_shadows_picker"},
+    {"act": "click_node", "node": "/root/StratagemTargetDialog/Content/Pick_U_ASSAULT_INTERCESSOR_SQUAD_A", "comment": "real click: the Assault Intercessors re-roll charge rolls"},
+    {"act": "wait_seconds", "seconds": 0.8},
+    {
+      "act": "execute_script",
+      "script": "load(\"res://autoloads/EffectPrimitives.gd\").has_effect_reroll_charge(GameState.get_unit(\"U_ASSAULT_INTERCESSOR_SQUAD_A\"))",
+      "comment": "the selected unit can re-roll charge rolls until the start of P1's next Command phase",
+      "equals": true
+    },
+    {"act": "expect_cp", "player": 1, "delta_from_start": 0},
+    {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Master of Shadows: Assault Intercessor Squad\")", "expect_min": 1},
+    {"act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "decline any other open window (not under test)"},
+    {"act": "wait_seconds", "seconds": 0.5},
+    {"act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "decline any other open window (not under test)"},
+    {"act": "wait_seconds", "seconds": 0.5},
+    {"act": "click_if_visible", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "comment": "the secondary-mission review (not under test)"},
+    {"act": "wait_seconds", "seconds": 0.6},
+    {"act": "screenshot", "label": "04_command_cards_resolved_log"},
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4c] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

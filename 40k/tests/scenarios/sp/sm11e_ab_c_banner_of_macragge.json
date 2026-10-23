@@ -1,0 +1,157 @@
+{
+  "id": "sm11e_ab_c_banner_of_macragge",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.banner_of_macragge",
+    "codex.space_marines.datasheet_abilities.honour_guard_of_macragge",
+    "scripts.codex.space_marines.SMAbilitiesC",
+    "stratagem.window.unit_selected_to_fight",
+    "phases.FightPhase"
+  ],
+  "description": "WP-M4c Codex: Space Marines (11e) BANNER OF MACRAGGE (Victrix Honour Guard wargear, once per battle per army) through the real unit_selected_to_fight window. Fixture sm11e_m4c_fight_cards (P1 Space Marines' Fight phase): the Victrix Honour Guard are engaged with the Boyz. A real click selects the Victrix to fight; the free Banner of Macragge card appears; a real click gives their melee attacks +1 A and +1 S for the phase and spends the once-per-battle use. Honour Guard of Macragge (-1 to wound for attacks that target them) is checked on the engine's defender flag.",
+  "fixture": "sm11e_m4c_fight_cards",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "sm_abilities_c": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "load(\"res://autoloads/EffectPrimitives.gd\").has_effect_minus_one_wound_defense(GameState.get_unit(\"U_VICTRIX_HONOUR_GUARD_A\"))",
+      "comment": "Honour Guard of Macragge: attacks that target the Victrix have -1 to wound",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_VICTRIX_HONOUR_GUARD_A",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_VICTRIX_HONOUR_GUARD_A",
+      "emit_pressed": true,
+      "comment": "real click: select the Victrix Honour Guard to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_banner_of_macragge",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "unit_selected_to_fight"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_banner_of_macragge\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_banner_of_macragge_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_abc_banner_of_macragge/Buttons/Use_sm11e_abc_banner_of_macragge_U_VICTRIX_HONOUR_GUARD_A",
+      "comment": "real click: Banner of Macragge"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_VICTRIX_HONOUR_GUARD_A\"), GameState.get_unit(\"U_BOYZ_B\"), {\"name\": \"Master-crafted Power Weapon\", \"type\": \"Melee\"}, true, GameState.state)\nreturn \"%d,%d\" % [int(m.get(\"attacks\", 0)), int(m.get(\"strength\", 0))]",
+      "comment": "the Victrix's melee attacks +1 A and +1 S",
+      "equals": "1,1"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(GameState.state.players[\"1\"].get(\"sm11e_abc_army_uses\", {}).get(\"banner_of_macragge\", \"\"))",
+      "comment": "once per battle (per army): spent",
+      "equals": "battle"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Banner of Macragge: Victrix Honour Guard's melee attacks have +1 A and +1 S\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the rest of the window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_banner_of_macragge_used_log"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4c] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

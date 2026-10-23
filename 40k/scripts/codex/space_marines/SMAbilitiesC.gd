@@ -1260,10 +1260,13 @@ static func _enemies_in_range_visible(from_id: String, player: int, range_in: fl
 		out.append(str(eid))
 	return _sorted_by_distance(from_id, out)
 
-static func _doctrine_variants(ai_pick: String) -> Array:
+## One option per doctrine; the label names the unit (a card can list several
+## units, and an ability's option buttons show only their label).
+static func _doctrine_variants(unit_label: String) -> Array:
 	var out: Array = []
 	for d in Common.DOCTRINES:
-		out.append({"id": str(d), "label": str(Common.DOCTRINE_LABELS.get(d, d))})
+		var lbl := str(Common.DOCTRINE_LABELS.get(d, d))
+		out.append({"id": str(d), "label": ("%s: %s" % [unit_label, lbl]) if unit_label != "" else lbl})
 	return out
 
 ## The AI's doctrine for a unit: tactical when engaged, assault for a melee
@@ -1297,7 +1300,7 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 				if used_this_phase(hid, slug) or not Common.has_combat_doctrines(Common.unit(hid)):
 					continue
 				out.append(_entry(head_id(hid), {"holder": hid, "label": Common.group_label(hid),
-					"variants": _doctrine_variants(""), "require_variant": true, "ai_variant": ai_doctrine(hid)}))
+					"variants": _doctrine_variants(Common.group_label(head_id(hid))), "require_variant": true, "ai_variant": ai_doctrine(hid)}))
 		"narthecium":
 			if window_id != "phase_start" or phase != PH_COMMAND or not own_turn:
 				return out
@@ -1385,7 +1388,7 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 					if head_id(str(fid)) != head_id(hid) and (_dist(hid, str(fid)) > MASTER_TACTICIAN_RANGE_IN + 0.001 or not _visible(hid, str(fid))):
 						continue
 					out.append(_entry(str(fid), {"holder": hid, "label": Common.group_label(str(fid)),
-						"variants": _doctrine_variants(""), "require_variant": true, "ai_variant": ai_doctrine(str(fid))}))
+						"variants": _doctrine_variants(Common.group_label(str(fid))), "require_variant": true, "ai_variant": ai_doctrine(str(fid))}))
 		"cold_and_calculating":
 			if window_id == "unit_selected_to_shoot":
 				if not own_turn or phase != PH_SHOOTING:
@@ -1740,7 +1743,7 @@ static func _apply(slug: String, player: int, uid: String, holder: String, secon
 		"overlapping_destruction":
 			var diffs6: Array = Common.set_flag_diffs(group(holder), F_OVERLAP, {"target": secondary, "phase_key": _phase_key()})
 			diffs6.append(_phase_use_diff(holder, slug))
-			return {"diffs": diffs6, "log": "Overlapping Destruction: %s's Heavy Bolters that target %s have [BLAST 1] this phase" % [Common.group_label(holder), Common.group_label(secondary)]}
+			return {"diffs": diffs6, "log": "Overlapping Destruction: the Heavy Bolters of %s that target %s have [BLAST 1] this phase" % [Common.group_label(holder), Common.group_label(secondary)]}
 		"cold_and_calculating":
 			var labels := {"lethal": "[LETHAL HITS: MONSTER/VEHICLE]", "sustained": "[SUSTAINED HITS 1: non-MONSTER/VEHICLE]", "both": "[LETHAL HITS: MONSTER/VEHICLE] and [SUSTAINED HITS 1: non-MONSTER/VEHICLE] (tactical doctrine)"}
 			return {"diffs": Common.set_flag_diffs(group(uid), F_COLD, {"mode": variant, "phase_key": _phase_key()}),
