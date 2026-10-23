@@ -673,7 +673,8 @@ static func is_sm_army(player: int) -> bool:
 			return true
 	return false
 
-# ====================================================================# LIBRARIUS — psyker-level budget for every ADEPTUS ASTARTES PSYKER (WP-M2a)
+# ===========================================================================
+# LIBRARIUS — psyker-level budget for every ADEPTUS ASTARTES PSYKER (WP-M2a)
 # ===========================================================================
 # "ADEPTUS ASTARTES PSYKER units with this ability have a psyker level of 1 or
 # higher, specified in that unit's abilities. Each psychic ability has a
@@ -819,7 +820,6 @@ static func librarius_use_diffs(unit_id: String, power_name: String, psychic_lev
 		{"op": "set", "path": "units.%s.flags.%s" % [unit_id, LIBRARIUS_F_PHASE], "value": _librarius_phase_key()},
 		{"op": "set", "path": "units.%s.flags.%s" % [unit_id, LIBRARIUS_F_PHASE_NAMES], "value": names},
 	]
-=======
 # ---------------------------------------------------------------------------
 # WP-M4b: Strategic Acumen ledger (Codex: Space Marines 11e). "When a friendly
 # Captain unit uses its Strategic Acumen ability" (Demi-company Commander,
