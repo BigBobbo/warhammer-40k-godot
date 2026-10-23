@@ -1,0 +1,212 @@
+{
+  "id": "sm11e_transhuman_reactions",
+  "covers": [
+    "codex.space_marines.stratagems.transhuman-reactions",
+    "codex.space_marines.SMCodex11e",
+    "stratagem.window.enemy_ended_move",
+    "phases.MovementPhase.enemy_ended_move"
+  ],
+  "description": "Codex: Space Marines (11e) TRANSHUMAN REACTIONS (1 CP) in the OPPONENT's Movement phase — WP-M3a. Fixture sm11e_m3a_reactive (P1 Orks ACTIVE vs P2 Space Marines, round 2; layout in tests/helpers/gen_sm11e_m3a_fixtures.gd). Setup privileges: the seven WP-M3a detachments, the Ork player 0 CP, the Warbikers start 12\" further left (and, for this one, the unit under test sits on the left) (the tactical doctrine active for it). The Ork player's real normal move (BEGIN_NORMAL_MOVE + drag + Confirm) of the Warbikers ends within 8\" of the unit; enemy_ended_move opens for the Space Marine player; a REAL click spends 1 CP and the Infiltrators (PHOBOS, the tactical doctrine active for them) can make a normal move of up to 6\" (the printed alternative to D6\"); the move is made and the Orks get the phase back.",
+  "fixture": "sm11e_m3a_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nH.shift(\"U_INFILTRATOR_SQUAD_A\", -11.0, 0.0)\nH.shift(\"U_WARBIKERS_A\", -12.0, 2.0)\nreturn H.setup(2, {\"cp\": {\"1\": 0}, \"flags\": {\"U_INFILTRATOR_SQUAD_A\": {\"sw11e_doctrine\": \"tactical\", \"sw11e_doctrine_expires_player\": 2}}})",
+      "comment": "setup privilege: the Space Marine player gets the seven WP-M3a detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test)",
+      "equals": "7 detachments"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.frame(12, 36, 1.1)",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_NORMAL_MOVE",
+        "actor_unit_id": "U_WARBIKERS_A",
+        "player": 1
+      },
+      "comment": "the Ork player's BEGIN_NORMAL_MOVE"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.move(\"U_WARBIKERS_A\", 0.0, 9.0)",
+      "comment": "the Ork move (drag + Confirm Move) ends within 8\" of the unit",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.settle()",
+      "comment": "belt-and-braces: nothing else left waiting"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.window_id()",
+      "equals": "enemy_ended_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_phobos_shock_force_transhuman_reactions/Buttons/Use_faction_sm_phobos_shock_force_transhuman_reactions_U_INFILTRATOR_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_phobos_shock_force_transhuman_reactions/Buttons/Use_faction_sm_phobos_shock_force_transhuman_reactions_U_INFILTRATOR_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_transhuman_reactions_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_phobos_shock_force_transhuman_reactions/Buttons/Use_faction_sm_phobos_shock_force_transhuman_reactions_U_INFILTRATOR_SQUAD_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn str(H.phase()._ork11e_reactive_move.get(\"unit_id\", \"\"))",
+      "equals": "U_INFILTRATOR_SQUAD_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn float(H.phase().active_moves.get(\"U_INFILTRATOR_SQUAD_A\", {}).get(\"move_cap_inches\", -1.0))",
+      "comment": "up to 6\" (tactical doctrine)",
+      "equals": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.log_count(\"the tactical doctrine is active\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.decider()",
+      "comment": "the reactive move owns the phase",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.log_count(\"Used TRANSHUMAN REACTIONS\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_transhuman_reactions_reactive_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.move(\"U_INFILTRATOR_SQUAD_A\", 0.0, 0.8)",
+      "comment": "P2 makes the move (drag + Confirm Move)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.settle()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.decider()",
+      "comment": "the Orks have the phase back",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_transhuman_reactions_moved"
+    }
+  ],
+  "transition_to_phase": 7
+}

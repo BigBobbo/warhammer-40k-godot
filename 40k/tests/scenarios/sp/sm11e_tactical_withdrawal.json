@@ -1,0 +1,228 @@
+{
+  "id": "sm11e_tactical_withdrawal",
+  "covers": [
+    "codex.space_marines.stratagems.tactical-withdrawal",
+    "codex.space_marines.SMCodex11e",
+    "stratagem.window.fight_phase_end",
+    "phases.FightPhase.fight_phase_end"
+  ],
+  "description": "Codex: Space Marines (11e) TACTICAL WITHDRAWAL (Phobos Shadow Force, 1 CP) at the end of the OPPONENT's Fight phase — WP-M3a. Fixture sm11e_m3a_reactive (P1 Orks ACTIVE vs P2 Space Marines, round 2; layout in tests/helpers/gen_sm11e_m3a_fixtures.gd). Setup privileges: the Space Marine player gets the seven WP-M3a detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test), straight to the phase under test. Every engaged unit counts as having fought (setup privilege); the Fight and Consolidate steps end (REAL clicks); fight_phase_end opens for the Space Marine player (the Ork player has nothing to offer); a REAL click on the Scout Squad (SCOUT SQUAD, unengaged) spends 1 CP; it is placed in strategic reserves.",
+  "fixture": "sm11e_m3a_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.setup(2, {\"cp\": {\"1\": 0}})",
+      "comment": "setup privilege: the seven WP-M3a detachments, the Ork player 0 CP",
+      "equals": "7 detachments"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.frame(8, 50, 1.2)",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true,
+      "comment": "the other player's pile-in half (if offered)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar fp = H.phase()\nfor uid in GameState.state.units:\n\tif fp.sequencer_11e.eligible_to_fight(uid, GameState.state):\n\t\tfp.sequencer_11e.mark_fought(uid, GameState.state)\nreturn fp.get_end_fight_status().step_over",
+      "comment": "setup privilege: every engaged unit counts as having fought (the fights themselves are not under test)",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "comment": "the other player's consolidation half (if offered)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.window_id()",
+      "equals": "fight_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.offered(\"faction_sm_phobos_shadow_force_tactical_withdrawal\").has(\"U_HELLBLASTER_SQUAD_A\")",
+      "comment": "not on the Hellblasters (not PHOBOS / SCOUT SQUAD)",
+      "equals": false
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_SCOUT_SQUAD_A",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_phobos_shadow_force_tactical_withdrawal/Buttons/Use_faction_sm_phobos_shadow_force_tactical_withdrawal_U_SCOUT_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_phobos_shadow_force_tactical_withdrawal/Buttons/Use_faction_sm_phobos_shadow_force_tactical_withdrawal_U_SCOUT_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_tactical_withdrawal_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_phobos_shadow_force_tactical_withdrawal/Buttons/Use_faction_sm_phobos_shadow_force_tactical_withdrawal_U_SCOUT_SQUAD_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn int(GameState.get_unit(\"U_SCOUT_SQUAD_A\").get(\"status\", -1)) == int(GameState.UnitStatus.IN_RESERVES)",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_SCOUT_SQUAD_A.reserve_type",
+      "equals": "strategic_reserves"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.log_count(\"TACTICAL WITHDRAWAL: Scout Squad is placed in strategic reserves\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar t = ScenarioRunner._find_unit_token(\"U_SCOUT_SQUAD_A\")\nreturn t == null or not t.is_visible_in_tree()",
+      "comment": "its tokens have left the board",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_tactical_withdrawal_in_strategic_reserves"
+    }
+  ],
+  "transition_to_phase": 10
+}

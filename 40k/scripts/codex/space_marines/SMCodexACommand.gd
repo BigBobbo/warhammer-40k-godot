@@ -69,9 +69,13 @@ const WOUND_MINUS_ONE := 8
 ## Action types that STAGE a move (the move has not ended yet) — MORTIS SNARES
 ## waits for the action that ends it.
 const STAGING_ACTIONS: Array = ["STAGE_MODEL_MOVE", "SET_MODEL_DEST", "UNDO_LAST_MODEL_MOVE", "RESET_UNIT_MOVE",
-	"ORK11E_REACTIVE_MOVE_STAGE", "ORK11E_REACTIVE_MOVE_AUTO", "ORK11E_REACTIVE_MOVE_RESET", "DEBUG_MOVE"]
+	"ORK11E_REACTIVE_MOVE_STAGE", "ORK11E_REACTIVE_MOVE_AUTO", "ORK11E_REACTIVE_MOVE_RESET"]
+## Actions that reposition models without a move (a debug teleport): the
+## baseline follows them, nothing triggers.
+const NOT_A_MOVE_ACTIONS: Array = ["DEBUG_MOVE"]
 
-static var _snare_settled: Dictionary = {}    # unit_id -> position signature (last settled)
+static var _snare_settled: Dictionary = {}    # "<unit_id>:<model index>" -> Vector2 (last settled positions)
+static var _snare_state = null                # the GameState.state the baseline belongs to
 static var _snare_action_type := ""
 
 
@@ -329,33 +333,49 @@ static func _any_snare() -> bool:
 	return not snared_objectives(1).is_empty() or not snared_objectives(2).is_empty()
 
 
-static func _signature(unit_id: String) -> String:
-	var parts: PackedStringArray = []
-	for m in Common.unit(unit_id).get("models", []):
-		if not m.get("alive", true) or m.get("position", null) == null:
-			parts.append("-")
-			continue
-		var p := Common._pos(m)
-		parts.append("%d,%d" % [roundi(p.x * 10.0), roundi(p.y * 10.0)])
-	return "|".join(parts)
-
-
-static func _all_signatures() -> Dictionary:
+## Positions (px) of every alive, placed model, keyed "<unit_id>:<index>".
+static func _positions() -> Dictionary:
 	var out := {}
-	for uid in Common.state().get("units", {}):
-		out[str(uid)] = _signature(str(uid))
+	var units: Dictionary = Common.state().get("units", {})
+	for uid in units:
+		var models: Array = units[uid].get("models", [])
+		for i in range(models.size()):
+			var m = models[i]
+			if not m.get("alive", true) or m.get("position", null) == null:
+				continue
+			out["%s:%d" % [str(uid), i]] = Common._pos(m)
 	return out
 
 
+## Units with a model that is alive and placed now and was elsewhere (or off
+## the board) in `before` — a move (or an arrival); a model that died, or was
+## removed, is no move.
+static func _moved_units(before: Dictionary, now: Dictionary) -> Array:
+	var out: Array = []
+	for key in now:
+		var uid := str(key).rsplit(":", true, 1)[0]
+		if uid in out:
+			continue
+		if not before.has(key) or (before[key] as Vector2).distance_to(now[key]) > 0.5:
+			out.append(uid)
+	return out
+
+
+static func _reset_baseline() -> void:
+	_snare_settled = _positions()
+	_snare_state = Common.state()
+
+
 ## Outermost action begins: remember the settled positions (once — a staged
-## move keeps the baseline from before it started).
+## move keeps the baseline from before it started). A different game state
+## (a save was loaded) starts a fresh baseline.
 static func snare_baseline(action_type: String = "") -> void:
 	_snare_action_type = action_type
 	if not _any_snare():
 		_snare_settled = {}
 		return
-	if _snare_settled.is_empty():
-		_snare_settled = _all_signatures()
+	if _snare_settled.is_empty() or not is_same(_snare_state, Common.state()):
+		_reset_baseline()
 
 
 ## Outermost action applied: trigger every snared objective an enemy unit
@@ -367,16 +387,14 @@ static func snare_detect(phase_name: String) -> Array:
 		return applied
 	if _snare_action_type in STAGING_ACTIONS:
 		return applied
-	if _snare_settled.is_empty():
-		_snare_settled = _all_signatures()
+	if _snare_action_type in NOT_A_MOVE_ACTIONS:
+		_reset_baseline()
 		return applied
-	var now := _all_signatures()
-	var moved: Array = []
-	for uid in now:
-		if _snare_settled.has(uid) and str(_snare_settled[uid]) != str(now[uid]):
-			moved.append(uid)
-		elif not _snare_settled.has(uid):
-			moved.append(uid)
+	if _snare_settled.is_empty() or not is_same(_snare_state, Common.state()):
+		_reset_baseline()
+		return applied
+	var now := _positions()
+	var moved: Array = _moved_units(_snare_settled, now)
 	_snare_settled = now
 	if moved.is_empty():
 		return applied
@@ -405,7 +423,7 @@ static func snare_detect(phase_name: String) -> Array:
 			Common.phase_manager().apply_state_changes([d])
 			applied.append(d)
 	if not applied.is_empty():
-		_snare_settled = _all_signatures()
+		_reset_baseline()
 	return applied
 
 

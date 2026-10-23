@@ -885,6 +885,19 @@ func _section_movement() -> void:
 	_translate("U_HELLBLASTER_SQUAD_A", 0.5, 0.0)
 	_check("a friendly unit moving does not trigger it", Codex.on_action_applied("Movement").is_empty() and "obj_nml_2" in Command.snared_objectives(1))
 	_translate("U_HELLBLASTER_SQUAD_A", -0.5, 0.0)
+	# A repositioning that is not a move (DEBUG_MOVE) never triggers it, and an
+	# enemy unit losing a model within range is no move either.
+	Codex.on_action_begin("DEBUG_MOVE")
+	_translate("U_NOBZ_A", -3.0, 8.0)
+	_check("a DEBUG_MOVE into range does not trigger it", Codex.on_action_applied("Movement").is_empty() and "obj_nml_2" in Command.snared_objectives(1))
+	print("    nobz in range of obj_nml_2: %s" % str(Common.group_in_objective_range("U_NOBZ_A", Common.objective_by_id("obj_nml_2"))))
+	Codex.on_action_begin("SHOOT")
+	_unit("U_NOBZ_A").models[0]["alive"] = false
+	_check("an enemy unit in range losing a model does not trigger it", Codex.on_action_applied("Shooting").is_empty() and "obj_nml_2" in Command.snared_objectives(1))
+	_unit("U_NOBZ_A").models[0]["alive"] = true
+	Codex.on_action_begin("DEBUG_MOVE")
+	_translate("U_NOBZ_A", 3.0, -8.0)
+	Codex.on_action_applied("Movement")
 	var wb_before := 0
 	for m in _unit("U_WARBIKERS_A").models:
 		wb_before += int(m.current_wounds)
