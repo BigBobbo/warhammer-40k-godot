@@ -40,7 +40,7 @@ const CUS_ARMY = process.env.E2E_ARMY_NAME || 'WPW3_E2E_Custodes';
 const ORK_ARMY = process.env.E2E_ORK_ARMY_NAME || 'WPW3_E2E_Orks';
 const SHOT_DIR = process.env.E2E_SHOT_DIR || '';
 const dbDir = EXTERNAL ? '' : mkdtempSync(join(tmpdir(), 'w40k-e2e-w3-'));
-const DATA_SOURCE = '40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes)';
+import { DEFAULT_DATA_SOURCE as DATA_SOURCE } from '../public/js/lib/gameformat.mjs';
 
 let failures = 0;
 function check(label, cond, detail = '') {

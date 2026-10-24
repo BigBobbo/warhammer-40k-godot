@@ -1,0 +1,224 @@
+{
+  "id": "sm11e_det_walking_fortress",
+  "covers": [
+    "codex.space_marines.detachments.gravis_linebreaker_force.walking_fortress",
+    "phases.MovementPhase.normal_move",
+    "phases.ShootingPhase",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Gravis Linebreaker Force — WALKING FORTRESS (WP-M2b): in a turn a friendly GRAVIS unit made a normal move, its ranged attacks do not have [HEAVY] and have +1 to hit. Fixture sm11e_m2b_marines_active. Setup privileges: CP 0 for both, the Captain moved out of the way to (40\", 49\"), straight to the Movement phase. The Heavy Intercessors make a NORMAL MOVE of 5\" (the movement panel's Move: BEGIN_NORMAL_MOVE, drag + Confirm Move); then the Shooting phase: the shooting panel's unit pick selects the Heavy Intercessors and SHOOT sends the Heavy Bolt Rifles at the Gretchin — the resolved to_hit block's modifier ledger (resolution dock MODIFIERS) names Walking Fortress (+1 to hit; a 5\" move would have cost [HEAVY] its +1).",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}, \"place\": {\"U_CAPTAIN_A\": [40.0, 49.0]}})\nPhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privileges (see description)",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(22, 50, 1.2)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_NORMAL_MOVE",
+        "actor_unit_id": "U_HEAVY_INTERCESSOR_SQUAD_A",
+        "player": 1
+      },
+      "comment": "the movement panel's Move (normal move)"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn load(\"res://tests/helpers/cus11e_c5_scen.gd\").move(\"U_HEAVY_INTERCESSOR_SQUAD_A\", 4.0, -3.0)",
+      "comment": "the normal move: drag 5\" (4\" east, 3\" north) + Confirm Move",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn load(\"res://tests/helpers/cus11e_c5_scen.gd\").settle()"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_HEAVY_INTERCESSOR_SQUAD_A.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.det().walking_fortress_applies(H.unit(\"U_HEAVY_INTERCESSOR_SQUAD_A\"))",
+      "comment": "Walking Fortress applies after the normal move",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_heavy_intercessors_normal_moved"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: on to the Shooting phase",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_HEAVY_INTERCESSOR_SQUAD_A",
+        "player": 1
+      },
+      "comment": "the shooting panel's unit pick"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.shoot(\"U_HEAVY_INTERCESSOR_SQUAD_A\", \"U_GRETCHIN_C\", \"heavy_bolt_rifle\")",
+      "comment": "the shooting panel's SHOOT: Heavy Bolt Rifles at the Gretchin",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.ledger_has(\"to_hit\", \"Walking Fortress\")",
+      "comment": "the to_hit block names Walking Fortress (+1 to hit)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn int(H.dice(\"to_hit\").get(\"modifiers_applied\", 0)) >= 1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(19, 45, 1.2)\nreturn H.show_dice_tab()",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_walking_fortress_plus_one_to_hit"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

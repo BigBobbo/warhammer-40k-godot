@@ -327,8 +327,9 @@ static func auto_single_reroll_wound(wound_eval: Dictionary, raw_roll: int, atta
 	if not GroupShooting.take_single_reroll(attacker_unit, "wound"):
 		return wound_eval
 	var new_roll := int(rng.roll_d6(1)[0])
-	# 2 = WoundModifier.REROLL_FAILED, 1 = REROLL_ONES: a re-rolled die is final.
-	var out: Dictionary = AttackSequence.evaluate_wound_roll(new_roll, mods & ~(1 | 2), threshold, crit, rng)
+	# 2 = WoundModifier.REROLL_FAILED, 1 = REROLL_ONES, 16 = REROLL_ONES_TWOS
+	# (Space Wolves EYE OF THE PACK): a re-rolled die is final.
+	var out: Dictionary = AttackSequence.evaluate_wound_roll(new_roll, mods & ~(1 | 2 | 16), threshold, crit, rng)
 	out["rerolled"] = true
 	out["reroll_from"] = raw_roll
 	out["reroll_to"] = new_roll

@@ -1,0 +1,173 @@
+{
+  "id": "sm11e_umbral_evasion",
+  "covers": [
+    "codex.space_marines.stratagems.umbral-evasion",
+    "codex.space_marines.SMCodex11e",
+    "stratagem.window.enemy_targets_unit_shooting",
+    "phases.ShootingPhase.reactive_stratagems"
+  ],
+  "description": "Codex: Space Marines (11e) UMBRAL EVASION (1 CP) in the OPPONENT's Shooting phase — WP-M3a. Fixture sm11e_m3a_reactive (P1 Orks ACTIVE vs P2 Space Marines, round 2; layout in tests/helpers/gen_sm11e_m3a_fixtures.gd). Setup privileges: the Space Marine player gets the seven WP-M3a detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test), straight to the phase under test. The Ork player selects the Flash Gitz and targets the Infiltrator Squad (PHOBOS) (ASSIGN_TARGET + Confirm Targets); the defender's reactive dialog (enemy_targets_unit_shooting) offers the stratagem; a REAL click spends 1 CP; ranged attacks that target the unit have -1 to hit (this phase).",
+  "fixture": "sm11e_m3a_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.setup(2, {\"cp\": {\"1\": 0}})",
+      "comment": "setup privilege: the Space Marine player gets the seven WP-M3a detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test)",
+      "equals": "7 detachments"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.frame(26, 34, 0.9)",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_FLASH_GITZ_A",
+        "player": 1
+      },
+      "comment": "the Ork shooting panel's unit pick"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the Ork player's own window (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.assign_and_confirm(1, \"U_FLASH_GITZ_A\", \"U_INFILTRATOR_SQUAD_A\")",
+      "comment": "the Ork player targets the unit (ASSIGN_TARGET + Confirm Targets)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.phase().awaiting_reactive_stratagem",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text.contains(\"targeted\")",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_phobos_shock_force_umbral_evasion/Buttons/Use_faction_sm_phobos_shock_force_umbral_evasion_U_INFILTRATOR_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_phobos_shock_force_umbral_evasion/Buttons/Use_faction_sm_phobos_shock_force_umbral_evasion_U_INFILTRATOR_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_umbral_evasion_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_phobos_shock_force_umbral_evasion/Buttons/Use_faction_sm_phobos_shock_force_umbral_evasion_U_INFILTRATOR_SQUAD_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.flag(\"U_INFILTRATOR_SQUAD_A\", \"sm11e_umbral_evasion\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn (H.codex().apply_hit_bits(0, H.unit(\"U_FLASH_GITZ_A\"), H.unit(\"U_INFILTRATOR_SQUAD_A\"), false, []) & 4) == 4 and H.codex().apply_hit_bits(0, H.unit(\"U_FLASH_GITZ_A\"), H.unit(\"U_INFILTRATOR_SQUAD_A\"), true, []) == 0",
+      "comment": "-1 to hit for RANGED attacks that target it (HitModifier.MINUS_ONE), melee unaffected",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.log_count(\"Used UMBRAL EVASION\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_umbral_evasion_used"
+    }
+  ],
+  "transition_to_phase": 7
+}

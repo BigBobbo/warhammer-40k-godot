@@ -1,0 +1,211 @@
+{
+  "id": "sm11e_mercy_is_weakness",
+  "covers": [
+    "codex.space_marines.stratagems.mercy-is-weakness",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.unit_selected_to_fight",
+    "stratagem.variants",
+    "rules.weapon.lethal_hits"
+  ],
+  "description": "Codex: Space Marines (11e) MERCY IS WEAKNESS (Ironclad Champions, 1 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). The fight list's real click selects the Redemptor Dreadnought (DREADNOUGHT, engaged with the Meganobz); unit_selected_to_fight opens; the card offers the printed choice — one button per option ([LETHAL HITS] / Or: [SUSTAINED HITS 1]); a real click on the [LETHAL HITS] button spends 1 CP; the Redemptor's attacks have [LETHAL HITS] and not [SUSTAINED HITS].",
+  "fixture": "sm11e_m3b_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nPhaseManager.transition_to_phase(10)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "Pile In step: no pile-in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "Pile In step: no pile-in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(36, 31, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_REDEMPTOR_DREADNOUGHT_A",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_REDEMPTOR_DREADNOUGHT_A",
+      "comment": "REAL click: the unit is selected to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_selected_to_fight"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_ironclad_champions_mercy_is_weakness/Buttons/Use_faction_sm_ironclad_champions_mercy_is_weakness_U_REDEMPTOR_DREADNOUGHT_A_lethal",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_ironclad_champions_mercy_is_weakness/Buttons/Use_faction_sm_ironclad_champions_mercy_is_weakness_U_REDEMPTOR_DREADNOUGHT_A_lethal",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_mercy_is_weakness_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_ironclad_champions_mercy_is_weakness/Buttons/Use_faction_sm_ironclad_champions_mercy_is_weakness_U_REDEMPTOR_DREADNOUGHT_A_lethal",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.flag(\"U_REDEMPTOR_DREADNOUGHT_A\", \"sm11e_mercy\")",
+      "equals": "lethal"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nvar m = H.mods(\"U_REDEMPTOR_DREADNOUGHT_A\", \"U_MEGANOBZ_A\", true)\nreturn bool(m.get(\"lethal\", false)) and int(m.get(\"sustained\", 0)) == 0",
+      "comment": "[LETHAL HITS], no [SUSTAINED HITS]",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"[LETHAL HITS]\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"Used MERCY IS WEAKNESS\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_mercy_is_weakness_used"
+    }
+  ],
+  "transition_to_phase": 9
+}

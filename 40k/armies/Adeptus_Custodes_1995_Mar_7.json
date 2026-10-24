@@ -8,7 +8,7 @@
   "created_date": "2025-03-07",
   "schema": 2,
   "edition": 11,
-  "data_source": "40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes)"
+  "data_source": "40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes) + Wahapedia 11e codex import 2026-10-21 (Codex: Space Marines, Space Wolves)"
  },
  "units": {
   "U_BLADE_CHAMPION_A": {

@@ -1,0 +1,254 @@
+{
+  "id": "sm11e_aggressive_disembarkation",
+  "covers": [
+    "codex.space_marines.stratagems.aggressive-disembarkation",
+    "codex.space_marines.SMCodex11e",
+    "stratagem.window.unit_selected_to_move",
+    "phases.MovementPhase.disembark"
+  ],
+  "description": "Codex: Space Marines (11e) AGGRESSIVE DISEMBARKATION (Gauntlet Task Force, 1 CP) — WP-M3a. Fixture sm11e_m3a_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3a_fixtures.gd). Setup privileges: the seven WP-M3a detachments, the Ork player 0 CP. The movement panel's pick of the embarked Intercessor Squad (DISEMBARK_UNIT) opens unit_selected_to_move (move type disembark); a REAL click spends 1 CP; the Disembark dialog is confirmed and the five models are placed with REAL board clicks — four wholly within 3\" of the Rhino, the fifth only WITHIN 3\" (its base reaches 3.76\"), which the stratagem allows; the unit is on the battlefield.",
+  "fixture": "sm11e_m3a_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marine player gets the seven WP-M3a detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test)",
+      "equals": "7 detachments"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.frame(22, 52, 1.2)",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DISEMBARK_UNIT",
+        "actor_unit_id": "U_INTERCESSOR_SQUAD_A",
+        "player": 1
+      },
+      "comment": "the movement panel's pick of the embarked unit"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_selected_to_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn str(H.phase().get_pending_stratagem_window().get(\"ctx\", {}).get(\"move_type\", \"\"))",
+      "equals": "disembark"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gauntlet_task_force_aggressive_disembarkation/Buttons/Use_faction_sm_gauntlet_task_force_aggressive_disembarkation_U_INTERCESSOR_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gauntlet_task_force_aggressive_disembarkation/Buttons/Use_faction_sm_gauntlet_task_force_aggressive_disembarkation_U_INTERCESSOR_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_aggressive_disembarkation_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gauntlet_task_force_aggressive_disembarkation/Buttons/Use_faction_sm_gauntlet_task_force_aggressive_disembarkation_U_INTERCESSOR_SQUAD_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.flag(\"U_INTERCESSOR_SQUAD_A\", \"sm11e_aggressive_disembark\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.log_count(\"Used AGGRESSIVE DISEMBARKATION\")",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar d = tree.root.get_node_or_null(\"DisembarkDialog\")\nif d == null:\n\td = H.dialog_by_script(\"DisembarkDialog.gd\")\nif d == null:\n\treturn \"NO DIALOG\"\nd.get_ok_button().emit_signal(\"pressed\")\nreturn \"ok\"",
+      "comment": "confirm the Disembark dialog (its OK button has no stable NodePath inside the ConfirmationDialog; emit pressed like the other disembark scenarios)",
+      "equals": "ok"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.frame(22, 52, 1.2)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_aggressive_disembarkation_placement"
+    },
+    {
+      "act": "click_board_at",
+      "x": 819.7,
+      "y": 2169.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_board_at",
+      "x": 853.6,
+      "y": 2128.6
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_board_at",
+      "x": 906.4,
+      "y": 2128.6
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_board_at",
+      "x": 940.3,
+      "y": 2169.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_board_at",
+      "x": 816.4,
+      "y": 2048.9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_INTERCESSOR_SQUAD_A.embarked_in",
+      "equals": null
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar t = H.unit(\"U_RHINO_A\").models[0]\nvar worst := 0.0\nfor m in H.unit(\"U_INTERCESSOR_SQUAD_A\").models:\n\tvar p = m.position\n\tvar rr = TransportManager.is_position_within_disembark_range(Vector2(float(p.x), float(p.y)), m, H.unit(\"U_RHINO_A\"), 3.0)\n\tworst = maxf(worst, float(rr.get(\"farthest_inches\", 0.0)))\nreturn worst > 3.0 and worst < 4.0",
+      "comment": "one model is set up only WITHIN 3\" (not wholly within) of the Rhino",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nmain._recreate_unit_visuals()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_INTERCESSOR_SQUAD_A"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_aggressive_disembarkation_disembarked"
+    }
+  ],
+  "transition_to_phase": 7
+}

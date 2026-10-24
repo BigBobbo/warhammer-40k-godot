@@ -1,0 +1,197 @@
+{
+  "id": "sm11e_hail_of_vengeance",
+  "covers": [
+    "codex.space_marines.stratagems.hail-of-vengeance",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.enemy_has_shot",
+    "rules.shooting.forced_target"
+  ],
+  "description": "Codex: Space Marines (11e) HAIL OF VENGEANCE (Devastator Brethren, 2 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_reactive (P1 Orks ACTIVE vs P2 Space Marines, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). Setup privileges plus: the Flash Gitz 3\" forward; one Hellblaster on 1 wound left and the others sturdy (so the volley destroys a model but not the unit). The Ork player's Flash Gitz shoot the Hellblasters; enemy_has_shot opens for the Space Marines player with ctx.destroyed_unit_ids naming the Hellblasters (new ShootingPhase post-shot ctx key); a real click spends 2 CP; the Hellblasters shoot back (normal shooting, auto-resolved, can only target the Flash Gitz — the engine's forced-target 'shoot' follow-up).",
+  "fixture": "sm11e_m3b_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nH.shift(\"U_FLASH_GITZ_A\", 0, 3)\nvar hm = GameState.state.units[\"U_HELLBLASTER_SQUAD_A\"].models\nfor i in range(hm.size()):\n\thm[i][\"current_wounds\"] = 1 if i == 0 else 12\n\tif i > 0:\n\t\thm[i][\"wounds\"] = 12\nreturn H.setup(2, {\"cp\": {\"1\": 0}})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(26, 34, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.shoot(\"U_FLASH_GITZ_A\", \"U_HELLBLASTER_SQUAD_A\")",
+      "comment": "the Ork player's Flash Gitz shoot the Hellblasters (the shooting panel's SHOOT)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.phase().awaiting_reactive_stratagem",
+      "comment": "the defender's reactive dialog (TDF / ARMOUR OF CONTEMPT, not under test) comes first",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "REAL click: decline the reactive stratagems (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decline_others(2) >= 0",
+      "comment": "the Ork player's own post-shot windows (none at 0 CP) come first",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.alive(\"U_HELLBLASTER_SQUAD_A\")",
+      "comment": "a Hellblaster was destroyed (setup: one model on 1 wound left), the unit survives",
+      "expect_min": 1,
+      "expect_max": 4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.window_id()",
+      "equals": "enemy_has_shot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_devastator_brethren_hail_of_vengeance/Buttons/Use_faction_sm_devastator_brethren_hail_of_vengeance_U_HELLBLASTER_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_devastator_brethren_hail_of_vengeance/Buttons/Use_faction_sm_devastator_brethren_hail_of_vengeance_U_HELLBLASTER_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn \"U_HELLBLASTER_SQUAD_A\" in H.phase().get_pending_stratagem_window().get(\"ctx\", {}).get(\"destroyed_unit_ids\", [])",
+      "comment": "ctx.destroyed_unit_ids: those attacks destroyed a model in the Hellblasters",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_hail_of_vengeance_offered"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.wounds(\"U_FLASH_GITZ_A\")",
+      "comment": "Flash Gitz wounds before the reply (logged)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_devastator_brethren_hail_of_vengeance/Buttons/Use_faction_sm_devastator_brethren_hail_of_vengeance_U_HELLBLASTER_SQUAD_A",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"HAIL OF VENGEANCE: Hellblaster Squad shoots Flash Gitz\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"Used HAIL OF VENGEANCE\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_hail_of_vengeance_shot_back"
+    }
+  ],
+  "transition_to_phase": 7
+}

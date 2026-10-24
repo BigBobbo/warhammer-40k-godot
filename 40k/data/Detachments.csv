@@ -7,21 +7,21 @@ army-of-faith|AS|Army of Faith||
 chorus-of-condemnation|AS|Chorus of Condemnation||
 sacred-champions|AS|Sacred Champions||
 sanctified-orators|AS|Sanctified Orators||
-1st-company-task-force|SM|1st Company Task Force||
 gladius-task-force|SM|Gladius Task Force||
-stormlance-task-force|SM|Stormlance Task Force||
-librarius-conclave|SM|Librarius Conclave||
-vanguard-spearhead|SM|Vanguard Spearhead||
-orbital-assault-force|SM|Orbital Assault Force||
-anvil-siege-force|SM|Anvil Siege Force||
-firestorm-assault-force|SM|Firestorm Assault Force||
 ironstorm-spearhead|SM|Ironstorm Spearhead||
-fulguris-task-force|SM|Fulguris Task Force||
-subversion-assets|SM|Subversion Assets||
-armoured-speartip|SM|Armoured Speartip||
-bastion-task-force|SM|Bastion Task Force||
-ceramite-sentinels|SM|Ceramite Sentinels||
-headhunter-task-force|SM|Headhunter Task Force||
+stormlance-task-force|SM|Stormlance Task Force||
+gauntlet-task-force|SM|Gauntlet Task Force||
+phobos-shadow-force|SM|Phobos Shadow Force||
+tacticus-attack-force|SM|Tacticus Attack Force||
+phobos-shock-force|SM|Phobos Shock Force||
+terminator-storm-force|SM|Terminator Storm Force||
+assault-brethren|SM|Assault Brethren||
+gravis-linebreaker-force|SM|Gravis Linebreaker Force||
+devastator-brethren|SM|Devastator Brethren||
+gravis-siege-force|SM|Gravis Siege Force||
+tactical-brethren|SM|Tactical Brethren||
+ironclad-champions|SM|Ironclad Champions||
+tacticus-firestorm-force|SM|Tacticus Firestorm Force||
 null-maiden-vigil|AC|Null Maiden Vigil||
 auric-champions|AC|Auric Champions||
 lions-of-the-emperor|AC|Lions of the Emperor||
@@ -228,13 +228,9 @@ green-tide|ORK|Green Tide||
 taktikal-brigade|ORK|Taktikal Brigade||
 shadowmark-talon|RG|Shadowmark Talon||
 forgefathers-seekers|SAL|Forgefather’s Seekers||
-saga-of-the-beastslayer|SW|Saga of the Beastslayer||
 champions-of-fenris|SW|Champions of Fenris||
-saga-of-the-hunter|SW|Saga of the Hunter||
+saga-of-the-beastslayer|SW|Saga of the Beastslayer||
 saga-of-the-great-wolf|SW|Saga of the Great Wolf||
-saga-of-the-bold|SW|Saga of the Bold||
-legends-of-saga-and-song|SW|Legends of Saga and Song||
-veterans-of-the-fang|SW|Veterans of the Fang||
 retaliation-cadre|TAU|Retaliation Cadre||
 montka|TAU|Mont’ka||
 kroot-hunting-pack|TAU|Kroot Hunting Pack||

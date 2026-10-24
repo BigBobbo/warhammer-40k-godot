@@ -1,0 +1,117 @@
+{
+  "id": "sw11e_enh_wolf_touched",
+  "covers": [
+    "codex.space_wolves.enhancements.wolf_touched",
+    "codex.space_wolves.SWEnhancements11e",
+    "phases.MovementPhase.get_unit_movement",
+    "ui.MovementController.move_cap_label",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Saga of the Beastslayer enhancement WOLF-TOUCHED (WP-S2): the bearer's unit has the WULFEN keyword and +2\" M. Fixture sw11e_s2_wolves_active. Setup privileges (Command phase): P1's detachments Saga of the Beastslayer + Champions of Fenris and Wolf-Touched given to the Wolf Guard Battle Leader with its list-build half applied (as ArmyListManager does for a mustered bearer: the WULFEN keyword); then straight to the Movement phase. The Battle Leader begins a Normal move (the panel's Normal Move action): its move cap is M 7\" + 2\" = 9\" and the movement panel shows it; the bearer can now lead the Wulfen (CharacterAttachmentManager.can_attach).",
+  "fixture": "sw11e_s2_wolves_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privileges (see description)",
+      "script": "var u = GameState.state.units[\"U_WOLF_GUARD_BATTLE_LEADER_A\"]\nGameState.state.factions[\"1\"][\"detachment\"] = \"Saga of the Beastslayer\"\nGameState.state.factions[\"1\"][\"detachments\"] = [\"Saga of the Beastslayer\", \"Champions of Fenris\"]\nGameState.state.players[\"2\"][\"cp\"] = 0\nu.meta[\"enhancements\"] = [\"Wolf-Touched\"]\nload(\"res://scripts/codex/space_wolves/SWEnhancements11e.gd\").apply_list_build(\"U_WOLF_GUARD_BATTLE_LEADER_A\", u, [\"Saga of the Beastslayer\"])\nPhaseManager.transition_to_phase(7)\nreturn \"WULFEN\" in u.meta.keywords",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement_phase_start (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WOLF_GUARD_BATTLE_LEADER_A.meta.stats.move",
+      "equals": 7
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_NORMAL_MOVE",
+        "actor_unit_id": "U_WOLF_GUARD_BATTLE_LEADER_A",
+        "player": 1
+      },
+      "comment": "the movement panel's Normal Move"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "unit_selected_to_move (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the move cap is 7\" + 2\" (Wolf-Touched)",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar cap = float(ph.active_moves.get(\"U_WOLF_GUARD_BATTLE_LEADER_A\", {}).get(\"move_cap_inches\", 0.0))\nprint(\"[sw11e wolf-touched] move cap = \", cap)\nreturn int(round(cap))",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the movement panel shows the 9\" cap",
+      "script": "var mc = tree.root.get_node(\"Main\").movement_controller\nprint(\"[sw11e wolf-touched] move_cap_label = \", mc.move_cap_label.text)\nreturn mc.move_cap_label.text.contains(\"9\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the bearer can lead the Wulfen (Wolf-Touched)",
+      "script": "return CharacterAttachmentManager.can_attach(\"U_WOLF_GUARD_BATTLE_LEADER_A\", \"U_WULFEN_A\").valid",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_wolf_touched_move_9in"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sw11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    }
+  ]
+}

@@ -1,0 +1,254 @@
+{
+  "id": "sw11e_coordinated_strike",
+  "covers": [
+    "codex.space_wolves.stratagems.co-ordinated-strike",
+    "codex.space_wolves.SWCodex11e",
+    "stratagem.window.fight_phase_end",
+    "phases.FightPhase.fight_phase_end",
+    "rules.reserves.strategic"
+  ],
+  "description": "Codex: Space Marines (11e) Space Wolves CO-ORDINATED STRIKE (Saga of the Beastslayer, 1 CP) at the end of the OPPONENT's Fight phase — WP-S3. Fixture sw11e_s3_reactive (P1 Orks ACTIVE vs P2 Space Wolves, round 2; layout in tests/helpers/gen_sw11e_s3_fixtures.gd). Setup privileges: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test), straight to the phase under test. Setup privilege: every engaged unit counts as having fought (the fights are not under test). The players end the Ork Fight phase with real clicks (End Pile In, End Fight Phase + confirmations, End Consolidation); fight_phase_end opens for the Space Wolves player with Thunderwolf Cavalry B (unengaged, within 9\" of the left battlefield edge) but not the engaged Blood Claws; a real click spends 1 CP and places the cavalry in strategic reserves (off the board).",
+  "fixture": "sw11e_s3_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.setup(2, {\"cp\": {\"1\": 0}})",
+      "comment": "setup privilege: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation",
+      "equals": "Saga of the Great Wolf + Champions of Fenris + Saga of the Beastslayer"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.frame(8, 48, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nvar fp = H.phase()\nfor uid in GameState.state.units:\n\tif fp.sequencer_11e.eligible_to_fight(uid, GameState.state):\n\t\tfp.sequencer_11e.mark_fought(uid, GameState.state)\nreturn fp.get_end_fight_status().step_over",
+      "comment": "setup privilege: every engaged unit counts as having fought (the fights themselves are not under test)",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nvar d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.window_id()",
+      "equals": "fight_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_beastslayer_co_ordinated_strike/Buttons/Use_faction_sw_saga_of_the_beastslayer_co_ordinated_strike_U_THUNDERWOLF_CAVALRY_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_beastslayer_co_ordinated_strike/Buttons/Use_faction_sw_saga_of_the_beastslayer_co_ordinated_strike_U_THUNDERWOLF_CAVALRY_B",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.offered(\"faction_sw_saga_of_the_beastslayer_co_ordinated_strike\").has(\"U_BLOOD_CLAWS_A\")",
+      "comment": "not on the engaged Blood Claws",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn GameState.get_current_phase()",
+      "comment": "the phase waits for the decision before it ends",
+      "equals": 10
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_THUNDERWOLF_CAVALRY_B",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sw11e_coordinated_strike_window"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_beastslayer_co_ordinated_strike/Buttons/Use_faction_sw_saga_of_the_beastslayer_co_ordinated_strike_U_THUNDERWOLF_CAVALRY_B",
+      "comment": "REAL click (Space Wolves player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn int(GameState.get_unit(\"U_THUNDERWOLF_CAVALRY_B\").get(\"status\", -1)) == int(GameState.UnitStatus.IN_RESERVES)",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_THUNDERWOLF_CAVALRY_B.reserve_type",
+      "equals": "strategic_reserves"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_THUNDERWOLF_CAVALRY_B.flags.repositioned_to_reserves",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.log_count(\"CO-ORDINATED STRIKE: Thunderwolf Cavalry is placed in strategic reserves\")",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nvar t = ScenarioRunner._find_unit_token(\"U_THUNDERWOLF_CAVALRY_B\")\nreturn t == null or not t.is_visible_in_tree()",
+      "comment": "its tokens have left the board",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sw11e_coordinated_strike_in_strategic_reserves"
+    }
+  ],
+  "transition_to_phase": 10
+}

@@ -1,0 +1,147 @@
+{
+  "id": "sw11e_ab_unit_split",
+  "covers": [
+    "codex.space_wolves.datasheet_abilities.old_greymanes",
+    "codex.space_wolves.datasheet_abilities.let_loose_the_wolves",
+    "codex.space_wolves.datasheet_abilities.force_of_untamed_destruction",
+    "scripts.codex.space_wolves.SWAbilities11e",
+    "phases.FormationsPhase",
+    "scripts.FormationsDeclarationDialog"
+  ],
+  "description": "WP-S4 Space Wolves OLD GREYMANES (Grey Hunters) and LET LOOSE THE WOLVES (Wolf Guard Headtakers) in the real Declare Battle Formations dialog. Fixture sw11e_s4_formations (Formations phase, both armies undeployed). The dialog's UNIT SPLITS (SPACE WOLVES) section has a Split button per unit; pressing it routes SW11E_SPLIT_UNIT through FormationsPhase and rebuilds the form: Grey Hunters 10 -> 5 + 5; Headtakers -> 3 Headtakers + 3 Hunting Wolves (Hunting Wolf profile M10). The new units are offered as bodyguards in the rebuilt leader section; Murderfang (Force of Untamed Destruction) is never a Warlord choice.",
+  "fixture": "sw11e_s4_formations",
+  "edition": 11,
+  "rng_seed": 11,
+  "disable_ai": true,
+  "sw_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/FormationsDialog",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/FormationsDialog/MainVBox",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SW11ESplit_U_GREY_HUNTERS_A\", true, false) != null",
+      "comment": "the UNIT SPLITS section lists the Grey Hunters (Old Greymanes)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SW11ESplit_U_WOLF_GUARD_HEADTAKERS_A\", true, false) != null",
+      "comment": "... and the Headtakers (Let Loose the Wolves)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_formations_split_section"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Split",
+      "comment": "real click: Split on the first row (Grey Hunters)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_GREY_HUNTERS_A\").models.size()",
+      "comment": "Old Greymanes: the Grey Hunters keep 5 models",
+      "equals": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_GREY_HUNTERS_A_SPLIT\").models.size()",
+      "comment": "... the new unit has the other 5",
+      "equals": 5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/FormationsDialog/MainVBox",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SW11ESplit_U_GREY_HUNTERS_A\", true, false) == null",
+      "comment": "the rebuilt form no longer offers the split Grey Hunters",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "button_text": "Split",
+      "comment": "real click: Split on the remaining row (Headtakers)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WOLF_GUARD_HEADTAKERS_A_SPLIT\").meta.stats.move",
+      "comment": "Let Loose the Wolves: the Hunting Wolves unit has the Hunting Wolf profile (M10)",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WOLF_GUARD_HEADTAKERS_A\").models.size()",
+      "comment": "the Headtakers keep their 3 Headtaker models",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/FormationsDialog\").find_child(\"SW11ESplitHeader\", true, false) == null",
+      "comment": "nothing left to split: the section is gone after the rebuild",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Old Greymanes: Grey Hunters split\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Let Loose the Wolves: Wolf Guard Headtakers split\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"Main/FormationsDialog\")\nvar ok := false\nfor c in d.find_children(\"*\", \"OptionButton\", true, false):\n\tfor i in range(c.item_count):\n\t\tif str(c.get_item_metadata(i)) == \"U_GREY_HUNTERS_A_SPLIT\":\n\t\t\tok = true\nreturn ok",
+      "multiline": true,
+      "comment": "the rebuilt form lets a leader join the new Grey Hunters unit",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"Main/FormationsDialog\")\nvar seen := 0\nfor c in d.find_children(\"*\", \"OptionButton\", true, false):\n\tif c.item_count == 0 or c.get_item_text(0) != \"(Auto-select)\":\n\t\tcontinue\n\tseen += 1\n\tfor i in range(c.item_count):\n\t\tif str(c.get_item_metadata(i)) == \"U_MURDERFANG_A\":\n\t\t\treturn false\nreturn seen == 1",
+      "multiline": true,
+      "comment": "Force of Untamed Destruction: Murderfang is not offered as Warlord",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_formations_after_splits"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sw11e-s4] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

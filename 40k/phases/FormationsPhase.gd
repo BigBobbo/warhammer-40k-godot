@@ -112,6 +112,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_undeclare_reserves(action)
 		"DESIGNATE_WARLORD":
 			return _validate_designate_warlord(action)
+		"SW11E_SPLIT_UNIT":
+			return _validate_sw11e_split_unit(action)  # WP-S4 Old Greymanes / Let Loose the Wolves
+		"SM11E_FORMATION_GRANT":
+			return _validate_sm11e_formation_grant(action)  # WP-M4c Thunderhawk Insertion / Cerebrex Logic Engine
 		"CONFIRM_FORMATIONS":
 			return _validate_confirm_formations(action)
 		"END_FORMATIONS":
@@ -139,6 +143,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_undeclare_reserves(action)
 		"DESIGNATE_WARLORD":
 			return _process_designate_warlord(action)
+		"SW11E_SPLIT_UNIT":
+			return _process_sw11e_split_unit(action)  # WP-S4 Old Greymanes / Let Loose the Wolves
+		"SM11E_FORMATION_GRANT":
+			return _process_sm11e_formation_grant(action)  # WP-M4c Thunderhawk Insertion / Cerebrex Logic Engine
 		"CONFIRM_FORMATIONS":
 			return _process_confirm_formations(action)
 		"END_FORMATIONS":
@@ -555,6 +563,52 @@ func _find_supreme_commander_unit(player: int) -> String:
 				return uid
 	return ""
 
+## WP-S4: Space Wolves OLD GREYMANES (Grey Hunters) / LET LOOSE THE WOLVES
+## (Wolf Guard Headtakers) — split the unit in this step (SWAbilities11e.gd).
+func _validate_sw11e_split_unit(action: Dictionary) -> Dictionary:
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
+	if _is_player_confirmed(player):
+		return {"valid": false, "errors": ["Cannot modify formations after confirming"]}
+	var reason := str(_sw11e_abilities().split_block_reason(str(action.get("unit_id", "")), player,
+		player_formations.get(player, {}).get("leader_attachments", {})))
+	if reason != "":
+		return {"valid": false, "errors": [reason]}
+	return {"valid": true, "errors": []}
+
+func _process_sw11e_split_unit(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("unit_id", ""))
+	var res: Dictionary = _sw11e_abilities().split_diffs(unit_id)
+	if res.has("error"):
+		return create_result(false, [], str(res.error))
+	log_phase_message(str(res.get("log", "")))
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(int(action.get("player", get_current_player())), str(res.get("log", "")))
+	return create_result(true, res.get("diffs", []))
+
+## WP-M4c: Codex: Space Marines (11e) THUNDERHAWK INSERTION (Marneus Calgar) /
+## CEREBREX LOGIC ENGINE (Caanok Var): "In the Declare Battle Formations step,
+## you can select one friendly ... unit. That unit has Deep Strike / Scouts 6\""
+## (SMAbilitiesC.gd). {holder_id, slug, unit_id}.
+func _validate_sm11e_formation_grant(action: Dictionary) -> Dictionary:
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
+	if _is_player_confirmed(player):
+		return {"valid": false, "errors": ["Cannot modify formations after confirming"]}
+	var reason := str(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").formation_block_reason(player,
+		str(action.get("holder_id", "")), str(action.get("slug", "")), str(action.get("unit_id", ""))))
+	if reason != "":
+		return {"valid": false, "errors": [reason]}
+	return {"valid": true, "errors": []}
+
+func _process_sm11e_formation_grant(action: Dictionary) -> Dictionary:
+	var res: Dictionary = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").formation_diffs(
+		str(action.get("holder_id", "")), str(action.get("slug", "")), str(action.get("unit_id", "")))
+	log_phase_message(str(res.get("log", "")))
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(int(action.get("player", get_current_player())), str(res.get("log", "")))
+	return create_result(true, res.get("diffs", []))
+
 func _validate_confirm_formations(action: Dictionary) -> Dictionary:
 	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 
@@ -714,6 +768,20 @@ func _process_confirm_formations(action: Dictionary) -> Dictionary:
 
 	var changes = []
 
+	# WP-M4c: an AI player takes its Thunderhawk Insertion / Cerebrex Logic Engine pick when it confirms.
+	var ai_p = get_node_or_null("/root/AIPlayer")
+	if ai_p and ai_p.has_method("is_ai_player") and ai_p.is_ai_player(player):
+		var smc = load("res://scripts/codex/space_marines/SMAbilitiesC.gd")
+		var fch: Dictionary = smc.formation_choices(player)
+		for hid in fch:
+			for slug in fch[hid]:
+				var pick: String = smc.ai_formation_pick(str(hid), str(slug))
+				if pick != "":
+					var fres: Dictionary = smc.formation_diffs(str(hid), str(slug), pick)
+					PhaseManager.apply_state_changes(fres.get("diffs", []))
+					changes.append_array(fres.get("diffs", []))
+					log_phase_message("AI: " + str(fres.get("log", "")))
+
 	# ISS-001: auto-designate the sole CHARACTER as Warlord via diffs.
 	# Validation (_validate_warlord_designation) only checks that this is
 	# possible; the actual state change happens here, in the pipeline.
@@ -781,6 +849,10 @@ func _player_has_declaration_options(player: int) -> bool:
 	if transports.size() > 0:
 		return true
 
+	# WP-S4: Space Wolves unit splits (Old Greymanes / Let Loose the Wolves).
+	if not _sw11e_abilities().splittable_units(player).is_empty():
+		return true
+
 	# Check for units that could go into reserves (any unit can go into strategic reserves)
 	var units = GameState.get_units_for_player(player)
 	if units.size() > 1:  # Need at least 2 units (one to deploy, one for reserves)
@@ -831,6 +903,9 @@ func _capacity_weighted_model_count(unit: Dictionary, transport: Dictionary) -> 
 		if kw in unit_keywords:
 			per_model_cost = int(multipliers[kw])
 			break
+	# Codex: Space Marines (11e) BESTIAL FORMS: a WULFEN model takes the space of 2 (WP-S2).
+	if GameConstants.edition >= 11 and not transport.is_empty():
+		per_model_cost = maxi(per_model_cost, int(load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").transport_space_per_model(unit)))
 	var count = 0
 	for model in unit.get("models", []):
 		if model.get("alive", true):
@@ -952,6 +1027,9 @@ func _validate_warlord_designation(player: int) -> Dictionary:
 		"Player %d has no Warlord designated. One of these CHARACTER units must be the Warlord: %s" % [player, ", ".join(names)]
 	]}
 
+## Players whose Space Wolves army problems were already reported this phase (WP-S2).
+var _sw11e_reported: Dictionary = {}
+
 func _validate_army_construction_points(player: int) -> void:
 	"""Validate army construction points for a player at formation confirmation time.
 	Logs warnings but does not block — this is advisory validation per GEN-10."""
@@ -986,6 +1064,20 @@ func _validate_army_construction_points(player: int) -> void:
 	if detachment.is_empty():
 		log_phase_message("WARNING: Player %d has no detachment declared" % player)
 
+	# Codex: Space Marines (11e) Space Wolves — SONS OF RUSS / Master of Wolves restriction:
+	# an illegal unit is reported on the Game Log (SWArmyRules11e / SWDetachments11e, WP-S2).
+	var sw11e_problems: Array = load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").live_army_problems(player)
+	sw11e_problems.append_array(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").live_army_problems(player))
+	if _sw11e_reported.has(player):
+		sw11e_problems = []  # reported once per Formations phase (validation runs more than once)
+	elif not sw11e_problems.is_empty():
+		_sw11e_reported[player] = true
+	for sw11e_p in sw11e_problems:
+		log_phase_message("WARNING: Player %d army construction — %s" % [player, sw11e_p])
+		var gel = get_node_or_null("/root/GameEventLog")
+		if gel:
+			gel.add_player_entry(player, "ILLEGAL ARMY — %s" % sw11e_p)
+
 func _get_auto_warlord_id(player: int) -> String:
 	"""If the player has exactly one CHARACTER and no designated Warlord,
 	return that unit id for auto-designation (mirrors the auto-designate
@@ -1005,7 +1097,11 @@ func _cus11e_warlord_block_reason(unit_id: String, player: int) -> String:
 	var katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
 	var u: Dictionary = get_unit(unit_id).duplicate()
 	u["id"] = unit_id
-	return str(katah.warlord_block_reason(u, katah.player_detachments(player)))
+	var reason := str(katah.warlord_block_reason(u, katah.player_detachments(player)))
+	# WP-S4: Space Wolves Murderfang — Force of Untamed Destruction ("cannot be your WARLORD").
+	if reason == "":
+		reason = str(_sw11e_abilities().warlord_block_reason(u))
+	return reason
 
 func _cus11e_warlord_eligible(character_ids: Array, player: int) -> Array:
 	var out: Array = []
@@ -1108,6 +1204,8 @@ func _build_formation_changes() -> Array:
 			log_phase_message("Applied: %d units embarked in %s" % [embark_ids.size(), transport_name])
 
 		# Reserves declarations
+		# WP-M4a DROP POD ASSAULT: "This unit must start the battle in strategic reserves" — added when undeclared.
+		formations["reserves"].append_array(load("res://scripts/codex/space_marines/SMAbilitiesA.gd").forced_reserves(player, formations["reserves"]))
 		for entry in formations["reserves"]:
 			var unit_id = entry["unit_id"]
 			var reserve_type = entry["reserve_type"]
@@ -1265,6 +1363,21 @@ func get_available_actions() -> Array:
 					"player": current_player,
 					"description": "Attach %s to %s" % [char_name, bg_name]
 				})
+
+	# WP-S4: Space Wolves unit splits (Old Greymanes / Let Loose the Wolves).
+	for sp_id in _sw11e_abilities().splittable_units(current_player):
+		if _sw11e_abilities().split_block_reason(sp_id, current_player, formations.get("leader_attachments", {})) == "":
+			actions.append({"type": "SW11E_SPLIT_UNIT", "unit_id": sp_id, "player": current_player,
+				"description": "Split %s (%s)" % [get_unit(sp_id).get("meta", {}).get("name", sp_id), _sw11e_abilities().display(_sw11e_abilities().split_kind(sp_id))]})
+
+	# WP-M4c: Thunderhawk Insertion / Cerebrex Logic Engine picks.
+	var smc_fa = load("res://scripts/codex/space_marines/SMAbilitiesC.gd")
+	var smc_ch: Dictionary = smc_fa.formation_choices(current_player)
+	for hid in smc_ch:
+		for slug in smc_ch[hid]:
+			for cand in smc_fa.formation_candidates(str(hid), str(slug)):
+				actions.append({"type": "SM11E_FORMATION_GRANT", "holder_id": str(hid), "slug": str(slug), "unit_id": str(cand), "player": current_player,
+					"description": "%s: %s" % [smc_fa.display(str(slug)), get_unit(str(cand)).get("meta", {}).get("name", cand)]})
 
 	# Undo attachments
 	for char_id in formations.get("leader_attachments", {}):

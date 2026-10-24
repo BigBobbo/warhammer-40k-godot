@@ -23,6 +23,12 @@ const OrkCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
 # Codex: Adeptus Custodes (11e) dispatcher (WP-C5) — same API as OrkCodex,
 # dispatched at every site OrkCodex is (rows marked {"type":"custom:custodes11e"}).
 const CustodesCodex = preload("res://scripts/codex/custodes/CustodesCodex11e.gd")
+# Codex: Space Marines (11e) Space Wolves dispatcher (WP-S3) — same API, rows
+# marked {"type":"custom:sw11e"}.
+const SWCodex = preload("res://scripts/codex/space_wolves/SWCodex11e.gd")
+# Codex: Space Marines (11e) generic detachments dispatcher (WP-M3a) — same API,
+# rows marked {"type":"custom:sm11e"} (every Space Marine army, chapters included).
+const SMCodex = preload("res://scripts/codex/space_marines/SMCodex11e.gd")
 
 ## The codex dispatcher that owns `strat` (Codex: Orks / Codex: Adeptus
 ## Custodes 11e rows), or null for every other stratagem.
@@ -31,6 +37,10 @@ static func codex_for(strat: Dictionary):
 		return OrkCodex
 	if CustodesCodex.handles(strat):
 		return CustodesCodex
+	if SWCodex.handles(strat):
+		return SWCodex  # Codex: Space Marines (11e) Space Wolves (SWCodex11e.gd)
+	if SMCodex.handles(strat):
+		return SMCodex  # Codex: Space Marines (11e) generic detachments (SMCodex11e.gd)
 	return null
 # WP-O6: Codex: Orks (11e) datasheet abilities — activated ones ride the window
 # framework (offers appended in get_all_window_offers, "ork11e_ab_*" ids routed in
@@ -39,6 +49,21 @@ const OrkAbilities = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 # WP-C7: Codex: Adeptus Custodes (11e) datasheet abilities — the same window
 # pattern ("cus11e_ab_*" ids), plus SWIFT RUIN's Rapid Ingress exemption.
 const CustodesAbilities = preload("res://scripts/codex/custodes/CustodesAbilities.gd")
+# WP-S4: Codex: Space Marines (11e) Space Wolves datasheet abilities — the same
+# window pattern ("sw11e_ab_*" ids), plus ANCIENT TACTICIAN's -1 CP and the
+# MURDEROUS HURRICANE snap-shooting ban.
+const SWAbilities = preload("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+# WP-M4b: Codex: Space Marines (11e) M4b datasheet abilities — the same window
+# pattern ("sm11e_ab_b_*" ids, scripts/codex/space_marines/SMAbilitiesB.gd).
+const SMAbilitiesB = preload("res://scripts/codex/space_marines/SMAbilitiesB.gd")
+# WP-M4c: Codex: Space Marines (11e) generic datasheet abilities of the M4c
+# datasheets ("sm11e_abc_*" ids), Veiling Smoke / Blackwing Mantle overrides,
+# Honour or Death -1 CP.
+const SMAbilitiesC = preload("res://scripts/codex/space_marines/SMAbilitiesC.gd")
+# WP-M4a: Codex: Space Marines (11e) generic datasheet abilities, M4a list — the
+# same window pattern ("sm11e_ab_a_*" ids), plus the BRUTALIS CHARGE / SENTINEL
+# PROTOCOLS overrides and the TELEPORT HOMER Rapid Ingress -1 CP.
+const SMAbilitiesA = preload("res://scripts/codex/space_marines/SMAbilitiesA.gd")
 # Codex: Orks (11e) army / detachment rule choices (WP-O34): free rule offers
 # that ride the window framework (get_window_offers / use_stratagem hooks).
 const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
@@ -54,7 +79,42 @@ func _cus11e_stratagem_override(player: int, stratagem_id: String, target_unit_i
 	if GameConstants.edition < 11 or target_unit_id == "":
 		return {"applies": false}
 	var e = _cus11e_det().enh()
-	return e.stratagem_override(player, stratagem_id, target_unit_id) if e else {"applies": false}
+	var ov: Dictionary = e.stratagem_override(player, stratagem_id, target_unit_id) if e else {"applies": false}
+	if not bool(ov.get("applies", false)):
+		# Codex: Space Marines (11e) Grimnar's Mark (Saga of the Great Wolf) — same override shape, sw11e: true (WP-S2).
+		ov = _sw11e_det().stratagem_override(player, stratagem_id, target_unit_id)
+	if not bool(ov.get("applies", false)):
+		# WP-M4c Veiling Smoke (Rhino) / Blackwing Mantle (Aethon Shaan) — the Custodes override shape (recorded through its record_stratagem_override).
+		ov = SMAbilitiesC.stratagem_override(player, stratagem_id, target_unit_id)
+	if not bool(ov.get("applies", false)):
+		# WP-M4a BRUTALIS CHARGE (Crushing Impact -1CP) / SENTINEL PROTOCOLS (Fire Overwatch) — same shape, sm11e_m4a: true.
+		ov = SMAbilitiesA.stratagem_override(player, stratagem_id, target_unit_id)
+	return ov
+
+## Codex: Space Marines (11e) Space Wolves detachments + enhancements façade (WP-S2).
+static func _sw11e_det():
+	return load("res://scripts/codex/space_wolves/SWDetachments11e.gd")
+
+## Codex: Space Marines (11e) The Great Wolf Watches — Countercharge (-1CP Heroic
+## Intervention, once per battle round per unit): {} or {discount, source, head_id}.
+func _sw11e_cp_discount(player: int, stratagem_id: String, target_unit_id: String) -> Dictionary:
+	if GameConstants.edition < 11 or target_unit_id == "":
+		return {}
+	return _sw11e_det().stratagem_cp_discount(player, stratagem_id, target_unit_id)
+
+## The CP a use of `stratagem_id` on `target_unit_id` would cost right now
+## (base cost and the per-target codex discounts) — dialogs show it (WP-S2).
+func preview_cp_cost(player: int, stratagem_id: String, target_unit_id: String = "") -> int:
+	var sid := _resolve_core_id(stratagem_id)
+	if not stratagems.has(sid):
+		return 0
+	var cost := _base_cp_cost(stratagems[sid], {})
+	cost = maxi(0, cost + int(_cus11e_stratagem_override(player, sid, target_unit_id).get("cost_delta", 0)))
+	cost = maxi(0, cost - int(_sw11e_cp_discount(player, sid, target_unit_id).get("discount", 0)))
+	cost = maxi(0, cost - int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").stratagem_cp_discount(player, sid, target_unit_id).get("discount", 0)))  # WP-M2b Laurels of Vigilance
+	cost = maxi(0, cost - SMAbilitiesC.stratagem_cp_discount(player, sid, target_unit_id))  # WP-M4c Honour or Death
+	cost = maxi(0, cost - SMAbilitiesA.stratagem_cp_discount(player, sid, target_unit_id))  # WP-M4a TELEPORT HOMER
+	return cost
 
 # Stratagem WINDOWS (design §3): the game event at which a stratagem with
 # timing.windows is offered automatically. The phrase completes
@@ -83,6 +143,8 @@ const WINDOW_WHEN_TEXT: Dictionary = {
 	# SHIELD OF HONOUR, and Conservai.
 	"fight_phase_start": "the Fight phase starts",
 	"command_phase_main": "your Command phase is under way",
+	# Codex: Space Marines (11e) WP-M3b (SMCodexB.gd): FOR THE EMPEROR! "Command phase" (either player's).
+	"command_phase_opponent": "your opponent's Command phase is under way",
 	# Codex: Adeptus Custodes stratagems (WP-C5, CustodesCodex11e.gd).
 	"phase_end": "a phase ends",
 	"unit_ended_advance_move": "one of your units ends an Advance move",
@@ -96,6 +158,12 @@ const WINDOW_WHEN_TEXT: Dictionary = {
 	# "At the start of any phase" (Moment Shackle, Neutronium Cascade Mine,
 	# Sword of the Throne).
 	"phase_start": "a phase starts",
+	# Codex: Space Marines (11e) Space Wolves datasheet abilities (WP-S4,
+	# SWAbilities11e.gd): "when this unit has fought" (Hammer Blow).
+	"unit_has_fought": "one of your units has fought",
+	"enemy_declares_charge": "an enemy unit has selected charge targets",  # WP-M4c Combat Embarkation (Repulsor)
+	# WP-M4a (SMAbilitiesA.gd): Drop Pod Assault — the embarked units disembark as it lands.
+	"sm11e_drop_pod_landed": "your Drop Pod has been set up",
 }
 
 # 11e CORE stratagems offered through a stratagem window (design §3), keyed by
@@ -637,6 +705,18 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 			if strat["implemented"]:
 				print("StratagemManager: Marked '%s' (%s) as implemented (Adeptus Custodes codex registry)" % [strat.get("name", ""), strat.get("csv_id", "")])
 			continue
+		# Codex: Space Marines (11e) Space Wolves rows: the SW codex registry only (SWCodex11e.gd, WP-S3).
+		if SWCodex.handles(strat):
+			strat["implemented"] = SWCodex.is_implemented(strat)
+			if strat["implemented"]:
+				print("StratagemManager: Marked '%s' (%s) as implemented (Space Wolves codex registry)" % [strat.get("name", ""), strat.get("csv_id", "")])
+			continue
+		# Codex: Space Marines (11e) generic rows: the SM codex registry only (SMCodex11e.gd, WP-M3a).
+		if SMCodex.handles(strat):
+			strat["implemented"] = SMCodex.is_implemented(strat)
+			if strat["implemented"]:
+				print("StratagemManager: Marked '%s' (%s) as implemented (Codex: Space Marines registry)" % [strat.get("name", ""), strat.get("csv_id", "")])
+			continue
 		# Data sources use typographic apostrophes (BOARDIN’ RUSH) — normalize
 		# so the straight-quoted handler names below keep matching.
 		var name_upper = strat.get("name", "").replace("’", "'").to_upper()
@@ -865,6 +945,16 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	Check if a player can use a specific stratagem right now.
 	Returns { "can_use": bool, "reason": String }
 	"""
+	# WP-S4: a Space Wolves datasheet-ability card (no stratagem row) — e.g. STORM CALLER in the reactive dialog.
+	if SWAbilities.handles_id(stratagem_id):
+		return SWAbilities.can_use(player, stratagem_id, target_unit_id, context)
+	if SMAbilitiesB.handles_id(stratagem_id):  # WP-M4b: a Codex: Space Marines M4b datasheet-ability card
+		return SMAbilitiesB.can_use(player, stratagem_id, target_unit_id, context)
+	if SMAbilitiesC.handles_id(stratagem_id):  # WP-M4c: an M4c datasheet-ability card
+		return SMAbilitiesC.can_use(player, stratagem_id, target_unit_id, context)
+	# WP-M4a: a Codex: Space Marines (11e) datasheet-ability card (no stratagem row) — e.g. SHROUDING in the reactive dialog.
+	if SMAbilitiesA.handles_id(stratagem_id):
+		return SMAbilitiesA.can_use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
 	if not stratagems.has(stratagem_id):
 		return {"can_use": false, "reason": "Unknown stratagem: %s" % stratagem_id}
@@ -910,6 +1000,9 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# WP-O6 TRAMPLASQUIG CHARGE (Codex: Orks 11e, Hunta Rig): Crushing Impact -1 CP.
 	if target_unit_id != "" and effective_cost > 0:
 		effective_cost = maxi(effective_cost - OrkAbilities.stratagem_cp_discount(str(strat.get("name", "")), target_unit_id), 0)
+	# WP-S4 ANCIENT TACTICIAN (Space Wolves, Bjorn; once per turn, per army): -1 CP on this unit.
+	if target_unit_id != "" and effective_cost > 0:
+		effective_cost = maxi(effective_cost - SWAbilities.stratagem_cp_discount(player, target_unit_id), 0)
 	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus with Lord of Deceit aura
 	if target_unit_id != "":
 		effective_cost += get_lord_of_deceit_cp_increase(player, target_unit_id)
@@ -917,6 +1010,14 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# (HEROIC INTERVENTION): -1CP, regardless of other uses this phase (CustodesEnhancements.gd, WP-C46).
 	var cus11e_ov: Dictionary = _cus11e_stratagem_override(player, stratagem_id, target_unit_id)
 	effective_cost = maxi(0, effective_cost + int(cus11e_ov.get("cost_delta", 0)))
+	# Codex: Space Marines (11e) Countercharge (The Great Wolf Watches): Heroic Intervention -1CP (WP-S2).
+	effective_cost = maxi(0, effective_cost - int(_sw11e_cp_discount(player, stratagem_id, target_unit_id).get("discount", 0)))
+	# WP-M2b: Codex: Space Marines (11e) Laurels of Vigilance — Fire Overwatch / Heroic Intervention on a BATTLELINE unit -1CP.
+	effective_cost = maxi(0, effective_cost - int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").stratagem_cp_discount(player, stratagem_id, target_unit_id).get("discount", 0)))
+	# WP-M4c HONOUR OR DEATH (Cato Sicarius): Heroic Intervention on this unit -1 CP.
+	effective_cost = maxi(0, effective_cost - SMAbilitiesC.stratagem_cp_discount(player, stratagem_id, target_unit_id))
+	# WP-M4a TELEPORT HOMER: Rapid Ingress using the token is -1 CP.
+	effective_cost = maxi(0, effective_cost - SMAbilitiesA.stratagem_cp_discount(player, stratagem_id, target_unit_id))
 	var player_cp = _get_player_cp(player)
 	if player_cp < effective_cost:
 		return {"can_use": false, "reason": "Not enough CP (need %d, have %d)" % [effective_cost, player_cp]}
@@ -1209,6 +1310,18 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# WP-C7: a Codex: Adeptus Custodes datasheet ability offered in a window (0 CP).
 	if CustodesAbilities.handles_id(stratagem_id):
 		return CustodesAbilities.use(player, stratagem_id, target_unit_id, context)
+	# WP-S4: a Space Wolves datasheet ability offered in a window (0 CP).
+	if SWAbilities.handles_id(stratagem_id):
+		return SWAbilities.use(player, stratagem_id, target_unit_id, context)
+	# WP-M4b: a Codex: Space Marines M4b datasheet ability offered in a window (0 CP).
+	if SMAbilitiesB.handles_id(stratagem_id):
+		return SMAbilitiesB.use(player, stratagem_id, target_unit_id, context)
+	# WP-M4c: a Codex: Space Marines (M4c datasheets) ability offered in a window (0 CP).
+	if SMAbilitiesC.handles_id(stratagem_id):
+		return SMAbilitiesC.use(player, stratagem_id, target_unit_id, context)
+	# WP-M4a: a Codex: Space Marines (11e) datasheet ability offered in a window (0 CP).
+	if SMAbilitiesA.handles_id(stratagem_id):
+		return SMAbilitiesA.use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
 	# Codex: Orks (11e) rule choice offered in a window (WP-O34): no CP, no stratagem bookkeeping.
 	if Ork11eDetachments.is_rule_offer_id(stratagem_id):
@@ -1216,6 +1329,15 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# Codex: Adeptus Custodes (11e) rule choice / enhancement ability in a window (WP-C46): free.
 	if _cus11e_det().is_rule_offer_id(stratagem_id):
 		return _cus11e_det().use_rule_offer(player, stratagem_id, target_unit_id, context)
+	# Codex: Space Marines (11e) Space Wolves rule choice / enhancement ability in a window (WP-S2): free.
+	if _sw11e_det().is_rule_offer_id(stratagem_id):
+		return _sw11e_det().use_rule_offer(player, stratagem_id, target_unit_id, context)
+	# WP-M2b: Codex: Space Marines (11e) generic detachments B rule card (Narthecis Gauntlet): free.
+	if load("res://scripts/codex/space_marines/SMDetachmentsB.gd").is_rule_offer_id(stratagem_id):
+		return load("res://scripts/codex/space_marines/SMDetachmentsB.gd").use_rule_offer(player, stratagem_id, target_unit_id, context)
+	# WP-M2a Codex: Space Marines (11e) detachment-rule / enhancement cards (SMDetachmentsA.gd): free.
+	if stratagem_id.begins_with("sm11e_rule_"):
+		return load("res://scripts/codex/space_marines/SMDetachmentsA.gd").use_rule_offer(player, stratagem_id, target_unit_id, context)
 	# Validate
 	var validation = can_use_stratagem(player, stratagem_id, target_unit_id, context)
 	if not validation.can_use:
@@ -1237,6 +1359,14 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		if tsc_disc > 0:
 			effective_cp_cost = maxi(effective_cp_cost - tsc_disc, 0)
 			print("StratagemManager: Tramplasquig Charge reduces CP cost of %s by %d (now %d)" % [strat.name, tsc_disc, effective_cp_cost])
+	# WP-S4 ANCIENT TACTICIAN (Space Wolves, Bjorn; once per turn, per army): -1 CP on this unit.
+	if target_unit_id != "" and effective_cp_cost > 0 and SWAbilities.stratagem_cp_discount(player, target_unit_id) > 0:
+		effective_cp_cost = maxi(effective_cp_cost - 1, 0)
+		SWAbilities.record_cp_discount(player, target_unit_id, str(strat.get("name", stratagem_id)))
+	# WP-M4a TELEPORT HOMER (Terminator Assault Squad): Rapid Ingress using the token is -1 CP (set up within 3" of it).
+	if target_unit_id != "" and effective_cp_cost > 0 and SMAbilitiesA.stratagem_cp_discount(player, stratagem_id, target_unit_id) > 0:
+		effective_cp_cost = maxi(effective_cp_cost - 1, 0)
+		SMAbilitiesA.record_cp_discount(player, target_unit_id)
 	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus
 	var lord_of_deceit_increase = 0
 	if target_unit_id != "":
@@ -1248,8 +1378,28 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	var cus11e_ov_use: Dictionary = _cus11e_stratagem_override(player, stratagem_id, target_unit_id)
 	if bool(cus11e_ov_use.get("applies", false)):
 		effective_cp_cost = maxi(0, effective_cp_cost + int(cus11e_ov_use.get("cost_delta", 0)))
-		diffs.append_array(_cus11e_det().enh().record_stratagem_override(cus11e_ov_use))
+		# (Codex: Space Marines (11e) Grimnar's Mark records through SWDetachments11e — WP-S2.)
+		if bool(cus11e_ov_use.get("sm11e_m4a", false)):
+			diffs.append_array(SMAbilitiesA.record_stratagem_override(cus11e_ov_use))  # WP-M4a Brutalis Charge / Sentinel Protocols
+		else:
+			diffs.append_array(_sw11e_det().record_stratagem_override(cus11e_ov_use) if bool(cus11e_ov_use.get("sw11e", false)) else _cus11e_det().enh().record_stratagem_override(cus11e_ov_use))
 		print("StratagemManager: %s — %s costs %d CP and does not count towards its once-per-phase limit" % [str(cus11e_ov_use.source), strat.name, effective_cp_cost])
+	# Codex: Space Marines (11e) Countercharge (The Great Wolf Watches): Heroic Intervention -1CP (WP-S2).
+	var sw11e_disc: Dictionary = _sw11e_cp_discount(player, stratagem_id, target_unit_id)
+	if not sw11e_disc.is_empty() and effective_cp_cost > 0:
+		effective_cp_cost = maxi(0, effective_cp_cost - int(sw11e_disc.get("discount", 0)))
+		diffs.append_array(_sw11e_det().record_cp_discount(sw11e_disc))
+		print("StratagemManager: %s — %s costs %d CP" % [str(sw11e_disc.source), strat.name, effective_cp_cost])
+	# WP-M2b: Codex: Space Marines (11e) Laurels of Vigilance (once per battle round, per army): -1CP.
+	var sm11e_disc: Dictionary = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").stratagem_cp_discount(player, stratagem_id, target_unit_id) if GameConstants.edition >= 11 else {}
+	if not sm11e_disc.is_empty() and effective_cp_cost > 0:
+		effective_cp_cost = maxi(0, effective_cp_cost - int(sm11e_disc.get("discount", 0)))
+		diffs.append_array(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").record_cp_discount(sm11e_disc))
+		print("StratagemManager: %s — %s costs %d CP" % [str(sm11e_disc.source), strat.name, effective_cp_cost])
+	# WP-M4c HONOUR OR DEATH (Cato Sicarius): Heroic Intervention on this unit -1 CP.
+	if effective_cp_cost > 0 and SMAbilitiesC.stratagem_cp_discount(player, stratagem_id, target_unit_id) > 0:
+		effective_cp_cost = maxi(0, effective_cp_cost - 1)
+		print("StratagemManager: Honour or Death — %s costs %d CP" % [strat.name, effective_cp_cost])
 
 	# Deduct CP
 	var current_cp = _get_player_cp(player)
@@ -1527,7 +1677,11 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 			# Skip the per-unit search when the stratagem cannot be used at all
 			# (CP, once per turn, not the opponent's turn, ...).
 			var fo_gate = can_use_stratagem(player, strat_id, "", wctx)
-			if not fo_gate.can_use:
+			# WP-M2b Laurels of Vigilance: a player short of the base CP may still afford it on a discounted unit (per-target check below).
+			# WP-M4a SENTINEL PROTOCOLS: a Servo-turrets use ignores the once-per-phase limit — the per-target re-check below decides.
+			if not fo_gate.can_use and not (GameConstants.edition >= 11 and str(fo_gate.reason).begins_with("Not enough CP") \
+					and load("res://scripts/codex/space_marines/SMDetachmentsB.gd").cp_discount_possible(player, strat_id)) \
+					and not SMAbilitiesA.has_sentinel_holder(player):
 				print("StratagemManager: window %s — FIRE OVERWATCH not offered: %s" % [window_id, fo_gate.reason])
 				continue
 			candidates = get_fire_overwatch_offer_targets_11e(player)
@@ -1573,6 +1727,12 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 	offers = Ork11eDetachments.window_offers(player, window_id, wctx) + offers
 	# Codex: Adeptus Custodes (11e) detachment-rule / enhancement choices (WP-C46): free, listed first.
 	offers = _cus11e_det().window_offers(player, window_id, wctx) + offers
+	# Codex: Space Marines (11e) Space Wolves enhancement choices (Howlmaw — WP-S2): free, listed first.
+	offers = _sw11e_det().window_offers(player, window_id, wctx) + offers
+	# WP-M2a Codex: Space Marines (11e) detachment-rule / enhancement cards (SMDetachmentsA.gd): free, listed first.
+	offers = load("res://scripts/codex/space_marines/SMDetachmentsA.gd").window_offers(player, window_id, wctx) + offers
+	# WP-M2b: Codex: Space Marines (11e) generic detachments B rule cards (Narthecis Gauntlet): free, listed first.
+	offers = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").window_offers(player, window_id, wctx) + offers
 	print("StratagemManager: get_window_offers(P%d, %s) -> %d offer(s)%s" % [
 		player, window_id, offers.size(),
 		"" if offers.is_empty() else " " + str(offers.map(func(o): return o.name))])
@@ -1589,6 +1749,10 @@ func get_all_window_offers(player: int, window_id: String, ctx: Dictionary = {})
 	wctx["window_id"] = window_id
 	var abil: Array = OrkAbilities.window_offers(player, window_id, wctx)
 	abil.append_array(CustodesAbilities.window_offers(player, window_id, wctx))  # WP-C7: Codex: Adeptus Custodes datasheet abilities
+	abil.append_array(SWAbilities.window_offers(player, window_id, wctx))  # WP-S4: Space Wolves datasheet abilities
+	abil.append_array(SMAbilitiesB.window_offers(player, window_id, wctx))  # WP-M4b: Codex: Space Marines M4b datasheet abilities
+	abil.append_array(SMAbilitiesC.window_offers(player, window_id, wctx))  # WP-M4c: Space Marines (M4c datasheets) abilities
+	abil.append_array(SMAbilitiesA.window_offers(player, window_id, wctx))  # WP-M4a: Codex: Space Marines (11e) datasheet abilities (M4a list)
 	if not abil.is_empty():
 		print("StratagemManager: get_all_window_offers(P%d, %s) + %d datasheet ability offer(s) %s" % [
 			player, window_id, abil.size(), str(abil.map(func(o): return o.name))])
@@ -4060,6 +4224,10 @@ func fire_overwatch_shooter_reason_11e(player: int, unit_id: String, board: Dict
 	# only on the 10e per-move path (get_fire_overwatch_eligible_units).
 	if OrkAbilities.blocks_fire_overwatch(unit_id):
 		return "Drive-by Skorchin': cannot be targeted with FIRE OVERWATCH this turn"
+	# WP-S4 MURDEROUS HURRICANE (Space Wolves, Njal): that unit cannot make snap-shooting attacks.
+	var sw_snap := SWAbilities.snap_shooting_block_reason(unit_id)
+	if sw_snap != "":
+		return sw_snap
 	var status := int(unit.get("status", GameStateData.UnitStatus.DEPLOYED))
 	if status in [GameStateData.UnitStatus.UNDEPLOYED, GameStateData.UnitStatus.DEPLOYING, GameStateData.UnitStatus.IN_RESERVES]:
 		return "the unit is not on the battlefield"
@@ -4126,13 +4294,19 @@ func get_fire_overwatch_offer_targets_11e(player: int) -> Array:
 	print("StratagemManager: FIRE OVERWATCH offer rows for P%d: %s" % [player, str(rows.map(func(r): return "%s->%s" % [r.unit_id, str(r.secondary.options.map(func(o): return o.id))]))])
 	return rows
 
-func is_heroic_intervention_available(player: int) -> Dictionary:
+func is_heroic_intervention_available(player: int, unit_id: String = "") -> Dictionary:
 	"""
 	Check if Heroic Intervention stratagem is available for a player.
 	Returns { available: bool, reason: String }
 	"""
-	var validation = can_use_stratagem(player, "heroic_intervention")
+	var validation = can_use_stratagem(player, "heroic_intervention", unit_id)
 	if not validation.can_use:
+		# Codex: Space Marines (11e) Countercharge / Grimnar's Mark (WP-S2): a
+		# player short of the base CP may still afford it on a discounted unit.
+		if unit_id == "" and GameConstants.edition >= 11 and str(validation.reason).begins_with("Not enough CP"):
+			for row in get_heroic_intervention_eligible_units_11e(player):
+				if can_use_stratagem(player, "heroic_intervention", str(row.get("unit_id", ""))).can_use:
+					return {"available": true, "reason": ""}
 		return {"available": false, "reason": validation.reason}
 	return {"available": true, "reason": ""}
 
@@ -4455,7 +4629,11 @@ func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids
 	var wctx: Dictionary = window_ctx.duplicate(true)
 	wctx["phase"] = "shooting"
 	wctx["target_unit_ids"] = target_unit_ids.duplicate()
-	for offer in get_window_offers(defending_player, "enemy_targets_unit_shooting", wctx):
+	var sw_wctx: Dictionary = wctx.duplicate(true)
+	sw_wctx["window_id"] = "enemy_targets_unit_shooting"
+	# WP-S4: + the Space Wolves STORM CALLER card (a free psychic ability).
+	for offer in get_window_offers(defending_player, "enemy_targets_unit_shooting", wctx) + SWAbilities.window_offers(defending_player, "enemy_targets_unit_shooting", sw_wctx) \
+			+ SMAbilitiesA.window_offers(defending_player, "enemy_targets_unit_shooting", sw_wctx):  # WP-M4a: + the SHROUDING card (Librarian in Phobos Armour)
 		var w_units: Array = []
 		for t in offer.get("targets", []):
 			w_units.append(str(t.get("unit_id", "")))

@@ -100,6 +100,8 @@ func _build_ui() -> void:
 	scroll_container.add_child(content_vbox)
 
 	# Build each section
+	_build_sw11e_split_section()  # WP-S4: Space Wolves Old Greymanes / Let Loose the Wolves
+	_build_sm11e_grant_section()  # WP-M4c: Thunderhawk Insertion / Cerebrex Logic Engine
 	_build_leader_section()
 	_build_warlord_section()
 	_build_transport_section()
@@ -163,6 +165,117 @@ func _wire_pad_focus() -> void:
 		"rows": rows,
 		"buttons": bar.size()
 	})
+
+## WP-S4: Codex: Space Marines (11e) Space Wolves — OLD GREYMANES (Grey
+## Hunters) / LET LOOSE THE WOLVES (Wolf Guard Headtakers): "In the Declare
+## Battle Formations step, you can split this unit". A Split button routes
+## SW11E_SPLIT_UNIT at once (FormationsPhase / SWAbilities11e.split_diffs) and
+## rebuilds this form, so the new half can be led, embarked or put in reserves.
+func _build_sw11e_split_section() -> void:
+	var sw = load("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+	var ids: Array = sw.splittable_units(declaring_player)
+	if ids.is_empty():
+		return
+	var section_label = Label.new()
+	section_label.name = "SW11ESplitHeader"
+	section_label.text = "UNIT SPLITS (SPACE WOLVES)"
+	section_label.add_theme_font_size_override("font_size", 18)
+	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	content_vbox.add_child(section_label)
+	var desc_label = Label.new()
+	desc_label.text = "Old Greymanes / Let Loose the Wolves: split a unit into two. Split first — the form is rebuilt with the new units."
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_label.add_theme_font_size_override("font_size", 16)
+	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
+	content_vbox.add_child(desc_label)
+	for uid in ids:
+		var row = HBoxContainer.new()
+		row.name = "SW11ESplitRow_%s" % uid
+		row.add_theme_constant_override("separation", 8)
+		content_vbox.add_child(row)
+		var lbl = Label.new()
+		lbl.text = "%s (%d models) — %s" % [GameState.get_unit_display_name(uid), GameState.get_unit(uid).get("models", []).size(), sw.display(sw.split_kind(uid))]
+		lbl.custom_minimum_size = Vector2(380, 0)
+		lbl.add_theme_font_size_override("font_size", 17)
+		row.add_child(lbl)
+		var btn = Button.new()
+		btn.name = "SW11ESplit_%s" % uid
+		btn.text = "Split"
+		WhiteDwarfTheme.apply_secondary_button(btn)
+		btn.pressed.connect(_on_sw11e_split_pressed.bind(uid))
+		row.add_child(btn)
+
+func _on_sw11e_split_pressed(unit_id: String) -> void:
+	var result = NetworkIntegration.route_action({"type": "SW11E_SPLIT_UNIT", "unit_id": unit_id, "player": declaring_player})
+	if result is Dictionary and not result.get("success", false) and not result.get("pending", false):
+		push_warning("FormationsDialog: SW11E_SPLIT_UNIT failed for %s: %s" % [unit_id, str(result)])
+	DebugLogger.info("FormationsDialog: Space Wolves split %s -> %s" % [unit_id, str(result.get("success", false)) if result is Dictionary else "?"])
+	var main_scene = get_tree().current_scene if get_tree() else null
+	if main_scene and main_scene.has_method("refresh_unit_list"):
+		main_scene.refresh_unit_list()  # the roster panel lists the new unit
+	# Rebuild the form: the split unit and its new half are listed everywhere.
+	var old = get_node_or_null("MainVBox")
+	if old:
+		remove_child(old)
+		old.queue_free()
+	setup(declaring_player)
+
+## WP-M4c: Codex: Space Marines (11e) THUNDERHAWK INSERTION (Marneus Calgar:
+## a GRAVIS/PHOBOS/TACTICUS unit has Deep Strike) and CEREBREX LOGIC ENGINE
+## (Caanok Var: an INFANTRY unit has Scouts 6"): "In the Declare Battle
+## Formations step, you can select one friendly ADEPTUS ASTARTES ... unit".
+## A picker + Apply routes SM11E_FORMATION_GRANT at once and rebuilds the form
+## (the picked unit can then be declared in Deep Strike reserves).
+func _build_sm11e_grant_section() -> void:
+	var smc = load("res://scripts/codex/space_marines/SMAbilitiesC.gd")
+	var choices: Dictionary = smc.formation_choices(declaring_player)
+	if choices.is_empty():
+		return
+	var section_label = Label.new()
+	section_label.name = "SM11EGrantHeader"
+	section_label.text = "CODEX: SPACE MARINES — BATTLE FORMATIONS ABILITIES"
+	section_label.add_theme_font_size_override("font_size", 18)
+	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	content_vbox.add_child(section_label)
+	for hid in choices:
+		for slug in choices[hid]:
+			var row = HBoxContainer.new()
+			row.name = "SM11EGrantRow_%s_%s" % [hid, slug]
+			row.add_theme_constant_override("separation", 8)
+			content_vbox.add_child(row)
+			var lbl = Label.new()
+			lbl.text = "%s (%s): %s" % [smc.display(str(slug)), GameState.get_unit_display_name(str(hid)),
+				"select a GRAVIS/PHOBOS/TACTICUS unit — it has Deep Strike" if str(slug) == "thunderhawk_insertion" else "select an INFANTRY unit — it has Scouts 6\""]
+			lbl.custom_minimum_size = Vector2(380, 0)
+			lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			lbl.add_theme_font_size_override("font_size", 16)
+			row.add_child(lbl)
+			var opt = OptionButton.new()
+			opt.name = "SM11EGrantPick_%s_%s" % [hid, slug]
+			for cand in smc.formation_candidates(str(hid), str(slug)):
+				opt.add_item(GameState.get_unit_display_name(str(cand)))
+				opt.set_item_metadata(opt.item_count - 1, str(cand))
+			row.add_child(opt)
+			var btn = Button.new()
+			btn.name = "SM11EGrantApply_%s_%s" % [hid, slug]
+			btn.text = "Apply"
+			WhiteDwarfTheme.apply_secondary_button(btn)
+			btn.pressed.connect(_on_sm11e_grant_pressed.bind(str(hid), str(slug), opt))
+			row.add_child(btn)
+
+func _on_sm11e_grant_pressed(holder_id: String, slug: String, opt: OptionButton) -> void:
+	if opt == null or opt.item_count == 0 or opt.selected < 0:
+		return
+	var unit_id := str(opt.get_item_metadata(opt.selected))
+	var result = NetworkIntegration.route_action({"type": "SM11E_FORMATION_GRANT", "holder_id": holder_id, "slug": slug, "unit_id": unit_id, "player": declaring_player})
+	if result is Dictionary and not result.get("success", false) and not result.get("pending", false):
+		push_warning("FormationsDialog: SM11E_FORMATION_GRANT failed for %s: %s" % [unit_id, str(result)])
+	DebugLogger.info("FormationsDialog: %s (%s) -> %s: %s" % [slug, holder_id, unit_id, str(result.get("success", false)) if result is Dictionary else "?"])
+	var old = get_node_or_null("MainVBox")
+	if old:
+		remove_child(old)
+		old.queue_free()
+	setup(declaring_player)
 
 func _build_leader_section() -> void:
 	"""Build the leader attachment section."""
@@ -234,7 +347,8 @@ func _build_warlord_section() -> void:
 	characters = characters.filter(func(cid):
 		var cu: Dictionary = GameState.get_unit(str(cid)).duplicate()
 		cu["id"] = str(cid)
-		return str(cus11e_katah.warlord_block_reason(cu, cus11e_det)) == "")
+		return str(cus11e_katah.warlord_block_reason(cu, cus11e_det)) == "" \
+			and str(load("res://scripts/codex/space_wolves/SWAbilities11e.gd").warlord_block_reason(cu)) == "")  # WP-S4: Force of Untamed Destruction
 	if characters.is_empty():
 		return
 

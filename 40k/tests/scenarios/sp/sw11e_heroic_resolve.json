@@ -1,0 +1,259 @@
+{
+  "id": "sw11e_heroic_resolve",
+  "covers": [
+    "codex.space_wolves.stratagems.heroic-resolve",
+    "codex.space_wolves.SWCodex11e",
+    "stratagem.window.enemy_targets_unit_fight",
+    "phases.FightPhase.enemy_targets_unit_fight",
+    "rules.damage.minus_one"
+  ],
+  "description": "Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE (Champions of Fenris, 2 CP) — WP-S3. Fixture sw11e_s3_reactive (P1 Orks ACTIVE vs P2 Space Wolves, round 2; layout in tests/helpers/gen_sw11e_s3_fixtures.gd). Setup privileges: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test), straight to the phase under test. The Ork player clicks the Warboss in the fight list and assigns every attack at Logan Grimnar (real clicks); enemy_targets_unit_fight opens for the Space Wolves player; a real click on 'Use on Logan Grimnar' spends 2 CP; attacks that target Logan have -1 D (EffectPrimitives.get_effect_minus_damage) until the Warboss has attacked — the effect is gone once the Warboss's fight resolved.",
+  "fixture": "sw11e_s3_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.setup(2, {\"cp\": {\"1\": 0}})",
+      "comment": "setup privilege: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation",
+      "equals": "Saga of the Great Wolf + Champions of Fenris + Saga of the Beastslayer"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nPhaseManager.transition_to_phase(10)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "Pile In step: no pile-in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "Pile In step: no pile-in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.frame(6, 31, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_A",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_A",
+      "comment": "REAL click (Ork player): the Warboss is selected to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "an Ork window (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "comment": "REAL click: every attack at Logan Grimnar"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.window_id()",
+      "equals": "enemy_targets_unit_fight"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_champions_of_fenris_heroic_resolve/Buttons/Use_faction_sw_champions_of_fenris_heroic_resolve_U_LOGAN_GRIMNAR_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_champions_of_fenris_heroic_resolve/Buttons/Use_faction_sw_champions_of_fenris_heroic_resolve_U_LOGAN_GRIMNAR_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sw11e_heroic_resolve_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_champions_of_fenris_heroic_resolve/Buttons/Use_faction_sw_champions_of_fenris_heroic_resolve_U_LOGAN_GRIMNAR_A",
+      "comment": "REAL click (Space Wolves player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nvar f = H.flag(\"U_LOGAN_GRIMNAR_A\", \"sw11e_heroic_resolve\")\nreturn typeof(f) == TYPE_DICTIONARY and \"U_WARBOSS_A\" in f.get(\"attacker_ids\", [])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn EffectPrimitivesData.get_effect_minus_damage(H.unit(\"U_LOGAN_GRIMNAR_A\"))",
+      "comment": "attacks that target Logan have -1 D",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.log_count(\"Used HEROIC RESOLVE\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sw11e_heroic_resolve_used"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nmain.get_node(\"FightController\").fight_resolution_dock.debug_click_through(14)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn \"U_WARBOSS_A\" in H.phase().units_that_fought",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.flag(\"U_LOGAN_GRIMNAR_A\", \"sw11e_heroic_resolve\") == null",
+      "comment": "the effect ended once the Warboss had attacked",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sw11e_heroic_resolve_after_the_warboss_attacked"
+    }
+  ],
+  "transition_to_phase": 9
+}

@@ -1,0 +1,145 @@
+{
+  "id": "sm11e_det_codex_fire_patterns",
+  "covers": [
+    "codex.space_marines.detachments.tacticus_firestorm_force.codex_fire_patterns",
+    "scripts.ShootingController.range_indicators",
+    "RulesEngine.rapid_fire",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Tacticus Firestorm Force — CODEX FIRE-PATTERNS (WP-M2b): friendly TACTICUS units' [RAPID FIRE] attacks benefit from [RAPID FIRE] when targeting units up to that attack's maximum range. Fixture sm11e_m2b_marines_active (Intercessor Squad 18\" from the Meganobz — beyond half range of the 24\" bolt rifles). Setup privileges: CP 0 for both, straight to the Shooting phase. The shooting panel's unit pick selects the Intercessors: the range indicators draw the orange [RAPID FIRE] ring at the weapons' FULL range; SHOOT sends the Bolt Rifles (focused fire) at the Meganobz: the to_hit block has models_in_half_range 5 and rapid_fire_bonus 5 (5 + 5 attacks).",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}})\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privileges (see description)",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(36, 30, 0.9)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_INTERCESSOR_SQUAD_A",
+        "player": 1
+      },
+      "comment": "the shooting panel's unit pick"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar sc = tree.root.get_node(\"Main\").get_node_or_null(\"ShootingController\")\nif sc and sc.has_method(\"_show_range_indicators\"):\n\tsc._show_range_indicators()\nreturn H.det().full_range_rapid_fire(H.unit(\"U_INTERCESSOR_SQUAD_A\"))",
+      "comment": "range indicators (the selected shooter's)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "01_rapid_fire_ring_at_full_range"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.shoot(\"U_INTERCESSOR_SQUAD_A\", \"U_MEGANOBZ_A\", \"focused\")",
+      "comment": "the shooting panel's SHOOT: Bolt Rifles (focused fire) at the Meganobz 18\" away",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar d = H.dice(\"to_hit\")\nreturn int(d.get(\"models_in_half_range\", 0)) == 5 and int(d.get(\"rapid_fire_bonus\", 0)) == 5",
+      "comment": "all 5 bolt rifles get [RAPID FIRE 1] at 18\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.show_dice_tab()",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_rapid_fire_at_18_inches_resolved"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

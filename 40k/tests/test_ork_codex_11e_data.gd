@@ -198,7 +198,9 @@ func _run() -> void:
 	for r in sm_rows:
 		if r["timing"].has("windows"):
 			sm_any_windows = true
-	_check("Space Marines Gladius rows load with no windows key", sm_rows.size() > 0 and not sm_any_windows, str(sm_rows.size()))
+	# Codex: Space Marines (WP-M1): the SM rows are now curated codex rows
+	# (custom:sm11e) that carry their stratagem windows, like ORK / AC / SW.
+	_check("Space Marines Gladius rows load (codex rows, 6)", sm_rows.size() == 6, str(sm_rows.size()))
 
 	var tmp := "user://test_ork11e_window_col.csv"
 	var fh := FileAccess.open(tmp, FileAccess.WRITE)

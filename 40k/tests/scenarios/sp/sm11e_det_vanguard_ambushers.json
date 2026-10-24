@@ -1,0 +1,148 @@
+{
+  "id": "sm11e_det_vanguard_ambushers",
+  "covers": [
+    "codex.space_marines.detachment.phobos_shock_force.vanguard_ambushers",
+    "phases.MovementPhase.end_movement",
+    "rules.terrain.hidden",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Phobos Shock Force \u2014 VANGUARD AMBUSHERS (WP-M2a): 'At the end of your Movement phase, if a friendly PHOBOS unit is hidden, that unit's attacks can re-roll wound rolls of 1 until the end of the turn.' Fixture sm11e_m2a_marines_active; setup privileges: P2 at 0 CP, a dense ruin under the Infiltrators (they have not shot: hidden). Movement phase: a REAL click on End Movement Phase: the Game Log names Vanguard Ambushers for the Infiltrators and their attacks re-roll wound rolls of 1 (the shared attack-modifier aggregator); the Intercessors (not PHOBOS) are not marked.",
+  "fixture": "sm11e_m2a_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions \u2014 not under test), auto wound allocation",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var tm = TerrainManager\nvar poly = PackedVector2Array([Vector2(7, 38) * 40.0, Vector2(19, 38) * 40.0, Vector2(19, 44) * 40.0, Vector2(7, 44) * 40.0])\ntm.terrain_features.append({\"id\": \"sm11e_scen_ruin\", \"type\": \"ruins\", \"polygon\": poly, \"height_category\": \"tall\"})\nreturn tm.terrain_features.size()",
+      "comment": "setup privilege: a dense ruin under the Infiltrators",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the Movement phase",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement phase_start (Damocles card \u2014 not under test here) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var D = load(\"res://scripts/codex/space_marines/SMDetachmentsA.gd\")\nreturn D.unit_is_hidden(GameState.state.units[\"U_INFILTRATOR_SQUAD_A\"])",
+      "comment": "the Infiltrators are hidden in the ruin",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(14.000000, 42.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.200000, 1.200000)\nm.view_zoom = 1.200000\nm.view_offset = focus - vp / (2.0 * 1.200000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      },
+      "comment": "the movement panel's End Movement Phase"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var D = load(\"res://scripts/codex/space_marines/SMDetachmentsA.gd\")\nreturn str(GameState.state.units[\"U_INFILTRATOR_SQUAD_A\"].flags.get(D.F_AMBUSH, \"\")) == D.turn_stamp()",
+      "comment": "Vanguard Ambushers marked the hidden Infiltrators",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.state.units[\"U_INFILTRATOR_SQUAD_A\"], GameState.state.units[\"U_GRETCHIN_C\"], {\"name\": \"x\"}, false, GameState.state)\nreturn str(m.get(\"wound_reroll\", \"\"))",
+      "comment": "their attacks re-roll wound rolls of 1",
+      "equals": "ones"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return GameState.state.units[\"U_INTERCESSOR_SQUAD_A\"].flags.has(\"sm11e_vanguard_ambush\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"Vanguard Ambushers\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_vanguard_ambushers_logged"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sm11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

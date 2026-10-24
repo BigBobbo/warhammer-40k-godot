@@ -123,6 +123,10 @@ func can_embark(unit_id: String, transport_id: String) -> Dictionary:
 	if unit.get("embarked_in", null) != null:
 		return {"valid": false, "reason": "Unit is already embarked"}
 
+	# Codex: Space Marines (11e) WP-M3b PURGATION PUSH (SMCodexB.gd): not eligible to embark until the end of the turn.
+	if load("res://scripts/codex/space_marines/SMCodexB.gd").embark_blocked(unit):
+		return {"valid": false, "reason": "PURGATION PUSH: this unit is not eligible to embark within a TRANSPORT until the end of the turn"}
+
 	# P3-32: Check excluded keywords (e.g., JUMP PACK cannot embark in Battlewagon)
 	var excluded_keywords = transport.transport_data.get("excluded_keywords", [])
 	if excluded_keywords.size() > 0 and _has_any_excluded_keyword(unit, excluded_keywords):
@@ -158,6 +162,10 @@ func can_embark(unit_id: String, transport_id: String) -> Dictionary:
 		if u_flags.get("set_up_this_turn", false) or u_flags.get("arrived_from_reserves", false) \
 				or u_flags.get("deep_struck", false):
 			return {"valid": false, "reason": "Unit was set up on the battlefield this turn (18.02)"}
+		# WP-M4a DEPLOYMENT COMPLETE (Drop Pod): set up and emptied — units cannot embark within it.
+		var dc_reason: String = load("res://scripts/codex/space_marines/SMAbilitiesA.gd").embark_block_reason(transport_id)
+		if dc_reason != "":
+			return {"valid": false, "reason": dc_reason}
 
 	return {"valid": true}
 
@@ -183,7 +191,7 @@ func can_disembark(unit_id: String) -> Dictionary:
 	# Check if transport has advanced or fell back
 	var transport_flags = transport.get("flags", {})
 	print("TransportManager: can_disembark — transport flags: %s" % str(transport_flags))
-	if transport_flags.get("advanced", false):
+	if transport_flags.get("advanced", false) and not load("res://scripts/codex/space_marines/SMAbilitiesB.gd").transport_allows_shock_disembark(transport):  # WP-M4b Rapid Disembarkation (Impulsor)
 		return {"valid": false, "reason": "Cannot disembark from transport that Advanced"}
 
 	if transport_flags.get("fell_back", false):
@@ -322,6 +330,10 @@ func _get_unit_capacity_cost(unit: Dictionary, transport: Dictionary) -> int:
 					if kw in unit_keywords:
 						model_cost = multipliers[kw]
 						break
+				# Codex: Space Marines (11e) Curse of the Wulfen — BESTIAL FORMS: each
+				# WULFEN model takes up the space of 2 models (SWArmyRules11e.gd, WP-S2).
+				if GameConstants.edition >= 11:
+					model_cost = maxi(model_cost, int(load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").transport_space_per_model(unit)))
 				cost += model_cost
 
 	# WP-O6 DOWNTRODDEN (Codex: Orks 11e, Gretchin): "each 2 Gretchin models
@@ -380,10 +392,45 @@ func _has_required_keywords(unit: Dictionary, required_keywords: Array) -> bool:
 		return false
 
 	var unit_keywords = unit.meta.keywords
+	var every_word := true
 	for keyword in required_keywords:
 		if not keyword in unit_keywords:
-			return false
+			every_word = false
+			break
+	if every_word:
+		return true
+	# The capacity text is split per word ("SPACE MARINES INFANTRY" ->
+	# SPACE, MARINES, INFANTRY), so a multi-word keyword never matched word by
+	# word: match runs of words against the unit's (multi-word) keywords.
+	# Codex: Space Marines (11e, WP-M3a): the TRANSPORT text prints SPACE
+	# MARINES for the ADEPTUS ASTARTES faction keyword of its units.
+	return _keyword_runs_match(unit_keywords, required_keywords)
 
+func _keyword_runs_match(unit_keywords: Array, words: Array) -> bool:
+	var candidates: Array = []
+	for kw in unit_keywords:
+		candidates.append(str(kw).to_upper())
+	if "ADEPTUS ASTARTES" in candidates:
+		candidates.append("SPACE MARINES")
+	candidates.sort_custom(func(a, b): return str(a).split(" ").size() > str(b).split(" ").size())
+	var i := 0
+	while i < words.size():
+		var matched := false
+		for kw in candidates:
+			var parts: PackedStringArray = str(kw).split(" ")
+			if i + parts.size() > words.size():
+				continue
+			var ok := true
+			for j in range(parts.size()):
+				if str(words[i + j]).to_upper() != parts[j]:
+					ok = false
+					break
+			if ok:
+				i += parts.size()
+				matched = true
+				break
+		if not matched:
+			return false
 	return true
 
 # P3-32: Check if unit has any excluded keywords (e.g., JUMP PACK)

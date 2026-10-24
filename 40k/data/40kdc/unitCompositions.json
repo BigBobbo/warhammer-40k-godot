@@ -1758,25 +1758,16 @@
     "default_weapon_ids": [
      "armoured-hull-gladiator-lancer",
      "defensive-array-gladiator-lancer",
-     "lancer-laser-destroyer"
-    ]
+     "laser-destroyer"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Gladiator Lancer",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "terminator-squad",
@@ -1786,14 +1777,16 @@
     "name": "Terminator Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
     },
     "default_weapon_ids": [
-     "power-fist-terminator-squad"
-    ]
+     "power-fist-terminator-squad",
+     "storm-bolter-terminator-squad"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Terminator",
@@ -1805,44 +1798,17 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "power-fist-terminator-squad"
-    ]
+     "power-fist-terminator-squad",
+     "storm-bolter-terminator-squad"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Terminator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Terminator",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Terminator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Terminator",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "marshal",
@@ -2132,16 +2098,17 @@
     "name": "Sternguard Veteran Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
     },
     "default_weapon_ids": [
      "artificer-firearm-sternguard-veteran-squad",
-     "sternguard-bolt-pistol",
-     "ceramite-fists-sternguard-veteran-squad"
-    ]
+     "bolt-pistol-sternguard-veteran-squad",
+     "chainsword-sternguard-veteran-squad"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Sternguard Veteran",
@@ -2154,45 +2121,17 @@
     },
     "default_weapon_ids": [
      "artificer-firearm-sternguard-veteran-squad",
-     "sternguard-bolt-pistol",
+     "bolt-pistol-sternguard-veteran-squad",
      "ceramite-fists-sternguard-veteran-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Sternguard Veteran Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Sternguard Veteran",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Sternguard Veteran Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Sternguard Veteran",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "land-raider-crusader",
@@ -2211,24 +2150,15 @@
      "armoured-tracks",
      "hurricane-bolter-land-raider-crusader",
      "twin-assault-cannon-land-raider-crusader"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Land Raider Crusader",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "chaplain-grimaldus",
@@ -2369,24 +2299,15 @@
     "default_weapon_ids": [
      "armoured-hull-impulsor",
      "storm-bolter-impulsor"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Impulsor",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "repulsor-executioner",
@@ -2402,65 +2323,20 @@
      "diameter": 100
     },
     "default_weapon_ids": [
-     "heavy-onslaught-gatling-cannon",
-     "twin-heavy-bolter-repulsor-executioner",
      "armoured-hull-repulsor-executioner",
-     "twin-icarus-ironhail-heavy-stubber",
-     "repulsor-executioner-defensive-array"
-    ]
+     "defensive-array",
+     "heavy-laser-destroyer",
+     "heavy-onslaught-gatling-cannon",
+     "twin-heavy-bolter-repulsor-executioner"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Repulsor Executioner",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Repulsor Executioner",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Repulsor Executioner",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Repulsor Executioner",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Repulsor Executioner",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "gladiator-valiant",
@@ -2480,24 +2356,15 @@
      "defensive-array-gladiator-valiant",
      "multi-melta-gladiator-valiant",
      "twin-las-talon"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Gladiator Valiant",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "crusade-ancient",
@@ -2549,28 +2416,19 @@
     },
     "default_weapon_ids": [
      "armoured-hull-repulsor",
-     "repulsor-defensive-array",
+     "defensive-array",
      "heavy-onslaught-gatling-cannon-repulsor",
      "hunter-slayer-missile",
      "twin-heavy-bolter-repulsor"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Repulsor",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "gladiator-reaper",
@@ -2589,24 +2447,15 @@
      "armoured-hull-gladiator-reaper",
      "defensive-array-gladiator-reaper",
      "twin-heavy-onslaught-gatling-cannon"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Gladiator Reaper",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "death-company-dreadnought",
@@ -5029,26 +4878,16 @@
     },
     "default_weapon_ids": [
      "master-crafted-heavy-bolt-rifle",
-     "master-crafted-power-weapon-captain-in-gravis-armour",
-     "power-fist-captain-in-gravis-armour"
-    ]
+     "master-crafted-power-weapon-captain-in-gravis-armour"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Captain in Gravis Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "adrax-agatone",
@@ -5066,24 +4905,15 @@
     "default_weapon_ids": [
      "drakkis",
      "malleus-noctum"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Adrax Agatone",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "assault-intercessor-squad",
@@ -5093,15 +4923,16 @@
     "name": "Assault Intercessor Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
     },
     "default_weapon_ids": [
-     "heavy-bolt-pistol-assault-intercessor-squad",
-     "astartes-chainsword-assault-intercessor-squad"
-    ]
+     "chainsword-assault-intercessor-squad",
+     "heavy-bolt-pistol-assault-intercessor-squad"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Assault Intercessor",
@@ -5113,73 +4944,17 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "heavy-bolt-pistol-assault-intercessor-squad",
-     "astartes-chainsword-assault-intercessor-squad"
-    ]
+     "chainsword-assault-intercessor-squad",
+     "heavy-bolt-pistol-assault-intercessor-squad"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Assault Intercessor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Assault Intercessor",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Assault Intercessor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Assault Intercessor",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Assault Intercessor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Assault Intercessor",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Assault Intercessor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Assault Intercessor",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "inceptor-squad",
@@ -5189,7 +4964,7 @@
     "name": "Inceptor Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
@@ -5197,7 +4972,8 @@
     "default_weapon_ids": [
      "assault-bolters-inceptor-squad",
      "ceramite-fists-inceptor-squad"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Inceptor",
@@ -5211,43 +4987,15 @@
     "default_weapon_ids": [
      "assault-bolters-inceptor-squad",
      "ceramite-fists-inceptor-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Inceptor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Inceptor",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Inceptor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Inceptor",
-      "min": 3,
-      "max": 5
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "ancient-in-terminator-armour",
@@ -5263,25 +5011,17 @@
      "diameter": 40
     },
     "default_weapon_ids": [
+     "master-crafted-power-weapon-ancient-in-terminator-armour",
      "storm-bolter-ancient-in-terminator-armour"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Ancient in Terminator Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "storm-speeder-hailstrike",
@@ -5301,24 +5041,15 @@
      "fragstorm-grenade-launcher-storm-speeder-hailstrike",
      "ironhail-heavy-stubber-array-storm-speeder-hailstrike",
      "onslaught-gatling-cannon-storm-speeder-hailstrike"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Storm Speeder Hailstrike",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "techmarine",
@@ -5336,26 +5067,16 @@
     "default_weapon_ids": [
      "forge-bolter",
      "grav-pistol-techmarine",
-     "omnissiah-power-axe",
-     "servo-arm"
-    ]
+     "omnissian-power-axe-and-servo-arm"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Techmarine",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "korsarro-khan",
@@ -5374,24 +5095,15 @@
      "anzuq-korsarro-khan",
      "bolt-pistol-korsarro-khan",
      "moonfang"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Kor’sarro Khan",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "suboden-khan",
@@ -5405,31 +5117,22 @@
     "base_size_mm": {
      "shape": "oval",
      "width": 90,
-     "length": 52.5
+     "length": 52
     },
     "default_weapon_ids": [
      "heavy-bolt-pistol-suboden-khan",
      "onslaught-gatling-cannon-suboden-khan",
      "power-sword",
      "stormtooth"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Suboden Khan",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "aethon-shaan",
@@ -5445,26 +5148,17 @@
      "diameter": 50
     },
     "default_weapon_ids": [
-     "heavy-bolt-pistol-aethon-shaan",
-     "claws-of-severax"
-    ]
+     "claws-of-severax",
+     "heavy-bolt-pistol-aethon-shaan"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Aethon Shaan",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "eradicator-squad",
@@ -5553,51 +5247,15 @@
      "bolt-pistol-librarian",
      "force-weapon",
      "smite"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Librarian",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Librarian",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Librarian",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Librarian",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "darnath-lysander",
@@ -5610,28 +5268,19 @@
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
-     "diameter": 40
+     "diameter": 50
     },
     "default_weapon_ids": [
      "fist-of-dorn"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Darnath Lysander",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "dreadnought",
@@ -5674,20 +5323,21 @@
   "faction_id": "adeptus-astartes",
   "models": [
    {
-    "name": "Assault Terminator Sergeant",
+    "name": "Terminator Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
     },
     "default_weapon_ids": [
      "twin-lightning-claws-terminator-assault-squad"
-    ]
+    ],
+    "default_wargear": []
    },
    {
-    "name": "Assault Terminator",
+    "name": "Terminator",
     "min": 4,
     "max": 9,
     "is_leader_model": false,
@@ -5697,43 +5347,15 @@
     },
     "default_weapon_ids": [
      "twin-lightning-claws-terminator-assault-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Assault Terminator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Assault Terminator",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Assault Terminator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Assault Terminator",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "predator-destructor",
@@ -5778,15 +5400,16 @@
     "name": "Bladeguard Veteran Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
     },
     "default_weapon_ids": [
      "heavy-bolt-pistol-bladeguard-veteran-squad",
-     "master-crafted-power-weapon-bladeguard-veteran-squad"
-    ]
+     "master-crafted-power-sword"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Bladeguard Veteran",
@@ -5799,79 +5422,23 @@
     },
     "default_weapon_ids": [
      "heavy-bolt-pistol-bladeguard-veteran-squad",
-     "master-crafted-power-weapon-bladeguard-veteran-squad"
-    ]
+     "master-crafted-power-sword"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Bladeguard Veteran Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Bladeguard Veteran",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Bladeguard Veteran Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Bladeguard Veteran",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Bladeguard Veteran Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Bladeguard Veteran",
-      "min": 3,
-      "max": 5
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Bladeguard Veteran Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Bladeguard Veteran",
-      "min": 3,
-      "max": 5
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "firestrike-servo-turrets",
   "faction_id": "adeptus-astartes",
   "models": [
    {
-    "name": "Firestrike Servo-turret",
+    "name": "Firestrike Servo-turrets",
     "min": 1,
     "max": 2,
     "is_leader_model": false,
@@ -5880,35 +5447,17 @@
      "diameter": 80
     },
     "default_weapon_ids": [
-     "twin-firestrike-las-talon",
-     "hovering-bulk-firestrike-servo-turrets"
-    ]
+     "hovering-bulk-firestrike-servo-turrets",
+     "twin-firestrike-las-talon"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Firestrike Servo-turret",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Firestrike Servo-turret",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "storm-speeder-hammerstrike",
@@ -5928,33 +5477,15 @@
      "hammerstrike-missile-launcher",
      "krakstorm-grenade-launcher",
      "melta-destroyer"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Storm Speeder Hammerstrike",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Storm Speeder Hammerstrike",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "tor-garadon",
@@ -5972,24 +5503,15 @@
     "default_weapon_ids": [
      "artificer-grav-gun",
      "hand-of-defiance"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Tor Garadon",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "judiciar",
@@ -6007,24 +5529,15 @@
     "default_weapon_ids": [
      "absolvor-bolt-pistol-judiciar",
      "executioner-relic-blade"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Judiciar",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "captain-in-terminator-armour",
@@ -6037,29 +5550,20 @@
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
-     "diameter": 50
+     "diameter": 40
     },
     "default_weapon_ids": [
      "relic-weapon-captain-in-terminator-armour",
      "storm-bolter-captain-in-terminator-armour"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Captain in Terminator Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "roboute-guilliman",
@@ -6077,24 +5581,15 @@
     "default_weapon_ids": [
      "emperors-sword",
      "hand-of-dominion"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Roboute Guilliman",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "drop-pod",
@@ -6109,44 +5604,15 @@
      "shape": "hull",
      "draft": true
     },
-    "default_weapon_ids": [
-     "drop-pod"
-    ]
+    "default_weapon_ids": [],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Drop Pod",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Drop Pod",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Drop Pod",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "captain-with-jump-pack",
@@ -6162,34 +5628,17 @@
      "diameter": 40
     },
     "default_weapon_ids": [
+     "chainsword",
      "heavy-bolt-pistol-captain-with-jump-pack"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Captain with Jump Pack",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Captain with Jump Pack",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "storm-speeder-thunderstrike",
@@ -6209,24 +5658,15 @@
      "stormfury-missile-launcher-storm-speeder-thunderstrike",
      "thunderstrike-icarus-rocket-pod-storm-speeder-thunderstrike",
      "thunderstrike-las-talon"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Storm Speeder Thunderstrike",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "hammerfall-bunker",
@@ -6390,52 +5830,17 @@
     },
     "default_weapon_ids": [
      "force-weapon",
-     "smite"
-    ]
+     "smite",
+     "storm-bolter-librarian-in-terminator-armour"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Librarian in Terminator Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Librarian in Terminator Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Librarian in Terminator Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Librarian in Terminator Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "devastator-squad",
@@ -6518,30 +5923,21 @@
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
-     "diameter": 32
+     "diameter": 40
     },
     "default_weapon_ids": [
      "bolt-pistol-vulkan-hestan",
      "gauntlet-of-the-forge",
      "spear-of-vulkan"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Vulkan He’stan",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "centurion-devastator-squad",
@@ -6733,7 +6129,7 @@
     "name": "Hellblaster Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
@@ -6742,7 +6138,8 @@
      "bolt-pistol-hellblaster-squad",
      "close-combat-weapon-hellblaster-squad",
      "plasma-incinerator-hellblaster-squad"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Hellblaster",
@@ -6757,43 +6154,15 @@
      "bolt-pistol-hellblaster-squad",
      "close-combat-weapon-hellblaster-squad",
      "plasma-incinerator-hellblaster-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Hellblaster Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Hellblaster",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Hellblaster Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Hellblaster",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "heavy-intercessor-squad",
@@ -6803,7 +6172,7 @@
     "name": "Heavy Intercessor Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
@@ -6812,7 +6181,8 @@
      "bolt-pistol-heavy-intercessor-squad",
      "close-combat-weapon-heavy-intercessor-squad",
      "heavy-bolt-rifle"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Heavy Intercessor",
@@ -6827,43 +6197,15 @@
      "bolt-pistol-heavy-intercessor-squad",
      "close-combat-weapon-heavy-intercessor-squad",
      "heavy-bolt-rifle"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Heavy Intercessor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Heavy Intercessor",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Heavy Intercessor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Heavy Intercessor",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "iron-father-feirros",
@@ -6883,24 +6225,15 @@
      "gorgons-wrath",
      "harrowhand",
      "medusan-manipuli"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Iron Father Feirros",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "scout-squad",
@@ -6910,15 +6243,17 @@
     "name": "Scout Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 28.5
     },
     "default_weapon_ids": [
      "boltgun-scout-squad",
-     "bolt-pistol-scout-squad"
-    ]
+     "bolt-pistol-scout-squad",
+     "combat-knife-scout-squad"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Scout",
@@ -6931,44 +6266,17 @@
     },
     "default_weapon_ids": [
      "boltgun-scout-squad",
-     "bolt-pistol-scout-squad"
-    ]
+     "bolt-pistol-scout-squad",
+     "combat-knife-scout-squad"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Scout Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Scout",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Scout Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Scout",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "marneus-calgar-in-armour-of-antilochus",
@@ -7019,25 +6327,16 @@
     },
     "default_weapon_ids": [
      "absolvor-bolt-pistol-apothecary-biologis",
-     "close-combat-weapon-apothecary-biologis"
-    ]
+     "servo-armature"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Apothecary Biologis",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "brutalis-dreadnought",
@@ -7053,28 +6352,19 @@
      "diameter": 90
     },
     "default_weapon_ids": [
-     "brutalis-bolt-rifles",
+     "bolt-rifles",
      "brutalis-fists",
      "twin-heavy-bolter-brutalis-dreadnought",
      "twin-icarus-ironhail-heavy-stubber-brutalis-dreadnought"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Brutalis Dreadnought",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "librarian-in-phobos-armour",
@@ -7093,24 +6383,15 @@
      "bolt-pistol-librarian-in-phobos-armour",
      "force-weapon",
      "smite"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Librarian in Phobos Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "apothecary",
@@ -7128,25 +6409,16 @@
     "default_weapon_ids": [
      "absolvor-bolt-pistol-apothecary",
      "reductor-pistol",
-     "close-combat-weapon-apothecary"
-    ]
+     "servo-armature"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Apothecary",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "land-raider",
@@ -7162,27 +6434,18 @@
      "draft": true
     },
     "default_weapon_ids": [
-     "twin-heavy-bolter-land-raider",
+     "armoured-tracks",
      "godhammer-lascannon",
-     "armoured-tracks"
-    ]
+     "twin-heavy-bolter-land-raider"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Land Raider",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "lieutenant",
@@ -7201,24 +6464,15 @@
      "bolt-pistol-lieutenant",
      "ceramite-fists-lieutenant",
      "master-crafted-bolter-lieutenant"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Lieutenant",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "chief-librarian-tigurius",
@@ -7237,24 +6491,15 @@
      "bolt-pistol-chief-librarian-tigurius",
      "rod-of-tigurius",
      "storm-of-the-emperors-wrath"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Chief Librarian Tigurius",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "stormtalon-gunship",
@@ -7310,24 +6555,15 @@
      "bolt-pistol-captain-titus",
      "master-crafted-bolter-captain-titus",
      "master-crafted-chainsword-captain-titus"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Captain Titus",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "razorback",
@@ -7417,7 +6653,7 @@
     "name": "Eliminator Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
@@ -7426,7 +6662,8 @@
      "bolt-pistol-eliminator-squad",
      "bolt-sniper-rifle-eliminator-squad",
      "ceramite-fists-eliminator-squad"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Eliminator",
@@ -7441,29 +6678,15 @@
      "bolt-pistol-eliminator-squad",
      "bolt-sniper-rifle-eliminator-squad",
      "ceramite-fists-eliminator-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Eliminator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Eliminator",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "outrider-squad",
@@ -7471,193 +6694,44 @@
   "models": [
    {
     "name": "Outrider Sergeant",
-    "profile_name": "Outrider",
     "min": 1,
     "max": 1,
-    "default_weapon_ids": [
-     "astartes-chainsword-outrider-squad",
-     "heavy-bolt-pistol-outrider-squad",
-     "twin-bolt-rifle-outrider-squad",
-     "bolt-pistol"
-    ],
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "oval",
      "width": 90,
-     "length": 52.5
-    }
+     "length": 52
+    },
+    "default_weapon_ids": [
+     "chainsword-outrider-squad",
+     "heavy-bolt-pistol-outrider-squad",
+     "twin-bolt-rifle-outrider-squad"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Outrider",
     "min": 2,
     "max": 5,
-    "default_weapon_ids": [
-     "astartes-chainsword-outrider-squad",
-     "heavy-bolt-pistol-outrider-squad",
-     "twin-bolt-rifle-outrider-squad"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "oval",
      "width": 90,
-     "length": 52.5
-    }
-   },
-   {
-    "name": "Invader ATV",
-    "min": 0,
-    "max": 1,
+     "length": 52
+    },
     "default_weapon_ids": [
-     "astartes-chainsword-outrider-squad",
+     "chainsword-outrider-squad",
      "heavy-bolt-pistol-outrider-squad",
      "twin-bolt-rifle-outrider-squad"
     ],
-    "is_leader_model": false,
-    "base_size_mm": {
-     "shape": "oval",
-     "width": 90,
-     "length": 52.5
-    }
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Outrider Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Outrider",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Outrider Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Outrider",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Outrider Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Outrider",
-      "min": 2,
-      "max": 2
-     },
-     {
-      "name": "Invader ATV",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Outrider Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Outrider",
-      "min": 3,
-      "max": 5
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Outrider Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Outrider",
-      "min": 3,
-      "max": 5
-     },
-     {
-      "name": "Invader ATV",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Outrider Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Outrider",
-      "min": 2,
-      "max": 2
-     },
-     {
-      "name": "Invader ATV",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Outrider Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Outrider",
-      "min": 3,
-      "max": 5
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Outrider Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Outrider",
-      "min": 3,
-      "max": 5
-     },
-     {
-      "name": "Invader ATV",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "desolation-squad",
@@ -7667,7 +6741,7 @@
     "name": "Desolation Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
@@ -7677,7 +6751,8 @@
      "castellan-launcher-desolation-squad",
      "close-combat-weapon-desolation-squad",
      "superfrag-rocket-launcher-desolation-squad"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Desolation Marine",
@@ -7693,29 +6768,15 @@
      "castellan-launcher-desolation-squad",
      "close-combat-weapon-desolation-squad",
      "superfrag-rocket-launcher-desolation-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Desolation Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Desolation Marine",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "centurion-assault-squad",
@@ -7913,174 +6974,117 @@
     "default_weapon_ids": [
      "artisan-plasma-pistol",
      "talassarian-tempest-blade"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Cato Sicarius",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wardens-of-ultramar",
   "faction_id": "adeptus-astartes",
   "models": [
    {
-    "name": "Ancient Gadriel",
-    "profile_name": "Veteran Sergeant Metaurus",
+    "name": "Aemelia Minervas",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 28.5
+    },
     "default_weapon_ids": [
      "archeotech-laspistol",
-     "power-weapon-wardens-of-ultramar",
-     "bolt-rifle-wardens-of-ultramar",
-     "ceramite-fists-wardens-of-ultramar",
-     "astropathic-blast",
-     "force-stave",
-     "close-combat-weapon-wardens-of-ultramar",
-     "heavy-bolt-pistol-wardens-of-ultramar",
-     "master-crafted-power-weapon-wardens-of-ultramar"
+     "power-weapon-wardens-of-ultramar"
     ],
-    "is_leader_model": true
+    "default_wargear": []
    },
    {
-    "name": "Veteran Sergeant Metaurus",
-    "profile_name": "Lucia Vestha",
+    "name": "Ancient Gadriel",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
     "default_weapon_ids": [
-     "archeotech-laspistol",
-     "power-weapon-wardens-of-ultramar",
      "bolt-rifle-wardens-of-ultramar",
-     "ceramite-fists-wardens-of-ultramar",
-     "astropathic-blast",
-     "force-stave",
-     "close-combat-weapon-wardens-of-ultramar",
-     "heavy-bolt-pistol-wardens-of-ultramar",
-     "master-crafted-power-weapon-wardens-of-ultramar"
+     "ceramite-fists-wardens-of-ultramar"
     ],
-    "is_leader_model": false
+    "default_wargear": []
+   },
+   {
+    "name": "Dainal Kornelius",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "profile_name": "Gaius Silva",
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 28.5
+    },
+    "default_weapon_ids": [
+     "astropathic-blast",
+     "force-stave"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Gaius Silva",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 28.5
+    },
     "default_weapon_ids": [
      "archeotech-laspistol",
-     "power-weapon-wardens-of-ultramar",
-     "bolt-rifle-wardens-of-ultramar",
-     "ceramite-fists-wardens-of-ultramar",
-     "astropathic-blast",
-     "force-stave",
-     "close-combat-weapon-wardens-of-ultramar",
-     "heavy-bolt-pistol-wardens-of-ultramar",
-     "master-crafted-power-weapon-wardens-of-ultramar"
+     "power-weapon-wardens-of-ultramar"
     ],
-    "is_leader_model": false
-   },
-   {
-    "name": "Aemelia Minervas",
-    "min": 1,
-    "max": 1,
-    "default_weapon_ids": [
-     "archeotech-laspistol",
-     "power-weapon-wardens-of-ultramar",
-     "bolt-rifle-wardens-of-ultramar",
-     "ceramite-fists-wardens-of-ultramar",
-     "astropathic-blast",
-     "force-stave",
-     "close-combat-weapon-wardens-of-ultramar",
-     "heavy-bolt-pistol-wardens-of-ultramar",
-     "master-crafted-power-weapon-wardens-of-ultramar"
-    ],
-    "is_leader_model": false
-   },
-   {
-    "name": "Dainal Komelius",
-    "min": 1,
-    "max": 1,
-    "default_weapon_ids": [
-     "archeotech-laspistol",
-     "power-weapon-wardens-of-ultramar",
-     "bolt-rifle-wardens-of-ultramar",
-     "ceramite-fists-wardens-of-ultramar",
-     "astropathic-blast",
-     "force-stave",
-     "close-combat-weapon-wardens-of-ultramar",
-     "heavy-bolt-pistol-wardens-of-ultramar",
-     "master-crafted-power-weapon-wardens-of-ultramar"
-    ],
-    "is_leader_model": false
+    "default_wargear": []
    },
    {
     "name": "Lucia Vestha",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 28.5
+    },
     "default_weapon_ids": [
      "archeotech-laspistol",
-     "power-weapon-wardens-of-ultramar",
-     "bolt-rifle-wardens-of-ultramar",
-     "ceramite-fists-wardens-of-ultramar",
-     "astropathic-blast",
-     "force-stave",
-     "close-combat-weapon-wardens-of-ultramar",
+     "ultramarian-combat-weapons"
+    ],
+    "default_wargear": []
+   },
+   {
+    "name": "Veteran Sergeant Metaurus",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
      "heavy-bolt-pistol-wardens-of-ultramar",
      "master-crafted-power-weapon-wardens-of-ultramar"
     ],
-    "is_leader_model": false
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Ancient Gadriel",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Veteran Sergeant Metaurus",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Gaius Silva",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Aemelia Minervas",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Dainal Komelius",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Lucia Vestha",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "redemptor-dreadnought",
@@ -8099,26 +7103,16 @@
      "fragstorm-grenade-launchers-redemptor-dreadnought",
      "heavy-flamer-redemptor-dreadnought",
      "heavy-onslaught-gatling-cannon",
-     "redemptor-fist",
-     "storm-bolters-redemptor-dreadnought"
-    ]
+     "redemptor-fist"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Redemptor Dreadnought",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "ancient",
@@ -8137,24 +7131,15 @@
      "bolt-pistol-ancient",
      "bolt-rifle-ancient",
      "ceramite-fists-ancient"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Ancient",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "pedro-kantor",
@@ -8202,29 +7187,20 @@
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
-     "diameter": 40
+     "diameter": 50
     },
     "default_weapon_ids": [
      "crozius-arcanum-chaplain-in-terminator-armour",
      "storm-bolter-chaplain-in-terminator-armour"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Chaplain in Terminator Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "lieutenant-with-combi-weapon",
@@ -8242,33 +7218,15 @@
     "default_weapon_ids": [
      "combi-weapon-lieutenant-with-combi-weapon",
      "paired-combat-blades-lieutenant-with-combi-weapon"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Lieutenant with Combi-weapon",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Lieutenant with Combi-weapon",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "incursor-squad",
@@ -8278,7 +7236,7 @@
     "name": "Incursor Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
@@ -8287,7 +7245,8 @@
      "bolt-pistol-incursor-squad",
      "occulus-bolt-carbine",
      "paired-combat-blades-incursor-squad"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Incursor",
@@ -8302,43 +7261,15 @@
      "bolt-pistol-incursor-squad",
      "occulus-bolt-carbine",
      "paired-combat-blades-incursor-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Incursor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Incursor",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Incursor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Incursor",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "assault-intercessors-with-jump-packs",
@@ -8348,18 +7279,19 @@
     "name": "Assault Intercessor Sergeant with Jump Pack",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
     },
     "default_weapon_ids": [
-     "heavy-bolt-pistol-assault-intercessors-with-jump-packs",
-     "astartes-chainsword-assault-intercessors-with-jump-packs"
-    ]
+     "chainsword-assault-intercessors-with-jump-packs",
+     "heavy-bolt-pistol-assault-intercessors-with-jump-packs"
+    ],
+    "default_wargear": []
    },
    {
-    "name": "Assault Intercessors with Jump Packs",
+    "name": "Assault Intercessor with Jump Pack",
     "min": 4,
     "max": 9,
     "is_leader_model": false,
@@ -8368,73 +7300,17 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "astartes-chainsword-assault-intercessors-with-jump-packs",
+     "chainsword-assault-intercessors-with-jump-packs",
      "heavy-bolt-pistol-assault-intercessors-with-jump-packs"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Assault Intercessor Sergeant with Jump Pack",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Assault Intercessors with Jump Packs",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Assault Intercessor Sergeant with Jump Pack",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Assault Intercessors with Jump Packs",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Assault Intercessor Sergeant with Jump Pack",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Assault Intercessors with Jump Packs",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Assault Intercessor Sergeant with Jump Pack",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Assault Intercessors with Jump Packs",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "caanok-var",
@@ -8452,24 +7328,15 @@
     "default_weapon_ids": [
      "axiom",
      "storm-bolter-caanok-var"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Caanok Var",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "vanguard-veteran-squad-with-jump-packs",
@@ -8479,91 +7346,40 @@
     "name": "Vanguard Veteran Sergeant with Jump Pack",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
+    "profile_name": "Vanguard Veteran Sergeant",
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
     },
     "default_weapon_ids": [
+     "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs",
      "relic-blade-vanguard-veteran-squad-with-jump-packs"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Vanguard Veteran with Jump Pack",
     "min": 4,
     "max": 9,
     "is_leader_model": false,
+    "profile_name": "Vanguard Veteran",
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
     },
     "default_weapon_ids": [
-     "relic-blade-vanguard-veteran-squad-with-jump-packs"
-    ]
+     "heavy-bolt-pistol-vanguard-veteran-squad-with-jump-packs",
+     "master-crafted-power-weapon-vanguard-veteran-squad-with-jump-packs"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Vanguard Veteran Sergeant with Jump Pack",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Vanguard Veteran with Jump Pack",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Vanguard Veteran Sergeant with Jump Pack",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Vanguard Veteran with Jump Pack",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Vanguard Veteran Sergeant with Jump Pack",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Vanguard Veteran with Jump Pack",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Vanguard Veteran Sergeant with Jump Pack",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Vanguard Veteran with Jump Pack",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "company-heroes",
@@ -8573,42 +7389,6 @@
     "name": "Ancient",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
-    "base_size_mm": {
-     "shape": "round",
-     "diameter": 40
-    },
-    "default_weapon_ids": [
-     "combat-knife-company-heroes",
-     "bolt-pistol-company-heroes",
-     "master-crafted-bolt-rifle",
-     "master-crafted-power-weapon-company-heroes",
-     "master-crafted-heavy-bolter",
-     "bolt-pistol",
-     "bolt-rifle"
-    ]
-   },
-   {
-    "name": "Company Champion",
-    "min": 1,
-    "max": 1,
-    "is_leader_model": true,
-    "base_size_mm": {
-     "shape": "round",
-     "diameter": 40
-    },
-    "default_weapon_ids": [
-     "combat-knife-company-heroes",
-     "bolt-pistol-company-heroes",
-     "master-crafted-bolt-rifle",
-     "master-crafted-power-weapon-company-heroes",
-     "master-crafted-heavy-bolter"
-    ]
-   },
-   {
-    "name": "Company Veteran",
-    "min": 2,
-    "max": 2,
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
@@ -8617,37 +7397,63 @@
     "default_weapon_ids": [
      "combat-knife-company-heroes",
      "bolt-pistol-company-heroes",
-     "master-crafted-bolt-rifle",
-     "master-crafted-power-weapon-company-heroes",
+     "master-crafted-bolt-rifle"
+    ],
+    "default_wargear": []
+   },
+   {
+    "name": "Company Champion",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "bolt-pistol-company-heroes",
+     "master-crafted-power-weapon-company-heroes"
+    ],
+    "default_wargear": []
+   },
+   {
+    "name": "Company Veteran with Bolt Rifle",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "combat-knife-company-heroes",
+     "bolt-pistol-company-heroes",
+     "master-crafted-bolt-rifle"
+    ],
+    "default_wargear": []
+   },
+   {
+    "name": "Company Veteran with Heavy Bolter",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "combat-knife-company-heroes",
+     "bolt-pistol-company-heroes",
      "master-crafted-heavy-bolter"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Ancient",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Company Champion",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Company Veteran",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "aggressor-squad",
@@ -8657,7 +7463,7 @@
     "name": "Aggressor Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
@@ -8665,7 +7471,8 @@
     "default_weapon_ids": [
      "flamestorm-gauntlets-aggressor-squad",
      "twin-power-fists-aggressor-squad"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Aggressor",
@@ -8679,43 +7486,15 @@
     "default_weapon_ids": [
      "flamestorm-gauntlets-aggressor-squad",
      "twin-power-fists-aggressor-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Aggressor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Aggressor",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Aggressor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Aggressor",
-      "min": 3,
-      "max": 5
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "stormhawk-interceptor",
@@ -8771,25 +7550,16 @@
     "default_weapon_ids": [
      "heavy-bolt-pistol-captain",
      "master-crafted-bolter",
-     "bolt-pistol-captain"
-    ]
+     "master-crafted-power-weapon-captain"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Captain",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "predator-annihilator",
@@ -8838,30 +7608,21 @@
     "base_size_mm": {
      "shape": "oval",
      "width": 90,
-     "length": 52.5
+     "length": 52
     },
     "default_weapon_ids": [
      "absolvor-bolt-pistol-chaplain-on-bike",
      "crozius-arcanum-chaplain-on-bike",
      "twin-bolt-rifle"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Chaplain on Bike",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "stormraven-gunship",
@@ -8954,24 +7715,15 @@
      "bolt-pistol-captain-in-phobos-armour",
      "combat-knife-captain-in-phobos-armour",
      "instigator-bolt-carbine-captain-in-phobos-armour"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Captain in Phobos Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "chaplain-with-jump-pack",
@@ -8984,37 +7736,20 @@
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
-     "diameter": 32
+     "diameter": 40
     },
     "default_weapon_ids": [
+     "absolvor-bolt-pistol-chaplain-with-jump-pack",
      "crozius-arcanum-chaplain-with-jump-pack"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Chaplain with Jump Pack",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Chaplain with Jump Pack",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "intercessor-squad",
@@ -9024,7 +7759,7 @@
     "name": "Intercessor Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
@@ -9032,9 +7767,9 @@
     "default_weapon_ids": [
      "bolt-pistol-intercessor-squad",
      "bolt-rifle-intercessor-squad",
-     "close-combat-weapon-intercessor-squad",
-     "astartes-grenade-launcher-intercessor-squad"
-    ]
+     "close-combat-weapon-intercessor-squad"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Intercessor",
@@ -9049,43 +7784,15 @@
      "bolt-pistol-intercessor-squad",
      "bolt-rifle-intercessor-squad",
      "close-combat-weapon-intercessor-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Intercessor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Intercessor",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Intercessor Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Intercessor",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "astraeus",
@@ -9101,31 +7808,21 @@
      "draft": true
     },
     "default_weapon_ids": [
-     "ironhail-heavy-stubber",
-     "twin-heavy-bolter",
-     "astraeus-las-ripper",
-     "astraeus-las-ripper",
      "armoured-hull-astraeus",
-     "twin-macro-accelerator-cannon",
-     "storm-bolter"
-    ]
+     "astareus-las-ripper",
+     "ironhail-heavy-stubber",
+     "storm-bolter-astraeus",
+     "twin-heavy-bolter-astraeus",
+     "twin-macro-accelerator-cannon"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Astraeus",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "land-raider-redeemer",
@@ -9144,33 +7841,15 @@
      "armoured-tracks",
      "flamestorm-cannon",
      "twin-assault-cannon-land-raider-redeemer"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Land Raider Redeemer",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Land Raider Redeemer",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "thunderhawk-gunship",
@@ -9186,33 +7865,20 @@
      "draft": true
     },
     "default_weapon_ids": [
-     "thunderhawk-cluster-bombs",
      "armoured-hull-thunderhawk-gunship",
-     "lascannon",
-     "lascannon",
-     "twin-heavy-bolter",
-     "twin-heavy-bolter",
-     "twin-heavy-bolter",
-     "twin-heavy-bolter",
-     "thunderhawk-heavy-cannon"
-    ]
+     "hellstrike-missile-battery",
+     "lascannon-thunderhawk-gunship",
+     "thunderhawk-heavy-cannon",
+     "twin-heavy-bolter-thunderhawk-gunship"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Thunderhawk Gunship",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "rhino",
@@ -9230,24 +7896,15 @@
     "default_weapon_ids": [
      "armoured-tracks-rhino",
      "storm-bolter-rhino"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Rhino",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "invader-atv",
@@ -9256,7 +7913,7 @@
    {
     "name": "Invader ATV",
     "min": 1,
-    "max": 1,
+    "max": 2,
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "hull",
@@ -9267,24 +7924,15 @@
      "bolt-pistol-invader-atv",
      "onslaught-gatling-cannon-invader-atv",
      "twin-bolt-rifle-invader-atv"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Invader ATV",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "infiltrator-squad",
@@ -9294,7 +7942,7 @@
     "name": "Infiltrator Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
@@ -9303,7 +7951,8 @@
      "bolt-pistol-infiltrator-squad",
      "ceramite-fists-infiltrator-squad",
      "marksman-bolt-carbine"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Infiltrator",
@@ -9318,43 +7967,15 @@
      "bolt-pistol-infiltrator-squad",
      "ceramite-fists-infiltrator-squad",
      "marksman-bolt-carbine"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Infiltrator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Infiltrator",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Infiltrator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Infiltrator",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "ballistus-dreadnought",
@@ -9374,24 +7995,15 @@
      "ballistus-lascannon",
      "ballistus-missile-launcher",
      "storm-bolters-ballistus-dreadnought"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Ballistus Dreadnought",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "infernus-squad",
@@ -9401,7 +8013,7 @@
     "name": "Infernus Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
@@ -9410,7 +8022,8 @@
      "bolt-pistol-infernus-squad",
      "close-combat-weapon-infernus-squad",
      "pyreblaster-infernus-squad"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Infernus Marine",
@@ -9425,43 +8038,15 @@
      "bolt-pistol-infernus-squad",
      "close-combat-weapon-infernus-squad",
      "pyreblaster-infernus-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Infernus Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Infernus Marine",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Infernus Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Infernus Marine",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "kayvaan-shrike",
@@ -9478,25 +8063,16 @@
     },
     "default_weapon_ids": [
      "blackout",
-     "the-ravens-talons"
-    ]
+     "ravens-talons"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Kayvaan Shrike",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "uriel-ventris",
@@ -9549,25 +8125,16 @@
     },
     "default_weapon_ids": [
      "monomolecular-combat-blades-lieutenant-in-phobos-armour",
-     "bolt-pistol-lieutenant-in-phobos-armour"
-    ]
+     "special-issue-bolt-pistol-lieutenant-in-phobos-armour"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Lieutenant in Phobos Armour",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "reiver-squad",
@@ -9577,15 +8144,17 @@
     "name": "Reiver Sergeant",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
     },
     "default_weapon_ids": [
+     "bolt-carbine",
      "combat-knife-reiver-squad",
      "special-issue-bolt-pistol-reiver-squad"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Reiver",
@@ -9597,45 +8166,18 @@
      "diameter": 32
     },
     "default_weapon_ids": [
+     "bolt-carbine",
      "combat-knife-reiver-squad",
      "special-issue-bolt-pistol-reiver-squad"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Reiver Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Reiver",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Reiver Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Reiver",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "chaplain",
@@ -9653,24 +8195,15 @@
     "default_weapon_ids": [
      "absolvor-bolt-pistol-chaplain",
      "crozius-arcanum-chaplain"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Chaplain",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "invictor-tactical-warsuit",
@@ -9691,24 +8224,15 @@
      "incendium-cannon",
      "invictor-fist",
      "ironhail-heavy-stubbers-invictor-tactical-warsuit"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Invictor Tactical Warsuit",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "bladeguard-ancient",
@@ -9726,24 +8250,15 @@
     "default_weapon_ids": [
      "heavy-bolt-pistol-bladeguard-ancient",
      "relics-of-battle-bladeguard-ancient"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Bladeguard Ancient",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "venerable-dreadnought",
@@ -9759,27 +8274,18 @@
      "diameter": 60
     },
     "default_weapon_ids": [
-     "storm-bolter",
+     "assault-cannon-venerable-dreadnought",
      "dreadnought-combat-weapon",
-     "assault-cannon"
-    ]
+     "storm-bolter-venerable-dreadnought"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Venerable Dreadnought",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "ragnar-blackmane",
@@ -9797,24 +8303,15 @@
     "default_weapon_ids": [
      "bolt-pistol-ragnar-blackmane",
      "frostfang"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Ragnar Blackmane",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "thunderwolf-cavalry",
@@ -9824,16 +8321,17 @@
     "name": "Thunderwolf Cavalry Pack Leader",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 60
     },
     "default_weapon_ids": [
-     "bolt-pistol",
+     "bolt-pistol-thunderwolf-cavalry",
      "teeth-and-claws",
      "wolf-guard-weapon"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Thunderwolf Cavalry",
@@ -9845,46 +8343,18 @@
      "diameter": 60
     },
     "default_weapon_ids": [
+     "bolt-pistol-thunderwolf-cavalry",
      "teeth-and-claws",
-     "wolf-guard-weapon",
-     "bolt-pistol"
-    ]
+     "wolf-guard-weapon"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Thunderwolf Cavalry Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Thunderwolf Cavalry",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Thunderwolf Cavalry Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Thunderwolf Cavalry",
-      "min": 3,
-      "max": 5
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "grey-hunters",
@@ -9894,16 +8364,17 @@
     "name": "Grey Hunter Pack Leader",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
     },
     "default_weapon_ids": [
-     "bolt-pistol",
      "bolt-carbine-grey-hunters",
-     "astartes-chainsword-grey-hunters"
-    ]
+     "bolt-pistol-grey-hunters",
+     "chainsword-grey-hunters"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Grey Hunter",
@@ -9915,32 +8386,18 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "astartes-chainsword-grey-hunters",
      "bolt-carbine-grey-hunters",
-     "bolt-pistol"
-    ]
+     "bolt-pistol-grey-hunters",
+     "chainsword-grey-hunters"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Grey Hunter Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Grey Hunter",
-      "min": 9,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "fenrisian-wolves",
@@ -9957,33 +8414,15 @@
     },
     "default_weapon_ids": [
      "teeth-and-claws-fenrisian-wolves"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Fenrisian Wolf",
-      "min": 5,
-      "max": 5
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Fenrisian Wolf",
-      "min": 6,
-      "max": 10
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wolf-priest",
@@ -9999,49 +8438,40 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "absolvor-bolt-pistol",
+     "absolvor-bolt-pistol-wolf-priest",
      "crozius-arcanum"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wolf Priest",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wolf-guard-headtakers",
   "faction_id": "adeptus-astartes",
   "models": [
    {
-    "name": "Wolf Guard Headtaker",
+    "name": "Hunting Wolf",
     "min": 3,
     "max": 6,
-    "default_weapon_ids": [
-     "heavy-bolt-pistol",
-     "master-crafted-power-weapon-wolf-guard-headtakers",
-     "storm-shield"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
-     "shape": "round",
-     "diameter": 40
-    }
+     "shape": "oval",
+     "width": 60,
+     "length": 35.5
+    },
+    "default_weapon_ids": [
+     "teeth-and-claws-wolf-guard-headtakers"
+    ],
+    "default_wargear": []
    },
    {
-    "name": "Hunting Wolves",
-    "min": 0,
+    "name": "Wolf Guard Headtaker",
+    "min": 3,
     "max": 6,
     "is_leader_model": false,
     "base_size_mm": {
@@ -10049,62 +8479,17 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "teeth-and-claws-wolf-guard-headtakers"
-    ]
+     "heavy-bolt-pistol-wolf-guard-headtakers",
+     "paired-master-crafted-power-weapons"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Headtaker",
-      "min": 3,
-      "max": 3
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Headtaker",
-      "min": 3,
-      "max": 3
-     },
-     {
-      "name": "Hunting Wolves",
-      "min": 3,
-      "max": 3
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Headtaker",
-      "min": 6,
-      "max": 6
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Headtaker",
-      "min": 6,
-      "max": 6
-     },
-     {
-      "name": "Hunting Wolves",
-      "min": 6,
-      "max": 6
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "iron-priest",
@@ -10120,26 +8505,17 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "tempest-hammer-and-servo-arm",
-     "helfrost-pistol"
-    ]
+     "helfrost-pistol",
+     "tempest-hammer-and-servo-arm"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Iron Priest",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "njal-stormcaller",
@@ -10155,27 +8531,18 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "bolt-pistol",
-     "staff-of-the-stormcaller",
-     "living-lightning"
-    ]
+     "bolt-pistol-njal-stormcaller",
+     "living-lightning",
+     "staff-of-the-stormcaller"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Njal Stormcaller",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "blood-claws",
@@ -10185,15 +8552,16 @@
     "name": "Blood Claw Pack Leader",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
     },
     "default_weapon_ids": [
-     "bolt-pistol",
-     "astartes-chainsword-blood-claws"
-    ]
+     "bolt-pistol-blood-claws",
+     "chainsword-blood-claws"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Blood Claw",
@@ -10205,45 +8573,17 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "bolt-pistol",
-     "astartes-chainsword-blood-claws"
-    ]
+     "bolt-pistol-blood-claws",
+     "chainsword-blood-claws"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Blood Claw Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Blood Claw",
-      "min": 9,
-      "max": 9
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Blood Claw Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Blood Claw",
-      "min": 10,
-      "max": 19
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "ulrik-the-slayer",
@@ -10259,26 +8599,17 @@
      "diameter": 32
     },
     "default_weapon_ids": [
-     "plasma-pistol",
-     "artificer-crozius-arcanum"
-    ]
+     "artificer-crozius-arcanum",
+     "plasma-pistol-ulrik-the-slayer"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Ulrik the Slayer",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "logan-grimnar",
@@ -10294,27 +8625,18 @@
      "diameter": 80
     },
     "default_weapon_ids": [
-     "storm-bolter-logan-grimnar",
      "axe-morkai",
+     "storm-bolter-logan-grimnar",
      "tyrnak-and-fenrir"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Logan Grimnar",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wolf-guard-terminators",
@@ -10324,15 +8646,16 @@
     "name": "Wolf Guard Terminator Pack Leader",
     "min": 1,
     "max": 1,
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
     },
     "default_weapon_ids": [
-     "storm-bolter-wolf-guard-terminators",
-     "master-crafted-power-weapon-wolf-guard-terminators"
-    ]
+     "master-crafted-power-weapon-wolf-guard-terminators",
+     "storm-bolter-wolf-guard-terminators"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Wolf Guard Terminator",
@@ -10347,80 +8670,14 @@
      "master-crafted-power-weapon-wolf-guard-terminators",
      "storm-bolter-wolf-guard-terminators"
     ],
-    "loadout_variants": [
-     {
-      "name": "Wolf Guard Terminator w/ storm bolter",
-      "weapon_ids": [
-       "master-crafted-power-weapon-wolf-guard-terminators",
-       "storm-bolter-wolf-guard-terminators"
-      ],
-      "max_count": 9
-     },
-     {
-      "name": "Wolf Guard Terminator w/ Assault Cannon",
-      "weapon_ids": [
-       "power-fist",
-       "assault-cannon-wolf-guard-terminators"
-      ],
-      "max_count": 2
-     },
-     {
-      "name": "Wolf Guard Terminator w/ storm shield",
-      "weapon_ids": [
-       "storm-shield",
-       "master-crafted-power-weapon-wolf-guard-terminators"
-      ],
-      "max_count": 9
-     }
-    ],
-    "loadout_variant_budgets": [
-     {
-      "variant_names": [
-       "Wolf Guard Terminator w/ storm bolter",
-       "Wolf Guard Terminator w/ Assault Cannon",
-       "Wolf Guard Terminator w/ storm shield"
-      ],
-      "count": 9,
-      "per_models": 0,
-      "scope": "model-row"
-     }
-    ]
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Terminator Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Wolf Guard Terminator",
-      "min": 4,
-      "max": 4
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Terminator Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Wolf Guard Terminator",
-      "min": 5,
-      "max": 9
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wulfen-dreadnought",
@@ -10437,33 +8694,24 @@
     },
     "default_weapon_ids": [
      "fenrisian-great-axe",
-     "storm-bolter",
-     "great-wolf-claw"
-    ]
+     "great-wolf-claw",
+     "storm-bolter-wulfen-dreadnought"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wulfen Dreadnought",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wulfen-with-storm-shields",
   "faction_id": "adeptus-astartes",
   "models": [
    {
-    "name": "Wulfen",
+    "name": "Wulfen with Storm Shield",
     "min": 5,
     "max": 10,
     "is_leader_model": false,
@@ -10472,42 +8720,24 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "death-totem",
+     "stormfrag-auto-launcher",
      "thunder-hammer-wulfen-with-storm-shields"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wulfen",
-      "min": 5,
-      "max": 5
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wulfen",
-      "min": 6,
-      "max": 10
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "bjorn-the-fell-handed",
   "faction_id": "adeptus-astartes",
   "models": [
    {
-    "name": "Bjorn the Fell-Handed",
+    "name": "Bjorn the Fell-handed",
     "min": 1,
     "max": 1,
     "is_leader_model": false,
@@ -10516,27 +8746,18 @@
      "diameter": 60
     },
     "default_weapon_ids": [
-     "heavy-flamer",
-     "trueclaw",
-     "assault-cannon-bjorn-the-fell-handed"
-    ]
+     "assault-cannon-bjorn-the-fell-handed",
+     "heavy-flamer-bjorn-the-fell-handed",
+     "trueclaw"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Bjorn the Fell-Handed",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "arjac-rockfist",
@@ -10553,24 +8774,15 @@
     },
     "default_weapon_ids": [
      "foehammer"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Arjac Rockfist",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wolf-guard-battle-leader",
@@ -10587,25 +8799,16 @@
     },
     "default_weapon_ids": [
      "master-crafted-power-weapon-wolf-guard-battle-leader",
-     "storm-shield"
-    ]
+     "plasma-pistol-wolf-guard-battle-leader"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wolf Guard Battle Leader",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wolf-scouts",
@@ -10613,94 +8816,55 @@
   "models": [
    {
     "name": "Wolf Scout Pack Leader",
-    "profile_name": "Wolf Scout",
     "min": 1,
     "max": 1,
-    "default_weapon_ids": [
-     "power-weapon",
-     "plasma-pistol-wolf-scouts"
-    ],
-    "is_leader_model": true,
-    "base_size_mm": {
-     "shape": "oval",
-     "width": 60,
-     "length": 35.5
-    }
-   },
-   {
-    "name": "Wolf Scout",
-    "min": 4,
-    "max": 9,
-    "default_weapon_ids": [
-     "combat-blade",
-     "plasma-pistol-wolf-scouts"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
-     "shape": "oval",
-     "width": 60,
-     "length": 35.5
-    }
+     "shape": "round",
+     "diameter": 32
+    },
+    "default_weapon_ids": [
+     "plasma-pistol-wolf-scouts",
+     "power-weapon"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Hunting Wolf",
     "min": 1,
     "max": 2,
-    "default_weapon_ids": [
-     "teeth-and-claws-wolf-scouts"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "oval",
      "width": 60,
      "length": 35.5
-    }
+    },
+    "default_weapon_ids": [
+     "teeth-and-claws-wolf-scouts"
+    ],
+    "default_wargear": []
+   },
+   {
+    "name": "Wolf Scout",
+    "min": 4,
+    "max": 9,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 32
+    },
+    "default_weapon_ids": [
+     "combat-knife-wolf-scouts",
+     "plasma-pistol-wolf-scouts"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wolf Scout Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Wolf Scout",
-      "min": 4,
-      "max": 4
-     },
-     {
-      "name": "Hunting Wolf",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wolf Scout Pack Leader",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Wolf Scout",
-      "min": 9,
-      "max": 9
-     },
-     {
-      "name": "Hunting Wolf",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "wulfen",
@@ -10716,35 +8880,18 @@
      "diameter": 40
     },
     "default_weapon_ids": [
-     "wulfen-weapons",
-     "death-totem"
+     "wulfen-weapons"
+    ],
+    "default_wargear": [
+     "Death Totem"
     ]
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Wulfen",
-      "min": 5,
-      "max": 5
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Wulfen",
-      "min": 6,
-      "max": 10
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "murderfang",
@@ -10760,27 +8907,18 @@
      "diameter": 60
     },
     "default_weapon_ids": [
-     "storm-bolter",
-     "heavy-flamer",
-     "murderclaws"
-    ]
+     "heavy-flamer-murderfang",
+     "murderclaws",
+     "storm-bolter-murderfang"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Murderfang",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "eradicator-squad-with-heavy-bolters",
@@ -10790,85 +8928,40 @@
     "name": "Eradicator Sergeant",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
     "default_weapon_ids": [
      "bolt-pistol-eradicator-squad-with-heavy-bolters",
      "ceramite-fists-eradicator-squad-with-heavy-bolters",
      "heavy-bolter-eradicator-squad-with-heavy-bolters"
-    ]
+    ],
+    "default_wargear": []
    },
    {
     "name": "Eradicator",
     "min": 2,
-    "max": 2,
+    "max": 5,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
     "default_weapon_ids": [
      "bolt-pistol-eradicator-squad-with-heavy-bolters",
      "ceramite-fists-eradicator-squad-with-heavy-bolters",
      "heavy-bolter-eradicator-squad-with-heavy-bolters"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Eradicator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Eradicator",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Eradicator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Eradicator",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Eradicator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Eradicator",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Eradicator Sergeant",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Eradicator",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "land-speeder",
@@ -10878,184 +8971,83 @@
     "name": "Land Speeder",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 105,
+     "length": 70
+    },
     "default_weapon_ids": [
      "armoured-impact",
      "multi-melta-land-speeder",
      "onslaught-gatling-cannon",
-     "stormfury-missile-launcher",
-     "pyrecannon"
-    ]
+     "stormfury-missile-launcher"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Land Speeder",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "victrix-honour-guard",
   "faction_id": "adeptus-astartes",
   "models": [
    {
-    "name": "Victrix Honour Guard",
-    "min": 1,
-    "max": 6,
+    "name": "Chapter Ancient",
+    "min": 0,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
     "default_weapon_ids": [
      "master-crafted-bolt-carbine",
-     "master-crafted-power-weapon-victrix-honour-guard",
-     "blades-of-honour"
+     "master-crafted-power-weapon-victrix-honour-guard"
+    ],
+    "default_wargear": [
+     "Banner of Macragge"
     ]
    },
    {
     "name": "Chapter Champion",
     "min": 0,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "blades-of-honour"
+    ],
+    "default_wargear": []
+   },
+   {
+    "name": "Victrix Honour Guard",
+    "min": 1,
+    "max": 6,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
     "default_weapon_ids": [
      "master-crafted-bolt-carbine",
-     "master-crafted-power-weapon-victrix-honour-guard",
-     "blades-of-honour"
-    ]
-   },
-   {
-    "name": "Chapter Ancient",
-    "min": 0,
-    "max": 1,
-    "default_weapon_ids": [
-     "master-crafted-bolt-carbine",
-     "master-crafted-power-weapon-victrix-honour-guard",
-     "blades-of-honour"
-    ]
-   }
-  ],
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Victrix Honour Guard",
-      "min": 3,
-      "max": 3
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Victrix Honour Guard",
-      "min": 2,
-      "max": 2
-     },
-     {
-      "name": "Chapter Champion",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Victrix Honour Guard",
-      "min": 2,
-      "max": 2
-     },
-     {
-      "name": "Chapter Ancient",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Victrix Honour Guard",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Chapter Champion",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Chapter Ancient",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Victrix Honour Guard",
-      "min": 4,
-      "max": 6
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Victrix Honour Guard",
-      "min": 3,
-      "max": 5
-     },
-     {
-      "name": "Chapter Champion",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Victrix Honour Guard",
-      "min": 3,
-      "max": 5
-     },
-     {
-      "name": "Chapter Ancient",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Victrix Honour Guard",
-      "min": 2,
-      "max": 4
-     },
-     {
-      "name": "Chapter Champion",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Chapter Ancient",
-      "min": 1,
-      "max": 1
-     }
-    ]
+     "master-crafted-power-weapon-victrix-honour-guard"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
-  }
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "kaius-konorius",
@@ -11065,16 +9057,23 @@
     "name": "Kaius Konorius",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
     "default_weapon_ids": [
      "heavy-bolt-pistol-kaius-konorius",
      "severance-and-rebuke"
-    ]
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
-  }
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "captain-on-bike",
@@ -11084,28 +9083,93 @@
     "name": "Captain on Bike",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 90,
+     "length": 52
+    },
     "default_weapon_ids": [
      "heavy-bolt-pistol-captain-on-bike",
      "master-crafted-power-weapon-captain-on-bike",
-     "twin-bolt-rifle"
-    ]
+     "twin-bolt-rifle-captain-on-bike"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
-  "tiers": [
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "unit_id": "marneus-calgar",
+  "faction_id": "adeptus-astartes",
+  "models": [
    {
-    "models": [
-     {
-      "name": "Captain on Bike",
-      "min": 1,
-      "max": 1
-     }
-    ]
+    "name": "Marneus Calgar",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 50
+    },
+    "default_weapon_ids": [
+     "gauntlets-of-ultramar-marneus-calgar"
+    ],
+    "default_wargear": []
    }
-  ]
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "unit_id": "eradicator-squad-with-melta-rifles",
+  "faction_id": "adeptus-astartes",
+  "models": [
+   {
+    "name": "Eradicator Sergeant",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "bolt-pistol-eradicator-squad-with-melta-rifles",
+     "ceramite-fists",
+     "melta-rifle-eradicator-squad-with-melta-rifles"
+    ],
+    "default_wargear": []
+   },
+   {
+    "name": "Eradicator",
+    "min": 2,
+    "max": 5,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "bolt-pistol-eradicator-squad-with-melta-rifles",
+     "ceramite-fists",
+     "melta-rifle-eradicator-squad-with-melta-rifles"
+    ],
+    "default_wargear": []
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "unit_id": "telemon-heavy-dreadnought",

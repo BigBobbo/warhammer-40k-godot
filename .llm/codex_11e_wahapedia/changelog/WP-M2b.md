@@ -1,0 +1,12 @@
+# WP-M2b — Codex: Space Marines (11e), generic detachments group B (rules + enhancements)
+
+Every Space Marine army (and any chapter army) that takes one of these detachments now gets its rule and enhancements:
+- Terminator Storm Force: Terminators get +1 to charge rolls (Death Blow). Champion of the First Company gives the bearer's unit melee [LETHAL HITS]; Corporeum Reliquary lets the bearer's unit arrive from reserves in your first Movement phase (it is listed under Reinforcements in battle round 1).
+- Assault / Devastator / Tactical Brethren: you can pick the Assault / Devastator / Tactical doctrine one extra time in the battle (the Combat Doctrines button says which rule gives the extra pick).
+- Assault Brethren enhancements: Furious Assault gives the unit melee [SUSTAINED HITS 1] against non-Monster/Vehicle units. (Imperium's Sword is not active yet: its weapon profile is missing from the codex data.)
+- Gravis Linebreaker Force: Gravis units that made a normal move get +1 to hit with ranged attacks (Walking Fortress). Indefatigable Fortitude: S > T attacks against the bearer's unit get -1 to wound. Relentless Advance: the bearer's unit has Scouts 5".
+- Devastator Brethren enhancements: Master-forged Firearms (+1 A, S, AP and D on the bearer's guns), Honour of Vigilance (ranged [LETHAL HITS]; free advance re-roll while the Devastator doctrine is active).
+- Gravis Siege Force: Gravis units on an objective take -1 to wound from S > T attacks (Indomitable Defence). Immovable Conquerors gives a Gravis unit +1 OC; Narthecis Gauntlet: a free card at the start of your Command phase heals the Apothecary Biologis' unit D3+1.
+- Tactical Brethren enhancements: Laurels of Vigilance makes Fire Overwatch / Heroic Intervention on a nearby Battleline unit 1CP cheaper once per round (usable even at 0CP); Tactical Insight keeps the Tactical doctrine always on for the Captain's unit.
+- Ironclad Champions: Dreadnoughts re-roll hit rolls of 1 (Enduring Vengeance). Artificer Sarcophagus: attacks on the Dreadnought have -1 Damage; Venerable Champion: Infantry/Mounted units within 6" of the Dreadnought re-roll hit rolls of 1.
+- Tacticus Firestorm Force: Tacticus units' Rapid Fire weapons get their bonus attacks at full range (the orange range ring shows it). Tempered in Battle: units within 6" of the bearer re-roll failed battle-shock tests. Cyber-familiar redeploys up to three Infantry units (engine/AI only — the redeploy step still has no buttons).

@@ -1,0 +1,136 @@
+{
+  "id": "sw11e_det_great_wolf_watches",
+  "covers": [
+    "codex.space_wolves.detachment.champions_of_fenris.the_great_wolf_watches",
+    "codex.space_wolves.SWDetachments11e",
+    "autoloads.StratagemManager.preview_cp_cost",
+    "phases.ChargePhase.heroic_intervention_11e",
+    "dialogs.HeroicInterventionDialog.row_cost",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Champions of Fenris — THE GREAT WOLF WATCHES / Countercharge (WP-S2): (once per battle round, per unit) when you target an ADEPTUS ASTARTES CHARACTER unit with HEROIC INTERVENTION, that use is -1CP. Fixture sw11e_s2_wolves_active; setup privileges: the Orks' Charge phase (active player 2), the Gretchin (marked as having charged this turn) placed ~3\" from Arjac Rockfist and the Grey Hunters, P1 at 1 CP. A real click ends the Orks' Charge phase: the 15.11 HEROIC INTERVENTION window opens for the Space Wolves — Arjac Rockfist's row reads 0 CP (Countercharge), the Grey Hunters' row 1 CP. A real click on Arjac's Leap to Defend: the stratagem is used for 0 CP (P1 stays at 1 CP), the Game Log names Countercharge and Arjac's unit is marked for this battle round.",
+  "fixture": "sw11e_s2_wolves_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privileges (see description)",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nGameState.set_active_player(2)\nPhaseManager.transition_to_phase(9)\nH.move_to(\"U_GRETCHIN_C\", 37.0, 44.0)\nGameState.state.units[\"U_GRETCHIN_C\"].flags[\"charged_this_turn\"] = true\nGameState.state.players[\"1\"][\"cp\"] = 1\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn int(GameState.get_current_phase())",
+      "equals": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return StratagemManager.preview_cp_cost(1, \"heroic_intervention\", \"U_ARJAC_ROCKFIST_A\")",
+      "equals": 0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true,
+      "comment": "End Charge Phase (the Orks' turn)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/HeroicInterventionDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "heroic_intervention_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_ARJAC_ROCKFIST_A/Leap_U_ARJAC_ROCKFIST_A\").text",
+      "equals": "Leap to Defend (0 CP)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_GREY_HUNTERS_A/Leap_U_GREY_HUNTERS_A\").text",
+      "equals": "Leap to Defend (1 CP)"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_hi_window_countercharge_0cp"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_ARJAC_ROCKFIST_A/Leap_U_ARJAC_ROCKFIST_A",
+      "comment": "REAL click: Leap to Defend with Arjac Rockfist"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_ARJAC_ROCKFIST_A.flags.sw11e_countercharge_round",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Countercharge\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().heroic_intervention_unit_id",
+      "equals": "U_ARJAC_ROCKFIST_A"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_heroic_intervention_used_for_0cp"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sw11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+{
+  "id": "sm11e_enh_artificer_sarcophagus",
+  "covers": [
+    "codex.space_marines.enhancements.artificer_sarcophagus",
+    "phases.FightPhase",
+    "EffectPrimitives.minus_damage",
+    "codex.space_marines.SMDetachmentsB",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Ironclad Champions enhancement (Upgrade) ARTIFICER SARCOPHAGUS (WP-M2b): attacks that target this unit have -1 D. Fixture sm11e_m2b_marines_active (the Redemptor Dreadnought carries it and is engaged with the Deff Dread). Setup privileges: it is the Ork player's turn (active player 2), CP 0 for both, straight to the Fight phase. Both players end their pile-in; a REAL click selects the Deff Dread to fight; its Dread Klaws (D3) go at the Redemptor: every unsaved attack deals 2 damage (3 - 1). Integration: the Redemptor's own Duty Eternal (WP-M4c) is removed in setup so the Deff Dread's wound rolls are as before.",
+  "fixture": "sm11e_m2b_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.setup({\"cp\": {\"1\": 0, \"2\": 0}, \"active\": 2})\nPhaseManager.transition_to_phase(10)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privileges (see description)",
+      "equals": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "integration setup privilege: drop the Redemptor's own DUTY ETERNAL (WP-M4c, -1 to wound vs S > T) so only Artificer Sarcophagus is under test",
+      "script": "var u = GameState.state.units[\"U_REDEMPTOR_DREADNOUGHT_A\"]\nvar keep = []\nfor ab in u.meta.get(\"abilities\", []):\n\tvar n = ab if typeof(ab) == TYPE_STRING else str(ab.get(\"name\", \"\"))\n\tif not n.to_lower().contains(\"duty eternal\"):\n\t\tkeep.append(ab)\nu.meta[\"abilities\"] = keep\nreturn load(\"res://scripts/codex/space_marines/SMAbilitiesC.gd\").group_has(\"U_REDEMPTOR_DREADNOUGHT_A\", \"duty_eternal\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nH.frame(22, 30, 1.4)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "fight_phase_start (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true,
+      "comment": "End Pile In (each player)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true,
+      "comment": "End Pile In (each player)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_DEFF_DREAD_A",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_DEFF_DREAD_A",
+      "emit_pressed": true,
+      "comment": "REAL click: select the unit to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "unit_selected_to_fight (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nvar ph = PhaseManager.get_current_phase_instance()\nvar dmg = []\nfor d in ph.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"save\":\n\t\tfor e in d.get(\"allocation_11e\", {}).get(\"events\", []):\n\t\t\tif str(e.get(\"result\", \"\")) == \"damage\":\n\t\t\t\tdmg.append(int(e.get(\"damage\", 0)))\nprint(\"[sm11e artificer] damage events: \", dmg)\nreturn not dmg.is_empty() and dmg.all(func(x): return x == 2)",
+      "comment": "every unsaved Dread Klaw attack deals 2 (D3 - 1)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_artificer_sarcophagus_minus_one_damage"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.show_dice_tab()",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_dice_log_artificer_sarcophagus"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sm11e_m2b_scen.gd\")\nreturn H.error_lines()",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

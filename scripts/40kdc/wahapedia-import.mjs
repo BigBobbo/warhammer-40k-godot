@@ -70,6 +70,50 @@ const REPO = join(here, '..', '..');
 const FACTIONS = {
   'adeptus-custodes': { waha: 'AC', dir: 'custodes', mode: 'full', keyword: 'Adeptus Custodes' },
   'orks': { waha: 'ORK', dir: 'orks', mode: 'overlay', keyword: 'Orks' },
+  // Codex: Space Marines (11e) — scoped (sources / detachment groups below):
+  // the generic Space Marine datasheets + Forge World and the Space Wolves
+  // chapter. Other chapters' datasheets and detachments (Blood Angels, Dark
+  // Angels, ...) keep their 40kdc records; a weapon an imported datasheet prints
+  // differently from a 40kdc record those still share gets a per-unit copy
+  // instead of rewriting the shared one (see `scoped`).
+  'adeptus-astartes': {
+    waha: 'SM', dir: 'space-marines', mode: 'full', keyword: 'Adeptus Astartes',
+    sources: ['Space Marines', 'Space Marines (Forge World)', 'Space Wolves'],
+    // Detachments by owning 40kdc faction. Existing records (ids, external
+    // refs) are refreshed in place; a codex detachment with no record gets
+    // one. `supersede`: pre-codex detachments the codex dropped (kept for old
+    // rosters, marked superseded_by_codex).
+    detachmentGroups: [
+      {
+        faction: 'space-wolves',
+        names: ['Champions of Fenris', 'Saga of the Beastslayer', 'Saga of the Great Wolf'],
+        supersede: ['Saga of the Hunter', 'Saga of the Bold', 'Legends of Saga and Song', 'Veterans of the Fang'],
+      },
+      {
+        faction: 'adeptus-astartes',
+        names: ['Gladius Task Force', 'Ironstorm Spearhead', 'Stormlance Task Force', 'Gauntlet Task Force',
+          'Phobos Shadow Force', 'Tacticus Attack Force', 'Phobos Shock Force', 'Terminator Storm Force',
+          'Assault Brethren', 'Gravis Linebreaker Force', 'Devastator Brethren', 'Gravis Siege Force',
+          'Tactical Brethren', 'Ironclad Champions', 'Tacticus Firestorm Force'],
+        supersede: ['1st Company Task Force', 'Librarius Conclave', 'Vanguard Spearhead', 'Orbital Assault Force',
+          'Anvil Siege Force', 'Firestorm Assault Force', 'Fulguris Task Force', 'Subversion Assets',
+          'Armoured Speartip', 'Bastion Task Force', 'Headhunter Task Force'],
+        // 40kdc also files a copy of every generic detachment under each
+        // chapter faction (index data): those copies are superseded, so a
+        // chapter army resolves the generic codex record.
+        supersedeChapterCopies: true,
+      },
+    ],
+    // The codex army rule (Oath of Moment is gone from Codex: Space Marines;
+    // Combat Doctrines replaced it) — on the Space Marines faction and the
+    // imported chapter.
+    armyRules: ['combat-doctrines'],
+    armyRuleFactions: ['adeptus-astartes', 'space-wolves'],
+    // Army rules the codex retired: a datasheet record not re-imported yet that
+    // still lists one (other chapters' units) must not bring it back
+    // (gameformat.unitAbilities reads `retired_rule_ids`).
+    retiredRules: ['oath-of-moment'],
+  },
 };
 
 // Wahapedia source ids that are NOT codex datasheets (decision D2: ignore).
@@ -138,6 +182,15 @@ export function stripHtml(s) {
 }
 
 /** 40kdc-style id slug: "Crushin’ Bulk" -> "crushin-bulk". */
+// Wahapedia transcription typos in stratagem names (printed name on the right).
+export const STRATAGEM_NAME_ERRATA = {
+  'UNBRIDLED FEROICITY': 'UNBRIDLED FEROCITY',
+};
+export function stratagemName(raw) {
+  const n = stripHtml(raw).trim();
+  return STRATAGEM_NAME_ERRATA[n.toUpperCase()] ?? n;
+}
+
 export function slug(s) {
   return String(s)
     .normalize('NFKD').replace(/[̀-ͯ]/g, '')
@@ -339,11 +392,13 @@ export function parseLoadout(text) {
 export function parseLoadoutCounts(text) {
   const out = new Map();
   const t = stripHtml(text);
-  const re = /(This model|Every model|Every ([^:]+?)|The ([^:]+?)) (?:is|are) equipped with:\s*([^]*?)(?=(?:This model|Every|The [^.:]+ (?:is|are) equipped with:)|$)/gi;
+  // WP-M4c: a named model ("Aemelia Minervas is equipped with: ...", Wardens
+  // of Ultramar) is a fourth form of the sentence; before it, those kits were empty.
+  const re = /(This model|Every model|Every ([^:]+?)|The ([^:]+?)|([A-Z][^:.;]*?)) (?:is|are) equipped with:\s*([^]*?)(?=(?:This model|Every|The [^.:]+ (?:is|are) equipped with:|[A-Z][^:.;]*? (?:is|are) equipped with:)|$)/gi;
   let m;
   while ((m = re.exec(t))) {
-    const who = (m[2] || m[3] || '*').trim();
-    const items = m[4].replace(/\.\s*$/, '').split(/;/).map(x => x.trim().replace(/\.$/, '')).filter(Boolean)
+    const who = (m[2] || m[3] || m[4] || '*').trim();
+    const items = m[5].replace(/\.\s*$/, '').split(/;/).map(x => x.trim().replace(/\.$/, '')).filter(Boolean)
       .map(x => {
         const c = x.match(/^(\d+)\s+(.+)$/);
         return c ? { name: c[2], n: parseInt(c[1], 10) } : { name: x, n: 1 };
@@ -417,10 +472,15 @@ function main() {
 
   // --- Wahapedia datasheets in scope (codex + Forge World; no Legends)
   const sourceName = new Map(snap.sources.map(s => [s.id, s.name]));
-  const sheets = snap.datasheets.filter(d => !LEGENDS_SOURCE_RE.test(sourceName.get(d.source_id) ?? ''));
+  const scoped = Array.isArray(cfg.sources);
+  const inScopeSource = d => !scoped || cfg.sources.includes(sourceName.get(d.source_id) ?? '');
+  // every non-Legends datasheet (ids for leader pairings across the faction)
+  const allSheets = snap.datasheets.filter(d => !LEGENDS_SOURCE_RE.test(sourceName.get(d.source_id) ?? ''));
+  const sheets = allSheets.filter(inScopeSource);
   const legendsSkipped = snap.datasheets.filter(d => LEGENDS_SOURCE_RE.test(sourceName.get(d.source_id) ?? ''));
   log(`# wahapedia-import ${factionId} (${mode}) — snapshot ${snap.lastUpdate}`);
   log(`datasheets: ${sheets.length} in scope, ${legendsSkipped.length} Legends skipped (${legendsSkipped.map(d => d.name).join(', ')})`);
+  if (scoped) log(`scoped to sources: ${cfg.sources.join(', ')} (${allSheets.length - sheets.length} other codex datasheets left on their 40kdc records)`);
 
   const byDs = {
     models: groupBy(snap.models, 'datasheet_id'),
@@ -462,11 +522,16 @@ function main() {
   const unitIdByWahaId = new Map();
 
   // ------------------------------------------------------------------ units
-  for (const ds of sheets) {
+  for (const ds of allSheets) {
     const existing = existingByName.get(normName(ds.name)) ?? existingByLoose.get(looseName(ds.name)) ?? null;
+    if (!inScopeSource(ds) && !existing) continue; // out of scope and not in 40kdc
     const unitId = existing?.id ?? slug(ds.name);
     unitIdByWahaId.set(ds.id, unitId);
   }
+  // scoped import: weapon ids referenced by datasheets this run does not rewrite
+  const scopedIds = new Set(sheets.map(d => unitIdByWahaId.get(d.id)));
+  const sharedWeaponIds = new Set();
+  if (scoped) for (const u of existingUnits) if (!scopedIds.has(u.id)) for (const w of u.weapon_ids ?? []) sharedWeaponIds.add(w);
 
   for (const ds of sheets) {
     const unitId = unitIdByWahaId.get(ds.id);
@@ -513,6 +578,7 @@ function main() {
     const weaponGroups = new Map(); // base name key -> {name, profiles: []}
     for (const r of wRows) {
       const full = stripHtml(r.name);
+      if (!full.trim()) continue; // a blank export row (Drop Pod: no weapons)
       const [base, profName] = full.split(/\s+[-–]\s+/, 2);
       const key = normName(base);
       if (!weaponGroups.has(key)) weaponGroups.set(key, { name: base.trim(), rows: [] });
@@ -564,6 +630,13 @@ function main() {
         const generic = slug(g.name);
         if (!newWeapons.has(generic) || sameWeapon(newWeapons.get(generic), record)) wid = generic;
         else wid = `${generic}-${unitId}`;
+      }
+      if (scoped && sharedWeaponIds.has(wid) && factionWeapons.has(wid) && !sameWeapon(factionWeapons.get(wid), record)) {
+        // a datasheet outside the scoped import still uses the 40kdc record
+        const own = `${slug(g.name)}-${unitId}`;
+        if (existingIds.includes(wid)) weaponRenames.set(wid, own);
+        changes.push(`weapon ${wid}: printed differently from the shared 40kdc record (kept for other datasheets) -> own copy ${own}`);
+        wid = own;
       } else if (newWeapons.has(wid) && !sameWeapon(newWeapons.get(wid), record)) {
         // two codex datasheets share a 40kdc id but print different stats:
         // this one gets its own per-unit copy (the id is swapped in place on
@@ -603,6 +676,8 @@ function main() {
         }
         merged.source = SOURCE;
         newWeapons.set(wid, merged);
+      } else if (scoped && sharedWeaponIds.has(wid) && factionWeapons.has(wid)) {
+        // same printed stats as a record other datasheets share: left as is
       } else if (!newWeapons.has(wid)) {
         if (factionWeapons.has(wid)) {
           const old = factionWeapons.get(wid);
@@ -757,6 +832,17 @@ function main() {
       game_version: { edition: '11th', dataslate: 'codex' },
       source: SOURCE,
     };
+    if (scoped) {
+      // profiles in composition order: the unit card shows profiles[0], and
+      // Wahapedia lists auxiliary models first (Wolf Scouts: Hunting Wolf)
+      const own = n => [looseName(ds.name), looseName(ds.name.replace(/s$/, ''))].includes(looseName(n));
+      const rowOf = p => {
+        if (own(p.name)) return -1; // the datasheet's own model (Wolf Scout)
+        const i = compRec.models.findIndex(m => looseName(m.profile_name ?? m.name) === looseName(p.name));
+        return i < 0 ? compRec.models.length : i;
+      };
+      profiles.sort((a, b) => rowOf(a) - rowOf(b));
+    }
     const minModels = compRec.models.reduce((s, m) => s + m.min, 0);
     const maxModels = compRec.models.reduce((s, m) => s + m.max, 0);
 
@@ -798,7 +884,11 @@ function main() {
     };
     const unit = base;
     if (mode === 'full' || !existing) {
-      unit.name = ds.name;
+      // keep 40kdc's spelling when only the case differs (Wahapedia prints
+      // "Ulrik The Slayer"; the codex and 40kdc "Ulrik the Slayer")
+      // (or only the apostrophes: Wahapedia's "Kor’sarro Khan" is 40kdc's "Kor'sarro Khan")
+      const plain = n => n.replace(/[‘’]/g, "'").toLowerCase();
+      unit.name = existing && plain(existing.name) === plain(ds.name) ? existing.name : ds.name;
       if (role) unit.role = role; else delete unit.role;
       unit.profiles = profiles;
       unit.points = points;
@@ -926,6 +1016,7 @@ function main() {
     const lid = unitIdByWahaId.get(r.leader_id);
     const bid = unitIdByWahaId.get(r.attached_id);
     if (!lid || !bid) continue;
+    if (scoped && !scopedIds.has(lid) && !scopedIds.has(bid)) continue;
     if (!leaderPairs.has(lid)) leaderPairs.set(lid, new Set());
     leaderPairs.get(lid).add(bid);
   }
@@ -967,7 +1058,12 @@ function main() {
   }
 
   // --------------------------------------------- detachments + enhancements
-  if (mode === 'full') importDetachments(snap, data, factionId, SOURCE, unitIdByWahaId, log);
+  if (mode === 'full' && cfg.detachmentGroups) {
+    for (const g of cfg.detachmentGroups) {
+      scopedDetachments(snap, data, factionId, g, SOURCE, log);
+      overlayEnhancements(snap, data, factionId, SOURCE, log, g.faction, g.names);
+    }
+  } else if (mode === 'full') importDetachments(snap, data, factionId, SOURCE, unitIdByWahaId, log, cfg.detachments ?? null);
   // overlay: the 40kdc detachments stay; only their enhancement lists are
   // refreshed from the codex (WP-O5) — ids kept, points / restrictions /
   // Upgrade tag corrected, rules_text added, stale records retired.
@@ -1004,9 +1100,23 @@ function main() {
     data.wargearOptions = rest;
   }
 
-  // army rules on the faction record
+  // army rules on the faction record(s)
   const fac = data.factions.find(f => f.id === factionId);
   if (fac) fac.source_codex = SOURCE;
+  if (cfg.armyRules) {
+    const missing = cfg.armyRules.filter(id => !newAbilities.has(id) && !abilityById.has(id));
+    if (missing.length) throw new Error(`army rule(s) not imported: ${missing.join(', ')}`);
+    for (const fid of cfg.armyRuleFactions ?? [factionId]) {
+      const f = data.factions.find(x => x.id === fid);
+      if (!f) continue;
+      if (JSON.stringify(f.faction_rule_ids ?? null) !== JSON.stringify(cfg.armyRules)) {
+        log(`- faction ${f.id}: faction_rule_ids ${JSON.stringify(f.faction_rule_ids ?? null)} -> ${JSON.stringify(cfg.armyRules)}`);
+      }
+      f.faction_rule_ids = cfg.armyRules;
+      f.source_codex = SOURCE;
+    }
+  }
+  if (cfg.retiredRules && fac) fac.retired_rule_ids = cfg.retiredRules;
 
   // Ability names the game dispatches on (UnitAbilityManager /
   // FactionAbilityManager / ArmyListManager tables) that no codex datasheet of
@@ -1131,7 +1241,16 @@ export function parseOption(r, i, unitId, factionId, resolveWeapon, SOURCE) {
     if (!id) unresolved.push(n);
     return id ?? `wargear:${slug(n)}`;
   });
-  const splitItems = s => s.split(/\s+and\s+|,\s*/i).map(x => x.trim().replace(/\.$/, '')).filter(Boolean);
+  // "1 Relic Shield (this model's ... cannot be replaced)": the parenthetical
+  // is a note, not part of the item. A comma item that names one weapon as a
+  // whole ("Knives and Fists") is not split on "and".
+  const cleanItem = x => x.replace(/\s*\([^)]*\)/g, '').trim().replace(/\.$/, '');
+  const splitItems = s => s.replace(/\s*\([^)]*\)/g, '').split(/,\s*/).flatMap(part => {
+    const whole = cleanItem(part);
+    if (!whole) return [];
+    if (/\s+and\s+/i.test(whole) && resolveWeapon(whole.replace(/^\d+\s+/, ''))) return [whole];
+    return whole.split(/\s+and\s+/i).map(cleanItem).filter(Boolean);
+  });
   let m;
   // model constraint
   if ((m = text.match(/^Any number of (?:([^:]+?) )?models? can each/i))) rec.model_constraint = { any_number: true, ...(m[1] ? { model_name: m[1] } : {}) };
@@ -1146,8 +1265,14 @@ export function parseOption(r, i, unitId, factionId, resolveWeapon, SOURCE) {
     const replaces = splitItems(m[1].replace(/^(their|its)\s+/i, ''));
     const rhs = m[2].trim();
     rec.replaces = ids(replaces);
-    if (/•/.test(rhs) || /one of the following/i.test(text)) {
+    if (/•/.test(rhs)) {
       rec.replacement_choice = rhs.split('•').map(s => s.trim()).filter(Boolean).map(s => ids(splitItems(s)));
+    } else if (/one of the following/i.test(text)) {
+      // Codex: Space Marines prints the choices inline, comma-separated
+      // ("one of the following: 1 Helfrost Cannon, 1 Multi-melta"): each comma
+      // item is ONE alternative ("1 Boltgun and 1 Storm Shield" = a bundle).
+      rec.replacement_choice = rhs.split(/,\s*/).map(s => s.trim()).filter(Boolean)
+        .map(s => ids(splitItems(s)));
     } else rec.replacement = ids(splitItems(rhs));
   } else if ((m = text.match(/can be equipped with (?:(?:up to )?(\d+) )?(?:one of the following:)?\s*(.+)$/i))) {
     rec.replaces = [];
@@ -1161,9 +1286,13 @@ export function parseOption(r, i, unitId, factionId, resolveWeapon, SOURCE) {
 }
 
 // Detachments, detachment rules, enhancements (full mode).
-function importDetachments(snap, data, factionId, SOURCE, unitIdByWahaId, log) {
-  const dets = snap.detachments.filter(d => !BOARDING_ACTIONS_DETACHMENTS.has(normName(d.name)));
-  const oldDets = data.detachments.filter(d => d.faction_id === factionId);
+function importDetachments(snap, data, factionId, SOURCE, unitIdByWahaId, log, only = null) {
+  const onlyKeys = only ? new Set(only.map(normName)) : null;
+  const dets = snap.detachments.filter(d => !BOARDING_ACTIONS_DETACHMENTS.has(normName(d.name)) &&
+    (!onlyKeys || onlyKeys.has(normName(stripHtml(d.name)))));
+  // a scoped import only rewrites (and supersedes among) its own detachments
+  const oldDets = data.detachments.filter(d => d.faction_id === factionId &&
+    (!onlyKeys || onlyKeys.has(normName(d.name))));
   const keep = [];
   const written = [];
   for (const d of dets) {
@@ -1230,6 +1359,88 @@ function importDetachments(snap, data, factionId, SOURCE, unitIdByWahaId, log) {
   for (const rec of [...written, ...keep]) {
     replaceOrInsert(data.detachments, d => d.faction_id === factionId && d.id === rec.id,
       d => d.faction_id === factionId, rec);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detachments of a scoped import (Codex: Space Marines, Space Wolves only).
+//
+// 40kdc files chapter detachments under the chapter faction (space-wolves).
+// Each in-scope codex detachment's existing record is refreshed in place (id
+// and external refs kept): Detachment Points, Force Disposition, rule ability,
+// stratagem ids. A detachment rule the CSV export prints without text (Saga of
+// the Great Wolf's Master of Wolves) comes from PAGE_ONLY_DETACHMENT_RULES.
+// Pre-codex chapter detachments the codex dropped (cfg.supersede) stay in the
+// data for old rosters, marked superseded_by_codex.
+
+// https://wahapedia.ru/wh40k11ed/factions/space-marines/ (read 2026-10-22).
+// The export's Master of Wolves row has no description and no detachment id.
+const PAGE_ONLY_DETACHMENT_RULES = {
+  'saga of the great wolf': { name: 'Master of Wolves', text: 'Friendly ADEPTUS ASTARTES units (excluding MONSTER / VEHICLE units) with this ability have the following abilities: ' +
+    'Encircling Jaws: If the assault doctrine is active for your unit, your unit has +1 to advance rolls and charge rolls. ' +
+    'Hunter’s Eye: If the devastator doctrine is active for your unit, your unit’s ranged attacks can re-roll hit rolls of 1. ' +
+    'Ferocious Strike: If the tactical doctrine is active for your unit, your unit’s attacks that target an enemy unit within 9" have [Sustained Hits 1]. ' +
+    'Friendly LOGAN GRIMNAR units have the following ability: Howling Onslaught: (Once per battle, per army) In your command phase, you can use this ability. ' +
+    'If you do, friendly ADEPTUS ASTARTES MONSTER / VEHICLE units benefit from the Master of Wolves rule until the start of your next command phase. ' +
+    'Restrictions: Your army can include SPACE WOLVES units, but it cannot include any ADEPTUS ASTARTES units drawn from any other Chapter.' },
+};
+
+function scopedDetachments(snap, data, factionId, group, SOURCE, log) {
+  const detFaction = group.faction;
+  const onlyKeys = new Set(group.names.map(normName));
+  const dets = snap.detachments.filter(d => onlyKeys.has(normName(stripHtml(d.name))));
+  for (const d of dets) {
+    const name = stripHtml(d.name);
+    const did = slug(name);
+    const old = data.detachments.find(x => x.faction_id === detFaction && normName(x.name) === normName(name)) ?? null;
+    const id = old?.id ?? did;
+    const pageOnly = PAGE_ONLY_DETACHMENT_RULES[normName(name)] ?? null;
+    const rule = snap.detachmentAbilities.find(a => a.detachment_id === d.id) ??
+      (pageOnly ? snap.detachmentAbilities.find(a => normName(stripHtml(a.name)) === normName(pageOnly.name)) ?? { name: pageOnly.name } : null);
+    const ruleText = stripHtml(rule?.description ?? '') || pageOnly?.text || '';
+    const ruleId = rule ? `${slug(stripHtml(rule.name))}-${id}` : null;
+    if (rule) {
+      replaceOrInsert(data.abilities, a => a.ability_id === ruleId && a.faction_id === detFaction,
+        a => a.faction_id === detFaction || a.faction_id === factionId, {
+        ability_id: ruleId, name: stripHtml(rule.name), authored_by: 'wahapedia',
+        game_version: { edition: '11th', dataslate: 'codex' }, ability_type: 'detachment',
+        rules_text: ruleText, faction_id: detFaction, detachment_id: id, source: SOURCE,
+      });
+    }
+    const strats = snap.stratagems.filter(s => s.detachment_id === d.id);
+    const rec = {
+      ...(old ?? { id, name, faction_id: detFaction }),
+      name,
+      detachment_rule_id: ruleId,
+      stratagem_ids: strats.map(s => `${slug(stratagemName(s.name))}-${id}`),
+      game_version: { edition: '11th', dataslate: 'codex' },
+      detachment_points: parseInt(d.dp, 10) || 1,
+      force_dispositions: d.force_disposition ? [slug(d.force_disposition)] : [],
+      source: SOURCE,
+    };
+    delete rec.superseded_by_codex;
+    replaceOrInsert(data.detachments, x => x.faction_id === detFaction && x.id === id,
+      x => x.faction_id === detFaction, rec);
+    const was = old ? `${old.detachment_points} DP, rule ${old.detachment_rule_id}` : 'NEW';
+    log(`- detachment ${detFaction}/${id} (${was}) -> ${rec.detachment_points} DP ${rec.force_dispositions.join(',')}, rule ${ruleId}${ruleText && !stripHtml(rule?.description ?? '') ? ' (page-only text)' : ''}, ${rec.stratagem_ids.length} stratagems`);
+  }
+  if (group.supersedeChapterCopies) {
+    const chapters = new Set(data.factions.filter(f => f.parent_faction_id === factionId).map(f => f.id));
+    const keys = new Set([...group.names, ...(group.supersede ?? [])].map(normName));
+    let n = 0;
+    for (const d of data.detachments) {
+      if (chapters.has(d.faction_id) && keys.has(normName(d.name)) && d.superseded_by_codex !== SOURCE) {
+        d.superseded_by_codex = SOURCE;
+        n++;
+      }
+    }
+    if (n) log(`- ${n} chapter copies of the generic detachments marked superseded (chapter armies use the ${factionId} codex records)`);
+  }
+  for (const n of group.supersede ?? []) {
+    const od = data.detachments.find(x => x.faction_id === detFaction && normName(x.name) === normName(n));
+    if (!od) continue;
+    if (od.superseded_by_codex !== SOURCE) log(`- detachment ${detFaction}/${od.id}: not in the codex — kept, marked superseded`);
+    od.superseded_by_codex = SOURCE;
   }
 }
 
@@ -1321,16 +1532,18 @@ export function parseEnhancementRestriction(text, knownKeywords) {
   };
 }
 
-function overlayEnhancements(snap, data, factionId, SOURCE, log) {
+function overlayEnhancements(snap, data, factionId, SOURCE, log, detFactionId = factionId, only = null) {
   const pageOnly = PAGE_ONLY_ENHANCEMENTS[factionId] ?? {};
   const known = new Set(snap.keywords.map(k => stripHtml(k.keyword).trim()).filter(Boolean));
   for (const ds of snap.datasheets) known.add(stripHtml(ds.name).trim());
   const unitIdByName = new Map(data.units.filter(u => u.faction_id === factionId).map(u => [normName(u.name), u.id]));
-  const dets = snap.detachments.filter(d => !BOARDING_ACTIONS_DETACHMENTS.has(normName(d.name)));
+  const onlyKeys = only ? new Set(only.map(normName)) : null;
+  const dets = snap.detachments.filter(d => !BOARDING_ACTIONS_DETACHMENTS.has(normName(d.name)) &&
+    (!onlyKeys || onlyKeys.has(normName(stripHtml(d.name)))));
   let total = 0;
   log(`\nenhancements (overlay): ${dets.length} codex detachments`);
   for (const d of dets) {
-    const det = data.detachments.find(x => x.faction_id === factionId && normName(x.name) === normName(d.name));
+    const det = data.detachments.find(x => x.faction_id === detFactionId && normName(x.name) === normName(d.name));
     if (!det) { log(`- detachment ${d.name}: not in 40kdc — enhancements not written`); continue; }
     const owned = data.enhancements.filter(x => x.detachment_id === det.id || (det.enhancement_ids ?? []).includes(x.id));
     const codex = snap.enhancements.filter(e => e.detachment_id === d.id);
@@ -1390,6 +1603,16 @@ function overlayEnhancements(snap, data, factionId, SOURCE, log) {
       rec.legend = stripHtml(e.legend).trim();
       rec.source = SOURCE;
       delete rec.superseded_by_codex;
+      // 40kdc repeats a generic detachment's enhancements once per chapter
+      // copy of the detachment, under the SAME id (13 "artificer-armour-
+      // gladius-task-force" records): they are one enhancement — keep every
+      // copy identical rather than retiring the others.
+      for (const twin of owned) {
+        if (twin === rec || twin.id !== rec.id) continue;
+        for (const k of Object.keys(twin)) if (!(k in rec)) delete twin[k];
+        Object.assign(twin, structuredClone(rec));
+        used.add(twin);
+      }
       ids.push(rec.id);
       if (changes.length) log(`- ${det.id} / ${rec.id}: ${changes.join('; ')}`);
     }

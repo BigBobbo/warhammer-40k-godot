@@ -76,6 +76,23 @@ func enter_phase(state_snapshot: Dictionary) -> void:
 	# CustodesAbilities.gd, WP-C7): queued as event windows BEFORE the phase's
 	# own start rules, so the first window the phase opens resolves them first.
 	_ev_deferred.append_array(_cus11e_abilities().phase_start_entries(int(phase_type)))
+	# WP-S4: Space Wolves start-of-phase ability cards (Slayer's Oath, Headhunters,
+	# Healing Balms, High King of Fenris, Njal's psychic powers, Haywire Mine).
+	_ev_deferred.append_array(_sw11e_abilities().phase_start_entries(int(phase_type), _ev_deferred))
+	# WP-M2a: Codex: Space Marines (11e) start-of-phase enhancement cards (Auspex Triangulation Shrines, Damocles-class Uplink).
+	_ev_deferred.append_array(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").phase_start_entries(int(phase_type), _ev_deferred))
+	# WP-M2b: Codex: Space Marines (11e) Tactical Insight (doctrine sync) + Narthecis Gauntlet Command-phase card.
+	load("res://scripts/codex/space_marines/SMDetachmentsB.gd").on_phase_enter(int(phase_type))
+	_ev_deferred.append_array(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").phase_start_entries(int(phase_type), _ev_deferred))
+	# WP-M4b: Codex: Space Marines M4b start-of-phase ability cards (Strategic Acumen,
+	# Spiritual Leader, Rampart, Teleport Homer, Tigurius' / the Librarian's psychic
+	# powers, Haywire Mine, Signum Array) — SMAbilitiesB.gd.
+	_ev_deferred.append_array(load("res://scripts/codex/space_marines/SMAbilitiesB.gd").phase_start_entries(int(phase_type), _ev_deferred))
+	# WP-M4c: Space Marines (M4c datasheets) start-of-phase cards (Strategic Acumen, Narthecium,
+	# Master of Shadows, Seeker of the Unfound, Forgefather, Overlapping Destruction, Master Tactician).
+	_ev_deferred.append_array(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").phase_start_entries(int(phase_type), _ev_deferred))
+	# WP-M4a: Space Marines start-of-phase cards (Teleport Homer, Forward Assault Warsuit, Author of the Codex, Thunderous Force, Soul Sight, Omni-scramblers, Might of Heroes).
+	_ev_deferred.append_array(_sm11e_abilities_a().phase_start_entries(int(phase_type), _ev_deferred))
 	_on_phase_enter()
 	# (A phase that ended inside its own entry does not carry them over.)
 	var pm_now = get_node_or_null("/root/PhaseManager")
@@ -216,6 +233,16 @@ func execute_action(action: Dictionary) -> Dictionary:
 
 			# ISS-024: no refresh needed — the snapshot property reads
 			# live state.
+
+		# Codex: Space Marines (11e) MORTIS SNARES (SMCodex11e.gd): an enemy unit that ended a
+		# move within range of a snared objective (diffs already applied; recorded with the action).
+		if _ev_outer:
+			var sm11e_snare: Array = _sm11e_codex().on_action_applied(str(GameStateData.Phase.find_key(phase_type)).capitalize())
+			if not sm11e_snare.is_empty():
+				if result.get("changes", null) is Array:
+					result.changes.append_array(sm11e_snare)
+				else:
+					result["changes"] = sm11e_snare
 
 		# Units this action destroyed / battle-shocked open their event
 		# windows now (design §3: unit_destroyed, unit_battle_shocked,
@@ -491,6 +518,19 @@ static func _cus11e_codex():
 ## the phase_start window and the phases' passive hooks. Loaded lazily.
 static func _cus11e_abilities():
 	return load("res://scripts/codex/custodes/CustodesAbilities.gd")
+
+## Codex: Space Marines (11e) Space Wolves datasheet abilities (WP-S4,
+## SWAbilities11e.gd): the phase_start cards and the phases' passive hooks.
+static func _sw11e_abilities():
+	return load("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+
+## Codex: Space Marines (11e) generic detachment stratagems (WP-M3a) — loaded lazily.
+static func _sm11e_codex():
+	return load("res://scripts/codex/space_marines/SMCodex11e.gd")
+## WP-M4a: Codex: Space Marines (11e) generic datasheet abilities, M4a list
+## (SMAbilitiesA.gd): the phase_start cards and the phases' passive hooks.
+static func _sm11e_abilities_a():
+	return load("res://scripts/codex/space_marines/SMAbilitiesA.gd")
 
 ## Codex: Adeptus Custodes SUPERHUMAN FOCUS (WP-C5, CustodesCodex11e.gd): the
 ## phase_end window ("End of any phase", both players, active first). Called by
@@ -984,6 +1024,8 @@ func _window_events_begin(action: Dictionary) -> void:
 	_ev_depth += 1
 	if _ev_depth != 1:
 		return
+	# Codex: Space Marines (11e) MORTIS SNARES (SMCodex11e.gd): settled positions before the action.
+	_sm11e_codex().on_action_begin(str(action.get("type", "")))
 	# An action that names its own attacker (atomic SHOOT, Fire Overwatch)
 	# wins over the phase's selected unit: a unit can be selected (e.g. the
 	# shooting panel's auto-selected shooter) while another unit's atomic

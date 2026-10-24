@@ -195,6 +195,9 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 										keyword = keyword.strip_edges()
 										if keyword.length() > 0:
 											capacity_keywords.append(keyword)
+									# WP-M4c: "14 SPACE MARINES INFANTRY models" (generated army text for the printed
+									# "Adeptus Astartes Infantry") names the faction keyword ADEPTUS ASTARTES.
+									capacity_keywords = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").transport_capacity_keywords(capacity_keywords)
 
 									DebugLogger.debug("Parsed transport capacity keywords", {
 										"unit_id": unit_id,
@@ -258,6 +261,11 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 
 			# Apply wargear stat bonuses (e.g. Vexilla +1OC, 'Ard Case +2T)
 			_apply_wargear_stat_bonuses(unit_id, unit)
+			# WP-S4: Space Wolves Storm Shield (+1 W / 4+ InSv) and Blizzard Shield (4+ InSv) bearers.
+			load("res://scripts/codex/space_wolves/SWAbilities11e.gd").apply_list_build(unit_id, unit)
+			load("res://scripts/codex/space_marines/SMAbilitiesB.gd").apply_list_build(unit_id, unit)  # WP-M4b: Lieutenant Storm Shield, Impulsor Shield Dome / Orbital Comms Array
+			# WP-M4a: Relic Shield / Storm Shield (+1 W), Combat Shield (5+ InSv), default kits (SMAbilitiesA).
+			load("res://scripts/codex/space_marines/SMAbilitiesA.gd").apply_list_build(unit_id, unit)
 
 			# Issue #396: enhancement-driven stat bonuses (Da Biggest Boss +2W).
 			_apply_enhancement_stat_bonuses(unit_id, unit)
@@ -269,6 +277,9 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# Eagle's Eye +1 W, Shroud of the Hidden Blade (Stealth + Lone
 			# Operative), Emperor's Light / Auriferous Orb weapons (WP-C46).
 			_apply_custodes_codex_enhancements(unit_id, unit)
+			# Codex: Space Marines (11e) Space Wolves enhancements — A Giant Amongst Giants +2 W,
+			# Wolf-Touched WULFEN keyword (SWEnhancements11e.gd, WP-S2).
+			_apply_sw11e_enhancements(unit_id, unit, army_data)
 
 			# Speedwaaagh!: enhancement-driven WEAPON bonuses (Master Meknologist
 			# +1 BS to ranged weapons; Supa-burny Fuel killa jet Attacks changes).
@@ -667,6 +678,8 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 									keyword = keyword.strip_edges()
 									if keyword.length() > 0:
 										capacity_keywords.append(keyword)
+								# WP-M4c: SPACE MARINES / ADEPTUS ASTARTES are one faction keyword (see the primary parse site).
+								capacity_keywords = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").transport_capacity_keywords(capacity_keywords)
 
 								DebugLogger.debug("Parsed transport capacity keywords", {
 									"unit_id": unit_id,
@@ -724,6 +737,11 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 
 		# Apply wargear stat bonuses (e.g. Vexilla +1OC, 'Ard Case +2T)
 		_apply_wargear_stat_bonuses(unit_id, unit)
+		# WP-S4: Space Wolves Storm Shield / Blizzard Shield bearers (idempotent).
+		load("res://scripts/codex/space_wolves/SWAbilities11e.gd").apply_list_build(unit_id, unit)
+		load("res://scripts/codex/space_marines/SMAbilitiesB.gd").apply_list_build(unit_id, unit)  # WP-M4b: Lieutenant Storm Shield, Impulsor Shield Dome / Orbital Comms Array (idempotent)
+		# WP-M4a: Relic Shield / Storm Shield (+1 W), Combat Shield (5+ InSv), default kits (idempotent).
+		load("res://scripts/codex/space_marines/SMAbilitiesA.gd").apply_list_build(unit_id, unit)
 
 		# WP-O5: Codex: Orks (11e) enhancement list-build effects (cloud /
 		# browser-builder armies take this path, not load_army_list).
@@ -732,6 +750,7 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 		# army built in the browser builder and loaded from the cloud (WP-C46;
 		# idempotent — the same call as load_army_list's).
 		_apply_custodes_codex_enhancements(unit_id, unit)
+		_apply_sw11e_enhancements(unit_id, unit, army_data)  # Codex: Space Marines (11e) Space Wolves (WP-S2; idempotent)
 
 		# MA-1: Log model_profiles if present
 		if unit.has("meta") and unit.meta.has("model_profiles"):
@@ -1123,6 +1142,15 @@ func _apply_custodes_codex_enhancements(unit_id: String, unit: Dictionary) -> vo
 		return
 	for line in enh_script.apply_list_build(unit_id, unit):
 		print("ArmyListManager: Custodes enhancement — %s" % str(line))
+
+## Codex: Space Marines (11e) Space Wolves enhancements — list-build half (WP-S2).
+func _apply_sw11e_enhancements(unit_id: String, unit: Dictionary, army_data: Dictionary) -> void:
+	if GameConstants.edition < 11:
+		return
+	load("res://scripts/codex/space_wolves/SWEnhancements11e.gd").apply_list_build(unit_id, unit, load("res://scripts/codex/ArmyDetachments11e.gd").names_from_army(army_data))
+	# WP-M2a: Codex: Space Marines (11e) detachments A enhancements — Standard of the Emperor Ascendant,
+	# Artificer Armour, Redoubtable Machine Spirit (SMDetachmentsA.gd; idempotent).
+	load("res://scripts/codex/space_marines/SMDetachmentsA.gd").apply_list_build(unit_id, unit, load("res://scripts/codex/ArmyDetachments11e.gd").names_from_army(army_data))
 
 func _apply_enhancement_granted_abilities(unit_id: String, unit: Dictionary) -> void:
 	"""Append enhancement-granted abilities/keywords to the unit's meta lists
@@ -1762,6 +1790,11 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 	if _ork11e_enh().owns_army_validation(army_data):
 		result.warnings.append_array(_ork11e_enh().validate_army(army_data).warnings)
 
+	# Codex: Space Marines (11e) Space Wolves — SONS OF RUSS (no APOTHECARY units) and the
+	# Saga of the Great Wolf restriction (no other Chapter's units) (SWArmyRules11e / SWDetachments11e, WP-S2).
+	for sw11e_err in _sw11e_army_problems(army_data):
+		result.errors.append(sw11e_err)
+
 	# --- Detachments (core rules 25.03/25.04): DP pool (Incursion 2, Strike
 	# Force 3; a lone 3 DP detachment is allowed at Incursion), no two sharing
 	# a tag, and the Force Disposition must be one the detachments give. ---
@@ -1775,6 +1808,14 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 
 	result.valid = result.errors.is_empty()
 	return result
+
+## Codex: Space Marines (11e) Space Wolves army-construction problems (WP-S2):
+## Sons of Russ + the Saga of the Great Wolf chapter restriction.
+func _sw11e_army_problems(army_data: Dictionary) -> Array:
+	var out: Array = []
+	out.append_array(load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").validate_army(army_data).errors)
+	out.append_array(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").validate_army(army_data).errors)
+	return out
 
 ## WP-C46 x WP-O5: faction modules that own their army's enhancement
 ## validation (e.g. OrkEnhancements11e.owns_army_validation(army) for codex Ork
@@ -1923,6 +1964,11 @@ func validate_army_construction_points(army_data: Dictionary) -> Dictionary:
 					declared_points, str(STANDARD_GAME_SIZES)
 				]
 			)
+
+	# Codex: Space Marines (11e) Space Wolves army restrictions (WP-S2) — advisory at load.
+	if GameConstants.edition >= 11:
+		for sw11e_w in _sw11e_army_problems(army_data):
+			result.warnings.append(sw11e_w)
 
 	# Log the validation summary
 	print("ArmyListManager: Army construction validation for '%s':" % faction_name)

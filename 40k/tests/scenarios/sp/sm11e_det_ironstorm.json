@@ -1,0 +1,194 @@
+{
+  "id": "sm11e_det_ironstorm",
+  "covers": [
+    "codex.space_marines.detachment.ironstorm_spearhead.auto_targeters",
+    "codex.space_marines.enhancements.redoubtable_machine_spirit",
+    "codex.space_marines.SMDetachmentsA",
+    "rules.reroll.one_hit_roll",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Ironstorm Spearhead (WP-M2a). Fixture sm11e_m2a_marines_active (P1 took all seven WP-M2a detachments). (1) REDOUBTABLE MACHINE SPIRIT: setup privilege — the Repulsor (the bearer) has lost 3 wounds; a REAL click on End Command Phase heals 1 (Game Log). (2) IRONSTORM AUTO-TARGETERS: Shooting phase (P2 at 0 CP); the Impulsor (ADEPTUS ASTARTES VEHICLE, not a WALKER) shoots the Gretchin with its storm bolters (the shooting panel's SHOOT): a failed hit die is re-rolled once — the hit dice block's modifier ledger names 'Ironstorm Auto-targeters'. The post-shot COMBINED DEPLOYMENT card (Gauntlet, not under test here) is declined.",
+  "fixture": "sm11e_m2a_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = GameState.state.units[\"U_REPULSOR_A\"].models[0]\nm[\"current_wounds\"] = int(m.wounds) - 3\nreturn int(m.current_wounds)",
+      "comment": "setup privilege: the Repulsor has lost 3 wounds",
+      "expect_min": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/SW11eDoctrinesBox/SW11eDoctrine_skip",
+      "comment": "no doctrine this turn (REAL click)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/EndCommandPhaseButton",
+      "comment": "REAL click: End Command Phase",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return GameState.get_current_phase() == 7",
+      "equals": true,
+      "timeout_s": 8.0,
+      "poll_s": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = GameState.state.units[\"U_REPULSOR_A\"].models[0]\nreturn int(m.wounds) - int(m.current_wounds)",
+      "comment": "Redoubtable Machine Spirit healed 1 wound (3 lost -> 2)",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"Redoubtable Machine Spirit\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_redoubtable_machine_spirit_healed"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions — not under test), auto wound allocation",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the Shooting phase",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "shooting phase_start (Auspex Triangulation Shrines card — not under test) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(30.000000, 42.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.000000, 1.000000)\nm.view_zoom = 1.000000\nm.view_offset = focus - vp / (2.0 * 1.000000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.shoot(1, \"U_IMPULSOR_A\", \"U_GRETCHIN_C\", \"storm\", 11)",
+      "comment": "the Impulsor shoots the Gretchin (the shooting panel's SHOOT)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "integration: the detachment's WP-M3a stratagems now open unit_selected_to_shoot first — declined (not under test); the held action then applies",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.has_pending_stratagem_window() and str(ph.get_pending_stratagem_window().get(\"window_id\", \"\")) == \"unit_selected_to_shoot\":\n\tvar w = ph.get_pending_stratagem_window()\n\tph.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": \"unit_selected_to_shoot\"})\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar found = false\nfor b in H.phase().dice_log:\n\tif typeof(b) == TYPE_DICTIONARY:\n\t\tvar t = JSON.stringify(b)\n\t\tif t.contains(\"Ironstorm Auto-targeters\"):\n\t\t\tprint(\"[sm11e scen] ironstorm block: \", t.substr(0, 500))\n\t\t\tfound = true\nreturn found",
+      "comment": "a hit / wound die re-rolled by Ironstorm Auto-targeters (named in the dice log)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_ironstorm_reroll_in_dice_log"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "COMBINED DEPLOYMENT card (not under test here) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sm11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

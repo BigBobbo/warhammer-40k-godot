@@ -1,0 +1,247 @@
+{
+  "id": "sm11e_det_gauntlet",
+  "covers": [
+    "codex.space_marines.detachment.gauntlet_task_force.combined_deployment",
+    "codex.space_marines.enhancements.damocles_class_uplink",
+    "stratagem.window.unit_has_shot",
+    "stratagem.window.phase_start",
+    "dialogs.StratagemDialog.rule_card",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Gauntlet Task Force (WP-M2a). Fixture sm11e_m2a_marines_active (the Captain in Phobos Armour with DAMOCLES-CLASS UPLINK is embarked in the Rhino). (1) Movement phase: the phase_start window shows the free DAMOCLES-CLASS UPLINK card with one button per (INFANTRY unit within 6\" of the Rhino, doctrine); a REAL click on 'Intercessor Squad: Assault Doctrine' makes the assault doctrine active for the Intercessors (per-unit doctrine). (2) Shooting phase (P2 at 0 CP): the Impulsor (TRANSPORT) shoots the Deff Dread; the unit_has_shot window shows the free COMBINED DEPLOYMENT card; a REAL click on Use + a REAL click on the Deff Dread in the picker: it is assailed until the end of the turn, and an ADEPTUS ASTARTES unit that disembarked this turn gets [SUSTAINED HITS 1] against it.",
+  "fixture": "sm11e_m2a_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions — not under test), auto wound allocation",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the Movement phase",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "phase_start"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_damocles_uplink/Buttons/Use_sm11e_rule_damocles_uplink_U_INTERCESSOR_SQUAD_A_assault",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(25.000000, 46.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.200000, 1.200000)\nm.view_zoom = 1.200000\nm.view_offset = focus - vp / (2.0 * 1.200000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_damocles_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_damocles_uplink/Buttons/Use_sm11e_rule_damocles_uplink_U_INTERCESSOR_SQUAD_A_assault",
+      "comment": "REAL click: Intercessor Squad — Assault Doctrine"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_INTERCESSOR_SQUAD_A.flags.sw11e_doctrine",
+      "equals": "assault"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return load(\"res://scripts/codex/space_wolves/SWCommon.gd\").doctrine_active_id(\"U_INTERCESSOR_SQUAD_A\", \"assault\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"DAMOCLES-CLASS UPLINK\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_damocles_assault_for_intercessors"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the Shooting phase",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "shooting phase_start (Auspex card — not under test here) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(35.000000, 38.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.000000, 1.000000)\nm.view_zoom = 1.000000\nm.view_offset = focus - vp / (2.0 * 1.000000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.shoot(1, \"U_IMPULSOR_A\", \"U_DEFF_DREAD_A\", \"storm_bolter\", 5)",
+      "comment": "the Impulsor shoots the Deff Dread (the shooting panel's SHOOT)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "integration: Gladius stratagems (WP-M3a) now open unit_selected_to_shoot first — decline it (not under test), then the shot resolves",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar ph = H.phase()\nif H.window_id() != \"unit_selected_to_shoot\":\n\treturn true\nvar w = ph.get_pending_stratagem_window()\nph.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": \"unit_selected_to_shoot\"})\nif H.window_id() == \"unit_has_shot\":\n\treturn true\nreturn H.shoot(1, \"U_IMPULSOR_A\", \"U_DEFF_DREAD_A\", \"storm_bolter\", 5)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_has_shot"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_combined_deployment/Buttons/Use_sm11e_rule_combined_deployment_U_IMPULSOR_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_combined_deployment_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_combined_deployment/Buttons/Use_sm11e_rule_combined_deployment_U_IMPULSOR_A",
+      "comment": "REAL click on Use"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_DEFF_DREAD_A",
+      "comment": "REAL click: the Deff Dread"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var D = load(\"res://scripts/codex/space_marines/SMDetachmentsA.gd\")\nreturn str(GameState.state.units[\"U_DEFF_DREAD_A\"].flags.get(D.F_ASSAILED, \"\")) == D.turn_stamp()",
+      "comment": "the Deff Dread is assailed this turn",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.units[\"U_INTERCESSOR_SQUAD_A\"].flags[\"disembarked_this_turn\"] = true\nvar m = RulesEngine.ork11e_ab_mods(GameState.state.units[\"U_INTERCESSOR_SQUAD_A\"], GameState.state.units[\"U_DEFF_DREAD_A\"], {\"name\": \"x\"}, false, GameState.state)\nreturn int(m.get(\"sustained\", 0))",
+      "comment": "a unit that disembarked this turn: [SUSTAINED HITS 1] vs the assailed Deff Dread (setup privilege: the disembark marker)",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"COMBINED DEPLOYMENT\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "04_deff_dread_assailed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sm11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

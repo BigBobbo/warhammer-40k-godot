@@ -340,30 +340,31 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
   "name": "Gladius Task Force",
   "faction_id": "adeptus-astartes",
-  "detachment_rule_id": "combat-doctrines",
+  "detachment_rule_id": "codex-discipline-gladius-task-force",
   "enhancement_ids": [
-   "artificer-armour-gladius-task-force",
-   "the-honour-vehement-gladius-task-force",
+   "standard-of-the-emperor-ascendant-gladius-task-force",
+   "laurels-of-triumph-gladius-task-force",
    "adept-of-the-codex-gladius-task-force",
-   "fire-discipline-gladius-task-force"
+   "artificer-armour-gladius-task-force"
   ],
   "stratagem_ids": [
-   "armour-of-contempt-1st-company-task-force",
-   "honour-the-chapter-gladius-task-force",
-   "storm-of-fire-gladius-task-force",
-   "only-in-death-does-duty-end-gladius-task-force",
-   "adaptive-strategy-gladius-task-force",
-   "squad-tactics-gladius-task-force"
+   "storm-of-devastation-gladius-task-force",
+   "responsive-tactics-gladius-task-force",
+   "a-worthy-death-gladius-task-force",
+   "armour-of-contempt-gladius-task-force",
+   "might-of-angels-gladius-task-force",
+   "adaptive-strategy-gladius-task-force"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
   "detachment_points": 3,
   "force_dispositions": [
@@ -374,41 +375,38 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
   "name": "Stormlance Task Force",
   "faction_id": "adeptus-astartes",
-  "detachment_rule_id": "lightning-assault",
+  "detachment_rule_id": "lightning-fast-strike-stormlance-task-force",
   "enhancement_ids": [
-   "fury-of-the-storm-stormlance-task-force",
-   "portents-of-wisdom-stormlance-task-force",
-   "feinting-withdrawal-stormlance-task-force",
-   "hunters-instincts-stormlance-task-force"
+   "supercharged-engines-stormlance-task-force",
+   "auspex-triangulation-shrines-stormlance-task-force"
   ],
   "stratagem_ids": [
-   "armour-of-contempt-1st-company-task-force",
-   "blitzing-fusillade-stormlance-task-force",
-   "shock-assault-stormlance-task-force",
-   "ride-hard-ride-fast-stormlance-task-force",
    "wind-swift-evasion-stormlance-task-force",
-   "full-throttle-stormlance-task-force"
+   "sudden-onslaught-stormlance-task-force",
+   "hurtling-targets-stormlance-task-force"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "detachment_points": 3,
+  "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
   ],
   "external_refs": [
    {
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -436,7 +434,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -470,7 +469,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -503,7 +503,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -537,7 +538,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -571,41 +573,38 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
   "name": "Ironstorm Spearhead",
   "faction_id": "adeptus-astartes",
-  "detachment_rule_id": "armoured-wrath",
+  "detachment_rule_id": "ironstorm-auto-targeters-ironstorm-spearhead",
   "enhancement_ids": [
-   "target-augury-web-ironstorm-spearhead",
-   "the-flesh-is-weak-ironstorm-spearhead",
-   "adept-of-the-omnissiah-ironstorm-spearhead",
-   "master-of-machine-war-ironstorm-spearhead"
+   "redoubtable-machine-spirit-ironstorm-spearhead",
+   "gunnery-honours-ironstorm-spearhead"
   ],
   "stratagem_ids": [
-   "unbowed-conviction-ironstorm-spearhead",
-   "armour-of-contempt-1st-company-task-force",
-   "mercy-is-weakness-ironstorm-spearhead",
-   "vengeful-animus-ironstorm-spearhead",
-   "ancient-fury-ironstorm-spearhead",
-   "power-of-the-machine-spirit-ironstorm-spearhead"
+   "might-of-the-machine-spirit-ironstorm-spearhead",
+   "layered-ceramite-ironstorm-spearhead",
+   "headhunter-doctrine-ironstorm-spearhead"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "detachment_points": 2,
+  "detachment_points": 1,
   "force_dispositions": [
-   "take-and-hold"
+   "purge-the-foe"
   ],
   "external_refs": [
    {
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -634,7 +633,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -663,7 +663,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -697,7 +698,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -731,7 +733,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -799,7 +802,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "assault-force",
@@ -848,6 +852,294 @@
     "namespace": "mfm",
     "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
    }
+  ]
+ },
+ {
+  "id": "gauntlet-task-force",
+  "name": "Gauntlet Task Force",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "combined-deployment-gauntlet-task-force",
+  "stratagem_ids": [
+   "duty-is-never-done-gauntlet-task-force",
+   "storm-and-secure-gauntlet-task-force",
+   "aggressive-disembarkation-gauntlet-task-force"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "reconnaissance"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "linebreaker-onslaught-gauntlet-task-force",
+   "damocles-class-uplink-gauntlet-task-force"
+  ]
+ },
+ {
+  "id": "phobos-shadow-force",
+  "name": "Phobos Shadow Force",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "shadow-masters-phobos-shadow-force",
+  "stratagem_ids": [
+   "tactical-withdrawal-phobos-shadow-force",
+   "mortis-snares-phobos-shadow-force",
+   "strike-from-the-shadows-phobos-shadow-force"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "disruption"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "venator-omni-auspex-phobos-shadow-force",
+   "execute-and-redeploy-phobos-shadow-force"
+  ]
+ },
+ {
+  "id": "tacticus-attack-force",
+  "name": "Tacticus Attack Force",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "wrath-of-the-chapter-tacticus-attack-force",
+  "stratagem_ids": [
+   "tactical-focus-tacticus-attack-force",
+   "relentless-assault-tacticus-attack-force",
+   "transhuman-swiftness-tacticus-attack-force"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "martial-paragon-tacticus-attack-force",
+   "spearpoint-war-leader-tacticus-attack-force"
+  ]
+ },
+ {
+  "id": "phobos-shock-force",
+  "name": "Phobos Shock Force",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "vanguard-ambushers-phobos-shock-force",
+  "stratagem_ids": [
+   "strike-from-the-shadows-phobos-shock-force",
+   "transhuman-reactions-phobos-shock-force",
+   "umbral-evasion-phobos-shock-force"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "disruption"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "seal-of-shrouding-phobos-shock-force",
+   "venator-omni-auspex-phobos-shock-force"
+  ]
+ },
+ {
+  "id": "terminator-storm-force",
+  "name": "Terminator Storm Force",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "death-blow-terminator-storm-force",
+  "stratagem_ids": [
+   "tactical-dreadnought-fortitude-terminator-storm-force",
+   "merciless-veterans-terminator-storm-force",
+   "gunship-extraction-terminator-storm-force"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "priority-assets"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "champion-of-the-first-company-terminator-storm-force",
+   "corporeum-reliquary-terminator-storm-force"
+  ]
+ },
+ {
+  "id": "assault-brethren",
+  "name": "Assault Brethren",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "assault-mastery-assault-brethren",
+  "stratagem_ids": [
+   "armour-of-contempt-assault-brethren",
+   "duty-in-death-assault-brethren",
+   "gene-wrought-might-assault-brethren"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "imperiums-sword-assault-brethren",
+   "furious-assault-assault-brethren"
+  ]
+ },
+ {
+  "id": "gravis-linebreaker-force",
+  "name": "Gravis Linebreaker Force",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "walking-fortress-gravis-linebreaker-force",
+  "stratagem_ids": [
+   "armoured-impact-gravis-linebreaker-force",
+   "annihilating-force-gravis-linebreaker-force",
+   "purgation-push-gravis-linebreaker-force"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "indefatigable-fortitude-gravis-linebreaker-force",
+   "relentless-advance-gravis-linebreaker-force"
+  ]
+ },
+ {
+  "id": "devastator-brethren",
+  "name": "Devastator Brethren",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "devastator-mastery-devastator-brethren",
+  "stratagem_ids": [
+   "armour-of-contempt-devastator-brethren",
+   "hail-of-vengeance-devastator-brethren",
+   "storm-of-fire-devastator-brethren"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "master-forged-firearms-devastator-brethren",
+   "honour-of-vigilance-devastator-brethren"
+  ]
+ },
+ {
+  "id": "gravis-siege-force",
+  "name": "Gravis Siege Force",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "indomitable-defence-gravis-siege-force",
+  "stratagem_ids": [
+   "suppression-volleys-gravis-siege-force",
+   "stand-unyielding-gravis-siege-force",
+   "annihilating-force-gravis-siege-force"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "immovable-conquerors-gravis-siege-force",
+   "narthecis-gauntlet-gravis-siege-force"
+  ]
+ },
+ {
+  "id": "tactical-brethren",
+  "name": "Tactical Brethren",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "tactical-mastery-tactical-brethren",
+  "stratagem_ids": [
+   "armour-of-contempt-tactical-brethren",
+   "domination-fire-tactical-brethren",
+   "masterful-tactics-tactical-brethren"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "priority-assets"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "laurels-of-vigilance-tactical-brethren",
+   "tactical-insight-tactical-brethren"
+  ]
+ },
+ {
+  "id": "ironclad-champions",
+  "name": "Ironclad Champions",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "enduring-vengeance-ironclad-champions",
+  "stratagem_ids": [
+   "adamantine-terror-ironclad-champions",
+   "upstoppable-advance-ironclad-champions",
+   "mercy-is-weakness-ironclad-champions"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "priority-assets"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "artificer-sarcophagus-ironclad-champions",
+   "venerable-champion-aura-ironclad-champions"
+  ]
+ },
+ {
+  "id": "tacticus-firestorm-force",
+  "name": "Tacticus Firestorm Force",
+  "faction_id": "adeptus-astartes",
+  "detachment_rule_id": "codex-fire-patterns-tacticus-firestorm-force",
+  "stratagem_ids": [
+   "point-blank-brutality-tacticus-firestorm-force",
+   "for-the-emperor-tacticus-firestorm-force",
+   "relentless-assault-tacticus-firestorm-force"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "priority-assets"
+  ],
+  "source": "wahapedia-11e@2026-10-21",
+  "enhancement_ids": [
+   "cyber-familiar-tacticus-firestorm-force",
+   "tempered-in-battle-aura-tacticus-firestorm-force"
   ]
  },
  {
@@ -3131,7 +3423,8 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -3165,7 +3458,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -3199,7 +3493,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -3221,7 +3516,8 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -3255,7 +3551,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -3288,7 +3585,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -3322,7 +3620,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -3356,7 +3655,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -3390,7 +3690,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -3419,7 +3720,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -3448,7 +3750,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -3482,7 +3785,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -3516,7 +3820,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -3583,7 +3888,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vow-sworn-of-vedrenn",
@@ -3933,7 +4239,8 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -3967,7 +4274,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -4001,7 +4309,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -4029,7 +4338,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -4063,7 +4373,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -4096,7 +4407,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -4130,7 +4442,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -4164,7 +4477,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -4198,7 +4512,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -4227,7 +4542,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -4256,7 +4572,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -4290,7 +4607,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -4324,7 +4642,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -4391,7 +4710,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "sanguinary-spearhead",
@@ -5641,7 +5961,8 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -5668,7 +5989,8 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -5695,7 +6017,8 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -5717,7 +6040,8 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -5744,7 +6068,8 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -5771,7 +6096,8 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -5798,7 +6124,8 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -5825,7 +6152,8 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -5852,7 +6180,8 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -5875,7 +6204,8 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -5898,7 +6228,8 @@
   "detachment_points": 1,
   "force_dispositions": [
    "disruption"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -5925,7 +6256,8 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -5953,7 +6285,8 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -6006,7 +6339,8 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "inner-circle-task-force",
@@ -6298,7 +6632,8 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -6332,7 +6667,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -6366,7 +6702,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -6394,7 +6731,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -6428,7 +6766,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -6461,7 +6800,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -6495,7 +6835,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -6529,7 +6870,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -6563,7 +6905,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -6592,7 +6935,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -6621,7 +6965,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -6655,7 +7000,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -6689,7 +7035,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -6756,7 +7103,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-vengeful-brethren",
@@ -7191,7 +7539,8 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -7225,7 +7574,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -7259,7 +7609,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -7287,7 +7638,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -7321,7 +7673,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -7354,7 +7707,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -7388,7 +7742,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -7422,7 +7777,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -7456,7 +7812,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -7485,7 +7842,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -7514,7 +7872,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -7548,7 +7907,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -7582,7 +7942,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -7649,7 +8010,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vengeful-hosts",
@@ -9086,7 +9448,8 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -9120,7 +9483,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -9154,7 +9518,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -9182,7 +9547,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -9216,7 +9582,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -9249,7 +9616,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -9283,7 +9651,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -9317,7 +9686,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -9351,7 +9721,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -9380,7 +9751,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -9409,7 +9781,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -9443,7 +9816,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -9477,7 +9851,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -9544,7 +9919,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vengeful-hosts",
@@ -9909,7 +10285,8 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -9943,7 +10320,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -9977,7 +10355,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -10005,7 +10384,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -10039,7 +10419,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -10072,7 +10453,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -10106,7 +10488,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -10140,7 +10523,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -10174,7 +10558,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -10203,7 +10588,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -10232,7 +10618,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -10266,7 +10653,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -10300,7 +10688,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -10367,7 +10756,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vengeful-hosts",
@@ -11697,7 +12087,8 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -11731,7 +12122,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -11765,7 +12157,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -11793,7 +12186,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -11827,7 +12221,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -11860,7 +12255,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -11894,7 +12290,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -11928,7 +12325,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -11962,7 +12360,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -11991,7 +12390,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -12020,7 +12420,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -12054,7 +12455,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -12088,7 +12490,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -12155,7 +12558,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vengeful-hosts",
@@ -12248,7 +12652,8 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -12282,7 +12687,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -12316,7 +12722,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -12344,7 +12751,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -12378,7 +12786,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -12411,7 +12820,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -12445,7 +12855,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -12479,7 +12890,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -12513,7 +12925,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -12542,7 +12955,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -12571,7 +12985,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -12605,7 +13020,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -12639,7 +13055,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -12706,7 +13123,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vengeful-hosts",
@@ -12732,26 +13150,21 @@
   "id": "saga-of-the-beastslayer",
   "name": "Saga of the Beastslayer",
   "faction_id": "space-wolves",
-  "detachment_rule_id": null,
+  "detachment_rule_id": "legendary-slayers-saga-of-the-beastslayer",
   "enhancement_ids": [
-   "wolf-touched-saga-of-the-beastslayer",
    "hunters-guile-saga-of-the-beastslayer",
-   "elders-guidance-saga-of-the-beastslayer",
-   "helm-of-the-beastslayer-saga-of-the-beastslayer"
+   "wolf-touched-saga-of-the-beastslayer"
   ],
   "stratagem_ids": [
    "unbridled-ferocity-saga-of-the-beastslayer",
-   "shock-cavalry-saga-of-the-beastslayer",
-   "pinning-fire-saga-of-the-beastslayer",
-   "thunderous-pursuit-saga-of-the-beastslayer",
-   "impetuosity-saga-of-the-beastslayer",
-   "coordinated-strike-saga-of-the-beastslayer"
+   "co-ordinated-strike-saga-of-the-beastslayer",
+   "impetuosity-saga-of-the-beastslayer"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "detachment_points": 2,
+  "detachment_points": 1,
   "force_dispositions": [
    "purge-the-foe"
   ],
@@ -12760,25 +13173,26 @@
     "namespace": "mfm",
     "id": "41547c19-336b-4ea9-8161-bdbc8cb68343"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "champions-of-fenris",
   "name": "Champions of Fenris",
   "faction_id": "space-wolves",
-  "detachment_rule_id": null,
+  "detachment_rule_id": "the-great-wolf-watches-champions-of-fenris",
   "enhancement_ids": [
-   "a-giant-amongst-giants-champions-of-fenris",
-   "preyslayer-champions-of-fenris"
+   "preyslayer-champions-of-fenris",
+   "a-giant-amongst-giants-champions-of-fenris"
   ],
   "stratagem_ids": [
-   "wolf-totems-champions-of-fenris",
-   "runes-of-claiming-champions-of-fenris",
-   "stalk-between-worlds-champions-of-fenris"
+   "birth-of-a-saga-champions-of-fenris",
+   "heroic-resolve-champions-of-fenris",
+   "champions-guidance-champions-of-fenris"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
   "detachment_points": 1,
   "force_dispositions": [
@@ -12789,7 +13203,8 @@
     "namespace": "mfm",
     "id": "cbfdd62b-fa52-4689-835b-0b881bb978fb"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "saga-of-the-hunter",
@@ -12823,31 +13238,31 @@
     "namespace": "mfm",
     "id": "a6359296-90bd-4ec0-a70d-87813eaf9da9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "saga-of-the-great-wolf",
   "name": "Saga of the Great Wolf",
   "faction_id": "space-wolves",
-  "detachment_rule_id": null,
+  "detachment_rule_id": "master-of-wolves-saga-of-the-great-wolf",
   "enhancement_ids": [
-   "grimnars-mark-saga-of-the-great-wolf",
-   "howling-onslaught-saga-of-the-great-wolf",
    "howlmaw-saga-of-the-great-wolf",
+   "grimnars-mark-saga-of-the-great-wolf",
    "chariots-of-the-storm-saga-of-the-great-wolf",
    "skjalds-foretelling-saga-of-the-great-wolf"
   ],
   "stratagem_ids": [
-   "the-foe-foreseen-saga-of-the-great-wolf",
-   "unrelenting-hunters-saga-of-the-great-wolf",
-   "grimnars-command-saga-of-the-great-wolf",
-   "eye-of-the-pack-saga-of-the-great-wolf",
    "battle-instincts-saga-of-the-great-wolf",
-   "fenrisian-ferocity-saga-of-the-great-wolf"
+   "grimnars-command-saga-of-the-great-wolf",
+   "fenrisian-ferocity-saga-of-the-great-wolf",
+   "fangs-of-the-pack-saga-of-the-great-wolf",
+   "wolf-totems-saga-of-the-great-wolf",
+   "eye-of-the-pack-saga-of-the-great-wolf"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
   "detachment_points": 2,
   "force_dispositions": [
@@ -12858,7 +13273,8 @@
     "namespace": "mfm",
     "id": "d8b12845-85b4-48db-8565-4771287a2fa7"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "saga-of-the-bold",
@@ -12892,7 +13308,8 @@
     "namespace": "mfm",
     "id": "fc3194f8-b96f-4158-9380-693ae00db4db"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "legends-of-saga-and-song",
@@ -12921,7 +13338,8 @@
     "namespace": "mfm",
     "id": "0bb425be-1dff-4825-96ba-704523da27c4"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "veterans-of-the-fang",
@@ -12950,7 +13368,8 @@
     "namespace": "mfm",
     "id": "74c4b04a-de7a-41a5-b015-97803080bf87"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "1st-company-task-force",
@@ -12984,7 +13403,8 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -13018,7 +13438,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -13052,7 +13473,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -13080,7 +13502,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -13114,7 +13537,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -13147,7 +13571,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -13181,7 +13606,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -13215,7 +13641,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -13249,7 +13676,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -13278,7 +13706,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -13307,7 +13736,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -13341,7 +13771,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -13375,7 +13806,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -13442,7 +13874,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "askars-wolfpack",
@@ -14568,7 +15001,8 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -14602,7 +15036,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -14636,7 +15071,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -14664,7 +15100,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -14698,7 +15135,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -14731,7 +15169,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -14765,7 +15204,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -14799,7 +15239,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -14833,7 +15274,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -14862,7 +15304,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -14891,7 +15334,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -14925,7 +15369,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -14959,7 +15404,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -15026,7 +15472,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vengeful-hosts",
@@ -15119,7 +15566,8 @@
     "namespace": "mfm",
     "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "gladius-task-force",
@@ -15153,7 +15601,8 @@
     "namespace": "mfm",
     "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "stormlance-task-force",
@@ -15187,7 +15636,8 @@
     "namespace": "mfm",
     "id": "0854459d-3909-4621-8073-46d54d1a0464"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "librarius-conclave",
@@ -15215,7 +15665,8 @@
     "namespace": "mfm",
     "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vanguard-spearhead",
@@ -15249,7 +15700,8 @@
     "namespace": "mfm",
     "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "orbital-assault-force",
@@ -15282,7 +15734,8 @@
     "namespace": "mfm",
     "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "anvil-siege-force",
@@ -15316,7 +15769,8 @@
     "namespace": "mfm",
     "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "firestorm-assault-force",
@@ -15350,7 +15804,8 @@
     "namespace": "mfm",
     "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ironstorm-spearhead",
@@ -15384,7 +15839,8 @@
     "namespace": "mfm",
     "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fulguris-task-force",
@@ -15413,7 +15869,8 @@
     "namespace": "mfm",
     "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "subversion-assets",
@@ -15442,7 +15899,8 @@
     "namespace": "mfm",
     "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "armoured-speartip",
@@ -15476,7 +15934,8 @@
     "namespace": "mfm",
     "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bastion-task-force",
@@ -15510,7 +15969,8 @@
     "namespace": "mfm",
     "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ceramite-sentinels",
@@ -15577,7 +16037,8 @@
     "namespace": "mfm",
     "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "vengeful-hosts",

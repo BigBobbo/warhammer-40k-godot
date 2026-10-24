@@ -54,6 +54,10 @@
    }
   ],
   "faction_rule_ids": [
+   "combat-doctrines"
+  ],
+  "source_codex": "wahapedia-11e@2026-10-21",
+  "retired_rule_ids": [
    "oath-of-moment"
   ]
  },
@@ -790,8 +794,9 @@
    }
   ],
   "faction_rule_ids": [
-   "oath-of-moment"
-  ]
+   "combat-doctrines"
+  ],
+  "source_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "tau-empire",

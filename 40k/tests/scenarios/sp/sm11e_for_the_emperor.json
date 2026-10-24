@@ -1,0 +1,163 @@
+{
+  "id": "sm11e_for_the_emperor",
+  "covers": [
+    "codex.space_marines.stratagems.for-the-emperor",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.command_phase_main",
+    "rules.objectives.oc"
+  ],
+  "description": "Codex: Space Marines (11e) FOR THE EMPEROR! (Tacticus Firestorm Force, 1 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). Real clicks on the phase action button and 'End Command Phase' open command_phase_main; FOR THE EMPEROR! is offered on the Assault Intercessors (TACTICUS, within range of obj_home_2), not on the Hellblasters (no objective in range); a real click spends 1 CP; every model of the unit has +1 OC (MissionManager.model_oc 2 -> 3) until the end of the turn.",
+  "fixture": "sm11e_m3b_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(24, 52, 1.1)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "hover_board_at",
+      "x": 1500.0,
+      "y": 300.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "button_text": "End Command Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.window_id()",
+      "equals": "command_phase_main"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tacticus_firestorm_force_for_the_emperor/Buttons/Use_faction_sm_tacticus_firestorm_force_for_the_emperor_U_ASSAULT_INTERCESSOR_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tacticus_firestorm_force_for_the_emperor/Buttons/Use_faction_sm_tacticus_firestorm_force_for_the_emperor_U_ASSAULT_INTERCESSOR_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.offered(\"faction_sm_tacticus_firestorm_force_for_the_emperor\").has(\"U_HELLBLASTER_SQUAD_A\")",
+      "comment": "not on a TACTICUS unit with no objective in range",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn int(MissionManager.model_oc(H.unit(\"U_ASSAULT_INTERCESSOR_SQUAD_A\"), H.unit(\"U_ASSAULT_INTERCESSOR_SQUAD_A\").models[0]))",
+      "comment": "OC per model before",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_for_the_emperor_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tacticus_firestorm_force_for_the_emperor/Buttons/Use_faction_sm_tacticus_firestorm_force_for_the_emperor_U_ASSAULT_INTERCESSOR_SQUAD_A",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn int(MissionManager.model_oc(H.unit(\"U_ASSAULT_INTERCESSOR_SQUAD_A\"), H.unit(\"U_ASSAULT_INTERCESSOR_SQUAD_A\").models[0]))",
+      "comment": "+1 OC per model until the end of the turn",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"Used FOR THE EMPEROR!\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_for_the_emperor_used"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    }
+  ]
+}

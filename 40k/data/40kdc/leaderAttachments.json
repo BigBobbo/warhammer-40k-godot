@@ -182,6 +182,7 @@
    "company-heroes",
    "infernus-squad",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "tactical-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -190,7 +191,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "ancient",
@@ -206,6 +208,7 @@
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "sword-brethren-squad",
    "tactical-squad"
   ],
@@ -215,7 +218,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "ancient-in-terminator-armour",
@@ -224,18 +228,21 @@
    "deathwing-knights",
    "deathwing-terminator-squad",
    "terminator-assault-squad",
-   "terminator-squad"
+   "terminator-squad",
+   "wolf-guard-terminators"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "apothecary",
   "eligible_bodyguard_ids": [
    "assault-intercessor-squad",
    "bladeguard-veteran-squad",
+   "company-heroes",
    "crusader-squad",
    "deathwatch-veterans",
    "decimus-kill-team",
@@ -246,6 +253,7 @@
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "sword-brethren-squad",
    "tactical-squad"
   ],
@@ -255,12 +263,15 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "apothecary-biologis",
   "eligible_bodyguard_ids": [
    "aggressor-squad",
+   "eradicator-squad-with-heavy-bolters",
+   "eradicator-squad-with-melta-rifles",
    "heavy-intercessor-squad",
    "indomitor-kill-team"
   ],
@@ -270,17 +281,21 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "arjac-rockfist",
   "eligible_bodyguard_ids": [
+   "terminator-assault-squad",
+   "terminator-squad",
    "wolf-guard-terminators"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "asmodai",
@@ -291,6 +306,7 @@
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "tactical-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -299,7 +315,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "astorath",
@@ -316,10 +333,12 @@
   "eligible_bodyguard_ids": [
    "assault-intercessor-squad",
    "bladeguard-veteran-squad",
+   "company-heroes",
    "hellblaster-squad",
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "tactical-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -328,7 +347,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "belial",
@@ -344,7 +364,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "bladeguard-ancient",
@@ -354,7 +375,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "blood-angels-captain",
@@ -363,6 +385,7 @@
    "company-heroes",
    "infernus-squad",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "tactical-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -371,7 +394,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "caanok-var",
@@ -385,7 +409,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "captain",
@@ -396,11 +421,13 @@
    "crusader-squad",
    "deathwatch-veterans",
    "decimus-kill-team",
+   "desolation-squad",
    "fortis-kill-team",
    "hellblaster-squad",
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "sword-brethren-squad",
    "tactical-squad",
    "victrix-honour-guard"
@@ -411,12 +438,15 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "captain-in-gravis-armour",
   "eligible_bodyguard_ids": [
    "aggressor-squad",
+   "eradicator-squad-with-heavy-bolters",
+   "eradicator-squad-with-melta-rifles",
    "heavy-intercessor-squad",
    "indomitor-kill-team"
   ],
@@ -426,7 +456,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "captain-in-phobos-armour",
@@ -436,12 +467,14 @@
    "infiltrator-squad",
    "reiver-squad",
    "scout-squad",
-   "spectrus-kill-team"
+   "spectrus-kill-team",
+   "wolf-scouts"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "captain-in-terminator-armour",
@@ -449,7 +482,9 @@
    "deathwatch-terminator-squad",
    "deathwing-knights",
    "deathwing-terminator-squad",
-   "terminator-assault-squad"
+   "terminator-assault-squad",
+   "terminator-squad",
+   "wolf-guard-terminators"
   ],
   "eligible_bodyguard_keywords": [
    "Terminator Squad"
@@ -457,19 +492,18 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "captain-titus",
   "eligible_bodyguard_ids": [
    "assault-intercessor-squad",
    "bladeguard-veteran-squad",
-   "company-heroes",
    "hellblaster-squad",
    "infernus-squad",
    "intercessor-squad",
-   "victrix-honour-guard",
-   "wardens-of-ultramar"
+   "sternguard-veteran-squad"
   ],
   "eligible_bodyguard_keywords": [
    "Sternguard Veteran Squad"
@@ -477,7 +511,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "captain-with-jump-pack",
@@ -490,15 +525,19 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "castellan",
   "eligible_bodyguard_ids": [
    "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "company-heroes",
    "crusader-squad",
    "infernus-squad",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "sword-brethren-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -507,7 +546,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "cato-sicarius",
@@ -517,7 +557,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "chaplain",
@@ -534,6 +575,7 @@
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "sword-brethren-squad",
    "tactical-squad"
   ],
@@ -543,7 +585,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "chaplain-grimaldus",
@@ -557,7 +600,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "chaplain-in-terminator-armour",
@@ -565,7 +609,9 @@
    "deathwatch-terminator-squad",
    "deathwing-knights",
    "deathwing-terminator-squad",
-   "terminator-assault-squad"
+   "terminator-assault-squad",
+   "terminator-squad",
+   "wolf-guard-terminators"
   ],
   "eligible_bodyguard_keywords": [
    "Terminator Squad"
@@ -573,7 +619,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "chaplain-on-bike",
@@ -584,7 +631,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "chaplain-with-jump-pack",
@@ -597,7 +645,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "chief-librarian-tigurius",
@@ -606,7 +655,9 @@
    "bladeguard-veteran-squad",
    "desolation-squad",
    "devastator-squad",
+   "infernus-squad",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "tactical-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -615,7 +666,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "commander-dante",
@@ -627,7 +679,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "crusade-ancient",
@@ -652,7 +705,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "death-company-captain",
@@ -681,6 +735,7 @@
    "assault-intercessor-squad",
    "crusader-squad",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "sword-brethren-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -689,7 +744,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "execrator",
@@ -711,6 +767,7 @@
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "tactical-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -719,12 +776,15 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "high-marshal-helbrecht",
   "eligible_bodyguard_ids": [
    "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "company-heroes",
    "crusader-squad",
    "intercessor-squad",
    "sword-brethren-squad"
@@ -732,12 +792,15 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "iron-father-feirros",
   "eligible_bodyguard_ids": [
    "aggressor-squad",
+   "eradicator-squad-with-heavy-bolters",
+   "eradicator-squad-with-melta-rifles",
    "heavy-intercessor-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -746,19 +809,23 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "iron-priest",
   "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
    "blood-claws",
    "grey-hunters",
+   "intercessor-squad",
    "wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "judiciar",
@@ -772,6 +839,7 @@
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "sword-brethren-squad",
    "tactical-squad"
   ],
@@ -781,7 +849,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "kayvaan-shrike",
@@ -792,7 +861,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "korsarro-khan",
@@ -801,6 +871,7 @@
    "bladeguard-veteran-squad",
    "company-heroes",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "tactical-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -809,16 +880,19 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "lazarus",
   "eligible_bodyguard_ids": [
    "assault-intercessor-squad",
    "bladeguard-veteran-squad",
+   "company-heroes",
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "tactical-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -827,7 +901,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "lemartes",
@@ -852,6 +927,7 @@
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "tactical-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -860,7 +936,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "librarian-in-phobos-armour",
@@ -869,12 +946,15 @@
    "incursor-squad",
    "infiltrator-squad",
    "reiver-squad",
-   "spectrus-kill-team"
+   "scout-squad",
+   "spectrus-kill-team",
+   "wolf-scouts"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "librarian-in-terminator-armour",
@@ -882,7 +962,9 @@
    "deathwatch-terminator-squad",
    "deathwing-knights",
    "deathwing-terminator-squad",
-   "terminator-assault-squad"
+   "terminator-assault-squad",
+   "terminator-squad",
+   "wolf-guard-terminators"
   ],
   "eligible_bodyguard_keywords": [
    "Terminator Squad"
@@ -890,7 +972,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "lieutenant",
@@ -901,11 +984,13 @@
    "crusader-squad",
    "deathwatch-veterans",
    "decimus-kill-team",
+   "desolation-squad",
    "fortis-kill-team",
    "hellblaster-squad",
    "infernus-squad",
    "inner-circle-companions",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "sword-brethren-squad",
    "tactical-squad"
   ],
@@ -915,20 +1000,24 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "lieutenant-in-phobos-armour",
   "eligible_bodyguard_ids": [
+   "eliminator-squad",
    "incursor-squad",
    "infiltrator-squad",
    "reiver-squad",
-   "spectrus-kill-team"
+   "spectrus-kill-team",
+   "wolf-scouts"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "lieutenant-in-reiver-armour",
@@ -943,12 +1032,15 @@
  {
   "leader_id": "logan-grimnar",
   "eligible_bodyguard_ids": [
+   "terminator-assault-squad",
+   "terminator-squad",
    "wolf-guard-terminators"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "marneus-calgar-in-armour-of-antilochus",
@@ -979,9 +1071,11 @@
   "leader_id": "marshal",
   "eligible_bodyguard_ids": [
    "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
    "crusader-squad",
    "infernus-squad",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "sword-brethren-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -990,19 +1084,24 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "njal-stormcaller",
   "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
    "blood-claws",
    "grey-hunters",
+   "intercessor-squad",
    "wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "pedro-kantor",
@@ -1028,7 +1127,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "ravenwing-command-squad",
@@ -1039,7 +1139,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "sammael",
@@ -1050,18 +1151,21 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "sanguinary-priest",
   "eligible_bodyguard_ids": [
    "assault-intercessor-squad",
    "bladeguard-veteran-squad",
+   "company-heroes",
    "desolation-squad",
    "devastator-squad",
    "hellblaster-squad",
    "infernus-squad",
    "intercessor-squad",
+   "sternguard-veteran-squad",
    "tactical-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -1070,7 +1174,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "suboden-khan",
@@ -1080,7 +1185,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "techmarine",
@@ -1098,12 +1204,15 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "tor-garadon",
   "eligible_bodyguard_ids": [
    "aggressor-squad",
+   "eradicator-squad-with-heavy-bolters",
+   "eradicator-squad-with-melta-rifles",
    "heavy-intercessor-squad"
   ],
   "eligible_bodyguard_keywords": [
@@ -1112,19 +1221,24 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "ulrik-the-slayer",
   "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
    "blood-claws",
    "grey-hunters",
+   "intercessor-squad",
    "wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "uriel-ventris",
@@ -1148,21 +1262,25 @@
   "leader_id": "vulkan-hestan",
   "eligible_bodyguard_ids": [
    "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
    "company-heroes",
+   "eradicator-squad-with-melta-rifles",
    "infernus-squad",
    "tactical-squad"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "wardens-of-ultramar",
   "eligible_bodyguard_ids": [
    "assault-intercessor-squad",
    "bladeguard-veteran-squad",
-   "intercessor-squad"
+   "intercessor-squad",
+   "sternguard-veteran-squad"
   ],
   "eligible_bodyguard_keywords": [
    "Sternguard Veteran Squad"
@@ -1170,7 +1288,8 @@
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "watch-captain-artemis",
@@ -1199,26 +1318,34 @@
  {
   "leader_id": "wolf-guard-battle-leader",
   "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
    "blood-claws",
    "grey-hunters",
+   "intercessor-squad",
    "wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "wolf-priest",
   "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
    "blood-claws",
    "grey-hunters",
+   "intercessor-squad",
    "wolf-guard-headtakers"
   ],
   "game_version": {
    "edition": "11th",
    "dataslate": "launch"
-  }
+  },
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "leader_id": "aleya",
@@ -3712,5 +3839,54 @@
    "edition": "11th",
    "dataslate": "launch"
   }
+ },
+ {
+  "leader_id": "marneus-calgar",
+  "eligible_bodyguard_ids": [
+   "aggressor-squad",
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "company-heroes",
+   "eradicator-squad-with-heavy-bolters",
+   "eradicator-squad-with-melta-rifles",
+   "heavy-intercessor-squad",
+   "infernus-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "terminator-assault-squad",
+   "terminator-squad",
+   "victrix-honour-guard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "leader_id": "kaius-konorius",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "sternguard-veteran-squad",
+   "victrix-honour-guard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "leader_id": "captain-on-bike",
+  "eligible_bodyguard_ids": [
+   "outrider-squad",
+   "ravenwing-black-knights"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-21"
  }
 ]

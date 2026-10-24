@@ -1,0 +1,103 @@
+{
+  "id": "sw11e_ab_wargear_shields",
+  "covers": [
+    "codex.space_wolves.wargear_abilities.storm_shield",
+    "codex.space_wolves.wargear_abilities.blizzard_shield",
+    "scripts.codex.space_wolves.SWAbilities11e",
+    "autoloads.ArmyListManager",
+    "scripts.TokenVisual"
+  ],
+  "description": "WP-S4 Space Wolves STORM SHIELD and BLIZZARD SHIELD (wargear) on the table. Fixture sw11e_s4_shields (P1 Space Wolves' Command phase, round 2), built from armies/sw11e_codex_test.json through ArmyListManager: the Wolf Guard Terminators that took 4 Storm Shields (+1 W) — 4 tokens draw a 4-wound health bar, 6 a 3-wound bar, and wound allocation sees a separate 4-W group; the Thunderwolf Cavalry with 2 Storm Shields (4+ invulnerable save on those 2 models); the Venerable Dreadnought with a Blizzard Shield (4+ invulnerable save).",
+  "fixture": "sw11e_s4_shields",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "sw_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "comment": "the secondary-mission review (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar focus := Vector2(880.000000, 1760.000000)\nvar z := 1.500000\nvar vp: Vector2 = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(z, z)\nm.view_zoom = z\nm.view_offset = focus - vp / (2.0 * z)\nm.update_view_transform()\nreturn true",
+      "multiline": true,
+      "comment": "frame the Terminators, Thunderwolves and the Venerable Dreadnought",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var layer = tree.root.get_node(\"Main\").get_node(\"BoardRoot/TokenLayer\")\nvar u = GameState.get_unit(\"U_WOLF_GUARD_TERMINATORS_B\")\nvar w4 := 0\nvar w3 := 0\nfor c in layer.get_children():\n\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == \"U_WOLF_GUARD_TERMINATORS_B\":\n\t\tfor m in u.models:\n\t\t\tif str(m.id) == str(c.get_meta(\"model_id\")):\n\t\t\t\tif int(m.wounds) == 4:\n\t\t\t\t\tw4 += 1\n\t\t\t\telif int(m.wounds) == 3:\n\t\t\t\t\tw3 += 1\nprint(\"[sw11e-s4] terminator tokens: health bars of 4 W = \", w4, \", 3 W = \", w3)\nreturn \"%d,%d\" % [w4, w3]",
+      "multiline": true,
+      "comment": "Storm Shield (+1 W): 4 Terminator tokens draw a 4-wound health bar, the other 6 a 3-wound bar",
+      "equals": "4,6"
+    },
+    {
+      "act": "execute_script",
+      "script": "var groups: Array = Allocation.build_groups(GameState.get_unit(\"U_WOLF_GUARD_TERMINATORS_B\"))\nvar out := []\nfor g in groups:\n\tout.append(\"%d:%d\" % [int(g.w), g.model_indices.size()])\nout.sort()\nprint(\"[sw11e-s4] terminator allocation groups \", out)\nreturn \",\".join(PackedStringArray(out))",
+      "multiline": true,
+      "comment": "wound allocation sees two groups: 6 models with 3 W and the 4 shield bearers with 4 W",
+      "equals": "3:6,4:4"
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.get_unit(\"U_THUNDERWOLF_CAVALRY_B\")\nvar n := 0\nfor m in u.models:\n\tif RulesEngine._get_model_effective_invuln(m, u, int(m.get(\"invuln\", 0))) == 4:\n\t\tn += 1\nreturn n",
+      "multiline": true,
+      "comment": "Storm Shield (Thunderwolf Cavalry): the 2 shield bearers have a 4+ invulnerable save",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.get_unit(\"U_VENERABLE_DREADNOUGHT_B\")\nreturn RulesEngine._get_model_effective_invuln(u.models[0], u, int(u.models[0].get(\"invuln\", 0)))",
+      "multiline": true,
+      "comment": "Blizzard Shield: the Venerable Dreadnought has a 4+ invulnerable save",
+      "equals": 4
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_WOLF_GUARD_TERMINATORS_B"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "01_storm_shield_wound_chips"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sw11e-s4] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

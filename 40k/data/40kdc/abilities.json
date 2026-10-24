@@ -6831,7 +6831,9 @@
   ],
   "ability_type": "unit",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks that target a MONSTER/VEHICLE unit can:\n• Re-roll one hit roll.\n• Re-roll one wound roll.\n• Re-roll one damage roll.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "deep-strike",
@@ -6891,7 +6893,10 @@
   ],
   "ability_type": "unit",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of the battle, you can set up one Teleport Homer token for this unit on the battlefield. If you do:\n• When you target this unit with the Rapid Ingress stratagem, you can use that Teleport Homer token. If you do, that use is -1 CP, but when resolving that stratagem, this unit must be set up within 3\" of that Teleport Homer token and not within 8\" of an enemy unit. That Teleport Homer token is then removed from the battlefield.\n• If an enemy unit ends a move within 1\" of that Teleport Homer token, that Teleport Homer token is removed from the battlefield.",
+  "usage": "Once per battle, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "judgement-of-the-weak",
@@ -6951,7 +6956,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s attacks that target a unit within 9\" of this unit have +1 AP.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "inspirational-exemplar",
@@ -7375,11 +7382,14 @@
    "terminus-ultra",
    "land-raider-achilles",
    "land-raider-excelsior",
-   "spartan"
+   "spartan",
+   "land-raider-redeemer"
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, when this unit ends a normal move, units embarked within this unit can make an assault disembark move.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "legacy-of-jerulas",
@@ -7689,7 +7699,7 @@
  },
  {
   "ability_id": "orbital-comms-array-aura",
-  "name": "Orbital Comms Array (Aura)",
+  "name": "Orbital Comms Array",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -7712,9 +7722,11 @@
    "impulsor",
    "rhino-primaris"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has Scouts 6\".",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "shield-dome",
@@ -7740,9 +7752,11 @@
   "unit_ids": [
    "impulsor"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has 5+ InSv.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "interception-strike",
@@ -7829,7 +7843,9 @@
   "behavior": "passive",
   "disputed": true,
   "dispute_notes": "Dangling reference: condition gates on keyword \"A\", which no unit in the dataset has, so the gate never fires and the effect is dead; the intended keyword is unrecoverable from the encoding.",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks that target a unit not below half-strength have +1 to hit rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "priority-target-acquisition",
@@ -7859,7 +7875,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks that target a unit within 12\" of this unit have +1 S.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "vengeful-exhortation",
@@ -8104,7 +8122,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks that target a unit (excluding MONSTER/VEHICLE units) have +1 AP.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "feel-no-pain-6",
@@ -8643,12 +8663,16 @@
    "duration": "phase"
   },
   "unit_ids": [
-   "blood-angels-captain"
+   "blood-angels-captain",
+   "captain"
   ],
   "ability_type": "unit",
   "behavior": "activated",
   "community_notes": "auto-generated, partial",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, when this unit is selected to fight, you can use this ability. If you do, this model’s melee attacks have:\n• +3 A.\n• [Devastating Wounds].",
+  "usage": "Once per battle, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "feel-no-pain-4",
@@ -9415,11 +9439,17 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "ezekiel"
+   "ezekiel",
+   "librarian-in-terminator-armour",
+   "librarian-in-phobos-armour",
+   "librarian"
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has Feel No Pain 4+ against psychic attacks.",
+  "usage": "Psychic",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "engulfing-fear-psychic",
@@ -10044,11 +10074,14 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "ravenwing-command-squad"
+   "ravenwing-command-squad",
+   "apothecary"
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Command phase, this unit heals D3+1 wounds.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "astartes-banner",
@@ -10101,13 +10134,16 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "ravenwing-command-squad"
+   "ravenwing-command-squad",
+   "cato-sicarius"
   ],
   "ability_type": "unit",
   "behavior": "passive",
   "disputed": true,
   "dispute_notes": "Dangling reference: references stratagem id \"fire-overwatch-or-heroic\", which no stratagem file defines; the intended stratagem is unrecoverable from the encoding.",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When you target this unit with the Heroic Intervention stratagem, that use is -1 CP.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "intractable-will",
@@ -10717,7 +10753,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this unit made a charge move this turn, this unit’s:\n• Lightning Claws weapons have [Sustained Hits 1: non-Monster/Vehicle].\n• Thunder Hammer weapons have [Sustained Hits 1: Monster/Vehicle].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "storm-shield",
@@ -10743,11 +10781,15 @@
   },
   "unit_ids": [
    "deathwatch-terminator-squad",
-   "terminator-assault-squad"
+   "terminator-assault-squad",
+   "wolf-guard-terminators",
+   "wolf-guard-battle-leader"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has +1 W.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "fortis-doctrines",
@@ -10930,11 +10972,14 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "spectrus-kill-team"
+   "spectrus-kill-team",
+   "infiltrator-squad"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Command phase, this unit heals D3 wounds.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "infiltrator-comms-array",
@@ -11028,7 +11073,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "defensive ability (skipped for damage calc)",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Attacks allocated to this model have -1 D.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "unto-the-anvil",
@@ -11074,7 +11121,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s melee attacks can:\n• Re-roll wound rolls of 1.\n• Or: If the assault doctrine is active for this unit, re-roll wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "lord-of-the-pyroclasts",
@@ -11102,7 +11151,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While an enemy unit is engaged with this unit, that enemy unit has -1 OC.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "targeted-intercession",
@@ -11142,7 +11193,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this unit made a charge move this turn, this unit’s melee attacks have +1 S and AP.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "meteoric-descent",
@@ -11205,7 +11258,9 @@
   "ability_type": "unit",
   "behavior": "activated",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this unit made an ingress move this turn, this unit’s ranged attacks have +1 to hit rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "keep-the-banner-high",
@@ -11336,7 +11391,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, when this unit has shot, select one enemy unit hit by those attacks. Friendly ADEPTUS ASTARTES units’ ranged attacks that target that enemy unit have [IGNORES COVER].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "techmarine",
@@ -11364,7 +11421,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this model is within 3\" of a friendly ADEPTUS ASTARTES VEHICLE unit, this model has Lone Operative.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "blessing-of-the-omnissiah",
@@ -11479,7 +11538,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• This unit’s ranged attacks have [Assault].\n• When this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\n• If the assault doctrine is active for this unit, this unit has +1 to advance rolls and charge rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "skilled-riders",
@@ -11542,7 +11603,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has Mobile.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "master-of-shadows",
@@ -11571,7 +11634,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Command phase, you can select one friendly Adeptus Astartes Infantry unit. You can re-roll charge rolls for that unit until the start of your next Command phase.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "blackwing-mantle",
@@ -11601,7 +11666,10 @@
   "behavior": "passive",
   "disputed": true,
   "dispute_notes": "Dangling reference: references stratagem id \"fire-overwatch-or-heroic\", which no stratagem file defines; the intended stratagem is unrecoverable from the encoding.",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "You can target this unit with the Heroic Intervention stratagem, regardless of any other uses of that stratagem this phase. If you do:\n• That use is -1 CP.\n• That use does not prevent any uses of that stratagem on other units this phase.",
+  "usage": "Once per phase, per army",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "chapter-master-of-the-raven-guard",
@@ -11736,12 +11804,15 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "eradicator-squad"
+   "eradicator-squad",
+   "eradicator-squad-with-melta-rifles"
   ],
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "auto-generated, partial",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks can re-roll damage rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "mental-fortress-psychic",
@@ -11805,7 +11876,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Attacks that target this unit have -1 to hit rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "rampart",
@@ -11833,11 +11906,10 @@
   ],
   "ability_type": "unit",
   "behavior": "activated",
-  "usage": {
-   "frequency": "n-per-battle",
-   "count": 1
-  },
-  "faction_id": "adeptus-astartes"
+  "usage": "Once per battle, per army",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of any phase, you can use this ability. If you do, this model has 2+ InSv until the end of the phase.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "inspiring-commander",
@@ -12077,7 +12149,10 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "defensive ability (skipped for damage calc)",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, when this unit is selected to fight or when an enemy unit targets this unit, you can select one of the following:\n• This unit’s melee attacks have +1 to hit rolls.\n• Or: Attacks that target this unit have -1 to hit rolls.",
+  "usage": "Once per turn, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "sentinel-protocols",
@@ -12109,7 +12184,10 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "You can target this unit with the Fire Overwatch stratagem, regardless of any other uses of that stratagem this phase. If you do:\n• This unit’s snap shooting attacks hit on unmodified hit rolls of 4+ until that stratagem is resolved.\n• That use does not prevent any uses of that stratagem on other units this phase.",
+  "usage": "Once per phase, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "hammerstrike",
@@ -12137,7 +12215,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks that target an enemy unit within a terrain area have [Sustained Hits 1].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "signum-array",
@@ -12173,7 +12253,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, you can select one visible enemy unit within 18\" of this unit. That enemy unit cannot have the benefit of cover.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "siege-captain",
@@ -12203,7 +12285,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model’s attacks that target a FORTIFICATION/MONSTER/VEHICLE unit have +2 S, AP and D.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "tempormortis",
@@ -12235,7 +12319,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has Fights First.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "silent-fury",
@@ -12363,7 +12449,9 @@
   ],
   "ability_type": "unit",
   "behavior": "reactive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your opponent’s Shooting phase, when an enemy unit has shot, if a model in this unit was destroyed by those attacks, this unit can make a surge move of up to D6\".",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "banner-of-macragge",
@@ -12400,9 +12488,11 @@
   "unit_ids": [
    "victrix-honour-guard"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• At the end of your Movement phase, if this unit is controlling an objective, that objective is secured.\n• (Once per battle, per army) When this unit is selected to fight, you can use this ability. If you do, this unit’s melee attacks have +1 A and S.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "unstoppable-valour",
@@ -12431,7 +12521,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "You can re-roll charge rolls for this unit.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "author-of-the-codex",
@@ -12469,7 +12561,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, you can select one visible friendly ADEPTUS ASTARTES unit within 12\" of this model, and select one combat doctrine. That combat doctrine is active for that unit in addition to any other combat doctrines that are active for that unit until the start of your next Command phase.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "ultramarines-bodyguard",
@@ -12530,7 +12624,7 @@
  },
  {
   "ability_id": "supreme-commander",
-  "name": "Supreme Commander",
+  "name": "SUPREME COMMANDER",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -12555,7 +12649,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this model is in your army, it must be your WARLORD.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "drop-pod-assault",
@@ -12605,7 +12701,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• This unit must start the battle in strategic reserves.\n• In your first Movement phase, this unit can make an ingress move.\n• When this unit is set up, all units embarked within this unit must make a disembark/assault disembark move, and those units must be set up more than 8\" away from all enemy units.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "combat-disembarkation",
@@ -12662,7 +12760,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When this unit is set up and all units embarked within it have disembarked, units cannot embark within this unit.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "designer-s-note",
@@ -12752,7 +12852,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has +1 to advance rolls and charge rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "relic-shield",
@@ -12779,11 +12881,15 @@
   },
   "unit_ids": [
    "captain-with-jump-pack",
-   "assault-force-captain"
+   "assault-force-captain",
+   "captain",
+   "chaplain-in-terminator-armour"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has +1 W.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "thunderstrike",
@@ -12822,7 +12928,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks that target a MONSTER/VEHICLE unit have +1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "fortification",
@@ -12967,16 +13075,19 @@
    "duration": "until-next-command-phase"
   },
   "unit_ids": [
-   "suppressor-squad"
+   "suppressor-squad",
+   "astraeus"
   ],
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "Suppression is applied to one enemy unit hit by this model's twin macro-accelerator cannon, and lasts only while this model remains on the battlefield.",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, when this unit has shot, select one enemy unit hit by this model’s Twin Macro-accelerator Cannon weapon. That enemy unit is suppressed until the start of your next turn:\n• While a unit is suppressed, that unit’s attacks have -1 to hit rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "veil-of-time-psychic",
-  "name": "Veil of Time (Psychic)",
+  "name": "Veil of Time",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -13004,11 +13115,15 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "librarian-in-terminator-armour"
+   "librarian-in-terminator-armour",
+   "librarian"
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When this unit is selected to make an advance move, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• This unit can change that advance roll to a 6.",
+  "usage": "psychic level 1",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "signum",
@@ -13164,7 +13279,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "defensive ability (skipped for damage calc)",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is controlling an objective, this unit has +1 to save rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "rites-of-tempering",
@@ -13198,7 +13315,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Attacks that target this unit with a S greater than this unit’s T have -1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "iron-father",
@@ -13226,7 +13345,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this model is within 3\" of a friendly ADEPTUS ASTARTES VEHICLE unit, this model has Lone Operative",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "master-of-the-forge",
@@ -13256,7 +13377,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, at the start or end of this unit’s move, you can select one friendly Adeptus Astartes Vehicle model within 3\" of this model:\n• That VEHICLE model heals 3 wounds.\n• That VEHICLE model’s attacks can ignore modifiers to the following until the start of your next Movement phase:\n• BS.\n• Hit rolls and wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "guerrilla-tactics-vanguard-spearhead",
@@ -13335,11 +13458,14 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "marneus-calgar-in-armour-of-antilochus"
+   "marneus-calgar-in-armour-of-antilochus",
+   "marneus-calgar"
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, you can select one visible friendly ADEPTUS ASTARTES unit within 9\" of this model, and select one combat doctrine. That combat doctrine is active for that unit until the start of your next Command phase.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "lord-calgar",
@@ -13469,11 +13595,14 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "You can target this unit with the Crushing Impact stratagem, regardless of any other uses of that stratagem this phase. If you do:\n• That use is -1 CP.\n• That use does not prevent any uses of that stratagem on other units this phase.",
+  "usage": "Once per phase, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "shrouding-psychic",
-  "name": "Shrouding (Psychic)",
+  "name": "Shrouding",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -13516,7 +13645,10 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When an enemy unit targets this unit, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• Attacks that target this unit have -1 to hit rolls until the end of the phase.",
+  "usage": "psychic level 1",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "gene-seed-recovery",
@@ -13576,11 +13708,14 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "lieutenant"
+   "lieutenant",
+   "lieutenant-in-phobos-armour"
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s attacks have [Lethal Hits: non-MONSTER/VEHICLE].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "target-priority",
@@ -13640,7 +13775,10 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has Feel No Pain 4+ against psychic attacks and mortal wounds.",
+  "usage": "Psychic",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "master-of-prescience-psychic",
@@ -13759,7 +13897,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s melee attacks have:\n• [Sustained Hits 1: non-Monster/vehicle].\n• Or: If the assault doctrine is active for this unit, [Sustained Hits 1].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "honour-of-ultramar",
@@ -13797,7 +13937,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the fight phase, when this model is destroyed, if this unit has not been selected to fight this phase, roll one D6:\n• On a 2+, do not remove this model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), this model is removed from the battlefield.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "demetrian-titus",
@@ -14068,7 +14210,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks that target a visible enemy unit have [Ignores Cover].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "annihilator-protocols",
@@ -14301,10 +14445,10 @@
    "subject": "enemy-unit",
    "optional": true
   },
-  "usage": {
-   "frequency": "once-per-turn"
-  },
-  "faction_id": "adeptus-astartes"
+  "usage": "Once per phase, per army",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your opponent’s Movement phase, when an enemy unit ends a move within 8\" of this unit, if this unit is unengaged, this unit can make a normal move of up to 6\".",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "captain-of-the-honour-guard",
@@ -14331,7 +14475,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If your army includes a Marneus Calgar unit, replace this unit’s Leader ability with the Support ability (this unit can still be attached to the same units).",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "second-company-banner",
@@ -14389,7 +14535,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When both players have deployed their armies, you can redeploy up to three friendly ADEPTUS ASTARTES units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "refractor-field",
@@ -14472,7 +14620,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Attacks that target this unit with a S greater than this unit’s T have -1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "unbreakable-duty",
@@ -14663,11 +14813,17 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "chaplain-in-terminator-armour"
+   "chaplain-in-terminator-armour",
+   "wolf-priest",
+   "chaplain-on-bike",
+   "chaplain-with-jump-pack",
+   "chaplain"
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s melee attacks have [Lance].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "recitation-of-faith",
@@ -14763,7 +14919,10 @@
    "subject": "enemy-unit",
    "optional": true
   },
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your opponent’s Movement phase, when an enemy unit ends a move within 8\" of this unit, if this unit is unengaged, this unit can make a normal move of up to D3+3\".",
+  "usage": "Once per phase, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "last-survivor",
@@ -14846,11 +15005,15 @@
    "duration": "one-use"
   },
   "unit_ids": [
-   "incursor-squad"
+   "incursor-squad",
+   "wolf-scouts"
   ],
   "ability_type": "unit",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, you can select one visible enemy unit within 6\" of this unit and roll one D6. On a 2+:\n• That enemy unit suffers D3 mortal wounds.\n• Or: If that enemy unit is a VEHICLE unit, that enemy unit suffers 2D3 mortal wounds.",
+  "usage": "Once per battle, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "hammer-of-wrath",
@@ -14878,7 +15041,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When this unit ends a charge move, you can select one enemy unit engaged with this unit. For each model in this unit engaged with that enemy unit, roll one D6:\n• On a 4+, that enemy unit suffers 1 mortal wound.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "cold-and-calculating",
@@ -14923,7 +15088,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "auto-generated, partial",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase or the Fight phase, when this unit is selected to attack, you can select one of the following for this unit’s attacks to have:\n• [Lethal Hits: Monster/Vehicle].\n• Or: [Sustained Hits 1: non-Monster/Vehicle].\n• Or: If the tactical doctrine is active for this unit, [Lethal Hits: Monster/Vehicle] and [Sustained Hits 1: non-Monster/Vehicle].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "cerebrex-logic-engine",
@@ -14982,7 +15149,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Declare Battle Formations step, you can select one friendly Adeptus Astartes Infantry unit. That unit has Scouts 6\".",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "vanguard-assault",
@@ -15021,7 +15190,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this unit made a charge move this turn, this unit’s melee attacks have +1 A.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "command-squad",
@@ -15057,7 +15228,9 @@
   ],
   "ability_type": "unit",
   "behavior": "reactive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Attacks that target this unit have -1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "company-heroes",
@@ -15246,7 +15419,9 @@
   ],
   "ability_type": "unit",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, when this unit is selected to shoot, you can select one visible enemy unit. This unit’s ranged attacks that target that unit have [Devastating Wounds].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "armoured-resilience",
@@ -15368,7 +15543,9 @@
   ],
   "ability_type": "unit",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is at or below half-strength, this unit’s melee attacks can re-roll wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "objective-secured",
@@ -15501,7 +15678,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, when this unit ends a normal move, units embarked within this unit can make an assault disembark move, provided every model in the embarked unit has Deep Strike.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "thunderhawk-cluster-bombs",
@@ -15529,7 +15708,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, when this unit ends a normal/advance move, you can select one enemy unit this unit moved over during that move and roll six D6:\n• For each 3+, that enemy unit suffers 1 mortal wound.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "thunderhawk",
@@ -15714,7 +15895,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, you can select one visible enemy unit within 18\" of this unit. That unit is detected:\n• While a unit is detected, that unit has +3\" detection range.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "ballistus-strike",
@@ -15768,7 +15951,9 @@
   "behavior": "passive",
   "disputed": true,
   "dispute_notes": "Dangling reference: condition gates on keyword \"A\", which no unit in the dataset has, so the gate never fires and the effect is dead; the intended keyword is unrecoverable from the encoding.",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks that target an enemy unit within 24\" of this unit have [Sustained Hits 1].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "incendiary-terror",
@@ -15852,7 +16037,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has:\n• Stealth.\n• -3\" detection range.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "echo-of-the-ravenspire",
@@ -15881,7 +16068,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the end of your opponent’s Fight phase, if this unit is unengaged, you can place this unit in strategic reserves.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "unorthodox-strategist",
@@ -16072,11 +16261,13 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of the Fight phase, each enemy unit engaged with a unit with this ability makes a battle-shock roll, with -1 to that battle-shock roll.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "terror-troops-aura",
-  "name": "Terror Troops (Aura)",
+  "name": "Terror Troops",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -16133,7 +16324,11 @@
   "ability_type": "unit",
   "behavior": "aura",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While an enemy model is within 3\" of this unit, that enemy model has -1 OC.",
+  "usage": "Aura",
+  "is_aura": true,
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "reiver-grav-chute",
@@ -16216,7 +16411,10 @@
   ],
   "ability_type": "unit",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of any phase, you can select one friendly battle-shocked ADEPTUS ASTARTES unit within 6\" of this model. That unit is no longer battle-shocked.",
+  "usage": "Once per battle round, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "scouts-8",
@@ -16540,7 +16738,7 @@
  },
  {
   "ability_id": "fervour-of-the-ancients-aura",
-  "name": "Fervour of the Ancients (Aura)",
+  "name": "Fervour of the Ancients",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -16566,7 +16764,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Friendly Space Wolves units within 6\" of this unit:\n• Have +1 to advance rolls.\n• Have +1 to charge rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "blizzard-shield",
@@ -16590,11 +16790,14 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "venerable-dreadnought"
+   "venerable-dreadnought",
+   "wulfen-dreadnought"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has 4+ InSv",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "even-in-death-i-serve",
@@ -17565,7 +17768,7 @@
  },
  {
   "ability_id": "honour-guard-of-macragge",
-  "name": "HONOUR GUARD OF MACRAGGE",
+  "name": "Honour Guard of Macragge",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -17591,11 +17794,14 @@
    "duration": "permanent"
   },
   "unit_ids": [
-   "ultramarines-honour-guard"
+   "ultramarines-honour-guard",
+   "victrix-honour-guard"
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Attacks that target this unit have -1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "war-howl",
@@ -17641,7 +17847,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• While this model is attached to a Blood Claws unit, this unit’s melee attacks have +1 S and [SUSTAINED HITS 1].\n• While this model is attached to a Wolf Guard Headtakers unit, when this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "battle-lust",
@@ -17671,7 +17879,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this unit made a charge move this turn, this model’s melee attacks have +2 A.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "thunderous-charge",
@@ -17718,7 +17928,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this unit made a charge move this turn, this unit’s melee attacks have:\n• +1 S.\n• +1 D.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "cunning-hunters",
@@ -17747,7 +17959,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, if this unit is within range of an objective, this unit’s melee attacks:\n• Have +1 S.\n• Have +1 AP.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "predatory-instinct",
@@ -17780,10 +17994,10 @@
    "subject": "enemy-unit",
    "optional": true
   },
-  "usage": {
-   "frequency": "once-per-turn"
-  },
-  "faction_id": "adeptus-astartes"
+  "usage": "Once per battle round, per unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your opponent’s Movement phase, when an enemy unit ends a move within 8\" of this unit, if this unit is unengaged, this unit can make a normal move of up to D6\".",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "hunting-hounds",
@@ -17825,7 +18039,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is within 6\" of a friendly Space Wolves Character model (excluding Wulfen), if this unit is not battle-shocked, this unit has +1 OC.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "healing-balms",
@@ -17859,7 +18075,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Command phase, this unit heals D3+1 wounds.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "let-loose-the-wolves",
@@ -17897,7 +18115,9 @@
   "ability_type": "unit",
   "behavior": "reactive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of the Declare Battle Formations step, you can split this unit into two units, one containing all Wolf Guard Headtaker models and all leader/support models, the other containing all Hunting Wolves models, with new starting strengths accordingly.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "headhunters",
@@ -17942,7 +18162,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "auto-generated, partial",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of the first battle round, select up to one enemy unit to be this unit’s quarry:\n• This unit’s attacks that target this unit’s quarry have [DEVASTATING WOUNDS] and [PRECISION].\n• Each time this unit’s quarry is destroyed, select one enemy unit to be this unit’s quarry.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "iron-priest",
@@ -17970,7 +18192,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this model is within 3\" of a friendly Space Wolves Vehicle unit, this model has Lone Operative.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "gift-of-the-iron-wolf",
@@ -17999,7 +18223,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, at the start or end of this unit’s move, select up to one friendly Space Wolves Vehicle model within 3\" of this model:\n• That VEHICLE model heals D3 wounds.\n• That VEHICLE model’s attacks can ignore modifiers to hit rolls and wound rolls until the start of your next Movement phase.\nYou cannot select the same VEHICLE model for this ability more than once per phase.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "judgement-of-the-omnissiah",
@@ -18028,11 +18254,13 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model’s attacks that target an enemy unit engaged with a friendly Space Wolves Vehicle can re-roll wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "wind-walker-psychic",
-  "name": "Wind Walker (Psychic)",
+  "name": "Wind Walker",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -18064,11 +18292,13 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• This unit’s ranged attacks have [ASSAULT].\n• When this unit is selected to make an advance move, this unit can change advance rolls to a 6.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "tempest-s-wrath-psychic",
-  "name": "Tempest’s Wrath (Psychic)",
+  "name": "Tempest's Wrath",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -18101,7 +18331,10 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• Select one visible enemy unit within 18\". That enemy unit is suppressed until the start of your next turn:\n• While a unit is suppressed, that unit’s attacks have -1 to hit rolls.",
+  "usage": "psychic level 1",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "berserk-charge",
@@ -18129,11 +18362,13 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "slayer-s-oath",
-  "name": "Slayer’s Oath",
+  "name": "Slayer's Oath",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -18216,7 +18451,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "[APPROX] fires the first time this model's unit destroys a unit with the chosen Slayer's Oath keyword; if the Detachment rule has a Saga, the unit receives that rule's benefits as if the Saga were completed",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of the first battle round, you select up to one enemy CHARACTER/MONSTER/VEHICLE unit to be this unit’s slayer’s oath:\n• This unit’s attacks that target this unit’s slayer’s oath can ignore modifiers to your unit’s:\n• BS and WS.\n• Hit rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "oathbound",
@@ -18286,7 +18523,9 @@
   "community_notes": "auto-generated, partial",
   "disputed": true,
   "dispute_notes": "Dangling reference: condition gates on keyword \"A\", which no unit in the dataset has, so the gate never fires and the effect is dead; the intended keyword is unrecoverable from the encoding.",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• This unit’s melee attacks have +1 to hit rolls.\n• Or: This unit’s melee attacks that target this unit’s slayer’s oath have +1 to hit rolls and wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "high-king-of-fenris",
@@ -18314,11 +18553,14 @@
   ],
   "ability_type": "unit",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, select up to one friendly Space Wolves unit in strategic reserves. If you do, when that unit makes an ingress move, treat the current battle round number as being one higher than it actually is.",
+  "usage": "Once per battle round, per unit",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "guile-of-the-wolf-aura",
-  "name": "Guile of the Wolf (Aura)",
+  "name": "Guile of the Wolf",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -18355,7 +18597,9 @@
   "behavior": "passive",
   "disputed": true,
   "dispute_notes": "Dangling reference: condition gates on keyword \"A\", which no unit in the dataset has, so the gate never fires and the effect is dead; the intended keyword is unrecoverable from the encoding.",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of each phase, the assault doctrine, devastator doctrine and tactical doctrine are active for this unit.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "embarking-within-transports",
@@ -18413,7 +18657,9 @@
   ],
   "ability_type": "unit",
   "behavior": "reactive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Attacks that target this unit with a S greater than this unit’s T have -1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "bestial-rage",
@@ -18462,7 +18708,9 @@
   "ability_type": "unit",
   "behavior": "reactive",
   "community_notes": "community-authored from 10e source (provisional 11e); see #21",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your opponent’s Shooting phase, when an enemy unit has shot, if this unit lost a wound as a result of those attacks, this unit can make a surge move of up to D6+1\".",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "violent-fury",
@@ -18492,7 +18740,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this model is equipped with two melee weapons, melee attacks made by this unit have [TWIN-LINKED].",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "hammer-blow",
@@ -18531,7 +18781,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, when this unit has fought, select up to one enemy MONSTER/VEHICLE unit hit by those attacks. If you do, that enemy unit is suppressed until the start of your next turn:\n• While a unit is suppressed, that unit’s attacks have -1 to hit rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "death-totem",
@@ -18568,9 +18820,11 @@
    "wulfen",
    "wulfen-with-storm-shields"
   ],
-  "ability_type": "unit",
+  "ability_type": "wargear",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s melee attacks can re-roll hit rolls of 1.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "legendary-tenacity",
@@ -18600,7 +18854,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "Attacks that target this unit with a S greater than this unit’s T have -1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "ancient-tactician",
@@ -18628,7 +18884,10 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When you target this unit with a stratagem, that use is -1CP",
+  "usage": "Once per turn, per army",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "anvil-of-endurance",
@@ -18671,7 +18930,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, when a model in this unit is destroyed, if this unit has not been selected to fight this phase, roll one D6:\n• On a 4+, do not remove that model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), that model is then removed from the battlefield.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "champion-of-the-kingsguard",
@@ -18734,7 +18995,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "auto-generated, partial",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model’s attacks that target a CHARACTER unit:\n• Can re-roll hit rolls of 1.\n• Can re-roll wound rolls of 1.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "tempered-ferocity",
@@ -18784,7 +19047,9 @@
   "ability_type": "unit",
   "behavior": "passive",
   "community_notes": "auto-generated, partial",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• This unit’s attacks have [SUSTAINED HITS 1].\n• This unit’s attacks that target an enemy unit within 6\" of this unit can re-roll hit rolls of 1.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "heroic-last-stand",
@@ -18819,7 +19084,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, when this model is destroyed, if this unit has not been selected to fight this phase, roll one D6:\n• On a 2+, do not remove this model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), this model is removed from the battlefield.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "scouts-7",
@@ -18878,7 +19145,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s attacks that target an enemy unit more than 6\" from any other enemy units have +1 to wound rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "savage-frenzy",
@@ -18908,7 +19177,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When an enemy unit engaged with your unit (excluding MONSTER/VEHICLE units) makes a fall-back move that enemy unit must use the desperate escape mode. If that enemy unit is battle-shocked, -1 from those hazard rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "murder-maker",
@@ -18943,7 +19214,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, when a friendly Wulfen model within 6\" of this unit is destroyed, if that model’s unit has not been selected to fight this phase, roll one D6:\n• On a 4+, do not remove that model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), that model is removed from the battlefield.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "bestial-fury",
@@ -18972,7 +19245,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit:\n• Can re-roll advance rolls.\n• Can re-roll charge rolls.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "force-of-untamed-destruction",
@@ -19000,7 +19275,9 @@
   ],
   "ability_type": "unit",
   "behavior": "passive",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model cannot be your WARLORD.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "templar-vows",
@@ -19336,7 +19613,9 @@
   "faction_id": "adeptus-astartes",
   "ability_type": "faction",
   "behavior": "passive",
-  "unit_ids": []
+  "unit_ids": [],
+  "rules_text": "While this unit is within 6\" of a friendly SPACE WOLVES CHARACTER model (excluding WULFEN models) or within 12\" of a friendly WOLF PRIEST model, if this unit is not battle-shocked:\n• If this unit has INFANTRY, this unit has +1 OC.\n• If this unit has VEHICLE, this unit has +3 OC.\nBestial Forms: For the purposes of transport capacity, each WULFEN model takes up the space of 2 models.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "sagas",
@@ -19666,7 +19945,9 @@
    "range": "unit",
    "duration": "battle-round"
   },
-  "community_notes": "[APPROX] Consumable army-wide stance selected at the start of your Command phase (each Doctrine once per battle). Each Doctrine's 'eligible to shoot/declare a charge in a turn it Advanced or Fell Back' effect is captured as an opaque eligibility grant. Full rule in raw-text store."
+  "community_notes": "[APPROX] Consumable army-wide stance selected at the start of your Command phase (each Doctrine once per battle). Each Doctrine's 'eligible to shoot/declare a charge in a turn it Advanced or Fell Back' effect is captured as an opaque eligibility grant. Full rule in raw-text store.",
+  "rules_text": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit’s ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n• You can only select each combat doctrine once per battle.\n• Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "lightning-assault",
@@ -20548,7 +20829,9 @@
   ],
   "ability_type": "unit",
   "behavior": "activated",
-  "faction_id": "adeptus-astartes"
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, when this unit has shot, you can use this ability. If you do:\n• This unit can make a normal move of up to D6\".\n• This unit is not eligible to declare a charge until the end of the turn.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "a-deadly-prize-vanguard-spearhead",
@@ -23096,7 +23379,7 @@
  },
  {
   "ability_id": "power-of-the-machine-spirit-ironstorm-spearhead",
-  "name": "Power Of The Machine Spirit",
+  "name": "Power of the Machine Spirit",
   "authored_by": "40kdc-community",
   "game_version": {
    "edition": "11th",
@@ -23105,10 +23388,12 @@
   "source_digest": "b828ce35d1458f4f7f2193f7522e4d7c643202d55e425ee46d9ed94fcf004827",
   "version": "2025-q3",
   "supersedes": null,
-  "unit_ids": [],
+  "unit_ids": [
+   "land-raider"
+  ],
   "faction_id": "adeptus-astartes",
   "detachment_id": "ironstorm-spearhead",
-  "ability_type": "stratagem",
+  "ability_type": "unit",
   "behavior": "reactive",
   "trigger": {
    "event": "after-enemy-unit-fires",
@@ -23125,7 +23410,9 @@
    "range": "unit",
    "duration": "phase"
   },
-  "community_notes": "Vehicle unit reduced to Below Half-strength by the attacking unit's attacks; must target only that enemy unit, if eligible"
+  "community_notes": "Vehicle unit reduced to Below Half-strength by the attacking unit's attacks; must target only that enemy unit, if eligible",
+  "rules_text": "This unit’s ranged attacks can:\n• Re-roll one hit roll.\n• Re-roll one wound roll.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "ride-hard-ride-fast-stormlance-task-force",
@@ -25324,10 +25611,12 @@
   "source_digest": "0b2224db3c412d070c09c504dbdedb6033cca680cc4684605b2f247b875b9ff5",
   "version": "2025-q3",
   "supersedes": null,
-  "unit_ids": [],
+  "unit_ids": [
+   "chief-librarian-tigurius"
+  ],
   "faction_id": "adeptus-astartes",
   "detachment_id": "librarius-conclave",
-  "ability_type": "enhancement",
+  "ability_type": "unit",
   "behavior": "reactive",
   "trigger": {
    "event": "enemy-unit-ended-move",
@@ -25337,10 +25626,7 @@
     "range": 8
    }
   },
-  "usage": {
-   "frequency": "once-per-turn",
-   "per": "unit"
-  },
+  "usage": "psychic level 2",
   "effect": {
    "type": "sequence",
    "steps": [
@@ -25385,7 +25671,9 @@
     "Terminator"
    ]
   },
-  "community_notes": "Unit must be unengaged"
+  "community_notes": "Unit must be unengaged",
+  "rules_text": "In your Movement phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• This unit has +1 Sv until the start of your next turn.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "obfuscation-librarius-conclave",
@@ -26342,6 +26630,1392 @@
   },
   "community_notes": "While this unit is within Engagement Range of one or more enemy units, it has +2 OC",
   "faction_id": "adeptus-astartes"
+ },
+ {
+  "ability_id": "transhuman-strategist",
+  "name": "Transhuman Strategist",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "faction",
+  "rules_text": "At the start of the battle round, if a model with this ability is your WARLORD, gain 1CP.",
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "high-rune-priest",
+  "name": "High Rune Priest",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has the psychic abilities listed in the Runic Abilities section.",
+  "usage": "psyker level 3",
+  "unit_ids": [
+   "njal-stormcaller"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "murderous-hurricane",
+  "name": "Murderous Hurricane",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• Select one visible enemy unit within 12\". That enemy unit cannot make Snap shooting attacks.",
+  "usage": "psychic level 1",
+  "unit_ids": [
+   "njal-stormcaller"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "storm-caller",
+  "name": "Storm Caller",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When an enemy unit targets this unit, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• This unit has -3\" detection range until the end of the phase.",
+  "usage": "psychic level 1",
+  "unit_ids": [
+   "njal-stormcaller"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "old-greymanes",
+  "name": "Old Greymanes",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Declare Battle Formations step, you can split this unit into two units, each containing as equal a number of models as possible (when splitting a unit in this way, make a note of which models form each of the two new units).",
+  "unit_ids": [
+   "grey-hunters"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "storm-shield-thunderwolf-cavalry",
+  "name": "Storm Shield",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "wargear",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has a 4+ InSv.",
+  "unit_ids": [
+   "thunderwolf-cavalry"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "hunting-hounds-wolf-guard-headtakers",
+  "name": "Hunting Hounds",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is within 6\" of a friendly Space Wolves Character model (excluding Wulfen), if this unit is not battle-shocked, Hunting Wolf models have +1 OC.",
+  "unit_ids": [
+   "wolf-guard-headtakers"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "storm-shield-wolf-guard-headtakers",
+  "name": "Storm Shield",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "wargear",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has a 4+ InSv.",
+  "unit_ids": [
+   "wolf-guard-headtakers"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "hunting-hounds-wolf-scouts",
+  "name": "Hunting Hounds",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is within 6\" of a friendly Space Wolves Character model (excluding Wulfen), if this unit is not battle-shocked, Hunting Wolf models have +1 OC.",
+  "unit_ids": [
+   "wolf-scouts"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "codex-discipline-gladius-task-force",
+  "name": "Codex Discipline",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "You can select one combat doctrine one additional time per battle.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "gladius-task-force",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "ironstorm-auto-targeters-ironstorm-spearhead",
+  "name": "Ironstorm Auto-targeters",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Friendly Adeptus Astartes Vehicle units’ (excluding walker units) ranged attacks can:\n• Re-roll one hit roll.\n• Re-roll one wound roll.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "ironstorm-spearhead",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "lightning-fast-strike-stormlance-task-force",
+  "name": "Lightning-fast Strike",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Friendly Adeptus Astartes Mounted/Speeder units have +2\" M.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "stormlance-task-force",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "combined-deployment-gauntlet-task-force",
+  "name": "Combined Deployment",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "In your Shooting phase, when a friendly Adeptus Astartes Transport unit has shot, you can select one enemy unit hit by those attacks. That enemy unit is assailed until the end of the turn:\n• While a unit is assailed, when an ADEPTUS ASTARTES unit that disembarked this turn targets that unit, those attacks have [Sustained Hits 1].",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "gauntlet-task-force",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "shadow-masters-phobos-shadow-force",
+  "name": "Shadow Masters",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "When a friendly Phobos or Scout SQUAD unit has shot:\n• Those attacks do not prevent that unit from being hidden.\n• Or: That unit can make a normal move of up to D6\". That unit is not eligible to declare a charge until the end of the turn.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "phobos-shadow-force",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "wrath-of-the-chapter-tacticus-attack-force",
+  "name": "Wrath of the Chapter",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Friendly Tacticus units can re-roll advance rolls.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "tacticus-attack-force",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "vanguard-ambushers-phobos-shock-force",
+  "name": "Vanguard Ambushers",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "At the end of your Movement phase, if a friendly Phobos unit is hidden, that unit’s attacks can re-roll wound rolls of 1 until the end of the turn.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "phobos-shock-force",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "death-blow-terminator-storm-force",
+  "name": "Death Blow",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Friendly Adeptus Astartes Terminator units have +1 to charge rolls.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "terminator-storm-force",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "assault-mastery-assault-brethren",
+  "name": "Assault Mastery",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "You can select the assault doctrine one additional time per battle.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "assault-brethren",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "walking-fortress-gravis-linebreaker-force",
+  "name": "Walking Fortress",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "In a turn a friendly Gravis unit made a normal move, that unit’s ranged attacks:\n• Do not have [Heavy].\n• Have +1 to hit rolls.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "gravis-linebreaker-force",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "devastator-mastery-devastator-brethren",
+  "name": "Devastator Mastery",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "You can select the devastator doctrine one additional time per battle.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "devastator-brethren",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "indomitable-defence-gravis-siege-force",
+  "name": "Indomitable Defence",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "While a friendly Gravis unit is within range of an objective, attacks that target that unit with a S greater than that unit’s T have -1 to wound rolls.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "gravis-siege-force",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "tactical-mastery-tactical-brethren",
+  "name": "Tactical Mastery",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "You can select the tactical doctrine one additional time per battle.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "tactical-brethren",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "enduring-vengeance-ironclad-champions",
+  "name": "Enduring Vengeance",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Friendly Adeptus Astartes Dreadnought units can re-roll hit rolls of 1.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "ironclad-champions",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "codex-fire-patterns-tacticus-firestorm-force",
+  "name": "Codex Fire-patterns",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Friendly Tacticus units’ [Rapid Fire] attacks benefit from [Rapid Fire] when targeting units up to that attack’s maximum range.",
+  "faction_id": "adeptus-astartes",
+  "detachment_id": "tacticus-firestorm-force",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "vivispectral-analysis-targeting",
+  "name": "Vivispectral Analysis Targeting",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s attacks have [Lethal Hits: non-Vehicle].",
+  "unit_ids": [
+   "apothecary-biologis"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "fury-of-the-machine-spirit",
+  "name": "Fury of the Machine Spirit",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks that target a unit within 12\" of this unit have [Lethal Hits].",
+  "unit_ids": [
+   "land-raider-crusader"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "strategic-acumen",
+  "name": "Strategic Acumen",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Command phase, you can use this ability. If you do, select one combat doctrine to be active for this unit until the start of your next Command phase.",
+  "unit_ids": [
+   "captain",
+   "captain-with-jump-pack",
+   "captain-in-terminator-armour",
+   "captain-in-gravis-armour",
+   "captain-in-phobos-armour",
+   "captain-on-bike"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "priority-target-identified",
+  "name": "Priority Target Identified",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Command phase, you can use this ability. If you do, select one visible terrain feature. That terrain feature is identified until the end of the turn.\n• While an enemy unit is within an identified terrain feature, that enemy unit has +3\" detection range.",
+  "usage": "Once per battle, per unit",
+  "unit_ids": [
+   "lieutenant-with-combi-weapon"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "librarius",
+  "name": "Librarius",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "faction",
+  "rules_text": "ADEPTUS ASTARTES PSYKER units with this ability have a psyker level of 1 or higher, specified in that unit’s abilities. Each psychic ability has a psychic level of 1 or higher, specified in that ability’s name.\nIn a battle round, a friendly ADEPTUS ASTARTES PSYKER unit can use a number of psychic abilities whose total psychic level does not exceed that PSYKER unit’s psyker level.\nExample: In a battle round, a psyker level 3 PSYKER unit could use three psychic level 1 abilities, or one psychic level 1 ability and one psychic level 2 ability, or one psychic level 3 ability.",
+  "faction_id": "adeptus-astartes",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "librarian",
+  "name": "Librarian",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has the psychic abilities listed in the Psychic Abilities section.",
+  "usage": "psyker level 1",
+  "unit_ids": [
+   "librarian-in-terminator-armour",
+   "librarian-in-phobos-armour",
+   "librarian"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "might-of-heroes",
+  "name": "Might of Heroes",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• This unit’s melee attacks have +2 S.",
+  "usage": "psychic level 1",
+  "unit_ids": [
+   "librarian-in-terminator-armour"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "thunderous-force",
+  "name": "Thunderous Force",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• This unit’s ranged attacks have +6\" R.",
+  "usage": "psychic level 1",
+  "unit_ids": [
+   "librarian-in-terminator-armour"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "zealous-fortitude",
+  "name": "Zealous Fortitude",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has Feel No Pain 4+ against mortal wounds.",
+  "unit_ids": [
+   "chaplain-in-terminator-armour"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "soul-sight",
+  "name": "Soul Sight",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• Select one visible enemy unit. Ranged attacks that target that enemy unit have [IGNORES COVER].",
+  "usage": "psychic level 1",
+  "unit_ids": [
+   "librarian-in-phobos-armour"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "parabolic-jetleap",
+  "name": "Parabolic Jetleap",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the end of your opponent’s Fight phase, if this unit is unengaged, you can place this unit in strategic reserves.",
+  "unit_ids": [
+   "inceptor-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "driven-from-cover",
+  "name": "Driven from Cover",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, when this unit has shot, select one enemy unit hit by those attacks. Friendly ADEPTUS ASTARTES units’ ranged attacks that target that enemy unit have [IGNORES COVER].",
+  "unit_ids": [
+   "infernus-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "codex-adept",
+  "name": "Codex Adept",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "The assault doctrine, devastator doctrine and tactical doctrine are active for this unit.",
+  "unit_ids": [
+   "roboute-guilliman",
+   "marneus-calgar"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "primarch-of-the-xiii",
+  "name": "Primarch of the XIII",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While a friendly ADEPTUS ASTARTES unit is within 6\" of this unit, that unit’s attacks can:\n• Re-roll hit rolls of 1.\n• Re-roll wound rolls of 1.",
+  "usage": "Aura",
+  "is_aura": true,
+  "unit_ids": [
+   "roboute-guilliman"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "leader-of-astartes",
+  "name": "Leader of Astartes",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is within 3\" of a friendly Adeptus Astartes Infantry unit, this unit has Lone Operative.",
+  "unit_ids": [
+   "roboute-guilliman"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "deadly-demise-d62",
+  "name": "Deadly Demise D6+2",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "core",
+  "rules_text": "DEADLY DEMISE24.08\nFrom detonating ammo stores to corrosive innards or frenzied death throes, some targets are deadly even in defeat.\nThis ability always takes the form Deadly Demise X. Each time a model with this ability is destroyed, after the units embarked within it (if any) have made their emergency disembark moves, roll one D6. On a 6, that model suffers a deadly demise; each unit within 6\" of that model suffers a number of mortal wounds denoted by X (if this is a random number, roll separately for each unit within 6\").",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "blessings-of-the-omnissiah",
+  "name": "Blessings of the Omnissiah",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, at the start or end of this unit’s move, you can select one friendly Adeptus Astartes Vehicle model within 3\" of this model:\n• That VEHICLE model heals D3 wounds.\n• That VEHICLE model’s attacks can ignore modifiers to hit rolls and wound rolls until the start of your next Movement phase.",
+  "unit_ids": [
+   "techmarine"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "combat-shield",
+  "name": "Combat Shield",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "wargear",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has 5+ InSv.",
+  "unit_ids": [
+   "vanguard-veteran-squad-with-jump-packs"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "forward-assault-warsuit",
+  "name": "Forward Assault Warsuit",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the start of the first battle round, you can select one enemy unit to be this unit’s mark:\n• This unit’s attacks that target this unit’s mark can re-roll wound rolls of 1.\n• Each time this unit’s mark is destroyed, select one enemy unit to be this unit’s mark.",
+  "unit_ids": [
+   "invictor-tactical-warsuit"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "bolter-discipline",
+  "name": "Bolter Discipline",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, if any of the following apply, this unit’s ranged attacks have +1 to hit rolls:\n• This unit is within range of an objective.\n• The target of that attack is within range of an objective.",
+  "unit_ids": [
+   "intercessor-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "tactical-mainstay",
+  "name": "Tactical Mainstay",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• Being engaged/battle-shocked does not prevent this unit from being eligible to start an action.\n• When this unit starts an action, that action does not prevent this unit from being eligible to shoot.",
+  "unit_ids": [
+   "intercessor-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "divinator-class-auspexes",
+  "name": "Divinator-class Auspexes",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, when a friendly ADEPTUS ASTARTES unit is selected to shoot, you can use this ability. If you do, select one visible enemy unit within 18\" of this unit. That unit is scanned:\n• While a unit is scanned, ranged attacks that target that unit can re-roll hit rolls of 1.",
+  "usage": "Once per phase, per unit",
+  "unit_ids": [
+   "incursor-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "flexible-asset",
+  "name": "Flexible Asset",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When this unit is selected to make an advance/fall-back move, that advance/fall-back move does not prevent this unit from being eligible to start an action.",
+  "unit_ids": [
+   "scout-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "raise-the-banner",
+  "name": "Raise the Banner",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "At the end of your Movement phase, if this unit is controlling an objective, that objective is secured.",
+  "unit_ids": [
+   "bladeguard-ancient",
+   "ancient-in-terminator-armour",
+   "company-heroes",
+   "ancient",
+   "wardens-of-ultramar"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "deeds-of-legend",
+  "name": "Deeds of Legend",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is within range of an objective, this unit’s melee attacks have +1 A.",
+  "unit_ids": [
+   "bladeguard-ancient"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "demi-company-commander",
+  "name": "Demi-company Commander",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When a friendly Captain unit uses its Strategic Acumen ability, you can use this ability. If you do, the selected combat doctrine is active for this unit until the start of your next Command phase.",
+  "usage": "Once per turn, per unit",
+  "unit_ids": [
+   "lieutenant",
+   "lieutenant-in-phobos-armour"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "storm-shield-lieutenant",
+  "name": "Storm Shield",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "wargear",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has a 4+ InSv.",
+  "unit_ids": [
+   "lieutenant"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "shattered-defences",
+  "name": "Shattered Defences",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, when this unit has shot, select one enemy MONSTER/VEHICLE unit hit by those attacks. Friendly ADEPTUS ASTARTES units’ ranged attacks that target that enemy unit have +1 AP.",
+  "unit_ids": [
+   "storm-speeder-thunderstrike"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "chief-librarian",
+  "name": "Chief Librarian",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model has the psychic abilities listed in the Psychic Abilities section.",
+  "usage": "psyker level 3",
+  "unit_ids": [
+   "chief-librarian-tigurius"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "telepathic-assault",
+  "name": "Telepathic Assault",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• Select one visible enemy unit within 24\" of this unit. That enemy unit suffers 2D3 mortal wounds.",
+  "usage": "psychic level 1",
+  "unit_ids": [
+   "chief-librarian-tigurius"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "chameleoline-cloaks",
+  "name": "Chameleoline Cloaks",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has -3\" detection range.",
+  "unit_ids": [
+   "eliminator-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "special-issue-optics-and-ammunition",
+  "name": "Special-issue Optics and Ammunition",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, when this unit is selected to shoot, you can select one of the following:\n• This unit’s ranged attacks have [Ignores Cover].\n• Or: Select one enemy unit within 24\" of this unit. That enemy unit has +6\" detection range until this unit has shot.",
+  "unit_ids": [
+   "eliminator-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "rites-of-thermal-appeasement",
+  "name": "Rites of Thermal Appeasement",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has +1 to hazard rolls made for its Plasma Incinerator and Plasma Pistol weapons.",
+  "unit_ids": [
+   "hellblaster-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "close-quarters-firestorm",
+  "name": "Close-quarters Firestorm",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s attacks that target an enemy unit within 9\" of this unit have +1 S.",
+  "unit_ids": [
+   "aggressor-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "wrath-of-the-machine-spirit",
+  "name": "Wrath of the Machine Spirit",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks that target a unit within 12\" of this unit have [Devastating Wounds: non-Monster/vehicle].",
+  "unit_ids": [
+   "land-raider-redeemer"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "veteran-marksmen",
+  "name": "Veteran Marksmen",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s ranged attacks can re-roll hit rolls of 1.",
+  "unit_ids": [
+   "sternguard-veteran-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "force-dome",
+  "name": "Force Dome",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• This unit has 4+ InSv until the start of your next turn.",
+  "usage": "psychic level 1",
+  "unit_ids": [
+   "librarian"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "firing-deck-7",
+  "name": "Firing Deck 7",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "core",
+  "rules_text": "FIRING DECK24.14\nSome transports have dedicated platforms or firing ports from which embarked passengers can lay down a withering hail of munitions.\nThis ability always takes the form Firing Deck X. In your Shooting phase, each time this TRANSPORT is selected to shoot, if one or more units are embarked within it, resolve the following sequence:\n• Select up to X models embarked within this TRANSPORT (excluding models whose units have already been selected to shoot this phase).\n• For each selected model, select one of its ranged weapons (excluding [ONE SHOT] weapons).\n• Until this TRANSPORT has resolved all of its attacks, it has all of those selected weapons in addition to its other weapons.\n• Until the end of the turn, units embarked within this TRANSPORT are not eligible to shoot.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "rapid-disembarkation",
+  "name": "Rapid Disembarkation",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Movement phase, when this unit ends an advance move, units embarked within this unit can make a shock disembark move.",
+  "unit_ids": [
+   "impulsor"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "never-shall-the-standard-fall",
+  "name": "Never Shall the Standard Fall",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this unit is within range of an objective, attacks that target this unit with a S greater than this unit’s T have -1 to wound rolls.",
+  "unit_ids": [
+   "ancient-in-terminator-armour"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "damaged-8",
+  "name": "Damaged: 1-8 Wounds Remaining",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "core",
+  "rules_text": "DAMAGED24.39\nThis ability always takes the form Damaged X. While a model’s remaining wounds are equal to or less than X, that model is damaged: while damaged, that model’s attacks have -1 to hit rolls.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "tactical-fluidity",
+  "name": "Tactical Fluidity",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• In your Shooting phase, when this unit has shot, if this unit is unengaged, this unit can make a normal move of up to D6\".\n• Or: At the end of your opponent’s Fight phase if this unit is engaged, this unit can make a fall-back move of up to 6\".",
+  "usage": "Once per battle round, per unit",
+  "unit_ids": [
+   "captain-in-phobos-armour"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "into-the-fray",
+  "name": "Into the Fray",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this unit made a charge move this turn, this unit’s melee attacks have [cleave 1].",
+  "unit_ids": [
+   "captain-on-bike"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "trophy-taker",
+  "name": "Trophy Taker",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s attacks that target a CHARACTER unit can:\n• Re-roll hit rolls of 1\n• Re-roll wound rolls of 1.",
+  "unit_ids": [
+   "korsarro-khan"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "for-the-khan",
+  "name": "For the Khan!",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "• This unit’s ranged attacks have [ASSAULT]\n• This unit’s melee attacks have [LANCE].",
+  "unit_ids": [
+   "korsarro-khan"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "full-throttle-assault",
+  "name": "Full-throttle Assault",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "If this unit made a charge move this turn, this unit’s:\n• Thunder Hammer weapons have +1 to hit rolls and [Sustained Hits 1].\n• Other melee weapons have +1 D and [Sustained Hits 1].",
+  "unit_ids": [
+   "outrider-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "grapnel-launchers",
+  "name": "Grapnel Launchers",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "wargear",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "When this unit makes a move, this unit can:\n• Move through all types of model.\n• Ignore all vertical distance for the purposes of how far this unit has moved.",
+  "unit_ids": [
+   "reiver-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "grav-chutes",
+  "name": "Grav-chutes",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "wargear",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has Deep Strike.",
+  "unit_ids": [
+   "reiver-squad"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "combat-embarkation",
+  "name": "Combat Embarkation",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your opponent’s Charge phase, when an enemy unit has selected charge targets, you can select one friendly unengaged ADEPTUS ASTARTES unit that was one of those charge targets and is eligible to embark within this TRANSPORT. If every model in that unit is within 3\" of this TRANSPORT, that unit can embark within this TRANSPORT. That enemy unit can then select new charge targets for that charge move.",
+  "unit_ids": [
+   "repulsor"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "veiling-smoke",
+  "name": "Veiling Smoke",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "You can target this unit with the Smokescreen stratagem, regardless of any other uses of that stratagem this phase. If you do:\n• That use is -1 CP.\n• That use does not prevent any uses of that stratagem on other units this phase.",
+  "usage": "Once per phase, per unit",
+  "unit_ids": [
+   "rhino"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "seeker-of-the-unfound",
+  "name": "Seeker of the Unfound",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "The first time this model is set up on the battlefield, select one objective on the battlefield. While this model is within range of that objective, this model has:\n• 10 OC.\n• 5+ Ld.\n• Feel No Pain 4+.",
+  "unit_ids": [
+   "vulkan-hestan"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "forgefather",
+  "name": "Forgefather",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, select one visible enemy unit within 24\" of this model. Friendly ADEPTUS ASTARTES units’ [Melta]/[Torrent] attacks that target that enemy unit have +2 S.",
+  "unit_ids": [
+   "vulkan-hestan"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "honour-of-the-company",
+  "name": "Honour of the Company",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit has +1 OC.",
+  "unit_ids": [
+   "ancient"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "litany-of-hate-wolf-priest",
+  "name": "Litany of Hate",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This unit’s melee attacks have [LANCE].",
+  "unit_ids": [
+   "wolf-priest"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "haywire-mine-wolf-scouts",
+  "name": "Haywire Mine",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "wargear",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, select up to one visible enemy unit within 6\" of this unit and roll one D6. On a 2+:\n• That enemy unit suffers D3 mortal wounds.\n• Or: If that enemy unit is a VEHICLE unit, that enemy unit suffers 2D3 mortal wounds.",
+  "usage": "Once per battle, per unit",
+  "unit_ids": [
+   "wolf-scouts"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "righteous-fury",
+  "name": "Righteous Fury",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Fight phase, you can use this ability. If you do, this unit’s melee attacks have +1 S, and when this unit has fought:\n• This model heals D3 wounds.\n• Or: If this model destroyed an enemy model this phase, this model heals 2D3 wounds.",
+  "usage": "Once per battle, per army",
+  "unit_ids": [
+   "captain-titus"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "overlapping-destruction",
+  "name": "Overlapping Destruction",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, you can select one enemy unit. This unit’s Heavy Bolter weapons that target that enemy unit have [Blast 1].",
+  "unit_ids": [
+   "eradicator-squad-with-heavy-bolters"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "thunderhawk-insertion",
+  "name": "Thunderhawk Insertion",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In the Declare Battle Formations step, you can select one friendly Gravis/Phobos/Tacticus unit. That unit has Deep Strike.",
+  "unit_ids": [
+   "marneus-calgar"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "aggressive-reconnaissance",
+  "name": "Aggressive Reconnaissance",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "In your Shooting phase, this unit’s ranged attacks that target an enemy unit that is not within 6\" of any other enemy units have +1 to wound rolls.",
+  "unit_ids": [
+   "invader-atv"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "veteran-bodyguard",
+  "name": "Veteran Bodyguard",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "While this model is attached to a unit, other CHARACTER models in this unit have Feel No Pain 4+.",
+  "unit_ids": [
+   "kaius-konorius"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "calgars-champion",
+  "name": "Calgar’s Champion",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "unit",
+  "faction_id": "adeptus-astartes",
+  "rules_text": "This model’s attacks that target a CHARACTER unit can:\n• Re-roll hit rolls of 1.\n• Re-roll wound rolls of 1.",
+  "unit_ids": [
+   "kaius-konorius"
+  ],
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "the-great-wolf-watches-champions-of-fenris",
+  "name": "The Great Wolf Watches",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Friendly Adeptus Astartes Character units have the following ability:\nCountercharge: (Once per battle round, per unit) When you target this unit with the Heroic Intervention stratagem, that use is -1CP.",
+  "faction_id": "space-wolves",
+  "detachment_id": "champions-of-fenris",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "legendary-slayers-saga-of-the-beastslayer",
+  "name": "Legendary Slayers",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Attacks made by friendly Blood Claws/Thunderwolf Cavalry/Wulfen units have [Lethal Hits: Character/Monster/Vehicle].",
+  "faction_id": "space-wolves",
+  "detachment_id": "saga-of-the-beastslayer",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "ability_id": "master-of-wolves-saga-of-the-great-wolf",
+  "name": "Master of Wolves",
+  "authored_by": "wahapedia",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "ability_type": "detachment",
+  "rules_text": "Friendly ADEPTUS ASTARTES units (excluding MONSTER / VEHICLE units) with this ability have the following abilities: Encircling Jaws: If the assault doctrine is active for your unit, your unit has +1 to advance rolls and charge rolls. Hunter’s Eye: If the devastator doctrine is active for your unit, your unit’s ranged attacks can re-roll hit rolls of 1. Ferocious Strike: If the tactical doctrine is active for your unit, your unit’s attacks that target an enemy unit within 9\" have [Sustained Hits 1]. Friendly LOGAN GRIMNAR units have the following ability: Howling Onslaught: (Once per battle, per army) In your command phase, you can use this ability. If you do, friendly ADEPTUS ASTARTES MONSTER / VEHICLE units benefit from the Master of Wolves rule until the start of your next command phase. Restrictions: Your army can include SPACE WOLVES units, but it cannot include any ADEPTUS ASTARTES units drawn from any other Chapter.",
+  "faction_id": "space-wolves",
+  "detachment_id": "saga-of-the-great-wolf",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "ability_id": "deadly-demise-d3",

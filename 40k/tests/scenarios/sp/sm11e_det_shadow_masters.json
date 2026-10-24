@@ -1,0 +1,287 @@
+{
+  "id": "sm11e_det_shadow_masters",
+  "covers": [
+    "codex.space_marines.detachment.phobos_shadow_force.shadow_masters",
+    "codex.space_marines.enhancements.execute_and_redeploy",
+    "stratagem.window.unit_has_shot",
+    "rules.terrain.hidden",
+    "phases.ShootingPhase.reactive_normal_move",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Phobos Shadow Force (WP-M2a). Fixture sm11e_m2a_marines_active. Setup privileges: P2 at 0 CP, a dense ruin under the Infiltrators (injected into TerrainManager — the fixture board is open). Shooting phase: (1) the Infiltrators (PHOBOS) shoot the Gretchin: shooting would stop them being hidden; the unit_has_shot window shows the free SHADOW MASTERS card with two buttons; a REAL click on 'Stay hidden' — they are hidden again (Game Log). (2) The Lieutenant with Combi-weapon (EXECUTE AND REDEPLOY) shoots: the card offers a 6\" normal move; a REAL click on Use starts the move (the reactive-move panel); it moves 3\" north (the panel's drag + Confirm) and is not eligible to charge this turn.",
+  "fixture": "sm11e_m2a_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions — not under test), auto wound allocation",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var tm = TerrainManager\nvar poly = PackedVector2Array([Vector2(7, 38) * 40.0, Vector2(19, 38) * 40.0, Vector2(19, 44) * 40.0, Vector2(7, 44) * 40.0])\ntm.terrain_features.append({\"id\": \"sm11e_scen_ruin\", \"type\": \"ruins\", \"polygon\": poly, \"height_category\": \"tall\"})\nreturn tm.terrain_features.size()",
+      "comment": "setup privilege: a dense ruin under the Infiltrators",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the Shooting phase",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "shooting phase_start (Auspex card — not under test here) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(14.000000, 38.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.200000, 1.200000)\nm.view_zoom = 1.200000\nm.view_offset = focus - vp / (2.0 * 1.200000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.shoot(1, \"U_INFILTRATOR_SQUAD_A\", \"U_GRETCHIN_C\", \"carbine\", 9)",
+      "comment": "the Infiltrators shoot the Gretchin",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "integration: the detachment's WP-M3a stratagems now open unit_selected_to_shoot first — declined (not under test); the held action then applies",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.has_pending_stratagem_window() and str(ph.get_pending_stratagem_window().get(\"window_id\", \"\")) == \"unit_selected_to_shoot\":\n\tvar w = ph.get_pending_stratagem_window()\n\tph.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": \"unit_selected_to_shoot\"})\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_has_shot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var D = load(\"res://scripts/codex/space_marines/SMDetachmentsA.gd\")\nreturn D.unit_is_hidden(GameState.state.units[\"U_INFILTRATOR_SQUAD_A\"])",
+      "comment": "having shot, the Infiltrators are not hidden",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_shadow_masters/Buttons/Use_sm11e_rule_shadow_masters_U_INFILTRATOR_SQUAD_A_hidden",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_shadow_masters/Buttons/Use_sm11e_rule_shadow_masters_U_INFILTRATOR_SQUAD_A_move",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shadow_masters_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_shadow_masters/Buttons/Use_sm11e_rule_shadow_masters_U_INFILTRATOR_SQUAD_A_hidden",
+      "comment": "REAL click: Stay hidden"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var D = load(\"res://scripts/codex/space_marines/SMDetachmentsA.gd\")\nreturn D.unit_is_hidden(GameState.state.units[\"U_INFILTRATOR_SQUAD_A\"])",
+      "comment": "those attacks do not prevent them from being hidden",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"SHADOW MASTERS\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_infiltrators_still_hidden"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(31.000000, 40.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.200000, 1.200000)\nm.view_zoom = 1.200000\nm.view_offset = focus - vp / (2.0 * 1.200000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.shoot(1, \"U_LIEUTENANT_WITH_COMBI_WEAPON_A\", \"U_GRETCHIN_C\", \"\", 13)",
+      "comment": "the Lieutenant with Combi-weapon shoots the Gretchin",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "integration: the detachment's WP-M3a stratagems now open unit_selected_to_shoot first — declined (not under test); the held action then applies",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.has_pending_stratagem_window() and str(ph.get_pending_stratagem_window().get(\"window_id\", \"\")) == \"unit_selected_to_shoot\":\n\tvar w = ph.get_pending_stratagem_window()\n\tph.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": \"unit_selected_to_shoot\"})\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_execute_and_redeploy/Buttons/Use_sm11e_rule_execute_and_redeploy_U_LIEUTENANT_WITH_COMBI_WEAPON_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_execute_and_redeploy_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_execute_and_redeploy/Buttons/Use_sm11e_rule_execute_and_redeploy_U_LIEUTENANT_WITH_COMBI_WEAPON_A",
+      "comment": "REAL click on Use"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return not PhaseManager.get_current_phase_instance().ork11e_reactive_move_info().is_empty()",
+      "comment": "the reactive-move panel is active (up to 6\")",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_LIEUTENANT_WITH_COMBI_WEAPON_A.flags.cannot_charge",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ORK11E_REACTIVE_MOVE_STAGE",
+        "player": 1,
+        "payload": {
+          "translation": {
+            "x": 0.0,
+            "y": -120.0
+          }
+        }
+      },
+      "comment": "the move panel's drag: 3\" north"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "04_execute_and_redeploy_move"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ORK11E_REACTIVE_MOVE_CONFIRM",
+        "player": 1
+      },
+      "comment": "the move panel's Confirm"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = GameState.state.units[\"U_LIEUTENANT_WITH_COMBI_WEAPON_A\"].models[0].position\nreturn float(p.y) / 40.0 < 39.5",
+      "comment": "it moved north",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "05_redeployed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sm11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

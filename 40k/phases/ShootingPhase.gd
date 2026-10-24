@@ -5098,7 +5098,10 @@ func _reactive_window_context(action: Dictionary) -> Dictionary:
 		ctx = action_ctx.duplicate(true)
 	var strat = StratagemManager.get_stratagem(str(action.get("stratagem_id", "")))
 	var windows = strat.get("timing", {}).get("windows", [])
-	if "enemy_targets_unit_shooting" in windows:
+	# WP-S4: the Space Wolves STORM CALLER card has no stratagem row — it is a window offer too.
+	# WP-M4a: + the Codex: Space Marines SHROUDING card (Librarian in Phobos Armour).
+	if "enemy_targets_unit_shooting" in windows or _sw11e_abilities().handles_id(str(action.get("stratagem_id", ""))) \
+			or _sm11e_abilities_a().handles_id(str(action.get("stratagem_id", ""))):
 		var target_ids: Array = []
 		for assignment in confirmed_assignments:
 			var tid = str(assignment.get("target_unit_id", ""))
@@ -5129,7 +5132,7 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 
 	# Clear awaiting state and continue to resolution
 	awaiting_reactive_stratagem = false
-	log_phase_message("Player %d used %s on %s" % [defending_player, StratagemManager.get_stratagem(stratagem_id).name, target_unit_id])
+	log_phase_message("Player %d used %s on %s" % [defending_player, StratagemManager.get_stratagem(stratagem_id).get("name", result.get("stratagem_name", stratagem_id)), target_unit_id])
 
 	# More than one reactive stratagem per targeting (e.g. a core one AND a
 	# codex one): while another is still usable, the defender's dialog
@@ -5138,7 +5141,7 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	if not reopened.is_empty():
 		reopened["stratagem_used"] = {
 			"stratagem_id": stratagem_id,
-			"stratagem_name": StratagemManager.get_stratagem(stratagem_id).name,
+			"stratagem_name": StratagemManager.get_stratagem(stratagem_id).get("name", result.get("stratagem_name", stratagem_id)),
 			"target_unit_id": target_unit_id,
 			"player": defending_player
 		}
@@ -5167,7 +5170,7 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 
 	combined["stratagem_used"] = {
 		"stratagem_id": stratagem_id,
-		"stratagem_name": StratagemManager.get_stratagem(stratagem_id).name,
+		"stratagem_name": StratagemManager.get_stratagem(stratagem_id).get("name", result.get("stratagem_name", stratagem_id)),
 		"target_unit_id": target_unit_id,
 		"player": defending_player
 	}
@@ -5232,6 +5235,8 @@ const _ORK11E_NOT_SHOOTING_ACTIONS := ["SKIP_UNIT", "PERFORM_SECONDARY_ACTION", 
 	"USE_THROAT_SLITTAS", "USE_GRENADE_STRATAGEM", "END_SHOOTING"]
 
 var _ork11e_pre_shot_wounds: Dictionary = {}  # enemy unit_id -> wounds left when the shooter was selected
+# WP-M4c GLORY OF ULTRAMAR: alive models per unit before the shot ("a model in this unit was destroyed by those attacks").
+var _sm11e_pre_shot_alive: Dictionary = {}
 var _ork11e_shot_dice_start: int = 0          # dice_log index when the shooter was selected
 var _ork11e_shot_hits: Dictionary = {}        # target_unit_id -> hits (staged path, after re-rolls)
 var _ork11e_post_shot_queue: Array = []       # shooters whose post-shot windows are still to open
@@ -5248,11 +5253,13 @@ func _ork11e_begin_shot_tracking(shooter_id: String) -> void:
 	_ork11e_shot_dice_start = dice_log.size()
 	_ork11e_shot_hits.clear()
 	_ork11e_pre_shot_wounds.clear()
+	_sm11e_pre_shot_alive.clear()  # WP-M4c
 	var shooter_owner := int(get_unit(shooter_id).get("owner", get_current_player()))
 	var units: Dictionary = GameState.state.get("units", {})
 	for uid in units:
 		if int(units[uid].get("owner", 0)) != shooter_owner:
 			_ork11e_pre_shot_wounds[uid] = _ork11e_unit_wounds(units[uid])
+			_sm11e_pre_shot_alive[uid] = units[uid].get("models", []).filter(func(m): return m.get("alive", true)).size()  # WP-M4c
 
 func _ork11e_note_hits(target_unit_id: String, hits: int) -> void:
 	if target_unit_id != "" and hits > 0:
@@ -5279,7 +5286,29 @@ func _ork11e_post_shot_ctx(shooter_id: String) -> Dictionary:
 		var u = GameState.get_unit(uid)
 		if not u.is_empty() and _ork11e_unit_wounds(u) < int(_ork11e_pre_shot_wounds[uid]):
 			wounded.append(uid)
-	return {"hit_unit_ids": hit.keys(), "wounded_unit_ids": wounded}
+	# Codex: Space Marines (11e) Space Wolves IMPETUOSITY / BATTLE INSTINCTS
+	# (SWCodex11e.gd): "an enemy unit that TARGETED a friendly unit has shot" —
+	# every unit a hit roll of those attacks was made against (hit or not).
+	var targeted := hit.duplicate()
+	# WP-M4b SUPPRESSION FIRE (Codex: Space Marines 11e, Astraeus): "an enemy unit
+	# hit by this model's Twin Macro-accelerator Cannon" — the units hit, per weapon.
+	var hit_by_weapon := {}
+	for j in range(mini(_ork11e_shot_dice_start, dice_log.size()), dice_log.size()):
+		var tb = dice_log[j]
+		if typeof(tb) == TYPE_DICTIONARY and str(tb.get("target_unit_id", "")) != "":
+			targeted[str(tb.get("target_unit_id", ""))] = true
+			if str(tb.get("weapon_id", "")) != "" and int(tb.get("successes", 0)) > 0:
+				var hw: Array = hit_by_weapon.get(str(tb.weapon_id), [])
+				if not str(tb.target_unit_id) in hw:
+					hw.append(str(tb.target_unit_id))
+				hit_by_weapon[str(tb.weapon_id)] = hw
+	# WP-M4c GLORY OF ULTRAMAR (Victrix Honour Guard): units that lost a model to those attacks.
+	var destroyed: Array = []
+	for duid in _sm11e_pre_shot_alive:
+		var du = GameState.get_unit(duid)
+		if not du.is_empty() and du.get("models", []).filter(func(m): return m.get("alive", true)).size() < int(_sm11e_pre_shot_alive[duid]):
+			destroyed.append(duid)
+	return {"hit_unit_ids": hit.keys(), "wounded_unit_ids": wounded, "targeted_unit_ids": targeted.keys(), "hit_by_weapon": hit_by_weapon, "models_destroyed_unit_ids": destroyed, "destroyed_unit_ids": destroyed}  # WP-M4c Glory of Ultramar / WP-M3b HAIL OF VENGEANCE
 
 func _ork11e_queue_post_shot(a_type: String, shot_before: int, result: Dictionary) -> void:
 	if a_type in _ORK11E_NOT_SHOOTING_ACTIONS or result.get("throat_slittas", false):
@@ -5327,6 +5356,12 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 		# Codex: Adeptus Custodes VIGIL UNENDING / IN AURAMITE CLAD end "until
 		# that enemy unit has attacked" (CustodesCodex11e.gd).
 		_cus11e_codex().on_unit_has_attacked(shooter_id)
+		# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE ends "until that enemy unit has attacked" (SWCodex11e.gd).
+		load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(shooter_id)
+		# Codex: Space Marines (11e) ARMOUR OF CONTEMPT ends "until that enemy unit has attacked" (SMCodex11e.gd).
+		load("res://scripts/codex/space_marines/SMCodex11e.gd").on_unit_has_attacked(shooter_id)
+		# WP-M4b SPECIAL-ISSUE OPTICS (Codex: Space Marines 11e): its effects last "until this unit has shot".
+		load("res://scripts/codex/space_marines/SMAbilitiesB.gd").on_unit_has_shot(shooter_id)
 		# WP-O6: Codex: Orks (11e) "when this unit has shot, select one enemy
 		# unit hit" abilities (Rokkit Barrage, Squig Barrage, Bust 'Em, Madcap
 		# Artillery) resolve here when exactly one unit was hit; with 2+ hit
@@ -5334,9 +5369,13 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 		merged.append_array(OrkAbilities11eScript.after_unit_shot(shooter_id, shot.hit_unit_ids))
 		var paused := open_stratagem_windows([
 			{"player": active, "window_id": "unit_has_shot", "ctx": {"phase": "shooting", "unit_id": shooter_id,
-				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}},
+				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids,
+				"hit_by_weapon": shot.get("hit_by_weapon", {})}},  # WP-M4b: Suppression Fire
 			{"player": other, "window_id": "enemy_has_shot", "ctx": {"phase": "shooting", "attacker_unit_id": shooter_id,
-				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}}],
+				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids,
+				"targeted_unit_ids": shot.targeted_unit_ids,  # targeted: Space Wolves IMPETUOSITY / BATTLE INSTINCTS
+				"models_destroyed_unit_ids": shot.models_destroyed_unit_ids,  # WP-M4c Glory of Ultramar
+				"destroyed_unit_ids": shot.get("destroyed_unit_ids", [])}}],  # WP-M3b HAIL OF VENGEANCE
 			"_ork11e_resume_after_post_shot_windows", {"unit_id": shooter_id})
 		merged.append_array(consume_window_diffs())
 		if paused:

@@ -67,7 +67,7 @@ const { unitsByFaction, compByUnit } = conv;
 
 // ---------------------------------------------------------------------------
 // Unit conversion
-function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachmentEnh = new Map(), ordinal = 1) {
+function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachmentEnh = new Map(), ordinal = 1, armyFactionId = null) {
   const comp = compByUnit.get(`${factionId}::${dcUnit.id}`);
   const oldMeta = existing.meta ?? {};
   let modelCount = (existing.models ?? []).length ||
@@ -135,7 +135,7 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
   const rosterWargear = (oldMeta.wargear ?? []).map(normName);
   const hasWargear = n => defaultWargear.some(w => w.includes(normName(n))) ||
     rosterWargear.some(w => w.includes(normName(n)));
-  const abilitiesOut = conv.unitAbilities(dcUnit, factionId, factionName, warnings, hasWargear);
+  const abilitiesOut = conv.unitAbilities(dcUnit, factionId, factionName, warnings, hasWargear, armyFactionId);
 
   // --- composition + models
   const modelsOut = conv.buildModelsArray(dcUnit, comp, modelCount);
@@ -351,8 +351,12 @@ function convertFile(path) {
   const army = JSON.parse(readFileSync(path, 'utf8'));
   const warnings = [];
   const factionName = army.faction?.name ?? '';
-  const factionId = FACTION_IDS[normName(factionName)];
-  if (!factionId) {
+  // A chapter army (Space Wolves) builds from its parent faction's datasheets;
+  // its detachments and army rules are the chapter's.
+  const armyFactionId = FACTION_IDS[normName(factionName)] ?? conv.factionIdForName(factionName);
+  const chapter = rawData.factions.find(f => f.id === armyFactionId && f.parent_faction_id);
+  const factionId = chapter && !unitsByFaction.get(armyFactionId)?.size ? chapter.parent_faction_id : armyFactionId;
+  if (!factionId || !unitsByFaction.get(factionId)) {
     console.log(`SKIP ${basename(path)} — unknown faction "${factionName}"`);
     return null;
   }
@@ -361,18 +365,23 @@ function convertFile(path) {
   for (const [k, u] of lookup) lookupLoose.set(looseName(u.name), u);
   const aliases = UNIT_ALIASES[factionId] ?? {};
 
-  // 11e enhancements for this file's detachment, keyed by normalized name.
-  const detName = normName(army.faction?.detachment ?? '');
-  const detachment = detachmentsAll.find(
-    d => d.faction_id === factionId && normName(d.name) === detName);
+  // 11e enhancements for this file's detachment(s), keyed by normalized name
+  // (faction.detachments lists every selected detachment, primary first).
+  const detNames = [...new Set([army.faction?.detachment ?? '', ...(army.faction?.detachments ?? [])]
+    .map(n => String(n)).filter(Boolean))];
   const detachmentEnh = new Map();
-  if (detachment) {
+  for (const dn of detNames) {
+    const detachment = detachmentsAll.find(
+      d => d.faction_id === armyFactionId && normName(d.name) === normName(dn) && !d.superseded_by_codex) ??
+      detachmentsAll.find(d => d.faction_id === factionId && normName(d.name) === normName(dn));
+    if (!detachment) {
+      warnings.push(`detachment "${dn}" not found in 11e ${armyFactionId} detachments`);
+      continue;
+    }
     for (const eid of detachment.enhancement_ids ?? []) {
       const e = enhancementsAll.find(x => x.id === eid);
-      if (e) detachmentEnh.set(enhKey(e.name), e);
+      if (e && !detachmentEnh.has(enhKey(e.name))) detachmentEnh.set(enhKey(e.name), e);
     }
-  } else if (detName) {
-    warnings.push(`detachment "${army.faction.detachment}" not found in 11e ${factionId} detachments`);
   }
   const outUnits = {};
   const copies = new Map(); // datasheet -> copies seen so far (repeat pricing)
@@ -409,7 +418,7 @@ function convertFile(path) {
     }
     const copyKey = `${unitFactionId}::${dcUnit.id}`;
     copies.set(copyKey, (copies.get(copyKey) ?? 0) + 1);
-    const conv2 = convertUnit(u, dcUnit, unitFactionId, factionName, warnings, detachmentEnh, copies.get(copyKey));
+    const conv2 = convertUnit(u, dcUnit, unitFactionId, factionName, warnings, detachmentEnh, copies.get(copyKey), armyFactionId);
     totalPoints += conv2.meta.points;
     outUnits[key] = conv2;
   }

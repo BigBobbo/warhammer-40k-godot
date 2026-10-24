@@ -29,6 +29,19 @@ const SNAP = join(HERE, '..', '..', '.llm', 'codex_11e_wahapedia');
 const FACTIONS = {
   'adeptus-custodes': { dir: 'custodes', full: true, detachments: 13, stratagems: 41, enhancements: 29 },
   'orks': { dir: 'orks', full: false, enhancements: 38 },
+  // Codex: Space Marines, scoped: the generic + Forge World + Space Wolves
+  // datasheets; detachments by owning 40kdc faction.
+  'adeptus-astartes': {
+    dir: 'space-marines', full: false, sources: ['Space Marines', 'Space Marines (Forge World)', 'Space Wolves'],
+    detachmentGroups: [
+      { faction: 'space-wolves', names: ['Champions of Fenris', 'Saga of the Beastslayer', 'Saga of the Great Wolf'] },
+      { faction: 'adeptus-astartes', names: ['Gladius Task Force', 'Ironstorm Spearhead', 'Stormlance Task Force', 'Gauntlet Task Force',
+        'Phobos Shadow Force', 'Tacticus Attack Force', 'Phobos Shock Force', 'Terminator Storm Force',
+        'Assault Brethren', 'Gravis Linebreaker Force', 'Devastator Brethren', 'Gravis Siege Force',
+        'Tactical Brethren', 'Ironclad Champions', 'Tacticus Firestorm Force'] },
+    ],
+    enhancements: 40, stratagems: 60,
+  },
 };
 
 // Independent pipe-CSV reader (quotes: "" escapes; quoted fields may hold |).
@@ -63,7 +76,8 @@ function verify(factionId) {
   const dir = join(SNAP, cfg.dir, 'wahapedia');
   const R = n => csv(join(dir, `${n}.csv`));
   const sources = new Map(R('Source').map(s => [s.id, s.name]));
-  const sheets = R('Datasheets').filter(d => !/Legends/i.test(sources.get(d.source_id) ?? ''));
+  const sheets = R('Datasheets').filter(d => !/Legends/i.test(sources.get(d.source_id) ?? '') &&
+    (!cfg.sources || cfg.sources.includes(sources.get(d.source_id) ?? '')));
   const by = (rows, k) => rows.reduce((m, r) => (m.get(r[k]) ?? m.set(r[k], []).get(r[k])).push(r) && m, new Map());
   const models = by(R('Datasheets_models'), 'datasheet_id');
   const costs = by(R('Datasheets_models_cost'), 'datasheet_id');
@@ -121,6 +135,7 @@ function verify(factionId) {
     // weapons
     const unitWeapons = (u.weapon_ids ?? []).map(id => weapons.get(id)).filter(Boolean);
     for (const r of wargear.get(ds.id) ?? []) {
+      if (!text(r.name)) continue; // blank export row (Drop Pod)
       const [base] = text(r.name).split(/\s+[-–]\s+/);
       const ws = unitWeapons.filter(w => looseName(w.name) === looseName(base));
       if (!ws.length) { err(ds.name, `weapon "${base}" not on unit (${u.weapon_ids})`); continue; }
@@ -150,7 +165,13 @@ function verify(factionId) {
   // leader pairings
   let pairs = 0;
   for (const l of leader) {
-    const a = unitByWaha.get(l.leader_id), b = unitByWaha.get(l.attached_id);
+    let a = unitByWaha.get(l.leader_id), b = unitByWaha.get(l.attached_id);
+    if (cfg.sources && (!!a !== !!b)) {
+      // scoped: a pairing between an in-scope datasheet and any other codex one
+      const other = R('Datasheets').find(d => d.id === (a ? l.attached_id : l.leader_id));
+      const ou = other && units.find(x => normName(x.name) === normName(other.name));
+      if (a) b = ou; else a = ou;
+    }
     if (!a || !b) continue;
     const la = leaders.find(x => x.leader_id === a.id);
     if (!la || !la.eligible_bodyguard_ids.includes(b.id)) err(a.name, `leader pairing -> ${b.name} missing`);
@@ -163,11 +184,14 @@ function verify(factionId) {
     const BOARDING = new Set(['voyagers in darkness', 'black ship guardians', 'ramship raiders', 'kaptin killers']);
     const enhKey = n => normName(String(n).replace(/\s*\([^)]*\)\s*$/, '')).replace(/\s+upgrade$/, '').replace(/\s+/g, '');
     const allEnh = new Map(J('enhancements').map(e => [e.id, e]));
-    const dataDets = J('detachments').filter(d => d.faction_id === factionId);
+    const groupOf = name => (cfg.detachmentGroups ?? []).find(g => g.names.some(n => normName(n) === normName(name)));
+    const allDets = J('detachments');
     const snapEnh = R('Enhancements');
     let n = 0;
-    for (const sd of R('Detachments').filter(d => !BOARDING.has(normName(d.name)))) {
-      const dd = dataDets.find(d => normName(d.name) === normName(text(sd.name)));
+    const inScope = d => !cfg.detachmentGroups || !!groupOf(text(d.name));
+    for (const sd of R('Detachments').filter(d => !BOARDING.has(normName(d.name)) && inScope(d))) {
+      const fid = groupOf(text(sd.name))?.faction ?? factionId;
+      const dd = allDets.find(d => d.faction_id === fid && normName(d.name) === normName(text(sd.name)));
       if (!dd) { errors.push(`${factionId}: detachment ${text(sd.name)} missing`); continue; }
       const want = snapEnh.filter(e => e.detachment_id === sd.id)
         .map(e => `${enhKey(text(e.name))}=${parseInt(e.cost, 10) || 0}${/true/i.test(e.upgrade) ? 'U' : ''}`).sort();
@@ -183,6 +207,19 @@ function verify(factionId) {
     }
     if (cfg.enhancements != null && n !== cfg.enhancements) errors.push(`${factionId}: ${n} codex enhancements checked, expected ${cfg.enhancements}`);
     checked.enhancements = n;
+  }
+  if (cfg.detachmentGroups) {
+    let st = 0;
+    for (const g of cfg.detachmentGroups) {
+      const dets = J('detachments').filter(d => d.faction_id === g.faction && g.names.some(n => normName(n) === normName(d.name)));
+      if (dets.length !== g.names.length) errors.push(`${factionId}: ${dets.length}/${g.names.length} ${g.faction} detachments found`);
+      for (const d of dets) {
+        if (d.superseded_by_codex) errors.push(`${factionId}: ${d.id} superseded`);
+        if (!d.detachment_rule_id) errors.push(`${factionId}: ${d.id} has no detachment rule`);
+      }
+      st += dets.flatMap(d => d.stratagem_ids).length;
+    }
+    if (st !== cfg.stratagems) errors.push(`${factionId}: ${st} stratagems, expected ${cfg.stratagems}`);
   }
   if (cfg.full) {
     const dets = J('detachments').filter(d => d.faction_id === factionId && !d.superseded_by_codex);

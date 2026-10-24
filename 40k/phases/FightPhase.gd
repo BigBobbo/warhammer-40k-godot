@@ -50,12 +50,36 @@ signal fight_stage_paused(stage: String, info: Dictionary)
 # attacks were assigned. The controller tears down the attack dialog / melee
 # visuals on this; the picker is re-emitted separately.
 signal fighter_selection_cancelled(unit_id: String)
+# Codex: Space Marines (11e) WIND-SWIFT EVASION (SMCodex11e.gd): the end-of-phase
+# normal / fall-back move, driven by the same reactive-move panel (and the same
+# signal names / ORK11E_REACTIVE_MOVE_* actions) as the Shooting phase's moves.
+signal ork11e_reactive_move_started(info: Dictionary)
+signal ork11e_reactive_move_updated(info: Dictionary)
+signal ork11e_reactive_move_ended(info: Dictionary)
+var sm11e_fight_move: Dictionary = {}  # the move in progress (SMCodexAMovement.fight_move_*)
+
+static func _sm11e_movement():
+	return load("res://scripts/codex/space_marines/SMCodexAMovement.gd")
+
+## The WIND-SWIFT EVASION move in progress, for the move panel and scenarios.
+func ork11e_reactive_move_info(positions: Dictionary = {}) -> Dictionary:
+	return _sm11e_movement().fight_move_info(self, positions)
+
+## A human's WIND-SWIFT EVASION move keeps the AI idle (AIPlayer reads this).
+func get_pending_stratagem_window_decider() -> int:
+	var decider := super.get_pending_stratagem_window_decider()
+	if decider == 0 and not sm11e_fight_move.is_empty():
+		return int(sm11e_fight_move.get("player", 0))
+	return decider
 
 # Fight state tracking
 var active_fighter_id: String = ""
 var selected_weapon_id: String = ""  # Currently selected weapon for active fighter
 var pending_attacks: Array = []
 var confirmed_attacks: Array = []
+# WP-S4 (SWAbilities11e) Hammer Blow: the finished activation's assignments, read by the unit_has_fought window.
+var _sw11e_fought_assignments: Array = []
+var _sw11e_dice_mark: int = 0
 var resolution_state: Dictionary = {}
 var dice_log: Array = []
 var units_that_fought: Array = []
@@ -197,6 +221,8 @@ func _on_phase_enter() -> void:
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
 		ability_mgr.on_phase_start(GameStateData.Phase.FIGHT)
+	# WP-M4c FEARSOME ASSAULT (Reiver Squad): start of the Fight phase — each enemy unit engaged with Reivers makes a battle-shock roll at -1.
+	load("res://scripts/codex/space_marines/SMAbilitiesC.gd").on_fight_phase_start()
 
 	# Refresh snapshot after ability effects mutated GameState flags
 	game_state_snapshot = GameState.create_snapshot()
@@ -533,6 +559,12 @@ func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
 
+	# Codex: Space Marines (11e) WIND-SWIFT EVASION move (SMCodex11e.gd): its own
+	# actions, and nothing else while it is in progress.
+	var sm11e_gate: Dictionary = _sm11e_movement().fight_move_gate(self, action)
+	if not sm11e_gate.is_empty():
+		return sm11e_gate
+
 	match action_type:
 		"SELECT_FIGHTER":
 			return _validate_select_fighter(action)
@@ -606,6 +638,9 @@ func process_action(action: Dictionary) -> Dictionary:
 
 func _process_fight_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
+	# Codex: Space Marines (11e) WIND-SWIFT EVASION move (SMCodex11e.gd): the reactive-move panel's actions.
+	if str(action_type).begins_with("ORK11E_REACTIVE_MOVE_"):
+		return _sm11e_movement().fight_move_action(self, action)
 
 	match action_type:
 		"SELECT_FIGHTER":
@@ -1264,6 +1299,9 @@ func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 	var _perf_t0 := Time.get_ticks_usec()
 	# Move pending attacks to confirmed attacks (but don't resolve yet)
 	confirmed_attacks = pending_attacks.duplicate(true)
+	# WP-S4 Hammer Blow ("hit by those attacks"): this activation's assignments and where its dice start.
+	_sw11e_fought_assignments = confirmed_attacks.duplicate(true)
+	_sw11e_dice_mark = dice_log.size()
 	pending_attacks.clear()
 
 	# T3-3: Auto-inject Extra Attacks weapons if not already assigned
@@ -2905,15 +2943,31 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	# Codex: Adeptus Custodes VIGIL UNENDING / IN AURAMITE CLAD end "until that
 	# enemy unit has attacked" (CustodesCodex11e.gd).
 	_cus11e_codex().on_unit_has_attacked(unit_id)
+	# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE ends "until that enemy unit has attacked" (SWCodex11e.gd).
+	load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(unit_id)
+	# Codex: Space Marines (11e) ARMOUR OF CONTEMPT ends "until that enemy unit has attacked" (SMCodex11e.gd).
+	load("res://scripts/codex/space_marines/SMCodex11e.gd").on_unit_has_attacked(unit_id)
 	# Codex: Adeptus Custodes INDOMITABLE GUARDIANS (CustodesCodex11e.gd): the
 	# opponent's enemy_has_fought window ("Your opponent's Fight phase, when an
 	# enemy unit has fought") opens before the next selection / Counter-Offensive.
 	var fought_owner := int(get_unit(unit_id).get("owner", 0))
-	if GameConstants.edition >= 11 and fought_owner == GameState.get_active_player():
+	# WP-S4 (SWAbilities11e): the fighter's own unit_has_fought window first —
+	# Space Wolves HAMMER BLOW ("In the Fight phase, when this unit has fought").
+	var sw_uhf: Array = _sw11e_abilities().unit_has_fought_entries(unit_id, _sw11e_abilities().melee_hit_unit_ids(_sw11e_fought_assignments, dice_log.slice(mini(_sw11e_dice_mark, dice_log.size()))))
+	# WP-M4c RIGHTEOUS FURY (Captain Titus): "when this unit has fought" — Titus heals D3 (2D3 after a kill) (SMAbilitiesC, diffs applied).
+	changes.append_array(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").on_unit_has_fought(unit_id))
+	_sw11e_fought_assignments = []
+	# Codex: Space Marines (11e) TRANSHUMAN SWIFTNESS (SMCodex11e.gd): "Fight phase, when an enemy unit has
+	# fought" — either player's Fight phase, so the window also opens for the active player.
+	var sm11e_ehf: bool = GameConstants.edition >= 11 and fought_owner != GameState.get_active_player() and _sm11e_codex().player_has_window_stratagem(2 if fought_owner == 1 else 1, "enemy_has_fought")
+	if GameConstants.edition >= 11 and (fought_owner == GameState.get_active_player() or not sw_uhf.is_empty() or sm11e_ehf):
 		var ehf_decider := 2 if fought_owner == 1 else 1
 		var ehf_ctx := {"phase": "fight", "enemy_unit_id": unit_id, "attacker_unit_id": unit_id}
-		if open_stratagem_window(ehf_decider, "enemy_has_fought", ehf_ctx, "_cus11e_resume_after_enemy_has_fought"):
-			log_phase_message("Waiting for Player %d's enemy_has_fought stratagem decision (%s has fought)" % [ehf_decider, unit_id])
+		var ehf_entries: Array = sw_uhf.duplicate()
+		if fought_owner == GameState.get_active_player() or sm11e_ehf:
+			ehf_entries.append({"player": ehf_decider, "window_id": "enemy_has_fought", "ctx": ehf_ctx})
+		if open_stratagem_windows(ehf_entries, "_cus11e_resume_after_enemy_has_fought", ehf_ctx):
+			log_phase_message("Waiting for Player %d's %s decision (%s has fought)" % [get_pending_stratagem_window_decider(), str(ehf_entries.map(func(e): return e.window_id)), unit_id])
 			changes.append_array(consume_window_diffs())
 			final_result["changes"] = changes
 			return final_result
@@ -3034,6 +3088,12 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		var ard := mode == "" and Ork11eDetachments.ard_as_nails_applies(unit)
 		if ard:
 			mode = Ork11eDetachments.ARD_AS_NAILS_MODE
+		# WP-S4 (SWAbilities11e): Space Wolves Murder-maker / Anvil of Endurance / Heroic Last Stand.
+		var sw_fod: Dictionary = _sw11e_abilities().fod_rule(uid, int(parts[3])) if mode == "" else {}
+		if sw_fod.is_empty() and mode == "":
+			sw_fod = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").fod_rule(uid, int(parts[3]))  # WP-M4c Honour of Ultramar (Captain Titus, 2+)
+		if not sw_fod.is_empty():
+			mode = "sw11e"
 		if mode == "":
 			continue
 		var idx := int(parts[3])
@@ -3051,6 +3111,8 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		var source := str(uflags.get(OrkCodexFight.FLAG_FOD_SOURCE, "Fight On Death"))
 		if ard:
 			source = "'Ard as Nails"
+		elif not sw_fod.is_empty():
+			source = str(sw_fod.get("source", source))  # WP-S4
 		var models: Array = unit.get("models", [])
 		var label := str(unit.get("meta", {}).get("name", uid))
 		if idx >= 0 and idx < models.size() and models.size() > 1:
@@ -3066,6 +3128,17 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		if not ard and _cus11e_codex().is_fod_mode(mode):
 			mod_info = _cus11e_codex().fod_roll(uid, idx)
 			fod_pass = int(mod_info.get("pass", fod_pass))
+		# Codex: Space Marines (11e) A WORTHY DEATH (SMCodex11e.gd): same mechanic, 4+, no modifier.
+		if not ard and _sm11e_codex().is_fod_mode(mode):
+			mod_info = _sm11e_codex().fod_roll(uid, idx)
+		# Codex: Space Marines (11e) WP-M3b DUTY IN DEATH (SMCodexB.gd): 4+, +1 with the assault doctrine.
+		if not ard and load("res://scripts/codex/space_marines/SMCodexB.gd").is_fod_mode(mode):
+			mod_info = load("res://scripts/codex/space_marines/SMCodexB.gd").fod_roll(uid, idx)
+			fod_pass = int(mod_info.get("pass", fod_pass))
+		# WP-S4: the Space Wolves rule's own threshold (Heroic Last Stand 2+, the others 4+), no modifier.
+		if not sw_fod.is_empty():
+			mod_info = {"mod": 0, "note": ""}
+			fod_pass = int(sw_fod.get("pass", fod_pass))
 		var mod := int(mod_info.get("mod", 0))
 		var total := roll + mod
 		var kept := total >= fod_pass
@@ -3075,7 +3148,7 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		log_phase_message(msg)
 		DebugLogger.info(str("FightPhase: [ork11e FOD] " + msg))
 		var raw_needed := clampi(fod_pass - mod, 1, 7)
-		if kept and ard:
+		if kept and (ard or not sw_fod.is_empty()):  # WP-S4: the Space Wolves source names the removal line too
 			ork11e_ard_sources[uid] = source
 		var dice_block := {"context": "ork11e_fight_on_death", "stratagem": source, "unit_id": uid, "model_index": idx,
 			"rolls_raw": [roll], "rolls_modified": [total], "modifier": mod, "threshold": "%d+" % raw_needed,
@@ -5441,9 +5514,15 @@ func _execute_window_followup(player: int, window_id: String, followup: Dictiona
 	var diffs: Array = []
 	match str(followup.get("type", "")):
 		"embark":
+			# source: the stratagem's name for the log (KEEP IT RUNNIN'; Codex: Space Marines DUTY IS NEVER DONE).
+			_ork11e_embark_source = str(followup.get("source", "KEEP IT RUNNIN'"))
 			diffs = _ork11e_embark_followup_diffs(str(followup.get("unit_id", "")), str(followup.get("transport_id", "")))
+		# Codex: Space Marines (11e) WIND-SWIFT EVASION (SMCodex11e.gd): a normal / fall-back move at the end of the phase.
+		"sm11e_fight_move":
+			return _sm11e_movement().fight_move_start(self, player, followup)
 		"strategic_reserves":
-			diffs = _ork11e_strategic_reserves_followup_diffs(str(followup.get("unit_id", "")))
+			# source: the stratagem's name for the log (INSTINCTIVE HUNTERS; Space Wolves CO-ORDINATED STRIKE).
+			diffs = _ork11e_strategic_reserves_followup_diffs(str(followup.get("unit_id", "")), str(followup.get("source", "INSTINCTIVE HUNTERS")))
 		_:
 			return super._execute_window_followup(player, window_id, followup, ctx)
 	if not diffs.is_empty():
@@ -5455,6 +5534,8 @@ func _execute_window_followup(player: int, window_id: String, followup: Dictiona
 ## every CHARACTER attached to it board together and leave the battlefield.
 ## TransportManager.can_embark (capacity, keywords, not set up this turn) is
 ## re-checked at resolution.
+var _ork11e_embark_source := "KEEP IT RUNNIN'"  # the stratagem named by the embark follow-up's log line
+
 func _ork11e_embark_followup_diffs(unit_id: String, transport_id: String) -> Array:
 	var check: Dictionary = TransportManager.can_embark(unit_id, transport_id)
 	if not check.get("valid", false):
@@ -5474,7 +5555,7 @@ func _ork11e_embark_followup_diffs(unit_id: String, transport_id: String) -> Arr
 		for i in range(g_models.size()):
 			diffs.append({"op": "set", "path": "units.%s.models.%d.position" % [gid, i], "value": null})
 	diffs.append({"op": "set", "path": "units.%s.transport_data.embarked_units" % transport_id, "value": embarked})
-	var msg := "KEEP IT RUNNIN': %s embarks within %s" % [get_unit(unit_id).get("meta", {}).get("name", unit_id),
+	var msg := "%s: %s embarks within %s" % [str(_ork11e_embark_source), get_unit(unit_id).get("meta", {}).get("name", unit_id),
 		transport.get("meta", {}).get("name", transport_id)]
 	log_phase_message(msg)
 	var gel = get_node_or_null("/root/GameEventLog")
@@ -5487,7 +5568,7 @@ func _ork11e_embark_followup_diffs(unit_id: String, transport_id: String) -> Arr
 ## reserve_type strategic_reserves — EVASIVE MANOOVA / DED SNEAKY pattern), the
 ## whole Attached unit together. `repositioned_to_reserves` exempts it from the
 ## end-of-round-3 destruction of reserves (20.04 exception).
-func _ork11e_strategic_reserves_followup_diffs(unit_id: String) -> Array:
+func _ork11e_strategic_reserves_followup_diffs(unit_id: String, source: String = "INSTINCTIVE HUNTERS") -> Array:
 	var u = get_unit(unit_id)
 	if u.is_empty():
 		_window_error("strategic_reserves follow-up: unknown unit %s" % unit_id)
@@ -5505,7 +5586,7 @@ func _ork11e_strategic_reserves_followup_diffs(unit_id: String) -> Array:
 		var g_models = get_unit(gid).get("models", [])
 		for i in range(g_models.size()):
 			diffs.append({"op": "set", "path": "units.%s.models.%d.position" % [gid, i], "value": null})
-	var msg := "INSTINCTIVE HUNTERS: %s is placed in strategic reserves" % u.get("meta", {}).get("name", unit_id)
+	var msg := "%s: %s is placed in strategic reserves" % [source, u.get("meta", {}).get("name", unit_id)]
 	log_phase_message(msg)
 	var gel = get_node_or_null("/root/GameEventLog")
 	if gel:

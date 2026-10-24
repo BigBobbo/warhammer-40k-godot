@@ -1,0 +1,166 @@
+{
+  "id": "sw11e_ar_transhuman_strategist",
+  "covers": [
+    "codex.space_wolves.army_rules.transhuman_strategist",
+    "codex.space_wolves.SWArmyRules11e",
+    "phases.CommandPhase.battle_round_start.transhuman_strategist",
+    "ui.scoreboard.cp_label",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Space Wolves TRANSHUMAN STRATEGIST (WP-S2): at the start of the battle round, if a model with this ability is your WARLORD, gain 1CP. Fixture sw11e_s2_wolves_active: round 2, P1 Space Wolves take the first turn, WARLORD = Logan Grimnar (Transhuman Strategist), 6 CP each. (1) Loading the save starts battle round 2: P1 gains 1CP (Command phase) + 1CP (Transhuman Strategist) = 8, P2 (Orks) 7; the scoreboard reads CP:8 and the Game Log names Transhuman Strategist. (2) Setup privilege: jump to the END of the Orks' turn (Scoring phase, active player 2). (3) A real click on the phase button ends the Orks' turn: battle round 3 begins with the Space Wolves Command phase and the rule fires again — P1 10 CP, P2 8 CP; nothing is recorded against GameState's 10e bonus-CP cap.",
+  "fixture": "sw11e_s2_wolves_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_LOGAN_GRIMNAR_A.meta.is_warlord",
+      "equals": true
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 8
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "main._p1_cp_label.text",
+      "equals": "CP:8"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Transhuman Strategist\")",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_bonus_cp_gained_this_round(1)",
+      "equals": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "01_round2_transhuman_strategist_cp8"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privilege: skip to the end of the Orks' turn of battle round 2",
+      "script": "GameState.set_active_player(2)\nPhaseManager.transition_to_phase(11)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 11
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_node",
+      "button_text": "End Turn Without Discarding",
+      "comment": "the Orks' secondary-mission discard prompt (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return GameState.get_current_phase() == 6 and GameState.get_battle_round() == 3 and GameState.get_active_player() == 1",
+      "equals": true,
+      "timeout_s": 8.0,
+      "poll_s": 0.5
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 10
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "main._p1_cp_label.text",
+      "equals": "CP:10"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Transhuman Strategist\")",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_bonus_cp_gained_this_round(1)",
+      "equals": 0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_LOGAN_GRIMNAR_A.flags.sw11e_transhuman_round",
+      "equals": 3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_round3_transhuman_strategist_cp10"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sw11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    }
+  ]
+}

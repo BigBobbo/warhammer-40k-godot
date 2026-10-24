@@ -85,6 +85,9 @@ func is_fights_first(unit: Dictionary) -> bool:
 	# Throne: friendly ADEPTUS CUSTODES units have Fights First (WP-C46).
 	if load("res://scripts/codex/custodes/CustodesDetachments.gd").has_fights_first(unit):
 		return true
+	# WP-M4c TEMPORMORTIS (Judiciar): "This unit has Fights First" — the Judiciar's whole Attached unit.
+	if load("res://scripts/codex/space_marines/SMAbilitiesC.gd").group_fights_first(unit):
+		return true
 	return UnitAbilities.unit_has(unit, "fights first")
 
 
@@ -173,7 +176,9 @@ func selectable_units(board: Dictionary, player: int, only_fights_first: bool) -
 	if passed.get(player, false):
 		return []
 	# Codex: Adeptus Custodes INDOMITABLE GUARDIANS (CustodesCodex11e.gd): "must be the next unit you select to fight".
-	return load("res://scripts/codex/custodes/CustodesCodex11e.gd").restrict_fight_candidates(player, eligible_units(board, player, only_fights_first))
+	var cands: Array = load("res://scripts/codex/custodes/CustodesCodex11e.gd").restrict_fight_candidates(player, eligible_units(board, player, only_fights_first))
+	# Codex: Space Marines (11e) TRANSHUMAN SWIFTNESS (SMCodex11e.gd): the same "must be the next unit".
+	return load("res://scripts/codex/space_marines/SMCodex11e.gd").restrict_fight_candidates(player, cands)
 
 
 ## "Eligible to fight, but unable to fight" (core rules p.74): true when

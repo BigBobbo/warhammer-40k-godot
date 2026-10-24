@@ -1,0 +1,256 @@
+{
+  "id": "sm11e_det_stormlance",
+  "covers": [
+    "codex.space_marines.detachment.stormlance_task_force.lightning_fast_strike",
+    "codex.space_marines.enhancements.supercharged_engines",
+    "codex.space_marines.enhancements.auspex_triangulation_shrines",
+    "stratagem.window.phase_start",
+    "dialogs.CommandRerollDialog.free_ability",
+    "debug_log.no_errors"
+  ],
+  "description": "Codex: Space Marines (11e) Stormlance Task Force (WP-M2a). Fixture sm11e_m2a_marines_active. (1) Movement phase (P2 at 0 CP): LIGHTNING-FAST STRIKE — the Outriders (MOUNTED) have M +2\" (the movement cap). They advance (the panel's Advance): SUPERCHARGED ENGINES offers a FREE re-roll in the re-roll dialog (no CP) — a REAL click on the re-roll button re-rolls it. (2) Shooting phase: the phase_start window shows the free AUSPEX TRIANGULATION SHRINES card (Land Speeder); a REAL click on Use opens the target picker listing the Meganobz (visible, within 12\"); a REAL click picks them: they are spotted (+3\" detection range), Game Log line.",
+  "fixture": "sm11e_m2a_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.players[\"2\"][\"cp\"] = 0\nSettingsService.set(\"auto_allocate_wounds\", true)\nreturn true",
+      "comment": "setup privilege: P2 at 0 CP (no Ork reactions — not under test), auto wound allocation",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the Movement phase",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement phase_start (Damocles-class Uplink card — not under test here) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar u = GameState.state.units[\"U_OUTRIDER_SQUAD_A\"]\nreturn ph.get_unit_movement(u) - float(u.meta.stats.move)",
+      "comment": "Lightning-fast Strike: the Outriders' M is +2\"",
+      "equals": 2.0
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_ADVANCE",
+        "actor_unit_id": "U_OUTRIDER_SQUAD_A",
+        "player": 1,
+        "payload": {
+          "rng_seed": 302
+        }
+      },
+      "comment": "the movement panel's Advance"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "integration: the detachment's WP-M3a stratagems now open unit_selected_to_move (SUDDEN ONSLAUGHT) first — declined (not under test); the held action then applies",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.has_pending_stratagem_window() and str(ph.get_pending_stratagem_window().get(\"window_id\", \"\")) == \"unit_selected_to_move\":\n\tvar w = ph.get_pending_stratagem_window()\n\tph.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": \"unit_selected_to_move\"})\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CommandRerollDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"CommandRerollDialog\").free_ability_name",
+      "comment": "the re-roll is the free Supercharged Engines re-roll",
+      "equals": "Supercharged Engines"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(8.000000, 46.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.200000, 1.200000)\nm.view_zoom = 1.200000\nm.view_offset = focus - vp / (2.0 * 1.200000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_supercharged_engines_free_reroll"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return int(GameState.state.players[\"1\"][\"cp\"])",
+      "comment": "CP before the free re-roll",
+      "expect_min": 0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/UseRerollButton",
+      "comment": "REAL click: take the free re-roll"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"Supercharged Engines\")",
+      "comment": "the free re-roll is logged",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_supercharged_engines_rerolled"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the Shooting phase",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "phase_start"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_auspex_triangulation/Buttons/Use_sm11e_rule_auspex_triangulation_U_LAND_SPEEDER_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar m = main\nvar focus = Vector2(38.000000, 36.000000) * 40.0\nvar vp = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(1.200000, 1.200000)\nm.view_zoom = 1.200000\nm.view_offset = focus - vp / (2.0 * 1.200000)\nm.update_view_transform()\nreturn true",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_auspex_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_auspex_triangulation/Buttons/Use_sm11e_rule_auspex_triangulation_U_LAND_SPEEDER_A",
+      "comment": "REAL click on Use"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_MEGANOBZ_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "04_auspex_target_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_MEGANOBZ_A",
+      "comment": "REAL click: the Meganobz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var D = load(\"res://scripts/codex/space_marines/SMDetachmentsA.gd\")\nreturn D.detection_range_bonus(GameState.state.units[\"U_MEGANOBZ_A\"])",
+      "comment": "the Meganobz are spotted: +3\" detection range",
+      "equals": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return ScenarioRunner.event_log_count_containing(\"AUSPEX TRIANGULATION SHRINES\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "05_meganobz_spotted"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[sm11e log] \", DebugLogger.get_real_log_file_path(), \" ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "equals": 0
+    }
+  ]
+}

@@ -22,13 +22,27 @@ import { readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { argValue, normName } from './lib.mjs';
-import { parseCsv, stripHtml, slug } from './wahapedia-import.mjs';
+import { parseCsv, stripHtml, slug, stratagemName } from './wahapedia-import.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..');
 const FACTIONS = {
   'adeptus-custodes': { dir: 'custodes', name: 'Adeptus Custodes' },
   'orks': { dir: 'orks', name: 'Orks' },
+  // Codex: Space Marines (11e), the generic detachments (Space Marines and
+  // every chapter; the chapter-only ones and Boarding Actions excluded).
+  'space-marines': {
+    dir: 'space-marines', name: 'Space Marines', out: 'space_marines',
+    detachments: ['Gladius Task Force', 'Ironstorm Spearhead', 'Stormlance Task Force', 'Gauntlet Task Force',
+      'Phobos Shadow Force', 'Tacticus Attack Force', 'Phobos Shock Force', 'Terminator Storm Force',
+      'Assault Brethren', 'Gravis Linebreaker Force', 'Devastator Brethren', 'Gravis Siege Force',
+      'Tactical Brethren', 'Ironclad Champions', 'Tacticus Firestorm Force'],
+  },
+  // Codex: Space Marines (11e), Space Wolves chapter detachments only.
+  'space-wolves': {
+    dir: 'space-marines', name: 'Space Marines', out: 'space_wolves',
+    detachments: ['Champions of Fenris', 'Saga of the Beastslayer', 'Saga of the Great Wolf'],
+  },
 };
 const BOARDING = new Set(['voyagers in darkness', 'black ship guardians', 'ramship raiders', 'kaptin killers']);
 
@@ -109,6 +123,81 @@ const CONFIRMED_WINDOWS = {
   'golden-light-of-the-moiraides-dread-host': ['unit_selected_to_ingress'],
   'preternatural-rapidity-dread-host': ['unit_ended_advance_move'],
   'lightning-wrath-dread-host': ['unit_selected_to_pile_in'],
+  // Codex: Space Marines — Space Wolves detachments (WP-S1 data pass; the
+  // WP-S3 stratagem pass confirmed all 12 — SWCodex11e.gd, RULINGS.md § WP-S3).
+  'impetuosity-saga-of-the-beastslayer': ['enemy_has_shot'],
+  'battle-instincts-saga-of-the-great-wolf': ['enemy_has_shot'],
+  'co-ordinated-strike-saga-of-the-beastslayer': ['fight_phase_end'],
+  'eye-of-the-pack-saga-of-the-great-wolf': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  // "Your Command phase" — offered in the active player's command_phase_main window.
+  'birth-of-a-saga-champions-of-fenris': ['command_phase_main'],
+  'grimnars-command-saga-of-the-great-wolf': ['command_phase_main'],
+  'heroic-resolve-champions-of-fenris': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'champions-guidance-champions-of-fenris': ['unit_selected_to_fight'],
+  'unbridled-ferocity-saga-of-the-beastslayer': ['unit_selected_to_fight'],
+  'fangs-of-the-pack-saga-of-the-great-wolf': ['unit_selected_to_fight'],
+  'fenrisian-ferocity-saga-of-the-great-wolf': ['unit_selected_to_move', 'unit_declares_charge'],
+  // "Any phase, when … suffers a mortal wound": no reactive hook exists at the
+  // many mortal-wound sites — S panel, used before the mortal wound (ruling).
+  'wolf-totems-saga-of-the-great-wolf': [],
+  // Codex: Space Marines — generic detachments, WP-M3a stratagem pass (Gladius,
+  // Ironstorm, Stormlance, Gauntlet, Phobos Shadow / Shock Force, Tacticus Attack
+  // Force; SMCodex11e.gd, RULINGS.md § WP-M3a).
+  'storm-of-devastation-gladius-task-force': ['unit_selected_to_shoot'],
+  'responsive-tactics-gladius-task-force': ['enemy_ended_move'],
+  'a-worthy-death-gladius-task-force': ['enemy_targets_unit_fight'],
+  'armour-of-contempt-gladius-task-force': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'might-of-angels-gladius-task-force': ['unit_selected_to_fight'],
+  // "Your Command phase" — the active player's command_phase_main window (the Space Wolves ruling).
+  'adaptive-strategy-gladius-task-force': ['command_phase_main'],
+  'might-of-the-machine-spirit-ironstorm-spearhead': ['command_phase_main'],
+  // "Any phase, when … suffers a mortal wound": S panel, used before the mortal wound (WOLF TOTEMS ruling).
+  'layered-ceramite-ironstorm-spearhead': [],
+  'headhunter-doctrine-ironstorm-spearhead': ['unit_selected_to_shoot'],
+  'wind-swift-evasion-stormlance-task-force': ['fight_phase_end'],
+  'sudden-onslaught-stormlance-task-force': ['unit_selected_to_move'],
+  'hurtling-targets-stormlance-task-force': ['enemy_targets_unit_shooting'],
+  'duty-is-never-done-gauntlet-task-force': ['fight_phase_end'],
+  'storm-and-secure-gauntlet-task-force': ['movement_phase_end'],
+  // "selected to move" while embarked = selected to disembark (move_type "disembark").
+  'aggressive-disembarkation-gauntlet-task-force': ['unit_selected_to_move'],
+  'tactical-withdrawal-phobos-shadow-force': ['fight_phase_end'],
+  'mortis-snares-phobos-shadow-force': ['movement_phase_end'],
+  // "selected to attack" = selected to shoot (your Shooting phase) / selected to fight.
+  'strike-from-the-shadows-phobos-shadow-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'strike-from-the-shadows-phobos-shock-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'relentless-assault-tacticus-attack-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'tactical-focus-tacticus-attack-force': ['unit_selected_to_consolidate'],
+  'transhuman-swiftness-tacticus-attack-force': ['enemy_has_fought'],
+  'transhuman-reactions-phobos-shock-force': ['enemy_ended_move'],
+  'umbral-evasion-phobos-shock-force': ['enemy_targets_unit_shooting'],
+  // Codex: Space Marines — generic detachments of WP-M2b (WP-M3b stratagem
+  // pass confirmed all 24 — space_marines/SMCodexB.gd, RULINGS.md § WP-M3b).
+  'tactical-dreadnought-fortitude-terminator-storm-force': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'merciless-veterans-terminator-storm-force': ['unit_selected_to_shoot'],
+  'gunship-extraction-terminator-storm-force': ['fight_phase_end'],
+  'armour-of-contempt-assault-brethren': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'duty-in-death-assault-brethren': ['enemy_targets_unit_fight'],
+  'gene-wrought-might-assault-brethren': ['unit_selected_to_fight'],
+  'armoured-impact-gravis-linebreaker-force': ['unit_ended_charge_move'],
+  'annihilating-force-gravis-linebreaker-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'purgation-push-gravis-linebreaker-force': ['unit_has_shot'],
+  'armour-of-contempt-devastator-brethren': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'hail-of-vengeance-devastator-brethren': ['enemy_has_shot'],
+  'storm-of-fire-devastator-brethren': ['unit_selected_to_shoot'],
+  'suppression-volleys-gravis-siege-force': ['unit_has_shot'],
+  'stand-unyielding-gravis-siege-force': ['movement_phase_end'],
+  'annihilating-force-gravis-siege-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'armour-of-contempt-tactical-brethren': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'domination-fire-tactical-brethren': ['unit_has_shot'],
+  'masterful-tactics-tactical-brethren': ['enemy_ended_move'],
+  'adamantine-terror-ironclad-champions': ['fight_phase_start'],
+  'upstoppable-advance-ironclad-champions': ['unit_selected_to_move', 'unit_declares_charge'],
+  'mercy-is-weakness-ironclad-champions': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
+  'point-blank-brutality-tacticus-firestorm-force': ['unit_selected_to_shoot'],
+  // "Command phase" (either player's): your command_phase_main + the opponent's command_phase_opponent (new, WP-M3b).
+  'for-the-emperor-tacticus-firestorm-force': ['command_phase_main', 'command_phase_opponent'],
+  'relentless-assault-tacticus-firestorm-force': ['unit_selected_to_shoot', 'unit_selected_to_fight'],
 };
 
 // Editorial duration phrases (see orks_codex_11e.json): where the printed
@@ -137,17 +226,35 @@ function parseDescription(html) {
 
 const straight = s => String(s).replace(/[‘’]/g, "'");
 
+// Detachment rules the CSV export carries without text (the faction page
+// prints them) — same text as wahapedia-import.mjs PAGE_ONLY_DETACHMENT_RULES.
+const PAGE_ONLY_RULES = {
+  'saga of the great wolf': {
+    name: 'Master of Wolves',
+    description: 'Friendly ADEPTUS ASTARTES units (excluding MONSTER / VEHICLE units) with this ability have the following abilities: ' +
+      'Encircling Jaws: If the assault doctrine is active for your unit, your unit has +1 to advance rolls and charge rolls. ' +
+      'Hunter’s Eye: If the devastator doctrine is active for your unit, your unit’s ranged attacks can re-roll hit rolls of 1. ' +
+      'Ferocious Strike: If the tactical doctrine is active for your unit, your unit’s attacks that target an enemy unit within 9" have [Sustained Hits 1]. ' +
+      'Friendly LOGAN GRIMNAR units have the following ability: Howling Onslaught: (Once per battle, per army) In your command phase, you can use this ability. ' +
+      'If you do, friendly ADEPTUS ASTARTES MONSTER / VEHICLE units benefit from the Master of Wolves rule until the start of your next command phase. ' +
+      'Restrictions: Your army can include SPACE WOLVES units, but it cannot include any ADEPTUS ASTARTES units drawn from any other Chapter.',
+  },
+};
+
 function build(factionId) {
   const cfg = FACTIONS[factionId];
   const dir = join(REPO, '.llm', 'codex_11e_wahapedia', cfg.dir, 'wahapedia');
   const read = n => parseCsv(readFileSync(join(dir, `${n}.csv`), 'utf8'));
   const stamp = read('Last_update')[0]?.last_update ?? 'unknown';
-  const dets = read('Detachments').filter(d => !BOARDING.has(normName(d.name)));
+  const only = cfg.detachments ? new Set(cfg.detachments.map(normName)) : null;
+  const dets = read('Detachments').filter(d => !BOARDING.has(normName(d.name)) &&
+    (!only || only.has(normName(stripHtml(d.name)))));
   const rules = read('Detachment_abilities');
   const strats = read('Stratagems');
   const review = [];
   const detachments = dets.map(d => {
-    const rule = rules.find(r => r.detachment_id === d.id);
+    const pageRule = PAGE_ONLY_RULES[normName(stripHtml(d.name))] ?? null;
+    const rule = rules.find(r => r.detachment_id === d.id) ?? pageRule;
     const legend = stripHtml(d.legend);
     return {
       name: stripHtml(d.name),
@@ -164,9 +271,9 @@ function build(factionId) {
   for (const d of dets) {
     const did = slug(d.name);
     for (const s of strats.filter(x => x.detachment_id === d.id)) {
-      const name = straight(stripHtml(s.name)).toUpperCase();
+      const name = straight(stratagemName(s.name)).toUpperCase();
       const parts = parseDescription(s.description);
-      const csvId = `${slug(stripHtml(s.name))}-${did}`;
+      const csvId = `${slug(stratagemName(s.name))}-${did}`;
       const inferred = inferWindows(parts.when);
       const confirmed = Object.prototype.hasOwnProperty.call(CONFIRMED_WINDOWS, csvId);
       const windows = confirmed ? CONFIRMED_WINDOWS[csvId] : inferred;
@@ -174,7 +281,7 @@ function build(factionId) {
       stratagems.push({
         csv_id: csvId,
         name,
-        printed_name: straight(stripHtml(s.name)),
+        printed_name: straight(stratagemName(s.name)),
         detachment: stripHtml(d.name),
         detachment_id: did,
         cp_cost: parseInt(s.cp_cost, 10),
@@ -233,7 +340,7 @@ function diff(doc, curatedPath) {
 
 const factionId = argValue('faction');
 if (!FACTIONS[factionId]) {
-  console.error('usage: node curate-from-wahapedia.mjs --faction adeptus-custodes|orks [--out file] [--diff curated-file]');
+  console.error('usage: node curate-from-wahapedia.mjs --faction adeptus-custodes|orks|space-wolves|space-marines [--out file] [--diff curated-file]');
   process.exit(2);
 }
 const doc = build(factionId);
@@ -242,7 +349,7 @@ if (diffPath) {
   const d = diff(doc, resolve(HERE, diffPath));
   console.log(d.length ? d.join('\n') : 'no differences');
 } else {
-  const out = resolve(HERE, argValue('out') || `curated/${FACTIONS[factionId].dir}_codex_11e.json`);
+  const out = resolve(HERE, argValue('out') || `curated/${FACTIONS[factionId].out ?? FACTIONS[factionId].dir}_codex_11e.json`);
   writeFileSync(out, JSON.stringify(doc, null, 2) + '\n');
   console.log(`wrote ${out}: ${doc.detachments.length} detachments, ${doc.stratagems.length} stratagems`);
   console.log(doc._window_review.join('\n'));

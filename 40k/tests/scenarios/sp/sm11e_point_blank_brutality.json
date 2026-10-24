@@ -1,0 +1,186 @@
+{
+  "id": "sm11e_point_blank_brutality",
+  "covers": [
+    "codex.space_marines.stratagems.point-blank-brutality",
+    "codex.space_marines.SMCodexB",
+    "stratagem.window.unit_selected_to_shoot",
+    "rules.shooting.close_quarters",
+    "rules.weapon.ignores_cover"
+  ],
+  "description": "Codex: Space Marines (11e) POINT-BLANK BRUTALITY (Tacticus Firestorm Force, 1 CP) — WP-M3b (SMCodexB.gd, through the custom:sm11e dispatcher). Fixture sm11e_m3b_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3b_fixtures.gd). SELECT_SHOOTER on the ENGAGED Intercessor Squad (TACTICUS, engaged with the Gretchin; eligible for close-quarters shooting through its bolt pistols) opens unit_selected_to_shoot; a real click spends 1 CP; its ranged attacks excluding [BLAST] have [CLOSE-QUARTERS] — the bolt rifle becomes usable in close-quarters shooting (CloseQuartersShooting.weapon_allowed), a [BLAST] grenade launcher does not — and [IGNORES COVER].",
+  "fixture": "sm11e_m3b_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marines player gets the eight WP-M2b detachments (stratagems reloaded), auto wound allocation, the other player 0 CP (no stratagem windows not under test)",
+      "equals": "Terminator Storm Force + Assault Brethren + Gravis Linebreaker Force + Devastator Brethren + Gravis Siege Force + Tactical Brethren + Ironclad Champions + Tacticus Firestorm Force"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.frame(28, 31, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_INTERCESSOR_SQUAD_A",
+        "player": 1
+      },
+      "comment": "the shooting panel's unit pick"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_selected_to_shoot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tacticus_firestorm_force_point_blank_brutality/Buttons/Use_faction_sm_tacticus_firestorm_force_point_blank_brutality_U_INTERCESSOR_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tacticus_firestorm_force_point_blank_brutality/Buttons/Use_faction_sm_tacticus_firestorm_force_point_blank_brutality_U_INTERCESSOR_SQUAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_point_blank_brutality_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_tacticus_firestorm_force_point_blank_brutality/Buttons/Use_faction_sm_tacticus_firestorm_force_point_blank_brutality_U_INTERCESSOR_SQUAD_A",
+      "comment": "REAL click (the Space Marines player) on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.flag(\"U_INTERCESSOR_SQUAD_A\", \"sm11e_point_blank\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nvar cq = load(\"res://scripts/rules/shootingtypes/CloseQuartersShooting.gd\").new()\nvar u = H.unit(\"U_INTERCESSOR_SQUAD_A\")\nvar rifle = {}\nvar blast = {}\nfor w in u.meta.weapons:\n\tif str(w.name).begins_with(\"Bolt Rifle\") and rifle.is_empty():\n\t\trifle = w\n\tif \"blast\" in str(w.get(\"special_rules\", \"\")).to_lower() and blast.is_empty():\n\t\tblast = w\nreturn cq.weapon_allowed(rifle, u, GameState.state).allowed and not cq.weapon_allowed(blast, u, GameState.state).allowed",
+      "comment": "the bolt rifle has [CLOSE-QUARTERS], a [BLAST] weapon does not",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nvar w = RulesEngine.get_eligible_targets(\"U_INTERCESSOR_SQUAD_A\", GameState.state).get(\"U_GRETCHIN_C\", {}).get(\"weapons_in_range\", [])\nreturn w.any(func(x): return str(x).begins_with(\"bolt_rifle\"))",
+      "comment": "the bolt rifle can now target the engaged Gretchin",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nvar ph = H.phase()\nvar mids = []\nfor m in H.unit(\"U_INTERCESSOR_SQUAD_A\").models:\n\tmids.append(str(m.id))\nvar r = ph.execute_action({\"type\": \"ASSIGN_TARGET\", \"actor_unit_id\": \"U_INTERCESSOR_SQUAD_A\", \"player\": 1, \"payload\": {\"weapon_id\": \"bolt_rifle___focused_fire_ranged\", \"target_unit_id\": \"U_GRETCHIN_C\", \"model_ids\": mids}})\nif not r.get(\"success\", false):\n\treturn \"assign: \" + str(r.get(\"errors\", r.get(\"error\", \"\")))\nr = ph.execute_action({\"type\": \"CONFIRM_TARGETS\", \"player\": 1})\nreturn true if r.get(\"success\", false) else \"confirm: \" + str(r.get(\"errors\", r.get(\"error\", \"\")))",
+      "comment": "the shooting panel's actions: the bolt rifle assigned at the engaged Gretchin and Confirm Targets (close-quarters shooting)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_point_blank_brutality_rifle_assigned"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3b_scen.gd\")\nreturn H.log_count(\"Used POINT-BLANK BRUTALITY\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_point_blank_brutality_used"
+    }
+  ],
+  "transition_to_phase": 7
+}

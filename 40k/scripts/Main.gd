@@ -8323,7 +8323,8 @@ func _refresh_unit_list_inner() -> void:
 			if battle_round < 2:
 				var o5_round1: Array = load("res://scripts/codex/orks/OrkEnhancements11e.gd").first_round_ingress_units(independent_reserves)
 				var cus11e_det_script = load("res://scripts/codex/custodes/CustodesDetachments.gd")
-				independent_reserves = independent_reserves.filter(func(rid): return rid in o5_round1 or cus11e_det_script.can_ingress_first_round(GameState.get_unit(str(rid))))
+				var sm11e_det_b = load("res://scripts/codex/space_marines/SMDetachmentsB.gd")  # WP-M2b Corporeum Reliquary (Codex: Space Marines 11e)
+				independent_reserves = independent_reserves.filter(func(rid): return rid in o5_round1 or cus11e_det_script.can_ingress_first_round(GameState.get_unit(str(rid))) or sm11e_det_b.can_ingress_first_round(GameState.get_unit(str(rid))))
 			if independent_reserves.size() > 0:  # (round 1: only the filtered first-round units)
 				unit_list.add_item("--- REINFORCEMENTS (Reserves) ---")
 				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
@@ -15528,6 +15529,14 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	# THE LIONS, HONOURED INTERRED, GILDED CHAMPION — no window): pick the
 	# friendly target the codex handler accepts, then use it.
 	if load("res://scripts/codex/custodes/CustodesCodex11e.gd").handles(strat) and strat.get("timing", {}).get("windows", []).is_empty():
+		_prompt_friendly_target_then_use(sid_resolved, active_player)
+		return
+	# Codex: Space Marines (11e) Space Wolves S-panel stratagem (SWCodex11e.gd: WOLF TOTEMS — no window).
+	if load("res://scripts/codex/space_wolves/SWCodex11e.gd").handles(strat) and strat.get("timing", {}).get("windows", []).is_empty():
+		_prompt_friendly_target_then_use(sid_resolved, active_player)
+		return
+	# Codex: Space Marines (11e) generic S-panel stratagem (SMCodex11e.gd: LAYERED CERAMITE — no window).
+	if load("res://scripts/codex/space_marines/SMCodex11e.gd").handles(strat) and strat.get("timing", {}).get("windows", []).is_empty():
 		_prompt_friendly_target_then_use(sid_resolved, active_player)
 		return
 	# Unit-targeted faction stratagems (SPESHUL AMMO, DUST TRAILS, DAT'S OURS,

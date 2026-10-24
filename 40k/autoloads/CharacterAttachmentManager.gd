@@ -21,7 +21,9 @@ func _ready() -> void:
 static func get_enhancement_can_lead_extras(character: Dictionary) -> Array:
 	if GameConstants.edition < 11:
 		return []
-	return load("res://scripts/codex/orks/OrkEnhancements11e.gd").leader_extras(character)
+	# + Codex: Space Marines (11e) Wolf-Touched: the bearer can lead Wulfen units (SWEnhancements11e, WP-S2).
+	return load("res://scripts/codex/orks/OrkEnhancements11e.gd").leader_extras(character) \
+		+ load("res://scripts/codex/space_wolves/SWEnhancements11e.gd").leader_extras(character)
 
 # Check if a character can attach to a bodyguard unit
 func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
@@ -80,6 +82,14 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 	var upper_bg_keywords = []
 	for kw in bg_keywords:
 		upper_bg_keywords.append(str(kw).to_upper())
+	# Every datasheet carries its own name as a keyword, but the 40kdc records
+	# of datasheets no codex import has rewritten yet omit it (a Space Wolves
+	# list's Terminator Assault Squad / Outrider Squad): Logan Grimnar's
+	# "TERMINATOR ASSAULT SQUAD" must still match. (Same rule the importer
+	# applies to the datasheets it writes — wahapedia-import.mjs.)
+	var bg_name := str(bodyguard.get("meta", {}).get("name", "")).to_upper()
+	if bg_name != "" and not bg_name in upper_bg_keywords:
+		upper_bg_keywords.append(bg_name)
 	var has_match = false
 	for lead_keyword in can_lead:
 		if str(lead_keyword).to_upper() in upper_bg_keywords:
@@ -87,6 +97,11 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 			break
 	if not has_match:
 		return {"valid": false, "reason": "Unit does not have a compatible keyword (%s)" % str(can_lead)}
+	# Codex: Space Marines (11e) Wolf-Touched leads Wulfen INFANTRY only (SWEnhancements11e, WP-S2).
+	if GameConstants.edition >= 11:
+		var sw11e_block: String = load("res://scripts/codex/space_wolves/SWEnhancements11e.gd").attach_block_reason(character, bodyguard)
+		if sw11e_block != "":
+			return {"valid": false, "reason": sw11e_block}
 
 	# Check same owner
 	if character.get("owner", 0) != bodyguard.get("owner", 0):
@@ -129,6 +144,9 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 ## "leader".
 func attachment_role(character: Dictionary) -> String:
 	if UnitAbilities.has_datasheet_ability(character, "support"):
+		return "support"
+	# WP-M4c CAPTAIN OF THE HONOUR GUARD (Cato Sicarius): Leader -> Support while the army includes Marneus Calgar.
+	if load("res://scripts/codex/space_marines/SMAbilitiesC.gd").leader_becomes_support(character):
 		return "support"
 	return "leader"
 

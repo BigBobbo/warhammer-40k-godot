@@ -558,6 +558,26 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 		# "has +2 OC" — every model of it (WP-C46). Same order as above: only
 		# a model that already has OC gets it.
 		oc += _custodes_11e_oc_bonus(unit)
+		# WP-M2b Immovable Conquerors (Codex: Space Marines 11e, Gravis Siege Force): "This unit has +1 OC".
+		if GameConstants.edition >= 11:
+			oc += int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").oc_bonus(unit))
+		# Codex: Space Marines (11e) WP-M3b FOR THE EMPEROR! (SMCodexB.gd): +1 OC until the end of the turn.
+		oc += int(load("res://scripts/codex/space_marines/SMCodexB.gd").oc_bonus(unit))
+	# Codex: Space Marines (11e) CURSE OF THE WULFEN: +1 OC (INFANTRY) / +3 OC
+	# (VEHICLE) near a Space Wolves CHARACTER / WOLF PRIEST (SWArmyRules11e.gd,
+	# WP-S2). Outside the "already has OC" gate: the Wulfen datasheets print
+	# OC 0 and the curse is what gives them OC (battle-shocked: no bonus, and
+	# _unit_oc_in_range zeroes a battle-shocked unit anyway).
+	if GameConstants.edition >= 11 and int(flags.get("effect_oc_override", 0)) == 0:
+		oc += int(load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").oc_bonus(unit))
+	# WP-S4: Space Wolves HUNTING HOUNDS — a Hunting Wolf's printed OC is 0, +1
+	# within 6" of a friendly SPACE WOLVES CHARACTER (SWAbilities11e.model_oc).
+	if GameConstants.edition >= 11:
+		oc = int(load("res://scripts/codex/space_wolves/SWAbilities11e.gd").model_oc(unit, model, oc))
+		# WP-M4b LORD OF THE PYROCLASTS (Adrax Agatone): an enemy unit engaged with his unit has -1 OC.
+		oc = int(load("res://scripts/codex/space_marines/SMAbilitiesB.gd").model_oc(unit, model, oc))
+		# WP-M4c: Terror Troops (-1 OC near Reivers), Honour of the Company (+1), Seeker of the Unfound (OC 10).
+		oc = int(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").model_oc(unit, model, oc))
 	return maxi(oc, 0)
 
 ## Codex: Adeptus Custodes (11e) Moritoi Ancients OC bonus for `unit` (0 at 10e

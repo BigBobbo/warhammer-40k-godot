@@ -236,10 +236,24 @@ func get_unit_movement(unit: Dictionary) -> float:
 	if cus11e_mv > 0.0:
 		movement += cus11e_mv
 		DebugLogger.info(str("MovementPhase: Calistus (Solar Watch) — movement +%.0f\" for %s" % [cus11e_mv, unit.get("meta", {}).get("name", "?")]))
+	# Codex: Space Marines (11e) Wolf-Touched (Saga of the Beastslayer): "+2\" M" for the bearer's unit (WP-S2).
+	var sw11e_mv: float = float(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").move_bonus_inches(unit)) if GameConstants.edition >= 11 else 0.0
+	if sw11e_mv > 0.0:
+		movement += sw11e_mv
+		DebugLogger.info(str("MovementPhase: Wolf-Touched — movement +%.0f\" for %s" % [sw11e_mv, unit.get("meta", {}).get("name", "?")]))
+	# WP-M2a Codex: Space Marines (11e) Lightning-fast Strike (Stormlance Task Force): AA MOUNTED / SPEEDER +2" M.
+	var sm11e_mv: float = float(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").move_bonus_inches(unit)) if GameConstants.edition >= 11 else 0.0
+	if sm11e_mv > 0.0:
+		movement += sm11e_mv
+		DebugLogger.info(str("MovementPhase: Lightning-fast Strike — movement +%.0f\" for %s" % [sm11e_mv, unit.get("meta", {}).get("name", "?")]))
 	# WP-O6: Codex: Orks (11e) datasheet abilities — Runnin' wiv da Herd (+4"),
 	# Madcap Artillery 'smashed' (-2").
 	if GameConstants.edition >= 11:
 		var o6_move: float = OrkAbilities11eScript.move_modifier(unit) + float(_cus11e_abilities().move_modifier(unit))  # WP-C7: Seeker's Instincts +2"
+		# Codex: Space Marines (11e) MIGHT OF THE MACHINE SPIRIT (SMCodex11e.gd): harmful M modifiers ignored.
+		if o6_move < 0.0 and _sm11e_codex().ignores_move_penalties(unit):
+			DebugLogger.info(str("MovementPhase: Might of the Machine Spirit — ignoring a %.0f\" M modifier for %s" % [o6_move, unit.get("meta", {}).get("name", "?")]))
+			o6_move = 0.0
 		if o6_move != 0.0:
 			var pre_o6 = movement
 			movement = maxf(0.0, movement + o6_move)
@@ -1283,6 +1297,25 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 		log_phase_message("Advance: %s → Shokk-boosta — advance roll is a 6" % unit.get("meta", {}).get("name", unit_id))
 		return _resolve_advance_roll(unit_id, 6, true)
 
+	# WP-S4 WIND WALKER (Space Wolves, Njal Stormcaller): "this unit can change
+	# advance rolls to a 6" — always taken; it is a roll, so modifiers apply.
+	if _sw11e_abilities().advance_roll_six(unit_id):
+		log_phase_message("Advance: %s → Wind Walker — advance roll changed to a 6" % unit.get("meta", {}).get("name", unit_id))
+		return _resolve_advance_roll(unit_id, 6, true)
+
+	# Codex: Space Marines (11e) SUDDEN ONSLAUGHT (SMCodex11e.gd): "can change its
+	# advance rolls to a 6" — used in the unit_selected_to_move window just answered.
+	if _sm11e_codex().advance_roll_six(unit_id):
+		log_phase_message("Advance: %s → Sudden Onslaught — advance roll changed to a 6" % unit.get("meta", {}).get("name", unit_id))
+		GameEventLog.add_player_entry(int(unit.get("owner", 0)), "SUDDEN ONSLAUGHT: %s's advance roll is a 6" % unit.get("meta", {}).get("name", unit_id))
+		return _resolve_advance_roll(unit_id, 6, true)
+	# WP-M4b VEIL OF TIME (Codex: Space Marines 11e, Librarian; psychic, used in
+	# the unit_selected_to_move window just answered): "this unit can change that
+	# advance roll to a 6" — a roll, so modifiers still apply.
+	if load("res://scripts/codex/space_marines/SMAbilitiesB.gd").veil_of_time_active(unit_id):
+		log_phase_message("Advance: %s → Veil of Time — advance roll changed to a 6" % unit.get("meta", {}).get("name", unit_id))
+		return _resolve_advance_roll(unit_id, 6, true)
+
 	# Roll D6 for advance (with deterministic seed for multiplayer)
 	# T5-MP9: Read seed from action payload (embedded by NetworkManager.submit_action)
 	# so both optimistic client and authoritative host produce the same roll.
@@ -1334,6 +1367,12 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 	# re-roll offered in the same dialog instead of the Command Re-roll (WP-O34).
 	var free_rr_source: String = Ork11eArmyRules.free_advance_reroll_source(unit) if tw_override == 0 and advance_roll < 6 \
 		and not (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)) else ""
+	# WP-M2a Codex: Space Marines (11e) Wrath of the Chapter / Supercharged Engines: "can re-roll advance rolls" (free).
+	if free_rr_source == "" and tw_override == 0 and advance_roll < 6 and GameConstants.edition >= 11 and not (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)):
+		free_rr_source = str(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").free_advance_reroll_source(unit))
+	# WP-M2b: Codex: Space Marines (11e) Honour of Vigilance (devastator doctrine): "can re-roll advance rolls" — same free re-roll.
+	if free_rr_source == "" and tw_override == 0 and advance_roll < 6 and not (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)):
+		free_rr_source = str(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").free_advance_reroll_source(unit))
 	if strat_manager and free_rr_source == "" and not ork11e_roll_changed:  # (WP-O34: a changed 6 is not re-rolled)
 		var reroll_check = strat_manager.is_command_reroll_available(current_player, unit_id)
 		reroll_available = reroll_check.available
@@ -1421,6 +1460,14 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int, is_roll: bool = t
 		log_phase_message("Auric Eagle: %s advance roll %d %+d = %d" % [unit_id, ae_raw, cus11e_ab, advance_roll])
 		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
 			"type": "Auric Eagle", "roll": ae_raw, "result": "Advance roll %d %+d = %d" % [ae_raw, cus11e_ab, advance_roll]})
+	# Codex: Space Marines (11e) Encircling Jaws (Master of Wolves, assault doctrine): +1 to advance rolls (WP-S2).
+	var sw11e_ab: int = int(load("res://scripts/codex/space_wolves/SWDetachments11e.gd").advance_roll_bonus(unit)) if (is_roll and GameConstants.edition >= 11) else 0
+	if sw11e_ab != 0:
+		var ej_raw := advance_roll
+		advance_roll += sw11e_ab
+		log_phase_message("Encircling Jaws: %s advance roll %d %+d = %d" % [unit_id, ej_raw, sw11e_ab, advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": "Encircling Jaws", "roll": ej_raw, "result": "Advance roll %d %+d = %d" % [ej_raw, sw11e_ab, advance_roll]})
 	# WP-O6 FUEL-MIXA GROT (Codex: Orks 11e, Deffkilla Wartrike): "+1 to advance rolls".
 	var o6_adv := OrkAbilities11eScript.advance_roll_bonus(unit_id) if (is_roll and GameConstants.edition >= 11) else 0
 	if o6_adv != 0:
@@ -1429,6 +1476,30 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int, is_roll: bool = t
 		log_phase_message("Fuel-mixa Grot: %s advance roll %d %+d = %d" % [unit_id, o6_raw, o6_adv, advance_roll])
 		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
 			"type": "Fuel-mixa Grot", "roll": o6_raw, "result": "Advance roll %d %+d = %d" % [o6_raw, o6_adv, advance_roll]})
+	# WP-S4 FERVOUR OF THE ANCIENTS (Space Wolves, Venerable Dreadnought): +1 to advance rolls within 6".
+	var sw_fv: Dictionary = _sw11e_abilities().fervour_bonus(unit_id) if is_roll else {"bonus": 0}
+	if int(sw_fv.get("bonus", 0)) != 0:
+		var sw_raw := advance_roll
+		advance_roll += int(sw_fv.bonus)
+		log_phase_message("%s: %s advance roll %d %+d = %d" % [str(sw_fv.source), unit_id, sw_raw, int(sw_fv.bonus), advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": "Fervour of the Ancients", "roll": sw_raw, "result": "Advance roll %d %+d = %d" % [sw_raw, int(sw_fv.bonus), advance_roll]})
+	# WP-M4c SPEAR OF CHOGORIS (Suboden Khan): assault doctrine active -> +1 to advance rolls (SMAbilitiesC).
+	var smc_rb: Dictionary = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").roll_bonus(unit_id) if is_roll else {"bonus": 0}
+	if int(smc_rb.get("bonus", 0)) != 0:
+		var smc_raw := advance_roll
+		advance_roll += int(smc_rb.bonus)
+		log_phase_message("%s: %s advance roll %d %+d = %d" % [str(smc_rb.source), unit_id, smc_raw, int(smc_rb.bonus), advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": "Spear of Chogoris", "roll": smc_raw, "result": "Advance roll %d %+d = %d" % [smc_raw, int(smc_rb.bonus), advance_roll]})
+	# WP-M4a ANGEL'S WRATH (Captain with Jump Pack): +1 to advance rolls (this unit).
+	var sm_aw: Dictionary = _sm11e_abilities_a().roll_bonus(unit_id) if is_roll else {"bonus": 0}
+	if int(sm_aw.get("bonus", 0)) != 0:
+		var sm_raw := advance_roll
+		advance_roll += int(sm_aw.bonus)
+		log_phase_message("%s: %s advance roll %d %+d = %d" % [str(sm_aw.source), unit_id, sm_raw, int(sm_aw.bonus), advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": str(sm_aw.source), "roll": sm_raw, "result": "Advance roll %d %+d = %d" % [sm_raw, int(sm_aw.bonus), advance_roll]})
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
@@ -2284,6 +2355,12 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 		if not setup_overlap.valid:
 			return setup_overlap
 
+	# WP-M4b TELEPORT HOMER (Codex: Space Marines 11e, Terminator Squad): a set-up
+	# wholly within 3" of the unit's token uses it — "within 3" of that token and
+	# not within 8" of an enemy unit" replaces the strategic reserves edge rules.
+	var sm11e_homer: bool = model_positions is Array and load("res://scripts/codex/space_marines/SMAbilitiesB.gd").homer_setup_ok(unit_id, model_positions)
+	if sm11e_homer:
+		log_phase_message("Teleport Homer: %s is set up within 3\" of its token (RAPID INGRESS -1 CP)" % unit_id)
 	# Validate model positions — same rules as normal reinforcement placement
 	if model_positions is Array:
 		var board_width = GameState.state.board.size.width
@@ -2329,7 +2406,7 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 
 				# Strategic Reserves: must be within 6" of a battlefield edge
 				# P2-80: Use placement_type for validation
-				if placement_type == "strategic_reserves":
+				if placement_type == "strategic_reserves" and not sm11e_homer:  # WP-M4b: not when the Teleport Homer set-up applies
 					# 20.04 (and 10e's identical wording): set up WHOLLY within 6"
 					# of a battlefield edge — the whole base, not the centre dot.
 					var dist_to_left = pos_inches_x
@@ -2361,6 +2438,10 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 					if edge_dist < 12.0:
 						errors.append("%sModel %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [g_label, i, omni.get("unit_name", "unknown"), edge_dist])
 						break
+
+	# WP-M4a TELEPORT HOMER: a Rapid Ingress that uses the token sets the unit up within 3" of it.
+	if errors.is_empty() and model_positions is Array:
+		errors.append_array(_sm11e_abilities_a().homer_setup_errors(unit_id, model_positions))
 
 	# Check unit coherency
 	if errors.is_empty():
@@ -2444,6 +2525,9 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 	var model_rotations = action.get("model_rotations", [])
 	var player = _rapid_ingress_player
 	var changes = []
+	# WP-M4b TELEPORT HOMER (Codex: Space Marines 11e): a set-up within 3" of the
+	# token uses it — -1 CP (refunded) and the token is removed (before the move).
+	changes.append_array(load("res://scripts/codex/space_marines/SMAbilitiesB.gd").on_rapid_ingress_setup(str(unit_id), model_positions if model_positions is Array else []))
 
 	# Update model positions
 	for i in range(model_positions.size()):
@@ -2552,6 +2636,12 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 	# Clear Rapid Ingress state
 	_rapid_ingress_unit_id = ""
 	_rapid_ingress_player = 0
+
+	# WP-M4a TELEPORT HOMER: the token this set-up used is removed.
+	var sm_homer_ri: Array = _sm11e_abilities_a().on_reinforcement_set_up(unit_id)
+	if not sm_homer_ri.is_empty():
+		PhaseManager.apply_state_changes(sm_homer_ri)
+		changes.append_array(sm_homer_ri)
 
 	# P2-88: Check for Fire Overwatch opportunity after Rapid Ingress unit is set up
 	# Balance Dataslate timing: "just after an enemy unit is set up"
@@ -2797,6 +2887,10 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 			elif _cus11e_abilities().corner_the_quarry_source(unit_id) != "":
 				active_moves[unit_id]["fall_back_mode_forced_by"] = "Corner the Quarry"
 				log_phase_message("[11e] Corner the Quarry: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
+			# WP-S4 SAVAGE FRENZY (Space Wolves, Wulfen) forced it.
+			elif _sw11e_abilities().savage_frenzy_source(unit_id) != "":
+				active_moves[unit_id]["fall_back_mode_forced_by"] = "Savage Frenzy"
+				log_phase_message("[11e] Savage Frenzy: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
 			# 06.03: each failure destroys a model (3 MW each instead for
 			# an all-MONSTER/VEHICLE unit, via the 06.02 allocation).
 			if int(hz.get("failures", 0)) > 0:
@@ -3429,6 +3523,9 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			# Codex: Adeptus Custodes (11e) Emissaries Imperatus — Favoured Conservai
 			# rider: the same "does not prevent ... eligible to start an action" (WP-C46).
 			var cus11e_conservai: bool = _cus11e_det().move_keeps_action_eligibility(get_unit(unit_id))
+			# WP-M4b FLEXIBLE ASSET (Codex: Space Marines 11e, Scout Squad): the same rider.
+			var sm11e_flexible: bool = load("res://scripts/codex/space_marines/SMAbilitiesB.gd").move_keeps_action_eligibility(get_unit(unit_id))
+			cus11e_conservai = cus11e_conservai or sm11e_flexible
 			if move_data.mode in ["ADVANCE", "FALL_BACK"] \
 					and (get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_MIND_ON_MISSION, false)
 						or Ork11eDetachments.move_keeps_action_eligibility(get_unit(unit_id))
@@ -3437,6 +3534,8 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				var keep_src: String = "MIND MOSTLY ON THE MISSION"
 				if Ork11eDetachments.move_keeps_action_eligibility(get_unit(unit_id)):
 					keep_src = "Sneaky Little Gitz (Runt Swarm)"
+				elif sm11e_flexible:
+					keep_src = "Flexible Asset (Scout Squad)"
 				elif cus11e_conservai:
 					keep_src = "Conservai (Heralds of the Throne)"
 				log_phase_message("[11e] %s — %s's %s move leaves it eligible to start an action" % [
@@ -3684,6 +3783,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	if (move_data.mode == "NORMAL" or move_data.mode == "ADVANCE") and GameConstants.edition >= 11:
 		var uenm_window := "unit_ended_normal_move" if move_data.mode == "NORMAL" else "unit_ended_advance_move"
 		var uenm_ctx := {"phase": "movement", "unit_id": unit_id}
+		uenm_ctx["sm11e_from_positions"] = _sm11e_from_positions(unit_id, move_data)  # WP-M4a THUNDERHAWK CLUSTER BOMBS: "moved over"
 		var uenm_staged := _ork11e_stage_move_positions(changes)
 		var uenm_opened := open_stratagem_window(get_current_player(), uenm_window, uenm_ctx, "_resume_after_unit_ended_normal_move")
 		_ork11e_restore_move_positions(uenm_staged)
@@ -4073,7 +4173,12 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 	# phase, this unit can make an ingress move" — WP-C46; WP-O5 Impulsive Recon:
 	# that ORKS AIRCRAFT can make an ingress move in its owner's first Movement phase.)
 	var battle_round = GameState.get_battle_round()
-	if battle_round < 2 and not _cus11e_det().can_ingress_first_round(unit) and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit):
+	# WP-S4 HIGH KING OF FENRIS (Space Wolves, Logan Grimnar): this unit's ingress move treats the battle round as one higher.
+	battle_round = _sw11e_abilities().ingress_battle_round(unit, battle_round)
+	# WP-M4a DROP POD ASSAULT: "In your first Movement phase, this unit can make an ingress move."
+	if battle_round < 2 and not _cus11e_det().can_ingress_first_round(unit) and not load("res://scripts/codex/orks/OrkEnhancements11e.gd").allows_first_round_ingress(unit) \
+			and not load("res://scripts/codex/space_marines/SMDetachmentsB.gd").can_ingress_first_round(unit) \
+			and not _sm11e_abilities_a().can_ingress_first_round(unit):  # WP-M2b Corporeum Reliquary / WP-M4a Drop Pod Assault (Codex: Space Marines 11e)
 		errors.append("Reserves cannot arrive until Battle Round 2 (currently Round %d)" % battle_round)
 		return {"valid": false, "errors": errors}
 
@@ -4657,6 +4762,17 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	if MissionManager:
 		MissionManager.call_deferred("check_all_objectives", false)
 
+	# WP-M4a TELEPORT HOMER: the token this set-up used is removed.
+	var sm_homer: Array = _sm11e_abilities_a().on_reinforcement_set_up(unit_id)
+	if not sm_homer.is_empty():
+		PhaseManager.apply_state_changes(sm_homer)
+		changes.append_array(sm_homer)
+	# WP-M4a DROP POD ASSAULT: the embarked units disembark as the Drop Pod lands
+	# (the owner's sm11e_drop_pod_landed window) before the opponent reacts.
+	var sm_dp := _sm11e_drop_pod_window(unit_id, changes)
+	if not sm_dp.is_empty():
+		return sm_dp
+
 	# Codex: Orks (11e) enemy_ended_move: the arrival is an ingress move
 	# (20.04). The opponent's window opens once the Fire Overwatch prompt
 	# below has resolved (its decline / use paths open it), else right away.
@@ -4672,6 +4788,65 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		result.merge(ow_result.result_extra)
 		return result
 
+	return _ork11e_with_enemy_ended_move(create_result(true, changes))
+
+## WP-M4a DROP POD ASSAULT (SMAbilitiesA.drop_pod_landed): a Drop Pod with
+## embarked units was just set up — open its owner's sm11e_drop_pod_landed
+## window (the "Drop Pod Assault" card starts the assault-disembark follow-up;
+## an AI owner decides and disembarks synchronously). {} = nothing to do (the
+## caller continues its own set-up tail).
+func _sm11e_drop_pod_window(unit_id: String, changes: Array) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {}
+	var dp: Dictionary = _sm11e_abilities_a().drop_pod_landed(unit_id)
+	if dp.is_empty():
+		return {}
+	PhaseManager.apply_state_changes(dp.get("diffs", []))
+	changes.append_array(dp.get("diffs", []))
+	if (dp.get("units", []) as Array).is_empty():
+		return {}
+	var owner := int(get_unit(unit_id).get("owner", get_current_player()))
+	if open_stratagem_window(owner, "sm11e_drop_pod_landed", {"phase": "movement", "unit_id": unit_id}, "_sm11e_resume_after_drop_pod_window"):
+		log_phase_message("Drop Pod Assault: waiting for Player %d to disembark the units in %s" % [owner, unit_id])
+		var paused: Array = changes.duplicate()
+		paused.append_array(consume_window_diffs())
+		return create_result(true, paused)
+	changes.append_array(consume_window_diffs())
+	return _sm11e_reinforcement_tail(unit_id, changes)
+
+## Resume of the sm11e_drop_pod_landed window: the rest of the set-up (Fire
+## Overwatch, the opponent's enemy_ended_move window).
+func _sm11e_resume_after_drop_pod_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _sm11e_reinforcement_tail(str(ctx.get("unit_id", "")), [])
+
+## WP-M4a: the moving unit's start positions {model_id: {x, y}} (px) from the
+## move's original_positions ("<unit>:<model>" keys) — JSON-safe window ctx.
+func _sm11e_from_positions(unit_id: String, move_data: Dictionary) -> Dictionary:
+	var out := {}
+	var orig = move_data.get("original_positions", {})
+	if typeof(orig) != TYPE_DICTIONARY:
+		return out
+	for k in orig:
+		var parts := str(k).split(":")
+		if parts.size() != 2 or parts[0] != unit_id:
+			continue
+		var p = orig[k]
+		if p is Vector2:
+			out[parts[1]] = {"x": p.x, "y": p.y}
+		elif p is Dictionary:
+			out[parts[1]] = {"x": float(p.get("x", 0.0)), "y": float(p.get("y", 0.0))}
+	return out
+
+## The tail of _process_place_reinforcement (same steps, in the same order).
+func _sm11e_reinforcement_tail(unit_id: String, changes: Array) -> Dictionary:
+	if GameConstants.edition >= 11:
+		_ork11e_eem_pending = {"unit_id": unit_id, "move_type": "ingress"}
+		_ork11e_pending_move_changes = []
+	var ow_result = _check_fire_overwatch_opportunity(unit_id, "reinforcement set up")
+	if ow_result.triggered:
+		var result = create_result(true, changes)
+		result.merge(ow_result.result_extra)
+		return result
 	return _ork11e_with_enemy_ended_move(create_result(true, changes))
 
 func _process_end_movement(action: Dictionary) -> Dictionary:
@@ -5455,6 +5630,8 @@ func _resume_after_selected_to_move(ctx: Dictionary, _window_result: Dictionary)
 			return _process_begin_advance_after_windows(action)
 		"fall_back":
 			return _process_begin_fall_back_after_windows(action)
+		"disembark":  # Codex: Space Marines (11e) AGGRESSIVE DISEMBARKATION (SMCodex11e.gd)
+			return _process_disembark_unit_after_windows(action)
 	return create_result(true, [])
 
 ## Resume point for unit_ended_normal_move: the remaining post-move prompts.
@@ -5589,6 +5766,11 @@ func _complete_movement_phase(changes: Array) -> Dictionary:
 		# your Movement phase, if this unit is controlling an objective, that
 		# objective is secured."
 		OrkAbilities11eScript.on_movement_phase_end(get_current_player())
+		# WP-M2a Codex: Space Marines (11e) Vanguard Ambushers (Phobos Shock Force): hidden PHOBOS units re-roll wound rolls of 1.
+		out.append_array(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").on_movement_phase_end(get_current_player()))
+		load("res://scripts/codex/space_marines/SMAbilitiesB.gd").on_movement_phase_end(get_current_player())  # WP-M4b RAISE THE BANNER (Codex: Space Marines 11e): controlled objective is secured
+		# WP-M4c RAISE THE BANNER / BANNER OF MACRAGGE: "At the end of your Movement phase, if this unit is controlling an objective, that objective is secured."
+		load("res://scripts/codex/space_marines/SMAbilitiesC.gd").on_movement_phase_end(get_current_player())
 		var ctx := {"phase": "movement", "engaged_at_phase_start": _engagement_at_phase_start.keys()}
 		if open_stratagem_window_both_players("movement_phase_end", ctx, "_resume_after_movement_phase_end"):
 			log_phase_message("Movement phase end waits for Player %d's movement_phase_end stratagem decision" % get_pending_stratagem_window_decider())
@@ -5827,6 +6009,10 @@ func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
 			_ev_action_attacker = prev_attacker
 		# "until that enemy unit has attacked" effects end with its attacks.
 		_cus11e_codex().on_unit_has_attacked(str(shooter))
+		# Codex: Space Marines (11e) Space Wolves HEROIC RESOLVE (SWCodex11e.gd).
+		load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(str(shooter))
+		# Codex: Space Marines (11e) ARMOUR OF CONTEMPT ends "until that enemy unit has attacked" (SMCodex11e.gd).
+		load("res://scripts/codex/space_marines/SMCodex11e.gd").on_unit_has_attacked(str(shooter))
 	var summary := "%s: %s → %s: %d hit(s), %d wound(s), %d model(s) slain" % [source, unit_name, target_name, hits, wounds, casualties]
 	log_phase_message(summary)
 	GameEventLog.add_player_entry(player, summary)
@@ -6009,6 +6195,12 @@ func _snap_finish() -> Array:
 	_window_result_extra["fire_overwatch_summary"] = summary
 	_window_result_extra["dice"] = dice
 	_window_result_extra["log_text"] = str(st.get("log_text", ""))
+	# WP-M4a SENTINEL PROTOCOLS: a use that does not count against (or ignores) the
+	# once-per-phase limit — the movement_phase_end window is offered again.
+	if str(st.get("source", "FIRE OVERWATCH")) == "FIRE OVERWATCH":
+		var sm_re: Dictionary = _sm11e_abilities_a().fire_overwatch_reoffer(int(st.get("player", 0)), {"phase": "movement", "engaged_at_phase_start": _engagement_at_phase_start.keys()})
+		if not sm_re.is_empty():
+			_window_queue.push_front(sm_re)
 	emit_signal("overwatch_result", shooter_id, target_id, res_like)
 	call_deferred("_ork11e_refresh_board_visuals")
 	return out
@@ -6326,6 +6518,7 @@ func _ork11e_refresh_board_visuals() -> void:
 func _ork11e_begin_assault_disembark(player: int, followup: Dictionary) -> bool:
 	var transport_id := str(followup.get("transport_id", ""))
 	var units: Array = Ork11eMovement.assault_disembark_candidates(transport_id)
+	units = _sm11e_abilities_a().filter_assault_disembark(transport_id, units)  # WP-M4a AERIAL ASSAULT: Deep Strike units only
 	if units.is_empty():
 		_window_sync_diffs.append_array(_ork11e_readied_brawlers_off(transport_id))
 		return false
@@ -6494,7 +6687,9 @@ func _ork11e_readied_brawlers_off(transport_id: String) -> Array:
 	var t := get_unit(transport_id)
 	if not t.is_empty():
 		t.get("flags", {}).erase(Ork11eMovement.FLAG_READIED_BRAWLERS)
-	return [{"op": "remove", "path": "units.%s.flags.%s" % [transport_id, Ork11eMovement.FLAG_READIED_BRAWLERS]}]
+	var off: Array = [{"op": "remove", "path": "units.%s.flags.%s" % [transport_id, Ork11eMovement.FLAG_READIED_BRAWLERS]}]
+	off.append_array(_sm11e_abilities_a().assault_disembark_off_diffs(transport_id))  # WP-M4a Assault Ramp / Aerial Assault / Drop Pod: the grant is spent
+	return off
 
 ## CONFIRM_DISEMBARK tail: when the READIED BRAWLERS follow-up is running,
 ## move on to the next embarked unit, or finish the follow-up.
@@ -6507,6 +6702,7 @@ func _ork11e_after_assault_disembark(unit_id: String, dis_changes: Array) -> Dic
 func _ork11e_assault_disembark_next(changes: Array) -> Dictionary:
 	var tid := str(_ork11e_assault_disembark.get("transport_id", ""))
 	var eligible: Array = Ork11eMovement.assault_disembark_candidates(tid)
+	eligible = _sm11e_abilities_a().filter_assault_disembark(tid, eligible)  # WP-M4a AERIAL ASSAULT
 	var still: Array = []
 	for uid in _ork11e_assault_disembark.get("remaining", []):
 		if uid in eligible:
@@ -6838,8 +7034,9 @@ func _unit_has_fly_keyword(unit_id: String) -> bool:
 ## WP-O6 SHOKK-BOOSTA (Codex: Orks 11e, Big Mek): while making the boosted
 ## advance move "this unit can move through all types of model".
 func _o6_moves_through_models(unit_id: String, move_data: Dictionary) -> bool:
-	return GameConstants.edition >= 11 and str(move_data.get("mode", "")) == "ADVANCE" \
-		and OrkAbilities11eScript.shokk_boosta_active(unit_id)
+	return (GameConstants.edition >= 11 and str(move_data.get("mode", "")) == "ADVANCE" \
+		and OrkAbilities11eScript.shokk_boosta_active(unit_id)) \
+		or load("res://scripts/codex/space_marines/SMAbilitiesC.gd").moves_through_models(unit_id)  # WP-M4c GRAPNEL LAUNCHERS (Reiver Squad): move through all types of model
 
 ## Codex: Adeptus Custodes CALISTUS ka'tah (CustodesKatah.gd): the unit's
 ## current normal / advance / fall-back move may cross every model's base.
@@ -7108,7 +7305,9 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 		var _mv_keywords = _mv_unit.get("meta", {}).get("keywords", []) if not _mv_unit.is_empty() else []
 		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false, _mv_keywords))
 	# T-103: multi-floor vertical climb cost.
-	penalty += _get_vertical_climb_cost(from_pos, to_pos, unit_id)
+	# (WP-M4c GRAPNEL LAUNCHERS, Reiver Squad: "ignore all vertical distance" — SMAbilitiesC.)
+	if not load("res://scripts/codex/space_marines/SMAbilitiesC.gd").ignores_vertical_distance(unit_id):
+		penalty += _get_vertical_climb_cost(from_pos, to_pos, unit_id)
 	# log_it=false is for the live drag preview (MovementController calls this
 	# once per mouse-motion event so its ghost, its over-range clamp and this
 	# validation all cost a move identically). Logging there would flood the
@@ -7511,6 +7710,16 @@ func _cus11e_lightning_descent_reserves(player: int) -> Array:
 		return out
 	for rid in GameState.get_reserves_for_player(player):
 		if _cus11e_det().can_ingress_first_round(get_unit(str(rid))):
+			out.append(rid)
+		elif load("res://scripts/codex/space_marines/SMDetachmentsB.gd").can_ingress_first_round(get_unit(str(rid))):  # WP-M2b Corporeum Reliquary (Codex: Space Marines 11e)
+			out.append(rid)
+	# WP-S4 HIGH KING OF FENRIS (Space Wolves): the selected unit can arrive in battle round 1.
+	for hk_id in _sw11e_abilities().high_king_first_round_units(player):
+		if not hk_id in out:
+			out.append(hk_id)
+	# WP-M4a DROP POD ASSAULT: Drop Pods can arrive in their player's first Movement phase.
+	for rid in GameState.get_reserves_for_player(player):
+		if _sm11e_abilities_a().can_ingress_first_round(get_unit(str(rid))) and not rid in out:
 			out.append(rid)
 	return out
 
@@ -8267,6 +8476,10 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 				pos_vec = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
 			var range_result = TransportManager.is_position_within_disembark_range(pos_vec, g_unit.models[i], transport, setup_range_inches)
 			DebugLogger.info(str("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches))
+			# Codex: Space Marines (11e) AGGRESSIVE DISEMBARKATION (SMCodex11e.gd): WITHIN (not wholly within) the set-up distance.
+			if not range_result.within_range and _sm11e_codex().disembark_range_ok(unit_id, range_result, setup_range_inches):
+				DebugLogger.info("MovementPhase: Aggressive Disembarkation — %s model %d set up within (not wholly within) %.0f\" of the transport" % [str(gid), int(i), setup_range_inches])
+				range_result["within_range"] = true
 
 			if not range_result.within_range:
 				# 18.04 / 18.06: each model is set up WHOLLY within the set-up distance.
@@ -8318,6 +8531,11 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 			for placed in final_models:
 				if Measurement.models_overlap(placed, other_model):
 					return {"valid": false, "errors": ["Disembark position overlaps a model from %s" % other_id]}
+	# WP-M4a DROP POD ASSAULT: units disembarking as the Drop Pod lands are set up more than 8" from enemy units.
+	for dp_gid in group_positions:
+		var dp_err: Array = _sm11e_abilities_a().disembark_setup_errors(str(dp_gid), TransportManager.align_disembark_positions(get_unit(str(dp_gid)), group_positions[dp_gid]))
+		if not dp_err.is_empty():
+			return {"valid": false, "errors": dp_err}
 
 	return {"valid": true, "errors": []}
 
@@ -8409,6 +8627,22 @@ func _process_disembark_unit(action: Dictionary) -> Dictionary:
 	var validation = TransportManager.can_disembark(unit_id)
 	if not validation.valid:
 		return create_result(false, [], validation.reason)
+
+	# Codex: Space Marines (11e) AGGRESSIVE DISEMBARKATION (SMCodex11e.gd): "when a
+	# friendly ADEPTUS ASTARTES unit embarked within a TRANSPORT is selected to
+	# move" — the owner's unit_selected_to_move window (move_type "disembark")
+	# opens first, only when that player has such a stratagem.
+	if GameConstants.edition >= 11 and _sm11e_codex().player_has_window_stratagem(int(unit.get("owner", 0)), "unit_selected_to_move"):
+		var dis_stm := _ork11e_open_selected_to_move_windows(action, "disembark")
+		if dis_stm.paused:
+			return create_result(true, dis_stm.diffs)
+		return _ork11e_merge_diffs(_process_disembark_unit_after_windows(action), dis_stm.diffs)
+	return _process_disembark_unit_after_windows(action)
+
+## The disembark once the unit_selected_to_move window (if any) has closed.
+func _process_disembark_unit_after_windows(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var unit = get_unit(unit_id)
 
 	# Show disembark dialog
 	call_deferred("_show_disembark_dialog", unit_id)

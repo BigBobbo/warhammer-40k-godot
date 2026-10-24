@@ -1,0 +1,1896 @@
+{
+	"_serialization": {
+		"game_version": "1.3.0",
+		"serializer": "StateSerializer",
+		"timestamp": 1792708747.21104,
+		"version": "1.3.0"
+	},
+	"board": {
+		"deployment_zones": [
+			{
+				"player": 1.0,
+				"poly": [
+					{
+						"x": 0.0,
+						"y": 0.0
+					},
+					{
+						"x": 44.0,
+						"y": 0.0
+					},
+					{
+						"x": 44.0,
+						"y": 8.0
+					},
+					{
+						"x": 34.0,
+						"y": 8.0
+					},
+					{
+						"x": 34.0,
+						"y": 14.0
+					},
+					{
+						"x": 10.0,
+						"y": 14.0
+					},
+					{
+						"x": 10.0,
+						"y": 8.0
+					},
+					{
+						"x": 0.0,
+						"y": 8.0
+					}
+				]
+			},
+			{
+				"player": 2.0,
+				"poly": [
+					{
+						"x": 0.0,
+						"y": 52.0
+					},
+					{
+						"x": 10.0,
+						"y": 52.0
+					},
+					{
+						"x": 10.0,
+						"y": 46.0
+					},
+					{
+						"x": 34.0,
+						"y": 46.0
+					},
+					{
+						"x": 34.0,
+						"y": 52.0
+					},
+					{
+						"x": 44.0,
+						"y": 52.0
+					},
+					{
+						"x": 44.0,
+						"y": 60.0
+					},
+					{
+						"x": 0.0,
+						"y": 60.0
+					}
+				]
+			}
+		],
+		"objectives": [
+			{
+				"id": "obj_center",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 1200.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_nml_1",
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 880.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_nml_2",
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1520.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_home_1",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 160.0
+				},
+				"radius_mm": 40.0,
+				"zone": "player1"
+			},
+			{
+				"id": "obj_home_2",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 2240.0
+				},
+				"radius_mm": 40.0,
+				"zone": "player2"
+			}
+		],
+		"size": {
+			"height": 60.0,
+			"width": 44.0
+		},
+		"terrain": [],
+		"terrain_features": [],
+		"terrain_layout": "test_open_field"
+	},
+	"faction_ability_manager": {
+		"active_doctrine": {
+			"1": "",
+			"2": ""
+		},
+		"active_effects": {
+			"1": {
+
+			},
+			"2": {
+
+			}
+		},
+		"bionik_workshop_resolved": false,
+		"bionik_workshop_results": {
+
+		},
+		"boss_watchin_used": {
+			"1": false,
+			"2": false
+		},
+		"da_kaptin_used_round": {
+			"1": 0,
+			"2": 0
+		},
+		"doctrines_used": {
+			"1": [],
+			"2": []
+		},
+		"loot_objective": {
+			"1": "",
+			"2": ""
+		},
+		"loot_objective_round": {
+			"1": 0,
+			"2": 0
+		},
+		"plant_waaagh_banner_used": {
+
+		},
+		"player_abilities": {
+			"1": [],
+			"2": []
+		},
+		"player_detachment": {
+			"1": "",
+			"2": ""
+		},
+		"razgit_redeploys_used": {
+			"1": 0,
+			"2": 0
+		},
+		"razgit_resolved": false,
+		"waaagh_active": {
+			"1": false,
+			"2": false
+		},
+		"waaagh_used": {
+			"1": false,
+			"2": false
+		}
+	},
+	"factions": {
+		"1": {
+			"created_date": "2026-10-22",
+			"data_source": "40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes) + Wahapedia 11e codex import 2026-10-21 (Codex: Space Marines, Space Wolves)",
+			"detachment": "Saga of the Great Wolf",
+			"detachments": [
+				"Saga of the Great Wolf",
+				"Champions of Fenris"
+			],
+			"edition": 11.0,
+			"name": "Space Wolves",
+			"player_name": "",
+			"points": 5000.0,
+			"schema": 2.0,
+			"team_name": "Codex: Space Marines 11e - Space Wolves test (WP-S1)"
+		},
+		"2": {
+			"created_date": "2026-10-12",
+			"data_source": "40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes) + Wahapedia 11e codex import 2026-10-21 (Codex: Space Marines, Space Wolves)",
+			"detachment": "War Horde",
+			"detachments": [
+				"War Horde"
+			],
+			"edition": 11.0,
+			"name": "Orks",
+			"player_name": "",
+			"points": 3000.0,
+			"schema": 2.0,
+			"team_name": "Codex: Orks 11e test"
+		}
+	},
+	"history": [],
+	"meta": {
+		"active_player": 1,
+		"battle_round": 2,
+		"created_at": 1777894246.48332,
+		"deployment_type": "crucible_of_battle",
+		"first_turn_player": 1,
+		"formations": {
+			"1": {
+				"leader_attachments": {
+
+				},
+				"reserves": [],
+				"transport_embarkations": {
+
+				}
+			},
+			"2": {
+				"leader_attachments": {
+
+				},
+				"reserves": [],
+				"transport_embarkations": {
+
+				}
+			}
+		},
+		"formations_declared": true,
+		"formations_p1_confirmed": true,
+		"formations_p2_confirmed": true,
+		"game_id": "c02b1ee3-2b22-48a0-b65b-3033f9c810e94c65",
+		"phase": 6,
+		"roll_off_choice": "second",
+		"roll_off_player1_roll": 3,
+		"roll_off_player2_roll": 6,
+		"roll_off_winner": 2,
+		"turn": 3,
+		"turn_number": 1,
+		"version": "1.1.0"
+	},
+	"mission_manager": {
+		"alive_at_turn_start_11e": {
+
+		},
+		"burn_in_progress": {
+
+		},
+		"burned_objectives_arr": [],
+		"burned_objectives_meta": {
+
+		},
+		"character_claimed_objectives": {
+
+		},
+		"control_at_turn_start": {
+
+		},
+		"current_mission": {
+			"description": "Score VP by controlling objectives at the end of your Command phase.",
+			"id": "take_and_hold",
+			"max_vp": 50,
+			"name": "Take and Hold",
+			"objectives_used": "all",
+			"scoring": {
+				"count_home_objectives": true,
+				"max_vp_per_turn": 15,
+				"vp_per_objective": 5,
+				"when": "command_phase_end"
+			},
+			"scoring_rules": {
+				"count_home_objectives": true,
+				"max_vp_per_turn": 15,
+				"vp_per_objective": 5,
+				"when": "command_phase_end"
+			},
+			"scoring_type": "hold_objectives",
+			"special_rules": [],
+			"start_round": 2,
+			"type": "primary"
+		},
+		"eog_primary_scored": false,
+		"kills_per_round": {
+
+		},
+		"kills_this_round": {
+			"1": 0,
+			"2": 0
+		},
+		"objective_control_state": {
+			"obj_center": 0,
+			"obj_home_1": 0,
+			"obj_home_2": 0,
+			"obj_nml_1": 0,
+			"obj_nml_2": 0
+		},
+		"pending_burns": {
+
+		},
+		"pending_rituals": {
+
+		},
+		"pending_terraforms": {
+
+		},
+		"player_dispositions": {
+			"1": "take_and_hold",
+			"2": "take_and_hold"
+		},
+		"player_primary_missions": {
+			"1": {
+				"deck": "take_and_hold",
+				"id": "battlefield_dominance",
+				"name": "Battlefield Dominance",
+				"played_vs": "take_and_hold",
+				"rules": [
+					{
+						"rounds": [
+							1,
+							2
+						],
+						"type": "hold_more",
+						"vp": 2,
+						"when": "eot"
+					},
+					{
+						"exclude_home": false,
+						"rounds": [
+							2,
+							5
+						],
+						"type": "per_objective",
+						"vp_per": 3,
+						"when": "command"
+					},
+					{
+						"exclude_home": true,
+						"require_hold_home": true,
+						"rounds": [
+							2,
+							5
+						],
+						"type": "per_objective",
+						"vp_per": 2,
+						"when": "command"
+					}
+				],
+				"text": "Take-and-Hold mirror. The first two battle rounds reward holding the objective majority at end of turn. From the second battle round, scoring shifts to per-objective control at the end of your Command phase (or end of your turn in the fifth battle round), with a per-objective bonus on your non-home objectives while you also hold your own home objective."
+			},
+			"2": {
+				"deck": "take_and_hold",
+				"id": "battlefield_dominance",
+				"name": "Battlefield Dominance",
+				"played_vs": "take_and_hold",
+				"rules": [
+					{
+						"rounds": [
+							1,
+							2
+						],
+						"type": "hold_more",
+						"vp": 2,
+						"when": "eot"
+					},
+					{
+						"exclude_home": false,
+						"rounds": [
+							2,
+							5
+						],
+						"type": "per_objective",
+						"vp_per": 3,
+						"when": "command"
+					},
+					{
+						"exclude_home": true,
+						"require_hold_home": true,
+						"rounds": [
+							2,
+							5
+						],
+						"type": "per_objective",
+						"vp_per": 2,
+						"when": "command"
+					}
+				],
+				"text": "Take-and-Hold mirror. The first two battle rounds reward holding the objective majority at end of turn. From the second battle round, scoring shifts to per-objective control at the end of your Command phase (or end of your turn in the fifth battle round), with a per-objective bonus on your non-home objectives while you also hold your own home objective."
+			}
+		},
+		"primary_state_11e": {
+			"1": {
+				"card_action_resolved_this_turn": false,
+				"condemn_prompt_pending": false,
+				"condemn_resolved_turn": "",
+				"condemned": [],
+				"condemned_left_this_turn": false,
+				"consecrated": [],
+				"decoyed": [],
+				"decoyed_ever": [],
+				"decoyed_this_turn": [],
+				"intel_placed_this_turn": 0,
+				"intel_started_this_turn": false,
+				"intel_tokens": [],
+				"intel_units_this_turn": 0,
+				"operation_markers": 0,
+				"sabotage_started_this_turn": false,
+				"sabotaged_this_turn": [],
+				"sensor_swept_this_turn": false,
+				"trapped": [],
+				"trapped_this_turn": [],
+				"triangulated": [],
+				"vanguard_completed_this_turn": false,
+				"vanguard_started_this_turn": false
+			},
+			"2": {
+				"card_action_resolved_this_turn": false,
+				"condemn_prompt_pending": false,
+				"condemn_resolved_turn": "",
+				"condemned": [],
+				"condemned_left_this_turn": false,
+				"consecrated": [],
+				"decoyed": [],
+				"decoyed_ever": [],
+				"decoyed_this_turn": [],
+				"intel_placed_this_turn": 0,
+				"intel_started_this_turn": false,
+				"intel_tokens": [],
+				"intel_units_this_turn": 0,
+				"operation_markers": 0,
+				"sabotage_started_this_turn": false,
+				"sabotaged_this_turn": [],
+				"sensor_swept_this_turn": false,
+				"trapped": [],
+				"trapped_this_turn": [],
+				"triangulated": [],
+				"vanguard_completed_this_turn": false,
+				"vanguard_started_this_turn": false
+			}
+		},
+		"primary_vp_this_turn": {
+			"1": 0,
+			"2": 0
+		},
+		"relic_markers_11e": [],
+		"relic_setup_prompt_pending": false,
+		"removed_objectives": [],
+		"ritual_objectives": {
+
+		},
+		"sticky_objectives": {
+
+		},
+		"supply_drop_resolved_round_4": false,
+		"terraformed_objectives": {
+
+		},
+		"units_alive_at_round_start": {
+
+		},
+		"vp_timeline": {
+
+		}
+	},
+	"phase_log": [],
+	"players": {
+		"1": {
+			"bonus_cp_gained_this_round": 0,
+			"cp": 6,
+			"primary_vp": 0.0,
+			"secondary_vp": 0.0,
+			"vp": 0.0
+		},
+		"2": {
+			"bonus_cp_gained_this_round": 0,
+			"cp": 6,
+			"primary_vp": 0.0,
+			"secondary_vp": 0.0,
+			"vp": 0.0
+		}
+	},
+	"secondary_missions": {
+		"active_actions": {
+			"1": [],
+			"2": []
+		},
+		"objective_control_at_turn_start": {
+			"obj_center": 0.0,
+			"obj_home_1": 0.0,
+			"obj_home_2": 0.0,
+			"obj_nml_1": 0.0,
+			"obj_nml_2": 0.0
+		},
+		"player_state": {
+			"1": {
+				"active": [
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Purge the Enemy",
+						"id": "no_prisoners",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "No Prisoners",
+						"number": 14.0,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "enemy_unit_destroyed",
+									"params": {
+
+									},
+									"vp": 2.0
+								}
+							],
+							"max_vp_per_score": 5.0,
+							"when": "while_active"
+						},
+						"vp_scored": 0.0
+					},
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Battlefield Supremacy",
+						"id": "display_of_might",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "Display of Might",
+						"number": 4.0,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "more_units_wholly_in_no_mans_land_than_opponent",
+									"params": {
+
+									},
+									"vp": 5.0
+								}
+							],
+							"when": "end_of_your_turn"
+						},
+						"vp_scored": 0.0
+					}
+				],
+				"deck": [
+					"secure_no_mans_land",
+					"extend_battle_lines",
+					"a_tempting_target",
+					"bring_it_down",
+					"behind_enemy_lines",
+					"overwhelming_force",
+					"area_denial",
+					"assassination",
+					"deploy_teleport_homer",
+					"defend_stronghold",
+					"storm_hostile_objective",
+					"establish_locus",
+					"marked_for_death",
+					"cull_the_horde",
+					"cleanse",
+					"engage_on_all_fronts"
+				],
+				"discard": [],
+				"initialized": true,
+				"mode": "tactical",
+				"secondary_vp": 0.0
+			},
+			"2": {
+				"active": [
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Purge the Enemy",
+						"id": "no_prisoners",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "No Prisoners",
+						"number": 14.0,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "enemy_unit_destroyed",
+									"params": {
+
+									},
+									"vp": 2.0
+								}
+							],
+							"max_vp_per_score": 5.0,
+							"when": "while_active"
+						},
+						"vp_scored": 0.0
+					},
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Battlefield Supremacy",
+						"id": "display_of_might",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "Display of Might",
+						"number": 4.0,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "more_units_wholly_in_no_mans_land_than_opponent",
+									"params": {
+
+									},
+									"vp": 5.0
+								}
+							],
+							"when": "end_of_your_turn"
+						},
+						"vp_scored": 0.0
+					}
+				],
+				"deck": [
+					"secure_no_mans_land",
+					"extend_battle_lines",
+					"a_tempting_target",
+					"bring_it_down",
+					"behind_enemy_lines",
+					"overwhelming_force",
+					"area_denial",
+					"assassination",
+					"deploy_teleport_homer",
+					"defend_stronghold",
+					"storm_hostile_objective",
+					"establish_locus",
+					"marked_for_death",
+					"cull_the_horde",
+					"cleanse",
+					"engage_on_all_fronts"
+				],
+				"discard": [],
+				"initialized": true,
+				"mode": "tactical",
+				"secondary_vp": 0.0
+			}
+		},
+		"units_destroyed_this_turn": []
+	},
+	"stratagem_manager": {
+		"active_effects": [],
+		"player_faction_stratagems": {
+			"1": [
+				"faction_sw_saga_of_the_great_wolf_battle_instincts",
+				"faction_sw_saga_of_the_great_wolf_grimnars_command",
+				"faction_sw_saga_of_the_great_wolf_fenrisian_ferocity",
+				"faction_sw_saga_of_the_great_wolf_fangs_of_the_pack",
+				"faction_sw_saga_of_the_great_wolf_wolf_totems",
+				"faction_sw_saga_of_the_great_wolf_eye_of_the_pack",
+				"faction_sw_champions_of_fenris_birth_of_a_saga",
+				"faction_sw_champions_of_fenris_heroic_resolve",
+				"faction_sw_champions_of_fenris_champions_guidance"
+			],
+			"2": [
+				"faction_ork_war_horde_breakin_heads",
+				"faction_ork_war_horde_hit_em_harder",
+				"faction_ork_war_horde_orks_is_never_beaten",
+				"faction_ork_war_horde_mow_em_down",
+				"faction_ork_war_horde_fungus_fuel_injection",
+				"faction_ork_war_horde_close_range_dakka"
+			]
+		},
+		"usage_history": {
+			"1": [],
+			"2": []
+		}
+	},
+	"unit_ability_manager": {
+		"active_ability_effects": [],
+		"active_aura_effects": {
+
+		},
+		"applied_this_phase": {
+
+		},
+		"once_per_battle_used": {
+
+		},
+		"once_per_round_used": {
+
+		},
+		"scatter_used_this_turn": {
+
+		}
+	},
+	"unit_visuals": {
+
+	},
+	"units": {
+		"U_BLOOD_CLAWS_A": {
+			"attachment_data": {
+				"attached_characters": [
+					"U_WOLF_PRIEST_A"
+				]
+			},
+			"disembarked_this_phase": false,
+			"flags": {
+
+			},
+			"id": "U_BLOOD_CLAWS_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n• You can only select each combat doctrine once per battle.\n• Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit.",
+						"name": "Combat Doctrines",
+						"type": "Faction"
+					},
+					{
+						"description": "When this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.",
+						"name": "Berserk Charge",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Blood Claws Alpha",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS ASTARTES",
+					"BATTLELINE",
+					"BLOOD CLAWS",
+					"EXPLOSIVES",
+					"IMPERIUM",
+					"INFANTRY",
+					"SPACE WOLVES",
+					"TACTICUS"
+				],
+				"name": "Blood Claws",
+				"points": 150.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 7.0,
+					"objective_control": 2.0,
+					"save": 3.0,
+					"toughness": 5.0,
+					"wounds": 2.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blood Claw Pack Leader",
+						"line": 1.0
+					},
+					{
+						"description": "9-19 Blood Claw",
+						"line": 2.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "close_quarters"
+							}
+						],
+						"ap": "-1",
+						"attacks": "1",
+						"ballistic_skill": "3",
+						"damage": "1",
+						"name": "Bolt Pistol",
+						"range": "12",
+						"special_rules": "close quarters",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "close_quarters"
+							}
+						],
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "3",
+						"damage": "1",
+						"name": "Plasma Pistol – Standard",
+						"range": "12",
+						"special_rules": "close quarters",
+						"strength": "7",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "close_quarters"
+							},
+							{
+								"id": "hazardous"
+							}
+						],
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "3",
+						"damage": "2",
+						"name": "Plasma Pistol – Supercharge",
+						"range": "12",
+						"special_rules": "close quarters, hazardous",
+						"strength": "8",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "4",
+						"damage": "1",
+						"name": "Chainsword",
+						"range": "Melee",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "1",
+						"name": "Power weapon",
+						"range": "Melee",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1,
+					"id": "m1",
+					"position": {
+						"x": 279.212598425197,
+						"y": 1865.1968503937
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m2",
+					"position": {
+						"x": 339.606299212598,
+						"y": 1865.1968503937
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m3",
+					"position": {
+						"x": 400.0,
+						"y": 1865.1968503937
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m4",
+					"position": {
+						"x": 460.393700787402,
+						"y": 1865.1968503937
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m5",
+					"position": {
+						"x": 520.787401574803,
+						"y": 1865.1968503937
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m6",
+					"position": {
+						"x": 279.212598425197,
+						"y": 1925.5905511811
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m7",
+					"position": {
+						"x": 339.606299212598,
+						"y": 1925.5905511811
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 2.0,
+					"id": "m8",
+					"position": {
+						"x": 400.0,
+						"y": 1925.5905511811
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": false,
+					"base_mm": 32.0,
+					"current_wounds": 0,
+					"id": "m9",
+					"position": {
+						"x": 460.393700787402,
+						"y": 1925.5905511811
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 2.0
+				},
+				{
+					"alive": false,
+					"base_mm": 32.0,
+					"current_wounds": 0,
+					"id": "m10",
+					"position": {
+						"x": 520.787401574803,
+						"y": 1925.5905511811
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 2.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_BLOOD_CLAWS_A",
+			"status": 2
+		},
+		"U_BOYZ_B": {
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"flags": {
+
+			},
+			"id": "U_BOYZ_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "In your Shooting phase, when this unit is selected to shoot, you can use this ability. If you do, this unit's ranged attacks have +1 to hit rolls.\nPlace any number of Ammo Runt tokens next to the unit, removing them when this ability is used.",
+						"name": "Ammo Runts",
+						"type": "Datasheet"
+					},
+					{
+						"description": "In the Fight phase, if this unit made a charge move this turn, this unit's melee attacks have [Lethal Hits].",
+						"name": "Tide of Muscle",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Being engaged does not prevent this unit from being eligible to start an action.",
+						"name": "Never Too Busy to Fight",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Boyz",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"EXPLOSIVES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Boyz",
+				"points": 85.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1-2 Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9-18 Boy",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"1x Kombi-skorcha",
+					"9x Slugga",
+					"1x Kustom Choppa",
+					"9x Choppa"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "lethal_hits"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 2.0
+							}
+						],
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big Shoota",
+						"range": "36",
+						"special_rules": "lethal hits, rapid fire 2",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							},
+							{
+								"id": "torrent"
+							}
+						],
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "N/A",
+						"damage": "1",
+						"name": "Burna",
+						"range": "12",
+						"special_rules": "blast, torrent",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Kombi-rokkit – Busta",
+						"range": "24",
+						"strength": "10",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "lethal_hits"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-rokkit – Shoota",
+						"range": "18",
+						"special_rules": "lethal hits, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "lethal_hits"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-skorcha – Shoota",
+						"range": "18",
+						"special_rules": "lethal hits, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							},
+							{
+								"id": "torrent"
+							}
+						],
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "N/A",
+						"damage": "1",
+						"name": "Kombi-skorcha – Skorcha",
+						"range": "12",
+						"special_rules": "blast, torrent",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "lethal_hits"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 2.0
+							}
+						],
+						"ap": "0",
+						"attacks": "4",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kustom Shoota",
+						"range": "18",
+						"special_rules": "lethal hits, rapid fire 2",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Rokkit Launcha – Blasta",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit Launcha – Busta",
+						"range": "24",
+						"strength": "10",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "lethal_hits"
+							},
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "lethal hits, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "close_quarters"
+							},
+							{
+								"id": "lethal_hits"
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "close quarters, lethal hits",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "cleave",
+								"x": 2.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Big Choppa",
+						"range": "Melee",
+						"special_rules": "cleave 2",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Kustom Choppa",
+						"range": "Melee",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power Klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 3.0,
+					"id": "m1",
+					"position": {
+						"x": 679.212598425197,
+						"y": 534.803149606299
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 739.606299212598,
+						"y": 534.803149606299
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 800.0,
+						"y": 534.803149606299
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 860.393700787402,
+						"y": 534.803149606299
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 920.787401574803,
+						"y": 534.803149606299
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"x": 679.212598425197,
+						"y": 474.409448818898
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"x": 739.606299212598,
+						"y": 474.409448818898
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"x": 800.0,
+						"y": 474.409448818898
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"x": 860.393700787402,
+						"y": 474.409448818898
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"x": 920.787401574803,
+						"y": 474.409448818898
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BOYZ_B",
+			"status": 2
+		},
+		"U_FENRISIAN_WOLVES_A": {
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"flags": {
+
+			},
+			"id": "U_FENRISIAN_WOLVES_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n• You can only select each combat doctrine once per battle.\n• Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit.",
+						"name": "Combat Doctrines",
+						"type": "Faction"
+					},
+					{
+						"description": "In your opponent's Movement phase, when an enemy unit ends a move within 8\" of this unit, if this unit is unengaged, this unit can make a normal move of up to D6\".",
+						"name": "Predatory Instinct",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this unit is within 6\" of a friendly Space Wolves Character model (excluding Wulfen), if this unit is not battle-shocked, this unit has +1 OC.",
+						"name": "Hunting Hounds",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Fenrisian Wolves",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS ASTARTES",
+					"BEASTS",
+					"FENRISIAN WOLVES",
+					"IMPERIUM",
+					"SPACE WOLVES"
+				],
+				"name": "Fenrisian Wolves",
+				"points": 45.0,
+				"stats": {
+					"leadership": 8.0,
+					"move": 10.0,
+					"objective_control": 0.0,
+					"save": 6.0,
+					"toughness": 4.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "5-10 Fenrisian Wolf",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Teeth and Claws",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 734.015748031496,
+						"y": 1231.49606299213
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 807.007874015748,
+						"y": 1231.49606299213
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 880.0,
+						"y": 1231.49606299213
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 952.992125984252,
+						"y": 1231.49606299213
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 1025.9842519685,
+						"y": 1231.49606299213
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_FENRISIAN_WOLVES_A",
+			"status": 2
+		},
+		"U_WOLF_GUARD_BATTLE_LEADER_A": {
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"flags": {
+
+			},
+			"id": "U_WOLF_GUARD_BATTLE_LEADER_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n• You can only select each combat doctrine once per battle.\n• Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit.",
+						"name": "Combat Doctrines",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "• This unit's attacks have [SUSTAINED HITS 1].\n• This unit's attacks that target an enemy unit within 6\" of this unit can re-roll hit rolls of 1.",
+						"name": "Tempered Ferocity",
+						"type": "Datasheet"
+					},
+					{
+						"description": "In the Fight phase, when this model is destroyed, if this unit has not been selected to fight this phase, roll one D6:\n• On a 2+, do not remove this model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), this model is removed from the battlefield.",
+						"name": "Heroic Last Stand",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Wolf Guard Battle Leader Alpha",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS ASTARTES",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY",
+					"SPACE WOLVES",
+					"TACTICUS",
+					"WOLF GUARD BATTLE LEADER"
+				],
+				"leader_data": {
+					"can_lead": [
+						"ASSAULT INTERCESSOR SQUAD",
+						"BLADEGUARD VETERAN SQUAD",
+						"BLOOD CLAWS",
+						"GREY HUNTERS",
+						"INTERCESSOR SQUAD",
+						"WOLF GUARD HEADTAKERS"
+					]
+				},
+				"name": "Wolf Guard Battle Leader",
+				"points": 80.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 7.0,
+					"objective_control": 1.0,
+					"save": 3.0,
+					"toughness": 5.0,
+					"wounds": 5.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Wolf Guard Battle Leader",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "close_quarters"
+							}
+						],
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "3",
+						"damage": "1",
+						"name": "Plasma Pistol – Standard",
+						"range": "12",
+						"special_rules": "close quarters",
+						"strength": "7",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "hazardous"
+							},
+							{
+								"id": "close_quarters"
+							}
+						],
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "3",
+						"damage": "2",
+						"name": "Plasma Pistol – Supercharge",
+						"range": "12",
+						"special_rules": "hazardous, close quarters",
+						"strength": "8",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "7",
+						"damage": "2",
+						"name": "Master-crafted Power Weapon",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "devastating_wounds"
+							}
+						],
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Thunder Hammer",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 5.0,
+					"id": "m1",
+					"position": {
+						"x": 1080.0,
+						"y": 1391.49606299213
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 5.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_WOLF_GUARD_BATTLE_LEADER_A",
+			"status": 2
+		},
+		"U_WOLF_PRIEST_A": {
+			"attached_to": "U_BLOOD_CLAWS_A",
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"flags": {
+
+			},
+			"id": "U_WOLF_PRIEST_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "At the start of your Command phase, you can select one combat doctrine listed below. If you do, that combat doctrine is active for friendly ADEPTUS ASTARTES units with this ability until the start of your next Command phase.\nASSAULT DOCTRINEWhen this unit is selected to make an advance move, that advance move does not prevent this unit from being eligible to declare a charge.\nDEVASTATOR DOCTRINEThis unit's ranged attacks have [ASSAULT].\nTACTICAL DOCTRINEWhen this unit is selected to make a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot and eligible to declare a charge.\nUnless otherwise stated:\n• You can only select each combat doctrine once per battle.\n• Only one combat doctrine can be active for each unit. If a rule makes a combat doctrine active for a unit, any combat doctrine previously active for that unit is no longer active for that unit.",
+						"name": "Combat Doctrines",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "In your Command phase, this unit heals D3+1 wounds.",
+						"name": "Healing Balms",
+						"type": "Datasheet"
+					},
+					{
+						"description": "This unit's melee attacks have [LANCE].",
+						"name": "Litany of Hate",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Wolf Priest",
+				"enhancements": [],
+				"is_warlord": true,
+				"keywords": [
+					"ADEPTUS ASTARTES",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY",
+					"SPACE WOLVES",
+					"TACTICUS",
+					"WOLF PRIEST"
+				],
+				"leader_data": {
+					"can_lead": [
+						"ASSAULT INTERCESSOR SQUAD",
+						"BLADEGUARD VETERAN SQUAD",
+						"BLOOD CLAWS",
+						"GREY HUNTERS",
+						"INTERCESSOR SQUAD",
+						"WOLF GUARD HEADTAKERS"
+					]
+				},
+				"name": "Wolf Priest",
+				"points": 75.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 7.0,
+					"objective_control": 1.0,
+					"save": 3.0,
+					"toughness": 5.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Wolf Priest",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "close_quarters"
+							}
+						],
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "3",
+						"damage": "2",
+						"name": "Absolvor Bolt Pistol",
+						"range": "18",
+						"special_rules": "close quarters",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Crozius arcanum",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 400.0,
+						"y": 2031.49606299213
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_WOLF_PRIEST_A",
+			"status": 2
+		}
+	}
+}

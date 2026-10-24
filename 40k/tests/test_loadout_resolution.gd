@@ -82,7 +82,14 @@ func _raw_ranged_total(unit: Dictionary) -> int:
 # Rokkit Launcha) that are data-limited over-counters by this test's own
 # definition, and counting them would make the legacy-roster ratchet move for
 # reasons unrelated to the resolver.
-const RATCHET_EXCLUDED_FILES := ["ork11e_codex_test.json"]
+# sw11e_gw_import_2000.json: a real GW-app Space Wolves list whose generic Space
+# Marine datasheets (Scout Squad, Outrider Squad, ...) are still 40kdc 1.4.5
+# index kits — out of the ratchet until Codex: Space Marines covers them (WP-M).
+# sm11e_codex_test.json: every generic Codex: Space Marines datasheet at its
+# default kit — 7 of them (Infernus, Infiltrator, Incursor, Reiver Squads,
+# Company Heroes, Wardens of Ultramar, Eradicators with Heavy Bolters) do not
+# resolve per model yet (WP-M4 follow-up), kept out of the ratchet.
+const RATCHET_EXCLUDED_FILES := ["ork11e_codex_test.json", "sw11e_gw_import_2000.json", "sm11e_codex_test.json"]
 
 # WP-O1b: what a model "carries" is counted in WEAPONS, not profiles. Codex
 # weapons often print several profiles (Choppa – Hunter / – Standard, Smash
@@ -134,6 +141,11 @@ func _counts_by_role(unit: Dictionary, per_model: Dictionary, type_filter: Strin
 		var m = models[i]
 		if not m.get("alive", true):
 			continue
+		# A model the resolver stamped with NO weapon of this type carries none
+		# by its datasheet kit (a Hunting Wolf; a Wolf Guard Terminator whose
+		# storm bolter became a storm shield) — WP-S1. Not part of the k count.
+		if type_filter != "" and _stamped_empty(m, type_filter):
+			continue
 		var key := str(m.get("id", "")) if type_filter != "" else "m%d" % i
 		var reported = per_model.get(key, [])
 		var c := _weapon_count(unit, reported, type_filter) if grouped else int(reported.size())
@@ -142,6 +154,36 @@ func _counts_by_role(unit: Dictionary, per_model: Dictionary, type_filter: Strin
 		arr.append(c)
 		out[r] = arr
 	return out
+
+func _stamped_empty(m: Dictionary, type_filter: String) -> bool:
+	var v = m.get(type_filter.to_lower() + "_loadout", null)
+	return v is Array and (v as Array).is_empty()
+
+# True when some role's models carry different weapon SETS of this type (each
+# took a different wargear option) — then their profile counts may differ.
+func _mixed_options_per_role(unit: Dictionary, per_model: Dictionary, type_filter: String) -> bool:
+	var id_to_name := {}
+	for w in unit.get("meta", {}).get("weapons", []):
+		if typeof(w) == TYPE_DICTIONARY and str(w.get("type", "")).to_lower() == type_filter.to_lower():
+			id_to_name[RE._generate_weapon_id(str(w.get("name", "")), str(w.get("type", "")))] = str(w.get("name", ""))
+	var roles = _model_roles(unit)
+	var models = unit.get("models", [])
+	var sets_by_role := {}
+	for i in range(models.size()):
+		if not models[i].get("alive", true):
+			continue
+		var bases := {}
+		for e in per_model.get(str(models[i].get("id", "")), []):
+			bases[UnitLoadoutResolver.base_weapon_name(str(id_to_name.get(str(e), str(e))))] = true
+		var keys: Array = bases.keys()
+		keys.sort()
+		var sets: Dictionary = sets_by_role.get(str(roles[i]), {})
+		sets[str(keys)] = true
+		sets_by_role[str(roles[i])] = sets
+	for r in sets_by_role:
+		if (sets_by_role[r] as Dictionary).size() > 1:
+			return true
+	return false
 
 # True when every role's models carry the same count, every count is >= 1 —
 # or 0 for a lone model whose roster took no weapon of this type (a codex
@@ -258,17 +300,22 @@ func _run():
 					"weapons per model by role: %s" % _fmt_roles(k_weapons))
 				# INVARIANT 3 (generalized): within a role every model reports the
 				# same number of weapon PROFILES too (total == k × alive per role),
-				# and every alive model reports.
+				# and every alive model reports. Exception (WP-S1, Codex: Space
+				# Marines): models of one role that took DIFFERENT options carry
+				# the same number of weapons (invariant 2) but not of profiles —
+				# a Thunderwolf with a plasma pistol (Standard / Supercharge) next
+				# to one with a bolt pistol.
 				var k_profiles = _counts_by_role(unit, mw, "Ranged", false)
 				var alive := 0
 				for m in models:
-					if m.get("alive", true):
+					if m.get("alive", true) and not _stamped_empty(m, "Ranged"):
 						alive += 1
 				var reporting := 0
 				for r in k_profiles:
 					reporting += (k_profiles[r] as Array).size()
 				_check("resolved-total==k*alive %s/%s" % [fname, uid],
-					reporting == alive and _uniform_per_role(unit, k_profiles, "Ranged"),
+					reporting == alive and (_uniform_per_role(unit, k_profiles, "Ranged") or
+						(_uniform_per_role(unit, k_weapons, "Ranged") and _mixed_options_per_role(unit, mw, "Ranged"))),
 					"profiles per model by role: %s (alive=%d)" % [_fmt_roles(k_profiles), alive])
 				# INVARIANT 5 (Task C): every stamped gun is one the model_type may
 				# actually take — never invent a weapon a model can't have.

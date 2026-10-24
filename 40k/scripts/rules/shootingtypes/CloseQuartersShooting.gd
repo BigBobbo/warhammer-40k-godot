@@ -23,9 +23,10 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 		reasons.append("unit is not engaged (10.06)")
 	if _advanced(unit):
 		reasons.append("unit made an advance move this turn (10.06)")
-	if not (_unit_has_weapon_with(unit, "close_quarters") or _is_monster_or_vehicle(unit)):
+	# Codex: Space Marines (11e) WP-M3b POINT-BLANK BRUTALITY (SMCodexB.gd): the unit's non-[BLAST] ranged weapons have [CLOSE-QUARTERS].
+	if not (_unit_has_weapon_with(unit, "close_quarters") or _is_monster_or_vehicle(unit) or load("res://scripts/codex/space_marines/SMCodexB.gd").grants_close_quarters(unit)):
 		reasons.append("no [CLOSE-QUARTERS] weapons and not MONSTER/VEHICLE (10.06)")
-	if _unit(unit_id, board).get("flags", {}).get("cannot_shoot", false):
+	if _cannot_shoot(_unit(unit_id, board)):
 		reasons.append("unit cannot shoot (performing an action, 16.01)")
 	return {"eligible": reasons.is_empty(), "reasons": reasons}
 
@@ -33,7 +34,8 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 func weapon_allowed(weapon_profile: Dictionary, unit: Dictionary, _board: Dictionary) -> Dictionary:
 	if _is_monster_or_vehicle(unit):
 		return {"allowed": true, "reason": ""}
-	if not _weapon_has(weapon_profile, "close_quarters"):
+	# Codex: Space Marines (11e) WP-M3b POINT-BLANK BRUTALITY (SMCodexB.gd): granted [CLOSE-QUARTERS].
+	if not _weapon_has(weapon_profile, "close_quarters") and not load("res://scripts/codex/space_marines/SMCodexB.gd").weapon_gets_close_quarters(weapon_profile, unit):
 		return {"allowed": false, "reason": "non-MONSTER/VEHICLE models may only use [CLOSE-QUARTERS] weapons (10.06)"}
 	return {"allowed": true, "reason": ""}
 
@@ -64,6 +66,7 @@ func hit_consequences(weapon_profile: Dictionary, unit_id: String, target_id: St
 	var unit = _unit(unit_id, board)
 	if _is_monster_or_vehicle(unit):
 		var engaged_with = _rules().check_units_in_engagement_range(unit, board.get("units", {}).get(target_id, {}), board)
-		if not (_weapon_has(weapon_profile, "close_quarters") and engaged_with):
+		var cq_weapon: bool = _weapon_has(weapon_profile, "close_quarters") or load("res://scripts/codex/space_marines/SMCodexB.gd").weapon_gets_close_quarters(weapon_profile, unit)  # WP-M3b POINT-BLANK BRUTALITY
+		if not (cq_weapon and engaged_with):
 			out.hit_roll_delta -= 1  # 10.06 MONSTER/VEHICLE penalty
 	return out

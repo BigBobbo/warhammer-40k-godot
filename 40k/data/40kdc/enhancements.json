@@ -789,7 +789,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -811,7 +811,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-blade-driven-deep-vanguard-spearhead",
@@ -868,7 +877,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "ghostweave-cloak-vanguard-spearhead",
@@ -924,7 +934,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "execute-and-redeploy-vanguard-spearhead",
@@ -980,7 +999,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "shadow-war-veteran-vanguard-spearhead",
@@ -1148,7 +1168,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -1176,7 +1197,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -1204,7 +1226,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -1232,7 +1255,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "champion-of-humanity-firestorm-assault-force",
@@ -1374,7 +1398,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -1402,7 +1427,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -1430,7 +1456,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -1459,7 +1486,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-imperiums-sword-1st-company-task-force",
@@ -8952,7 +8980,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -8974,7 +9002,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -9002,7 +9039,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -9030,7 +9068,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -9058,7 +9105,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -9087,7 +9135,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -9115,7 +9164,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -9143,7 +9193,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -9172,7 +9223,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -9767,7 +9819,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -9795,7 +9848,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -9823,7 +9877,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -9851,7 +9906,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -11328,7 +11384,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -11350,7 +11406,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -11378,7 +11443,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -11406,7 +11472,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -11434,7 +11509,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -11463,7 +11539,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -11491,7 +11568,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -11519,7 +11597,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -11548,7 +11627,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -12143,7 +12223,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -12171,7 +12252,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -12199,7 +12281,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -12227,7 +12310,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -16511,7 +16595,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -16533,7 +16617,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -16561,7 +16654,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -16589,7 +16683,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -16617,7 +16720,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -16646,7 +16750,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -16674,7 +16779,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -16702,7 +16808,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -16731,7 +16838,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -17326,7 +17434,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -17354,7 +17463,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -17382,7 +17492,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -17410,7 +17521,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -18816,7 +18928,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -18838,7 +18950,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -18866,7 +18987,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -18894,7 +19016,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -18922,7 +19053,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -18951,7 +19083,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -18979,7 +19112,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -19007,7 +19141,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -19036,7 +19171,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -19631,7 +19767,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -19659,7 +19796,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -19687,7 +19825,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -19715,7 +19854,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -21513,7 +21653,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -21535,7 +21675,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -21563,7 +21712,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -21591,7 +21741,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -21619,7 +21778,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -21648,7 +21808,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -21676,7 +21837,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -21704,7 +21866,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -21733,7 +21896,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -22328,7 +22492,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -22356,7 +22521,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -22384,7 +22550,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -22412,7 +22579,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -27187,7 +27355,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -27209,7 +27377,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -27237,7 +27414,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -27265,7 +27443,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -27293,7 +27480,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -27322,7 +27510,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -27350,7 +27539,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -27378,7 +27568,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -27407,7 +27598,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -28002,7 +28194,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -28030,7 +28223,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -28058,7 +28252,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -28086,7 +28281,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -29543,7 +29739,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -29565,7 +29761,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -29593,7 +29798,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -29621,7 +29827,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -29649,7 +29864,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -29678,7 +29894,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -29706,7 +29923,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -29734,7 +29952,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -29763,7 +29982,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -30358,7 +30578,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -30386,7 +30607,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -30414,7 +30636,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -30442,7 +30665,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -35581,7 +35805,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -35603,7 +35827,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -35631,7 +35864,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -35659,7 +35893,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -35687,7 +35930,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -35716,7 +35960,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -35744,7 +35989,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -35772,7 +36018,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -36367,7 +36614,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -36395,7 +36643,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -36423,7 +36672,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -36451,7 +36701,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -37254,7 +37505,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -37276,7 +37527,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -37304,7 +37564,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -37332,7 +37593,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -37360,7 +37630,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -37389,7 +37660,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -37417,7 +37689,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -37445,7 +37718,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -37474,7 +37748,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -37984,7 +38259,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -38012,7 +38288,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -38040,7 +38317,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -38068,7 +38346,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -38866,11 +39145,11 @@
  },
  {
   "id": "wolf-touched-saga-of-the-beastslayer",
-  "name": "Wolf-touched",
+  "name": "Wolf-Touched",
   "detachment_id": "saga-of-the-beastslayer",
   "cost": 15,
   "keyword_restrictions": [
-   "Space Wolves"
+   "Adeptus Astartes"
   ],
   "ability_id": null,
   "is_unique": true,
@@ -38894,11 +39173,20 @@
     "namespace": "mfm",
     "id": "ad4dadc7-2b9d-4fae-ae4e-9fc6a747fb0d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This unit has: • Wulfen. • +2\" M.",
+  "legend": "Whilst the Canis Helix has yet to overcome this champion fully, it is stirred to life by the thrill of battle and the scent of blood.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-guile-saga-of-the-beastslayer",
-  "name": "Hunter’s Guile",
+  "name": "Hunter's Guile",
   "detachment_id": "saga-of-the-beastslayer",
   "cost": 20,
   "keyword_restrictions": [
@@ -38922,7 +39210,16 @@
     "namespace": "mfm",
     "id": "1b8f5c94-2ce4-465b-8c3d-6aaf2bf638fb"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. When both players have deployed their armies, you can redeploy up to three friendly Blood Claws/Thunderwolf Cavalry/Wulfen units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "legend": "Adeptus Astartes model only. When both players have deployed their armies, you can redeploy up to three friendly Blood Claws/Thunderwolf Cavalry/Wulfen units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "elders-guidance-saga-of-the-beastslayer",
@@ -38950,7 +39247,8 @@
     "namespace": "mfm",
     "id": "02dfd50a-9607-4ee7-894f-801322ead37b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "helm-of-the-beastslayer-saga-of-the-beastslayer",
@@ -38978,7 +39276,8 @@
     "namespace": "mfm",
     "id": "0b345598-9c76-440b-9356-88da3aeb4e6a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "a-giant-amongst-giants-champions-of-fenris",
@@ -39007,7 +39306,17 @@
     "namespace": "mfm",
     "id": "14e6c085-26e1-4a1d-9b1c-1f784e12c24e"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Infantry"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Adeptus Astartes Infantry model only. • This model has +2 W. • This model’s melee attacks have +1 S.",
+  "legend": "Likened to a walking pinnacle of Fenrisian granite come to life, this hulking champion is an echo of Russ himself.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "preyslayer-champions-of-fenris",
@@ -39036,13 +39345,23 @@
     "namespace": "mfm",
     "id": "f19ddd9a-ee17-4abb-af26-a2d1b967d2dd"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Infantry"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Adeptus Astartes Infantry model only. This unit can re-roll charge rolls.",
+  "legend": "Possessed of a ferocious predatory instinct, this warrior leads swift and deadly encirclements and ambushes with peerless skill.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "grimnars-mark-saga-of-the-great-wolf",
-  "name": "Grimnar’s Mark",
+  "name": "Grimnar's Mark",
   "detachment_id": "saga-of-the-great-wolf",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes",
    "Captain",
@@ -39069,7 +39388,18 @@
     "namespace": "mfm",
     "id": "afbaac37-76ad-44c7-beca-a5362b8d10d0"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Captain",
+    "Terminator"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Adeptus Astartes Terminator Captain model only. (Once per battle round, per army) You can target this unit with the Rapid Ingress/Heroic Intervention stratagem, regardless of any other uses of that stratagem this phase. If you do: • That use is -1CP. • That use does not prevent any uses of that stratagem on other units this phase.",
+  "legend": "This moonsilver wolf-talisman is bestowed by the Great Wolf himself before battle, a mark of favour that fills the bearer with an eagerness to slay the foe.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "howling-onslaught-saga-of-the-great-wolf",
@@ -39087,7 +39417,8 @@
   },
   "points_provisional": true,
   "upgrade_tag": false,
-  "max_targets": 1
+  "max_targets": 1,
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "howlmaw-saga-of-the-great-wolf",
@@ -39115,7 +39446,16 @@
     "namespace": "mfm",
     "id": "f2f3143d-49b8-4105-96ed-2d4fb63e3fba"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Wolf Priest"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Wolf Priest model only. (Once per turn, per unit) At the start of the fight phase, you can select one enemy unit within 6\" of this model. That unit makes a battle-shock roll with -1 to that battle-shock roll.",
+  "legend": "An ancient hunting horn with a built-in vox amplification unit, this relic’s stirring howl can be heard even through the wild clangour of battle.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "chariots-of-the-storm-saga-of-the-great-wolf",
@@ -39143,16 +39483,24 @@
     "namespace": "mfm",
     "id": "86377267-dffb-4f8c-a64a-df1d9ad006ed"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. When both players have deployed their armies, you can redeploy up to three friendly ADEPTUS ASTARTES units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "legend": "This dedicated flight of gunships attends the Great Wolf and his packs, and can be called in to rapidly reposition his forces in the moments before battle is joined.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "skjalds-foretelling-saga-of-the-great-wolf",
-  "name": "Skjald’s Foretelling",
+  "name": "Skjald's Foretelling",
   "detachment_id": "saga-of-the-great-wolf",
-  "cost": 25,
+  "cost": 20,
   "keyword_restrictions": [
-   "Battle Leader",
-   "Wolf Guard"
+   "Wolf Guard Battle Leader"
   ],
   "ability_id": null,
   "is_unique": true,
@@ -39172,7 +39520,16 @@
     "namespace": "mfm",
     "id": "aa4fc796-1ecd-49c1-8b30-fd0d09f4292e"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Wolf Guard Battle Leader"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Wolf Guard Battle Leader model only. This unit’s melee attacks have [Lance].",
+  "legend": "Great deeds have been prophesied for this champion, such that those who fight alongside him do so all the harder as they play out the self-fulfilling prophecy.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "thirst-for-glory-upgrade-legends-of-saga-and-song",
@@ -39408,7 +39765,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -39430,7 +39787,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -39458,7 +39824,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -39486,7 +39853,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -39514,7 +39890,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -39543,7 +39920,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -39571,7 +39949,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -39599,7 +39978,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -39628,7 +40008,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -40223,7 +40604,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -40251,7 +40633,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -40279,7 +40662,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -40307,7 +40691,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -44090,7 +44475,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -44112,7 +44497,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -44140,7 +44534,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -44168,7 +44563,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -44196,7 +44600,8 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -44225,7 +44630,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -44253,7 +44659,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -44281,7 +44688,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -44310,7 +44718,8 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -44905,7 +45314,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -44933,7 +45343,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -44961,7 +45372,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -44989,7 +45401,8 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -45792,7 +46205,7 @@
   "id": "artificer-armour-gladius-task-force",
   "name": "Artificer Armour",
   "detachment_id": "gladius-task-force",
-  "cost": 20,
+  "cost": 15,
   "keyword_restrictions": [
    "Adeptus Astartes"
   ],
@@ -45814,7 +46227,16 @@
     "namespace": "mfm",
     "id": "32c6e6cd-2f06-4773-8875-8410e5df2caf"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has: • 2+ Sv. • Feel No Pain 5+.",
+  "legend": "Crafted by the Chapter’s finest artificers, this suit of armour provides superior protection.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-honour-vehement-gladius-task-force",
@@ -45842,7 +46264,8 @@
     "namespace": "mfm",
     "id": "57200c62-5d47-4622-a062-41e1bc1241c9"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-codex-gladius-task-force",
@@ -45870,7 +46293,16 @@
     "namespace": "mfm",
     "id": "662cabfc-815d-4760-bfd8-2a13752d5d6d"
    }
-  ]
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "An ardent student of the Codex Astartes, this commander epitomises its tactical genius.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fire-discipline-gladius-task-force",
@@ -45898,7 +46330,62 @@
     "namespace": "mfm",
     "id": "d3be1512-5719-483c-98c8-bda76a604897"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "standard-of-the-emperor-ascendant-gladius-task-force",
+  "detachment_id": "gladius-task-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Standard of the Emperor Ascendant",
+  "cost": 25,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Ancient"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Ancient"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Ancient model only. This model has: • +1 OC and Ld. • Feel No Pain 5+. • The following ability: Ancient Exhortation (Once per battle, per army): When this unit is selected to fight, you can use this ability. If you do, this unit’s melee attacks have +1 A until the end of the phase.",
+  "legend": "This venerable banner was carried in the Great Crusade, and its presence is a constant inspiration.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "laurels-of-triumph-gladius-task-force",
+  "detachment_id": "gladius-task-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Laurels of Triumph",
+  "cost": 20,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Adeptus Astartes"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model’s melee attacks have: • +1 S and AP. • Or: If the assault doctrine is active for this unit, +2 S and AP.",
+  "legend": "A rare honour, the Laurels of Triumph mark out a truly accomplished warrior even amongst the Angels of Death.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "fury-of-the-storm-stormlance-task-force",
@@ -45927,7 +46414,8 @@
     "namespace": "mfm",
     "id": "8b881334-b47a-4003-8180-10a83f4e619c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "portents-of-wisdom-stormlance-task-force",
@@ -45955,7 +46443,8 @@
     "namespace": "mfm",
     "id": "ff718e2a-85d8-489a-ab1b-82edac80b281"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "feinting-withdrawal-stormlance-task-force",
@@ -45983,7 +46472,8 @@
     "namespace": "mfm",
     "id": "fcd001f8-37ab-4286-adcf-634ce8f99e68"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "hunters-instincts-stormlance-task-force",
@@ -46012,7 +46502,66 @@
     "namespace": "mfm",
     "id": "9de0ec29-0a7f-462a-8528-eb2486c5ad1c"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "supercharged-engines-stormlance-task-force",
+  "detachment_id": "stormlance-task-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Supercharged Engines",
+  "cost": 10,
+  "upgrade_tag": true,
+  "keyword_restrictions": [
+   "Adeptus Astartes",
+   "Mounted"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Mounted"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Adeptus Astartes Mounted unit only. This unit can re-roll advance rolls.",
+  "legend": "Built from ancient and dimly understood designs, these engines generate incredible power and torque.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "auspex-triangulation-shrines-stormlance-task-force",
+  "detachment_id": "stormlance-task-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Auspex Triangulation Shrines",
+  "cost": 10,
+  "upgrade_tag": true,
+  "keyword_restrictions": [
+   "Adeptus Astartes",
+   "Speeder"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Speeder"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Adeptus Astartes speeder unit only. At the start of your Shooting phase, select one visible enemy unit within 12\" of this unit. That enemy unit is spotted: • While a unit is spotted, that unit has +3\" detection range.",
+  "legend": "Fitted to the Chapter’s swift grav-speeders, these vigilant devices runelock the positions of enemy forces, laying them bare to the Space Marines’ wrath.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "celerity-librarius-conclave",
@@ -46607,7 +47156,8 @@
     "namespace": "mfm",
     "id": "d8f14666-8a59-43cf-ab2e-ae009229be08"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "the-flesh-is-weak-ironstorm-spearhead",
@@ -46635,7 +47185,8 @@
     "namespace": "mfm",
     "id": "f60cf1af-30e3-4a74-9b73-e5263614cc1a"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "adept-of-the-omnissiah-ironstorm-spearhead",
@@ -46663,7 +47214,8 @@
     "namespace": "mfm",
     "id": "0c21dd37-cff5-4099-9cab-3cc4027d8a3b"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "master-of-machine-war-ironstorm-spearhead",
@@ -46691,7 +47243,76 @@
     "namespace": "mfm",
     "id": "5f214ddc-52dd-4708-90ca-30490888b747"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "redoubtable-machine-spirit-ironstorm-spearhead",
+  "detachment_id": "ironstorm-spearhead",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Redoubtable Machine Spirit",
+  "cost": 25,
+  "upgrade_tag": true,
+  "keyword_restrictions": [
+   "Adeptus Astartes",
+   "Vehicle"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Vehicle"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "exclusion_keywords": [
+   "Dedicated Transport",
+   "Fly",
+   "Walker"
+  ],
+  "rules_text": "Adeptus Astartes Vehicle unit only (excluding Dedicated Transport/Fly/Walker units). This unit: • Has 5+ InSv. • At the end of your Command phase, heals 1 wound.",
+  "legend": "This ancient war machine has endured millennia of battle, and its belligerent machine spirit has only become more obdurant.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "gunnery-honours-ironstorm-spearhead",
+  "detachment_id": "ironstorm-spearhead",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Gunnery Honours",
+  "cost": 15,
+  "upgrade_tag": true,
+  "keyword_restrictions": [
+   "Adeptus Astartes",
+   "Vehicle"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Vehicle"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "exclusion_keywords": [
+   "Dedicated Transport",
+   "Fly",
+   "Walker"
+  ],
+  "rules_text": "Adeptus Astartes Vehicle unit only (excluding Dedicated Transport/Fly/Walker units). This unit’s ranged attacks have [Heavy].",
+  "legend": "The crew of this war machine demonstrate exemplary gunnery and have earned the highest honours for their craft.",
+  "source": "wahapedia-11e@2026-10-21"
  },
  {
   "id": "bellicose-weapon-spirits-upgrade-fulguris-task-force",
@@ -48061,5 +48682,664 @@
     "id": "3e6e5f14-b73e-4de8-99b8-3070977a4b2a"
    }
   ]
+ },
+ {
+  "id": "linebreaker-onslaught-gauntlet-task-force",
+  "detachment_id": "gauntlet-task-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Linebreaker Onslaught",
+  "cost": 20,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Adeptus Astartes",
+   "Infantry"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Infantry"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Adeptus Astartes Infantry model only. If this unit disembarked this turn: • This unit can re-roll charge rolls. • Enemy units cannot target this unit with snap shooting attacks.",
+  "legend": "These battle-brothers excel in bursting from the cover of their transport and straight into the enemy lines.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "damocles-class-uplink-gauntlet-task-force",
+  "detachment_id": "gauntlet-task-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Damocles-class Uplink",
+  "cost": 15,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Captain"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. In your Movement phase, if this unit is embarked within a Transport unit, you can select one friendly Adeptus Astartes Infantry unit within 6\" of that TRANSPORT unit and select one combat doctrine. That combat doctrine is active for that INFANTRY unit.",
+  "legend": "This portable strat-shrine plugs directly into the bearer’s armour, enhancing their command and control abilities.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "venator-omni-auspex-phobos-shadow-force",
+  "detachment_id": "phobos-shadow-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Venator Omni-auspex",
+  "cost": 15,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Phobos"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Phobos"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Phobos model only. This unit’s attacks that target a hidden unit can: • Re-roll wound rolls of 1. • Or: If the assault doctrine is active for this unit, re-roll wound rolls of 1 and 2.",
+  "legend": "Constantly detecting and analysing viable targets, this artefact feeds advanced combat data directly into the bearer’s autosenses.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "execute-and-redeploy-phobos-shadow-force",
+  "detachment_id": "phobos-shadow-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Execute and Redeploy",
+  "cost": 25,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Phobos"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Phobos"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Phobos model only. In your Shooting phase, after this unit has shot, if this unit is unengaged, this unit can make a normal move of up to 6\". If it does, this unit is not eligible to declare a charge until the end of the turn.",
+  "legend": "This war leader excels in harrying tactics, wielding their strike force like a weapon of utmost stealth and cunning.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "martial-paragon-tacticus-attack-force",
+  "detachment_id": "tacticus-attack-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Martial Paragon",
+  "cost": 10,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Tacticus"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Tacticus"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Tacticus model only. This unit’s attacks can: • Re-roll one hit roll. • Re-roll one wound roll.",
+  "legend": "Leading his battle-brothers by example, this champion of the Chapter strives to embody the martial teachings of the Codex Astartes.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "spearpoint-war-leader-tacticus-attack-force",
+  "detachment_id": "tacticus-attack-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Spearpoint War Leader",
+  "cost": 15,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Tacticus"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Tacticus"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Tacticus model only. This unit has Scouts 6\".",
+  "legend": "Once the enemy are sighted, this warrior leads the attack from the very front, striving to be first in amongst the foe’s ranks.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "seal-of-shrouding-phobos-shock-force",
+  "detachment_id": "phobos-shock-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Seal of Shrouding",
+  "cost": 15,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Phobos"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Phobos"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Phobos model only. Enemy units cannot target this unit with snap shooting attacks.",
+  "legend": "Built into what appears a simple wax purity seal, this device scrambles enemy targeting when the bearer is on the move.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "venator-omni-auspex-phobos-shock-force",
+  "detachment_id": "phobos-shock-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Venator Omni-auspex",
+  "cost": 15,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Phobos"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Phobos"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Phobos model only. This unit’s attacks that target a hidden unit can: • Re-roll wound rolls of 1. • Or: If the assault doctrine is active for this unit, re-roll wound rolls of 1-2.",
+  "legend": "Constantly detecting and analysing viable targets, this artefact feeds advanced combat data directly into the bearer’s autosenses.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "champion-of-the-first-company-terminator-storm-force",
+  "detachment_id": "terminator-storm-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Champion of the First Company",
+  "cost": 20,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Adeptus Astartes",
+   "Terminator"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Terminator"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Adeptus Astartes Terminator model only. This unit’s melee attacks have [Lethal Hits].",
+  "legend": "Few are the enemies this warrior has not faced and bested, and they remember the vulnerabilities of every defeated foe.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "corporeum-reliquary-terminator-storm-force",
+  "detachment_id": "terminator-storm-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Corporeum Reliquary",
+  "cost": 25,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Adeptus Astartes",
+   "Terminator"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Terminator"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Adeptus Astartes Terminator model only. In your first Movement phase, this unit can make an ingress move.",
+  "legend": "This archeotech teleportation stabiliser is unique, a relic of Dark Age technology that spirits its bearer swiftly through the tides of the Warp.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "imperiums-sword-assault-brethren",
+  "detachment_id": "assault-brethren",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Imperium's Sword",
+  "cost": 20,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Adeptus Astartes"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. This model has the following weapon:",
+  "legend": "This champion hurls himself forwards with unbridled ferocity, cutting down the foe like a reaping whirlwind.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "furious-assault-assault-brethren",
+  "detachment_id": "assault-brethren",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Furious Assault",
+  "cost": 10,
+  "upgrade_tag": true,
+  "keyword_restrictions": [
+   "Adeptus Astartes",
+   "Infantry"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Infantry"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Adeptus Astartes Infantry unit only. This unit’s melee attacks have [Sustained Hits 1: non-Monster/Vehicle].",
+  "legend": "Bellicose temperament and advanced training combine to make this unit especially terrifying on the charge.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "indefatigable-fortitude-gravis-linebreaker-force",
+  "detachment_id": "gravis-linebreaker-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Indefatigable Fortitude",
+  "cost": 20,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Gravis"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Gravis"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Gravis model only. Attacks that target this unit with a S greater than this unit’s T have -1 to wound rolls.",
+  "legend": "Renowned for being a living engine of war, this warrior inspires his comrades to shrug off even the most devastating attacks.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "relentless-advance-gravis-linebreaker-force",
+  "detachment_id": "gravis-linebreaker-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Relentless Advance",
+  "cost": 20,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Gravis"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Gravis"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Gravis model only. This unit has Scouts 5\".",
+  "legend": "Ever on the move, this warrior leads his battle-brothers in a tireless crusade across the battlefields of the 41st millennium.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "master-forged-firearms-devastator-brethren",
+  "detachment_id": "devastator-brethren",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Master-forged Firearms",
+  "cost": 15,
+  "upgrade_tag": false,
+  "keyword_restrictions": null,
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes",
+    "Infantry"
+   ],
+   [
+    "Adeptus Astartes",
+    "Mounted"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Adeptus Astartes Infantry/Mounted model only. This model’s ranged attacks (excluding [Psychic] attacks) have +1 A, S, AP and D.",
+  "legend": "The finest ballistic armaments the Chapter’s artificers can create, these weapons reap a grievous tally of foes.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "honour-of-vigilance-devastator-brethren",
+  "detachment_id": "devastator-brethren",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Honour of Vigilance",
+  "cost": 20,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Adeptus Astartes"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only. • This unit’s ranged attacks have [Lethal Hits]. • If the devastator doctrine is active for this unit, this unit can re-roll advance rolls.",
+  "legend": "A savant of applied firepower, this warrior ensures their comrades’ big guns are always optimally positioned and targeted.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "immovable-conquerors-gravis-siege-force",
+  "detachment_id": "gravis-siege-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Immovable Conquerors",
+  "cost": 15,
+  "upgrade_tag": true,
+  "keyword_restrictions": [
+   "Gravis"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Gravis"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Gravis unit only. This unit has +1 OC.",
+  "legend": "Once these Gravis-armoured warriors have planted their feet and braced for battle, no force in the galaxy can move them.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "narthecis-gauntlet-gravis-siege-force",
+  "detachment_id": "gravis-siege-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Narthecis Gauntlet",
+  "cost": 20,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Apothecary Biologis"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Apothecary Biologis"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Apothecary Biologis model only. in your Command phase, this unit heals D3+1 wounds.",
+  "legend": "This rare supplementary medicae suite allows this Apothecary to provide support to their battle-brothers despite being outfitted for a different role.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "laurels-of-vigilance-tactical-brethren",
+  "detachment_id": "tactical-brethren",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Laurels of Vigilance",
+  "cost": 10,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Adeptus Astartes"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Adeptus Astartes"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "ADEPTUS ASTARTES model only.(Once per battle round, per army) When you use the Fire Overwatch/Heroic Intervention stratagem, if you target a friendly Adeptus Astartes Battleline unit within 12\" of this model with that stratagem, that use is -1 CP.",
+  "legend": "Those awarded this prestigious honour are ever vigilant, responding swiftly and with measured force to enemy threats.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "tactical-insight-tactical-brethren",
+  "detachment_id": "tactical-brethren",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Tactical Insight",
+  "cost": 15,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Captain"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Captain"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Captain model only. The tactical doctrine is active for this unit in addition to any other combat doctrine.",
+  "legend": "This champion understands the deeper flow of battle, and is always prepared to discern the course of action that will bring assured victory.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "artificer-sarcophagus-ironclad-champions",
+  "detachment_id": "ironclad-champions",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Artificer Sarcophagus",
+  "cost": 40,
+  "upgrade_tag": true,
+  "keyword_restrictions": [
+   "Dreadnought"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Dreadnought"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Dreadnought unit only. Attacks that target this unit have -1 D.",
+  "legend": "Fashioned by an artificer of exceptional skill over an entire lifetime, this sarcophagus resists even the most grievous blows.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "venerable-champion-aura-ironclad-champions",
+  "detachment_id": "ironclad-champions",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Venerable Champion (Aura)",
+  "cost": 30,
+  "upgrade_tag": true,
+  "keyword_restrictions": [
+   "Dreadnought"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Dreadnought"
+   ]
+  ],
+  "bearer_scope": "unit",
+  "rules_text": "Dreadnought unit only. While a friendly Adeptus Astartes Infantry/Mounted unit is within 6\" of this unit, that unit’s attacks can re-roll hit rolls of 1.",
+  "legend": "Having won innumerable triumphs, this timeless warrior confers the boon of their martial wisdom upon their battle-brothers.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "cyber-familiar-tacticus-firestorm-force",
+  "detachment_id": "tacticus-firestorm-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Cyber-familiar",
+  "cost": 15,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Tacticus"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Tacticus"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Tacticus model only. When both players have deployed their armies, you can redeploy up to three friendly Adeptus Astartes Infantry units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "legend": "Hovering high overhead on grav-impellers, this small cyber-creature cogitates emergent threats and alerts its master to tactical openings.",
+  "source": "wahapedia-11e@2026-10-21"
+ },
+ {
+  "id": "tempered-in-battle-aura-tacticus-firestorm-force",
+  "detachment_id": "tacticus-firestorm-force",
+  "ability_id": null,
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "max_targets": 1,
+  "name": "Tempered in Battle (Aura)",
+  "cost": 10,
+  "upgrade_tag": false,
+  "keyword_restrictions": [
+   "Tacticus"
+  ],
+  "keyword_restriction_groups": [
+   [
+    "Tacticus"
+   ]
+  ],
+  "bearer_scope": "model",
+  "rules_text": "Tacticus model only. Friendly ADEPTUS ASTARTES units within 6\" of this model can re-roll leadership rolls.",
+  "legend": "The stonewrought reputation and unfaltering determination of this commander serve as a linchpin for even the most hard-pressed strike force.",
+  "source": "wahapedia-11e@2026-10-21"
  }
 ]

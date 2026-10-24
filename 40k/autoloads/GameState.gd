@@ -555,6 +555,9 @@ func unit_has_deep_strike(unit_id: String) -> bool:
 	# has Deep Strike" — the bearer's Attached unit.
 	if GameConstants.edition >= 11 and _ork11e_enh().grants_deep_strike(unit):
 		return true
+	# WP-M4c GRAV-CHUTES (Reiver Squad wargear) / THUNDERHAWK INSERTION (Marneus Calgar's pick).
+	if GameConstants.edition >= 11 and load("res://scripts/codex/space_marines/SMAbilitiesC.gd").grants_deep_strike(unit):
+		return true
 	return false
 
 func unit_has_infiltrators(unit_id: String) -> bool:
@@ -714,6 +717,15 @@ func _unit_has_scout_own(unit_id: String) -> bool:
 	# this unit has Scouts 6"."
 	if GameConstants.edition >= 11 and float(_ork11e_enh().scouts_distance(unit)) > 0.0:
 		return true
+	# WP-M2a Codex: Space Marines (11e) Spearpoint War Leader: "This unit has Scouts 6"".
+	if GameConstants.edition >= 11 and float(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").scouts_distance(unit)) > 0.0:
+		return true
+	# WP-M2b Relentless Advance (Codex: Space Marines 11e): "This unit has Scouts 5\"".
+	if GameConstants.edition >= 11 and float(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").scouts_distance(unit)) > 0.0:
+		return true
+	# WP-M4c CEREBREX LOGIC ENGINE (Caanok Var's pick): Scouts 6".
+	if GameConstants.edition >= 11 and float(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").scouts_distance(unit)) > 0.0:
+		return true
 	return false
 
 func _get_scout_distance_from_abilities(abilities: Array) -> float:
@@ -800,9 +812,20 @@ func get_scout_distance(unit_id: String) -> float:
 		var o5_scouts := float(_ork11e_enh().scouts_distance(unit))
 		if o5_scouts > 0.0:
 			return o5_scouts
+		# WP-M2a Spearpoint War Leader (Tacticus Attack Force): Scouts 6" for the bearer's unit.
+		var sm11e_scouts := float(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").scouts_distance(unit))
+		if sm11e_scouts > 0.0:
+			return maxf(sm11e_scouts, _get_scout_distance_from_abilities(unit.get("meta", {}).get("abilities", [])))
+		# WP-M4c CEREBREX LOGIC ENGINE: Scouts 6" (unless the unit has a longer Scouts of its own).
+		var smc_scouts := float(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").scouts_distance(unit))
+		if smc_scouts > 0.0:
+			return maxf(smc_scouts, _get_scout_distance_from_abilities(unit.get("meta", {}).get("abilities", [])))
 	# Check own abilities first
 	var own_abilities = unit.get("meta", {}).get("abilities", [])
 	var own_distance = _get_scout_distance_from_abilities(own_abilities)
+	# WP-M2b Relentless Advance (Codex: Space Marines 11e): Scouts 5" — the better of it and a native Scouts.
+	if GameConstants.edition >= 11:
+		own_distance = maxf(own_distance, float(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").scouts_distance(unit)))
 	if own_distance > 0.0:
 		return own_distance
 	# Check inherited from embarked units (use smallest distance)
@@ -1062,6 +1085,9 @@ func get_omni_scrambler_positions(deploying_player: int) -> Array:
 			if name == "Omni-scramblers":
 				has_omni = true
 				break
+		# WP-M4a: Codex: Space Marines (11e) Omni-scramblers is a Shooting-phase "detected" rule — the 10e 12" denial is retired there.
+		if has_omni and load("res://scripts/codex/space_marines/SMAbilitiesA.gd").omni_scramblers_denial_retired(unit):
+			has_omni = false
 		if not has_omni:
 			continue
 		var unit_name = unit.get("meta", {}).get("name", uid)

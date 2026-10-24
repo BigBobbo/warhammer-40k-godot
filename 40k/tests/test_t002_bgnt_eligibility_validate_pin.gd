@@ -73,7 +73,7 @@ func _test_validate_carve_out() -> void:
 	_check("RulesEngine.gd readable", not src.is_empty())
 	# Non-Pistol weapon rejection must not fire for BGNT actors
 	_check("non-Pistol-in-ER rejection is gated on `not is_monster_or_vehicle(actor_unit)`",
-		"not is_pistol_weapon(weapon_id, board) and not is_monster_or_vehicle(actor_unit)" in src,
+		_line_has_all(src, ["not is_pistol_weapon(weapon_id, board)", "not is_monster_or_vehicle(actor_unit)"]),
 		"would reject Big Guns Never Tire firing non-Pistol weapons")
 	# Pistol-only target restriction must not fire for BGNT actors
 	_check("Pistol-only target ER restriction gated on `not is_monster_or_vehicle(actor_unit)`",
@@ -107,3 +107,17 @@ func _test_helpers_exist() -> void:
 func _finish():
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(0 if failed == 0 else 1)
+
+
+## True when one line of `src` contains every fragment (the rejection gate may
+## carry extra conditions, e.g. the 11e [CLOSE-QUARTERS] exemption `not vs_cq`).
+func _line_has_all(src: String, fragments: Array) -> bool:
+	for line in src.split("\n"):
+		var ok := true
+		for f in fragments:
+			if not str(f) in line:
+				ok = false
+				break
+		if ok:
+			return true
+	return false

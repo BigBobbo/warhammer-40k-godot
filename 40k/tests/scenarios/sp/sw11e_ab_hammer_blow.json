@@ -1,0 +1,238 @@
+{
+  "id": "sw11e_ab_hammer_blow",
+  "covers": [
+    "codex.space_wolves.datasheet_abilities.hammer_blow",
+    "scripts.codex.space_wolves.SWAbilities11e",
+    "stratagem.window.unit_has_fought",
+    "phases.FightPhase",
+    "dialogs.StratagemTargetDialog"
+  ],
+  "description": "WP-S4 Space Wolves HAMMER BLOW (Wulfen with Storm Shields) through the new unit_has_fought window. Fixture sw11e_s4_fight (P1 Space Wolves' Fight phase, round 2): the Wulfen with Storm Shields charged into an Ork Deff Dread. Real clicks end the pile-in step, select the Wulfen to fight and assign every attack to the Deff Dread; the resolution dock resolves them. When the unit has fought, P1's unit_has_fought window offers the Hammer Blow card; a real click and a real pick of the Deff Dread (a VEHICLE hit by those attacks) suppress it: its attacks have -1 to hit until the start of P1's next turn. Setup privileges: auto wound allocation, Orks 0 CP, the Deff Dread at 99 W (it must survive to be suppressed).",
+  "fixture": "sw11e_s4_fight",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "sw_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\nfor m in GameState.state.units[\"U_DEFF_DREAD_A\"].models:\n\tm[\"wounds\"] = 99\n\tm[\"current_wounds\"] = 99\nreturn true",
+      "multiline": true,
+      "comment": "setup privileges: auto wound allocation; the Orks have 0 CP; the Deff Dread survives the test fight (99 W)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_unit_engaged(\"U_WULFEN_WITH_STORM_SHIELDS_A\", GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WULFEN_WITH_STORM_SHIELDS_A",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WULFEN_WITH_STORM_SHIELDS_A",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "P1's unit_selected_to_fight window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "P2's enemy_targets_unit_fight window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)",
+      "comment": "resolve the Wulfen's attacks through the resolution dock"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "unit_has_fought"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_hammer_blow",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_hammer_blow\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_hammer_blow_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_hammer_blow/Buttons/Use_sw11e_ab_hammer_blow_U_WULFEN_WITH_STORM_SHIELDS_A",
+      "comment": "real click: Hammer Blow"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_DEFF_DREAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_hammer_blow_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_DEFF_DREAD_A",
+      "comment": "real click: the Deff Dread (a VEHICLE hit by those attacks)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_DEFF_DREAD_A\").flags.get(\"sw11e_ab_suppressed\", {}).get(\"source\", \"\")",
+      "comment": "suppressed until the start of P1's next turn",
+      "equals": "Hammer Blow"
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_DEFF_DREAD_A\"), GameState.get_unit(\"U_WULFEN_WITH_STORM_SHIELDS_A\"), {\"name\": \"x\", \"type\": \"Melee\"}, true, GameState.state)\nreturn bool(m.get(\"hit_minus\", false))",
+      "multiline": true,
+      "comment": "the Deff Dread's attacks have -1 to hit",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Hammer Blow: Deff Dread is suppressed\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "03_deff_dread_suppressed_log"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sw11e-s4] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

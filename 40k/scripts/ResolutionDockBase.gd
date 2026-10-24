@@ -82,7 +82,7 @@ func _chip_rolls(_stage: String, info: Dictionary) -> Array:
 	return rolls
 
 ## "1→5, 1→2" for every die re-rolled at this pause ("" when none) — named in
-## the status line so an automatic re-roll (Captain-General, Oath of Moment, …)
+## the status line so an automatic re-roll (Captain-General, …)
 ## is visible even when it came up a 1 again.
 static func _reroll_summary(info: Dictionary) -> String:
 	var parts: Array = []

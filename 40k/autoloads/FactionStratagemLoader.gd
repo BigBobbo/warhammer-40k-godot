@@ -79,6 +79,10 @@ static func _normalise_detachment_name(s: String) -> String:
 # FACTION CODE LOADING
 # ============================================================================
 
+# Space Marine chapter codes (Factions.csv / NEW_FACTION_CODES): their armies
+# can take the generic Codex: Space Marines detachments, filed under SM.
+const SM_CHAPTER_CODES := ["BT", "BA", "CF", "DA", "DW", "IF", "IH", "RG", "SAL", "SW", "UM", "WS"]
+
 func load_faction_codes(factions_csv_path: String = "res://data/Factions.csv") -> void:
 	"""Load faction name-to-code mappings from Factions.csv."""
 	var rows = parse_csv_file(factions_csv_path)
@@ -232,6 +236,22 @@ func load_faction_stratagems(faction_name: String, detachment_name, stratagems_c
 		var stratagem = _parse_stratagem_row(row, faction_code)
 		if not stratagem.is_empty():
 			stratagems.append(stratagem)
+
+	# A Space Marine chapter army (Space Wolves, Blood Angels, ...) taking a
+	# generic Codex: Space Marines detachment (Gladius Task Force, Assault
+	# Brethren, ...): its stratagem rows are filed once, under the Space Marines
+	# code SM — use those.
+	if stratagems.is_empty() and detachment_name != "" and faction_code in SM_CHAPTER_CODES:
+		print("FactionStratagemLoader: %s has no %s rows for '%s' — using the Space Marines (SM) rows" % [faction_name, faction_code, detachment_name])
+		for row in rows:
+			if row.get("faction_id", "").strip_edges() != "SM":
+				continue
+			var rd := str(row.get("detachment", "")).strip_edges()
+			if rd == "" or _normalise_detachment_name(rd) != _normalise_detachment_name(detachment_name):
+				continue
+			var st = _parse_stratagem_row(row, "SM")
+			if not st.is_empty():
+				stratagems.append(st)
 
 	print("FactionStratagemLoader: Loaded %d stratagems for %s / %s" % [stratagems.size(), faction_name, detachment_name])
 	return stratagems

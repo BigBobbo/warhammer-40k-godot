@@ -1,0 +1,165 @@
+{
+  "id": "sw11e_fenrisian_ferocity",
+  "covers": [
+    "codex.space_wolves.stratagems.fenrisian-ferocity",
+    "codex.space_wolves.SWCodex11e",
+    "stratagem.window.unit_selected_to_move",
+    "phases.MovementPhase.unit_selected_to_move",
+    "rules.terrain.mobile"
+  ],
+  "description": "Codex: Space Marines (11e) Space Wolves FENRISIAN FEROCITY (Saga of the Great Wolf, 1 CP) — WP-S3. Fixture sw11e_s3_active (P1 Space Wolves ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sw11e_s3_fixtures.gd). Setup privileges: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test), straight to the phase under test. The movement panel's BEGIN_NORMAL_MOVE for Thunderwolf Cavalry B (ADEPTUS ASTARTES MOUNTED) opens unit_selected_to_move; a real click on 'Use on Thunderwolf Cavalry' spends 1 CP; the unit has MOBILE for the phase (the engine's MOBILE grant read by the Movement / Charge phase 13.06 terrain checks).",
+  "fixture": "sw11e_s3_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation",
+      "equals": "Saga of the Great Wolf + Champions of Fenris + Saga of the Beastslayer"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement_phase_start (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.frame(8, 50, 1.2)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_NORMAL_MOVE",
+        "actor_unit_id": "U_THUNDERWOLF_CAVALRY_B",
+        "player": 1
+      },
+      "comment": "the movement panel's BEGIN_NORMAL_MOVE button"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_selected_to_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_fenrisian_ferocity/Buttons/Use_faction_sw_saga_of_the_great_wolf_fenrisian_ferocity_U_THUNDERWOLF_CAVALRY_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_fenrisian_ferocity/Buttons/Use_faction_sw_saga_of_the_great_wolf_fenrisian_ferocity_U_THUNDERWOLF_CAVALRY_B",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sw11e_fenrisian_ferocity_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_fenrisian_ferocity/Buttons/Use_faction_sw_saga_of_the_great_wolf_fenrisian_ferocity_U_THUNDERWOLF_CAVALRY_B",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.flag(\"U_THUNDERWOLF_CAVALRY_B\", \"ork11e_mobile\")",
+      "comment": "the engine's MOBILE grant (Movement / Charge phase 13.06 terrain checks)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn \"MOBILE\" in H.phase()._terrain_rule_keywords(\"U_THUNDERWOLF_CAVALRY_B\", {})",
+      "comment": "the move's terrain keywords include MOBILE",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn TerrainManager._passes_dense_11e([\"MOUNTED\", \"MOBILE\"]) and not TerrainManager._passes_dense_11e([\"MOUNTED\"])",
+      "comment": "13.06: MOBILE models pass dense terrain",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.log_count(\"Used FENRISIAN FEROCITY\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sw11e_fenrisian_ferocity_used"
+    }
+  ],
+  "transition_to_phase": 7
+}

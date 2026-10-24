@@ -1,0 +1,184 @@
+{
+  "id": "sm11e_ab_b_command_cards",
+  "covers": [
+    "scripts.codex.space_marines.SMAbilitiesB",
+    "stratagem.window.phase_start",
+    "dialogs.StratagemDialog",
+    "codex.space_marines.datasheet_abilities.strategic_acumen",
+    "codex.space_marines.datasheet_abilities.demi_company_commander",
+    "codex.space_marines.datasheet_abilities.spiritual_leader"
+  ],
+  "description": "WP-M4b Command-phase abilities through the real phase_start window. Fixture sm11e_m4b_command (P1 Space Marines, round 2): the Captain in Gravis Armour leads Heavy Intercessors, a Lieutenant stands alone, a Chaplain is next to battle-shocked Intercessors. STRATEGIC ACUMEN: real click on its Tactical Doctrine option \u2014 the doctrine is active for the Captain's Attached unit; the window re-offers and DEMI-COMPANY COMMANDER (Lieutenant) follows it with a real click. SPIRITUAL LEADER: real click + pick of the Intercessors (within 6\") \u2014 no longer battle-shocked. No CP spent.",
+  "fixture": "sm11e_m4b_command",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "sm_abilities_b": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_strategic_acumen",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_spiritual_leader",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_strategic_acumen\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_command_phase_start_cards"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_strategic_acumen/Buttons/Use_sm11e_ab_b_strategic_acumen_U_HEAVY_INTERCESSOR_SQUAD_A_tactical",
+      "comment": "real click: Strategic Acumen \u2014 Tactical Doctrine"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "str(GameState.get_unit(\"U_HEAVY_INTERCESSOR_SQUAD_A\").flags.get(\"sw11e_doctrine\", \"\")) + \"/\" + str(GameState.get_unit(\"U_CAPTAIN_IN_GRAVIS_ARMOUR_A\").flags.get(\"sw11e_doctrine\", \"\"))",
+      "comment": "tactical doctrine active for the Captain's whole Attached unit",
+      "equals": "tactical/tactical"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_demi_company_commander",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_demi_company_commander_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_demi_company_commander/Buttons/Use_sm11e_ab_b_demi_company_commander_U_LIEUTENANT_A",
+      "comment": "real click: Demi-company Commander"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "str(GameState.get_unit(\"U_LIEUTENANT_A\").flags.get(\"sw11e_doctrine\", \"\"))",
+      "comment": "the Captain's doctrine is active for the Lieutenant",
+      "equals": "tactical"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_spiritual_leader",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_spiritual_leader/Buttons/Use_sm11e_ab_b_spiritual_leader_U_CHAPLAIN_A",
+      "comment": "real click: Spiritual Leader"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_INTERCESSOR_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_spiritual_leader_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_INTERCESSOR_SQUAD_A",
+      "comment": "real click: the battle-shocked Intercessors within 6\""
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "bool(GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\").flags.get(\"battle_shocked\", true))",
+      "comment": "no longer battle-shocked",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Strategic Acumen (Captain in Gravis Armour)\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Spiritual Leader (Chaplain)\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "04_command_cards_resolved_log"
+    },
+    {
+      "act": "execute_script",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4b] debug-log ERROR: \", l)\nreturn n",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "equals": 0
+    }
+  ]
+}

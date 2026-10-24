@@ -1,0 +1,287 @@
+{
+  "id": "sm11e_ab_a_command_cards",
+  "covers": [
+    "codex.space_marines.datasheet_abilities.strategic_acumen",
+    "codex.space_marines.datasheet_abilities.priority_target_identified",
+    "codex.space_marines.datasheet_abilities.helix_gauntlet",
+    "scripts.codex.space_marines.SMAbilitiesA",
+    "stratagem.window.command_phase_main",
+    "dialogs.StratagemChoiceDialog"
+  ],
+  "description": "WP-M4a Command-phase datasheet abilities through the real command_phase_main window. Fixture sm11e_m4a_command (P1 Space Marines, round 2, terrain priority_assets_vs_priority_assets_1): a Captain leads Intercessors, a Lieutenant with Combi-weapon, Infiltrators that took the Helix Gauntlet (one model lost, one wounded), Boyz inside the area-medium-9 ruin. STRATEGIC ACUMEN: real click on the Devastator Doctrine variant - active for the Captain's Attached unit until P1's next Command phase. PRIORITY TARGET IDENTIFIED (once per battle): real click, the terrain picker lists the Boyz' ruin first, real pick - the Boyz get +3\" detection range until the end of the turn. HELIX GAUNTLET: real click - the unit heals D3 (the wounded model first). No CP spent.",
+  "fixture": "sm11e_m4a_command",
+  "edition": 11,
+  "rng_seed": 11,
+  "disable_ai": true,
+  "sm_abilities_a": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "comment": "the secondary-mission review (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_node",
+      "button_text": "End Command Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "command_phase_main"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_strategic_acumen",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_strategic_acumen/Buttons/Use_sm11e_ab_a_strategic_acumen_U_INTERCESSOR_SQUAD_A_assault",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_strategic_acumen/Buttons/Use_sm11e_ab_a_strategic_acumen_U_INTERCESSOR_SQUAD_A_devastator",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_strategic_acumen/Buttons/Use_sm11e_ab_a_strategic_acumen_U_INTERCESSOR_SQUAD_A_tactical",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_priority_target_identified",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_helix_gauntlet",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_strategic_acumen\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_command_phase_ability_cards"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_strategic_acumen/Buttons/Use_sm11e_ab_a_strategic_acumen_U_INTERCESSOR_SQUAD_A_devastator",
+      "comment": "REAL click: Strategic Acumen - Devastator Doctrine for the Captain's unit"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var C = load(\"res://scripts/codex/space_wolves/SWCommon.gd\")\nreturn C.doctrine_active_id(\"U_INTERCESSOR_SQUAD_A\", \"devastator\") and C.doctrine_active_id(\"U_CAPTAIN_A\", \"devastator\") and not C.doctrine_active_id(\"U_LIEUTENANT_WITH_COMBI_WEAPON_A\", \"devastator\")",
+      "comment": "the devastator doctrine is active for the Captain's Attached unit only",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_INTERCESSOR_SQUAD_A\").flags.get(\"sw11e_doctrine_expires_player\", 0)",
+      "comment": "until the start of P1's next Command phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Strategic Acumen (Captain): Devastator Doctrine\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_priority_target_identified",
+      "timeout_s": 3.0,
+      "comment": "the window re-offers what is left"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_strategic_acumen\") == null",
+      "comment": "once per Command phase",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_priority_target_identified/Buttons/Use_sm11e_ab_a_priority_target_identified_U_LIEUTENANT_WITH_COMBI_WEAPON_A",
+      "comment": "REAL click: Priority Target Identified"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemChoiceDialog/Content/Choice_area-medium-9",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemChoiceDialog/Content/Choice_area-medium-9\").text.contains(\"1 enemy unit(s) within\")",
+      "comment": "the ruin the Boyz stand in is listed, with the enemy count",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_priority_target_terrain_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemChoiceDialog/Content/Choice_area-medium-9",
+      "comment": "REAL click: identify the ruin the Boyz are in"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.factions[\"1\"].get(\"sm11e_aba_priority_target\", {}).get(\"feature_id\", \"\")",
+      "equals": "area-medium-9"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var S = load(\"res://scripts/codex/space_marines/SMAbilitiesA.gd\")\nreturn S.detection_range_bonus(GameState.get_unit(\"U_BOYZ_B\"))",
+      "comment": "the Boyz within the identified feature have +3\" detection range",
+      "equals": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "UnitAbilityManager.is_once_per_battle_used(\"U_LIEUTENANT_WITH_COMBI_WEAPON_A\", \"Priority Target Identified\")",
+      "comment": "once per battle",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_helix_gauntlet",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_INFILTRATOR_SQUAD_A\").models[0].current_wounds",
+      "comment": "the wounded Infiltrator starts on 1 W",
+      "equals": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_a_helix_gauntlet/Buttons/Use_sm11e_ab_a_helix_gauntlet_U_INFILTRATOR_SQUAD_A",
+      "comment": "REAL click: Helix Gauntlet"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.get_unit(\"U_INFILTRATOR_SQUAD_A\")\nprint(\"[sm11e-m4a] helix: \", u.models.map(func(m): return [m.alive, m.current_wounds]))\nreturn int(u.models[0].current_wounds) == 2",
+      "comment": "healed D3: the wounded model first",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Helix Gauntlet: \")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "03_command_cards_resolved_log"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sm11e-m4a] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

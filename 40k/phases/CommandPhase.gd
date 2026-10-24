@@ -6,6 +6,10 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 # Codex: Orks (11e) army rules (WP-O34): Da Boss, War Cry in the opponent's Command phase.
 const Ork11eArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
+# Codex: Space Marines (11e) — Space Wolves army rules + detachments (WP-S2):
+# Combat Doctrines, Transhuman Strategist, Howling Onslaught.
+const SW11eArmyRules = preload("res://scripts/codex/space_wolves/SWArmyRules11e.gd")
+const SW11eDetachments = preload("res://scripts/codex/space_wolves/SWDetachments11e.gd")
 
 
 # CommandPhase - Handles Command Phase including CP generation and Battle-shock tests
@@ -101,6 +105,8 @@ func _on_phase_enter() -> void:
 		# Codex: Adeptus Custodes AQUILA COMMANDER — start of the battle round,
 		# +1CP if your WARLORD has it (bonus-CP cap respected; CustodesKatah.gd).
 		_cus11e_katah().on_battle_round_start(battle_round)
+		# Codex: Space Marines (11e) TRANSHUMAN STRATEGIST — +1CP if a Space Marine WARLORD has it (SWArmyRules11e.gd, WP-S2 / WP-M2a).
+		SW11eArmyRules.on_battle_round_start(battle_round)
 
 	# Step 0b: Initialize secondary mission decks on first command phase
 	# Both players' decks are set up on the very first command phase entry,
@@ -182,7 +188,7 @@ func _on_phase_enter() -> void:
 						names.append(m["name"])
 					game_event_log.add_info_entry("P%d secondaries: %s" % [p, ", ".join(names)])
 
-	# Step 6: Initialize faction abilities (Oath of Moment, etc.)
+	# Step 6: Initialize faction abilities (Waaagh!, etc.)
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if faction_mgr:
 		faction_mgr.on_command_phase_start(current_player)
@@ -193,6 +199,9 @@ func _on_phase_enter() -> void:
 	# Codex: Adeptus Custodes (11e) detachments / enhancements — dreadful foe and
 	# Blinding Light expire, BATTLELINE grants refreshed (CustodesDetachments.gd, WP-C46).
 	_cus11e_det().on_command_phase_start(current_player)
+	# Codex: Space Marines (11e) Space Wolves — the previous Combat Doctrine / Howling Onslaught end (WP-S2).
+	SW11eArmyRules.on_command_phase_start(current_player)
+	SW11eDetachments.on_command_phase_start(current_player)
 
 	# P3-106: Clear turn-scoped stratagem effects at start of new turn
 	# Per Core Rules, effects with "until the start of your next turn" duration expire here
@@ -241,6 +250,8 @@ func _start_battle_shock_step(deferred: Dictionary) -> Dictionary:
 	# and the Command step's prompts — the Codex: Adeptus Custodes CONSERVAI
 	# ka'tah (CustodesKatah.gd) — opens just before battle_shock_step_start.
 	var bss_entries: Array = [{"player": player, "window_id": "command_phase_main", "ctx": {"phase": "command"}}]
+	# Codex: Space Marines (11e) WP-M3b (SMCodexB.gd): FOR THE EMPEROR! "Command phase" — the opponent's window, after the active player's.
+	bss_entries.append_array(load("res://scripts/codex/space_marines/SMCodexB.gd").opponent_command_window_entries(player))
 	# Codex: Orks (11e) War Cry "at the start of the Command phase" — not "your"
 	# (WP-O34): the opponent's War Cry window, after the active player's window
 	# (active player first — 11e sequencing), before the Battle-shock step.
@@ -565,24 +576,13 @@ func get_available_actions() -> Array:
 				"player": current_player
 			})
 
-	# Oath of Moment target selection (Space Marines)
-	if faction_mgr and faction_mgr.player_has_ability(current_player, "Oath of Moment"):
-		var current_oath_target = faction_mgr.get_oath_of_moment_target(current_player)
-		var eligible_targets = faction_mgr.get_eligible_oath_targets(current_player)
-
-		if eligible_targets.size() > 0:
-			for target_info in eligible_targets:
-				var is_current = (target_info.unit_id == current_oath_target)
-				actions.append({
-					"type": "SELECT_OATH_TARGET",
-					"target_unit_id": target_info.unit_id,
-					"description": "Oath of Moment: %s%s" % [target_info.unit_name, " (current)" if is_current else ""],
-					"player": current_player,
-					"is_current_target": is_current
-				})
-
+	# Codex: Space Marines (11e) Space Wolves COMBAT DOCTRINES (army rule) + Howling Onslaught (WP-S2).
+	actions.append_array(SW11eArmyRules.command_actions(current_player))
+	actions.append_array(SW11eDetachments.command_actions(current_player))
 	# Combat Doctrines selection (Space Marines — Gladius Task Force) (P2-27)
-	if faction_mgr and faction_mgr.player_has_detachment(current_player, "Gladius Task Force"):
+	# (10e path; a Space Wolves army uses the codex army rule above instead.)
+	# (10e only — at 11e every Space Marine army uses the codex army rule above, WP-M2a.)
+	if faction_mgr and GameConstants.edition < 11 and faction_mgr.player_has_detachment(current_player, "Gladius Task Force"):
 		var available_doctrines = faction_mgr.get_available_doctrines(current_player)
 		var active_doctrine = faction_mgr.get_active_doctrine(current_player)
 		if available_doctrines.size() > 0 and active_doctrine == "":
@@ -773,8 +773,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_use_new_orders(action)
 		"REPLACE_SECONDARY_MISSION":
 			errors = _validate_replace_secondary_mission(action)
-		"SELECT_OATH_TARGET":
-			errors = _validate_select_oath_target(action)
 		"CALL_WAAAGH":
 			errors = _validate_call_waaagh(action)
 		"PLANT_WAAAGH_BANNER":
@@ -782,7 +780,13 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"SELECT_COMBAT_DOCTRINE":
 			errors = _validate_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
-			pass  # Always valid
+			# Codex: Space Marines (11e) Space Wolves Combat Doctrines (WP-S2).
+			if GameConstants.edition >= 11:  # Codex: Space Marines (11e) army rule, every SM army (WP-M2a)
+				errors = SW11eArmyRules.validate_action(get_current_player(), action)
+		"USE_HOWLING_ONSLAUGHT":
+			# Codex: Space Marines (11e) Saga of the Great Wolf (WP-S2).
+			if not SW11eDetachments.howling_onslaught_available(get_current_player()):
+				errors.append("Howling Onslaught is not available")
 		"SELECT_LOOT_OBJECTIVE":
 			errors = _validate_select_loot_objective(action)
 		"ISSUE_TAKTIK":
@@ -898,8 +902,6 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_use_new_orders(action)
 		"REPLACE_SECONDARY_MISSION":
 			return _handle_replace_secondary_mission(action)
-		"SELECT_OATH_TARGET":
-			return _handle_select_oath_target(action)
 		"CALL_WAAAGH":
 			return _handle_call_waaagh(action)
 		"PLANT_WAAAGH_BANNER":
@@ -908,6 +910,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
 			return _handle_skip_combat_doctrine(action)
+		"USE_HOWLING_ONSLAUGHT":
+			return _handle_sw11e_howling_onslaught(action)
 		"SELECT_LOOT_OBJECTIVE":
 			return _handle_select_loot_objective(action)
 		"ISSUE_TAKTIK":
@@ -948,12 +952,14 @@ static func _get_effective_leadership(unit_id: String) -> int:
 	Bodyguard Ld 5 + Character Ld 8 -> use 8."""
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	var ld = int(unit.get("meta", {}).get("stats", {}).get("leadership", 7))
+	ld = int(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").leadership(unit, ld))  # WP-M4c Seeker of the Unfound: 5+ Ld
 	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
 	for char_id in attached_chars:
 		var char_unit = GameState.state.get("units", {}).get(char_id, {})
 		if char_unit.is_empty():
 			continue
 		var char_ld = int(char_unit.get("meta", {}).get("stats", {}).get("leadership", 7))
+		char_ld = int(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").leadership(char_unit, char_ld))  # WP-M4c Seeker of the Unfound
 		if char_ld > ld:
 			ld = char_ld
 	# HUGE SHOW-OFFS (More Dakka!): 'improve the Leadership characteristic by
@@ -1011,10 +1017,25 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	else:
 		log_phase_message("Battle-shock test for %s: 2D6 = %d (%d + %d) vs Ld %d" % [unit_name, roll_total, die1, die2, leadership])
 
+	# WP-M2b Tempered in Battle (Aura) (Codex: Space Marines 11e): "can re-roll leadership rolls" —
+	# a failed roll is re-rolled for free (always taken; a die is never re-rolled twice, so no Command Re-roll after it).
+	var sm11e_tb_src: String = str(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").battle_shock_reroll_source(unit_id)) if not test_passed else ""
+	if sm11e_tb_src != "":
+		var tb_old: int = roll_total
+		die1 = rng_inst.rng.randi_range(1, 6)
+		die2 = rng_inst.rng.randi_range(1, 6)
+		roll_total = die1 + die2
+		effective_roll = roll_total + battle_shock_bonus
+		test_passed = effective_roll >= leadership
+		log_phase_message("%s: %s re-rolls its battle-shock roll %d -> %d (%d + %d) vs Ld %d — %s" % [sm11e_tb_src, unit_name, tb_old, roll_total, die1, die2, leadership, "passed" if test_passed else "failed"])
+		var tb_gel = get_node_or_null("/root/GameEventLog")
+		if tb_gel:
+			tb_gel.add_player_entry(int(unit.get("owner", 0)), "%s: %s re-rolls its battle-shock roll (was %d, now %d vs Ld %d) — %s" % [sm11e_tb_src, unit_name, tb_old, roll_total, leadership, "passed" if test_passed else "FAILED"])
+
 	# Check if Command Re-roll is available (only offer on failed tests).
 	# Not for the END_COMMAND auto-resolve: the phase ends in that same action,
 	# so a paused re-roll decision would strand the test unresolved.
-	if not test_passed and not action.has("dice_roll") and not action.get("auto_resolve", false):
+	if not test_passed and sm11e_tb_src == "" and not action.has("dice_roll") and not action.get("auto_resolve", false):
 		var current_player = get_current_player()
 		var strat_manager = get_node_or_null("/root/StratagemManager")
 		if strat_manager:
@@ -1551,74 +1572,6 @@ func _handle_plant_waaagh_banner(action: Dictionary) -> Dictionary:
 	return result
 
 # ============================================================================
-# FACTION ABILITIES — OATH OF MOMENT
-# ============================================================================
-
-func _validate_select_oath_target(action: Dictionary) -> Array:
-	var errors = []
-	var target_unit_id = action.get("target_unit_id", "")
-	var current_player = get_current_player()
-
-	if target_unit_id == "":
-		errors.append("Missing target_unit_id for Oath of Moment")
-		return errors
-
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if not faction_mgr:
-		errors.append("FactionAbilityManager not available")
-		return errors
-
-	if not faction_mgr.player_has_ability(current_player, "Oath of Moment"):
-		errors.append("Player %d does not have Oath of Moment" % current_player)
-		return errors
-
-	# Target must be an enemy unit
-	var target = GameState.state.get("units", {}).get(target_unit_id, {})
-	if target.is_empty():
-		errors.append("Target unit not found: %s" % target_unit_id)
-		return errors
-
-	if target.get("owner", 0) == current_player:
-		errors.append("Cannot target own unit with Oath of Moment")
-
-	# Target must have alive models
-	var has_alive = false
-	for model in target.get("models", []):
-		if model.get("alive", true):
-			has_alive = true
-			break
-	if not has_alive:
-		errors.append("Target unit is destroyed")
-
-	return errors
-
-func _handle_select_oath_target(action: Dictionary) -> Dictionary:
-	var target_unit_id = action.get("target_unit_id", "")
-	var current_player = get_current_player()
-
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if not faction_mgr:
-		return {"success": false, "error": "FactionAbilityManager not available"}
-
-	var result = faction_mgr.set_oath_of_moment_target(current_player, target_unit_id)
-
-	if result.success:
-		log_phase_message("OATH OF MOMENT: Player %d marks %s for destruction" % [
-			current_player, result.get("target_name", target_unit_id)])
-
-		# Log to phase log
-		var log_entry = {
-			"type": "SELECT_OATH_TARGET",
-			"player": current_player,
-			"target_unit_id": target_unit_id,
-			"target_name": result.get("target_name", ""),
-			"turn": GameState.get_battle_round()
-		}
-		GameState.add_action_to_phase_log(log_entry)
-
-	return result
-
-# ============================================================================
 # DETACHMENT ABILITIES — COMBAT DOCTRINES (P2-27)
 # ============================================================================
 
@@ -1630,6 +1583,11 @@ func _validate_select_combat_doctrine(action: Dictionary) -> Array:
 	if doctrine_key == "":
 		errors.append("Missing doctrine_key for Combat Doctrine selection")
 		return errors
+
+	# Codex: Space Marines (11e): the army rule for every Space Marine army (SWArmyRules11e.gd, WP-S2 / WP-M2a);
+	# at 11e the 10e Gladius path below never runs (a non-SM army is refused there).
+	if GameConstants.edition >= 11:
+		return SW11eArmyRules.validate_action(current_player, action)
 
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if not faction_mgr:
@@ -1660,6 +1618,11 @@ func _handle_select_combat_doctrine(action: Dictionary) -> Dictionary:
 	var current_player = get_current_player()
 	var doctrine_key = action.get("doctrine_key", "")
 
+	# Codex: Space Marines (11e): the army rule for every Space Marine army (SWArmyRules11e.gd, WP-S2 / WP-M2a);
+	# at 11e the 10e Gladius path below never runs (a non-SM army is refused there).
+	if GameConstants.edition >= 11:
+		return _handle_sw11e_doctrine(action)
+
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if not faction_mgr:
 		return {"success": false, "error": "FactionAbilityManager not available"}
@@ -1683,6 +1646,10 @@ func _handle_select_combat_doctrine(action: Dictionary) -> Dictionary:
 
 func _handle_skip_combat_doctrine(_action: Dictionary) -> Dictionary:
 	var current_player = get_current_player()
+	# Codex: Space Marines (11e): the army rule for every Space Marine army (SWArmyRules11e.gd, WP-S2 / WP-M2a);
+	# at 11e the 10e Gladius path below never runs (a non-SM army is refused there).
+	if GameConstants.edition >= 11:
+		return _handle_sw11e_doctrine(_action)
 	log_phase_message("COMBAT DOCTRINES: Player %d skips doctrine selection this round" % current_player)
 
 	var log_entry = {
@@ -1693,6 +1660,45 @@ func _handle_skip_combat_doctrine(_action: Dictionary) -> Dictionary:
 	GameState.add_action_to_phase_log(log_entry)
 
 	return {"success": true, "message": "No Combat Doctrine selected this round"}
+
+## Codex: Space Marines (11e) Space Wolves COMBAT DOCTRINES — select / skip
+## (logic in SWArmyRules11e.gd, WP-S2). The diffs ride the phase result.
+func _handle_sw11e_doctrine(action: Dictionary) -> Dictionary:
+	var player := get_current_player()
+	var res: Dictionary
+	if str(action.get("type", "")) == "SELECT_COMBAT_DOCTRINE":
+		res = SW11eArmyRules.select_doctrine_diffs(player, str(action.get("doctrine_key", "")))
+	else:
+		res = SW11eArmyRules.skip_doctrine_diffs(player)
+	if not res.get("success", false):
+		return create_result(false, [], str(res.get("error", "Combat Doctrines: not available")))
+	log_phase_message("COMBAT DOCTRINES: Player %d — %s" % [player, str(res.get("message", ""))])
+	if str(action.get("type", "")) == "SELECT_COMBAT_DOCTRINE":
+		var gel = get_node_or_null("/root/GameEventLog")
+		if gel:
+			gel.add_player_entry(player, str(res.get("message", "")))
+	GameState.add_action_to_phase_log({"type": str(action.get("type", "")), "player": player,
+		"doctrine": str(res.get("doctrine", "")), "turn": GameState.get_battle_round()})
+	var out := create_result(true, res.get("diffs", []))
+	out["message"] = str(res.get("message", ""))
+	out["doctrine"] = str(res.get("doctrine", ""))
+	out["doctrine_display"] = str(res.get("display", ""))
+	return out
+
+## Codex: Space Marines (11e) Saga of the Great Wolf — Logan Grimnar's HOWLING
+## ONSLAUGHT (SWDetachments11e.gd, WP-S2).
+func _handle_sw11e_howling_onslaught(_action: Dictionary) -> Dictionary:
+	var player := get_current_player()
+	var res: Dictionary = SW11eDetachments.use_howling_onslaught_diffs(player)
+	if not res.get("success", false):
+		return create_result(false, [], str(res.get("error", "")))
+	log_phase_message("HOWLING ONSLAUGHT: Player %d — %s" % [player, str(res.get("message", ""))])
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(player, str(res.get("message", "")))
+	var out := create_result(true, res.get("diffs", []))
+	out["message"] = str(res.get("message", ""))
+	return out
 
 # ============================================================================
 # HERE BE LOOT — LOOT OBJECTIVE SELECTION (OA-1)
@@ -2558,10 +2564,8 @@ func _resume_end_command_after_event_windows(_ctx: Dictionary, _window_result: D
 func _finish_end_command(auto_changes: Array, auto_resolved: Array) -> Dictionary:
 	var current_player = get_current_player()
 
-	# Auto-resolve faction abilities (Oath of Moment target selection)
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if faction_mgr:
-		faction_mgr.on_command_phase_end(current_player)
+	# WP-M2a Codex: Space Marines (11e) Redoubtable Machine Spirit: "At the end of your Command phase, heals 1 wound."
+	auto_changes.append_array(load("res://scripts/codex/space_marines/SMDetachmentsA.gd").on_command_phase_end(current_player))
 
 	# Warn about pending secondary mission interactions
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")

@@ -1,0 +1,201 @@
+{
+  "id": "sm11e_adaptive_strategy",
+  "covers": [
+    "codex.space_marines.stratagems.adaptive-strategy",
+    "codex.space_marines.SMCodex11e",
+    "stratagem.window.command_phase_main",
+    "phases.CommandPhase.command_phase_main"
+  ],
+  "description": "Codex: Space Marines (11e) ADAPTIVE STRATEGY (Gladius Task Force, 1 CP) — WP-M3a. Fixture sm11e_m3a_active (P1 Space Marines ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sm11e_m3a_fixtures.gd). Setup privileges: the seven WP-M3a detachments, the Ork player 0 CP. A REAL click on End Command Phase opens command_phase_main; the card offers one button per (unit, doctrine); a REAL click on \"Hellblaster Squad: Devastator Doctrine\" spends 1 CP and makes that doctrine active for the unit (SWCommon per-unit keys) until the start of Player 1's next Command phase; the window is offered again (MIGHT OF THE MACHINE SPIRIT still usable).",
+  "fixture": "sm11e_m3a_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Marine player gets the seven WP-M3a detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test)",
+      "equals": "7 detachments"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.frame(14, 44, 1.0)",
+      "equals": true
+    },
+    {
+      "act": "hover_board_at",
+      "x": 1500.0,
+      "y": 300.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "button_text": "End Command Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.window_id()",
+      "equals": "command_phase_main"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gladius_task_force_adaptive_strategy/Buttons/Use_faction_sm_gladius_task_force_adaptive_strategy_U_HELLBLASTER_SQUAD_A_assault",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gladius_task_force_adaptive_strategy/Buttons/Use_faction_sm_gladius_task_force_adaptive_strategy_U_HELLBLASTER_SQUAD_A_tactical",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn main.get_tree().root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gladius_task_force_adaptive_strategy/Buttons/Use_faction_sm_gladius_task_force_adaptive_strategy_U_HELLBLASTER_SQUAD_A_devastator\").text",
+      "comment": "the button names the unit and the doctrine",
+      "equals": "Hellblaster Squad: Devastator Doctrine (1 CP)"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gladius_task_force_adaptive_strategy/Buttons/Use_faction_sm_gladius_task_force_adaptive_strategy_U_HELLBLASTER_SQUAD_A_devastator",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gladius_task_force_adaptive_strategy/Buttons/Use_faction_sm_gladius_task_force_adaptive_strategy_U_HELLBLASTER_SQUAD_A_devastator",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sm11e_adaptive_strategy_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_gladius_task_force_adaptive_strategy/Buttons/Use_faction_sm_gladius_task_force_adaptive_strategy_U_HELLBLASTER_SQUAD_A_devastator",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0,
+      "comment": "the window is offered again"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.window_id()",
+      "equals": "command_phase_main"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.offered(\"faction_sm_gladius_task_force_adaptive_strategy\").is_empty() and not H.offered(\"faction_sm_ironstorm_spearhead_might_of_the_machine_spirit\").is_empty()",
+      "comment": "ADAPTIVE STRATEGY not again (once per phase); MIGHT OF THE MACHINE SPIRIT still offered",
+      "equals": true
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn str(H.flag(\"U_HELLBLASTER_SQUAD_A\", \"sw11e_doctrine\")) + \"/\" + str(H.flag(\"U_HELLBLASTER_SQUAD_A\", \"sw11e_doctrine_expires_player\"))",
+      "comment": "SWCommon per-unit doctrine keys",
+      "equals": "devastator/1"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.common().doctrine_active_id(\"U_HELLBLASTER_SQUAD_A\", \"devastator\") and not H.common().doctrine_active_id(\"U_HELLBLASTER_SQUAD_A\", \"assault\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.log_count(\"Used ADAPTIVE STRATEGY\")",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sm11e_adaptive_strategy_used_window_reoffered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "REAL click: decline the rest"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.common().doctrine_active_id(\"U_HELLBLASTER_SQUAD_A\", \"devastator\")",
+      "comment": "still active after the Command phase",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sm11e_adaptive_strategy_after_command_phase"
+    }
+  ]
+}

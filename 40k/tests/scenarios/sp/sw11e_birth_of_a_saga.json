@@ -1,0 +1,212 @@
+{
+  "id": "sw11e_birth_of_a_saga",
+  "covers": [
+    "codex.space_wolves.stratagems.birth-of-a-saga",
+    "codex.space_wolves.SWCodex11e",
+    "stratagem.window.command_phase_main",
+    "phases.CommandPhase.command_phase_main"
+  ],
+  "description": "Codex: Space Marines (11e) Space Wolves BIRTH OF A SAGA (Champions of Fenris, 1 CP) — WP-S3. Fixture sw11e_s3_active (P1 Space Wolves ACTIVE vs P2 Orks, round 2; layout in tests/helpers/gen_sw11e_s3_fixtures.gd). Setup privileges: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation, the Ork player has 0 CP (no Ork stratagem windows — not under test), straight to the phase under test. The player ends the Command phase with real clicks; command_phase_main offers BIRTH OF A SAGA on the non-CHARACTER, non-VEHICLE units; a real click on 'Use on Wolf Guard Terminators' spends 1 CP; the unit has the CHARACTER keyword (so HEROIC RESOLVE / CHAMPION'S GUIDANCE can now target it) until the start of the player's next Command phase.",
+  "fixture": "sw11e_s3_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Wolves player gets all three Space Wolves detachments (stratagems reloaded), auto wound allocation",
+      "equals": "Saga of the Great Wolf + Champions of Fenris + Saga of the Beastslayer"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.frame(26, 44, 1.1)",
+      "comment": "frame the units under test",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "hover_board_at",
+      "x": 1500.0,
+      "y": 300.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_node",
+      "button_text": "End Command Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.window_id()",
+      "equals": "command_phase_main"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_champions_of_fenris_birth_of_a_saga/Buttons/Use_faction_sw_champions_of_fenris_birth_of_a_saga_U_WOLF_GUARD_TERMINATORS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_champions_of_fenris_birth_of_a_saga/Buttons/Use_faction_sw_champions_of_fenris_birth_of_a_saga_U_WOLF_GUARD_TERMINATORS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.offered(\"faction_sw_champions_of_fenris_birth_of_a_saga\").has(\"U_LOGAN_GRIMNAR_A\")",
+      "comment": "not offered on a unit that already has CHARACTER",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.offered(\"faction_sw_champions_of_fenris_birth_of_a_saga\").has(\"U_VENERABLE_DREADNOUGHT_A\")",
+      "comment": "not offered on a VEHICLE",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sw11e_birth_of_a_saga_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_champions_of_fenris_birth_of_a_saga/Buttons/Use_faction_sw_champions_of_fenris_birth_of_a_saga_U_WOLF_GUARD_TERMINATORS_A",
+      "comment": "REAL click on 'Use on Wolf Guard Terminators'"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn \"CHARACTER\" in H.keywords(\"U_WOLF_GUARD_TERMINATORS_A\")",
+      "comment": "the unit has CHARACTER",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.flag(\"U_WOLF_GUARD_TERMINATORS_A\", \"sw11e_birth_of_a_saga\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.log_count(\"Used BIRTH OF A SAGA\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nvar hr = StratagemManager.get_stratagem(H.sid(1, \"heroic-resolve-champions-of-fenris\"))\nreturn H.codex().validate(hr, 1, \"U_WOLF_GUARD_TERMINATORS_A\", {\"window_id\": \"enemy_targets_unit_fight\", \"target_unit_ids\": [\"U_WOLF_GUARD_TERMINATORS_A\"]}).ok",
+      "comment": "it is now a CHARACTER unit for HEROIC RESOLVE",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sw11e_birth_of_a_saga_used"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "REAL click: decline the rest"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn \"CHARACTER\" in H.keywords(\"U_WOLF_GUARD_TERMINATORS_A\")",
+      "comment": "still a CHARACTER after the Command phase (until the start of your next Command phase)",
+      "equals": true
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_WOLF_GUARD_TERMINATORS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sw11e_birth_of_a_saga_hover_terminators"
+    }
+  ]
+}

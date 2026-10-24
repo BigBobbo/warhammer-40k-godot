@@ -1027,6 +1027,16 @@ func detection_range_inches_for(model: Dictionary, unit: Dictionary, observer_mo
 	range_in += _ork_abilities().detection_range_bonus(unit)
 	# WP-C7 PURITY OF EXECUTION (Codex: Adeptus Custodes 11e, Prosecutors): a detected unit has +3" detection range.
 	range_in += load("res://scripts/codex/custodes/CustodesAbilities.gd").detection_range_bonus(unit)
+	# WP-S4 STORM CALLER (Space Wolves, Njal Stormcaller): this unit has -3" detection range until the end of the phase.
+	range_in += load("res://scripts/codex/space_wolves/SWAbilities11e.gd").detection_range_bonus(unit)
+	# WP-M2a AUSPEX TRIANGULATION SHRINES (Stormlance Task Force): a spotted unit has +3" detection range.
+	range_in += load("res://scripts/codex/space_marines/SMDetachmentsA.gd").detection_range_bonus(unit)
+	# WP-M4b CHAMELEOLINE CLOAKS (-3") / SPECIAL-ISSUE OPTICS (+6") — Codex: Space Marines 11e (SMAbilitiesB.gd).
+	range_in += load("res://scripts/codex/space_marines/SMAbilitiesB.gd").detection_range_bonus(unit)
+	# WP-M4c TRIFOLD PATH OF SHADOW (Kayvaan Shrike): this unit has -3" detection range.
+	range_in += load("res://scripts/codex/space_marines/SMAbilitiesC.gd").detection_range_bonus(unit)
+	# WP-M4a OMNI-SCRAMBLERS (detected, +3") / PRIORITY TARGET IDENTIFIED (+3" within the identified terrain feature).
+	range_in += load("res://scripts/codex/space_marines/SMAbilitiesA.gd").detection_range_bonus(unit)
 	return maxf(range_in, GameConstants.detection_range_floor_inches())
 
 ## WP-O6: Codex: Orks (11e) datasheet abilities, loaded lazily (no preload

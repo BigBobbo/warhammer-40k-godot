@@ -11,14 +11,12 @@ const ArmyDetachments11e = preload("res://scripts/codex/ArmyDetachments11e.gd")
 # Per 10th Edition rules, many factions have a faction ability that triggers
 # at the start of the Command Phase. This manager:
 # 1. Detects which faction abilities are available for each player
-# 2. Tracks active faction ability effects (e.g., Oath of Moment target)
+# 2. Tracks active faction ability effects (e.g., Waaagh! activation)
 # 3. Provides query functions for RulesEngine to check during combat resolution
 #
 # Currently supported faction abilities:
-# - Oath of Moment (Space Marines / ADEPTUS ASTARTES):
-#   At the start of your Command phase, select one enemy unit as your Oath of Moment target.
-#   Each time a model with this ability makes an attack targeting the Oath of Moment target,
-#   you can re-roll the Hit roll and add 1 to the Wound roll.
+# (The 10th-edition Oath of Moment army rule was removed: Codex: Space Marines
+#  (11e) replaced it with Combat Doctrines — scripts/codex/space_wolves/SWArmyRules11e.gd.)
 # - Waaagh! (Orks):
 #   Once per battle, at the start of your Command phase, you can call a Waaagh!.
 #   Until the start of your next Command phase:
@@ -27,8 +25,10 @@ const ArmyDetachments11e = preload("res://scripts/codex/ArmyDetachments11e.gd")
 #   (3) Models have a 5+ invulnerable save.
 #
 # Detachment abilities (P2-27):
-# - Combat Doctrines (Space Marines / Gladius Task Force):
+# - Combat Doctrines (Space Marines / Gladius Task Force) — EDITION 10 ONLY:
 #   At the start of your Command phase, select one Combat Doctrine. Each once per battle.
+#   (11e: the Codex: Space Marines army rule of every Space Marine army,
+#   scripts/codex/space_wolves/SWArmyRules11e.gd — WP-M2a.)
 #   Devastator: eligible to shoot after Advancing. Tactical: shoot+charge after Falling Back.
 #   Assault: charge after Advancing.
 # - Get Stuck In (Orks / War Horde):
@@ -125,14 +125,6 @@ const FREEBOOTER_ENHANCEMENTS = {
 # Known faction ability definitions
 # Each entry maps a faction ability name to its configuration
 const FACTION_ABILITIES = {
-	"Oath of Moment": {
-		"faction_keyword": "ADEPTUS ASTARTES",
-		"trigger": "command_phase_start",
-		"requires_target": true,
-		"target_type": "enemy_unit",
-		"effect": "reroll_hits_plus_one_wound",
-		"description": "Select one enemy unit as your Oath of Moment target. Each time a model with this ability makes an attack targeting the Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
-	},
 	# Codex: Adeptus Custodes (11e) — resolved by scripts/codex/custodes/
 	# CustodesKatah.gd (readied step, the six ka'tah abilities in their
 	# stratagem windows). Listed here so the army's faction abilities report it.
@@ -158,11 +150,11 @@ const FACTION_ABILITIES = {
 # ============================================================================
 
 # Per-player tracking of active faction abilities
-# Format: { "1": { "oath_of_moment_target": "U_BOYZ_A" }, "2": {} }
+# Format: { "1": { <effect_key>: <value> }, "2": {} }
 var _active_effects: Dictionary = {"1": {}, "2": {}}
 
 # Cache of which faction abilities each player has (computed on phase enter)
-# Format: { "1": ["Oath of Moment"], "2": [] }
+# Format: { "1": ["Waaagh!"], "2": [] }
 var _player_abilities: Dictionary = {"1": [], "2": []}
 
 # Waaagh! state tracking
@@ -272,81 +264,6 @@ func get_player_faction_abilities(player: int) -> Array:
 func player_has_ability(player: int, ability_name: String) -> bool:
 	"""Check if a player's army has a specific faction ability."""
 	return ability_name in _player_abilities.get(str(player), [])
-
-# ============================================================================
-# OATH OF MOMENT — TARGET SELECTION
-# ============================================================================
-
-func get_oath_of_moment_target(player: int) -> String:
-	"""Get the current Oath of Moment target unit ID for a player. Returns empty string if none."""
-	return _active_effects.get(str(player), {}).get("oath_of_moment_target", "")
-
-func set_oath_of_moment_target(player: int, target_unit_id: String) -> Dictionary:
-	"""Set the Oath of Moment target for a player. Returns result dict."""
-	var player_key = str(player)
-
-	# Validate the target is an enemy unit that's alive and deployed
-	var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
-	if target_unit.is_empty():
-		return {"success": false, "error": "Target unit not found: %s" % target_unit_id}
-
-	if target_unit.get("owner", 0) == player:
-		return {"success": false, "error": "Cannot target own unit with Oath of Moment"}
-
-	# Check target has alive models
-	var has_alive = false
-	for model in target_unit.get("models", []):
-		if model.get("alive", true):
-			has_alive = true
-			break
-	if not has_alive:
-		return {"success": false, "error": "Target unit is destroyed"}
-
-	# Clear previous oath target flag
-	var old_target = get_oath_of_moment_target(player)
-	if old_target != "":
-		_clear_oath_flag(old_target)
-
-	# Set new target
-	if not _active_effects.has(player_key):
-		_active_effects[player_key] = {}
-	_active_effects[player_key]["oath_of_moment_target"] = target_unit_id
-
-	# Set flag on the target unit
-	if not target_unit.has("flags"):
-		target_unit["flags"] = {}
-	target_unit["flags"]["oath_of_moment_target"] = true
-	target_unit["flags"]["oath_of_moment_owner"] = player
-
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-	print("FactionAbilityManager: Player %d Oath of Moment target set to %s (%s)" % [player, target_name, target_unit_id])
-
-	# Log Oath of Moment to GameEventLog
-	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if game_event_log:
-		game_event_log.add_player_entry(player, "Oath of Moment: %s marked for destruction (re-roll hits, +1 wound)" % target_name)
-
-	return {
-		"success": true,
-		"target_unit_id": target_unit_id,
-		"target_name": target_name,
-		"message": "Oath of Moment: %s marked for destruction" % target_name
-	}
-
-func clear_oath_of_moment(player: int) -> void:
-	"""Clear Oath of Moment target for a player (called at start of new Command Phase)."""
-	var old_target = get_oath_of_moment_target(player)
-	if old_target != "":
-		_clear_oath_flag(old_target)
-	_active_effects[str(player)]["oath_of_moment_target"] = ""
-	print("FactionAbilityManager: Cleared Oath of Moment for player %d" % player)
-
-func _clear_oath_flag(unit_id: String) -> void:
-	"""Remove the oath_of_moment_target flag from a unit."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if not unit.is_empty() and unit.has("flags"):
-		unit["flags"]["oath_of_moment_target"] = false
-		unit["flags"].erase("oath_of_moment_owner")
 
 # ============================================================================
 # WAAAGH! — ACTIVATION AND EFFECT APPLICATION
@@ -743,70 +660,6 @@ func _clear_plant_waaagh_banner_effects(player: int) -> void:
 		print("FactionAbilityManager: Plant the Waaagh! Banner effects cleared from %s (%s)" % [unit_name, unit_id])
 
 # ============================================================================
-# COMBAT MODIFIER QUERIES (called by RulesEngine)
-# ============================================================================
-
-static func is_oath_of_moment_target(target_unit: Dictionary) -> bool:
-	"""Check if a target unit is currently marked by Oath of Moment."""
-	return target_unit.get("flags", {}).get("oath_of_moment_target", false)
-
-static func attacker_benefits_from_oath(attacker_unit: Dictionary, target_unit: Dictionary) -> bool:
-	"""Check if an attacker benefits from Oath of Moment against this target.
-	Requires: target has oath flag, attacker has ADEPTUS ASTARTES keyword,
-	and attacker belongs to the player who set the oath."""
-	if not is_oath_of_moment_target(target_unit):
-		return false
-
-	var oath_owner = target_unit.get("flags", {}).get("oath_of_moment_owner", 0)
-	if attacker_unit.get("owner", 0) != oath_owner:
-		return false
-
-	# Check if attacker has ADEPTUS ASTARTES keyword
-	var keywords = attacker_unit.get("meta", {}).get("keywords", [])
-	for keyword in keywords:
-		if keyword is String and keyword.to_upper() == "ADEPTUS ASTARTES":
-			return true
-
-	return false
-
-# ============================================================================
-# GET ELIGIBLE TARGETS (for UI)
-# ============================================================================
-
-func get_eligible_oath_targets(player: int) -> Array:
-	"""Get list of enemy units that can be targeted by Oath of Moment."""
-	var targets = []
-	var opponent = 1 if player == 2 else 2
-	var units = GameState.state.get("units", {})
-
-	for unit_id in units:
-		var unit = units[unit_id]
-		if unit.get("owner", 0) != opponent:
-			continue
-
-		# Must be deployed
-		var status = unit.get("status", "UNDEPLOYED")
-		if status == GameStateData.UnitStatus.UNDEPLOYED if typeof(status) == TYPE_INT else status == "UNDEPLOYED":
-			continue
-
-		# Must have alive models
-		var has_alive = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-
-		var unit_name = DialogUtils.unit_label(unit)
-		targets.append({
-			"unit_id": unit_id,
-			"unit_name": unit_name
-		})
-
-	return targets
-
-# ============================================================================
 # DETACHMENT ABILITIES (P2-27)
 # ============================================================================
 
@@ -860,6 +713,10 @@ func has_detachment_ability(player: int) -> bool:
 
 func get_available_doctrines(player: int) -> Array:
 	"""Get list of Combat Doctrines that haven't been used yet this battle."""
+	# 10e only: at 11e Combat Doctrines is the Codex: Space Marines army rule of
+	# every Space Marine army (SWArmyRules11e.gd, WP-M2a) — no Gladius-only path.
+	if GameConstants.edition >= 11:
+		return []
 	if not player_has_detachment(player, "Gladius Task Force"):
 		return []
 
@@ -883,6 +740,9 @@ func select_combat_doctrine(player: int, doctrine_key: String) -> Dictionary:
 	"""Select a Combat Doctrine for this Command Phase. Once per battle each."""
 	var player_key = str(player)
 
+	# 10e only (WP-M2a): the 11e army rule lives in SWArmyRules11e.gd.
+	if GameConstants.edition >= 11:
+		return {"success": false, "error": "Combat Doctrines (11e) is the Codex: Space Marines army rule — select it in the Command panel (SWArmyRules11e)"}
 	if not player_has_detachment(player, "Gladius Task Force"):
 		return {"success": false, "error": "Player %d is not using Gladius Task Force detachment" % player}
 
@@ -1130,7 +990,9 @@ func unit_has_detachment_charge_reroll(unit: Dictionary) -> bool:
 	# Codex: Adeptus Custodes (11e) Dread Host / Combat Deployment (CustodesDetachments.gd, WP-C46).
 	if GameConstants.edition >= 11:
 		return Ork11eDetachments.charge_reroll_source(unit) != "" \
-			or load("res://scripts/codex/custodes/CustodesDetachments.gd").charge_reroll_source(unit) != ""
+			or load("res://scripts/codex/custodes/CustodesDetachments.gd").charge_reroll_source(unit) != "" \
+			or load("res://scripts/codex/space_wolves/SWDetachments11e.gd").charge_reroll_source(unit) != "" \
+			or load("res://scripts/codex/space_marines/SMDetachmentsA.gd").charge_reroll_source(unit) != ""  # Codex: Space Marines (11e) Preyslayer (WP-S2); Linebreaker Onslaught (WP-M2a)
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
@@ -2134,6 +1996,19 @@ func get_redeploy_enhancement(player: int) -> Dictionary:
 	var o5_hat: Dictionary = load("res://scripts/codex/orks/OrkEnhancements11e.gd").redeploy_enhancement(player)
 	if not o5_hat.is_empty():
 		return o5_hat
+	# Codex: Space Marines (11e) Hunter's Guile / Chariots of the Storm (SWEnhancements11e.gd, WP-S2).
+	if GameConstants.edition >= 11:
+		var sw11e_rd: Dictionary = load("res://scripts/codex/space_wolves/SWEnhancements11e.gd").redeploy_enhancement(player)
+		if not sw11e_rd.is_empty():
+			return sw11e_rd
+		# WP-M2b Cyber-familiar (Codex: Space Marines 11e, Tacticus Firestorm Force): up to three ADEPTUS ASTARTES INFANTRY units.
+		var sm11e_rd: Dictionary = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").redeploy_enhancement(player)
+		if not sm11e_rd.is_empty():
+			return sm11e_rd
+		# WP-M4c STRATEGIUM COMMAND (Wardens of Ultramar datasheet ability): up to three ADEPTUS ASTARTES units.
+		var smc_rd: Dictionary = load("res://scripts/codex/space_marines/SMAbilitiesC.gd").redeploy_entry(player)
+		if not smc_rd.is_empty():
+			return smc_rd
 	for entry in REDEPLOY_ENHANCEMENTS:
 		if has_enhancement(player, entry.name):
 			return entry
@@ -2157,6 +2032,8 @@ func get_razgit_eligible_units(player: int) -> Array:
 		return []
 
 	var bearer_info = _find_enhancement_bearer(player, entry.name)
+	if bearer_info.is_empty() and entry.has("bearer_id"):
+		bearer_info = {"bearer_id": str(entry.bearer_id)}  # WP-M4c: a datasheet ability (Strategium Command), not an enhancement
 	if bearer_info.is_empty():
 		return []
 
@@ -2185,6 +2062,15 @@ func get_razgit_eligible_units(player: int) -> Array:
 				break
 		if not matches_keywords:
 			continue
+		# "any_keywords": one of them (Codex: Space Marines (11e) Hunter's Guile —
+		# Blood Claws / Thunderwolf Cavalry / Wulfen units, WP-S2).
+		if entry.has("any_keywords"):
+			var any_kw := false
+			for akw in entry.any_keywords:
+				if _unit_has_keyword(unit, str(akw)):
+					any_kw = true
+			if not any_kw:
+				continue
 		# Must have alive models
 		var has_alive = false
 		for model in unit.get("models", []):
@@ -2491,6 +2377,15 @@ func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: St
 	var d2 = rng.rng.randi_range(1, 6)
 	var total = d1 + d2 + roll_modifier
 	var passed = total >= ld
+	# WP-M2b Tempered in Battle (Aura) (Codex: Space Marines 11e): a failed leadership roll is re-rolled (free, always taken).
+	var sm11e_tb_src: String = str(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").battle_shock_reroll_source(unit_id)) if (not passed and GameConstants.edition >= 11) else ""
+	if sm11e_tb_src != "":
+		var tb_old: int = total
+		d1 = rng.rng.randi_range(1, 6)
+		d2 = rng.rng.randi_range(1, 6)
+		total = d1 + d2 + roll_modifier
+		passed = total >= ld
+		print("FactionAbilityManager: %s — %s re-rolls the battle-shock roll %d -> %d vs Ld %d" % [sm11e_tb_src, unit_id, tb_old, total, ld])
 	# State diffs of the result (applied here as before; returned so callers
 	# that build an action result can record them for replay / network).
 	var shock_diffs: Array = []
@@ -2518,9 +2413,10 @@ func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: St
 		if unit_name == "":
 			unit_name = unit.get("meta", {}).get("name", unit_id)
 		game_event_log.add_player_entry(int(unit.get("owner", 0)),
-			"%s: %s takes a Battle-shock test (%d vs Ld %d) — %s" % [
-				source, unit_name, total, ld, "passed" if passed else "FAILED"])
-	return {"success": true, "passed": passed, "total": total, "leadership": ld, "dice": [d1, d2], "diffs": shock_diffs}
+			"%s: %s takes a Battle-shock test (%d vs Ld %d) — %s%s" % [
+				source, unit_name, total, ld, "passed" if passed else "FAILED",
+				(" (re-rolled: %s)" % sm11e_tb_src) if sm11e_tb_src != "" else ""])  # WP-M2b Tempered in Battle
+	return {"success": true, "passed": passed, "total": total, "leadership": ld, "dice": [d1, d2], "diffs": shock_diffs, "rerolled_by": sm11e_tb_src}
 
 static func _status_is_deployed(status) -> bool:
 	"""Unit status can be an int enum (live game) or a String (army JSON that
@@ -2623,23 +2519,6 @@ func on_command_phase_start(player: int) -> void:
 				print("FactionAbilityManager: Bionik Workshop resolved for player %d — %s" % [player, bw_result.bonus_description])
 		_bionik_workshop_resolved = true
 
-	# Clear previous Oath of Moment (it's re-selected each Command Phase)
-	if player_has_ability(player, "Oath of Moment"):
-		clear_oath_of_moment(player)
-		print("FactionAbilityManager: Player %d has Oath of Moment — awaiting target selection" % player)
-
-func on_command_phase_end(player: int) -> void:
-	"""Called when Command Phase ends. Auto-select if player forgot to choose."""
-	if player_has_ability(player, "Oath of Moment"):
-		var current_target = get_oath_of_moment_target(player)
-		if current_target == "":
-			# Auto-select first available enemy unit
-			var targets = get_eligible_oath_targets(player)
-			if targets.size() > 0:
-				var auto_result = set_oath_of_moment_target(player, targets[0].unit_id)
-				print("FactionAbilityManager: Auto-selected Oath of Moment target: %s" % auto_result.get("target_name", "?"))
-			else:
-				print("FactionAbilityManager: No eligible Oath of Moment targets available")
 
 # ============================================================================
 # SAVE/LOAD SUPPORT

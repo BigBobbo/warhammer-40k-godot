@@ -1,0 +1,200 @@
+{
+  "id": "sw11e_ab_predatory_instinct",
+  "covers": [
+    "codex.space_wolves.datasheet_abilities.predatory_instinct",
+    "scripts.codex.space_wolves.SWAbilities11e",
+    "stratagem.window.enemy_ended_move"
+  ],
+  "description": "WP-S4 Space Wolves PREDATORY INSTINCT (Fenrisian Wolves, once per battle round) through the real enemy_ended_move window. Fixture sw11e_s4_enemy_move (P1 Orks ACTIVE, P2 Space Wolves, round 2): the Ork Boyz make a normal move to end within 8\" of the unengaged Fenrisian Wolves (Fire Overwatch declined): P2's enemy_ended_move window offers the Predatory Instinct card (cost 'Ability'); a real click rolls the D6 and starts P2's normal move of up to that many inches; P2 moves; the once-per-battle-round marker is set.",
+  "fixture": "sw11e_s4_enemy_move",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "sw_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_NORMAL_MOVE",
+        "actor_unit_id": "U_BOYZ_B",
+        "player": 1
+      },
+      "comment": "the Ork player's BEGIN_NORMAL_MOVE"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the Ork player's own unit_selected_to_move window (if any)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.move(\"U_BOYZ_B\", 0.0, 6.0)",
+      "multiline": true,
+      "comment": "the Orks move 6\" toward the Fenrisian Wolves (staged + Confirm Move): they end within 8\"",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.tag_prompts()",
+      "multiline": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/FireOverwatchDialog/Content/Buttons/DeclineButton",
+      "comment": "Fire Overwatch (not under test) declined"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton",
+      "comment": "Command Re-roll (not under test): keep the roll"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "enemy_ended_move"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_predatory_instinct",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_predatory_instinct_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sw11e_ab_predatory_instinct/Buttons/Use_sw11e_ab_predatory_instinct_U_FENRISIAN_WOLVES_A",
+      "comment": "real click (P2): Predatory Instinct"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Predatory Instinct: Fenrisian Wolves\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn str(H.phase()._ork11e_reactive_move.get(\"unit_id\", \"\"))",
+      "multiline": true,
+      "comment": "P2's normal move of up to D6\" is under way",
+      "equals": "U_FENRISIAN_WOLVES_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar cap := float(H.phase().active_moves.get(\"U_FENRISIAN_WOLVES_A\", {}).get(\"move_cap_inches\", -1.0))\nprint(\"[sw11e-s4] predatory instinct cap \", cap)\nreturn cap >= 1.0 and cap <= 6.0",
+      "multiline": true,
+      "comment": "the move cap is the D6 roll",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_predatory_instinct_move"
+    },
+    {
+      "act": "execute_script",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.move(\"U_FENRISIAN_WOLVES_A\", 1.0, 0.0)",
+      "multiline": true,
+      "comment": "P2 makes the move (staged + Confirm Move)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.tag_prompts()",
+      "multiline": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/FireOverwatchDialog/Content/Buttons/DeclineButton",
+      "comment": "Fire Overwatch (not under test) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()",
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/space_wolves/SWAbilities11e.gd\").used_this_round(\"U_FENRISIAN_WOLVES_A\", \"predatory_instinct\")\n",
+      "multiline": true,
+      "comment": "once per battle round",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_wolves_moved"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log: no ERROR line was written during the scenario",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[sw11e-s4] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}

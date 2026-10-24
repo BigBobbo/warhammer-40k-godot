@@ -2,6 +2,33 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.51.0",
+      "date": "2026-10-23",
+      "summary": "Every Space Marine army now follows Codex: Space Marines (11th edition): the 87 generic datasheets with codex wargear, Combat Doctrines for all chapters, all 15 generic detachments with their rules, enhancements and 48 stratagems, and every generic datasheet ability.",
+      "changes": [
+        "Datasheets: all 87 generic Space Marine datasheets (incl. Forge World and the named characters printed in the codex) use codex profiles, points and wargear; models carry their printed default kit instead of firing every optional weapon. Oath of Moment is gone for every Space Marine army.",
+        "Army rules: Combat Doctrines (Assault / Devastator / Tactical, each once per battle) and Transhuman Strategist now work for every Space Marine army, not only Space Wolves; Librarius limits each Librarian's psychic powers per battle round.",
+        "Detachments: Gladius, Ironstorm Spearhead, Stormlance, Gauntlet, Phobos Shadow Force, Tacticus Attack Force, Phobos Shock Force, Terminator Storm Force, Assault Brethren, Gravis Linebreaker, Devastator Brethren, Gravis Siege, Tactical Brethren, Ironclad Champions and Tacticus Firestorm: detachment rules and their enhancements (Imperium's Sword has no weapon profile in the source and adds no weapon).",
+        "Stratagems: all 48 generic detachment stratagems are offered at their correct moment (e.g. ARMOUR OF CONTEMPT when an enemy targets your unit, SUDDEN ONSLAUGHT before an advance, HAIL OF VENGEANCE after an enemy shot destroys a model, FOR THE EMPEROR! in either Command phase), with AI use. A chapter army (e.g. Space Wolves) taking a generic detachment gets the same stratagems.",
+        "Datasheet abilities: every generic datasheet and wargear ability, e.g. Captains' Strategic Acumen and Finest Hour, Chaplains' litanies, Librarians' psychic powers, Drop Pod Assault, Land Raider Assault Ramp, Teleport Homers, Bladeguard, Guilliman's Author of the Codex, the Redemptor's Duty Eternal, as passive effects or free 'Ability' cards in the stratagem dialog, with AI use.",
+        "Fixes: Space Marine units can embark in Space Marine transports (Rhino, Impulsor, Repulsor, Land Raider, Drop Pod, Thunderhawk); an engaged unit with close-quarters (pistol) weapons can be selected to shoot in 11e; the AI uses a free ability before spending CP on a stratagem with the same effect."
+      ]
+    },
+    {
+      "version": "1.50.0",
+      "date": "2026-10-22",
+      "summary": "Space Wolves follow Codex: Space Marines (11th edition): codex datasheets and wargear, Combat Doctrines, the three Space Wolves detachments, their 12 stratagems and 8 enhancements, and every Space Wolves datasheet ability.",
+      "changes": [
+        "Datasheets: all 21 Space Wolves datasheets use the codex profiles, points, weapons and wargear options (e.g. Logan Grimnar T6 for 150 pts, Grey Hunters T5 for 180 pts). Wargear options resolve per model: a Grey Hunter Pack Leader with a power fist AND a plasma pistol, Terminators that swap storm bolters for storm shields, a Venerable Dreadnought's Fenrisian great axe replacing its assault cannon and combat weapon.",
+        "Army rule: Oath of Moment is gone for Space Wolves; pick a Combat Doctrine each Command phase from the new COMBAT DOCTRINES block (Assault: advance and still charge; Devastator: ranged weapons are [ASSAULT]; Tactical: fall back and still shoot and charge), each once per battle. Transhuman Strategist (+1CP each round with Logan or Ragnar as Warlord), Curse of the Wulfen (Wulfen get OC near a Space Wolves Character or Wolf Priest) and Sons of Russ (no Apothecaries) are in too.",
+        "Detachments: Champions of Fenris (cheaper Heroic Intervention for Characters), Saga of the Beastslayer ([LETHAL HITS] vs Characters, Monsters and Vehicles for Blood Claws, Thunderwolf Cavalry and Wulfen) and Saga of the Great Wolf (Master of Wolves doctrine bonuses and Logan's Howling Onslaught). Saga of the Hunter, Saga of the Bold, Legends of Saga and Song and Veterans of the Fang are retired.",
+        "Stratagems: all 12 Space Wolves stratagems are offered at the moment their WHEN names (Birth of a Saga, Heroic Resolve, Champion's Guidance, Unbridled Ferocity, Co-ordinated Strike, Impetuosity, Battle Instincts, Grimnar's Command, Fenrisian Ferocity, Fangs of the Pack, Wolf Totems, Eye of the Pack); the AI uses them too.",
+        "Enhancements: Preyslayer, A Giant Amongst Giants, Wolf-Touched, Howlmaw, Grimnar's Mark and Skjald's Foretelling work in game; Hunter's Guile and Chariots of the Storm redeploy for the AI only (there is still no redeploy step for players).",
+        "Datasheet abilities: every Space Wolves ability works \u2014 activated ones (Slayer's Oath, Headhunters, Healing Balms, High King of Fenris, Gift of the Iron Wolf, Njal's three psychic powers under the Librarius limit, Haywire Mine, Predatory Instinct, Storm Caller, Bestial Rage, Hammer Blow) appear as free Ability cards; Old Greymanes and Let Loose the Wolves split units in Declare Battle Formations; the rest apply automatically and show in the dice log.",
+        "Fixes for every army: datasheet \"Feel No Pain X+\" abilities now apply (also Trajann Valoris, the Beastboss), and a unit allowed to fall back and still shoot can now pick a shooting type after falling back."
+      ]
+    },
+    {
       "version": "1.49.5",
       "date": "2026-10-22",
       "summary": "Fix: a unit with an attached CHARACTER shoots as one unit, in one activation.",

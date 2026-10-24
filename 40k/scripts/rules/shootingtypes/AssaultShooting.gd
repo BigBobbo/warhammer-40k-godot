@@ -18,15 +18,15 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 		reasons.append("unit is engaged (10.05)")
 	if not _advanced(unit):
 		reasons.append("unit did not make an advance move this turn (10.05)")
-	if not _unit_has_weapon_with(unit, "assault") and not _ork11e_assault(unit) and not _cus11e_all_assault(unit, true):
+	if not _unit_has_weapon_with(unit, "assault") and not _ork11e_assault(unit) and not _cus11e_all_assault(unit, true) and not _sw11e_assault(unit):
 		reasons.append("no [ASSAULT] weapons (10.05)")
-	if _unit(unit_id, board).get("flags", {}).get("cannot_shoot", false):
+	if _cannot_shoot(_unit(unit_id, board)):
 		reasons.append("unit cannot shoot (performing an action, 16.01)")
 	return {"eligible": reasons.is_empty(), "reasons": reasons}
 
 
 func weapon_allowed(weapon_profile: Dictionary, _unit: Dictionary, _board: Dictionary) -> Dictionary:
-	if not _weapon_has(weapon_profile, "assault") and not _ork11e_assault(_unit) and not _cus11e_all_assault(_unit, false):
+	if not _weapon_has(weapon_profile, "assault") and not _ork11e_assault(_unit) and not _cus11e_all_assault(_unit, false) and not _sw11e_assault(_unit):
 		return {"allowed": false, "reason": "only [ASSAULT] weapons after advancing (10.05)"}
 	return {"allowed": true, "reason": ""}
 
@@ -46,3 +46,9 @@ static func _cus11e_all_assault(unit: Dictionary, selecting: bool) -> bool:
 	if codex.grants(unit, "advance_and_shoot"):
 		return true
 	return selecting and codex.may_select_advanced_unit_to_shoot(unit)
+
+
+## Codex: Space Marines (11e) DEVASTATOR DOCTRINE (SWArmyRules11e.gd, WP-S2):
+## "This unit's ranged attacks have [ASSAULT]."
+static func _sw11e_assault(unit: Dictionary) -> bool:
+	return load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").ranged_attacks_have_assault(unit)

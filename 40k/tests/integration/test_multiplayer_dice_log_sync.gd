@@ -100,8 +100,16 @@ func test_dice_log_sync_grenade_roll_end_to_end():
 	assert_true(load_result.get("success", false),
 		"Host load_save(shooting_phase) should succeed: %s" % load_result.get("message", ""))
 
-	# Give the client a moment to receive any post-load state sync.
-	await wait_for_seconds(2.0)
+	# Wait for the client to apply the host's post-load state sync. A fixed
+	# 2s wait raced the sync on slow CI runners (client still in Formations);
+	# poll up to the host's 10s load-sync timeout instead.
+	var sync_deadline := Time.get_ticks_msec() + 10000
+	while Time.get_ticks_msec() < sync_deadline:
+		var poll_state = await simulate_client_action("get_game_state", {})
+		if poll_state.get("data", {}).get("current_phase", "") == "Shooting":
+			break
+		await wait_for_seconds(0.5)
+	print("[TEST] Client load-sync wait finished after polling")
 
 	# Step B: query both peers and verify they reached Shooting phase in sync.
 	var host_state = await simulate_host_action("get_game_state", {})
