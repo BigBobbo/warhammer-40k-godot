@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.51.1",
+      "date": "2026-10-25",
+      "summary": "Fix: Search and Destroy (and the other official deployment maps and 11e terrain layouts) were mirrored; they now match the GW cards.",
+      "changes": [
+        "Search and Destroy deployment zones are now in the top-left and bottom-right corners, as on the official card (they were wrongly top-right / bottom-left).",
+        "Crucible of Battle, Sweeping Engagement, Dawn of War and Tipping Point zones, and all 45 official 11e terrain layouts, were mirrored the same way and are now the right way round (Hammer and Anvil was unaffected). On Dawn of War and Sweeping Engagement, Player 1 now deploys on the right-hand edge.",
+        "The Orks AI battle plans built on the Take and Hold mirror layout were flipped to match the corrected terrain."
+      ]
+    },
+    {
       "version": "1.51.0",
       "date": "2026-10-23",
       "summary": "Every Space Marine army now follows Codex: Space Marines (11th edition): the 87 generic datasheets with codex wargear, Combat Doctrines for all chapters, all 15 generic detachments with their rules, enhancements and 48 stratagems, and every generic datasheet ability.",

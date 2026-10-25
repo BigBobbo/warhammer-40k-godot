@@ -1,21 +1,21 @@
 {
  "id": "crucible_of_battle",
  "name": "Crucible of Battle",
- "description": "Crucible of Battle — official geometry from the 40kdc 11e dataset (transposed to the game's 44x60 portrait board).",
+ "description": "Crucible of Battle — official geometry from the 40kdc 11e dataset (rotated to the game's 44x60 portrait board).",
  "zones": [
   {
    "player": 1,
    "poly": [
     {
-     "x": 0,
+     "x": 44,
      "y": 0
     },
     {
-     "x": 44,
+     "x": 0,
      "y": 30
     },
     {
-     "x": 44,
+     "x": 0,
      "y": 0
     }
    ]
@@ -24,15 +24,15 @@
    "player": 2,
    "poly": [
     {
-     "x": 44,
+     "x": 0,
      "y": 60
     },
     {
-     "x": 0,
+     "x": 44,
      "y": 30
     },
     {
-     "x": 0,
+     "x": 44,
      "y": 60
     }
    ]
@@ -51,7 +51,7 @@
   {
    "id": "obj_home_1",
    "position": [
-    32,
+    12,
     14
    ],
    "radius_mm": 40,
@@ -60,7 +60,7 @@
   {
    "id": "obj_nml_1",
    "position": [
-    8,
+    36,
     20
    ],
    "radius_mm": 40,
@@ -69,7 +69,7 @@
   {
    "id": "obj_nml_2",
    "position": [
-    36,
+    8,
     40
    ],
    "radius_mm": 40,
@@ -78,7 +78,7 @@
   {
    "id": "obj_home_2",
    "position": [
-    12,
+    32,
     46
    ],
    "radius_mm": 40,
@@ -90,19 +90,19 @@
    "player": 1,
    "poly": [
     {
-     "x": 0,
+     "x": 44,
      "y": 0
     },
     {
-     "x": 0,
+     "x": 44,
      "y": 15
     },
     {
-     "x": 44,
+     "x": 0,
      "y": 45
     },
     {
-     "x": 44,
+     "x": 0,
      "y": 0
     }
    ]
@@ -111,19 +111,19 @@
    "player": 2,
    "poly": [
     {
-     "x": 0,
+     "x": 44,
      "y": 15
     },
     {
+     "x": 44,
+     "y": 60
+    },
+    {
      "x": 0,
      "y": 60
     },
     {
-     "x": 44,
-     "y": 60
-    },
-    {
-     "x": 44,
+     "x": 0,
      "y": 45
     }
    ]

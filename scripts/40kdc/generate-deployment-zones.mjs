@@ -4,8 +4,11 @@
 //
 // Coordinate transform: the dataset authors a landscape 60x44-inch board
 // (y-down); the game uses portrait 44x60 (y-down, origin top-left). The
-// mapping is a pure transpose: (x_game, y_game) = (y_dc, x_dc) — verified by
-// the shared centre objective (30,22) -> (22,30).
+// mapping is a 90° clockwise rotation: (x_game, y_game) = (44 - y_dc, x_dc)
+// — verified by the shared centre objective (30,22) -> (22,30). A rotation
+// (not a transpose) keeps chiral layouts the right way round: a transpose is
+// a reflection and mirrored e.g. Search and Destroy onto the wrong diagonal
+// (zones must be top-left / bottom-right, as on the GW card).
 //
 // DeploymentZoneData loads these JSONs in preference to its hardcoded
 // fallbacks, so this fixes e.g. Hammer and Anvil's 12"-deep zones (official
@@ -31,7 +34,7 @@ const ID_MAP = {
 };
 
 const r2 = v => Math.round(v * 100) / 100;
-const tp = (x, y) => ({ x: r2(y), y: r2(x) }); // transpose to portrait
+const tp = (x, y) => ({ x: r2(44 - y), y: r2(x) }); // rotate 90° CW to portrait
 
 function shapePoints(zone) {
   const pos = zone.position ?? { x: 0, y: 0 };
@@ -97,7 +100,7 @@ for (const pat of patterns) {
   const out = {
     id: gameId,
     name: pat.name,
-    description: `${pat.name} — official geometry from the 40kdc 11e dataset (transposed to the game's 44x60 portrait board).`,
+    description: `${pat.name} — official geometry from the 40kdc 11e dataset (rotated to the game's 44x60 portrait board).`,
     zones,
     objectives,
     // 11e territories (deployment zone + its half up to the midline). Not yet

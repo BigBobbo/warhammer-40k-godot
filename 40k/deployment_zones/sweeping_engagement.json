@@ -1,33 +1,33 @@
 {
  "id": "sweeping_engagement",
  "name": "Sweeping Engagement",
- "description": "Sweeping Engagement — official geometry from the 40kdc 11e dataset (transposed to the game's 44x60 portrait board).",
+ "description": "Sweeping Engagement — official geometry from the 40kdc 11e dataset (rotated to the game's 44x60 portrait board).",
  "zones": [
   {
    "player": 1,
    "poly": [
     {
-     "x": 0,
+     "x": 44,
      "y": 0
     },
     {
-     "x": 0,
+     "x": 44,
      "y": 60
     },
     {
-     "x": 14,
+     "x": 30,
      "y": 60
     },
     {
-     "x": 14,
+     "x": 30,
      "y": 30
     },
     {
-     "x": 8,
+     "x": 36,
      "y": 30
     },
     {
-     "x": 8,
+     "x": 36,
      "y": 0
     }
    ]
@@ -36,27 +36,27 @@
    "player": 2,
    "poly": [
     {
-     "x": 44,
+     "x": 0,
      "y": 0
     },
     {
-     "x": 44,
+     "x": 0,
      "y": 60
     },
     {
-     "x": 36,
+     "x": 8,
      "y": 60
     },
     {
-     "x": 36,
+     "x": 8,
      "y": 30
     },
     {
-     "x": 30,
+     "x": 14,
      "y": 30
     },
     {
-     "x": 30,
+     "x": 14,
      "y": 0
     }
    ]
@@ -75,7 +75,7 @@
   {
    "id": "obj_home_1",
    "position": [
-    38,
+    6,
     18
    ],
    "radius_mm": 40,
@@ -84,7 +84,7 @@
   {
    "id": "obj_nml_1",
    "position": [
-    18,
+    26,
     10
    ],
    "radius_mm": 40,
@@ -93,7 +93,7 @@
   {
    "id": "obj_home_2",
    "position": [
-    6,
+    38,
     42
    ],
    "radius_mm": 40,
@@ -102,7 +102,7 @@
   {
    "id": "obj_nml_2",
    "position": [
-    26,
+    18,
     50
    ],
    "radius_mm": 40,
@@ -114,27 +114,27 @@
    "player": 1,
    "poly": [
     {
-     "x": 0,
+     "x": 44,
      "y": 0
     },
     {
-     "x": 0,
+     "x": 44,
      "y": 60
     },
     {
-     "x": 25,
+     "x": 19,
      "y": 60
-    },
-    {
-     "x": 25,
-     "y": 30
     },
     {
      "x": 19,
      "y": 30
     },
     {
-     "x": 19,
+     "x": 25,
+     "y": 30
+    },
+    {
+     "x": 25,
      "y": 0
     }
    ]
@@ -143,27 +143,27 @@
    "player": 2,
    "poly": [
     {
-     "x": 19,
+     "x": 25,
      "y": 0
     },
     {
+     "x": 25,
+     "y": 30
+    },
+    {
      "x": 19,
      "y": 30
     },
     {
-     "x": 25,
-     "y": 30
-    },
-    {
-     "x": 25,
+     "x": 19,
      "y": 60
     },
     {
-     "x": 44,
+     "x": 0,
      "y": 60
     },
     {
-     "x": 44,
+     "x": 0,
      "y": 0
     }
    ]

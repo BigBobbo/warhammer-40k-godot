@@ -1,25 +1,25 @@
 {
  "id": "hammer_anvil",
  "name": "Hammer and Anvil",
- "description": "Hammer and Anvil — official geometry from the 40kdc 11e dataset (transposed to the game's 44x60 portrait board).",
+ "description": "Hammer and Anvil — official geometry from the 40kdc 11e dataset (rotated to the game's 44x60 portrait board).",
  "zones": [
   {
    "player": 1,
    "poly": [
     {
-     "x": 0,
+     "x": 44,
      "y": 0
     },
     {
+     "x": 44,
+     "y": 18
+    },
+    {
      "x": 0,
      "y": 18
     },
     {
-     "x": 44,
-     "y": 18
-    },
-    {
-     "x": 44,
+     "x": 0,
      "y": 0
     }
    ]
@@ -28,19 +28,19 @@
    "player": 2,
    "poly": [
     {
-     "x": 0,
+     "x": 44,
      "y": 42
     },
     {
+     "x": 44,
+     "y": 60
+    },
+    {
      "x": 0,
      "y": 60
     },
     {
-     "x": 44,
-     "y": 60
-    },
-    {
-     "x": 44,
+     "x": 0,
      "y": 42
     }
    ]
@@ -68,7 +68,7 @@
   {
    "id": "obj_nml_1",
    "position": [
-    6,
+    38,
     30
    ],
    "radius_mm": 40,
@@ -77,7 +77,7 @@
   {
    "id": "obj_nml_2",
    "position": [
-    38,
+    6,
     30
    ],
    "radius_mm": 40,
@@ -98,19 +98,19 @@
    "player": 1,
    "poly": [
     {
-     "x": 0,
+     "x": 44,
      "y": 0
     },
     {
+     "x": 44,
+     "y": 30
+    },
+    {
      "x": 0,
      "y": 30
     },
     {
-     "x": 44,
-     "y": 30
-    },
-    {
-     "x": 44,
+     "x": 0,
      "y": 0
     }
    ]
@@ -119,19 +119,19 @@
    "player": 2,
    "poly": [
     {
-     "x": 0,
+     "x": 44,
      "y": 30
     },
     {
+     "x": 44,
+     "y": 60
+    },
+    {
      "x": 0,
      "y": 60
     },
     {
-     "x": 44,
-     "y": 60
-    },
-    {
-     "x": 44,
+     "x": 0,
      "y": 30
     }
    ]
