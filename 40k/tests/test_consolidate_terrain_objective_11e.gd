@@ -62,7 +62,7 @@ func _run() -> void:
 			"source_pieces": obj.get("source_pieces", []).duplicate()
 		})
 
-	var corner_in = Vector2(17.5, 34.0)
+	var corner_in = Vector2(26.5, 34.0)
 	_setup_board(gs, meas, objectives, corner_in)
 	var d_centre = corner_in.distance_to(Vector2(22, 30))
 	_check("case1: model is >3.79\" from marker centre", d_centre > ConsolidationMove.OBJECTIVE_RANGE_INCHES,
@@ -86,11 +86,11 @@ func _run() -> void:
 		"mode='%s'" % mode1b)
 
 	# ── Case 1c: MORE than 3" from every objective area → no mode ───────────
-	# (10,38) sits ~5"+ from the nearest objective area (obj_center's ruin and
+	# (34,38) sits ~5"+ from the nearest objective area (obj_center's ruin and
 	# obj_home_2's ruin), with no enemies near → Objective mode must NOT be
 	# offered. (Picked clear of ALL five terrain objectives — a spot only just
 	# past obj_center would still be within 3" of obj_home_2's area.)
-	_setup_board(gs, meas, objectives, Vector2(10.0, 38.0))
+	_setup_board(gs, meas, objectives, Vector2(34.0, 38.0))
 	var mode1c = str(tmpl.select_mode("U_TEST", gs.state).get("mode", ""))
 	_check("case1c: >3\" from every objective area → no consolidation mode", mode1c == "",
 		"mode='%s'" % mode1c)

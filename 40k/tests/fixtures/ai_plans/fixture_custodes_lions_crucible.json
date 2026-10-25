@@ -1,7 +1,7 @@
 {
  "format": "wh40k_ai_plan",
  "version": 1,
- "name": "Fixture \u2014 Custodes Lions on Crucible",
+ "name": "Fixture — Custodes Lions on Crucible",
  "description": "Test fixture keyed to the mirror_custodes_2000_predeploy save's REAL identity (crucible_of_battle + take_and_hold_mirror_1), so a benchmark can measure the AI actually following a plan instead of silently falling back to the formula. Blocks are laid out inside the player-1 triangle and are legal at both seats.",
  "author": "fixture",
  "keys": {
@@ -32,7 +32,7 @@
     "role_fallback": "character",
     "models_inches": [
      [
-      32.43,
+      11.57,
       4.99
      ]
     ],
@@ -47,23 +47,23 @@
     "role_fallback": "melee",
     "models_inches": [
      [
-      6.59,
+      37.41,
       1.09
      ],
      [
-      8.46,
+      35.54,
       1.09
      ],
      [
-      10.34,
+      33.66,
       1.09
      ],
      [
-      12.21,
+      31.79,
       1.09
      ],
      [
-      6.59,
+      37.41,
       2.96
      ]
     ],
@@ -78,7 +78,7 @@
     "role_fallback": "character",
     "models_inches": [
      [
-      34.46,
+      9.54,
       4.99
      ]
     ],
@@ -93,23 +93,23 @@
     "role_fallback": "melee",
     "models_inches": [
      [
-      14.24,
+      29.76,
       1.09
      ],
      [
-      16.11,
+      27.89,
       1.09
      ],
      [
-      17.99,
+      26.01,
       1.09
      ],
      [
-      19.86,
+      24.14,
       1.09
      ],
      [
-      14.24,
+      29.76,
       2.96
      ]
     ],
@@ -124,7 +124,7 @@
     "role_fallback": "character",
     "models_inches": [
      [
-      36.48,
+      7.52,
       4.99
      ]
     ],
@@ -139,23 +139,23 @@
     "role_fallback": "melee",
     "models_inches": [
      [
-      21.89,
+      22.11,
       1.09
      ],
      [
-      23.76,
+      20.24,
       1.09
      ],
      [
-      25.63,
+      18.37,
       1.09
      ],
      [
-      27.51,
+      16.49,
       1.09
      ],
      [
-      21.89,
+      22.11,
       2.96
      ]
     ],
@@ -170,23 +170,23 @@
     "role_fallback": "melee",
     "models_inches": [
      [
-      29.53,
+      14.47,
       1.09
      ],
      [
-      31.41,
+      12.59,
       1.09
      ],
      [
-      33.28,
+      10.72,
       1.09
      ],
      [
-      35.16,
+      8.84,
       1.09
      ],
      [
-      29.53,
+      14.47,
       2.96
      ]
     ],
@@ -201,23 +201,23 @@
     "role_fallback": "melee",
     "models_inches": [
      [
-      37.18,
+      6.82,
       1.09
      ],
      [
-      39.06,
+      4.94,
       1.09
      ],
      [
-      40.93,
+      3.07,
       1.09
      ],
      [
-      42.81,
+      1.19,
       1.09
      ],
      [
-      37.18,
+      6.82,
       2.96
      ]
     ],
@@ -232,23 +232,23 @@
     "role_fallback": "melee",
     "models_inches": [
      [
-      12.31,
+      31.69,
       4.99
      ],
      [
-      14.18,
+      29.82,
       4.99
      ],
      [
-      16.06,
+      27.94,
       4.99
      ],
      [
-      17.93,
+      26.07,
       4.99
      ],
      [
-      12.31,
+      31.69,
       6.86
      ]
     ],
@@ -263,23 +263,23 @@
     "role_fallback": "melee",
     "models_inches": [
      [
-      19.96,
+      24.04,
       4.99
      ],
      [
-      21.83,
+      22.17,
       4.99
      ],
      [
-      23.71,
+      20.29,
       4.99
      ],
      [
-      25.58,
+      18.42,
       4.99
      ],
      [
-      19.96,
+      24.04,
       6.86
      ]
     ],
@@ -294,19 +294,19 @@
     "role_fallback": "screen",
     "models_inches": [
      [
-      27.45,
+      16.55,
       4.83
      ],
      [
-      29.01,
+      14.99,
       4.83
      ],
      [
-      30.57,
+      13.43,
       4.83
      ],
      [
-      27.45,
+      16.55,
       6.39
      ]
     ],

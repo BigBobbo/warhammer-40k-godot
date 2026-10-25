@@ -87,12 +87,12 @@ func _run_tests():
 	var ppi: float = meas.PX_PER_INCH
 
 	# Geometry (board inches): the L-shaped 5"-tall dense wall
-	# corner-ruin-balanced-left-46 — vertical stroke x 26.83..27.33,
+	# corner-ruin-balanced-left-46 — vertical stroke x 16.67..17.17,
 	# y 25.38..30.38 — inside enterable footprint area-trapezoid-44.
 	var wall_id := "corner-ruin-balanced-left-46"
-	var start := Vector2(32.0, 28.0) * ppi        # open ground, base fully clear
-	var in_wall := Vector2(27.08, 28.0) * ppi     # centre inside the wall stroke
-	var straddle := Vector2(28.6, 28.0) * ppi     # centre clear, 180mm base overlaps wall
+	var start := Vector2(12.0, 28.0) * ppi        # open ground, base fully clear
+	var in_wall := Vector2(16.92, 28.0) * ppi     # centre inside the wall stroke
+	var straddle := Vector2(15.4, 28.0) * ppi     # centre clear, 180mm base overlaps wall
 	# The Codex: Orks (11e) Stompa's ability list, as armies/recon_stomps.json
 	# carries it: 24.35 "Super-heavy Walker" is a core ability, not a keyword.
 	var stompa_abilities := ["Waaagh!", "Damaged: 1-10 Wounds Remaining", "Deadly Demise 2D6", "Super-heavy Walker",
@@ -128,7 +128,7 @@ func _run_tests():
 	print("\n-- T4: endpoint net — cannot END still overlapping the wall --")
 	_seed_unit(gs, STOMPA_KW, 180, straddle, 10, stompa_abilities, "Stompa")
 	phase = _begin_move(pm, gs)
-	var v4 = _stage(phase, Vector2(28.2, 28.0) * ppi)  # short slide, still overlapping
+	var v4 = _stage(phase, Vector2(15.8, 28.0) * ppi)  # short slide, still overlapping
 	_check("ending overlapped is INVALID (endpoint rule)", not v4.get("valid", true), str(v4))
 	_check("refusal is the wall-overlap endpoint error",
 		str(v4.get("errors", [])).contains("overlapping a wall"), str(v4))
@@ -140,18 +140,18 @@ func _run_tests():
 	_check("infantry may stage into the wall footprint", v5.get("valid", false), str(v5))
 
 	print("\n-- T6: area footprints are enterable — vehicle through the gap --")
-	_seed_unit(gs, ["ORKS", "VEHICLE"], 50, Vector2(21.5, 23.0) * ppi, 14, [], "Trukk")
+	_seed_unit(gs, ["ORKS", "VEHICLE"], 50, Vector2(22.5, 23.0) * ppi, 14, [], "Trukk")
 	phase = _begin_move(pm, gs)
-	var v6 = _stage(phase, Vector2(21.5, 27.5) * ppi)
+	var v6 = _stage(phase, Vector2(22.5, 27.5) * ppi)
 	_check("50mm vehicle enters the trapezoid area between walls", v6.get("valid", false), str(v6))
 
 	print("\n-- T7: 4\" step-over — the Super-heavy Walker Stompa crosses a 3\" generator, plain vehicle cannot --")
 	# Start far enough that a 180mm base is fully clear of generator-38
 	# (start at `start` would already overlap it, engaging the escape clause).
-	var gen_start := Vector2(31.5, 30.5) * ppi
+	var gen_start := Vector2(12.5, 30.5) * ppi
 	_seed_unit(gs, STOMPA_KW, 180, gen_start, 12, stompa_abilities, "Stompa")  # M12: terrain penalties (+5.5") must not mask the gate verdict
 	phase = _begin_move(pm, gs)
-	var over_gen := Vector2(34.0, 25.5) * ppi  # inside generator-38 (dense, 3")
+	var over_gen := Vector2(10.0, 25.5) * ppi  # inside generator-38 (dense, 3")
 	var v7a = _stage(phase, over_gen)
 	_check("Stompa (24.35 Super-heavy Walker ability -> 4\" limit) may cross/stand on the 3\" generator",
 		v7a.get("valid", false), str(v7a))
@@ -207,7 +207,7 @@ func _run_tests():
 	_check("AI _path_blocked_by_solid_terrain flags the crossing",
 		AIDecisionMaker._path_blocked_by_solid_terrain(start, in_wall, 180, "circular", {}, STOMPA_KW) == true)
 	_check("AI path check clears open ground",
-		AIDecisionMaker._path_blocked_by_solid_terrain(start, start + Vector2(2.0 * ppi, 0), 180, "circular", {}, STOMPA_KW) == false)
+		AIDecisionMaker._path_blocked_by_solid_terrain(start, start - Vector2(2.0 * ppi, 0), 180, "circular", {}, STOMPA_KW) == false)
 
 	print("\n-- T12: 24.35 model passthrough — through a VEHICLE, not through a TITANIC model --")
 	# "Models in that unit can move through models (including MONSTER /
