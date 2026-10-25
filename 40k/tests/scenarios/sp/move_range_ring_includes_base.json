@@ -10,13 +10,13 @@
   "fixture": "audit_baseline_postdeploy",
   "transition_to_phase": 7,
   "disable_ai": true,
-  "description": "Player report: the green dashed movement-reach ring marked where the model's CENTRE could stop, so a wide base visibly poked outside the ring at max range and read as a bug. The ring must instead mark where the model's BASE EDGE can reach — i.e. be inflated by Measurement.base_extent_px(model). Driven live on U_TELEMON_HEAVY_DREADNOUGHT_I (100mm base, M8), repositioned onto verified open ground at (1280,1310) — a corridor probed live against TerrainManager: calculate_movement_terrain_penalty((1280,1310)->(1600,1310)) == 0.0 (no difficult-ground tax to eat into the 8\" budget) and model_overlaps_any_wall / model_outside_board are false at both ends. Real player path: click the token to begin the Normal Move, then a real mouse drag PAUSED mid-flight (release:false) exactly 8\" to the right, so the live frame can be inspected while the model sits at max range. Asserts: (1) one dashed ring is drawn (8 dashes + label); (2) the model's base extent is a visually significant ~79px (a 2\" overhang under the old drawing); (3) the ring radius equals move-cap px PLUS the base extent, and exceeds the raw move cap by that extent; (4) the drag really travelled the full 8\" and the move is still legal (path_valid); (5) THE FIX: at that legal max-range position the furthest point of the model's base sits ON the ring (|radius - (moved + extent)| <= 1.5px) instead of ~79px outside it; (6) the label still reports the movement distance (8\"), not the drawn radius.",
+  "description": "Player report: the green dashed movement-reach ring marked where the model's CENTRE could stop, so a wide base visibly poked outside the ring at max range and read as a bug. The ring must instead mark where the model's BASE EDGE can reach — i.e. be inflated by Measurement.base_extent_px(model). Driven live on U_TELEMON_HEAVY_DREADNOUGHT_I (100mm base, M8), repositioned onto verified open ground at (480,1310) — a corridor probed live against TerrainManager: calculate_movement_terrain_penalty((480,1310)->(160,1310)) == 0.0 (no difficult-ground tax to eat into the 8\" budget) and model_overlaps_any_wall / model_outside_board are false at both ends. Real player path: click the token to begin the Normal Move, then a real mouse drag PAUSED mid-flight (release:false) exactly 8\" to the left, so the live frame can be inspected while the model sits at max range. Asserts: (1) one dashed ring is drawn (8 dashes + label); (2) the model's base extent is a visually significant ~79px (a 2\" overhang under the old drawing); (3) the ring radius equals move-cap px PLUS the base extent, and exceeds the raw move cap by that extent; (4) the drag really travelled the full 8\" and the move is still legal (path_valid); (5) THE FIX: at that legal max-range position the furthest point of the model's base sits ON the ring (|radius - (moved + extent)| <= 1.5px) instead of ~79px outside it; (6) the label still reports the movement distance (8\"), not the drawn radius.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
 
     { "act": "execute_script",
-      "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"position\": {\"x\": 1280.0, \"y\": 1310.0}, \"rotation\": 0.0}, true)" },
+      "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"position\": {\"x\": 480.0, \"y\": 1310.0}, \"rotation\": 0.0}, true)" },
     { "act": "execute_script", "script": "main.update_unit_visuals(\"U_TELEMON_HEAVY_DREADNOUGHT_I\")" },
     { "act": "wait_for_tweens" },
     { "act": "wait_frames", "frames": 4 },
@@ -24,7 +24,7 @@
     { "act": "execute_script",
       "multiline": true,
       "equals": true,
-      "script": "# Frame the whole ring: world (1440,1310) — the midpoint of the drag — at\n# screen centre, zoom 1.2. Ring radius is ~399 board px -> ~479 screen px,\n# so the whole ring clears 1920x1080.\nvar m = tree.root.get_node(\"Main\")\nm.view_zoom = 1.2\nm.view_offset = Vector2(1440.0, 1310.0) - Vector2(960.0, 540.0) / 1.2\nm.update_view_transform()\nreturn true" },
+      "script": "# Frame the whole ring: world (320,1310) — the midpoint of the drag — at\n# screen centre, zoom 1.2. Ring radius is ~399 board px -> ~479 screen px,\n# so the whole ring clears 1920x1080.\nvar m = tree.root.get_node(\"Main\")\nm.view_zoom = 1.2\nm.view_offset = Vector2(320.0, 1310.0) - Vector2(960.0, 540.0) / 1.2\nm.update_view_transform()\nreturn true" },
     { "act": "wait_seconds", "seconds": 0.3 },
 
     { "act": "click_unit", "unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I" },
@@ -38,8 +38,8 @@
     { "act": "screenshot", "label": "01_unit_selected_before_pickup" },
 
     { "act": "drag_board",
-      "from_x": 1280.0, "from_y": 1310.0,
-      "to_x": 1600.0, "to_y": 1310.0,
+      "from_x": 480.0, "from_y": 1310.0,
+      "to_x": 160.0, "to_y": 1310.0,
       "release": false },
     { "act": "wait_seconds", "seconds": 0.3 },
 
@@ -91,7 +91,7 @@
       "equals": "8\"" },
     { "act": "screenshot", "label": "02_base_edge_touches_ring_at_max_range" },
 
-    { "act": "mouse_up_board", "x": 1600.0, "y": 1310.0 },
+    { "act": "mouse_up_board", "x": 160.0, "y": 1310.0 },
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "execute_script",
       "script": "PhaseManager.current_phase_instance.active_moves[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].staged_moves.size()",
