@@ -115,6 +115,12 @@ const TERMS := {
 	"difficulty_noise": {"label": "Difficulty randomness", "fmt": "pts", "help": "Random noise added at lower difficulties to make the AI less exact."},
 	# Charge — 'no charge' option
 	"charge_threshold": {"label": "Minimum worth charging", "fmt": "num", "help": "A charge is only declared if its score beats this (1.0, lowered when behind on VP, by faction aggression and by difficulty)."},
+	# Stratagem windows / reactive stratagems
+	"stratagem_value": {"label": "Stratagem value", "fmt": "pts", "help": "How much this stratagem would achieve on this unit right now, from its codex handler (offensive: extra damage; defensive: damage prevented × the unit's worth)."},
+	"paid_cp_penalty": {"label": "Costs CP", "fmt": "pts", "help": "Paid stratagems rank 1 lower than a free ability with a similar effect."},
+	"cp_cost": {"label": "CP cost", "fmt": "num", "help": "Command points it costs."},
+	"use_threshold": {"label": "Bar to use it", "fmt": "num", "help": "Minimum value to spend the CP: 1.5 × CP cost for defensive, 2 for offensive/utility (offensive also needs 2+ CP so one is kept for reactions), 1 for free abilities."},
+	"cp_available": {"label": "CP available", "fmt": "num", "help": "Command points the player has."},
 	"strategic_value": {"label": "Non-damage bonuses and penalties (older records)", "fmt": "num", "good": "high", "help": "The fight score minus expected damage × damage weight: bonuses for CHARACTERs, a unit below half strength, being able to wipe it or halve it, a target on an objective, low Toughness, locking long-range or dangerous shooters, and finishing what another unit started; penalties for overkill or not being able to hurt it. Also absorbs scaling for the target's defensive abilities and the points trade."},
 
 	# --- Deployment / formations / reserves / secondaries --------------------

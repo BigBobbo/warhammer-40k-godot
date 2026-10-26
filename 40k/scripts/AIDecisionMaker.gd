@@ -2831,6 +2831,58 @@ static func suggest_action(phase: int, snapshot: Dictionary, available_actions: 
 	_restore_planning_state(saved)
 	return decision
 
+static func suggest_pending_window(phase, difficulty: int) -> Dictionary:
+	"""K during a pending stratagem window / shooting reactive window: answer
+	THAT decision for the player who owes it, with its reasoning attached, as
+	a pure preview. Returns {decider, decision} or {} when nothing is pending.
+	Mirrors AIPlayer._answer_ai_owned_pending_window."""
+	if phase == null:
+		return {}
+	var decider := 0
+	var result := {}
+	var saved := _snapshot_planning_state()
+	var prev_difficulty := _current_difficulty
+	_current_difficulty = difficulty
+	_thinking_steps.clear()
+	_decision_records.clear()
+	_thinking_context = {}
+	if phase.has_method("has_pending_stratagem_window") and phase.has_pending_stratagem_window():
+		var w: Dictionary = phase.get_pending_stratagem_window()
+		decider = int(w.get("player", 0))
+		var wid := str(w.get("window_id", ""))
+		var d: Dictionary = decide_window_stratagem(decider, wid, w.get("offers", []), w.get("ctx", {}))
+		if d.get("use", false):
+			if not d.has("name"):
+				for o in w.get("offers", []):
+					if str(o.get("stratagem_id", "")) == str(d.get("stratagem_id", "")):
+						d["name"] = str(o.get("name", ""))
+			var tu = _game_state().state.get("units", {}).get(str(d.get("target_unit_id", "")), {}) if _game_state() else {}
+			result = {"type": "USE_WINDOW_STRATAGEM", "player": decider, "window_id": wid,
+				"stratagem_id": str(d.get("stratagem_id", "")), "target_unit_id": str(d.get("target_unit_id", "")),
+				"context": d.get("context", {}),
+				"_ai_description": "Use %s on %s (%s window)" % [str(d.get("name", d.get("stratagem_id", ""))),
+					_dn(tu, str(d.get("target_unit_id", ""))), wid.replace("_", " ")]}
+		else:
+			result = {"type": "DECLINE_WINDOW_STRATAGEM", "player": decider, "window_id": wid,
+				"_ai_description": "Decline the %s stratagem window" % wid.replace("_", " ")}
+	elif "awaiting_reactive_stratagem" in phase and phase.awaiting_reactive_stratagem and phase.has_method("_check_reactive_stratagems"):
+		var gs = _game_state()
+		var active := int(gs.get_active_player()) if gs else 1
+		decider = 2 if active == 1 else 1
+		var opp: Dictionary = phase._check_reactive_stratagems()
+		result = evaluate_reactive_stratagem(decider, opp.get("available_stratagems", []),
+			opp.get("target_unit_ids", []), gs.create_snapshot(false) if gs else {})
+	if not result.is_empty():
+		if not _thinking_steps.is_empty():
+			result["_ai_thinking_steps"] = _thinking_steps.duplicate()
+		if not _decision_records.is_empty():
+			result["_ai_decision_records"] = _decision_records.duplicate(true)
+	_current_difficulty = prev_difficulty
+	_restore_planning_state(saved)
+	if result.is_empty():
+		return {}
+	return {"decider": decider, "decision": result}
+
 static func _snapshot_planning_state() -> Dictionary:
 	# Deep-copy every static cache decide() may write that outlives a single call
 	# and is consulted on later turns. Config/profile state (_config_overrides,
@@ -22148,6 +22200,7 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 	var best_name: String = ""
 	var best_cp: int = 1
 	var considered: Array = []
+	var r_scored: Array = []  # for the decision record
 
 	for strat_entry in available_stratagems:
 		var strat = strat_entry.get("stratagem", {})
@@ -22177,6 +22230,10 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 				score = _score_defensive_stratagem_target(unit, strat)
 			var u_name = _dn(unit, unit_id)
 			considered.append("%s on %s: %.1f" % [strat.get("name", strat_id), u_name, score])
+			var r_cp := int(strat.get("cp_cost", 1))
+			r_scored.append({"description": "%s on %s" % [strat.get("name", strat_id), u_name], "score": score,
+				"key": "%s|%s" % [strat_id, unit_id],
+				"score_breakdown": {"stratagem_value": score, "cp_cost": float(r_cp), "use_threshold": 1.5 * float(max(1, r_cp))}})
 			if score > best_score:
 				best_score = score
 				best_stratagem_id = strat_id
@@ -22187,6 +22244,12 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 	# Use the stratagem if the score is meaningful (unit is worth protecting).
 	# 2 CP stratagems need proportionally more value.
 	var use_threshold = 1.5 * float(max(1, best_cp))
+	if not r_scored.is_empty():
+		var r_use: bool = best_score >= use_threshold and best_stratagem_id != "" and best_target_unit_id != ""
+		r_scored.append({"description": "Decline (save the CP)", "score": use_threshold, "key": "decline",
+			"score_breakdown": {"use_threshold": use_threshold}})
+		_record_choice("reactive_stratagem", best_target_unit_id, "defensive stratagem", r_scored,
+			("%s|%s" % [best_stratagem_id, best_target_unit_id]) if r_use else "decline", {"phase": "reactive"})
 	if best_score >= use_threshold and best_stratagem_id != "" and best_target_unit_id != "":
 		var strat_target_unit = snapshot.get("units", {}).get(best_target_unit_id, {})
 		var unit_name = _dn(strat_target_unit, best_target_unit_id)
@@ -22218,6 +22281,17 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 		"_ai_description": "AI declines reactive stratagems"
 	}
 
+static func _record_window_rule_pick(window_id: String, pick: Dictionary, kind: String) -> void:
+	"""Free rule / ability choices in a window are answered before any paid
+	stratagem and are not scored against each other — record them as the
+	two-way choice they are (take it / skip it) so the card is not blank."""
+	var why := str(pick.get("reason", ""))
+	var label := why if why != "" else str(pick.get("name", pick.get("stratagem_id", kind)))
+	_record_choice("window_rule", str(pick.get("target_unit_id", "")), window_id.replace("_", " "), [
+		{"description": label, "score": 1.0, "key": "take"},
+		{"description": "Skip it", "score": 0.0, "key": "skip"}], "take",
+		{"window": window_id, "source": kind + " (free, taken before any paid stratagem)"})
+
 static func decide_window_stratagem(player: int, window_id: String, offers: Array, ctx: Dictionary) -> Dictionary:
 	"""
 	Synchronous AI answer for a stratagem WINDOW (design §3.1) — called by
@@ -22240,6 +22314,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	var katah_pick: Dictionary = _custodes_katah().ai_pick(player, window_id, offers, ctx)
 	if katah_pick.get("use", false):
 		_add_thinking_step("Ka'tah in %s: %s" % [window_id, str(katah_pick.get("reason", ""))])
+		_record_window_rule_pick(window_id, katah_pick, "Ka'tah stance")
 		return katah_pick
 	offers = _custodes_katah().strip_katah_offers(offers)
 	var sm = _stratagem_manager()
@@ -22252,6 +22327,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	var rule_pick: Dictionary = ork11e_det.ai_decide(player, window_id, offers, ctx)
 	if not rule_pick.is_empty():
 		_add_thinking_step("Rule choice in %s: %s on %s" % [window_id, rule_pick.get("name", ""), rule_pick.get("target_unit_id", "")])
+		_record_window_rule_pick(window_id, rule_pick, "Ork rule choice")
 		return rule_pick
 	# Codex: Adeptus Custodes (11e) free detachment-rule / enhancement choices
 	# (CustodesDetachments.gd, WP-C46): Martial Mastery, dreadful foe, On Gilded
@@ -22260,21 +22336,25 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	var cus11e_pick: Dictionary = cus11e_det.ai_decide(player, window_id, offers, ctx)
 	if not cus11e_pick.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, cus11e_pick.get("name", ""), cus11e_pick.get("target_unit_id", "")])
+		_record_window_rule_pick(window_id, cus11e_pick, "Custodes rule choice")
 		return cus11e_pick
 	# Codex: Space Marines (11e) Space Wolves free rule choices (Howlmaw — SWDetachments11e.gd, WP-S2).
 	var sw11e_pick_w: Dictionary = load("res://scripts/codex/space_wolves/SWDetachments11e.gd").ai_decide(player, window_id, offers, ctx)
 	if not sw11e_pick_w.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sw11e_pick_w.get("name", ""), sw11e_pick_w.get("target_unit_id", "")])
+		_record_window_rule_pick(window_id, sw11e_pick_w, "Space Wolves rule choice")
 		return sw11e_pick_w
 	# WP-M2a Codex: Space Marines (11e) detachment-rule / enhancement cards (SMDetachmentsA.gd) — synchronous.
 	var sm11e_pick_w: Dictionary = load("res://scripts/codex/space_marines/SMDetachmentsA.gd").ai_decide(player, window_id, offers, ctx)
 	if not sm11e_pick_w.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sm11e_pick_w.get("name", ""), sm11e_pick_w.get("target_unit_id", "")])
+		_record_window_rule_pick(window_id, sm11e_pick_w, "Space Marines rule choice")
 		return sm11e_pick_w
 	# WP-M2b: Codex: Space Marines (11e) generic detachments B free rule cards (Narthecis Gauntlet).
 	sm11e_pick_w = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").ai_decide(player, window_id, offers, ctx)
 	if not sm11e_pick_w.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sm11e_pick_w.get("name", ""), sm11e_pick_w.get("target_unit_id", "")])
+		_record_window_rule_pick(window_id, sm11e_pick_w, "Space Marines rule choice")
 		return sm11e_pick_w
 	offers = offers.filter(func(o): return not ork11e_det.is_rule_offer(o))
 	if offers.is_empty():
@@ -22296,6 +22376,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	var best := {}
 	var best_score := 0.0
 	var considered: Array = []
+	var w_scored: Array = []  # every (stratagem, target) weighed, for the decision record
 	for offer in offers:
 		var sid := str(offer.get("stratagem_id", ""))
 		var strat: Dictionary = sm.get_stratagem(sid)
@@ -22305,6 +22386,9 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 			# (shooter, snap target) pair by its expected damage on 6s.
 			var fo := _decide_fire_overwatch_window_11e(offer, cp, difficulty)
 			considered.append_array(fo.considered)
+			w_scored.append({"description": "%s at %s" % [str(offer.get("name", sid)), str(fo.get("target_unit_id", "-"))],
+				"score": float(fo.score) if fo.use else 0.0, "key": "%s|%s" % [sid, str(fo.get("target_unit_id", ""))],
+				"score_breakdown": {"stratagem_value": float(fo.score), "cp_cost": float(int(offer.get("cp_cost", 1)))}})
 			if fo.use and float(fo.score) > best_score:
 				best_score = float(fo.score)
 				best = {"use": true, "stratagem_id": sid, "target_unit_id": str(fo.target_unit_id),
@@ -22351,6 +22435,8 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 				"offensive":
 					if cp < 2:
 						considered.append("%s on %s: skip (CP %d < 2, keeping one for reactions)" % [offer.get("name", sid), tid, cp])
+						w_scored.append({"description": "%s on %s (not considered: keeping 1 CP for reactions)" % [offer.get("name", sid), _dn(units.get(tid, {}), tid)],
+							"score": 0.0, "key": "%s|%s" % [sid, tid], "score_breakdown": {"stratagem_value": score, "cp_cost": float(cost)}})
 						continue
 				"defensive":
 					threshold = 1.5 * float(max(1, cost))
@@ -22360,6 +22446,12 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 			# with a similar effect (ADAPTIVE STRATEGY): paid offers rank 1 lower.
 			# The threshold still uses the raw score; paid-vs-paid order is unchanged.
 			var rank := score - (1.0 if cost > 0 else 0.0)
+			var w_terms := {"stratagem_value": score, "cp_cost": float(cost), "use_threshold": threshold}
+			if cost > 0:
+				w_terms["paid_cp_penalty"] = -1.0
+			w_scored.append({"description": "%s on %s%s" % [offer.get("name", sid), _dn(units.get(tid, {}), tid),
+				"" if score >= threshold else " (below the bar to use it)"],
+				"score": rank, "key": "%s|%s" % [sid, tid], "score_breakdown": w_terms})
 			if score >= threshold and rank > best_score:
 				best_score = rank
 				var ctx_out := {}
@@ -22382,6 +22474,12 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 					"name": str(offer.get("name", sid))}
 	for c in considered:
 		_add_thinking_step("  window %s: %s" % [window_id, c])
+	if not w_scored.is_empty():
+		w_scored.append({"description": "Decline (save the CP)", "score": 0.0, "key": "decline",
+			"score_breakdown": {"cp_available": float(cp)}})
+		_record_choice("stratagem_window", str(best.get("target_unit_id", "")), window_id.replace("_", " "), w_scored,
+			("%s|%s" % [str(best.get("stratagem_id", "")), str(best.get("target_unit_id", ""))]) if not best.is_empty() else "decline",
+			{"window": window_id, "cp": cp})
 	if best.is_empty():
 		_add_thinking_step("Stratagem window %s: declining (no offer worth the CP)" % window_id)
 		return decline

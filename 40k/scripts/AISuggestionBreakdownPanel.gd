@@ -418,8 +418,16 @@ static func build_breakdown(decision: Dictionary, meta: Dictionary = {},
 
 	if records.is_empty():
 		o.gap()
-		var gap := "The AI did not record the other options it weighed for this decision, so only its final choice can be shown. (This decision type is not instrumented yet.)"
-		o.line("[color=%s]⚠ %s[/color]" % [HEX_WARN, _esc(gap)], "! " + gap)
+		var types: Array = meta.get("available_types", [])
+		var n_avail := int(meta.get("available_count", -1))
+		if n_avail == 1 or (types.size() == 1 and n_avail <= 1):
+			var only := "This was the only thing that could be done here (%s) — there was nothing to weigh." % (str(types[0]).replace("_", " ").to_lower() if not types.is_empty() else "one action")
+			o.line("[color=%s]%s[/color]" % [HEX_DIM, _esc(only)], only)
+		else:
+			var gap := "The AI did not record the other options it weighed for this decision, so only its final choice can be shown. (This decision type is not instrumented yet.)"
+			if n_avail > 1:
+				gap += " It had %d possible actions (%s)." % [n_avail, ", ".join(PackedStringArray(types)).replace("_", " ").to_lower()]
+			o.line("[color=%s]⚠ %s[/color]" % [HEX_WARN, _esc(gap)], "! " + gap)
 	for r_i in range(records.size()):
 		_render_record(o, records[r_i], analyses[r_i], r_i, records.size(), expanded, everything)
 		total_cands += (records[r_i].get("candidates", []) as Array).size()
@@ -531,6 +539,11 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 			var f2 := "Close call: \"%s\" scored almost the same — a small change in the AI's weighting would flip this." % a.labels[runner]
 			o.line("[color=%s]⚖ %s[/color]" % [HEX_WARN, _esc(f2)], "~ " + f2)
 
+	# Free rule / ability picks are a take-it-or-skip-it choice, not a ranking
+	if str(rec.get("decision_type", "")) == "window_rule":
+		var fr := "A free rule or ability choice: the AI takes it whenever its codex rule handler picks it, before weighing any paid stratagem. The reason above is the handler's own."
+		o.line("[color=%s]%s[/color]" % [HEX_DIM, _esc(fr)], fr)
+		runner = -1
 	# Why not the runner-up?
 	if runner >= 0:
 		o.gap()
