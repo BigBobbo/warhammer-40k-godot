@@ -6,46 +6,214 @@
     "terrain.layouts_11e.orientation"
   ],
   "edition": 11,
-  "description": "Search and Destroy was rendered mirrored: the 40kdc landscape geometry was TRANSPOSED (a reflection) onto the portrait board, putting Player 1's zone in the top-RIGHT corner and Player 2's in the bottom-LEFT. The official card has them top-left / bottom-right, so the converters now rotate 90 degrees instead. Boots the MainMenu, picks the Take and Hold vs Purge the Foe variant 2 matchup (whose official deployment is search_and_destroy) through the real dropdown handlers, starts a hotseat game and asserts: P1's zone contains the top-left corner and NOT the top-right; P2's contains the bottom-right and NOT the bottom-left; P1's home objective sits on the left half; the layout's terrain was rotated with the zones (obj_home_1 at 340,430 px). Drives formations + roll-off (P1 wins, deploys first) into DEPLOYMENT, then a P1 Mek DEPLOY_UNIT into the top-right corner is REFUSED and the same unit into the top-left corner SUCCEEDS. Screenshots the deployment board with the zones highlighted.",
+  "description": "Search and Destroy was rendered mirrored: the 40kdc landscape geometry was TRANSPOSED (a reflection) onto the portrait board, putting Player 1's zone in the top-RIGHT corner and Player 2's in the bottom-LEFT. The official card has them top-left / bottom-right, so the converters now rotate 90 degrees instead. Boots the MainMenu, keeps the default Reconnaissance (Recon Stomps) vs Disruption (Custodes Lions) matchup and picks its terrain variant 3, disruption_vs_reconnaissance_3 (whose official deployment is search_and_destroy), through the real dropdown handlers, starts a hotseat game and asserts: P1's zone contains the top-left corner and NOT the top-right; P2's contains the bottom-right and NOT the bottom-left; P1's home objective sits on the left half; the layout's terrain was rotated with the zones (obj_home_1 at 260,630 px, inside P1's top-left zone). Drives formations + roll-off (P1 wins, deploys first) into DEPLOYMENT, then a P1 Mek DEPLOY_UNIT into the top-right corner is REFUSED and the same unit into the top-left corner SUCCEEDS. Screenshots the deployment board with the zones highlighted.",
   "steps": [
-    {"act": "wait_seconds", "seconds": 1.0},
-    {"act": "execute_script", "script": "main.get_script().resource_path", "equals": "res://scripts/MainMenu.gd"},
-    {"act": "execute_script", "script": "main.p2_disposition_dropdown.select(1)"},
-    {"act": "execute_script", "script": "main.p2_disposition_dropdown.item_selected.emit(1)"},
-    {"act": "execute_script", "script": "main.terrain_dropdown.select(1)"},
-    {"act": "execute_script", "script": "main.terrain_dropdown.item_selected.emit(1)"},
-    {"act": "execute_script", "script": "main.terrain_options[main.terrain_dropdown.selected].id", "equals": "take_and_hold_vs_purge_the_foe_2"},
-    {"act": "execute_script", "script": "main.deployment_options[main.deployment_dropdown.selected].id", "equals": "search_and_destroy"},
-    {"act": "execute_script", "script": "main.player2_type_dropdown.select(0)"},
-    {"act": "execute_script", "script": "main.player2_type_dropdown.item_selected.emit(0)"},
-    {"act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton", "emit_pressed": true},
-    {"act": "expect_node_visible", "node": "/root/Main/BoardRoot/TokenLayer", "timeout_s": 20.0},
-    {"act": "wait_seconds", "seconds": 1.0},
-    {"act": "expect_state", "path": "meta.deployment_type", "equals": "search_and_destroy"},
-    {"act": "execute_script", "script": "Geometry2D.is_point_in_polygon(Vector2(80, 80), BoardState.get_deployment_zone_for_player(1))", "equals": true},
-    {"act": "execute_script", "script": "Geometry2D.is_point_in_polygon(Vector2(1680, 80), BoardState.get_deployment_zone_for_player(1))", "equals": false},
-    {"act": "execute_script", "script": "Geometry2D.is_point_in_polygon(Vector2(1680, 2320), BoardState.get_deployment_zone_for_player(2))", "equals": true},
-    {"act": "execute_script", "script": "Geometry2D.is_point_in_polygon(Vector2(80, 2320), BoardState.get_deployment_zone_for_player(2))", "equals": false},
-    {"act": "execute_script", "script": "int(MissionManager._get_objective_by_id(\"obj_home_1\")[\"position\"][\"x\"])", "equals": 340},
-    {"act": "execute_script", "script": "int(MissionManager._get_objective_by_id(\"obj_home_1\")[\"position\"][\"y\"])", "equals": 430},
-    {"act": "execute_script", "script": "Geometry2D.is_point_in_polygon(Vector2(340, 430), BoardState.get_deployment_zone_for_player(1))", "equals": true},
-    {"act": "dispatch_action", "action": {"type": "CONFIRM_FORMATIONS", "player": 1}},
-    {"act": "dispatch_action", "action": {"type": "CONFIRM_FORMATIONS", "player": 2}},
-    {"act": "wait_seconds", "seconds": 0.8},
-    {"act": "expect_state", "path": "meta.phase", "equals": 3},
-    {"act": "dispatch_action", "action": {"type": "ROLL_OFF_DEPLOYMENT", "dice_roll": [5, 3]}},
-    {"act": "expect_action_result", "path": "success", "equals": true},
-    {"act": "dispatch_action", "action": {"type": "CHOOSE_DEPLOYMENT", "choice": "first"}},
-    {"act": "expect_action_result", "path": "success", "equals": true},
-    {"act": "wait_seconds", "seconds": 1.0},
-    {"act": "expect_state", "path": "meta.phase", "equals": 1},
-    {"act": "screenshot", "label": "01_sd_deployment_zones_top_left_bottom_right"},
-    {"act": "dispatch_action", "action": {"type": "DEPLOY_UNIT", "unit_id": "U_MEK_A", "model_positions": [{"x": 1660, "y": 100}], "model_rotations": [0]}},
-    {"act": "expect_action_result", "path": "success", "equals": false},
-    {"act": "expect_state", "path": "units.U_MEK_A.status", "equals": 0},
-    {"act": "dispatch_action", "action": {"type": "DEPLOY_UNIT", "unit_id": "U_MEK_A", "model_positions": [{"x": 100, "y": 100}], "model_rotations": [0]}},
-    {"act": "expect_action_result", "path": "success", "equals": true},
-    {"act": "wait_seconds", "seconds": 0.5},
-    {"act": "screenshot", "label": "02_mek_deployed_top_left"}
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_script().resource_path",
+      "equals": "res://scripts/MainMenu.gd"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.terrain_dropdown.select(2)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.terrain_dropdown.item_selected.emit(2)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.terrain_options[main.terrain_dropdown.selected].id",
+      "equals": "disruption_vs_reconnaissance_3"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_options[main.deployment_dropdown.selected].id",
+      "equals": "search_and_destroy"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.player2_type_dropdown.select(0)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.player2_type_dropdown.item_selected.emit(0)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/BoardRoot/TokenLayer",
+      "timeout_s": 20.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.deployment_type",
+      "equals": "search_and_destroy"
+    },
+    {
+      "act": "execute_script",
+      "script": "Geometry2D.is_point_in_polygon(Vector2(80, 80), BoardState.get_deployment_zone_for_player(1))",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "Geometry2D.is_point_in_polygon(Vector2(1680, 80), BoardState.get_deployment_zone_for_player(1))",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "Geometry2D.is_point_in_polygon(Vector2(1680, 2320), BoardState.get_deployment_zone_for_player(2))",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "Geometry2D.is_point_in_polygon(Vector2(80, 2320), BoardState.get_deployment_zone_for_player(2))",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "int(MissionManager._get_objective_by_id(\"obj_home_1\")[\"position\"][\"x\"])",
+      "equals": 260
+    },
+    {
+      "act": "execute_script",
+      "script": "int(MissionManager._get_objective_by_id(\"obj_home_1\")[\"position\"][\"y\"])",
+      "equals": 630
+    },
+    {
+      "act": "execute_script",
+      "script": "Geometry2D.is_point_in_polygon(Vector2(260, 630), BoardState.get_deployment_zone_for_player(1))",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_FORMATIONS",
+        "player": 1
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_FORMATIONS",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 3
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ROLL_OFF_DEPLOYMENT",
+        "dice_roll": [
+          5,
+          3
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CHOOSE_DEPLOYMENT",
+        "choice": "first"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sd_deployment_zones_top_left_bottom_right"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DEPLOY_UNIT",
+        "unit_id": "U_MEK_A",
+        "model_positions": [
+          {
+            "x": 1660,
+            "y": 100
+          }
+        ],
+        "model_rotations": [
+          0
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_MEK_A.status",
+      "equals": 0
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DEPLOY_UNIT",
+        "unit_id": "U_MEK_A",
+        "model_positions": [
+          {
+            "x": 100,
+            "y": 100
+          }
+        ],
+        "model_rotations": [
+          0
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_mek_deployed_top_left"
+    }
   ]
 }
