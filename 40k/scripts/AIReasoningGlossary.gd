@@ -121,6 +121,21 @@ const TERMS := {
 	"cp_cost": {"label": "CP cost", "fmt": "num", "help": "Command points it costs."},
 	"use_threshold": {"label": "Bar to use it", "fmt": "num", "help": "Minimum value to spend the CP: 1.5 × CP cost for defensive, 2 for offensive/utility (offensive also needs 2+ CP so one is kept for reactions), 1 for free abilities."},
 	"cp_available": {"label": "CP available", "fmt": "num", "help": "Command points the player has."},
+	# Scout objective choice (_find_best_scout_objective)
+	"scout_obj_control": {"label": "Who holds it", "fmt": "pts", "help": "+10 nobody controls it, +7 the enemy holds it (get there first), +5 contested, −5 you already hold it."},
+	"scout_no_mans_land": {"label": "In no man's land", "fmt": "pts", "help": "Bonus for an objective in no man's land."},
+	"scout_home_objective": {"label": "Your home objective", "fmt": "pts", "help": "Penalty: your home objective is already close, so scouting toward it gains little."},
+	"scout_enemy_home": {"label": "Enemy home objective", "fmt": "pts", "help": "Penalty: don't rush the enemy's home objective with a scout."},
+	"scout_distance": {"label": "Distance", "fmt": "pts", "help": "Penalty per inch to the objective (0.3 per inch by default)."},
+	# Reserves arrival order (_score_reserves_deployment)
+	"arrive_points": {"label": "Unit's points", "fmt": "pts", "help": "Points ÷ 50: expensive units have more impact, so they come in first."},
+	"arrive_deep_strike": {"label": "Deep Strike", "fmt": "pts", "help": "Bonus for Deep Strike units (more flexible placement)."},
+	"arrive_melee": {"label": "Has melee weapons", "fmt": "pts", "help": "Bonus: can charge the turn after arriving."},
+	"arrive_ranged": {"label": "Has ranged weapons", "fmt": "pts", "help": "Bonus: can shoot right after arriving."},
+	"arrive_round_urgency": {"label": "Running out of rounds", "fmt": "pts", "help": "+2 in round 3, +5 from round 4 — units still in reserve at the end of the battle count as destroyed."},
+	"arrive_objectives": {"label": "Objectives in play", "fmt": "pts", "help": "+1.5 per contested/enemy-held objective, +0.5 per open one. Note: this counts objectives board-wide, so it is the same for every unit and never changes which unit arrives."},
+	# Disembark
+	"disembark_value": {"label": "Value of getting out", "fmt": "num", "good": "high", "help": "How much disembarking helps now (objective reach, charge/shoot opportunities, transport danger). Anything above 0 beats staying embarked."},
 	"strategic_value": {"label": "Non-damage bonuses and penalties (older records)", "fmt": "num", "good": "high", "help": "The fight score minus expected damage × damage weight: bonuses for CHARACTERs, a unit below half strength, being able to wipe it or halve it, a target on an objective, low Toughness, locking long-range or dangerous shooters, and finishing what another unit started; penalties for overkill or not being able to hurt it. Also absorbs scaling for the target's defensive abilities and the points trade."},
 
 	# --- Deployment / formations / reserves / secondaries --------------------

@@ -36,7 +36,7 @@ static func signature(decision: Dictionary) -> Dictionary:
 		var t: Array = (payload.target_unit_ids as Array).duplicate()
 		t.sort()
 		sig["targets"] = ",".join(PackedStringArray(t))
-	var records: Array = decision.get("_ai_decision_records", [])
+	var records: Array = _main_records(decision)
 	if not records.is_empty():
 		var rec: Dictionary = records[0]
 		var cands: Array = rec.get("candidates", [])
@@ -45,6 +45,18 @@ static func signature(decision: Dictionary) -> Dictionary:
 			sig["decision"] = str(rec.get("decision_type", ""))
 			sig["choice"] = _choice_id(cands[ci])
 	return sig
+
+
+# Side decisions weighed on the way to the real one (a stratagem the AI held,
+# a free rule card) — not what a case is about.
+const SIDE_RECORD_TYPES := ["proactive_stratagem", "window_rule", "rule_based", "disembark_check"]
+
+static func _main_records(decision: Dictionary) -> Array:
+	var out: Array = []
+	for r in decision.get("_ai_decision_records", []):
+		if not (str(r.get("decision_type", "")) in SIDE_RECORD_TYPES):
+			out.append(r)
+	return out
 
 
 static func _choice_id(cand: Dictionary) -> String:
@@ -79,7 +91,7 @@ static func save_case(decision: Dictionary, meta: Dictionary, verdict: String, n
 	if slm == null or not slm._save_game_to_path(save_path, {"description": "AI test case " + id}):
 		return {"ok": false, "error": "could not write the game state to " + save_path}
 	var chosen_desc := ""
-	var records: Array = decision.get("_ai_decision_records", [])
+	var records: Array = _main_records(decision)
 	if not records.is_empty():
 		var rec: Dictionary = records[0]
 		var ci := int(rec.get("chosen_index", -1))

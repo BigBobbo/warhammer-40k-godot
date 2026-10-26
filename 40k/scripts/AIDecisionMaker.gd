@@ -2829,7 +2829,56 @@ static func suggest_action(phase: int, snapshot: Dictionary, available_actions: 
 	var saved := _snapshot_planning_state()
 	var decision := decide(phase, snapshot, available_actions, player, difficulty)
 	_restore_planning_state(saved)
+	_attach_rule_based_record(decision, snapshot, available_actions)
 	return decision
+
+# Suggestion-only: decisions taken by a fixed chain of checks (command phase,
+# pile-in, disembark…) score nothing, so the card had nothing to show but a
+# warning. Record what was picked and the other actions that were available,
+# marked "rule_based" so the card explains it and test-case signatures skip
+# it. Not added on the live AI path — the game records feeding offline
+# analysis keep only real scored decisions.
+const _SIDE_RECORD_TYPES := ["proactive_stratagem", "window_rule", "disembark_check"]
+
+static func _attach_rule_based_record(decision: Dictionary, snapshot: Dictionary, available_actions: Array) -> void:
+	if decision.is_empty():
+		return
+	for r in decision.get("_ai_decision_records", []):
+		if not (str(r.get("decision_type", "")) in _SIDE_RECORD_TYPES):
+			return  # a real scored record exists
+	var chosen_key := _action_key(decision)
+	var cands: Array = [{"description": str(decision.get("_ai_description", decision.get("type", ""))), "score": 1.0, "key": chosen_key}]
+	var seen := {chosen_key: true}
+	for a in available_actions:
+		var k := _action_key(a)
+		if seen.has(k):
+			continue
+		seen[k] = true
+		cands.append({"description": _describe_available_action(a, snapshot), "score": 0.0, "key": k})
+	if cands.size() < 2:
+		return  # nothing else was possible — the card says so from the meta
+	var recs: Array = decision.get("_ai_decision_records", []).duplicate()
+	var rec := {"decision_type": "rule_based", "unit_id": "", "unit_name": "",
+		"candidates": cands.slice(0, 16), "chosen_index": 0, "parameters_used": {},
+		"context": {"options_considered": cands.size()}}
+	recs.push_front(rec)
+	decision["_ai_decision_records"] = recs
+
+static func _action_key(a: Dictionary) -> String:
+	var who := str(a.get("actor_unit_id", a.get("unit_id", a.get("target_unit_id", ""))))
+	return "%s|%s|%s" % [str(a.get("type", "")), who, str(a.get("stratagem_id", a.get("mission_index", "")))]
+
+static func _describe_available_action(a: Dictionary, snapshot: Dictionary) -> String:
+	var t := str(a.get("type", "")).replace("_", " ").to_lower()
+	var sid := str(a.get("stratagem_id", ""))
+	if sid != "":
+		var sm = _stratagem_manager()
+		var sname := str(sm.get_stratagem(sid).get("name", sid)) if sm else sid
+		return "Use stratagem %s" % sname
+	var uid := str(a.get("actor_unit_id", a.get("unit_id", "")))
+	if uid != "":
+		return "%s — %s" % [t.capitalize(), _dn(snapshot.get("units", {}).get(uid, {}), uid)]
+	return t.capitalize()
 
 static func suggest_pending_window(phase, difficulty: int) -> Dictionary:
 	"""K during a pending stratagem window / shooting reactive window: answer
@@ -5400,6 +5449,7 @@ static func _find_best_scout_objective(
 
 	var best_pos = Vector2.INF
 	var best_score = -INF
+	var scout_scored: Array = []  # decision record (sum of terms == score)
 
 	for i in range(objectives.size()):
 		var obj_pos = objectives[i]
@@ -5427,35 +5477,55 @@ static func _find_best_scout_objective(
 
 		# Score this objective for scouting
 		var score = 0.0
+		var sc_terms := {}
+		var obj_label := "objective"
+		for od2 in obj_data:
+			var od2_pos = od2.get("position", null)
+			if od2_pos == null:
+				continue
+			var od2_vec = od2_pos if od2_pos is Vector2 else Vector2(float(od2_pos.get("x", 0)), float(od2_pos.get("y", 0)))
+			if od2_vec.distance_to(obj_pos) < 1.0:
+				obj_label = str(od2.get("id", "objective"))
+				break
 
 		# Uncontrolled objectives are highest priority for scouts
 		if friendly_oc == 0 and enemy_oc == 0:
-			score += get_param("SCOUT_OBJ_UNCONTROLLED", SCOUT_OBJ_UNCONTROLLED)
+			score += _t_add(sc_terms, "scout_obj_control", get_param("SCOUT_OBJ_UNCONTROLLED", SCOUT_OBJ_UNCONTROLLED))
 		# Objectives not yet secured by friendlies
 		elif friendly_oc == 0 and enemy_oc > 0:
-			score += get_param("SCOUT_OBJ_ENEMY_HELD", SCOUT_OBJ_ENEMY_HELD)  # Enemy holds it, scout can get there first
+			score += _t_add(sc_terms, "scout_obj_control", get_param("SCOUT_OBJ_ENEMY_HELD", SCOUT_OBJ_ENEMY_HELD))  # Enemy holds it, scout can get there first
 		elif friendly_oc > 0 and friendly_oc <= enemy_oc:
-			score += get_param("SCOUT_OBJ_CONTESTED", SCOUT_OBJ_CONTESTED)  # Contested, reinforce
+			score += _t_add(sc_terms, "scout_obj_control", get_param("SCOUT_OBJ_CONTESTED", SCOUT_OBJ_CONTESTED))  # Contested, reinforce
 		elif friendly_oc > enemy_oc and friendly_oc > 0:
-			score -= get_param("SCOUT_OBJ_ALREADY_HELD", SCOUT_OBJ_ALREADY_HELD)  # Already held, lower priority
+			score += _t_add(sc_terms, "scout_obj_control", -get_param("SCOUT_OBJ_ALREADY_HELD", SCOUT_OBJ_ALREADY_HELD))  # Already held, lower priority
 
 		# Prefer no-man's-land objectives (center of the board)
 		if obj_zone == "no_mans_land":
-			score += get_param("SCOUT_OBJ_NO_MANS_LAND", SCOUT_OBJ_NO_MANS_LAND)
+			score += _t_add(sc_terms, "scout_no_mans_land", get_param("SCOUT_OBJ_NO_MANS_LAND", SCOUT_OBJ_NO_MANS_LAND))
 		# Home objectives are less valuable to scout toward (already nearby)
 		if is_home:
-			score -= get_param("SCOUT_OBJ_ENEMY_ZONE", SCOUT_OBJ_ENEMY_ZONE)
+			score += _t_add(sc_terms, "scout_home_objective", -get_param("SCOUT_OBJ_ENEMY_ZONE", SCOUT_OBJ_ENEMY_ZONE))
 		# Don't rush enemy home objectives with scouts
 		if is_enemy_home:
-			score -= get_param("SCOUT_OBJ_OWN_ZONE", SCOUT_OBJ_OWN_ZONE)
+			score += _t_add(sc_terms, "scout_enemy_home", -get_param("SCOUT_OBJ_OWN_ZONE", SCOUT_OBJ_OWN_ZONE))
 
 		# Closer objectives score better (within scout range is ideal)
-		score -= dist_inches * get_param("SCOUT_OBJ_DISTANCE_PENALTY", SCOUT_OBJ_DISTANCE_PENALTY)
+		score += _t_add(sc_terms, "scout_distance", -(dist_inches * get_param("SCOUT_OBJ_DISTANCE_PENALTY", SCOUT_OBJ_DISTANCE_PENALTY)))
+
+		var sc_bd: Dictionary = sc_terms.duplicate()
+		sc_bd["distance_inches"] = dist_inches
+		scout_scored.append({"description": "Scout toward %s (%s)" % [obj_label, obj_zone.replace("_", " ")],
+			"score": score, "key": "%d,%d" % [roundi(obj_pos.x), roundi(obj_pos.y)],
+			"pos": [obj_pos.x, obj_pos.y], "score_breakdown": sc_bd})
 
 		if score > best_score:
 			best_score = score
 			best_pos = obj_pos
 
+	if best_pos != Vector2.INF and not scout_scored.is_empty():
+		_record_choice("scout", str(unit.get("id", "")), _dn(unit, str(unit.get("id", ""))), scout_scored,
+			"%d,%d" % [roundi(best_pos.x), roundi(best_pos.y)],
+			{"phase": "scout", "unit_pos": [centroid.x, centroid.y]})
 	return best_pos
 
 static func _compute_scout_movement(
@@ -6023,6 +6093,8 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		if secondary_mgr_r and secondary_mgr_r.is_initialized(player):
 			var active_missions_r = secondary_mgr_r.get_active_missions(player)
 			var player_cp_r = int(snapshot.get("players", {}).get(str(player), {}).get("cp", 0))
+			var rep_scored: Array = []  # decision record
+			var rep_pick := "keep"
 			for action in replace_actions:
 				var m_idx = action.get("mission_index", -1)
 				if m_idx >= 0 and m_idx < active_missions_r.size():
@@ -6030,9 +6102,15 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 					var m_name = mission.get("name", "Unknown")
 					var score = _evaluate_mission_achievability(snapshot, mission, player, replace_round)
 					print("AIDecisionMaker: [REPLACE-MISSION] Evaluating newly drawn '%s': achievability = %.2f" % [m_name, score])
+					rep_scored.append({"description": "Replace '%s'" % m_name, "score": -score, "key": str(m_idx),
+						"score_breakdown": {"achievability": score}})
 					# Replace if mission is poorly achievable (action-based = 0.1, or low achievability)
 					if score <= 0.25 and player_cp_r >= 1:
 						print("AIDecisionMaker: [REPLACE-MISSION] Replacing bad draw '%s' (score=%.2f, CP=%d)" % [m_name, score, player_cp_r])
+						rep_scored.append({"description": "Keep the draw", "score": -0.25, "key": "keep",
+							"score_breakdown": {"discard_threshold": 0.25, "cp_available": float(player_cp_r)}})
+						_record_choice("replace_secondary", "", "new secondary draw", rep_scored, str(m_idx),
+							{"phase": "command", "round": replace_round})
 						return {
 							"type": "REPLACE_SECONDARY_MISSION",
 							"mission_index": m_idx,
@@ -6040,6 +6118,11 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 						}
 					else:
 						print("AIDecisionMaker: [REPLACE-MISSION] Keeping '%s' (score=%.2f)" % [m_name, score])
+			if not rep_scored.is_empty():
+				rep_scored.append({"description": "Keep the draw" + (" (no CP to replace)" if player_cp_r < 1 else ""),
+					"score": -0.25, "key": "keep", "score_breakdown": {"discard_threshold": 0.25, "cp_available": float(player_cp_r)}})
+				_record_choice("replace_secondary", "", "new secondary draw", rep_scored, rep_pick,
+					{"phase": "command", "round": replace_round})
 
 	# Evaluate New Orders — swap unachievable secondary missions for better ones (costs 1 CP)
 	var new_orders_actions = []
@@ -6068,6 +6151,18 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			# Round 1-2: swap anything below 0.45 achievability
 			# Round 3+: swap anything below 0.30 achievability (less time to benefit)
 			var swap_threshold = 0.30 if cmd_battle_round >= 3 else 0.45
+			var no_scored: Array = []  # decision record: swap which card, or keep
+			for ni in range(active_missions.size()):
+				var na := float(_evaluate_mission_achievability(snapshot, active_missions[ni], player, cmd_battle_round))
+				no_scored.append({"description": "New Orders: swap '%s'" % active_missions[ni].get("name", "Unknown"),
+					"score": -na, "key": str(ni), "score_breakdown": {"achievability": na}})
+			var no_swap: bool = worst_idx >= 0 and worst_score < swap_threshold and player_cp >= 1
+			if not no_scored.is_empty():
+				no_scored.append({"description": "Keep every secondary" + (" (no CP)" if player_cp < 1 else ""),
+					"score": -swap_threshold, "key": "keep",
+					"score_breakdown": {"discard_threshold": swap_threshold, "cp_available": float(player_cp)}})
+				_record_choice("new_orders", "", "secondaries", no_scored, str(worst_idx) if no_swap else "keep",
+					{"phase": "command", "round": cmd_battle_round})
 			if worst_idx >= 0 and worst_score < swap_threshold and player_cp >= 1:
 				# Find matching action
 				for action in new_orders_actions:
@@ -6963,7 +7058,8 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 		var points = int(unit.get("meta", {}).get("points", 0))
 
 		# Calculate deployment priority score
-		var score = _score_reserves_deployment(unit, unit_id, reserve_type, objectives, enemies, snapshot, player, battle_round)
+		var arr_terms := {}
+		var score = _score_reserves_deployment(unit, unit_id, reserve_type, objectives, enemies, snapshot, player, battle_round, arr_terms)
 
 		print("AIDecisionMaker: [RESERVES]   %s (%s, %dpts) — deployment score: %.1f" % [unit_name, reserve_type, points, score])
 
@@ -6972,7 +7068,8 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 			"unit": unit,
 			"reserve_type": reserve_type,
 			"score": score,
-			"name": unit_name
+			"name": unit_name,
+			"terms": arr_terms,
 		})
 
 	# Sort by score (highest first)
@@ -7100,6 +7197,7 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 
 		if best_placement_result.is_empty():
 			print("AIDecisionMaker: [RESERVES]   %s — no valid formation placement with any placement type, skipping" % unit_name)
+			candidate["no_room"] = true
 			continue
 
 		var chosen_type = best_placement_result.placement_type
@@ -7120,40 +7218,49 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 		# P2-80: Include placement_type override if different from reserve_type
 		if chosen_type != reserve_type:
 			result["placement_type"] = chosen_type
+		# Which unit arrives: every reserve unit's urgency (the spot itself is
+		# the first legal placement found, not a scored choice).
+		var arr_cands: Array = []
+		for sc_u in scored_units:
+			arr_cands.append({"description": "%s arrives%s" % [sc_u.name, " (no legal spot found)" if sc_u.get("no_room", false) else ""],
+				"score": float(sc_u.score), "key": str(sc_u.unit_id), "score_breakdown": (sc_u.get("terms", {}) as Dictionary).duplicate()})
+		_record_choice("reserves_arrival", unit_id, unit_name, arr_cands, unit_id,
+			{"phase": "movement", "round": battle_round, "source": "highest urgency with a legal spot; spot = first legal placement"})
 		return result
 
 	print("AIDecisionMaker: [RESERVES] No reserve units could be deployed this turn")
 	return {}
 
 static func _score_reserves_deployment(unit: Dictionary, unit_id: String, reserve_type: String,
-		objectives: Array, enemies: Dictionary, snapshot: Dictionary, player: int, battle_round: int) -> float:
+		objectives: Array, enemies: Dictionary, snapshot: Dictionary, player: int, battle_round: int, terms: Dictionary = {}) -> float:
 	"""Score how urgently a reserve unit should be deployed.
-	Higher score = deploy sooner."""
+	Higher score = deploy sooner. `terms` (optional) receives the additive
+	decomposition for the decision record."""
 	var score = 0.0
 	var points = int(unit.get("meta", {}).get("points", 0))
 	var has_ranged = _unit_has_ranged_weapons(unit)
 	var has_melee = _unit_has_melee_weapons(unit)
 
 	# Base priority: more expensive units are more impactful
-	score += points / get_param("RESERVE_DEPLOY_POINTS_DIVISOR", RESERVE_DEPLOY_POINTS_DIVISOR)
+	score += _t_add(terms, "arrive_points", points / get_param("RESERVE_DEPLOY_POINTS_DIVISOR", RESERVE_DEPLOY_POINTS_DIVISOR))
 
 	# Deep strike units get a slight priority (they can be placed more flexibly)
 	if reserve_type == "deep_strike":
-		score += get_param("RESERVE_DEPLOY_DEEP_STRIKE", RESERVE_DEPLOY_DEEP_STRIKE)
+		score += _t_add(terms, "arrive_deep_strike", get_param("RESERVE_DEPLOY_DEEP_STRIKE", RESERVE_DEPLOY_DEEP_STRIKE))
 
 	# Melee units benefit from arriving to charge next turn
 	if has_melee:
-		score += get_param("RESERVE_DEPLOY_MELEE", RESERVE_DEPLOY_MELEE)
+		score += _t_add(terms, "arrive_melee", get_param("RESERVE_DEPLOY_MELEE", RESERVE_DEPLOY_MELEE))
 
 	# Ranged units benefit from shooting immediately after arrival
 	if has_ranged:
-		score += get_param("RESERVE_DEPLOY_SHORT_RANGE", RESERVE_DEPLOY_SHORT_RANGE)
+		score += _t_add(terms, "arrive_ranged", get_param("RESERVE_DEPLOY_SHORT_RANGE", RESERVE_DEPLOY_SHORT_RANGE))
 
 	# Round urgency: later rounds increase urgency (must deploy by Round 5 or lose the unit)
 	if battle_round >= 4:
-		score += get_param("RESERVE_DEPLOY_ROUND_5", RESERVE_DEPLOY_ROUND_5)  # Critical — last chance on Round 5
+		score += _t_add(terms, "arrive_round_urgency", get_param("RESERVE_DEPLOY_ROUND_5", RESERVE_DEPLOY_ROUND_5))  # Critical — last chance on Round 5
 	elif battle_round >= 3:
-		score += get_param("RESERVE_DEPLOY_ROUND_4", RESERVE_DEPLOY_ROUND_4)
+		score += _t_add(terms, "arrive_round_urgency", get_param("RESERVE_DEPLOY_ROUND_4", RESERVE_DEPLOY_ROUND_4))
 
 	# Check if there are contested objectives that need reinforcement
 	var friendly_units = _get_units_for_player(snapshot, player)
@@ -7161,9 +7268,9 @@ static func _score_reserves_deployment(unit: Dictionary, unit_id: String, reserv
 	for eval in obj_evaluations:
 		var obj_state = eval.get("state", "")
 		if obj_state in ["contested", "enemy_held"]:
-			score += get_param("RESERVE_DEPLOY_CONTESTED_OBJ", RESERVE_DEPLOY_CONTESTED_OBJ)  # Contested objectives benefit from reinforcement
+			score += _t_add(terms, "arrive_objectives", get_param("RESERVE_DEPLOY_CONTESTED_OBJ", RESERVE_DEPLOY_CONTESTED_OBJ))  # Contested objectives benefit from reinforcement
 		elif obj_state == "uncontested":
-			score += get_param("RESERVE_DEPLOY_OPEN_OBJ", RESERVE_DEPLOY_OPEN_OBJ)
+			score += _t_add(terms, "arrive_objectives", get_param("RESERVE_DEPLOY_OPEN_OBJ", RESERVE_DEPLOY_OPEN_OBJ))
 
 	return score
 
@@ -7565,6 +7672,7 @@ static func _decide_transport_disembark(snapshot: Dictionary, player: int) -> Di
 
 	var best_score = 0.0
 	var best_action = {}
+	var dis_scored: Array = []  # decision record
 
 	for unit_id in embarked_units:
 		# Skip units that previously failed disembark positioning
@@ -7590,6 +7698,8 @@ static func _decide_transport_disembark(snapshot: Dictionary, player: int) -> Di
 											objectives, enemies, all_units, battle_round, player)
 
 		print("AIDecisionMaker: [MOV-7] %s in %s: disembark score = %.2f" % [unit_name, transport_name, score])
+		dis_scored.append({"description": "%s disembarks from %s" % [unit_name, transport_name], "score": score,
+			"key": unit_id, "score_breakdown": {"disembark_value": score}})
 
 		if score > best_score:
 			# Compute valid disembark positions within 3" of transport
@@ -7603,6 +7713,13 @@ static func _decide_transport_disembark(snapshot: Dictionary, player: int) -> Di
 					"_ai_description": "AI disembarks %s from %s (score: %.2f)" % [unit_name, transport_name, score]
 				}
 
+	if not dis_scored.is_empty():
+		dis_scored.append({"description": "Stay embarked", "score": 0.0, "key": "stay",
+			"score_breakdown": {"disembark_value": 0.0}})
+		var dis_pick := str(best_action.get("actor_unit_id", "stay")) if not best_action.is_empty() else "stay"
+		# "Stay" is a side check on the way to the real movement decision.
+		_record_choice("disembark" if dis_pick != "stay" else "disembark_check", dis_pick if dis_pick != "stay" else "",
+			"embarked units", dis_scored, dis_pick, {"phase": "movement", "round": battle_round})
 	if not best_action.is_empty():
 		print("AIDecisionMaker: [MOV-7] %s" % best_action.get("_ai_description", ""))
 	return best_action
@@ -14746,7 +14863,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 				var nc_desc := "%s charges %s" % [_dn(nc_unit, nc_uid), _dn(nc_t, nc_tid)]
 				if nc.has("skipped"):
 					nc_desc += " (not considered: %s)" % str(nc.skipped)
-				nc_cands.append({"description": nc_desc, "score": float(nc.get("score", 0.0)), "key": "%s|%s" % [nc_uid, nc_tid],
+				nc_cands.append({"description": nc_desc, "score": float(nc.get("score", 0.0)), "key": "%s|%s" % [nc_uid, nc_tid], "eligible": not nc.has("skipped"),
 					"score_breakdown": {"charge_probability": float(nc.get("prob", 0.0)),
 						"charge_target_value": float(nc.get("target_score", 0.0))}})
 		_record_choice("charge", "", "no charge declared", nc_cands, "none",
@@ -21726,6 +21843,7 @@ static func evaluate_proactive_faction_stratagems(snapshot: Dictionary, player: 
 	var best: Dictionary = {}
 	var best_score := 0.0
 	var considered: Array = []
+	var p_scored: Array = []  # for the decision record
 
 	for strat in strats:
 		# Window stratagems (timing.windows) are offered by the phase at their
@@ -21746,7 +21864,12 @@ static func evaluate_proactive_faction_stratagems(snapshot: Dictionary, player: 
 		if pick.is_empty():
 			continue
 		considered.append("%s on %s: %.1f" % [strat_name, pick.get("unit_name", "?"), pick.get("score", 0.0)])
-		if pick.get("score", 0.0) > best_score and _faction_stratagem_usable(player, strat, pick.get("unit_id", "")):
+		var p_usable: bool = _faction_stratagem_usable(player, strat, pick.get("unit_id", ""))
+		p_scored.append({"description": "%s on %s — %s%s" % [strat.get("name", strat_name), pick.get("unit_name", "?"),
+				str(pick.get("reason", "")), "" if p_usable else " (not usable right now)"],
+			"score": float(pick.get("score", 0.0)), "key": "%s|%s" % [str(strat.get("id", "")), str(pick.get("unit_id", ""))],
+			"score_breakdown": {"stratagem_value": float(pick.get("score", 0.0)), "cp_cost": float(cp_cost)}, "eligible": p_usable})
+		if pick.get("score", 0.0) > best_score and p_usable:
 			best_score = pick.get("score", 0.0)
 			best = {
 				"strat": strat,
@@ -21761,6 +21884,16 @@ static func evaluate_proactive_faction_stratagems(snapshot: Dictionary, player: 
 	var use_threshold = 2.0
 	if player_cp <= int(best.get("strat", {}).get("cp_cost", 1)):
 		use_threshold = 3.0
+
+	if not p_scored.is_empty():
+		var p_use: bool = not best.is_empty() and best_score >= use_threshold
+		for pc in p_scored:
+			pc.score_breakdown["use_threshold"] = use_threshold
+		p_scored.append({"description": "Hold (save the CP)", "score": use_threshold, "key": "hold",
+			"score_breakdown": {"use_threshold": use_threshold, "cp_available": float(player_cp)}})
+		_record_choice("proactive_stratagem", str(best.get("unit_id", "")), "%s phase stratagems" % phase_name, p_scored,
+			("%s|%s" % [str(best.get("strat", {}).get("id", "")), str(best.get("unit_id", ""))]) if p_use else "hold",
+			{"phase": phase_name, "cp": player_cp})
 
 	if not best.is_empty() and best_score >= use_threshold:
 		var strat = best.strat
@@ -22388,7 +22521,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 			considered.append_array(fo.considered)
 			w_scored.append({"description": "%s at %s" % [str(offer.get("name", sid)), str(fo.get("target_unit_id", "-"))],
 				"score": float(fo.score) if fo.use else 0.0, "key": "%s|%s" % [sid, str(fo.get("target_unit_id", ""))],
-				"score_breakdown": {"stratagem_value": float(fo.score), "cp_cost": float(int(offer.get("cp_cost", 1)))}})
+				"score_breakdown": {"stratagem_value": float(fo.score), "cp_cost": float(int(offer.get("cp_cost", 1)))}, "eligible": bool(fo.use)})
 			if fo.use and float(fo.score) > best_score:
 				best_score = float(fo.score)
 				best = {"use": true, "stratagem_id": sid, "target_unit_id": str(fo.target_unit_id),
@@ -22436,7 +22569,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 					if cp < 2:
 						considered.append("%s on %s: skip (CP %d < 2, keeping one for reactions)" % [offer.get("name", sid), tid, cp])
 						w_scored.append({"description": "%s on %s (not considered: keeping 1 CP for reactions)" % [offer.get("name", sid), _dn(units.get(tid, {}), tid)],
-							"score": 0.0, "key": "%s|%s" % [sid, tid], "score_breakdown": {"stratagem_value": score, "cp_cost": float(cost)}})
+							"score": 0.0, "key": "%s|%s" % [sid, tid], "score_breakdown": {"stratagem_value": score, "cp_cost": float(cost)}, "eligible": false})
 						continue
 				"defensive":
 					threshold = 1.5 * float(max(1, cost))
@@ -22451,7 +22584,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 				w_terms["paid_cp_penalty"] = -1.0
 			w_scored.append({"description": "%s on %s%s" % [offer.get("name", sid), _dn(units.get(tid, {}), tid),
 				"" if score >= threshold else " (below the bar to use it)"],
-				"score": rank, "key": "%s|%s" % [sid, tid], "score_breakdown": w_terms})
+				"score": rank, "key": "%s|%s" % [sid, tid], "score_breakdown": w_terms, "eligible": score >= threshold})
 			if score >= threshold and rank > best_score:
 				best_score = rank
 				var ctx_out := {}

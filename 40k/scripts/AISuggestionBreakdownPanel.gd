@@ -463,9 +463,12 @@ static func _analyse(rec: Dictionary) -> Dictionary:
 		chosen = 0 if not cands.is_empty() else -1
 	var order: Array = range(cands.size())
 	order.sort_custom(func(a, b): return _score_of(cands[a]) > _score_of(cands[b]))
+	# Runner-up = the best option that could actually have been picked; ones
+	# ruled out before scoring mattered (below the bar to use a stratagem,
+	# under 3% to charge, keeping CP) are listed but not compared against.
 	var runner := -1
 	for i in order:
-		if i != chosen:
+		if i != chosen and bool(cands[i].get("eligible", true)):
 			runner = i
 			break
 	# Ledger check on the chosen option: do its additive ("pts" or unlabelled)
@@ -511,6 +514,8 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 	var chosen: int = a.chosen
 	var runner: int = a.runner
 	var dtype := str(rec.get("decision_type", "decision")).replace("_", " ").to_upper()
+	if dtype == "RULE BASED":
+		dtype = "RULE-BASED DECISION"
 	var who := str(rec.get("unit_name", rec.get("unit_id", "")))
 	var title := dtype + ((" · " + who) if who != "" else "")
 	if n_records > 1:
@@ -521,6 +526,13 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 		return
 	var c_bd: Dictionary = _bd(cands[chosen])
 	o.line("[color=%s]✔[/color] [b]%s[/b]" % [HEX_GOOD, _esc(a.labels[chosen])], "Picked: " + str(a.labels[chosen]))
+	if str(rec.get("decision_type", "")) == "rule_based":
+		var rb := "This decision is made by a fixed order of checks, not by comparing scores — the AI's notes below are the checks it made. Other actions it could have taken:"
+		o.line("[color=%s]%s[/color]" % [HEX_DIM, _esc(rb)], rb)
+		for i in range(cands.size()):
+			if i != chosen:
+				o.line("  [color=%s]•[/color] %s" % [HEX_DIM, _esc(str(a.labels[i]))], "  - " + str(a.labels[i]))
+		return
 
 	# One-line summary of the pick
 	var summary := _summary(c_bd, a.ledger)
@@ -561,6 +573,9 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 			o.line(row[0], row[1])
 	elif cands.size() == 1:
 		o.line("[color=%s]This was the only option it considered.[/color]" % HEX_DIM, "Only option considered.")
+	else:
+		var ro := "Every other option was ruled out before scores were compared (see the reasons below)."
+		o.line("[color=%s]%s[/color]" % [HEX_DIM, _esc(ro)], ro)
 
 	# All options as bars
 	var considered := int(rec.get("context", {}).get("options_considered", rec.get("context", {}).get("alternatives_considered", cands.size())))
