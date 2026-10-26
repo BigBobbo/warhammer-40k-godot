@@ -9,7 +9,7 @@
  "rng_seed": 42,
  "transition_to_phase": 11,
  "disable_ai": true,
- "description": "11e GDM card-action player prompt (single-pick): P2 plays Triangulation (Reconnaissance vs Purge the Foe); the P1 centre garrison withdraws and Warboss B takes obj_center so P2 controls obj_center + obj_nml_2 at end of turn. Clicking the real End Turn button pauses END_TURN behind the CardActionDialog listing both controlled objectives; a second END_TURN is rejected while the gate is up. The player clicks Pick_obj_nml_2 \u2014 the pick is applied, the deterministic auto-pick stands down (exactly one mark), EOT scores 3 VP for 1 Triangulated objective, and the turn ends. (the objective markers come from the fixture's (fallback) take_and_hold_mirror_1 layout, now rotated to the official orientation, so obj_nml_2 sits bottom-LEFT at 260,1650 px; U_BOYZ_E and U_BOYZ_F (which sat on the pre-rotation obj_nml_2) are mirrored x -> 1760 - x onto it so P2 holds it as the fixture intended.)",
+ "description": "11e GDM card-action player prompt (single-pick): P2 plays Triangulation (Reconnaissance vs Purge the Foe); the P1 centre garrison withdraws and Warboss B takes obj_center so P2 controls obj_center + obj_nml_2 at end of turn. Clicking the real End Turn button pauses END_TURN behind the CardActionDialog listing both controlled objectives; a second END_TURN is rejected while the gate is up. The player clicks Pick_obj_nml_2 \u2014 the pick is applied, the deterministic auto-pick stands down (exactly one mark), EOT scores 3 VP for 1 Triangulated objective, and the turn ends.",
  "steps": [
   {
    "act": "wait_seconds",
@@ -36,12 +36,6 @@
   {
    "act": "execute_script",
    "script": "MissionManager.initialize_mission(\"take_and_hold\")"
-  },
-  {
-   "act": "execute_script",
-   "multiline": true,
-   "equals": true,
-   "script": "for uid in [\"U_BOYZ_E\", \"U_BOYZ_F\"]:\n\tfor m in GameState.get_unit(uid)[\"models\"]:\n\t\tif m.get(\"position\") != null:\n\t\t\tm[\"position\"][\"x\"] = 1760.0 - float(m[\"position\"][\"x\"])\nreturn true"
   },
   {
    "act": "execute_script",

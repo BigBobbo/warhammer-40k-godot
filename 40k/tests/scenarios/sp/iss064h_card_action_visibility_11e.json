@@ -9,7 +9,7 @@
   "rng_seed": 42,
   "transition_to_phase": 11,
   "disable_ai": true,
-  "description": "11e card-action state visibility: after the player Triangulates obj_nml_2 through the real End Turn button + CardActionDialog click, the objective visual shows a TRIANGULATED (P2) badge on the board. Booby-Trap and relic markers render on the CardActionOverlay at their terrain features, and the next Scoring panel lists P2's marker state row naming the picked objective. (the objective markers come from the fixture's (fallback) take_and_hold_mirror_1 layout, now rotated to the official orientation, so obj_nml_2 sits bottom-LEFT at 260,1650 px; U_BOYZ_E and U_BOYZ_F (which sat on the pre-rotation obj_nml_2) are mirrored x -> 1760 - x onto it so P2 holds it as the fixture intended.)",
+  "description": "11e card-action state visibility: after the player Triangulates obj_nml_2 through the real End Turn button + CardActionDialog click, the objective visual shows a TRIANGULATED (P2) badge on the board. Booby-Trap and relic markers render on the CardActionOverlay at their terrain features, and the next Scoring panel lists P2's marker state row naming the picked objective.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 11 },
@@ -17,7 +17,6 @@
     { "act": "execute_script",
       "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"search_and_destroy\", \"player1_disposition\": \"purge_the_foe\", \"player2_disposition\": \"reconnaissance\"}}, true)" },
     { "act": "execute_script", "script": "MissionManager.initialize_mission(\"take_and_hold\")" },
-    { "act": "execute_script", "multiline": true, "equals": true, "script": "for uid in [\"U_BOYZ_E\", \"U_BOYZ_F\"]:\n\tfor m in GameState.get_unit(uid)[\"models\"]:\n\t\tif m.get(\"position\") != null:\n\t\t\tm[\"position\"][\"x\"] = 1760.0 - float(m[\"position\"][\"x\"])\nreturn true" },
     { "act": "execute_script",
       "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
       "equals": "triangulation" },

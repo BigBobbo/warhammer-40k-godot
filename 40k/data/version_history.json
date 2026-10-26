@@ -8,7 +8,8 @@
       "changes": [
         "Search and Destroy deployment zones are now in the top-left and bottom-right corners, as on the official card (they were wrongly top-right / bottom-left).",
         "Crucible of Battle, Sweeping Engagement, Dawn of War and Tipping Point zones, and all 45 official 11e terrain layouts, were mirrored the same way and are now the right way round (Hammer and Anvil was unaffected). On Dawn of War and Sweeping Engagement, Player 1 now deploys on the right-hand edge.",
-        "The Orks AI battle plans built on the Take and Hold mirror layout were flipped to match the corrected terrain."
+        "The Orks AI battle plans built on the Take and Hold mirror layout were flipped to match the corrected terrain.",
+        "Old saves that used a removed legacy terrain layout keep the terrain their units were placed on."
       ]
     },
     {
