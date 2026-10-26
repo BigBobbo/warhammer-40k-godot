@@ -9,7 +9,7 @@
   "edition": 11,
   "rng_seed": 7,
   "transition_to_phase": 10,
-  "description": "K breakdown for a FIGHT target decision in a local human-vs-human game. The fight score is now an itemised ledger (_score_fight_target books each bonus/penalty via _t_add/_t_mul, sum == score). Setup plays the AI's own suggested pile-ins and fighter selection (declining stratagem windows) until Trajann Valoris chooses a target; pressing K then shows a FIGHT card whose option details list 'Score made of:' parts (e.g. Damage it deals, Can wipe it out) instead of a single lumped number, and nothing is executed by the suggestion itself. The suggestion is requested via Main._on_ai_suggestion_pressed() (the K/button handler) because the modal Attack Assignment dialog holds keyboard focus at this point.",
+  "description": "K breakdown for a FIGHT target decision in a local human-vs-human game. The fight score is now an itemised ledger (_score_fight_target books each bonus/penalty via _t_add/_t_mul, sum == score). Setup plays the AI's own suggested pile-ins and fighter selection (declining stratagem windows) until Trajann Valoris chooses a target; pressing K then shows a FIGHT card whose option details list 'Score made of:' parts (e.g. Damage it deals, Can wipe it out) instead of a single lumped number, and nothing is executed by the suggestion itself. K is pressed for real while the modal Attack Assignment dialog holds the keyboard: the card opens in its own window ABOVE the dialog, and Esc closes it and hands input back to the dialog (still open).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -151,17 +151,22 @@
     },
     {
       "act": "execute_script",
-      "script": "main._on_ai_suggestion_pressed()",
-      "comment": "Same handler the K key and the Suggest button call. K itself cannot be used here: the fight-target decision only exists while the modal Attack Assignment dialog is open, and that dialog takes keyboard focus (known gap, reported)."
+      "script": "main._top_modal_window() != null and main._top_modal_window().name.contains(\"Attack\") or str(main._top_modal_window().get_script().resource_path).ends_with(\"AttackAssignmentDialog.gd\")",
+      "equals": true
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K",
+      "comment": "Real K press while the modal Attack Assignment dialog holds the keyboard."
     },
     {
       "act": "wait_frames",
       "frames": 6
     },
     {
-      "act": "expect_node_visible",
-      "node": "/root/Main/AISuggestionBreakdownPanel",
-      "timeout_s": 2.0
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
     },
     {
       "act": "execute_script",
@@ -211,8 +216,40 @@
       "equals": 10
     },
     {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.get_parent() == main._ai_suggestion_host and main._ai_suggestion_host.get_parent() == main._top_modal_window()",
+      "equals": true
+    },
+    {
       "act": "screenshot",
       "label": "01_fight_breakdown"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_host.visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._top_modal_window() != null and str(main._top_modal_window().get_script().resource_path).ends_with(\"AttackAssignmentDialog.gd\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_back_to_attack_dialog"
     }
   ]
 }

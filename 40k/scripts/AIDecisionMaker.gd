@@ -1568,11 +1568,11 @@ const CHARGE_CHARACTER_BONUS: float = 2.0         # target is a CHARACTER
 const CHARGE_CANT_HURT_PENALTY: float = 1.0       # we cannot meaningfully damage it
 const CHARGE_TIE_UP_SHOOTER_BONUS: float = 2.0    # locks a long-range shooter in combat
 const FIGHT_MELEE_DAMAGE_WEIGHT: float = 2.0      # expected melee damage multiplier
-const FIGHT_BELOW_HALF_BONUS: float = 3.0         # target already below half strength
+const FIGHT_BELOW_HALF_BONUS: float = 3.0         # our expected damage takes the target below half its remaining wounds (not a wipe)
 const FIGHT_CHARACTER_BONUS: float = 2.0          # target is a CHARACTER
 const FIGHT_CANT_HURT_PENALTY: float = 3.0        # we cannot meaningfully damage it
 const FIGHT_CAN_WIPE_BONUS: float = 6.0           # we can likely destroy the unit outright
-const FIGHT_CAN_HALVE_BONUS: float = 3.0          # we can take it below half strength
+const FIGHT_CAN_HALVE_BONUS: float = 3.0          # target is ALREADY below half its starting models (names read swapped; see _score_fight_target)
 const FIGHT_OVERKILL_PENALTY: float = 1.0         # >3x the wounds remaining
 
 # --- Scoring horizon: can this unit still SCORE the objective? -------------

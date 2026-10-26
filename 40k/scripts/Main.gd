@@ -249,6 +249,8 @@ var _ai_speed_dropdown: OptionButton = null
 var _ai_suggestion_button: Button = null
 # Full "why" card for the suggestion: ranked candidates + score terms + reasoning
 var _ai_suggestion_panel: PanelContainer = null
+# Window the card moves into while a modal dialog is open (see _host_ai_suggestion_panel_over)
+var _ai_suggestion_host: Window = null
 
 # P2-44: Player turn screen-edge color indicator
 var _player_turn_border: PlayerTurnBorder = null
@@ -2597,6 +2599,10 @@ func _setup_ai_suggestion_button() -> void:
 	_ai_suggestion_button.add_theme_color_override("font_hover_color", Color(0.8, 0.97, 1.0))
 	_ai_suggestion_button.pressed.connect(_on_ai_suggestion_pressed)
 	hud_container.add_child(_ai_suggestion_button)
+	# K must also work while a modal dialog holds the keyboard
+	get_tree().node_added.connect(_hook_window_for_ai_suggestion)
+	for w in get_tree().root.find_children("*", "Window", true, false):
+		_hook_window_for_ai_suggestion(w)
 	print("Main: AI suggestion button created")
 	# T7-36: clickable AI speed selector sits immediately after the suggestion
 	# button in the same top-menu row (added here so they stay adjacent).
@@ -2694,8 +2700,71 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 		_ai_suggestion_panel.name = "AISuggestionBreakdownPanel"
 		add_child(_ai_suggestion_panel)
 		_ai_suggestion_panel.z_index = UI_MODAL_Z
+		_ai_suggestion_panel.refresh_requested.connect(_on_ai_suggestion_pressed)
+	# A modal dialog (Attack Assignment, Epic Challenge, stratagem windows…)
+	# draws above every Control and swallows input, so the card would be
+	# hidden under it and unclickable — exactly when the decision it explains
+	# is being made. Host the card in its own exclusive window above the dialog.
+	var modal := _top_modal_window()
+	if modal != null:
+		_host_ai_suggestion_panel_over(modal)
+	elif _ai_suggestion_panel.get_parent() != self:
+		_ai_suggestion_panel.reparent(self)
+		if _ai_suggestion_host and is_instance_valid(_ai_suggestion_host):
+			_ai_suggestion_host.hide()
 	_ai_suggestion_panel.show_decision(decision, meta)
-	print("Main: AI suggestion breakdown shown (%d records)" % _ai_suggestion_panel.record_count)
+	print("Main: AI suggestion breakdown shown (%d records)%s" % [_ai_suggestion_panel.record_count,
+		(" above modal '%s'" % modal.name) if modal != null else ""])
+
+func _top_modal_window() -> Window:
+	"""The most recently added visible exclusive (modal) window, if any."""
+	var found: Window = null
+	for w in get_tree().root.find_children("*", "Window", true, false):
+		if w == _ai_suggestion_host or not w.visible:
+			continue
+		if (w as Window).exclusive:
+			found = w
+	return found
+
+func _host_ai_suggestion_panel_over(modal: Window) -> void:
+	if _ai_suggestion_host == null or not is_instance_valid(_ai_suggestion_host):
+		_ai_suggestion_host = Window.new()
+		_ai_suggestion_host.name = "AISuggestionHost"
+		_ai_suggestion_host.borderless = true
+		_ai_suggestion_host.unresizable = true
+		_ai_suggestion_host.transient = true
+		_ai_suggestion_host.exclusive = true
+		_ai_suggestion_host.set_meta(AISuggestionBreakdownPanelScript.HOST_META, true)
+		_ai_suggestion_host.close_requested.connect(func(): _ai_suggestion_panel.close())
+	if _ai_suggestion_host.get_parent() != modal:
+		if _ai_suggestion_host.get_parent() != null:
+			_ai_suggestion_host.get_parent().remove_child(_ai_suggestion_host)
+		modal.add_child(_ai_suggestion_host)
+	if _ai_suggestion_panel.get_parent() != _ai_suggestion_host:
+		_ai_suggestion_panel.reparent(_ai_suggestion_host, false)
+	_ai_suggestion_host.show()
+
+func _hook_window_for_ai_suggestion(node: Node) -> void:
+	"""K inside a modal dialog: the dialog's window has keyboard focus, so
+	Main._input never sees the key. Listen on every window's own input."""
+	if not (node is Window) or node == _ai_suggestion_host or node.has_meta("_ai_k_hooked"):
+		return
+	node.set_meta("_ai_k_hooked", true)
+	(node as Window).window_input.connect(_on_dialog_window_input.bind(node))
+
+func _on_dialog_window_input(event: InputEvent, win: Window) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if not KeybindingManager.matches_action(event, "ai_suggestion"):
+		return
+	if not (_ai_suggestion_button and _ai_suggestion_button.visible):
+		return
+	var focus = win.gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return  # typing a 'k' into a text field
+	win.set_input_as_handled()
+	print("Main: AI suggestion requested from inside dialog '%s'" % win.name)
+	_on_ai_suggestion_pressed.call_deferred()
 
 func _on_reserves_button_pressed() -> void:
 	if _selected_unit_for_reserves == "":

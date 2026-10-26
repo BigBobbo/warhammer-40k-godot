@@ -27,6 +27,7 @@ class_name AISuggestionBreakdownPanel
 # Public API:
 #   show_decision(decision: Dictionary, meta: Dictionary)
 #   close()
+#   refresh_requested  (K pressed while the card has input — Main re-asks the AI)
 #   toggle_section(key: String)  (same as clicking a link: "dev", "notes", "opt:R:I")
 #   breakdown_text: String   (plain-text mirror of what is on screen)
 #   full_text: String        (everything expanded — what Copy puts on the clipboard)
@@ -41,7 +42,7 @@ const _Glossary = preload("res://scripts/AIReasoningGlossary.gd")
 
 const PANEL_WIDTH := 660.0
 const SCREEN_MARGIN := 24.0
-const TOP_OFFSET := 110.0  # clear of the top bar
+const TOP_OFFSET := 168.0  # clear of the top bar AND the toast row (e.g. "Game autosaved" sat on the title)
 const BAR_CELLS := 12
 const MAX_WHY_ROWS := 4
 const MAX_SUMMARY_FACTS := 4
@@ -63,6 +64,12 @@ const HEX_GOOD := "#8fd18f"
 const HEX_BAD := "#e98a7a"
 const HEX_WARN := "#ffc070"
 const HEX_LINK := "#7fc8e8"
+
+# Main re-hosts the card in a Window tagged with this meta when a modal dialog
+# is open (a plain Control would draw underneath the dialog and get no input).
+const HOST_META := "ai_suggestion_host"
+
+signal refresh_requested
 
 var breakdown_text: String = ""
 var full_text: String = ""
@@ -172,18 +179,28 @@ func _ready() -> void:
 	frow.add_child(copy_btn)
 
 	_apply_fit()
-	var vp := get_viewport()
-	if vp != null and not vp.is_connected("size_changed", _apply_fit):
-		vp.connect("size_changed", _apply_fit)
+	# The ROOT window's size, not get_viewport(): when a modal dialog is open
+	# the card is re-hosted in its own small window (see Main), whose viewport
+	# is the card itself.
+	var root := get_tree().root
+	if not root.is_connected("size_changed", _apply_fit):
+		root.connect("size_changed", _apply_fit)
 	print("[AISuggestionBreakdownPanel] Ready")
 
 
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if event.keycode == KEY_ESCAPE:
 		close()
 		get_viewport().set_input_as_handled()
+	elif KeybindingManager and KeybindingManager.matches_action(event, "ai_suggestion"):
+		# K while the card is open = refresh. Handled here because, when the
+		# card sits above a modal dialog in its own window, Main never sees it.
+		get_viewport().set_input_as_handled()
+		refresh_requested.emit()
 
 
 func show_decision(decision: Dictionary, meta: Dictionary = {}) -> void:
@@ -206,6 +223,10 @@ func toggle_section(key: String) -> void:
 
 func close() -> void:
 	visible = false
+	# Hosted above a modal dialog: hide the host so the dialog gets input back.
+	var host := get_parent() as Window
+	if host != null and host.has_meta(HOST_META):
+		host.hide()
 	print("[AISuggestionBreakdownPanel] Closed")
 
 
@@ -252,16 +273,22 @@ func _refit() -> void:
 
 
 func _apply_fit() -> void:
-	var vp := get_viewport()
-	if vp == null:
+	if not is_inside_tree():
 		return
-	var vp_size := vp.get_visible_rect().size
+	var vp_size := get_tree().root.get_visible_rect().size
 	var w: float = minf(PANEL_WIDTH, maxf(320.0, vp_size.x - 2.0 * SCREEN_MARGIN))
 	var h: float = maxf(240.0, vp_size.y - TOP_OFFSET - SCREEN_MARGIN - 60.0)
 	custom_minimum_size = Vector2(w, h)
 	size = Vector2(w, h)
 	# Right side: the game log owns the left edge and the board stays visible.
-	position = Vector2(roundf(vp_size.x - w - SCREEN_MARGIN), TOP_OFFSET)
+	var pos := Vector2(roundf(vp_size.x - w - SCREEN_MARGIN), TOP_OFFSET)
+	var host := get_parent() as Window
+	if host != null and host.has_meta(HOST_META):
+		host.position = Vector2i(pos)
+		host.size = Vector2i(roundi(w), roundi(h))
+		position = Vector2.ZERO
+	else:
+		position = pos
 
 
 func _bar_style(bg: Color, h: int, v: int, top_border: bool) -> StyleBoxFlat:
