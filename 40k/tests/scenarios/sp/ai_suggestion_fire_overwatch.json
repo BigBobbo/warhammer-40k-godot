@@ -1,0 +1,288 @@
+{
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "id": "ai_suggestion_fire_overwatch",
+  "covers": [
+    "ai.suggestion.reactive_window",
+    "scripts.AIDecisionMaker.window_stratagem_record"
+  ],
+  "description": "K while the 11e FIRE OVERWATCH offer (movement_phase_end window) is open for the Ork defender (P2) after the Custodes moved: the suggestion answers the window for P2 \u2014 Overwatch and any other offers scored against 'Decline (save the CP)'. Setup copied from fire_overwatch_end_of_movement_11e.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "return GameConstants.edition",
+      "equals": 11,
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn InputDeviceManager.is_pad_active()",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "timeout_s": 2.0,
+      "comment": "11e: the Skip Overwatch toggle shows in the Movement phase"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "property": "button_pressed",
+      "equals": true,
+      "comment": "ON by default"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "property": "button_pressed",
+      "equals": false,
+      "comment": "the real click turned Skip Overwatch OFF"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Normal Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_CUSTODIAN_GUARD_C\", {}).get(\"mode\", \"\")",
+      "equals": "NORMAL"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._awaiting_fire_overwatch",
+      "equals": false,
+      "comment": "no per-move Fire Overwatch at 11e (move start)"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "A",
+      "ctrl": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1440.0,
+      "from_y": 848.5,
+      "to_x": 1440.0,
+      "to_y": 928.5
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "float(GameState.get_unit(\"U_CUSTODIAN_GUARD_C\").models[1].position.y) > 900.0",
+      "equals": true,
+      "comment": "the Custodians moved 2\" toward the Flash Gitz"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._awaiting_fire_overwatch",
+      "equals": false,
+      "comment": "\u2026and no per-move Fire Overwatch at move end"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.find_child(\"FireOverwatchDialog\", true, false) == null",
+      "equals": true,
+      "comment": "the 10e per-move dialog never opened"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "01_custodes_moved_no_per_move_overwatch"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm.get_ok_button().pressed.emit()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7,
+      "comment": "the Movement phase waits for the end-of-phase window"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "movement_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 2,
+      "comment": "offered to the NON-active player only"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_FLASH_GITZ_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_TANKBUSTAS_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_BOYZ_B\") == null",
+      "equals": true,
+      "comment": "the Boyz are engaged with Custodian Guard A \u2014 not an unengaged unit (15.08)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._reactive_stratagem_pending",
+      "equals": true,
+      "comment": "hot-seat: the active player's board is blocked while P2 decides"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K",
+      "comment": "K while the defender's dialog (modal) is open"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.last_suggestion_meta.get(\"player\", 0)",
+      "equals": 2,
+      "comment": "answered for the window owner, not the active player"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"STRATAGEM WINDOW \u00b7 movement phase end\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Decline (save the CP)\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"FIRE OVERWATCH\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_overwatch_card"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")",
+      "equals": "movement_phase_end"
+    }
+  ]
+}

@@ -22575,7 +22575,12 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 			# (shooter, snap target) pair by its expected damage on 6s.
 			var fo := _decide_fire_overwatch_window_11e(offer, cp, difficulty)
 			considered.append_array(fo.considered)
-			w_scored.append({"description": "%s at %s" % [str(offer.get("name", sid)), str(fo.get("target_unit_id", "-"))],
+			var fo_units: Dictionary = units if not units.is_empty() else ((_game_state().state.get("units", {})) if _game_state() else {})
+			var fo_shooter := str(fo.get("target_unit_id", ""))
+			var fo_target := str(fo.get("secondary_id", ""))
+			w_scored.append({"description": "%s: %s shoots %s" % [str(offer.get("name", sid)),
+					_dn(fo_units.get(fo_shooter, {}), fo_shooter) if fo_shooter != "" else "(no shooter)",
+					_dn(fo_units.get(fo_target, {}), fo_target) if fo_target != "" else "(no target)"],
 				"score": float(fo.score) if fo.use else 0.0, "key": "%s|%s" % [sid, str(fo.get("target_unit_id", ""))],
 				"score_breakdown": {"stratagem_value": float(fo.score), "cp_cost": float(int(offer.get("cp_cost", 1)))}, "eligible": bool(fo.use)})
 			if fo.use and float(fo.score) > best_score:
@@ -22910,6 +22915,7 @@ static func evaluate_fire_overwatch(defending_player: int, eligible_units: Array
 	var best_unit_id: String = ""
 	var best_unit_name: String = ""
 	var best_expected_hits: float = 0.0
+	var ow_scored: Array = []  # decision record
 
 	for entry in eligible_units:
 		var unit_id: String = ""
@@ -22928,6 +22934,9 @@ static func evaluate_fire_overwatch(defending_player: int, eligible_units: Array
 		# Count total ranged shots (overwatch hits on 6s only)
 		var total_shots = _count_unit_ranged_shots(unit)
 		var expected_hits = total_shots / 6.0  # 1/6 chance per shot
+		ow_scored.append({"description": "Overwatch with %s" % unit_name, "score": expected_hits, "key": str(unit_id),
+			"eligible": expected_hits >= 0.5 and enemy_value >= 2.0,
+			"score_breakdown": {"ow_shots": float(total_shots), "ow_expected_hits": expected_hits, "ow_target_value": enemy_value}})
 
 		if expected_hits > best_expected_hits:
 			best_expected_hits = expected_hits
@@ -22937,6 +22946,12 @@ static func evaluate_fire_overwatch(defending_player: int, eligible_units: Array
 	# Use overwatch if we expect at least ~1 hit and enemy is valuable
 	# Threshold: at least 0.5 expected hits (3+ total shots) AND enemy worth shooting at
 	var enemy_name = _dn(enemy_unit, enemy_unit_id)
+	if not ow_scored.is_empty():
+		var ow_use: bool = best_expected_hits >= 0.5 and enemy_value >= 2.0 and best_unit_id != ""
+		ow_scored.append({"description": "Decline (needs 0.5+ expected hits on a target worth 2+)", "score": 0.5, "key": "decline",
+			"score_breakdown": {"ow_hits_bar": 0.5, "ow_value_bar": 2.0, "ow_target_value": enemy_value}})
+		_record_choice("fire_overwatch", best_unit_id if ow_use else "", "Overwatch at %s" % enemy_name, ow_scored,
+			best_unit_id if ow_use else "decline", {"phase": "overwatch"})
 	if best_expected_hits >= 0.5 and enemy_value >= 2.0 and best_unit_id != "":
 		_add_thinking_step("Fire Overwatch with %s at %s: %.1f expected hits on snap 6s, target value %.1f — firing" % [
 			best_unit_name, enemy_name, best_expected_hits, enemy_value])
@@ -23330,6 +23345,7 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 	var best_unit_id = ""
 	var best_unit_name = ""
 	var best_score = 0.0
+	var hi_scored: Array = []  # decision record (terms sum == score)
 
 	for entry in eligible_units:
 		var unit_id = entry.get("unit_id", "")
@@ -23345,30 +23361,46 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 
 		# Must have melee weapons to be useful
 		if not has_melee:
+			hi_scored.append({"description": "%s counter-charges (not considered: no melee weapons)" % unit_name,
+				"score": 0.0, "key": str(unit_id), "eligible": false, "score_breakdown": {}})
 			continue
+		var hi_terms := {}
 
 		# Base score from unit value (stronger units are better counter-chargers)
 		var unit_value = _estimate_unit_value(unit)
-		score += unit_value * 0.5
+		score += _t_add(hi_terms, "hi_unit_value", unit_value * 0.5)
 
 		# Bonus for CHARACTER units (they usually have strong melee)
 		for kw in keywords:
 			var kw_upper = kw.to_upper()
 			if kw_upper == "CHARACTER":
-				score += 2.0
+				score += _t_add(hi_terms, "hi_character", 2.0)
 			elif kw_upper == "MONSTER":
-				score += 1.0
+				score += _t_add(hi_terms, "hi_monster", 1.0)
 
 		# Scale by enemy value (worth counter-charging valuable enemies)
 		if charging_value >= 5.0:
-			score *= 1.3
+			score = _t_mul(hi_terms, "hi_enemy_value", score, 1.3)
 		elif charging_value <= 2.0:
-			score *= 0.7  # Still worth considering at 1 CP (v3.3) even against cheap units
+			score = _t_mul(hi_terms, "hi_enemy_value", score, 0.7)  # Still worth considering at 1 CP (v3.3) even against cheap units
+		var hi_bd: Dictionary = hi_terms.duplicate()
+		hi_bd["hi_charger_value"] = charging_value
+		hi_scored.append({"description": "%s counter-charges" % unit_name, "score": score, "key": str(unit_id), "score_breakdown": hi_bd})
 
 		if score > best_score:
 			best_score = score
 			best_unit_id = unit_id
 			best_unit_name = unit_name
+
+	# Decision record: every candidate against the bar to spend the CP
+	# (2.0; 4.0 when it is the last CP).
+	var hi_bar := 4.0 if player_cp <= hi_cp else 2.0
+	if not hi_scored.is_empty():
+		var hi_use: bool = best_unit_id != "" and best_score >= 2.0 and not (player_cp <= hi_cp and best_score < 4.0)
+		hi_scored.append({"description": "Decline (save the CP)" + (" — it would be the last CP" if player_cp <= hi_cp else ""),
+			"score": hi_bar, "key": "decline", "score_breakdown": {"use_threshold": hi_bar, "cp_available": float(player_cp)}})
+		_record_choice("heroic_intervention", best_unit_id if hi_use else "", "Heroic Intervention", hi_scored,
+			best_unit_id if hi_use else "decline", {"phase": "charge"})
 
 	# Use if score is high enough to justify the CP
 	if best_score >= 2.0 and best_unit_id != "":

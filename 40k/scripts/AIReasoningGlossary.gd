@@ -189,6 +189,18 @@ const TERMS := {
 	"deploy_depth": {"label": "Front / back preference", "fmt": "pts", "help": "Melee units like the front edge; characters and fragile shooters like the back."},
 	"deploy_drift": {"label": "Drift from the column layout", "fmt": "pts", "help": "−1 per 5\" away from its planned column spot (stops the army bunching up)."},
 	"deploy_baseline_bar": {"label": "Bar a terrain spot must beat", "fmt": "num", "help": "The column-layout spot is used unless a terrain spot scores 1.0 or more."},
+	# Heroic Intervention (evaluate_heroic_intervention)
+	"hi_unit_value": {"label": "How strong the unit is", "fmt": "pts", "help": "Half the unit's estimated value: stronger units make better counter-chargers."},
+	"hi_character": {"label": "CHARACTER", "fmt": "pts", "help": "+2: characters usually fight well."},
+	"hi_monster": {"label": "MONSTER", "fmt": "pts", "help": "+1."},
+	"hi_enemy_value": {"label": "Enemy worth intervening against", "fmt": "pts", "help": "×1.3 against a valuable charger (value 5+), ×0.7 against a cheap one (2 or less). Note: at 11th edition the window is at the end of the Charge phase with no single charger, so the charger's value reads 0 and this is always ×0.7."},
+	"hi_charger_value": {"label": "Charger's value", "fmt": "num", "help": "Estimated value of the enemy unit that charged (0 when there is no single charger — 11e end-of-phase window)."},
+	# Fire Overwatch (evaluate_fire_overwatch)
+	"ow_shots": {"label": "Ranged shots", "fmt": "num", "help": "Total ranged shots the unit can fire."},
+	"ow_expected_hits": {"label": "Expected hits (6s only)", "fmt": "num", "good": "high", "help": "Shots ÷ 6: Overwatch only hits on unmodified 6s."},
+	"ow_target_value": {"label": "Target's value", "fmt": "num", "help": "Estimated value of the enemy unit being shot."},
+	"ow_hits_bar": {"label": "Hits needed", "fmt": "num", "help": "Overwatch is only fired for 0.5+ expected hits…"},
+	"ow_value_bar": {"label": "Target value needed", "fmt": "num", "help": "…on a target worth 2 or more."},
 	"strategic_value": {"label": "Non-damage bonuses and penalties (older records)", "fmt": "num", "good": "high", "help": "The fight score minus expected damage × damage weight: bonuses for CHARACTERs, a unit below half strength, being able to wipe it or halve it, a target on an objective, low Toughness, locking long-range or dangerous shooters, and finishing what another unit started; penalties for overkill or not being able to hurt it. Also absorbs scaling for the target's defensive abilities and the points trade."},
 
 	# --- Deployment / formations / reserves / secondaries --------------------

@@ -843,8 +843,22 @@ func request_suggestion(difficulty_override: int = -1) -> Dictionary:
 		window_owner = int(phase_inst.get_pending_stratagem_window().get("player", 0))
 	elif "awaiting_reactive_stratagem" in phase_inst and phase_inst.awaiting_reactive_stratagem:
 		window_owner = 2 if int(GameState.get_active_player()) == 1 else 1
+	# Charge-phase defender windows (Fire Overwatch, Heroic Intervention and its
+	# pending move) are separate phase flags, answered by _decide_charge only
+	# when asked AS the window owner — ask as them.
+	var charge_window_owner := 0
+	if window_owner <= 0:
+		if "awaiting_fire_overwatch" in phase_inst and phase_inst.awaiting_fire_overwatch:
+			charge_window_owner = int(phase_inst.fire_overwatch_player)
+		elif "awaiting_heroic_intervention" in phase_inst and phase_inst.awaiting_heroic_intervention:
+			charge_window_owner = int(phase_inst.heroic_intervention_player)
+		elif "heroic_intervention_unit_id" in phase_inst and str(phase_inst.heroic_intervention_unit_id) != "" \
+				and "heroic_intervention_pending_charge" in phase_inst and not phase_inst.heroic_intervention_pending_charge.is_empty():
+			charge_window_owner = int(phase_inst.heroic_intervention_player)
 	if window_owner > 0:
 		player = window_owner
+	elif charge_window_owner > 0:
+		player = charge_window_owner
 
 	var snapshot = GameState.create_snapshot(false)
 	var available = phase_manager.get_available_actions()

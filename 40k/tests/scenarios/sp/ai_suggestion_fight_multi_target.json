@@ -16,6 +16,13 @@
     },
     {
       "act": "execute_script",
+      "script": "AIDecisionMaker.set_ai_seed(7)\nreturn AIDecisionMaker.is_ai_seeded()",
+      "comment": "seed the AI's score noise so the fight order (and so which unit/target is reached) is the same every run",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
     },
     {
