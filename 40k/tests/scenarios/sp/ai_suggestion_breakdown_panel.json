@@ -279,6 +279,12 @@
       "comment": "shooting's target priority is itemised under each option"
     },
     {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"squad F\") and not main._ai_suggestion_panel.full_text.contains(\"(U_BOYZ_F)\")",
+      "equals": true,
+      "comment": "two units both named Boyz are told apart by squad letter + wounds left, not the raw id"
+    },
+    {
       "act": "screenshot",
       "label": "03_breakdown_panel_shooting"
     }

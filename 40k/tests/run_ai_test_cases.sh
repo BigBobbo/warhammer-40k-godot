@@ -153,6 +153,9 @@ git -C "$REPO_ROOT" worktree remove --force "$WT" >/dev/null 2>&1
 python3 - "$USERDATA/ai_case_results_ref.json" "$USERDATA/ai_case_results_current.json" "$COMPARE_REF" <<'PY'
 import json, sys
 ref, cur, name = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), sys.argv[3]
+import re
+if re.fullmatch(r"[0-9a-f]{20,40}", name):
+    name = name[:9]  # a raw commit hash
 changed = 0
 fails = 0
 print("\nAI version comparison: %s  →  this working tree  (%d case(s))\n" % (name, len(cur)))

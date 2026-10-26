@@ -15,6 +15,12 @@
     },
     {
       "act": "execute_script",
+      "multiline": true,
+      "comment": "remember which test cases already exist, so the ones this scenario saves can be removed at the end (it must not litter the user's ai_test_cases folder)",
+      "script": "DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(\"user://ai_test_cases/\"))\ntree.root.set_meta(\"ai_cases_before\", DirAccess.get_files_at(\"user://ai_test_cases/\"))\nreturn true"
+    },
+    {
+      "act": "execute_script",
       "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
     },
     {
@@ -90,7 +96,7 @@
     },
     {
       "act": "execute_script",
-      "script": "return DirAccess.get_files_at(\"user://ai_test_cases/\").size()",
+      "script": "var before: PackedStringArray = tree.root.get_meta(\"ai_cases_before\", PackedStringArray())\nreturn DirAccess.get_files_at(\"user://ai_test_cases/\").size() - before.size()",
       "expect_min": 2,
       "multiline": true
     },
@@ -117,9 +123,16 @@
     },
     {
       "act": "execute_script",
-      "script": "return DirAccess.get_files_at(\"user://ai_test_cases/\").size()",
+      "script": "var before: PackedStringArray = tree.root.get_meta(\"ai_cases_before\", PackedStringArray())\nreturn DirAccess.get_files_at(\"user://ai_test_cases/\").size() - before.size()",
       "expect_min": 4,
       "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "cleanup: delete only the files this scenario created",
+      "script": "var before: PackedStringArray = tree.root.get_meta(\"ai_cases_before\", PackedStringArray())\nvar n := 0\nfor f in DirAccess.get_files_at(\"user://ai_test_cases/\"):\n\tif not (f in before):\n\t\tDirAccess.remove_absolute(ProjectSettings.globalize_path(\"user://ai_test_cases/\" + f))\n\t\tn += 1\nreturn n",
+      "expect_min": 4
     }
   ]
 }
