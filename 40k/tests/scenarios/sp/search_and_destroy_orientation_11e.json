@@ -162,6 +162,16 @@
       "equals": 1
     },
     {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Frame the whole 44x60 board (1760x2400 px) so both corner zones are visible.\nvar m = tree.root.get_node(\"Main\")\nm.view_zoom = 0.38\nm.view_offset = Vector2(880.0, 1200.0) - Vector2(960.0, 560.0) / 0.38\nm.update_view_transform()\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
       "act": "screenshot",
       "label": "01_sd_deployment_zones_top_left_bottom_right"
     },
