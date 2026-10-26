@@ -143,7 +143,7 @@ const DESC_OVERRIDES := {
 	"toggle_take_to_skies": "FLY: take to the skies (Movement)",
 	"toggle_missions_panel": "Show secondary missions",
 	"weapon_range_panel": "Weapon range comparison panel",
-	"ai_suggestion": "AI suggestion + reasoning (vs AI)",
+	"ai_suggestion": "AI suggestion + full reasoning breakdown",
 	"objective_check": "Print objective control to the game log",
 	"datasheet_modal": "Datasheet for the selected (or hovered) unit",
 }

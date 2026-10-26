@@ -792,6 +792,10 @@ func clear_action_log() -> void:
 # ON-DEMAND AI SUGGESTION — human-facing hint / AI-reasoning inspector
 # =============================================================================
 
+# Who/where/how the last request_suggestion() reasoned — read by the K breakdown
+# panel (AISuggestionBreakdownPanel) for its header, and by scenario asserts.
+var last_suggestion_meta: Dictionary = {}
+
 func request_suggestion() -> Dictionary:
 	"""Compute what the AI would do for the CURRENT active player and surface its
 	reasoning in the game log — WITHOUT executing anything. Built for a human
@@ -802,7 +806,9 @@ func request_suggestion() -> Dictionary:
 	(with _ai_* reasoning fields), or an empty dict if no suggestion is available."""
 	# Don't interleave with the AI actively taking its own turn — that path owns
 	# the decision caches while it runs.
+	last_suggestion_meta = {}
 	if _processing_turn:
+		last_suggestion_meta = {"empty_reason": "Suggestion unavailable — the AI is currently taking its turn."}
 		_log_ai_thinking(GameState.get_active_player(), "Suggestion unavailable — the AI is currently taking its turn.")
 		return {}
 
@@ -825,6 +831,8 @@ func request_suggestion() -> Dictionary:
 	var snapshot = GameState.create_snapshot(false)
 	var available = phase_manager.get_available_actions()
 	if available.is_empty():
+		last_suggestion_meta = {"player": player, "phase_name": PHASE_DISPLAY_NAMES.get(phase, "Unknown"),
+			"round": GameState.get_battle_round(), "empty_reason": "No actions available to suggest right now."}
 		_log_ai_thinking(player, "No actions available to suggest right now.")
 		emit_signal("ai_suggestion_ready", player, {}, "No actions available")
 		return {}
@@ -840,8 +848,15 @@ func request_suggestion() -> Dictionary:
 	if AIDifficultyConfigData.use_random_actions(difficulty):
 		difficulty = AIDifficultyConfigData.Difficulty.NORMAL
 
+	last_suggestion_meta = {
+		"player": player,
+		"phase_name": PHASE_DISPLAY_NAMES.get(phase, "Unknown"),
+		"round": GameState.get_battle_round(),
+		"difficulty": AIDifficultyConfigData.difficulty_name(difficulty),
+	}
 	var decision = AIDecisionMaker.suggest_action(phase, snapshot, available, player, difficulty)
 	if decision.is_empty():
+		last_suggestion_meta["empty_reason"] = "The AI could not find a recommended action here."
 		_log_ai_thinking(player, "The AI could not find a recommended action here.")
 		emit_signal("ai_suggestion_ready", player, {}, "No recommendation")
 		return {}

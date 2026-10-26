@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.52.0",
+      "date": "2026-10-26",
+      "summary": "The AI Suggestion (K) now opens a full breakdown of how the AI reached its pick, and works in local human-vs-human games too.",
+      "changes": [
+        "Suggest (K) opens a breakdown card: the chosen action, every scored option ranked with its score and gap to the pick, the score terms behind each option, and the AI's narrated reasoning.",
+        "The card flags close calls (runner-up nearly tied) and picks that were not the top-scored option, and says plainly when a decision has no scored options to show.",
+        "Suggest (K) is now available in local hot-seat human-vs-human games, so you can check what the AI would do at any point. 'Copy as text' puts the whole breakdown on the clipboard for bug reports."
+      ]
+    },
+    {
       "version": "1.51.0",
       "date": "2026-10-23",
       "summary": "Every Space Marine army now follows Codex: Space Marines (11th edition): the 87 generic datasheets with codex wargear, Combat Doctrines for all chapters, all 15 generic detachments with their rules, enhancements and 48 stratagems, and every generic datasheet ability.",

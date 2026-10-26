@@ -12,6 +12,7 @@ const GameLogPanelScript = preload("res://scripts/GameLogPanel.gd")
 const GameLogEntryScript = preload("res://scripts/GameLogEntry.gd")
 const UnitStatsCardPopupScript = preload("res://scripts/UnitStatsCardPopup.gd")
 const HotkeyHelpOverlayScript = preload("res://scripts/HotkeyHelpOverlay.gd")
+const AISuggestionBreakdownPanelScript = preload("res://scripts/AISuggestionBreakdownPanel.gd")
 # Controller glyphs for inline button labels (PRP §"inline button labels"): the
 # phase-action button advertises the keyboard [Enter] OR the pad Menu (☰) button
 # depending on the active device, so a Steam Deck player sees which controller
@@ -246,6 +247,8 @@ var _ai_speed_dropdown: OptionButton = null
 # On-demand "AI Suggestion" button (human-vs-AI mode) — asks the AI what it would
 # do and shows its reasoning without taking the action. Hidden until an AI game.
 var _ai_suggestion_button: Button = null
+# Full "why" card for the suggestion: ranked candidates + score terms + reasoning
+var _ai_suggestion_panel: PanelContainer = null
 
 # P2-44: Player turn screen-edge color indicator
 var _player_turn_border: PlayerTurnBorder = null
@@ -2656,7 +2659,15 @@ func refresh_ai_suggestion_button() -> void:
 	if ai_player and ai_player.enabled and not ai_player.is_spectator_mode():
 		if ai_player.is_ai_player(1) or ai_player.is_ai_player(2):
 			should_show = true
-	_ai_suggestion_button.visible = should_show
+	# The suggestion is also an AI-reasoning inspector: in a LOCAL hot-seat
+	# human-vs-human game the player can press K at any point to see what the AI
+	# would do there and why. Online human-vs-human stays hidden (it would be a
+	# hint against a remote opponent).
+	var suggest_show := should_show
+	if ai_player and not suggest_show and not ai_player.is_spectator_mode():
+		if not ai_player.is_ai_player(1) and not ai_player.is_ai_player(2):
+			suggest_show = not (NetworkManager and NetworkManager.is_networked())
+	_ai_suggestion_button.visible = suggest_show
 	# T7-36: the AI speed dropdown sits next to the suggestion button and follows
 	# the same visibility rule; re-sync its selection here too (covers the initial
 	# config apply, which happens before ai_speed_changed is connected).
@@ -2673,7 +2684,18 @@ func _on_ai_suggestion_pressed() -> void:
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if not ai_player:
 		return
-	ai_player.request_suggestion()
+	var decision: Dictionary = ai_player.request_suggestion()
+	_show_ai_suggestion_breakdown(decision, ai_player.last_suggestion_meta)
+
+func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> void:
+	"""Open (or refresh) the breakdown card showing how the suggestion was reached."""
+	if _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel):
+		_ai_suggestion_panel = AISuggestionBreakdownPanelScript.new()
+		_ai_suggestion_panel.name = "AISuggestionBreakdownPanel"
+		add_child(_ai_suggestion_panel)
+		_ai_suggestion_panel.z_index = UI_MODAL_Z
+	_ai_suggestion_panel.show_decision(decision, meta)
+	print("Main: AI suggestion breakdown shown (%d records)" % _ai_suggestion_panel.record_count)
 
 func _on_reserves_button_pressed() -> void:
 	if _selected_unit_for_reserves == "":

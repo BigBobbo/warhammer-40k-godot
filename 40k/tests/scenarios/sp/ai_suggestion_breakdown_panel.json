@@ -1,0 +1,225 @@
+{
+  "id": "ai_suggestion_breakdown_panel",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "ai.suggestion.human_vs_human",
+    "ai.suggestion.pure_preview",
+    "ui.HUD.ai_suggestion_button"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "AI suggestion breakdown in a LOCAL human-vs-human game. Both players are configured HUMAN; the Suggest (K) button must still be visible (it doubles as an AI-reasoning inspector). In P1's Movement phase, clicking it opens AISuggestionBreakdownPanel listing the chosen action, the scored decision records (ranked candidates, CHOSEN row, score terms) and the reasoning steps \u2014 and executes nothing (action log empty, phase/active player unchanged). Esc closes the card; the K hotkey reopens it, the card stays on-screen, and K in the Shooting phase re-reasons for that phase.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.is_ai_player(1) or AIPlayer.is_ai_player(2)",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_speed_dropdown.visible",
+      "equals": false
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AISuggestionBreakdownPanel",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== VERDICT ==\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== DECISIONS\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== REASONING\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.record_count",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.candidate_count",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"(CHOSEN)\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.last_suggestion_meta.get(\"player\", 0)",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_active_player()",
+      "equals": 1
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.position.y + main._ai_suggestion_panel.size.y <= main.get_viewport().get_visible_rect().size.y",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_breakdown_panel_movement"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.visible",
+      "equals": false
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.record_count",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "02_breakdown_panel_hotkey"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(8)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.last_suggestion_meta.get(\"phase_name\", \"\")",
+      "equals": "Shooting"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== VERDICT ==\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "03_breakdown_panel_shooting"
+    }
+  ]
+}
