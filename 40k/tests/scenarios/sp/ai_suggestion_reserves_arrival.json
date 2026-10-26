@@ -1,0 +1,77 @@
+{
+  "id": "ai_suggestion_reserves_arrival",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "scripts.AIDecisionMaker.reserves_arrival_record"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "K in round 2 Movement with a unit in Strategic Reserves: which unit arrives is an itemised ledger (points, Deep Strike, melee/ranged, round urgency, objectives).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state[\"meta\"][\"battle_round\"] = 2\nPhaseManager.transition_to_phase(7)\nreturn GameState.get_current_phase()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: decline any pending stratagem window so the phase's own decision is next",
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nreturn n"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== RESERVES ARRIVAL\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Unit's points\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_arrival_card"
+    }
+  ]
+}

@@ -1,0 +1,154 @@
+{
+  "id": "ai_suggestion_fight_order",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "scripts.AIDecisionMaker.fight_order_record"
+  ],
+  "fixture": "cus11e_c7_fight",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 10,
+  "description": "K breakdown for 'which unit fights next'. _score_fighter_priority is an itemised ledger (sum == score, difficulty noise booked as its own term) and the SELECT_FIGHTER step records every offered unit with its planned priority, so the card compares the activation candidates.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIDecisionMaker.set_ai_seed(7)\nreturn AIDecisionMaker.is_ai_seeded()",
+      "comment": "seed the AI's score noise so the fight order (and so which unit/target is reached) is the same every run",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight_order\" in types:\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested steps (pile-ins) until the 'which unit fights next' decision is reached."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight_order\" in types:\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested steps (pile-ins) until the 'which unit fights next' decision is reached."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight_order\" in types:\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested steps (pile-ins) until the 'which unit fights next' decision is reached."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight_order\" in types:\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested steps (pile-ins) until the 'which unit fights next' decision is reached."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight_order\" in types:\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested steps (pile-ins) until the 'which unit fights next' decision is reached."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight_order\" in types:\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested steps (pile-ins) until the 'which unit fights next' decision is reached."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight_order\" in types:\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested steps (pile-ins) until the 'which unit fights next' decision is reached."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== FIGHT ORDER\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"fights now\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"read as: ledger\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Damage it would deal\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fight_order_card"
+    }
+  ]
+}

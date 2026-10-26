@@ -1,0 +1,294 @@
+{
+  "id": "ai_suggestion_breakdown_panel",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "ai.suggestion.human_vs_human",
+    "ai.suggestion.pure_preview",
+    "ui.HUD.ai_suggestion_button"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "AI suggestion breakdown in a LOCAL human-vs-human game. Both players are configured HUMAN; the Suggest (K) button must still be visible (it doubles as an AI-reasoning inspector). In P1's Movement phase, clicking it opens AISuggestionBreakdownPanel listing the chosen action, the scored decision records (ranked candidates, CHOSEN row, score terms) and the reasoning steps \u2014 and executes nothing (action log empty, phase/active player unchanged). Esc closes the card; the K hotkey reopens it, the card stays on-screen, and K in the Shooting phase re-reasons for that phase.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.is_ai_player(1) or AIPlayer.is_ai_player(2)",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_speed_dropdown.visible",
+      "equals": false
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible and main._ai_suggestion_panel.get_path() == NodePath(\"/root/Main/AISuggestionBreakdownPanel\")",
+      "equals": true,
+      "comment": "the card is created on first click, so it is checked by script (the loop's selector dry-run cannot see it)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== THE AI WOULD ==\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"All options\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== AI'S NOTES\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.record_count",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.candidate_count",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Picked: \")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.last_suggestion_meta.get(\"player\", 0)",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_active_player()",
+      "equals": 1
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.position.y + main._ai_suggestion_panel.size.y <= main.get_viewport().get_visible_rect().size.y",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Why not\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"objective_priority\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"WEIGHT_\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"tuning settings read\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_breakdown_panel_movement"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.get_node(\"Body/Content/BreakdownText\").meta_clicked.emit(\"opt:0:\" + str(AIPlayer.request_suggestion().get(\"_ai_decision_records\", [{}])[0].get(\"chosen_index\", 0)))"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"\u25be hide\") or main._ai_suggestion_panel.breakdown_text.contains(\"      \")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.get_node(\"Body/Content/BreakdownText\").meta_clicked.emit(\"dev\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"tuning settings read\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_breakdown_details_and_dev_open"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.visible",
+      "equals": false
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.record_count",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "02_breakdown_panel_hotkey"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(8)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.last_suggestion_meta.get(\"phase_name\", \"\")",
+      "equals": "Shooting"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== THE AI WOULD ==\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"efficiency=\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Target priority\") and main._ai_suggestion_panel.full_text.contains(\"made of:\")",
+      "equals": true,
+      "comment": "shooting's target priority is itemised under each option"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"squad F\") and not main._ai_suggestion_panel.full_text.contains(\"(U_BOYZ_F)\")",
+      "equals": true,
+      "comment": "two units both named Boyz are told apart by squad letter + wounds left, not the raw id"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_breakdown_panel_shooting"
+    }
+  ]
+}

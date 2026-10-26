@@ -376,6 +376,18 @@ static var _thinking_steps: Array = []
 # Cleared at the start of each decide() call, and attached as "_ai_decision_records" to the result
 static var _decision_records: Array = []
 
+# Fight activation priorities from the last _build_fight_order_plan:
+# unit_id -> {score, terms}. Read by the SELECT_FIGHTER decision record.
+static var _fight_order_scores: Dictionary = {}
+
+# How each shooting target's priority was built (enemy_id -> terms, sum ==
+# target value), from the last focus-fire plan. Attached to shooting records.
+static var _target_value_terms: Dictionary = {}
+
+# The spots _find_terrain_aware_position scored for the unit being deployed
+# ({candidates, baseline}); read by the deployment decision record.
+static var _deploy_terrain_choice: Dictionary = {}
+
 # Config override system — allows runtime parameter tuning via ai_config.json
 # Loaded from user://ai_config.json exported by the AI Gameplay Visualizer web app
 static var _config_overrides: Dictionary = {}
@@ -1568,11 +1580,11 @@ const CHARGE_CHARACTER_BONUS: float = 2.0         # target is a CHARACTER
 const CHARGE_CANT_HURT_PENALTY: float = 1.0       # we cannot meaningfully damage it
 const CHARGE_TIE_UP_SHOOTER_BONUS: float = 2.0    # locks a long-range shooter in combat
 const FIGHT_MELEE_DAMAGE_WEIGHT: float = 2.0      # expected melee damage multiplier
-const FIGHT_BELOW_HALF_BONUS: float = 3.0         # target already below half strength
+const FIGHT_BELOW_HALF_BONUS: float = 3.0         # our expected damage takes the target below half its remaining wounds (not a wipe)
 const FIGHT_CHARACTER_BONUS: float = 2.0          # target is a CHARACTER
 const FIGHT_CANT_HURT_PENALTY: float = 3.0        # we cannot meaningfully damage it
 const FIGHT_CAN_WIPE_BONUS: float = 6.0           # we can likely destroy the unit outright
-const FIGHT_CAN_HALVE_BONUS: float = 3.0          # we can take it below half strength
+const FIGHT_CAN_HALVE_BONUS: float = 3.0          # target is ALREADY below half its starting models (names read swapped; see _score_fight_target)
 const FIGHT_OVERKILL_PENALTY: float = 1.0         # >3x the wounds remaining
 
 # --- Scoring horizon: can this unit still SCORE the objective? -------------
@@ -2825,7 +2837,108 @@ static func suggest_action(phase: int, snapshot: Dictionary, available_actions: 
 	var saved := _snapshot_planning_state()
 	var decision := decide(phase, snapshot, available_actions, player, difficulty)
 	_restore_planning_state(saved)
+	_attach_rule_based_record(decision, snapshot, available_actions)
 	return decision
+
+# Suggestion-only: decisions taken by a fixed chain of checks (command phase,
+# pile-in, disembark…) score nothing, so the card had nothing to show but a
+# warning. Record what was picked and the other actions that were available,
+# marked "rule_based" so the card explains it and test-case signatures skip
+# it. Not added on the live AI path — the game records feeding offline
+# analysis keep only real scored decisions.
+const _SIDE_RECORD_TYPES := ["proactive_stratagem", "window_rule", "disembark_check"]
+
+static func _attach_rule_based_record(decision: Dictionary, snapshot: Dictionary, available_actions: Array) -> void:
+	if decision.is_empty():
+		return
+	for r in decision.get("_ai_decision_records", []):
+		if not (str(r.get("decision_type", "")) in _SIDE_RECORD_TYPES):
+			return  # a real scored record exists
+	var chosen_key := _action_key(decision)
+	var cands: Array = [{"description": str(decision.get("_ai_description", decision.get("type", ""))), "score": 1.0, "key": chosen_key}]
+	var seen := {chosen_key: true}
+	for a in available_actions:
+		var k := _action_key(a)
+		if seen.has(k):
+			continue
+		seen[k] = true
+		cands.append({"description": _describe_available_action(a, snapshot), "score": 0.0, "key": k})
+	if cands.size() < 2:
+		return  # nothing else was possible — the card says so from the meta
+	var recs: Array = decision.get("_ai_decision_records", []).duplicate()
+	var rec := {"decision_type": "rule_based", "unit_id": "", "unit_name": "",
+		"candidates": cands.slice(0, 16), "chosen_index": 0, "parameters_used": {},
+		"context": {"options_considered": cands.size()}}
+	recs.push_front(rec)
+	decision["_ai_decision_records"] = recs
+
+static func _action_key(a: Dictionary) -> String:
+	var who := str(a.get("actor_unit_id", a.get("unit_id", a.get("target_unit_id", ""))))
+	return "%s|%s|%s" % [str(a.get("type", "")), who, str(a.get("stratagem_id", a.get("mission_index", "")))]
+
+static func _describe_available_action(a: Dictionary, snapshot: Dictionary) -> String:
+	var t := str(a.get("type", "")).replace("_", " ").to_lower()
+	var sid := str(a.get("stratagem_id", ""))
+	if sid != "":
+		var sm = _stratagem_manager()
+		var sname := str(sm.get_stratagem(sid).get("name", sid)) if sm else sid
+		return "Use stratagem %s" % sname
+	var uid := str(a.get("actor_unit_id", a.get("unit_id", "")))
+	if uid != "":
+		return "%s — %s" % [t.capitalize(), _dn(snapshot.get("units", {}).get(uid, {}), uid)]
+	return t.capitalize()
+
+static func suggest_pending_window(phase, difficulty: int) -> Dictionary:
+	"""K during a pending stratagem window / shooting reactive window: answer
+	THAT decision for the player who owes it, with its reasoning attached, as
+	a pure preview. Returns {decider, decision} or {} when nothing is pending.
+	Mirrors AIPlayer._answer_ai_owned_pending_window."""
+	if phase == null:
+		return {}
+	var decider := 0
+	var result := {}
+	var saved := _snapshot_planning_state()
+	var prev_difficulty := _current_difficulty
+	_current_difficulty = difficulty
+	_thinking_steps.clear()
+	_decision_records.clear()
+	_thinking_context = {}
+	if phase.has_method("has_pending_stratagem_window") and phase.has_pending_stratagem_window():
+		var w: Dictionary = phase.get_pending_stratagem_window()
+		decider = int(w.get("player", 0))
+		var wid := str(w.get("window_id", ""))
+		var d: Dictionary = decide_window_stratagem(decider, wid, w.get("offers", []), w.get("ctx", {}))
+		if d.get("use", false):
+			if not d.has("name"):
+				for o in w.get("offers", []):
+					if str(o.get("stratagem_id", "")) == str(d.get("stratagem_id", "")):
+						d["name"] = str(o.get("name", ""))
+			var tu = _game_state().state.get("units", {}).get(str(d.get("target_unit_id", "")), {}) if _game_state() else {}
+			result = {"type": "USE_WINDOW_STRATAGEM", "player": decider, "window_id": wid,
+				"stratagem_id": str(d.get("stratagem_id", "")), "target_unit_id": str(d.get("target_unit_id", "")),
+				"context": d.get("context", {}),
+				"_ai_description": "Use %s on %s (%s window)" % [str(d.get("name", d.get("stratagem_id", ""))),
+					_dn(tu, str(d.get("target_unit_id", ""))), wid.replace("_", " ")]}
+		else:
+			result = {"type": "DECLINE_WINDOW_STRATAGEM", "player": decider, "window_id": wid,
+				"_ai_description": "Decline the %s stratagem window" % wid.replace("_", " ")}
+	elif "awaiting_reactive_stratagem" in phase and phase.awaiting_reactive_stratagem and phase.has_method("_check_reactive_stratagems"):
+		var gs = _game_state()
+		var active := int(gs.get_active_player()) if gs else 1
+		decider = 2 if active == 1 else 1
+		var opp: Dictionary = phase._check_reactive_stratagems()
+		result = evaluate_reactive_stratagem(decider, opp.get("available_stratagems", []),
+			opp.get("target_unit_ids", []), gs.create_snapshot(false) if gs else {})
+	if not result.is_empty():
+		if not _thinking_steps.is_empty():
+			result["_ai_thinking_steps"] = _thinking_steps.duplicate()
+		if not _decision_records.is_empty():
+			result["_ai_decision_records"] = _decision_records.duplicate(true)
+	_current_difficulty = prev_difficulty
+	_restore_planning_state(saved)
+	if result.is_empty():
+		return {}
+	return {"decider": decider, "decision": result}
 
 static func _snapshot_planning_state() -> Dictionary:
 	# Deep-copy every static cache decide() may write that outlives a single call
@@ -2845,6 +2958,8 @@ static func _snapshot_planning_state() -> Dictionary:
 		"turn_movement_plan": _turn_movement_plan.duplicate(true),
 		"fight_order_plan": _fight_order_plan.duplicate(true),
 		"fight_order_plan_built": _fight_order_plan_built.duplicate(true),
+		"fight_order_scores": _fight_order_scores.duplicate(true),
+		"target_value_terms": _target_value_terms.duplicate(true),
 		"fight_order_logged": _fight_order_logged,
 		"fight_attack_retry_count": _fight_attack_retry_count.duplicate(true),
 		"charge_coordination": _charge_coordination.duplicate(true),
@@ -2887,6 +3002,8 @@ static func _restore_planning_state(s: Dictionary) -> void:
 	_turn_movement_plan = s["turn_movement_plan"]
 	_fight_order_plan = s["fight_order_plan"]
 	_fight_order_plan_built = s["fight_order_plan_built"]
+	_fight_order_scores = s["fight_order_scores"]
+	_target_value_terms = s["target_value_terms"]
 	_fight_order_logged = s["fight_order_logged"]
 	_fight_attack_retry_count = s["fight_attack_retry_count"]
 	_charge_coordination = s["charge_coordination"]
@@ -4256,7 +4373,8 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 		if current_reserves_count + unit_slots > max_reserves_units:
 			continue
 
-		var score = _score_unit_for_reserves(unit, unit_id, reserve_type, snapshot, player)
+		var res_terms := {}
+		var score = _score_unit_for_reserves(unit, unit_id, reserve_type, snapshot, player, res_terms)
 
 		var presence_penalty := 0.0
 		var board_units_after = total_army_units - current_reserves_count - unit_slots
@@ -4279,8 +4397,8 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 			"description": "%s -> %s" % [_dn(unit, unit_id),
 				"Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"],
 			"score": score, "key": unit_id,
-			"score_breakdown": {"reserve_value": score + presence_penalty,
-				"board_presence_penalty": -presence_penalty, "points": float(unit_points)}})
+			"score_breakdown": res_terms.merged({
+				"board_presence_penalty": -presence_penalty, "points": float(unit_points)})})
 		if score > 0.0:
 			scored_candidates.append({
 				"action": action,
@@ -4321,7 +4439,7 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 
 
 static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_type: String,
-		snapshot: Dictionary, player: int) -> float:
+		snapshot: Dictionary, player: int, terms: Dictionary = {}) -> float:
 	"""Score how much a unit benefits from being placed in reserves.
 	Higher score = better reserves candidate. Returns 0.0 for units that should not be reserved.
 
@@ -4374,30 +4492,30 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 		# Deep Strike allows deployment anywhere >9" from enemies — extremely flexible.
 		# Melee units benefit most: arrive close, charge next turn.
 		if has_melee and not has_ranged:
-			score += get_param("RESERVES_DS_PURE_MELEE", RESERVES_DS_PURE_MELEE)  # Pure melee — Deep Strike is their ideal delivery method
+			score += _t_add(terms, "res_deep_strike_fit", get_param("RESERVES_DS_PURE_MELEE", RESERVES_DS_PURE_MELEE))  # Pure melee — Deep Strike is their ideal delivery method
 		elif has_melee:
-			score += get_param("RESERVES_DS_MIXED_MELEE", RESERVES_DS_MIXED_MELEE)  # Mixed melee/ranged still benefits significantly
+			score += _t_add(terms, "res_deep_strike_fit", get_param("RESERVES_DS_MIXED_MELEE", RESERVES_DS_MIXED_MELEE))  # Mixed melee/ranged still benefits significantly
 		elif has_ranged and max_range <= 18:
-			score += get_param("RESERVES_DS_SHORT_RANGE", RESERVES_DS_SHORT_RANGE)  # Very short-range shooters (flamers, meltas) need positioning
+			score += _t_add(terms, "res_deep_strike_fit", get_param("RESERVES_DS_SHORT_RANGE", RESERVES_DS_SHORT_RANGE))  # Very short-range shooters (flamers, meltas) need positioning
 		elif has_ranged and max_range <= 24:
-			score += get_param("RESERVES_DS_MID_RANGE", RESERVES_DS_MID_RANGE)  # Short-range shooters benefit from flexible arrival
+			score += _t_add(terms, "res_deep_strike_fit", get_param("RESERVES_DS_MID_RANGE", RESERVES_DS_MID_RANGE))  # Short-range shooters benefit from flexible arrival
 		else:
-			score += get_param("RESERVES_DS_LONG_RANGE", RESERVES_DS_LONG_RANGE)  # Long-range shooters have marginal benefit from Deep Strike
+			score += _t_add(terms, "res_deep_strike_fit", get_param("RESERVES_DS_LONG_RANGE", RESERVES_DS_LONG_RANGE))  # Long-range shooters have marginal benefit from Deep Strike
 
 		# Bonus for high-value units (worth positioning carefully)
-		score += clamp(points / get_param("RESERVES_DS_POINTS_DIVISOR", RESERVES_DS_POINTS_DIVISOR), 0.0, get_param("RESERVES_DS_POINTS_CAP", RESERVES_DS_POINTS_CAP))
+		score += _t_add(terms, "res_points", clamp(points / get_param("RESERVES_DS_POINTS_DIVISOR", RESERVES_DS_POINTS_DIVISOR), 0.0, get_param("RESERVES_DS_POINTS_CAP", RESERVES_DS_POINTS_CAP)))
 
 	elif reserve_type == "strategic_reserves":
 		# Strategic reserves arrive within 6" of a board edge — less flexible but still useful.
 		# Primarily benefits fast melee units that can exploit flank entry.
 		if has_melee and not has_ranged:
-			score += get_param("RESERVES_SR_PURE_MELEE", RESERVES_SR_PURE_MELEE)  # Pure melee benefits from flank delivery
+			score += _t_add(terms, "res_flank_fit", get_param("RESERVES_SR_PURE_MELEE", RESERVES_SR_PURE_MELEE))  # Pure melee benefits from flank delivery
 		elif has_melee:
-			score += get_param("RESERVES_SR_MIXED_MELEE", RESERVES_SR_MIXED_MELEE)  # Mixed units get moderate benefit
+			score += _t_add(terms, "res_flank_fit", get_param("RESERVES_SR_MIXED_MELEE", RESERVES_SR_MIXED_MELEE))  # Mixed units get moderate benefit
 		elif has_ranged and max_range <= 18:
-			score += get_param("RESERVES_SR_SHORT_RANGE", RESERVES_SR_SHORT_RANGE)  # Short-range shooters can use edge entry
+			score += _t_add(terms, "res_flank_fit", get_param("RESERVES_SR_SHORT_RANGE", RESERVES_SR_SHORT_RANGE))  # Short-range shooters can use edge entry
 		else:
-			score += get_param("RESERVES_SR_RANGED", RESERVES_SR_RANGED)  # Ranged units generally want Turn 1 shooting
+			score += _t_add(terms, "res_flank_fit", get_param("RESERVES_SR_RANGED", RESERVES_SR_RANGED))  # Ranged units generally want Turn 1 shooting
 
 		# Fast units capitalize better on board edge entry (more distance after arriving)
 		var movement = 0
@@ -4412,15 +4530,15 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 			elif m_stat is int or m_stat is float:
 				movement = max(movement, int(m_stat))
 		if movement >= 12:
-			score += get_param("RESERVES_SR_MOVE_12", RESERVES_SR_MOVE_12)  # Very fast units (bikes, cavalry) are great from reserves
+			score += _t_add(terms, "res_speed", get_param("RESERVES_SR_MOVE_12", RESERVES_SR_MOVE_12))  # Very fast units (bikes, cavalry) are great from reserves
 		elif movement >= 10:
-			score += get_param("RESERVES_SR_MOVE_10", RESERVES_SR_MOVE_10)
+			score += _t_add(terms, "res_speed", get_param("RESERVES_SR_MOVE_10", RESERVES_SR_MOVE_10))
 		elif movement >= 8:
-			score += get_param("RESERVES_SR_MOVE_8", RESERVES_SR_MOVE_8)
+			score += _t_add(terms, "res_speed", get_param("RESERVES_SR_MOVE_8", RESERVES_SR_MOVE_8))
 
 		# Bonus for melee-oriented high-value units
 		if has_melee:
-			score += clamp(points / get_param("RESERVES_SR_POINTS_DIVISOR", RESERVES_SR_POINTS_DIVISOR), 0.0, get_param("RESERVES_SR_POINTS_CAP", RESERVES_SR_POINTS_CAP))
+			score += _t_add(terms, "res_points", clamp(points / get_param("RESERVES_SR_POINTS_DIVISOR", RESERVES_SR_POINTS_DIVISOR), 0.0, get_param("RESERVES_SR_POINTS_CAP", RESERVES_SR_POINTS_CAP)))
 
 	# --- Universal modifiers ---
 
@@ -4428,17 +4546,17 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 	# (they have range and durability, and losing a turn of shooting is costly)
 	if "VEHICLE" in keywords or "MONSTER" in keywords:
 		if not has_melee or has_ranged:
-			score *= get_param("RESERVES_VEHICLE_RANGED_PENALTY", RESERVES_VEHICLE_RANGED_PENALTY)  # Significant penalty unless they're melee-focused
+			score = _t_mul(terms, "res_vehicle_monster", score, get_param("RESERVES_VEHICLE_RANGED_PENALTY", RESERVES_VEHICLE_RANGED_PENALTY))  # Significant penalty unless they're melee-focused
 		else:
-			score *= get_param("RESERVES_VEHICLE_MELEE_PENALTY", RESERVES_VEHICLE_MELEE_PENALTY)  # Melee vehicles/monsters still get some penalty
+			score = _t_mul(terms, "res_vehicle_monster", score, get_param("RESERVES_VEHICLE_MELEE_PENALTY", RESERVES_VEHICLE_MELEE_PENALTY))  # Melee vehicles/monsters still get some penalty
 
 	# Purely long-range ranged units should stay on the table for Turn 1 shooting
 	if has_ranged and not has_melee and max_range >= 36:
-		score *= get_param("RESERVES_LONG_RANGE_PENALTY", RESERVES_LONG_RANGE_PENALTY)  # Heavy ranged platforms (Devastators, Leman Russ) want to shoot immediately
+		score = _t_mul(terms, "res_long_range", score, get_param("RESERVES_LONG_RANGE_PENALTY", RESERVES_LONG_RANGE_PENALTY))  # Heavy ranged platforms (Devastators, Leman Russ) want to shoot immediately
 
 	# Cheap screening units are sometimes better deployed as screens
 	if points <= get_param_int("SCREEN_CHEAP_UNIT_POINTS", SCREEN_CHEAP_UNIT_POINTS) and not has_deep_strike:
-		score *= get_param("RESERVES_CHEAP_SCREEN_PENALTY", RESERVES_CHEAP_SCREEN_PENALTY)  # Cheap units are better as Turn 1 screens than reserves
+		score = _t_mul(terms, "res_cheap_screen", score, get_param("RESERVES_CHEAP_SCREEN_PENALTY", RESERVES_CHEAP_SCREEN_PENALTY))  # Cheap units are better as Turn 1 screens than reserves
 
 	var unit_name = _dn(unit, unit_id)
 	var type_label = "DS" if reserve_type == "deep_strike" else "SR"
@@ -4596,6 +4714,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 
 	# T7-18: Terrain-aware position adjustment
 	var terrain_features = snapshot.get("board", {}).get("terrain_features", [])
+	_deploy_terrain_choice = {}
 	var best_pos = _find_terrain_aware_position(
 		baseline_pos, unit_role, terrain_features, zone_bounds,
 		is_top_zone, objectives, snapshot, player
@@ -4607,45 +4726,67 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	# Score a ring of alternates around the chosen spot with the same terrain
 	# scorer that produced it, so the record shows what the pick beat.
 	var dep_scored: Array = []
-	var dep_probe: Array = [best_pos]
-	for ang in [0.0, 1.2566, 2.5133, 3.7699, 5.0265]:
-		var probe: Vector2 = best_pos + Vector2(cos(ang), sin(ang)) * (6.0 * PIXELS_PER_INCH)
-		probe.x = clampf(probe.x, zone_bounds.min_x, zone_bounds.max_x)
-		probe.y = clampf(probe.y, zone_bounds.min_y, zone_bounds.max_y)
-		dep_probe.append(probe)
-	for i in range(dep_probe.size()):
-		var pp: Vector2 = dep_probe[i]
-		var obj_gain := 0.0
-		for op in objectives:
-			obj_gain = maxf(obj_gain, 24.0 - minf(24.0, pp.distance_to(op) / PIXELS_PER_INCH))
-		# Spacing from what is already deployed: a spot that stacks on a
-		# friendly is worse than one that does not, whatever else it offers.
-		var crowding := 0.0
-		for ouid in snapshot.get("units", {}):
-			var ou = snapshot.units[ouid]
-			if int(ou.get("owner", 0)) != player:
-				continue
-			if int(ou.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
-				continue
-			var oc2 = _get_unit_centroid(ou)
-			if oc2 == Vector2.INF:
-				continue
-			var gap := oc2.distance_to(pp) / PIXELS_PER_INCH
-			if gap < 6.0:
-				crowding -= (6.0 - gap)
-		dep_scored.append({
-			"description": ("chosen spot" if i == 0 else "alternate %d" % i) + " (%.0f, %.0f)" % [pp.x, pp.y],
-			"score": obj_gain + crowding, "key": str(i),
-			"pos": [pp.x, pp.y],
-			"score_breakdown": {"objective_proximity": obj_gain, "crowding": crowding}})
-	# PM-2a: `source` makes plan adherence countable per game per seat —
-	# "formula" when no plan applies at all, "formula_fallback" when a plan is
-	# active but did not cover (or could not legally place) this unit.
-	_record_choice("deployment", unit_id, unit_name, dep_scored, "0",
-		{"phase": "deployment", "role": unit_role,
-			"source": "formula_fallback" if not plan_name.is_empty() else "formula",
-			"plan": plan_name,
-			"unit_pos": [best_pos.x, best_pos.y]})
+	var dep_real: Array = _deploy_terrain_choice.get("candidates", [])
+	if not dep_real.is_empty():
+		# The real field: every terrain spot the picker scored, plus the
+		# column-layout spot it uses when none clears 1.0.
+		var real_pick := "baseline"
+		for ri in range(dep_real.size()):
+			var rc: Dictionary = dep_real[ri]
+			var rp: Vector2 = rc.pos
+			if rp.distance_to(best_pos) < 0.5:
+				real_pick = str(ri)
+			dep_scored.append({"description": "Next to %s%s (%.0f, %.0f)" % [str(rc.get("terrain_type", "terrain")).replace("_", " "),
+					(" — " + str(rc.get("height", ""))) if str(rc.get("height", "")) != "" else "", rp.x, rp.y],
+				"score": float(rc.score), "key": str(ri), "pos": [rp.x, rp.y], "score_breakdown": (rc.get("terms", {}) as Dictionary).duplicate()})
+		var bp: Vector2 = _deploy_terrain_choice.get("baseline", best_pos)
+		dep_scored.append({"description": "Column-layout spot (%.0f, %.0f) — used unless a terrain spot scores 1.0+" % [bp.x, bp.y],
+			"score": 1.0, "key": "baseline", "pos": [bp.x, bp.y], "score_breakdown": {"deploy_baseline_bar": 1.0}})
+		_record_choice("deployment", unit_id, unit_name, dep_scored, real_pick,
+			{"phase": "deployment", "role": unit_role, "source": "terrain-aware placement",
+				"plan": plan_name, "unit_pos": [best_pos.x, best_pos.y]})
+	# No terrain spot was scored: the column-layout spot stands. The ring of
+	# alternates below is a rough comparison for offline analysis only.
+	if dep_real.is_empty():
+		var dep_probe: Array = [best_pos]
+		for ang in [0.0, 1.2566, 2.5133, 3.7699, 5.0265]:
+			var probe: Vector2 = best_pos + Vector2(cos(ang), sin(ang)) * (6.0 * PIXELS_PER_INCH)
+			probe.x = clampf(probe.x, zone_bounds.min_x, zone_bounds.max_x)
+			probe.y = clampf(probe.y, zone_bounds.min_y, zone_bounds.max_y)
+			dep_probe.append(probe)
+		for i in range(dep_probe.size()):
+			var pp: Vector2 = dep_probe[i]
+			var obj_gain := 0.0
+			for op in objectives:
+				obj_gain = maxf(obj_gain, 24.0 - minf(24.0, pp.distance_to(op) / PIXELS_PER_INCH))
+			# Spacing from what is already deployed: a spot that stacks on a
+			# friendly is worse than one that does not, whatever else it offers.
+			var crowding := 0.0
+			for ouid in snapshot.get("units", {}):
+				var ou = snapshot.units[ouid]
+				if int(ou.get("owner", 0)) != player:
+					continue
+				if int(ou.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
+					continue
+				var oc2 = _get_unit_centroid(ou)
+				if oc2 == Vector2.INF:
+					continue
+				var gap := oc2.distance_to(pp) / PIXELS_PER_INCH
+				if gap < 6.0:
+					crowding -= (6.0 - gap)
+			dep_scored.append({
+				"description": ("chosen spot" if i == 0 else "alternate %d — not considered: no terrain fits the role, so the column-layout spot is used" % i) + " (%.0f, %.0f)" % [pp.x, pp.y],
+				"score": obj_gain + crowding, "key": str(i), "eligible": i == 0,
+				"pos": [pp.x, pp.y],
+				"score_breakdown": {"objective_proximity": obj_gain, "crowding": crowding}})
+		# PM-2a: `source` makes plan adherence countable per game per seat —
+		# "formula" when no plan applies at all, "formula_fallback" when a plan is
+		# active but did not cover (or could not legally place) this unit.
+		_record_choice("deployment", unit_id, unit_name, dep_scored, "0",
+			{"phase": "deployment", "role": unit_role,
+				"source": "formula_fallback" if not plan_name.is_empty() else "formula",
+				"plan": plan_name,
+				"unit_pos": [best_pos.x, best_pos.y]})
 
 	# Generate formation positions
 	var models = unit.get("models", [])
@@ -5132,8 +5273,13 @@ static func _find_terrain_aware_position(
 				depth_bonus = 1.0 * (1.0 - clamp(dist_from_back / (abs(front_y - back_y) + 1.0), 0.0, 1.0))
 
 			var total_score = terrain_score + obj_bonus + depth_bonus - drift_penalty
-			candidates.append({"pos": candidate_pos, "score": total_score, "terrain_type": terrain.get("type", ""), "height": terrain.get("height_category", "")})
+			candidates.append({"pos": candidate_pos, "score": total_score, "terrain_type": terrain.get("type", ""), "height": terrain.get("height_category", ""),
+				"terms": {"deploy_terrain": terrain_score, "deploy_objectives": obj_bonus, "deploy_depth": depth_bonus, "deploy_drift": -drift_penalty}})
 
+	# The decision record (_deploy_terrain_choice) is filled from the REAL
+	# candidates this picker scored, plus the column-layout spot it falls
+	# back to when nothing clears 1.0.
+	_deploy_terrain_choice = {"candidates": candidates.duplicate(true), "baseline": baseline_pos}
 	# If no good terrain candidates, fall back to baseline
 	if candidates.is_empty():
 		print("AIDecisionMaker: No terrain candidates for %s role, using baseline" % role)
@@ -5342,6 +5488,7 @@ static func _find_best_scout_objective(
 
 	var best_pos = Vector2.INF
 	var best_score = -INF
+	var scout_scored: Array = []  # decision record (sum of terms == score)
 
 	for i in range(objectives.size()):
 		var obj_pos = objectives[i]
@@ -5369,35 +5516,55 @@ static func _find_best_scout_objective(
 
 		# Score this objective for scouting
 		var score = 0.0
+		var sc_terms := {}
+		var obj_label := "objective"
+		for od2 in obj_data:
+			var od2_pos = od2.get("position", null)
+			if od2_pos == null:
+				continue
+			var od2_vec = od2_pos if od2_pos is Vector2 else Vector2(float(od2_pos.get("x", 0)), float(od2_pos.get("y", 0)))
+			if od2_vec.distance_to(obj_pos) < 1.0:
+				obj_label = str(od2.get("id", "objective"))
+				break
 
 		# Uncontrolled objectives are highest priority for scouts
 		if friendly_oc == 0 and enemy_oc == 0:
-			score += get_param("SCOUT_OBJ_UNCONTROLLED", SCOUT_OBJ_UNCONTROLLED)
+			score += _t_add(sc_terms, "scout_obj_control", get_param("SCOUT_OBJ_UNCONTROLLED", SCOUT_OBJ_UNCONTROLLED))
 		# Objectives not yet secured by friendlies
 		elif friendly_oc == 0 and enemy_oc > 0:
-			score += get_param("SCOUT_OBJ_ENEMY_HELD", SCOUT_OBJ_ENEMY_HELD)  # Enemy holds it, scout can get there first
+			score += _t_add(sc_terms, "scout_obj_control", get_param("SCOUT_OBJ_ENEMY_HELD", SCOUT_OBJ_ENEMY_HELD))  # Enemy holds it, scout can get there first
 		elif friendly_oc > 0 and friendly_oc <= enemy_oc:
-			score += get_param("SCOUT_OBJ_CONTESTED", SCOUT_OBJ_CONTESTED)  # Contested, reinforce
+			score += _t_add(sc_terms, "scout_obj_control", get_param("SCOUT_OBJ_CONTESTED", SCOUT_OBJ_CONTESTED))  # Contested, reinforce
 		elif friendly_oc > enemy_oc and friendly_oc > 0:
-			score -= get_param("SCOUT_OBJ_ALREADY_HELD", SCOUT_OBJ_ALREADY_HELD)  # Already held, lower priority
+			score += _t_add(sc_terms, "scout_obj_control", -get_param("SCOUT_OBJ_ALREADY_HELD", SCOUT_OBJ_ALREADY_HELD))  # Already held, lower priority
 
 		# Prefer no-man's-land objectives (center of the board)
 		if obj_zone == "no_mans_land":
-			score += get_param("SCOUT_OBJ_NO_MANS_LAND", SCOUT_OBJ_NO_MANS_LAND)
+			score += _t_add(sc_terms, "scout_no_mans_land", get_param("SCOUT_OBJ_NO_MANS_LAND", SCOUT_OBJ_NO_MANS_LAND))
 		# Home objectives are less valuable to scout toward (already nearby)
 		if is_home:
-			score -= get_param("SCOUT_OBJ_ENEMY_ZONE", SCOUT_OBJ_ENEMY_ZONE)
+			score += _t_add(sc_terms, "scout_home_objective", -get_param("SCOUT_OBJ_ENEMY_ZONE", SCOUT_OBJ_ENEMY_ZONE))
 		# Don't rush enemy home objectives with scouts
 		if is_enemy_home:
-			score -= get_param("SCOUT_OBJ_OWN_ZONE", SCOUT_OBJ_OWN_ZONE)
+			score += _t_add(sc_terms, "scout_enemy_home", -get_param("SCOUT_OBJ_OWN_ZONE", SCOUT_OBJ_OWN_ZONE))
 
 		# Closer objectives score better (within scout range is ideal)
-		score -= dist_inches * get_param("SCOUT_OBJ_DISTANCE_PENALTY", SCOUT_OBJ_DISTANCE_PENALTY)
+		score += _t_add(sc_terms, "scout_distance", -(dist_inches * get_param("SCOUT_OBJ_DISTANCE_PENALTY", SCOUT_OBJ_DISTANCE_PENALTY)))
+
+		var sc_bd: Dictionary = sc_terms.duplicate()
+		sc_bd["distance_inches"] = dist_inches
+		scout_scored.append({"description": "Scout toward %s (%s)" % [obj_label, obj_zone.replace("_", " ")],
+			"score": score, "key": "%d,%d" % [roundi(obj_pos.x), roundi(obj_pos.y)],
+			"pos": [obj_pos.x, obj_pos.y], "score_breakdown": sc_bd})
 
 		if score > best_score:
 			best_score = score
 			best_pos = obj_pos
 
+	if best_pos != Vector2.INF and not scout_scored.is_empty():
+		_record_choice("scout", str(unit.get("id", "")), _dn(unit, str(unit.get("id", ""))), scout_scored,
+			"%d,%d" % [roundi(best_pos.x), roundi(best_pos.y)],
+			{"phase": "scout", "unit_pos": [centroid.x, centroid.y]})
 	return best_pos
 
 static func _compute_scout_movement(
@@ -5965,6 +6132,8 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		if secondary_mgr_r and secondary_mgr_r.is_initialized(player):
 			var active_missions_r = secondary_mgr_r.get_active_missions(player)
 			var player_cp_r = int(snapshot.get("players", {}).get(str(player), {}).get("cp", 0))
+			var rep_scored: Array = []  # decision record
+			var rep_pick := "keep"
 			for action in replace_actions:
 				var m_idx = action.get("mission_index", -1)
 				if m_idx >= 0 and m_idx < active_missions_r.size():
@@ -5972,9 +6141,15 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 					var m_name = mission.get("name", "Unknown")
 					var score = _evaluate_mission_achievability(snapshot, mission, player, replace_round)
 					print("AIDecisionMaker: [REPLACE-MISSION] Evaluating newly drawn '%s': achievability = %.2f" % [m_name, score])
+					rep_scored.append({"description": "Replace '%s'" % m_name, "score": -score, "key": str(m_idx),
+						"score_breakdown": {"achievability": score}})
 					# Replace if mission is poorly achievable (action-based = 0.1, or low achievability)
 					if score <= 0.25 and player_cp_r >= 1:
 						print("AIDecisionMaker: [REPLACE-MISSION] Replacing bad draw '%s' (score=%.2f, CP=%d)" % [m_name, score, player_cp_r])
+						rep_scored.append({"description": "Keep the draw", "score": -0.25, "key": "keep",
+							"score_breakdown": {"discard_threshold": 0.25, "cp_available": float(player_cp_r)}})
+						_record_choice("replace_secondary", "", "new secondary draw", rep_scored, str(m_idx),
+							{"phase": "command", "round": replace_round})
 						return {
 							"type": "REPLACE_SECONDARY_MISSION",
 							"mission_index": m_idx,
@@ -5982,6 +6157,11 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 						}
 					else:
 						print("AIDecisionMaker: [REPLACE-MISSION] Keeping '%s' (score=%.2f)" % [m_name, score])
+			if not rep_scored.is_empty():
+				rep_scored.append({"description": "Keep the draw" + (" (no CP to replace)" if player_cp_r < 1 else ""),
+					"score": -0.25, "key": "keep", "score_breakdown": {"discard_threshold": 0.25, "cp_available": float(player_cp_r)}})
+				_record_choice("replace_secondary", "", "new secondary draw", rep_scored, rep_pick,
+					{"phase": "command", "round": replace_round})
 
 	# Evaluate New Orders — swap unachievable secondary missions for better ones (costs 1 CP)
 	var new_orders_actions = []
@@ -6010,6 +6190,18 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			# Round 1-2: swap anything below 0.45 achievability
 			# Round 3+: swap anything below 0.30 achievability (less time to benefit)
 			var swap_threshold = 0.30 if cmd_battle_round >= 3 else 0.45
+			var no_scored: Array = []  # decision record: swap which card, or keep
+			for ni in range(active_missions.size()):
+				var na := float(_evaluate_mission_achievability(snapshot, active_missions[ni], player, cmd_battle_round))
+				no_scored.append({"description": "New Orders: swap '%s'" % active_missions[ni].get("name", "Unknown"),
+					"score": -na, "key": str(ni), "score_breakdown": {"achievability": na}})
+			var no_swap: bool = worst_idx >= 0 and worst_score < swap_threshold and player_cp >= 1
+			if not no_scored.is_empty():
+				no_scored.append({"description": "Keep every secondary" + (" (no CP)" if player_cp < 1 else ""),
+					"score": -swap_threshold, "key": "keep",
+					"score_breakdown": {"discard_threshold": swap_threshold, "cp_available": float(player_cp)}})
+				_record_choice("new_orders", "", "secondaries", no_scored, str(worst_idx) if no_swap else "keep",
+					{"phase": "command", "round": cmd_battle_round})
 			if worst_idx >= 0 and worst_score < swap_threshold and player_cp >= 1:
 				# Find matching action
 				for action in new_orders_actions:
@@ -6905,7 +7097,8 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 		var points = int(unit.get("meta", {}).get("points", 0))
 
 		# Calculate deployment priority score
-		var score = _score_reserves_deployment(unit, unit_id, reserve_type, objectives, enemies, snapshot, player, battle_round)
+		var arr_terms := {}
+		var score = _score_reserves_deployment(unit, unit_id, reserve_type, objectives, enemies, snapshot, player, battle_round, arr_terms)
 
 		print("AIDecisionMaker: [RESERVES]   %s (%s, %dpts) — deployment score: %.1f" % [unit_name, reserve_type, points, score])
 
@@ -6914,7 +7107,8 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 			"unit": unit,
 			"reserve_type": reserve_type,
 			"score": score,
-			"name": unit_name
+			"name": unit_name,
+			"terms": arr_terms,
 		})
 
 	# Sort by score (highest first)
@@ -7042,6 +7236,7 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 
 		if best_placement_result.is_empty():
 			print("AIDecisionMaker: [RESERVES]   %s — no valid formation placement with any placement type, skipping" % unit_name)
+			candidate["no_room"] = true
 			continue
 
 		var chosen_type = best_placement_result.placement_type
@@ -7062,40 +7257,49 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 		# P2-80: Include placement_type override if different from reserve_type
 		if chosen_type != reserve_type:
 			result["placement_type"] = chosen_type
+		# Which unit arrives: every reserve unit's urgency (the spot itself is
+		# the first legal placement found, not a scored choice).
+		var arr_cands: Array = []
+		for sc_u in scored_units:
+			arr_cands.append({"description": "%s arrives%s" % [sc_u.name, " (no legal spot found)" if sc_u.get("no_room", false) else ""],
+				"score": float(sc_u.score), "key": str(sc_u.unit_id), "score_breakdown": (sc_u.get("terms", {}) as Dictionary).duplicate()})
+		_record_choice("reserves_arrival", unit_id, unit_name, arr_cands, unit_id,
+			{"phase": "movement", "round": battle_round, "source": "highest urgency with a legal spot; spot = first legal placement"})
 		return result
 
 	print("AIDecisionMaker: [RESERVES] No reserve units could be deployed this turn")
 	return {}
 
 static func _score_reserves_deployment(unit: Dictionary, unit_id: String, reserve_type: String,
-		objectives: Array, enemies: Dictionary, snapshot: Dictionary, player: int, battle_round: int) -> float:
+		objectives: Array, enemies: Dictionary, snapshot: Dictionary, player: int, battle_round: int, terms: Dictionary = {}) -> float:
 	"""Score how urgently a reserve unit should be deployed.
-	Higher score = deploy sooner."""
+	Higher score = deploy sooner. `terms` (optional) receives the additive
+	decomposition for the decision record."""
 	var score = 0.0
 	var points = int(unit.get("meta", {}).get("points", 0))
 	var has_ranged = _unit_has_ranged_weapons(unit)
 	var has_melee = _unit_has_melee_weapons(unit)
 
 	# Base priority: more expensive units are more impactful
-	score += points / get_param("RESERVE_DEPLOY_POINTS_DIVISOR", RESERVE_DEPLOY_POINTS_DIVISOR)
+	score += _t_add(terms, "arrive_points", points / get_param("RESERVE_DEPLOY_POINTS_DIVISOR", RESERVE_DEPLOY_POINTS_DIVISOR))
 
 	# Deep strike units get a slight priority (they can be placed more flexibly)
 	if reserve_type == "deep_strike":
-		score += get_param("RESERVE_DEPLOY_DEEP_STRIKE", RESERVE_DEPLOY_DEEP_STRIKE)
+		score += _t_add(terms, "arrive_deep_strike", get_param("RESERVE_DEPLOY_DEEP_STRIKE", RESERVE_DEPLOY_DEEP_STRIKE))
 
 	# Melee units benefit from arriving to charge next turn
 	if has_melee:
-		score += get_param("RESERVE_DEPLOY_MELEE", RESERVE_DEPLOY_MELEE)
+		score += _t_add(terms, "arrive_melee", get_param("RESERVE_DEPLOY_MELEE", RESERVE_DEPLOY_MELEE))
 
 	# Ranged units benefit from shooting immediately after arrival
 	if has_ranged:
-		score += get_param("RESERVE_DEPLOY_SHORT_RANGE", RESERVE_DEPLOY_SHORT_RANGE)
+		score += _t_add(terms, "arrive_ranged", get_param("RESERVE_DEPLOY_SHORT_RANGE", RESERVE_DEPLOY_SHORT_RANGE))
 
 	# Round urgency: later rounds increase urgency (must deploy by Round 5 or lose the unit)
 	if battle_round >= 4:
-		score += get_param("RESERVE_DEPLOY_ROUND_5", RESERVE_DEPLOY_ROUND_5)  # Critical — last chance on Round 5
+		score += _t_add(terms, "arrive_round_urgency", get_param("RESERVE_DEPLOY_ROUND_5", RESERVE_DEPLOY_ROUND_5))  # Critical — last chance on Round 5
 	elif battle_round >= 3:
-		score += get_param("RESERVE_DEPLOY_ROUND_4", RESERVE_DEPLOY_ROUND_4)
+		score += _t_add(terms, "arrive_round_urgency", get_param("RESERVE_DEPLOY_ROUND_4", RESERVE_DEPLOY_ROUND_4))
 
 	# Check if there are contested objectives that need reinforcement
 	var friendly_units = _get_units_for_player(snapshot, player)
@@ -7103,9 +7307,9 @@ static func _score_reserves_deployment(unit: Dictionary, unit_id: String, reserv
 	for eval in obj_evaluations:
 		var obj_state = eval.get("state", "")
 		if obj_state in ["contested", "enemy_held"]:
-			score += get_param("RESERVE_DEPLOY_CONTESTED_OBJ", RESERVE_DEPLOY_CONTESTED_OBJ)  # Contested objectives benefit from reinforcement
+			score += _t_add(terms, "arrive_objectives", get_param("RESERVE_DEPLOY_CONTESTED_OBJ", RESERVE_DEPLOY_CONTESTED_OBJ))  # Contested objectives benefit from reinforcement
 		elif obj_state == "uncontested":
-			score += get_param("RESERVE_DEPLOY_OPEN_OBJ", RESERVE_DEPLOY_OPEN_OBJ)
+			score += _t_add(terms, "arrive_objectives", get_param("RESERVE_DEPLOY_OPEN_OBJ", RESERVE_DEPLOY_OPEN_OBJ))
 
 	return score
 
@@ -7507,6 +7711,7 @@ static func _decide_transport_disembark(snapshot: Dictionary, player: int) -> Di
 
 	var best_score = 0.0
 	var best_action = {}
+	var dis_scored: Array = []  # decision record
 
 	for unit_id in embarked_units:
 		# Skip units that previously failed disembark positioning
@@ -7532,6 +7737,8 @@ static func _decide_transport_disembark(snapshot: Dictionary, player: int) -> Di
 											objectives, enemies, all_units, battle_round, player)
 
 		print("AIDecisionMaker: [MOV-7] %s in %s: disembark score = %.2f" % [unit_name, transport_name, score])
+		dis_scored.append({"description": "%s disembarks from %s" % [unit_name, transport_name], "score": score,
+			"key": unit_id, "score_breakdown": {"disembark_value": score}})
 
 		if score > best_score:
 			# Compute valid disembark positions within 3" of transport
@@ -7545,6 +7752,13 @@ static func _decide_transport_disembark(snapshot: Dictionary, player: int) -> Di
 					"_ai_description": "AI disembarks %s from %s (score: %.2f)" % [unit_name, transport_name, score]
 				}
 
+	if not dis_scored.is_empty():
+		dis_scored.append({"description": "Stay embarked", "score": 0.0, "key": "stay",
+			"score_breakdown": {"disembark_value": 0.0}})
+		var dis_pick := str(best_action.get("actor_unit_id", "stay")) if not best_action.is_empty() else "stay"
+		# "Stay" is a side check on the way to the real movement decision.
+		_record_choice("disembark" if dis_pick != "stay" else "disembark_check", dis_pick if dis_pick != "stay" else "",
+			"embarked units", dis_scored, dis_pick, {"phase": "movement", "round": battle_round})
 	if not best_action.is_empty():
 		print("AIDecisionMaker: [MOV-7] %s" % best_action.get("_ai_description", ""))
 	return best_action
@@ -13110,6 +13324,7 @@ static func _capture_shooting_alternatives(weapon_entry: Dictionary, chosen_enem
 			"description": "%s → %s" % [weapon_name, _dn(enemy, enemy_id)],
 			"score": mv,
 			"target_unit_id": enemy_id,
+			"sub_breakdowns": {"target_value": (_target_value_terms.get(enemy_id, {}) as Dictionary).duplicate()},
 			"score_breakdown": {
 				"marginal_value": mv,
 				"expected_damage": dmg,
@@ -13236,7 +13451,8 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 	for enemy_id in enemies:
 		var enemy = enemies[enemy_id]
 		kill_thresholds[enemy_id] = _calculate_kill_threshold(enemy)
-		var base_value = _calculate_target_value(enemy, snapshot, player)
+		var tv_terms := {}
+		var base_value = _calculate_target_value(enemy, snapshot, player, tv_terms)
 
 		# T7-24: When behind on VP, boost target values for units on objectives
 		# (need to clear objectives to score). When ahead, focus on efficient kills.
@@ -13246,7 +13462,7 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 				var obj_positions = _get_objectives(snapshot)
 				for obj_pos in obj_positions:
 					if enemy_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-						base_value *= shooting_tempo
+						base_value = _t_mul(tv_terms, "tv_behind_on_vp", base_value, shooting_tempo)
 						break
 
 		# T7-23: Suppress target value for enemies planned for charge.
@@ -13257,9 +13473,10 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			var enemy_name = _dn(enemy, enemy_id)
 			print("AIDecisionMaker: [PHASE-PLAN] Suppressing shooting priority for %s (planned charge target, %.2f -> %.2f)" % [
 				enemy_name, base_value, base_value * get_param("PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET", PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET)])
-			base_value *= get_param("PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET", PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET)
+			base_value = _t_mul(tv_terms, "tv_planned_charge_target", base_value, get_param("PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET", PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET))
 
 		target_values[enemy_id] = base_value
+		_target_value_terms[enemy_id] = tv_terms
 
 	# damage_matrix[weapon_index][enemy_id] = expected damage
 	# T7-LOS: Pre-compute LoS visibility per shooter->target pair to avoid assigning
@@ -13744,7 +13961,7 @@ static func reset_army_archetype_cache() -> void:
 	_army_archetype_detected = false
 	print("AIDecisionMaker: [T7-41] Army archetype cache reset")
 
-static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionary, player: int) -> float:
+static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionary, player: int, terms: Dictionary = {}) -> float:
 	"""
 	T7-22: Macro-level target priority assessment.
 	Calculate a strategic priority value for killing this target.
@@ -13757,8 +13974,11 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	- Ability value (leader buffs, offensive/defensive multipliers)
 	- Keywords (CHARACTER, VEHICLE, MONSTER)
 	- Health status (finish off wounded units)
+	`terms` (optional) receives the additive decomposition (sum == value);
+	multipliers are booked as the exact change they made. Instrumentation only.
 	"""
 	var value = 1.0
+	_t_add(terms, "tv_base", 1.0)
 
 	var meta = target_unit.get("meta", {})
 	var stats = meta.get("stats", {})
@@ -13773,7 +13993,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	# placeholder the most attractive target on the board.
 	var points = int(meta.get("points", 0))
 	if points > 0 and not ("UNKNOWN" in keywords):
-		value += float(points) * get_param("MACRO_POINTS_WEIGHT", MACRO_POINTS_WEIGHT)
+		value += _t_add(terms, "tv_points", float(points) * get_param("MACRO_POINTS_WEIGHT", MACRO_POINTS_WEIGHT))
 
 	# --- T7-24: Points-per-wound efficiency bonus ---
 	# Units with high points-per-wound are more efficient to remove (each wound is expensive)
@@ -13781,7 +14001,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	if target_ppw > 0.0:
 		# Normalize against a reference PPW (~25 pts/wound is average for infantry)
 		var ppw_ratio = target_ppw / 25.0
-		value += (ppw_ratio - 1.0) * get_param("TRADE_PPW_WEIGHT", TRADE_PPW_WEIGHT)
+		value += _t_add(terms, "tv_points_per_wound", (ppw_ratio - 1.0) * get_param("TRADE_PPW_WEIGHT", TRADE_PPW_WEIGHT))
 
 	# --- Expected damage output: compute actual expected damage, not just raw attacks*damage ---
 	# Use a "typical" target (T4, Sv3+) as baseline to estimate how threatening this unit is
@@ -13823,7 +14043,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		ranged_output += attacks * p_hit * p_wound * p_unsaved * dmg
 	# Scale by model count (each model fires)
 	ranged_output *= model_multiplier
-	value += ranged_output * get_param("MACRO_RANGED_OUTPUT_WEIGHT", MACRO_RANGED_OUTPUT_WEIGHT)
+	value += _t_add(terms, "tv_ranged_threat", ranged_output * get_param("MACRO_RANGED_OUTPUT_WEIGHT", MACRO_RANGED_OUTPUT_WEIGHT))
 
 	# Melee damage output (probability-weighted)
 	var melee_output = 0.0
@@ -13858,13 +14078,13 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		var p_unsaved = 1.0 - _save_probability(3, w_ap)
 		melee_output += attacks * p_hit * p_wound * p_unsaved * dmg
 	melee_output *= model_multiplier
-	value += melee_output * get_param("MACRO_MELEE_OUTPUT_WEIGHT", MACRO_MELEE_OUTPUT_WEIGHT)
+	value += _t_add(terms, "tv_melee_threat", melee_output * get_param("MACRO_MELEE_OUTPUT_WEIGHT", MACRO_MELEE_OUTPUT_WEIGHT))
 
 	# --- Ability value: leaders providing buffs are high-priority targets ---
 	# Offensive multiplier indicates how much this unit's abilities boost its damage
 	var offensive_mult = AIAbilityAnalyzerData.get_offensive_multiplier_ranged(unit_id, target_unit, all_units)
 	if offensive_mult > 1.0:
-		value += (offensive_mult - 1.0) * get_param("MACRO_ABILITY_VALUE_WEIGHT", MACRO_ABILITY_VALUE_WEIGHT)
+		value += _t_add(terms, "tv_buffs", (offensive_mult - 1.0) * get_param("MACRO_ABILITY_VALUE_WEIGHT", MACRO_ABILITY_VALUE_WEIGHT))
 
 	# Defensive multiplier: units with strong defensive abilities (FNP, Stealth)
 	# are harder to kill but also more dangerous if left alive
@@ -13872,7 +14092,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	if defensive_mult > 1.0:
 		# Slight discount — harder to kill means less efficient to shoot,
 		# but still valuable to remove. Net effect is mild.
-		value -= (defensive_mult - 1.0) * get_param("MACRO_SURVIVABILITY_DISCOUNT", MACRO_SURVIVABILITY_DISCOUNT)
+		value += _t_add(terms, "tv_hard_to_kill", -((defensive_mult - 1.0) * get_param("MACRO_SURVIVABILITY_DISCOUNT", MACRO_SURVIVABILITY_DISCOUNT)))
 
 	# --- Character bonus: leaders providing buffs are strategically critical ---
 	if "CHARACTER" in keywords:
@@ -13880,18 +14100,18 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		var attached_to = target_unit.get("attached_to", null)
 		var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
 		if attached_to != null or not attached_chars.is_empty():
-			value *= get_param("MACRO_LEADER_BUFF_BONUS", MACRO_LEADER_BUFF_BONUS)  # Leader actively buffing = very high priority
+			value = _t_mul(terms, "tv_character", value, get_param("MACRO_LEADER_BUFF_BONUS", MACRO_LEADER_BUFF_BONUS))  # Leader actively buffing = very high priority
 		else:
-			value *= 1.3  # Standalone character still valuable
+			value = _t_mul(terms, "tv_character", value, 1.3)  # Standalone character still valuable
 
 	# --- Vehicle/Monster bonus (high-threat, high-wound targets) ---
 	if "VEHICLE" in keywords or "MONSTER" in keywords:
-		value *= 1.2
+		value = _t_mul(terms, "tv_vehicle_monster", value, 1.2)
 
 	# --- Below half health bonus (finish off wounded units — easy VP) ---
 	var total_count = target_unit.get("models", []).size()
 	if total_count > 0 and alive_count * 2 < total_count:
-		value *= get_param("LOW_HEALTH_BONUS", LOW_HEALTH_BONUS)
+		value = _t_mul(terms, "tv_wounded", value, get_param("LOW_HEALTH_BONUS", LOW_HEALTH_BONUS))
 
 	# --- Objective presence: units on/near objectives are strategically critical ---
 	var unit_centroid = _get_unit_centroid(target_unit)
@@ -13914,18 +14134,18 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 				near_objective = true
 
 		if on_objective:
-			value *= 1.4
+			value = _t_mul(terms, "tv_on_objective", value, 1.4)
 			# OC value matters much more when actually on an objective
 			if oc >= 1:
-				value += float(oc) * get_param("MACRO_OC_ON_OBJECTIVE_WEIGHT", MACRO_OC_ON_OBJECTIVE_WEIGHT)
+				value += _t_add(terms, "tv_on_objective", float(oc) * get_param("MACRO_OC_ON_OBJECTIVE_WEIGHT", MACRO_OC_ON_OBJECTIVE_WEIGHT))
 			# T7-43: In late game, further boost priority of shooting units on objectives
 			var target_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 			if target_battle_round >= 4:
-				value *= get_param("STRATEGY_LATE_OBJ_TARGET_BONUS", STRATEGY_LATE_OBJ_TARGET_BONUS)
+				value = _t_mul(terms, "tv_on_objective", value, get_param("STRATEGY_LATE_OBJ_TARGET_BONUS", STRATEGY_LATE_OBJ_TARGET_BONUS))
 		elif near_objective:
-			value *= 1.15
+			value = _t_mul(terms, "tv_near_objective", value, 1.15)
 			if oc >= 1:
-				value += float(oc) * get_param("MACRO_OC_NEAR_OBJECTIVE_WEIGHT", MACRO_OC_NEAR_OBJECTIVE_WEIGHT)
+				value += _t_add(terms, "tv_near_objective", float(oc) * get_param("MACRO_OC_NEAR_OBJECTIVE_WEIGHT", MACRO_OC_NEAR_OBJECTIVE_WEIGHT))
 
 	# --- F003: SHOOT IT WHILE THE WINDOW IS OPEN (11e 13.09) ---
 	# Availability is otherwise treated as binary and permanent. An enemy that
@@ -13935,7 +14155,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	if _target_regains_hidden_soon(target_unit):
 		var hw = get_param("HIDDEN_WINDOW_BONUS", HIDDEN_WINDOW_BONUS)
 		if hw != 1.0:
-			value *= hw
+			value = _t_mul(terms, "tv_regains_hidden", value, hw)
 			print("AIDecisionMaker: [F003-HIDDEN] x%.2f priority for %s (regains Hidden next turn)" % [
 				hw, _dn_meta(meta, unit_id)])
 
@@ -13945,7 +14165,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	if not kill_kws.is_empty():
 		for kw in kill_kws:
 			if kw in keywords:
-				value *= 1.4  # 40% boost for secondary mission kill targets
+				value = _t_mul(terms, "tv_secondary_target", value, 1.4)  # 40% boost for secondary mission kill targets
 				print("AIDecisionMaker: [SEC-TARGET] +40%% priority for %s (matches kill keyword '%s')" % [
 					_dn_meta(meta, unit_id), kw])
 				break  # Only apply once even if multiple keywords match
@@ -13953,20 +14173,20 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	# Marked for Death: boost priority for specifically marked target units
 	var marked_targets = sec_awareness.get("marked_targets", [])
 	if unit_id in marked_targets:
-		value *= 1.5  # 50% boost for Marked for Death targets (higher than keyword match)
+		value = _t_mul(terms, "tv_secondary_target", value, 1.5)  # 50% boost for Marked for Death targets (higher than keyword match)
 		print("AIDecisionMaker: [SEC-TARGET] +50%% priority for %s (Marked for Death target)" % [
 			_dn_meta(meta, unit_id)])
 
 	# A Grievous Blow (11e): boost kills on units with a big Starting Strength
 	var big_unit_min = int(sec_awareness.get("kill_big_units_min", 0))
 	if big_unit_min > 0 and target_unit.get("models", []).size() >= big_unit_min:
-		value *= 1.4
+		value = _t_mul(terms, "tv_secondary_target", value, 1.4)
 		print("AIDecisionMaker: [SEC-TARGET] +40%% priority for %s (Starting Strength %d ≥ %d — A Grievous Blow)" % [
 			_dn_meta(meta, unit_id), target_unit.get("models", []).size(), big_unit_min])
 
 	# 11e primary kill rules (Purge the Foe style): kills score primary VP too
 	if _get_primary_awareness(player).get("kill_pressure", false):
-		value *= 1.15
+		value = _t_mul(terms, "tv_primary_kills", value, 1.15)
 
 	# T7-43: Apply round strategy aggression modifier to overall target value
 	# Early game: boost kill-seeking (aggression > 1.0), Late game: reduce (aggression < 1.0)
@@ -13975,7 +14195,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	var tv_strategy = _apply_army_archetype_to_strategy(
 		_get_round_strategy_modifiers(tv_battle_round),
 		_get_army_strategy_modifiers(snapshot, player))
-	value *= tv_strategy.aggression
+	value = _t_mul(terms, "tv_round_aggression", value, tv_strategy.aggression)
 
 	return value
 
@@ -14481,6 +14701,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 
 	# Score each (charger, target) pair and evaluate multi-target combinations (T7-50)
 	var best_score = -INF
+	# Every target's real score, so the decision record shows what the pick beat
+	# (it used to record 0.0 for every target but the chosen one).
+	var charge_eval := {}
 	var best_action = {}
 	var best_description = ""
 
@@ -14508,6 +14731,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 
 		# --- T7-50: Collect per-target scores for multi-target evaluation ---
 		var scored_targets = []  # Array of {target_id, dist, score, target_score, melee_dmg, target_hp, target_name, action}
+		charge_eval[uid] = {}  # target_id -> {score, prob, target_score} for the decision record
 
 		for target_info in charger_targets[uid]:
 			var target_id = target_info.target_id
@@ -14540,23 +14764,29 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			if charge_prob < 0.03:  # Less than ~3% chance (need 12 on 2d6) — reduced from 8% to attempt more charges
 				print("AIDecisionMaker: Skipping charge %s -> %s (prob=%.1f%%, need=%.1f\", terrain=%.1f\")" % [
 					unit_name, target_name, charge_prob * 100.0, charge_distance_needed, terrain_penalty])
+				charge_eval[uid][target_id] = {"score": 0.0, "prob": charge_prob, "target_score": 0.0,
+					"skipped": "needs %.0f\" — under 3%% chance" % charge_distance_needed}
 				continue
 
 			# Score the charge target
-			var target_score = _score_charge_target(unit, target_unit, snapshot, player)
+			var ch_terms := {}
+			var target_score = _score_charge_target(unit, target_unit, snapshot, player, ch_terms)
 
 			# T7-37: Compute expected melee damage for description
 			var melee_dmg = _estimate_melee_damage(unit, target_unit)
 			var target_hp = _calculate_kill_threshold(target_unit)
 
 			# Apply charge probability as a multiplier
-			var score = target_score * charge_prob * melee_bonus
+			# Multipliers are booked as the change they made, so the record's terms
+			# (target value parts + this chain) still sum to the score.
+			var score = _t_mul(ch_terms, "ch_chance", target_score, charge_prob)
+			score = _t_mul(ch_terms, "ch_melee_capable", score, melee_bonus)
 
 			# Bonus for short charges (high reliability)
 			if charge_distance_needed <= 6.0:
-				score *= get_param("CHARGE_SHORT_6IN_MULT", CHARGE_SHORT_6IN_MULT)
+				score = _t_mul(ch_terms, "ch_short_charge", score, get_param("CHARGE_SHORT_6IN_MULT", CHARGE_SHORT_6IN_MULT))
 			if charge_distance_needed <= 3.0:
-				score *= get_param("CHARGE_SHORT_3IN_MULT", CHARGE_SHORT_3IN_MULT)
+				score = _t_mul(ch_terms, "ch_short_charge", score, get_param("CHARGE_SHORT_3IN_MULT", CHARGE_SHORT_3IN_MULT))
 
 			# Bonus for charging onto objectives
 			# T7-43: In late game, extra bonus for charging onto objectives (objective control > kills)
@@ -14565,14 +14795,14 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var charge_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 			for obj_pos in objectives:
 				if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-					score *= get_param("CHARGE_TARGET_ON_OBJ_MULT", CHARGE_TARGET_ON_OBJ_MULT)  # Target is on an objective
+					score = _t_mul(ch_terms, "ch_target_on_objective", score, get_param("CHARGE_TARGET_ON_OBJ_MULT", CHARGE_TARGET_ON_OBJ_MULT))  # Target is on an objective
 					if charge_battle_round >= 4:
-						score *= get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS)
+						score = _t_mul(ch_terms, "ch_target_on_objective", score, get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS))
 					break
 
 			# T7-51: Apply overwatch risk penalty to charge score
 			if ow_risk.score_penalty < 1.0:
-				score *= ow_risk.score_penalty
+				score = _t_mul(ch_terms, "ch_overwatch_risk", score, ow_risk.score_penalty)
 
 			# T7-11: Deadly Demise leverage — doomed vehicles with Deadly Demise
 			# should be strongly encouraged to charge into enemies, since they'll
@@ -14580,15 +14810,18 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			if AIAbilityAnalyzerData.has_deadly_demise(unit) and AIAbilityAnalyzerData.is_unit_doomed(unit):
 				var dd_val = AIAbilityAnalyzerData.get_deadly_demise_value(unit)
 				var dd_bonus = 1.0 + (float(dd_val) / 6.0)  # D3=1.5x, D6=2.0x
-				score *= dd_bonus
+				score = _t_mul(ch_terms, "ch_deadly_demise", score, dd_bonus)
 				print("AIDecisionMaker: [T7-11] %s has Deadly Demise D%d and is doomed — charge bonus x%.2f" % [
 					unit_name, dd_val, dd_bonus])
 
 			# T7-40: Apply difficulty noise to charge scoring
-			score = _apply_difficulty_noise(score)
+			var ch_noisy = _apply_difficulty_noise(score)
+			_t_add(ch_terms, "difficulty_noise", ch_noisy - score)
+			score = ch_noisy
 			print("AIDecisionMaker: Charge eval %s -> %s: dist=%.1f\", prob=%.0f%%, target_score=%.1f, ow_risk=%.1f(%s), final=%.1f" % [
 				unit_name, target_name, dist, charge_prob * 100.0, target_score, ow_risk.expected_damage, ow_risk.risk_level, score])
 
+			charge_eval[uid][target_id] = {"score": score, "prob": charge_prob, "target_score": target_score, "terms": ch_terms}
 			# T7-50: Store scored target for multi-target evaluation
 			scored_targets.append({
 				"target_id": target_id,
@@ -14669,6 +14902,23 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 	if best_score < charge_threshold:
 		print("AIDecisionMaker: No charge worth declaring (best score: %.1f, threshold: %.1f)" % [best_score, charge_threshold])
 		_add_thinking_step("No charge worth declaring (best score: %.1f, threshold: %.1f)" % [best_score, charge_threshold])
+		# Record the declined decision too: every charge it weighed against
+		# the "don't charge" bar, so a skipped charge is explainable.
+		var nc_cands: Array = [{"description": "Don't charge", "score": charge_threshold, "key": "none",
+			"score_breakdown": {"charge_threshold": charge_threshold}}]
+		for nc_uid in charge_eval:
+			var nc_unit = snapshot.get("units", {}).get(nc_uid, {})
+			for nc_tid in charge_eval[nc_uid]:
+				var nc: Dictionary = charge_eval[nc_uid][nc_tid]
+				var nc_t = snapshot.get("units", {}).get(nc_tid, {})
+				var nc_desc := "%s charges %s" % [_dn(nc_unit, nc_uid), _dn(nc_t, nc_tid)]
+				if nc.has("skipped"):
+					nc_desc += " (not considered: %s)" % str(nc.skipped)
+				nc_cands.append({"description": nc_desc, "score": float(nc.get("score", 0.0)), "key": "%s|%s" % [nc_uid, nc_tid], "eligible": not nc.has("skipped"),
+					"score_breakdown": {"charge_probability": float(nc.get("prob", 0.0)),
+						"charge_target_value": float(nc.get("target_score", 0.0))}})
+		_record_choice("charge", "", "no charge declared", nc_cands, "none",
+			{"phase": "charge", "round": snapshot.get("meta", {}).get("battle_round", 1)})
 		return {}
 
 	print("AIDecisionMaker: Best charge: %s (score=%.1f)" % [best_description, best_score])
@@ -14688,11 +14938,16 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var t_name = _dn(t_unit, tid)
 			var t_dist = target_info.distance_inches
 			# Find the scored entry for this target
-			var t_score = 0.0
-			var t_prob = _charge_success_probability(_charge_roll_needed(t_dist))
+			# Real per-target score / terrain-aware probability from the scoring
+			# pass above. Targets skipped there (<3% chance) score 0.
+			var t_eval: Dictionary = charge_eval.get(charge_unit_id, {}).get(tid, {})
+			var t_score = float(t_eval.get("score", 0.0))
+			var t_prob = float(t_eval.get("prob", _charge_success_probability(_charge_roll_needed(t_dist))))
+			var t_value = float(t_eval.get("target_score", 0.0))
 			var t_melee = _estimate_melee_damage(charge_unit, t_unit) if not t_unit.is_empty() else 0.0
 			var t_hp = _calculate_kill_threshold(t_unit) if not t_unit.is_empty() else 0.0
-			# Score comes from best_score for the chosen target, 0.0 for others
+			# The chosen target keeps best_score (a multi-target declaration's
+			# combined score can exceed its single-target score).
 			if tid == best_action.get("payload", {}).get("target_unit_ids", [null])[0] if not best_action.get("payload", {}).get("target_unit_ids", []).is_empty() else "":
 				t_score = best_score
 			var t_pos = _get_unit_centroid(t_unit) if not t_unit.is_empty() else Vector2.INF
@@ -14700,12 +14955,13 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 				"description": "Charge %s (%.1f\" away, %.0f%% chance)" % [t_name, t_dist, t_prob * 100.0],
 				"score": t_score,
 				"pos": [t_pos.x, t_pos.y] if t_pos != Vector2.INF else [],
-				"score_breakdown": {
+				"score_breakdown": (t_eval.get("terms", {}) as Dictionary).merged({
 					"charge_probability": t_prob,
+					"charge_target_value": t_value,
 					"melee_damage": t_melee,
 					"target_hp": t_hp,
 					"distance": t_dist,
-				}
+				})
 			})
 			if tid == best_action.get("payload", {}).get("target_unit_ids", [null])[0] if not best_action.get("payload", {}).get("target_unit_ids", []).is_empty() else "":
 				charge_chosen_idx = idx
@@ -14958,13 +15214,14 @@ static func _score_multi_target_combo(
 
 	return result
 
-static func _score_charge_target(charger: Dictionary, target: Dictionary, snapshot: Dictionary, player: int) -> float:
-	"""Score a potential charge target based on expected melee damage, target value, and tactical factors."""
+static func _score_charge_target(charger: Dictionary, target: Dictionary, snapshot: Dictionary, player: int, terms: Dictionary = {}) -> float:
+	"""Score a potential charge target based on expected melee damage, target value, and tactical factors.
+	`terms` (optional) receives the additive decomposition (sum == score). Instrumentation only."""
 	var score = 0.0
 
 	# --- Expected melee damage ---
 	var melee_damage = _estimate_melee_damage(charger, target)
-	score += melee_damage * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT)  # Weight melee damage highly
+	score += _t_add(terms, "ch_damage", melee_damage * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT))  # Weight melee damage highly
 
 	# --- Target value factors ---
 	var target_keywords = target.get("meta", {}).get("keywords", [])
@@ -14974,26 +15231,26 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 
 	# Bonus for targets below half strength (easier to finish off)
 	if total_models > 0 and alive_models * 2 < total_models:
-		score += get_param("CHARGE_BELOW_HALF_BONUS", CHARGE_BELOW_HALF_BONUS)
+		score += _t_add(terms, "ch_below_half", get_param("CHARGE_BELOW_HALF_BONUS", CHARGE_BELOW_HALF_BONUS))
 
 	# Bonus for CHARACTER targets
 	if "CHARACTER" in target_keywords:
-		score += get_param("CHARGE_CHARACTER_BONUS", CHARGE_CHARACTER_BONUS)
+		score += _t_add(terms, "ch_character", get_param("CHARGE_CHARACTER_BONUS", CHARGE_CHARACTER_BONUS))
 	# PM-3: HUNT_CHARACTERS adds to that bonus rather than replacing it.
-	score += _plan_hunt_bonus(charger, target, snapshot, player)
+	score += _t_add(terms, "plan_hunt", _plan_hunt_bonus(charger, target, snapshot, player))
 
 	# Penalty for very tough targets we can't damage effectively
 	# Reduced from -3 to -1 because charging still locks enemies in combat,
 	# preventing them from shooting and contesting objectives
 	if melee_damage < 1.0:
-		score -= get_param("CHARGE_CANT_HURT_PENALTY", CHARGE_CANT_HURT_PENALTY)
+		score += _t_add(terms, "ch_cant_hurt", -get_param("CHARGE_CANT_HURT_PENALTY", CHARGE_CANT_HURT_PENALTY))
 
 	# Bonus for engaging dangerous ranged units (stops them from shooting)
 	var target_has_ranged = _unit_has_ranged_weapons(target)
 	if target_has_ranged:
 		var max_range = _get_max_weapon_range(target)
 		if max_range >= 24.0:
-			score += get_param("CHARGE_TIE_UP_SHOOTER_BONUS", CHARGE_TIE_UP_SHOOTER_BONUS)  # Good to tie up long-range shooters
+			score += _t_add(terms, "ch_tie_up_shooter", get_param("CHARGE_TIE_UP_SHOOTER_BONUS", CHARGE_TIE_UP_SHOOTER_BONUS))  # Good to tie up long-range shooters
 
 	# T7-23: Enhanced bonus for locking dangerous shooters in combat
 	# Units identified by the phase plan as dangerous shooters get extra charge priority
@@ -15006,14 +15263,14 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 			# Scale bonus by how dangerous the shooter is
 			if ranged_strength >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS * 2.0:
 				lock_bonus *= 1.5  # Very dangerous — high priority to lock
-			score += lock_bonus
+			score += _t_add(terms, "ch_plan_lock_shooter", lock_bonus)
 			print("AIDecisionMaker: [PHASE-PLAN] Charge bonus for locking shooter %s (+%.1f, ranged output: %.1f)" % [
 				_dn(target, target_id_for_lock), lock_bonus, ranged_strength])
 
 	# Bonus for targeting units with low toughness (likely kill)
 	var target_toughness = int(target.get("meta", {}).get("stats", {}).get("toughness", 4))
 	if target_toughness <= 3:
-		score += get_param("CHARGE_LOW_TOUGHNESS_BONUS", CHARGE_LOW_TOUGHNESS_BONUS)
+		score += _t_add(terms, "ch_low_toughness", get_param("CHARGE_LOW_TOUGHNESS_BONUS", CHARGE_LOW_TOUGHNESS_BONUS))
 
 	# --- AI-GAP-4: Factor in charger's melee leader bonuses ---
 	var charger_id = charger.get("id", "")
@@ -15021,7 +15278,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		var all_units = snapshot.get("units", {})
 		var melee_mult = AIAbilityAnalyzerData.get_offensive_multiplier_melee(charger_id, charger, all_units)
 		if melee_mult > 1.0:
-			score *= melee_mult
+			score = _t_mul(terms, "ch_melee_buffs", score, melee_mult)
 
 	# --- AI-GAP-4: Factor in target's defensive abilities ---
 	var target_id_for_def = target.get("id", "")
@@ -15030,12 +15287,14 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		var def_mult = AIAbilityAnalyzerData.get_defensive_multiplier(target_id_for_def, target, all_units_def)
 		if def_mult > 1.0:
 			# Higher defensive multiplier = harder to kill = lower score
-			score /= def_mult
+			var ch_def_after = score / def_mult
+			_t_add(terms, "ch_target_defences", ch_def_after - score)
+			score = ch_def_after
 
 	# --- T7-24: Trade efficiency — prefer charging targets where the trade is favorable ---
 	var charge_trade_eff = _get_trade_efficiency(charger, target)
 	if charge_trade_eff != 1.0:
-		score *= charge_trade_eff
+		score = _t_mul(terms, "ch_points_trade", score, charge_trade_eff)
 		print("AIDecisionMaker: [TRADE] Charge trade efficiency: %.2f (charger ppw=%.1f, target ppw=%.1f)" % [
 			charge_trade_eff, _get_points_per_wound(charger), _get_points_per_wound(target)])
 
@@ -15057,7 +15316,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 				var target_centroid = _get_unit_centroid(target)
 				if funit_centroid != Vector2.INF and target_centroid != Vector2.INF:
 					if funit_centroid.distance_to(target_centroid) <= _engagement_range_px() * 2.0:
-						score += get_param("CHARGE_GANG_UP_BONUS", CHARGE_GANG_UP_BONUS)  # Big bonus for concentrating attacks
+						score += _t_add(terms, "ch_gang_up", get_param("CHARGE_GANG_UP_BONUS", CHARGE_GANG_UP_BONUS))  # Big bonus for concentrating attacks
 						print("AIDecisionMaker: [FOCUS-CHARGE] Bonus for %s — friendly unit already fighting target %s" % [
 							_dn(charger, ""), _dn(target, "")])
 						break
@@ -15097,7 +15356,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 						other_potential_chargers += 1
 				if other_potential_chargers > 0:
 					var seed_bonus = 3.0 + (2.0 * min(other_potential_chargers, 3))
-					score += seed_bonus
+					score += _t_add(terms, "ch_gang_up", seed_bonus)
 					print("AIDecisionMaker: [CHARGE-COORD-SEED] %s first charge on %s — %d other units in charge range, seed bonus=+%.1f" % [
 						_dn(charger, ""), _dn(target, ""),
 						other_potential_chargers, seed_bonus])
@@ -15118,13 +15377,13 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 
 		# Big bonus if combined damage can actually kill the target
 		if target_total_hp > 0 and combined_dmg >= target_total_hp:
-			score += gang_kill_bonus  # Gang up for the kill!
+			score += _t_add(terms, "ch_gang_up", gang_kill_bonus)  # Gang up for the kill!
 			print("AIDecisionMaker: [CHARGE-COORD] KILL GANG-UP: %s + %d others can kill %s (%.1f + %.1f = %.1f dmg vs %.0f HP, bonus=+%.1f)" % [
 				_dn(charger, ""), num_already_charging, _dn(target, ""),
 				melee_damage, dmg_already_incoming, combined_dmg, target_total_hp, gang_kill_bonus])
 		elif num_already_charging > 0:
 			# Still bonus for concentrating even if not a certain kill
-			score += gang_pile_bonus * num_already_charging
+			score += _t_add(terms, "ch_gang_up", gang_pile_bonus * num_already_charging)
 			print("AIDecisionMaker: [CHARGE-COORD] Piling on %s — %d other charger(s) already incoming (+%.1f)" % [
 				_dn(target, ""), num_already_charging, gang_pile_bonus * num_already_charging])
 
@@ -15133,9 +15392,9 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	var target_remaining_wounds = _calculate_kill_threshold(target)
 	if target_remaining_wounds > 0 and melee_damage / target_remaining_wounds >= 0.5:
 		# We can do 50%+ of remaining wounds — good chance of killing
-		score += get_param("CHARGE_HALF_KILL_BONUS", CHARGE_HALF_KILL_BONUS)
+		score += _t_add(terms, "ch_can_halve", get_param("CHARGE_HALF_KILL_BONUS", CHARGE_HALF_KILL_BONUS))
 		if melee_damage >= target_remaining_wounds:
-			score += get_param("CHARGE_LIKELY_KILL_BONUS", CHARGE_LIKELY_KILL_BONUS)  # Likely kill! Very high priority
+			score += _t_add(terms, "ch_can_wipe", get_param("CHARGE_LIKELY_KILL_BONUS", CHARGE_LIKELY_KILL_BONUS))  # Likely kill! Very high priority
 			print("AIDecisionMaker: [KILL-PRIORITY] Charge can likely kill %s (%.1f dmg vs %.0f wounds)" % [
 				_dn(target, ""), melee_damage, target_remaining_wounds])
 
@@ -15146,7 +15405,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	if AIAbilityAnalyzerData.has_deadly_demise(charger) and AIAbilityAnalyzerData.is_unit_doomed(charger):
 		var dd_val = AIAbilityAnalyzerData.get_deadly_demise_value(charger)
 		var dd_bonus = 1.0 + (float(dd_val) / 6.0)  # D3=1.5x, D6=2.0x
-		score *= dd_bonus
+		score = _t_mul(terms, "ch_deadly_demise", score, dd_bonus)
 		print("AIDecisionMaker: [T7-11] Charge target score boosted by Deadly Demise D%d (x%.2f, charger is doomed)" % [dd_val, dd_bonus])
 
 	# T7-43: Apply round strategy aggression modifier to charge target scoring
@@ -15156,7 +15415,9 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	var sct_strategy = _apply_army_archetype_to_strategy(
 		_get_round_strategy_modifiers(sct_round),
 		_get_army_strategy_modifiers(snapshot, player))
-	score *= sct_strategy.aggression
+	score = _t_mul(terms, "order_round_aggression", score, sct_strategy.aggression)
+	if score < 0.0:
+		_t_add(terms, "fight_floor_zero", -score)
 
 	return max(0.0, score)
 
@@ -16205,6 +16466,19 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		if chosen_uid != offered_uid:
 			print("AIDecisionMaker: T7-46 fight order optimization — selected %s over offered %s" % [unit_name, offered_uid])
 
+		# Which unit fights next — record every offered unit with its planned
+		# activation priority (units the plan did not score show 0).
+		var sel_cands: Array = []
+		for ouid2 in offered_ids:
+			var ou2 = snapshot.get("units", {}).get(ouid2, {})
+			var od: Dictionary = _fight_order_scores.get(ouid2, {})
+			sel_cands.append({"description": "%s fights now" % _dn(ou2, ouid2), "score": float(od.get("score", 0.0)),
+				"key": ouid2, "score_breakdown": (od.get("terms", {}) as Dictionary).duplicate()})
+		if not sel_cands.is_empty():
+			_record_choice("fight_order", chosen_uid, unit_name, sel_cands, chosen_uid,
+				{"phase": "fight", "round": snapshot.get("meta", {}).get("battle_round", 1),
+					"source": "fight order plan" if _fight_order_scores.has(chosen_uid) else "only unit offered"})
+
 		# Fight-phase faction stratagems on the unit about to be selected
 		# (UNBRIDLED CARNAGE crit 5+, AVENGE THE FALLEN +attacks) — they target
 		# "a unit that has not been selected to fight", so fire them first.
@@ -16374,11 +16648,12 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		var target_toughness = int(enemy.get("meta", {}).get("stats", {}).get("toughness", 4))
 		var target_save = int(enemy.get("meta", {}).get("stats", {}).get("save", 4))
 		var target_invuln = _get_target_invulnerable_save(enemy)
+		var target_wpm = _get_target_wounds_per_model(enemy)
 
 		# Calculate Extra Attacks weapon damage for this target (constant across primary weapon choices)
 		var ea_damage = 0.0
 		for ea_w in extra_attack_weapons:
-			ea_damage += _evaluate_melee_weapon_damage(ea_w, _weapon_carrier_count(unit, ea_w), target_toughness, target_save, target_invuln, waaagh_buffs)
+			ea_damage += _evaluate_melee_weapon_damage(ea_w, _weapon_carrier_count(unit, ea_w), target_toughness, target_save, target_invuln, waaagh_buffs, target_wpm)
 
 		# Find the best primary weapon for this target (highest raw damage)
 		var target_best_damage = ea_damage
@@ -16386,7 +16661,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		var target_best_weapon_name = "Close combat weapon"
 
 		for w in primary_weapons:
-			var primary_damage = _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), target_toughness, target_save, target_invuln, waaagh_buffs)
+			var primary_damage = _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), target_toughness, target_save, target_invuln, waaagh_buffs, target_wpm)
 			var total = primary_damage + ea_damage
 			if total > target_best_damage:
 				target_best_damage = total
@@ -16458,18 +16733,25 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		var e_invuln = _get_target_invulnerable_save(enemy)
 		var e_damage = 0.0
 		for w in primary_weapons:
-			e_damage = maxf(e_damage, _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), e_toughness, e_save, e_invuln, waaagh_buffs))
+			e_damage = maxf(e_damage, _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), e_toughness, e_save, e_invuln, waaagh_buffs, _get_target_wounds_per_model(enemy)))
 		var e_hp = _calculate_kill_threshold(enemy)
-		var e_score = _score_fight_target(unit, enemy, e_damage, snapshot, player, objectives)
+		# The additive ledger (sum == score) plus two descriptive facts.
+		var e_terms := {}
+		var e_score = _score_fight_target(unit, enemy, e_damage, snapshot, player, objectives, e_terms)
+		var e_breakdown: Dictionary = e_terms.duplicate()
+		e_breakdown["melee_damage"] = e_damage
+		e_breakdown["target_hp"] = e_hp
 		fight_candidates.append({
 			"description": "Attack %s with melee" % ename,
 			"score": e_score,
-			"score_breakdown": {"melee_damage": e_damage, "target_hp": e_hp, "strategic_value": e_score - e_damage * 2.0}
+			"score_breakdown": e_breakdown
 		})
 		if enemy_id == best_target_id:
 			fight_chosen_idx = fight_idx
 		fight_idx += 1
-	if fight_candidates.size() > 1:
+	# Record even a single engaged target: the score breakdown is still the
+	# "why", and a missing record reads as an un-instrumented decision.
+	if not fight_candidates.is_empty():
 		_add_decision_record("fight", unit_id, unit_name, fight_candidates, fight_chosen_idx,
 			{}, {"phase": "fight", "round": snapshot.get("meta", {}).get("battle_round", 1)})
 
@@ -16493,13 +16775,15 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 
 # T7-29: Score a fight target by combining expected damage with strategic value factors
 # Similar to _score_charge_target but tailored for the fight phase where units are already engaged
-static func _score_fight_target(attacker: Dictionary, target: Dictionary, expected_damage: float, snapshot: Dictionary, player: int, objectives: Array) -> float:
+static func _score_fight_target(attacker: Dictionary, target: Dictionary, expected_damage: float, snapshot: Dictionary, player: int, objectives: Array, terms: Dictionary = {}) -> float:
 	"""Score a melee target in the fight phase by combining expected damage output with
-	strategic value. Higher score = better target to attack."""
+	strategic value. Higher score = better target to attack.
+	`terms` (optional) receives the additive decomposition (sum == score) for the
+	decision record — see _t_add / _t_mul. Instrumentation only."""
 	var score = 0.0
 
 	# --- Expected melee damage (primary factor) ---
-	score += expected_damage * get_param("FIGHT_MELEE_DAMAGE_WEIGHT", FIGHT_MELEE_DAMAGE_WEIGHT)
+	score += _t_add(terms, "fight_damage", expected_damage * get_param("FIGHT_MELEE_DAMAGE_WEIGHT", FIGHT_MELEE_DAMAGE_WEIGHT))
 
 	# --- Target value factors ---
 	var target_keywords = target.get("meta", {}).get("keywords", [])
@@ -16509,55 +16793,55 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 
 	# Bonus for targets below half strength (easier to wipe out — denies VP, removes threat)
 	if total_models > 0 and alive_models * 2 < total_models:
-		score += get_param("FIGHT_CAN_HALVE_BONUS", FIGHT_CAN_HALVE_BONUS)
+		score += _t_add(terms, "fight_target_below_half", get_param("FIGHT_CAN_HALVE_BONUS", FIGHT_CAN_HALVE_BONUS))
 
 	# Bonus for CHARACTER targets (high-value eliminations)
 	if "CHARACTER" in target_keywords:
-		score += get_param("FIGHT_CHARACTER_BONUS", FIGHT_CHARACTER_BONUS)
+		score += _t_add(terms, "fight_character", get_param("FIGHT_CHARACTER_BONUS", FIGHT_CHARACTER_BONUS))
 	# PM-3: HUNT_CHARACTERS adds to that bonus rather than replacing it.
-	score += _plan_hunt_bonus(attacker, target, snapshot, player)
+	score += _t_add(terms, "plan_hunt", _plan_hunt_bonus(attacker, target, snapshot, player))
 
 	# Penalty for targets we can't meaningfully damage
 	if expected_damage < 1.0:
-		score -= get_param("FIGHT_CANT_HURT_PENALTY", FIGHT_CANT_HURT_PENALTY)
+		score += _t_add(terms, "fight_cant_hurt", -get_param("FIGHT_CANT_HURT_PENALTY", FIGHT_CANT_HURT_PENALTY))
 
 	# --- Kill potential bonus: can we actually wipe the target? ---
 	# Use CURRENT wounds, not max — a Knight on 5/22 wounds is finishable.
 	var target_remaining_wounds = _calculate_kill_threshold(target)
 	if expected_damage >= target_remaining_wounds and target_remaining_wounds > 0:
 		# We can likely wipe this unit — big bonus for removing it from the game
-		score += get_param("FIGHT_CAN_WIPE_BONUS", FIGHT_CAN_WIPE_BONUS)
+		score += _t_add(terms, "fight_can_wipe", get_param("FIGHT_CAN_WIPE_BONUS", FIGHT_CAN_WIPE_BONUS))
 	elif target_remaining_wounds > 0 and expected_damage >= target_remaining_wounds * 0.5:
 		# We can take them below half strength
-		score += get_param("FIGHT_BELOW_HALF_BONUS", FIGHT_BELOW_HALF_BONUS)
+		score += _t_add(terms, "fight_can_halve", get_param("FIGHT_BELOW_HALF_BONUS", FIGHT_BELOW_HALF_BONUS))
 
 	# --- Overkill penalty: don't waste massive damage on a nearly-dead 1-model unit ---
 	if target_remaining_wounds > 0 and expected_damage > target_remaining_wounds * 3.0:
 		# More than 3x the wounds remaining — significant overkill
-		score -= get_param("FIGHT_OVERKILL_PENALTY", FIGHT_OVERKILL_PENALTY)
+		score += _t_add(terms, "fight_overkill", -get_param("FIGHT_OVERKILL_PENALTY", FIGHT_OVERKILL_PENALTY))
 
 	# --- Lock dangerous shooters bonus: keep ranged threats tied up in combat ---
 	var target_has_ranged = _unit_has_ranged_weapons(target)
 	if target_has_ranged:
 		var max_range = _get_max_weapon_range(target)
 		if max_range >= 24.0:
-			score += get_param("FIGHT_LOCK_LONG_RANGE", FIGHT_LOCK_LONG_RANGE)  # Lock long-range shooters
+			score += _t_add(terms, "fight_lock_shooter", get_param("FIGHT_LOCK_LONG_RANGE", FIGHT_LOCK_LONG_RANGE))  # Lock long-range shooters
 		var ranged_output = _estimate_unit_ranged_strength(target)
 		if ranged_output >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS:
-			score += get_param("FIGHT_LOCK_DANGEROUS_SHOOTER", FIGHT_LOCK_DANGEROUS_SHOOTER)  # Extra bonus for truly dangerous shooters
+			score += _t_add(terms, "fight_lock_shooter", get_param("FIGHT_LOCK_DANGEROUS_SHOOTER", FIGHT_LOCK_DANGEROUS_SHOOTER))  # Extra bonus for truly dangerous shooters
 
 	# --- Target on objective bonus ---
 	var target_centroid = _get_unit_centroid(target)
 	if target_centroid != Vector2.INF:
 		for obj_pos in objectives:
 			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				score += get_param("FIGHT_TARGET_ON_OBJ", FIGHT_TARGET_ON_OBJ)  # Killing/weakening units on objectives is valuable
+				score += _t_add(terms, "fight_target_on_objective", get_param("FIGHT_TARGET_ON_OBJ", FIGHT_TARGET_ON_OBJ))  # Killing/weakening units on objectives is valuable
 				break
 
 	# --- Low toughness bonus (likely to wound effectively) ---
 	var target_toughness = int(target.get("meta", {}).get("stats", {}).get("toughness", 4))
 	if target_toughness <= 3:
-		score += get_param("FIGHT_LOW_TOUGHNESS", FIGHT_LOW_TOUGHNESS)
+		score += _t_add(terms, "fight_low_toughness", get_param("FIGHT_LOW_TOUGHNESS", FIGHT_LOW_TOUGHNESS))
 
 	# --- AI-GAP-4: Factor in target's defensive abilities ---
 	var target_id = target.get("id", "")
@@ -16565,12 +16849,16 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 		var all_units = snapshot.get("units", {})
 		var def_mult = AIAbilityAnalyzerData.get_defensive_multiplier(target_id, target, all_units)
 		if def_mult > 1.0:
-			score /= def_mult
+			# Divide (not × 1/def_mult) so the score is bit-identical to before;
+			# book the exact change it made.
+			var def_after = score / def_mult
+			_t_add(terms, "fight_target_defences", def_after - score)
+			score = def_after
 
 	# --- Trade efficiency: prefer favorable point trades ---
 	var trade_eff = _get_trade_efficiency(attacker, target)
 	if trade_eff != 1.0:
-		score *= trade_eff
+		score = _t_mul(terms, "fight_points_trade", score, trade_eff)
 
 	# --- Fight coordination: bonus for concentrating attacks on targets already hit this phase ---
 	# T18-1: Horde units (10+ models) get larger finish-off bonus since they need to stack damage
@@ -16585,14 +16873,14 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 			var finish_bonus = 7.0 if is_horde_attacker else 5.0
 			var significant_bonus = 3.5 if is_horde_attacker else 2.5
 			if expected_damage >= remaining_after_prior:
-				score += finish_bonus  # Big bonus: we can finish off what others started
+				score += _t_add(terms, "fight_finish_off", finish_bonus)  # Big bonus: we can finish off what others started
 				print("AIDecisionMaker: [FIGHT-COORD] %s can finish off target (prior dmg %.1f + our %.1f >= %.1f HP, horde=%s)" % [
 					_dn(attacker, ""), prior_dmg, expected_damage, target_remaining_wounds, str(is_horde_attacker)])
 			elif expected_damage >= remaining_after_prior * 0.5:
-				score += significant_bonus  # Medium bonus: combined damage is significant
+				score += _t_add(terms, "fight_finish_off", significant_bonus)  # Medium bonus: combined damage is significant
 		elif remaining_after_prior <= 0:
 			# Target already overkilled by prior fighters — small penalty (reduced from -2.0)
-			score -= get_param("FIGHT_ALREADY_OVERKILLED", FIGHT_ALREADY_OVERKILLED)
+			score += _t_add(terms, "fight_already_overkilled", -get_param("FIGHT_ALREADY_OVERKILLED", FIGHT_ALREADY_OVERKILLED))
 	else:
 		# T19-2: PROACTIVE gang-up detection — first attacker on a target gets bonus if
 		# other friendly units are also engaged with the same target (they'll fight later)
@@ -16625,11 +16913,13 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 			if other_engaged_count > 0:
 				# Multiple horde units engaged with same target — initiate the gang-up
 				var gang_seed_bonus = 4.0 + (2.0 * min(other_engaged_count, 3))
-				score += gang_seed_bonus
+				score += _t_add(terms, "fight_gang_up", gang_seed_bonus)
 				print("AIDecisionMaker: [FIGHT-COORD-SEED] %s initiating gang-up on %s — %d other friendly units (%d models) also engaged, bonus=+%.1f" % [
 					_dn(attacker, ""), _dn(target, ""),
 					other_engaged_count, other_engaged_total_models, gang_seed_bonus])
 
+	if score < 0.0:
+		_t_add(terms, "fight_floor_zero", -score)  # the score never goes below 0
 	return max(0.0, score)
 
 # =============================================================================
@@ -16671,9 +16961,14 @@ static func _build_fight_order_plan(snapshot: Dictionary, player: int) -> Array:
 	var scored_fighters = []
 	for unit_id in eligible_fighters:
 		var unit = all_units[unit_id]
-		var score = _score_fighter_priority(unit, unit_id, snapshot, player, enemies, objectives)
-		score = _apply_difficulty_noise(score)
+		var prio_terms := {}
+		var score = _score_fighter_priority(unit, unit_id, snapshot, player, enemies, objectives, prio_terms)
+		var noisy = _apply_difficulty_noise(score)
+		_t_add(prio_terms, "difficulty_noise", noisy - score)
+		score = noisy
 		scored_fighters.append({"unit_id": unit_id, "score": score})
+		# Kept for the SELECT_FIGHTER decision record (what the pick beat)
+		_fight_order_scores[unit_id] = {"score": score, "terms": prio_terms}
 
 		var unit_name = _dn(unit, unit_id)
 		print("AIDecisionMaker: T7-46 fight order score — %s: %.2f" % [unit_name, score])
@@ -16695,14 +16990,16 @@ static func _build_fight_order_plan(snapshot: Dictionary, player: int) -> Array:
 	return sorted_ids
 
 
-static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot: Dictionary, player: int, enemies: Dictionary, objectives: Array) -> float:
+static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot: Dictionary, player: int, enemies: Dictionary, objectives: Array, terms: Dictionary = {}) -> float:
 	"""T7-46: Score how urgently a unit should be activated first in the fight phase.
 	Higher score = should fight earlier. Considers:
 	- Kill potential: units that can eliminate targets should go first (denies enemy retaliation)
 	- Vulnerability: units likely to die should fight before being destroyed
 	- Target value: units engaging high-value targets (characters, shooters, objective holders)
 	- Damage output: units dealing more damage benefit from going earlier
-	- Overkill avoidance: don't waste high-damage units early on easy kills"""
+	- Overkill avoidance: don't waste high-damage units early on easy kills
+	`terms` (optional) receives the additive decomposition (sum == score) for
+	the decision record. Instrumentation only."""
 	var score = 0.0
 	var unit_name = _dn(unit, unit_id)
 
@@ -16729,39 +17026,40 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 
 	# If no damage can be dealt, very low priority
 	if best_target_damage < 0.1:
+		_t_add(terms, "order_cant_hurt", 0.5)
 		return 0.5
 
 	# --- Kill potential (highest weight): can we wipe the target? ---
 	# Units that can kill their target should go first — removes the target before it fights back
 	if best_target_remaining_wounds > 0 and best_target_damage >= best_target_remaining_wounds:
-		score += get_param("FIGHT_ORDER_CAN_WIPE", FIGHT_ORDER_CAN_WIPE)  # Can likely wipe — fight first to deny enemy retaliation
+		score += _t_add(terms, "order_can_wipe", get_param("FIGHT_ORDER_CAN_WIPE", FIGHT_ORDER_CAN_WIPE))  # Can likely wipe — fight first to deny enemy retaliation
 		print("AIDecisionMaker: T7-46   %s: +6.0 kill potential (%.1f dmg vs %.0f HP)" % [unit_name, best_target_damage, best_target_remaining_wounds])
 	elif best_target_remaining_wounds > 0 and best_target_damage >= best_target_remaining_wounds * 0.5:
-		score += get_param("FIGHT_ORDER_HALF_KILL", FIGHT_ORDER_HALF_KILL)  # Can take below half — still valuable to go early
+		score += _t_add(terms, "order_half_kill", get_param("FIGHT_ORDER_HALF_KILL", FIGHT_ORDER_HALF_KILL))  # Can take below half — still valuable to go early
 		print("AIDecisionMaker: T7-46   %s: +3.0 half-kill potential" % unit_name)
 
 	# --- Damage output: raw expected damage contribution ---
-	score += best_target_damage * get_param("FIGHT_ORDER_DAMAGE_WEIGHT", FIGHT_ORDER_DAMAGE_WEIGHT)
+	score += _t_add(terms, "order_damage", best_target_damage * get_param("FIGHT_ORDER_DAMAGE_WEIGHT", FIGHT_ORDER_DAMAGE_WEIGHT))
 
 	# --- Target value: is the best target high-value? ---
 	var target_keywords = best_target.get("meta", {}).get("keywords", [])
 
 	# CHARACTER targets — eliminate high-value leaders
 	if "CHARACTER" in target_keywords:
-		score += get_param("FIGHT_ORDER_CHARACTER", FIGHT_ORDER_CHARACTER)
+		score += _t_add(terms, "order_character", get_param("FIGHT_ORDER_CHARACTER", FIGHT_ORDER_CHARACTER))
 
 	# Dangerous ranged units — fight first to keep them locked or kill them
 	if _unit_has_ranged_weapons(best_target):
 		var ranged_output = _estimate_unit_ranged_strength(best_target)
 		if ranged_output >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS:
-			score += get_param("FIGHT_ORDER_DANGEROUS_SHOOTER", FIGHT_ORDER_DANGEROUS_SHOOTER)
+			score += _t_add(terms, "order_dangerous_shooter", get_param("FIGHT_ORDER_DANGEROUS_SHOOTER", FIGHT_ORDER_DANGEROUS_SHOOTER))
 
 	# Target on objective — clearing objective holders is valuable
 	var target_centroid = _get_unit_centroid(best_target)
 	if target_centroid != Vector2.INF:
 		for obj_pos in objectives:
 			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				score += get_param("FIGHT_ORDER_TARGET_ON_OBJ", FIGHT_ORDER_TARGET_ON_OBJ)
+				score += _t_add(terms, "order_target_on_objective", get_param("FIGHT_ORDER_TARGET_ON_OBJ", FIGHT_ORDER_TARGET_ON_OBJ))
 				break
 
 	# --- Vulnerability: units likely to die should fight first ---
@@ -16772,20 +17070,20 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 		incoming_damage += _estimate_melee_damage(enemy, unit, snapshot)
 	var our_remaining_wounds = _calculate_kill_threshold(unit)
 	if our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * get_param("SURVIVAL_LETHAL_THRESHOLD", SURVIVAL_LETHAL_THRESHOLD):
-		score += get_param("FIGHT_ORDER_LIKELY_TO_DIE", FIGHT_ORDER_LIKELY_TO_DIE)  # Unit is likely to die — fight first to get value
+		score += _t_add(terms, "order_likely_to_die", get_param("FIGHT_ORDER_LIKELY_TO_DIE", FIGHT_ORDER_LIKELY_TO_DIE))  # Unit is likely to die — fight first to get value
 		print("AIDecisionMaker: T7-46   %s: +3.0 vulnerability (%.1f incoming vs %.0f HP)" % [unit_name, incoming_damage, our_remaining_wounds])
 	elif our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * get_param("SURVIVAL_SEVERE_THRESHOLD", SURVIVAL_SEVERE_THRESHOLD):
-		score += get_param("FIGHT_ORDER_BADLY_HURT", FIGHT_ORDER_BADLY_HURT)  # Unit will be badly hurt — prefer fighting early
+		score += _t_add(terms, "order_badly_hurt", get_param("FIGHT_ORDER_BADLY_HURT", FIGHT_ORDER_BADLY_HURT))  # Unit will be badly hurt — prefer fighting early
 
 	# --- Overkill penalty: don't activate big damage units first against weak targets ---
 	if best_target_remaining_wounds > 0 and best_target_damage > best_target_remaining_wounds * 2.5:
-		score -= get_param("FIGHT_ORDER_MASSIVE_OVERKILL", FIGHT_ORDER_MASSIVE_OVERKILL)  # Massive overkill — let other units handle weak targets first
+		score += _t_add(terms, "order_overkill", -get_param("FIGHT_ORDER_MASSIVE_OVERKILL", FIGHT_ORDER_MASSIVE_OVERKILL))  # Massive overkill — let other units handle weak targets first
 
 	# --- AI-GAP-4: Factor in offensive multipliers from abilities ---
 	var all_units = snapshot.get("units", {})
 	var melee_mult = AIAbilityAnalyzerData.get_offensive_multiplier_melee(unit_id, unit, all_units)
 	if melee_mult > 1.0:
-		score *= melee_mult
+		score = _t_mul(terms, "order_melee_buffs", score, melee_mult)
 
 	# --- Round strategy modifier ---
 	# T7-41: Combine with army archetype modifiers
@@ -16793,8 +17091,10 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 	var strategy = _apply_army_archetype_to_strategy(
 		_get_round_strategy_modifiers(battle_round),
 		_get_army_strategy_modifiers(snapshot, player))
-	score *= strategy.aggression
+	score = _t_mul(terms, "order_round_aggression", score, strategy.aggression)
 
+	if score < 0.0:
+		_t_add(terms, "fight_floor_zero", -score)
 	return max(0.0, score)
 
 
@@ -16810,7 +17110,7 @@ static func _weapon_has_extra_attacks(weapon_data: Dictionary) -> bool:
 	return false
 
 # T7-28: Helper — calculate expected damage for a single melee weapon against a target
-static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: int, target_toughness: int, target_save: int, target_invuln: int, waaagh_buffs: Dictionary = {}) -> float:
+static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: int, target_toughness: int, target_save: int, target_invuln: int, waaagh_buffs: Dictionary = {}, target_wounds_per_model: int = 0) -> float:
 	var attacks_str = str(weapon.get("attacks", "1"))
 	var attacks = _parse_average_damage(attacks_str)
 
@@ -16836,6 +17136,14 @@ static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: i
 		if waaagh_buffs.get("melee_bonus", GameConstants.edition < 11):
 			strength += 1
 			attacks += 1.0
+
+	# Damage does not carry over between models (05.04): a D2 hit on a 1-wound
+	# model removes 1 wound. Same cap (and same parameter gate) as
+	# _estimate_melee_damage — this fight-target path predicted 11.1 damage
+	# against 1W Gretchin where the attack dialog shows ~5.6 landing, and
+	# scored "can wipe it out" on the wasted half.
+	if target_wounds_per_model > 0 and get_param("MELEE_WOUND_OVERFLOW_CAP", MELEE_WOUND_OVERFLOW_CAP) > 0.0:
+		damage = minf(damage, float(target_wounds_per_model))
 
 	var p_hit = _hit_probability(ws)
 	var p_wound = _wound_probability(strength, target_toughness)
@@ -21591,6 +21899,7 @@ static func evaluate_proactive_faction_stratagems(snapshot: Dictionary, player: 
 	var best: Dictionary = {}
 	var best_score := 0.0
 	var considered: Array = []
+	var p_scored: Array = []  # for the decision record
 
 	for strat in strats:
 		# Window stratagems (timing.windows) are offered by the phase at their
@@ -21611,7 +21920,12 @@ static func evaluate_proactive_faction_stratagems(snapshot: Dictionary, player: 
 		if pick.is_empty():
 			continue
 		considered.append("%s on %s: %.1f" % [strat_name, pick.get("unit_name", "?"), pick.get("score", 0.0)])
-		if pick.get("score", 0.0) > best_score and _faction_stratagem_usable(player, strat, pick.get("unit_id", "")):
+		var p_usable: bool = _faction_stratagem_usable(player, strat, pick.get("unit_id", ""))
+		p_scored.append({"description": "%s on %s — %s%s" % [strat.get("name", strat_name), pick.get("unit_name", "?"),
+				str(pick.get("reason", "")), "" if p_usable else " (not usable right now)"],
+			"score": float(pick.get("score", 0.0)), "key": "%s|%s" % [str(strat.get("id", "")), str(pick.get("unit_id", ""))],
+			"score_breakdown": {"stratagem_value": float(pick.get("score", 0.0)), "cp_cost": float(cp_cost)}, "eligible": p_usable})
+		if pick.get("score", 0.0) > best_score and p_usable:
 			best_score = pick.get("score", 0.0)
 			best = {
 				"strat": strat,
@@ -21626,6 +21940,16 @@ static func evaluate_proactive_faction_stratagems(snapshot: Dictionary, player: 
 	var use_threshold = 2.0
 	if player_cp <= int(best.get("strat", {}).get("cp_cost", 1)):
 		use_threshold = 3.0
+
+	if not p_scored.is_empty():
+		var p_use: bool = not best.is_empty() and best_score >= use_threshold
+		for pc in p_scored:
+			pc.score_breakdown["use_threshold"] = use_threshold
+		p_scored.append({"description": "Hold (save the CP)", "score": use_threshold, "key": "hold",
+			"score_breakdown": {"use_threshold": use_threshold, "cp_available": float(player_cp)}})
+		_record_choice("proactive_stratagem", str(best.get("unit_id", "")), "%s phase stratagems" % phase_name, p_scored,
+			("%s|%s" % [str(best.get("strat", {}).get("id", "")), str(best.get("unit_id", ""))]) if p_use else "hold",
+			{"phase": phase_name, "cp": player_cp})
 
 	if not best.is_empty() and best_score >= use_threshold:
 		var strat = best.strat
@@ -22065,6 +22389,7 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 	var best_name: String = ""
 	var best_cp: int = 1
 	var considered: Array = []
+	var r_scored: Array = []  # for the decision record
 
 	for strat_entry in available_stratagems:
 		var strat = strat_entry.get("stratagem", {})
@@ -22094,6 +22419,10 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 				score = _score_defensive_stratagem_target(unit, strat)
 			var u_name = _dn(unit, unit_id)
 			considered.append("%s on %s: %.1f" % [strat.get("name", strat_id), u_name, score])
+			var r_cp := int(strat.get("cp_cost", 1))
+			r_scored.append({"description": "%s on %s" % [strat.get("name", strat_id), u_name], "score": score,
+				"key": "%s|%s" % [strat_id, unit_id],
+				"score_breakdown": {"stratagem_value": score, "cp_cost": float(r_cp), "use_threshold": 1.5 * float(max(1, r_cp))}})
 			if score > best_score:
 				best_score = score
 				best_stratagem_id = strat_id
@@ -22104,6 +22433,12 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 	# Use the stratagem if the score is meaningful (unit is worth protecting).
 	# 2 CP stratagems need proportionally more value.
 	var use_threshold = 1.5 * float(max(1, best_cp))
+	if not r_scored.is_empty():
+		var r_use: bool = best_score >= use_threshold and best_stratagem_id != "" and best_target_unit_id != ""
+		r_scored.append({"description": "Decline (save the CP)", "score": use_threshold, "key": "decline",
+			"score_breakdown": {"use_threshold": use_threshold}})
+		_record_choice("reactive_stratagem", best_target_unit_id, "defensive stratagem", r_scored,
+			("%s|%s" % [best_stratagem_id, best_target_unit_id]) if r_use else "decline", {"phase": "reactive"})
 	if best_score >= use_threshold and best_stratagem_id != "" and best_target_unit_id != "":
 		var strat_target_unit = snapshot.get("units", {}).get(best_target_unit_id, {})
 		var unit_name = _dn(strat_target_unit, best_target_unit_id)
@@ -22135,6 +22470,17 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 		"_ai_description": "AI declines reactive stratagems"
 	}
 
+static func _record_window_rule_pick(window_id: String, pick: Dictionary, kind: String) -> void:
+	"""Free rule / ability choices in a window are answered before any paid
+	stratagem and are not scored against each other — record them as the
+	two-way choice they are (take it / skip it) so the card is not blank."""
+	var why := str(pick.get("reason", ""))
+	var label := why if why != "" else str(pick.get("name", pick.get("stratagem_id", kind)))
+	_record_choice("window_rule", str(pick.get("target_unit_id", "")), window_id.replace("_", " "), [
+		{"description": label, "score": 1.0, "key": "take"},
+		{"description": "Skip it", "score": 0.0, "key": "skip"}], "take",
+		{"window": window_id, "source": kind + " (free, taken before any paid stratagem)"})
+
 static func decide_window_stratagem(player: int, window_id: String, offers: Array, ctx: Dictionary) -> Dictionary:
 	"""
 	Synchronous AI answer for a stratagem WINDOW (design §3.1) — called by
@@ -22157,6 +22503,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	var katah_pick: Dictionary = _custodes_katah().ai_pick(player, window_id, offers, ctx)
 	if katah_pick.get("use", false):
 		_add_thinking_step("Ka'tah in %s: %s" % [window_id, str(katah_pick.get("reason", ""))])
+		_record_window_rule_pick(window_id, katah_pick, "Ka'tah stance")
 		return katah_pick
 	offers = _custodes_katah().strip_katah_offers(offers)
 	var sm = _stratagem_manager()
@@ -22169,6 +22516,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	var rule_pick: Dictionary = ork11e_det.ai_decide(player, window_id, offers, ctx)
 	if not rule_pick.is_empty():
 		_add_thinking_step("Rule choice in %s: %s on %s" % [window_id, rule_pick.get("name", ""), rule_pick.get("target_unit_id", "")])
+		_record_window_rule_pick(window_id, rule_pick, "Ork rule choice")
 		return rule_pick
 	# Codex: Adeptus Custodes (11e) free detachment-rule / enhancement choices
 	# (CustodesDetachments.gd, WP-C46): Martial Mastery, dreadful foe, On Gilded
@@ -22177,21 +22525,25 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	var cus11e_pick: Dictionary = cus11e_det.ai_decide(player, window_id, offers, ctx)
 	if not cus11e_pick.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, cus11e_pick.get("name", ""), cus11e_pick.get("target_unit_id", "")])
+		_record_window_rule_pick(window_id, cus11e_pick, "Custodes rule choice")
 		return cus11e_pick
 	# Codex: Space Marines (11e) Space Wolves free rule choices (Howlmaw — SWDetachments11e.gd, WP-S2).
 	var sw11e_pick_w: Dictionary = load("res://scripts/codex/space_wolves/SWDetachments11e.gd").ai_decide(player, window_id, offers, ctx)
 	if not sw11e_pick_w.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sw11e_pick_w.get("name", ""), sw11e_pick_w.get("target_unit_id", "")])
+		_record_window_rule_pick(window_id, sw11e_pick_w, "Space Wolves rule choice")
 		return sw11e_pick_w
 	# WP-M2a Codex: Space Marines (11e) detachment-rule / enhancement cards (SMDetachmentsA.gd) — synchronous.
 	var sm11e_pick_w: Dictionary = load("res://scripts/codex/space_marines/SMDetachmentsA.gd").ai_decide(player, window_id, offers, ctx)
 	if not sm11e_pick_w.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sm11e_pick_w.get("name", ""), sm11e_pick_w.get("target_unit_id", "")])
+		_record_window_rule_pick(window_id, sm11e_pick_w, "Space Marines rule choice")
 		return sm11e_pick_w
 	# WP-M2b: Codex: Space Marines (11e) generic detachments B free rule cards (Narthecis Gauntlet).
 	sm11e_pick_w = load("res://scripts/codex/space_marines/SMDetachmentsB.gd").ai_decide(player, window_id, offers, ctx)
 	if not sm11e_pick_w.is_empty():
 		_add_thinking_step("Codex rule choice in %s: %s on %s" % [window_id, sm11e_pick_w.get("name", ""), sm11e_pick_w.get("target_unit_id", "")])
+		_record_window_rule_pick(window_id, sm11e_pick_w, "Space Marines rule choice")
 		return sm11e_pick_w
 	offers = offers.filter(func(o): return not ork11e_det.is_rule_offer(o))
 	if offers.is_empty():
@@ -22213,6 +22565,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	var best := {}
 	var best_score := 0.0
 	var considered: Array = []
+	var w_scored: Array = []  # every (stratagem, target) weighed, for the decision record
 	for offer in offers:
 		var sid := str(offer.get("stratagem_id", ""))
 		var strat: Dictionary = sm.get_stratagem(sid)
@@ -22222,6 +22575,14 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 			# (shooter, snap target) pair by its expected damage on 6s.
 			var fo := _decide_fire_overwatch_window_11e(offer, cp, difficulty)
 			considered.append_array(fo.considered)
+			var fo_units: Dictionary = units if not units.is_empty() else ((_game_state().state.get("units", {})) if _game_state() else {})
+			var fo_shooter := str(fo.get("target_unit_id", ""))
+			var fo_target := str(fo.get("secondary_id", ""))
+			w_scored.append({"description": "%s: %s shoots %s" % [str(offer.get("name", sid)),
+					_dn(fo_units.get(fo_shooter, {}), fo_shooter) if fo_shooter != "" else "(no shooter)",
+					_dn(fo_units.get(fo_target, {}), fo_target) if fo_target != "" else "(no target)"],
+				"score": float(fo.score) if fo.use else 0.0, "key": "%s|%s" % [sid, str(fo.get("target_unit_id", ""))],
+				"score_breakdown": {"stratagem_value": float(fo.score), "cp_cost": float(int(offer.get("cp_cost", 1)))}, "eligible": bool(fo.use)})
 			if fo.use and float(fo.score) > best_score:
 				best_score = float(fo.score)
 				best = {"use": true, "stratagem_id": sid, "target_unit_id": str(fo.target_unit_id),
@@ -22268,6 +22629,8 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 				"offensive":
 					if cp < 2:
 						considered.append("%s on %s: skip (CP %d < 2, keeping one for reactions)" % [offer.get("name", sid), tid, cp])
+						w_scored.append({"description": "%s on %s (not considered: keeping 1 CP for reactions)" % [offer.get("name", sid), _dn(units.get(tid, {}), tid)],
+							"score": 0.0, "key": "%s|%s" % [sid, tid], "score_breakdown": {"stratagem_value": score, "cp_cost": float(cost)}, "eligible": false})
 						continue
 				"defensive":
 					threshold = 1.5 * float(max(1, cost))
@@ -22277,6 +22640,12 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 			# with a similar effect (ADAPTIVE STRATEGY): paid offers rank 1 lower.
 			# The threshold still uses the raw score; paid-vs-paid order is unchanged.
 			var rank := score - (1.0 if cost > 0 else 0.0)
+			var w_terms := {"stratagem_value": score, "cp_cost": float(cost), "use_threshold": threshold}
+			if cost > 0:
+				w_terms["paid_cp_penalty"] = -1.0
+			w_scored.append({"description": "%s on %s%s" % [offer.get("name", sid), _dn(units.get(tid, {}), tid),
+				"" if score >= threshold else " (below the bar to use it)"],
+				"score": rank, "key": "%s|%s" % [sid, tid], "score_breakdown": w_terms, "eligible": score >= threshold})
 			if score >= threshold and rank > best_score:
 				best_score = rank
 				var ctx_out := {}
@@ -22299,6 +22668,12 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 					"name": str(offer.get("name", sid))}
 	for c in considered:
 		_add_thinking_step("  window %s: %s" % [window_id, c])
+	if not w_scored.is_empty():
+		w_scored.append({"description": "Decline (save the CP)", "score": 0.0, "key": "decline",
+			"score_breakdown": {"cp_available": float(cp)}})
+		_record_choice("stratagem_window", str(best.get("target_unit_id", "")), window_id.replace("_", " "), w_scored,
+			("%s|%s" % [str(best.get("stratagem_id", "")), str(best.get("target_unit_id", ""))]) if not best.is_empty() else "decline",
+			{"window": window_id, "cp": cp})
 	if best.is_empty():
 		_add_thinking_step("Stratagem window %s: declining (no offer worth the CP)" % window_id)
 		return decline
@@ -22540,6 +22915,7 @@ static func evaluate_fire_overwatch(defending_player: int, eligible_units: Array
 	var best_unit_id: String = ""
 	var best_unit_name: String = ""
 	var best_expected_hits: float = 0.0
+	var ow_scored: Array = []  # decision record
 
 	for entry in eligible_units:
 		var unit_id: String = ""
@@ -22558,6 +22934,9 @@ static func evaluate_fire_overwatch(defending_player: int, eligible_units: Array
 		# Count total ranged shots (overwatch hits on 6s only)
 		var total_shots = _count_unit_ranged_shots(unit)
 		var expected_hits = total_shots / 6.0  # 1/6 chance per shot
+		ow_scored.append({"description": "Overwatch with %s" % unit_name, "score": expected_hits, "key": str(unit_id),
+			"eligible": expected_hits >= 0.5 and enemy_value >= 2.0,
+			"score_breakdown": {"ow_shots": float(total_shots), "ow_expected_hits": expected_hits, "ow_target_value": enemy_value}})
 
 		if expected_hits > best_expected_hits:
 			best_expected_hits = expected_hits
@@ -22567,6 +22946,12 @@ static func evaluate_fire_overwatch(defending_player: int, eligible_units: Array
 	# Use overwatch if we expect at least ~1 hit and enemy is valuable
 	# Threshold: at least 0.5 expected hits (3+ total shots) AND enemy worth shooting at
 	var enemy_name = _dn(enemy_unit, enemy_unit_id)
+	if not ow_scored.is_empty():
+		var ow_use: bool = best_expected_hits >= 0.5 and enemy_value >= 2.0 and best_unit_id != ""
+		ow_scored.append({"description": "Decline (needs 0.5+ expected hits on a target worth 2+)", "score": 0.5, "key": "decline",
+			"score_breakdown": {"ow_hits_bar": 0.5, "ow_value_bar": 2.0, "ow_target_value": enemy_value}})
+		_record_choice("fire_overwatch", best_unit_id if ow_use else "", "Overwatch at %s" % enemy_name, ow_scored,
+			best_unit_id if ow_use else "decline", {"phase": "overwatch"})
 	if best_expected_hits >= 0.5 and enemy_value >= 2.0 and best_unit_id != "":
 		_add_thinking_step("Fire Overwatch with %s at %s: %.1f expected hits on snap 6s, target value %.1f — firing" % [
 			best_unit_name, enemy_name, best_expected_hits, enemy_value])
@@ -22901,6 +23286,28 @@ static func _are_units_close(unit_a: Dictionary, unit_b: Dictionary, max_inches:
 
 # --- HEROIC INTERVENTION (Reactive — after opponent's charge) ---
 
+static func _hi_target_for_unit_11e(unit: Dictionary, defending_player: int, snapshot: Dictionary) -> String:
+	"""11e 15.11: the enemy a Heroic Intervention by `unit` would go for —
+	LEAP TO DEFEND: the closest enemy that charged this turn within 12";
+	INTO THE FRAY: otherwise the closest enemy within 6". "" if neither."""
+	var best_leap := ""
+	var best_leap_d := INF
+	var best_fray := ""
+	var best_fray_d := INF
+	var enemies := _get_enemy_units(snapshot, defending_player)
+	for eid in enemies:
+		var e = enemies[eid]
+		if _get_alive_models(e).is_empty():
+			continue
+		var d := float(_get_closest_model_distance_inches(unit, e))
+		if e.get("flags", {}).get("charged_this_turn", false) and d <= 12.0 and d < best_leap_d:
+			best_leap_d = d
+			best_leap = str(eid)
+		if d <= 6.0 and d < best_fray_d:
+			best_fray_d = d
+			best_fray = str(eid)
+	return best_leap if best_leap != "" else best_fray
+
 static func evaluate_heroic_intervention(defending_player: int, charging_unit_id: String, snapshot: Dictionary) -> Dictionary:
 	"""
 	Evaluate whether the AI should use Heroic Intervention to counter-charge.
@@ -22960,6 +23367,7 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 	var best_unit_id = ""
 	var best_unit_name = ""
 	var best_score = 0.0
+	var hi_scored: Array = []  # decision record (terms sum == score)
 
 	for entry in eligible_units:
 		var unit_id = entry.get("unit_id", "")
@@ -22975,30 +23383,56 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 
 		# Must have melee weapons to be useful
 		if not has_melee:
+			hi_scored.append({"description": "%s counter-charges (not considered: no melee weapons)" % unit_name,
+				"score": 0.0, "key": str(unit_id), "eligible": false, "score_breakdown": {}})
 			continue
+		var hi_terms := {}
 
 		# Base score from unit value (stronger units are better counter-chargers)
 		var unit_value = _estimate_unit_value(unit)
-		score += unit_value * 0.5
+		score += _t_add(hi_terms, "hi_unit_value", unit_value * 0.5)
 
 		# Bonus for CHARACTER units (they usually have strong melee)
 		for kw in keywords:
 			var kw_upper = kw.to_upper()
 			if kw_upper == "CHARACTER":
-				score += 2.0
+				score += _t_add(hi_terms, "hi_character", 2.0)
 			elif kw_upper == "MONSTER":
-				score += 1.0
+				score += _t_add(hi_terms, "hi_monster", 1.0)
 
-		# Scale by enemy value (worth counter-charging valuable enemies)
+		# Scale by enemy value (worth counter-charging valuable enemies).
+		# 11e end-of-phase window: there is no single charger (the id is ""),
+		# and valuing an empty unit gave 0 — so EVERY candidate took the x0.7
+		# cheap-enemy penalty. Value the enemy this unit would actually charge
+		# (15.11: LEAP TO DEFEND → closest enemy that charged within 12";
+		# INTO THE FRAY → closest enemy within 6").
+		var hi_target_id := charging_unit_id
+		if charging_unit_id == "":
+			hi_target_id = _hi_target_for_unit_11e(unit, defending_player, snapshot)
+			charging_value = _estimate_unit_value(snapshot.get("units", {}).get(hi_target_id, {})) if hi_target_id != "" else 0.0
 		if charging_value >= 5.0:
-			score *= 1.3
+			score = _t_mul(hi_terms, "hi_enemy_value", score, 1.3)
 		elif charging_value <= 2.0:
-			score *= 0.7  # Still worth considering at 1 CP (v3.3) even against cheap units
+			score = _t_mul(hi_terms, "hi_enemy_value", score, 0.7)  # Still worth considering at 1 CP (v3.3) even against cheap units
+		var hi_bd: Dictionary = hi_terms.duplicate()
+		hi_bd["hi_charger_value"] = charging_value
+		var hi_target_name := _dn(snapshot.get("units", {}).get(hi_target_id, {}), hi_target_id) if hi_target_id != "" else "no enemy in reach"
+		hi_scored.append({"description": "%s counter-charges %s" % [unit_name, hi_target_name], "score": score, "key": str(unit_id), "score_breakdown": hi_bd})
 
 		if score > best_score:
 			best_score = score
 			best_unit_id = unit_id
 			best_unit_name = unit_name
+
+	# Decision record: every candidate against the bar to spend the CP
+	# (2.0; 4.0 when it is the last CP).
+	var hi_bar := 4.0 if player_cp <= hi_cp else 2.0
+	if not hi_scored.is_empty():
+		var hi_use: bool = best_unit_id != "" and best_score >= 2.0 and not (player_cp <= hi_cp and best_score < 4.0)
+		hi_scored.append({"description": "Decline (save the CP)" + (" — it would be the last CP" if player_cp <= hi_cp else ""),
+			"score": hi_bar, "key": "decline", "score_breakdown": {"use_threshold": hi_bar, "cp_available": float(player_cp)}})
+		_record_choice("heroic_intervention", best_unit_id if hi_use else "", "Heroic Intervention", hi_scored,
+			best_unit_id if hi_use else "decline", {"phase": "charge"})
 
 	# Use if score is high enough to justify the CP
 	if best_score >= 2.0 and best_unit_id != "":

@@ -1,0 +1,73 @@
+{
+  "id": "ai_suggestion_charge_breakdown",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "scripts.AIDecisionMaker.charge_score_terms"
+  ],
+  "fixture": "ork11e_ab_charge",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 9,
+  "description": "K in the Charge phase: the charge score is an itemised ledger \u2014 the target's value parts (melee damage, ties up a shooter\u2026) plus the multiplier chain (charge may fail, short charge, target on objective, Overwatch risk, randomness), each booked as the change it made.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== CHARGE\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"read as: ledger\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Charge may fail\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Melee damage it would deal\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_charge_card"
+    }
+  ]
+}

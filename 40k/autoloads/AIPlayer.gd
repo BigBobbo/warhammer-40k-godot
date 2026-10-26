@@ -792,7 +792,17 @@ func clear_action_log() -> void:
 # ON-DEMAND AI SUGGESTION — human-facing hint / AI-reasoning inspector
 # =============================================================================
 
-func request_suggestion() -> Dictionary:
+# Who/where/how the last request_suggestion() reasoned — read by the K breakdown
+# panel (AISuggestionBreakdownPanel) for its header, and by scenario asserts.
+var last_suggestion_meta: Dictionary = {}
+
+func _unique_action_types(actions: Array) -> Array:
+	var seen := {}
+	for a in actions:
+		seen[str(a.get("type", ""))] = true
+	return seen.keys()
+
+func request_suggestion(difficulty_override: int = -1) -> Dictionary:
 	"""Compute what the AI would do for the CURRENT active player and surface its
 	reasoning in the game log — WITHOUT executing anything. Built for a human
 	playing against the AI who wants a hint, or for debugging the AI's reasoning
@@ -802,7 +812,9 @@ func request_suggestion() -> Dictionary:
 	(with _ai_* reasoning fields), or an empty dict if no suggestion is available."""
 	# Don't interleave with the AI actively taking its own turn — that path owns
 	# the decision caches while it runs.
+	last_suggestion_meta = {}
 	if _processing_turn:
+		last_suggestion_meta = {"empty_reason": "Suggestion unavailable — the AI is currently taking its turn."}
 		_log_ai_thinking(GameState.get_active_player(), "Suggestion unavailable — the AI is currently taking its turn.")
 		return {}
 
@@ -822,9 +834,37 @@ func request_suggestion() -> Dictionary:
 		if sel > 0:
 			player = sel
 
+	# A pending stratagem window / shooting reactive window is the decision the
+	# game is actually waiting on — often owed by the NON-active player (e.g.
+	# Overwatch, defensive stratagems). Answer that one, for its owner.
+	var phase_inst = phase_manager.current_phase_instance
+	var window_owner := 0
+	if phase_inst.has_method("has_pending_stratagem_window") and phase_inst.has_pending_stratagem_window():
+		window_owner = int(phase_inst.get_pending_stratagem_window().get("player", 0))
+	elif "awaiting_reactive_stratagem" in phase_inst and phase_inst.awaiting_reactive_stratagem:
+		window_owner = 2 if int(GameState.get_active_player()) == 1 else 1
+	# Charge-phase defender windows (Fire Overwatch, Heroic Intervention and its
+	# pending move) are separate phase flags, answered by _decide_charge only
+	# when asked AS the window owner — ask as them.
+	var charge_window_owner := 0
+	if window_owner <= 0:
+		if "awaiting_fire_overwatch" in phase_inst and phase_inst.awaiting_fire_overwatch:
+			charge_window_owner = int(phase_inst.fire_overwatch_player)
+		elif "awaiting_heroic_intervention" in phase_inst and phase_inst.awaiting_heroic_intervention:
+			charge_window_owner = int(phase_inst.heroic_intervention_player)
+		elif "heroic_intervention_unit_id" in phase_inst and str(phase_inst.heroic_intervention_unit_id) != "" \
+				and "heroic_intervention_pending_charge" in phase_inst and not phase_inst.heroic_intervention_pending_charge.is_empty():
+			charge_window_owner = int(phase_inst.heroic_intervention_player)
+	if window_owner > 0:
+		player = window_owner
+	elif charge_window_owner > 0:
+		player = charge_window_owner
+
 	var snapshot = GameState.create_snapshot(false)
 	var available = phase_manager.get_available_actions()
-	if available.is_empty():
+	if available.is_empty() and window_owner <= 0:
+		last_suggestion_meta = {"player": player, "phase_name": PHASE_DISPLAY_NAMES.get(phase, "Unknown"),
+			"round": GameState.get_battle_round(), "empty_reason": "No actions available to suggest right now."}
 		_log_ai_thinking(player, "No actions available to suggest right now.")
 		emit_signal("ai_suggestion_ready", player, {}, "No actions available")
 		return {}
@@ -839,9 +879,33 @@ func request_suggestion() -> Dictionary:
 		difficulty = get_difficulty(opponent) if is_ai_player(opponent) else AIDifficultyConfigData.Difficulty.NORMAL
 	if AIDifficultyConfigData.use_random_actions(difficulty):
 		difficulty = AIDifficultyConfigData.Difficulty.NORMAL
+	# Saved AI test cases re-ask at the difficulty they were recorded at
+	if difficulty_override >= 0:
+		difficulty = difficulty_override
 
-	var decision = AIDecisionMaker.suggest_action(phase, snapshot, available, player, difficulty)
+	last_suggestion_meta = {
+		"player": player,
+		"phase_name": PHASE_DISPLAY_NAMES.get(phase, "Unknown"),
+		"round": GameState.get_battle_round(),
+		"difficulty": AIDifficultyConfigData.difficulty_name(difficulty),
+		"difficulty_level": difficulty,
+		# What the AI could have done — lets the card tell "nothing to choose"
+		# apart from "a choice the AI does not record".
+		"available_count": available.size(),
+		"available_types": _unique_action_types(available),
+	}
+	var decision: Dictionary = {}
+	if window_owner > 0:
+		var win: Dictionary = AIDecisionMaker.suggest_pending_window(phase_inst, difficulty)
+		if not win.is_empty():
+			decision = win.decision
+			last_suggestion_meta["window"] = true
+			last_suggestion_meta["available_count"] = -1  # a window, not the phase's action list
+			last_suggestion_meta["available_types"] = []
 	if decision.is_empty():
+		decision = AIDecisionMaker.suggest_action(phase, snapshot, available, player, difficulty)
+	if decision.is_empty():
+		last_suggestion_meta["empty_reason"] = "The AI could not find a recommended action here."
 		_log_ai_thinking(player, "The AI could not find a recommended action here.")
 		emit_signal("ai_suggestion_ready", player, {}, "No recommendation")
 		return {}

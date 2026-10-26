@@ -1,0 +1,140 @@
+{
+  "fixture": "hi_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "id": "ai_suggestion_heroic_intervention",
+  "covers": [
+    "ai.suggestion.reactive_window",
+    "scripts.AIDecisionMaker.heroic_intervention_record"
+  ],
+  "description": "K while the 11e Heroic Intervention dialog is open for the defender (P1) at the end of P2's Charge phase: the suggestion answers that window for P1 \u2014 every eligible counter-charger scored (unit value, CHARACTER/MONSTER, enemy-value factor) against 'Decline (save the CP)' \u2014 and the window stays open. Setup copied from hi_window_ai_must_not_hijack_11e.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "01_p2_charge_phase_loaded"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/HeroicInterventionDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "awaiting_heroic_intervention",
+      "equals": true
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "heroic_intervention_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K",
+      "comment": "K while the defender's dialog (modal) is open"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.last_suggestion_meta.get(\"player\", 0)",
+      "equals": 1,
+      "comment": "answered for the window owner, not the active player"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== HEROIC INTERVENTION\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Decline (save the CP)\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"How strong the unit is\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"counter-charges no enemy in reach\")",
+      "equals": false,
+      "comment": "each candidate names the enemy it would charge (11e: no single charger)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_hi_card"
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "awaiting_heroic_intervention",
+      "equals": true,
+      "comment": "pure preview: the window is still waiting"
+    }
+  ]
+}
