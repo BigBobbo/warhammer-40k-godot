@@ -1028,3 +1028,16 @@ Locks in use:
     - [ ] Every doc recommendation has a corresponding closed task OR explicit
           deferral rationale.
     - [ ] No "Tier B" checkboxes left unticked across T01–T44.
+
+## Follow-up: Tutorials — re-author for the rotated 11e layouts (2026-10-26)
+
+- [ ] The 11e terrain layouts and deployment zones were rotated to the official
+  orientation (branch `claude/friendly-mccarthy-f4c0ws`; the 40kdc converter
+  used to transpose = mirror them). The tutorials pin `take_and_hold_mirror_1`
+  (`40k/data/tutorials/lessons/T2_deployment.json`) and their lessons/fixtures
+  (`40k/data/tutorials/fixtures/*.w40ksave`) script positions and left/right
+  wording against the old mirrored geometry, so the guidance is now wrong for
+  players. Mirror the lesson coordinates and fixture unit positions
+  (x -> 1760 - x px / 44 - x in), swap left/right wording, then delist
+  `tut_t2_*`, `tut_t3_*`, `tut_t4_*` and `pad_nested_panel_walk` from
+  `40k/tests/scenarios/_known_failures.txt` once their scenarios pass.

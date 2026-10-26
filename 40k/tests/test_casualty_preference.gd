@@ -124,26 +124,28 @@ func _run_tests():
 
 	# ── C) objective holders die last; coherency never splits the unit ─
 	print("\n-- C) objective control + coherency guard --")
-	# chain from the objective (800,400) toward the enemy (900,400):
-	# m1..m3 (760/700/640) are inside control range of the marker; P2 holds
+	# chain from the objective (960,400) toward the enemy (860,400):
+	# m1..m3 (1000/1060/1120) are inside control range of the marker; P2 holds
 	# it 6 vs 5 (14.02: each of the three OC2 models adds 2; the enemy model
 	# in range has OC 5), so losing ANY one holder hands over control (4 < 5)
-	# and all three carry it. m4..m6 (580/520/460) are plain chaff.
+	# and all three carry it. m4..m6 (1180/1240/1300) are plain chaff.
+	# (x mirrored 1760 - x when the 11e layouts were rotated: the boot
+	# layout take_and_hold_mirror_1 hosts the original (800,400) in an area.)
 	# (Enemy OC was 2 while OC counted once per unit — 2 vs 2 — which under
 	# the per-model sum is a comfortable 6 vs 2 with nothing at stake.)
 	var chain_models = []
-	var xs = [760, 700, 640, 580, 520, 460]
+	var xs = [1000, 1060, 1120, 1180, 1240, 1300]
 	for i in range(xs.size()):
 		chain_models.append(_model("m%d" % (i + 1), xs[i], 400))
 	var chain = {"id": "U_CHAIN", "owner": 2, "flags": {},
 		"meta": {"name": "Chain", "keywords": ["INFANTRY"],
 			"stats": {"toughness": 5, "save": 5, "wounds": 1, "objective_control": 2}},
 		"models": chain_models}
-	var objectives = [{"id": "obj_test", "position": {"x": 800.0, "y": 400.0}, "radius_mm": 40.0}]
-	var state_c = _state_with({"U_CHAIN": chain, "U_ENEMY": _enemy_unit("U_ENEMY", [[900, 400]], 5)}, objectives)
+	var objectives = [{"id": "obj_test", "position": {"x": 960.0, "y": 400.0}, "radius_mm": 40.0}]
+	var state_c = _state_with({"U_CHAIN": chain, "U_ENEMY": _enemy_unit("U_ENEMY", [[860, 400]], 5)}, objectives)
 	var order_c = CasualtyPreference.compute_preferred_targets(chain, state_c)
-	# chaff first — and after m4 (580) dies, removing m5 (520) would strand
-	# m6 (460) out of coherency, so the guard takes the END model m6 first.
+	# chaff first — and after m4 (1180) dies, removing m5 (1240) would strand
+	# m6 (1300) out of coherency, so the guard takes the END model m6 first.
 	_check("chaff dies first, end-before-bridge [3,5,4]",
 		str(order_c.slice(0, 3)) == str([3, 5, 4]), str(order_c))
 	var tail_c = order_c.slice(3, 6)

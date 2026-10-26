@@ -130,7 +130,9 @@ func _section_movement(gs, pm) -> void:
 # — these follow the SELECTED shooting type, so they apply against a VISIBLE
 # target too.
 func _indirect_board(mortar_flags: Dictionary) -> Dictionary:
-	# Mortar (400,400) -> Foe (400,1000): open ground, the foe is visible.
+	# Mortar (1360,400) -> Foe (1360,1000): open ground on the boot layout
+	# (take_and_hold_mirror_1), the foe is visible. (x mirrored 1760 - x when
+	# the 11e layouts were rotated to the official orientation.)
 	return {"units": {
 		"U_MORTAR": {"id": "U_MORTAR", "owner": 1, "status": 2, "flags": mortar_flags,
 			"meta": {"name": "Mortar Team", "keywords": ["INFANTRY"],
@@ -139,15 +141,15 @@ func _indirect_board(mortar_flags: Dictionary) -> Dictionary:
 					"attacks": "12", "ballistic_skill": "4", "strength": "4",
 					"ap": "0", "damage": "1", "special_rules": "indirect fire"}]},
 			"models": [{"id": "m0", "alive": true, "wounds": 2, "current_wounds": 2,
-				"base_mm": 32, "base_type": "circular", "position": {"x": 400, "y": 400}}]},
+				"base_mm": 32, "base_type": "circular", "position": {"x": 1360, "y": 400}}]},
 		"U_FOE": {"id": "U_FOE", "owner": 2, "status": 2, "flags": {},
 			"meta": {"name": "Foe", "keywords": ["INFANTRY"],
 				"stats": {"move": 6, "toughness": 4, "save": 5, "wounds": 1}},
 			"models": [
 				{"id": "f0", "alive": true, "wounds": 1, "current_wounds": 1,
-					"base_mm": 32, "base_type": "circular", "position": {"x": 400, "y": 1000}},
+					"base_mm": 32, "base_type": "circular", "position": {"x": 1360, "y": 1000}},
 				{"id": "f1", "alive": true, "wounds": 1, "current_wounds": 1,
-					"base_mm": 32, "base_type": "circular", "position": {"x": 440, "y": 1000}}]},
+					"base_mm": 32, "base_type": "circular", "position": {"x": 1320, "y": 1000}}]},
 	}, "terrain_features": [], "meta": {"active_player": 1, "phase": 8}, "players": {"1": {"cp": 0}, "2": {"cp": 0}}}
 
 func _to_hit_block(result: Dictionary) -> Dictionary:

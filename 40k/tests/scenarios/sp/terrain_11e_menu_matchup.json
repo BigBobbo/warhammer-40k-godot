@@ -7,7 +7,7 @@
     "missions.objectives.layout_sourced"
   ],
   "edition": 11,
-  "description": "D5 + D3-a (docs/40KDC_TERRAIN_MIGRATION_SPEC.md): the Force-Disposition pairing selects the official 11e terrain layouts in the main menu, and a started game uses the layout's own objective markers. Boots the MainMenu (no fixture) and asserts the first-run defaults now that the legacy layouts are removed: 3 terrain options (the default mirror matchup's variants) with take_and_hold_mirror_1 selected, whose 5 authored objectives drive objective setup (obj_home_1 at its layout centroid 1060,470 px). Changes P2's disposition to Purge the Foe through the real dropdown handler: the terrain dropdown rebuilds and auto-selects take_and_hold_vs_purge_the_foe_1 and the deployment dropdown snaps to its official pattern (sweeping_engagement). Picking variant 2 in the terrain dropdown moves deployment to search_and_destroy. A mirror-pairing check proves the new tipping_point deployment option works (take_and_hold_mirror_1). Then sets P2 to Human, clicks Start with variant 2 selected, and asserts the started game actually runs the official layout: 44 polygon pieces, current_layout take_and_hold_vs_purge_the_foe_2, deployment_type search_and_destroy \u2014 and D3-a: board.objectives are the LAYOUT's five markers (obj_home_1 at the home area centroid 1420,430 px \u2014 not the deployment-zone spot \u2014 obj_center at exactly 880,1200) with obj_center designated central. ISS-055 visuals: terrain-hosted objectives render as their highlighted AREA polygons instead of the misleading control-radius circle \u2014 obj_center's visual spans BOTH linked centre trapezoids, obj_home_1's spans its home area, and the circle nodes are absent. Confirms formations for both players (85c pattern) to reach ROLL_OFF and screenshots the board with the official terrain rendered.",
+  "description": "D5 + D3-a (docs/40KDC_TERRAIN_MIGRATION_SPEC.md): the Force-Disposition pairing selects the official 11e terrain layouts in the main menu, and a started game uses the layout's own objective markers. Boots the MainMenu (no fixture) and asserts the first-run defaults now that the legacy layouts are removed: 3 terrain options (the default mirror matchup's variants) with take_and_hold_mirror_1 selected, whose 5 authored objectives drive objective setup (obj_home_1 at its layout centroid 700,470 px). Changes P2's disposition to Purge the Foe through the real dropdown handler: the terrain dropdown rebuilds and auto-selects take_and_hold_vs_purge_the_foe_1 and the deployment dropdown snaps to its official pattern (sweeping_engagement). Picking variant 2 in the terrain dropdown moves deployment to search_and_destroy. A mirror-pairing check proves the new tipping_point deployment option works (take_and_hold_mirror_1). Then sets P2 to Human, clicks Start with variant 2 selected, and asserts the started game actually runs the official layout: 44 polygon pieces, current_layout take_and_hold_vs_purge_the_foe_2, deployment_type search_and_destroy \u2014 and D3-a: board.objectives are the LAYOUT's five markers (obj_home_1 at the home area centroid 340,430 px \u2014 not the deployment-zone spot \u2014 obj_center at exactly 880,1200) with obj_center designated central. ISS-055 visuals: terrain-hosted objectives render as their highlighted AREA polygons instead of the misleading control-radius circle \u2014 obj_center's visual spans BOTH linked centre trapezoids, obj_home_1's spans its home area, and the circle nodes are absent. Confirms formations for both players (85c pattern) to reach ROLL_OFF and screenshots the board with the official terrain rendered.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -49,7 +49,7 @@
     {
       "act": "execute_script",
       "script": "int(MissionManager._get_objective_by_id(\"obj_home_1\")[\"position\"][\"x\"])",
-      "equals": 1060
+      "equals": 700
     },
     {
       "act": "execute_script",
@@ -185,7 +185,7 @@
     {
       "act": "execute_script",
       "script": "int(MissionManager._get_objective_by_id(\"obj_home_1\")[\"position\"][\"x\"])",
-      "equals": 1420
+      "equals": 340
     },
     {
       "act": "execute_script",

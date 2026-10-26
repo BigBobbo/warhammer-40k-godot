@@ -30,10 +30,11 @@ import { loadCollection } from './lib.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 const layoutDir = join(here, '..', '..', '40k', 'terrain_layouts');
 
-// Independent re-statement of the spec §3 transform: 4-dp round + transpose
-// (dataset 60x44 landscape {x,y} -> game 44x60 portrait [y, x]).
+// Independent re-statement of the spec §3 transform: 4-dp round + 90° CW
+// rotation (dataset 60x44 landscape {x,y} -> game 44x60 portrait [44 - y, x]).
+// A transpose here would be a reflection (mirrored chiral layouts).
 const r4 = v => Math.round(v * 1e4) / 1e4;
-const expectVert = v => [r4(v.y), r4(v.x)];
+const expectVert = v => [r4(44 - v.y), r4(v.x)];
 
 const BOARD_W = 44, BOARD_H = 60, EPS = 1e-9;
 
