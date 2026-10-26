@@ -16471,16 +16471,23 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		for w in primary_weapons:
 			e_damage = maxf(e_damage, _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), e_toughness, e_save, e_invuln, waaagh_buffs))
 		var e_hp = _calculate_kill_threshold(enemy)
-		var e_score = _score_fight_target(unit, enemy, e_damage, snapshot, player, objectives)
+		# The additive ledger (sum == score) plus two descriptive facts.
+		var e_terms := {}
+		var e_score = _score_fight_target(unit, enemy, e_damage, snapshot, player, objectives, e_terms)
+		var e_breakdown: Dictionary = e_terms.duplicate()
+		e_breakdown["melee_damage"] = e_damage
+		e_breakdown["target_hp"] = e_hp
 		fight_candidates.append({
 			"description": "Attack %s with melee" % ename,
 			"score": e_score,
-			"score_breakdown": {"melee_damage": e_damage, "target_hp": e_hp, "strategic_value": e_score - e_damage * get_param("FIGHT_MELEE_DAMAGE_WEIGHT", FIGHT_MELEE_DAMAGE_WEIGHT)}
+			"score_breakdown": e_breakdown
 		})
 		if enemy_id == best_target_id:
 			fight_chosen_idx = fight_idx
 		fight_idx += 1
-	if fight_candidates.size() > 1:
+	# Record even a single engaged target: the score breakdown is still the
+	# "why", and a missing record reads as an un-instrumented decision.
+	if not fight_candidates.is_empty():
 		_add_decision_record("fight", unit_id, unit_name, fight_candidates, fight_chosen_idx,
 			{}, {"phase": "fight", "round": snapshot.get("meta", {}).get("battle_round", 1)})
 
@@ -16504,13 +16511,15 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 
 # T7-29: Score a fight target by combining expected damage with strategic value factors
 # Similar to _score_charge_target but tailored for the fight phase where units are already engaged
-static func _score_fight_target(attacker: Dictionary, target: Dictionary, expected_damage: float, snapshot: Dictionary, player: int, objectives: Array) -> float:
+static func _score_fight_target(attacker: Dictionary, target: Dictionary, expected_damage: float, snapshot: Dictionary, player: int, objectives: Array, terms: Dictionary = {}) -> float:
 	"""Score a melee target in the fight phase by combining expected damage output with
-	strategic value. Higher score = better target to attack."""
+	strategic value. Higher score = better target to attack.
+	`terms` (optional) receives the additive decomposition (sum == score) for the
+	decision record — see _t_add / _t_mul. Instrumentation only."""
 	var score = 0.0
 
 	# --- Expected melee damage (primary factor) ---
-	score += expected_damage * get_param("FIGHT_MELEE_DAMAGE_WEIGHT", FIGHT_MELEE_DAMAGE_WEIGHT)
+	score += _t_add(terms, "fight_damage", expected_damage * get_param("FIGHT_MELEE_DAMAGE_WEIGHT", FIGHT_MELEE_DAMAGE_WEIGHT))
 
 	# --- Target value factors ---
 	var target_keywords = target.get("meta", {}).get("keywords", [])
@@ -16520,55 +16529,55 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 
 	# Bonus for targets below half strength (easier to wipe out — denies VP, removes threat)
 	if total_models > 0 and alive_models * 2 < total_models:
-		score += get_param("FIGHT_CAN_HALVE_BONUS", FIGHT_CAN_HALVE_BONUS)
+		score += _t_add(terms, "fight_target_below_half", get_param("FIGHT_CAN_HALVE_BONUS", FIGHT_CAN_HALVE_BONUS))
 
 	# Bonus for CHARACTER targets (high-value eliminations)
 	if "CHARACTER" in target_keywords:
-		score += get_param("FIGHT_CHARACTER_BONUS", FIGHT_CHARACTER_BONUS)
+		score += _t_add(terms, "fight_character", get_param("FIGHT_CHARACTER_BONUS", FIGHT_CHARACTER_BONUS))
 	# PM-3: HUNT_CHARACTERS adds to that bonus rather than replacing it.
-	score += _plan_hunt_bonus(attacker, target, snapshot, player)
+	score += _t_add(terms, "plan_hunt", _plan_hunt_bonus(attacker, target, snapshot, player))
 
 	# Penalty for targets we can't meaningfully damage
 	if expected_damage < 1.0:
-		score -= get_param("FIGHT_CANT_HURT_PENALTY", FIGHT_CANT_HURT_PENALTY)
+		score += _t_add(terms, "fight_cant_hurt", -get_param("FIGHT_CANT_HURT_PENALTY", FIGHT_CANT_HURT_PENALTY))
 
 	# --- Kill potential bonus: can we actually wipe the target? ---
 	# Use CURRENT wounds, not max — a Knight on 5/22 wounds is finishable.
 	var target_remaining_wounds = _calculate_kill_threshold(target)
 	if expected_damage >= target_remaining_wounds and target_remaining_wounds > 0:
 		# We can likely wipe this unit — big bonus for removing it from the game
-		score += get_param("FIGHT_CAN_WIPE_BONUS", FIGHT_CAN_WIPE_BONUS)
+		score += _t_add(terms, "fight_can_wipe", get_param("FIGHT_CAN_WIPE_BONUS", FIGHT_CAN_WIPE_BONUS))
 	elif target_remaining_wounds > 0 and expected_damage >= target_remaining_wounds * 0.5:
 		# We can take them below half strength
-		score += get_param("FIGHT_BELOW_HALF_BONUS", FIGHT_BELOW_HALF_BONUS)
+		score += _t_add(terms, "fight_can_halve", get_param("FIGHT_BELOW_HALF_BONUS", FIGHT_BELOW_HALF_BONUS))
 
 	# --- Overkill penalty: don't waste massive damage on a nearly-dead 1-model unit ---
 	if target_remaining_wounds > 0 and expected_damage > target_remaining_wounds * 3.0:
 		# More than 3x the wounds remaining — significant overkill
-		score -= get_param("FIGHT_OVERKILL_PENALTY", FIGHT_OVERKILL_PENALTY)
+		score += _t_add(terms, "fight_overkill", -get_param("FIGHT_OVERKILL_PENALTY", FIGHT_OVERKILL_PENALTY))
 
 	# --- Lock dangerous shooters bonus: keep ranged threats tied up in combat ---
 	var target_has_ranged = _unit_has_ranged_weapons(target)
 	if target_has_ranged:
 		var max_range = _get_max_weapon_range(target)
 		if max_range >= 24.0:
-			score += get_param("FIGHT_LOCK_LONG_RANGE", FIGHT_LOCK_LONG_RANGE)  # Lock long-range shooters
+			score += _t_add(terms, "fight_lock_shooter", get_param("FIGHT_LOCK_LONG_RANGE", FIGHT_LOCK_LONG_RANGE))  # Lock long-range shooters
 		var ranged_output = _estimate_unit_ranged_strength(target)
 		if ranged_output >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS:
-			score += get_param("FIGHT_LOCK_DANGEROUS_SHOOTER", FIGHT_LOCK_DANGEROUS_SHOOTER)  # Extra bonus for truly dangerous shooters
+			score += _t_add(terms, "fight_lock_shooter", get_param("FIGHT_LOCK_DANGEROUS_SHOOTER", FIGHT_LOCK_DANGEROUS_SHOOTER))  # Extra bonus for truly dangerous shooters
 
 	# --- Target on objective bonus ---
 	var target_centroid = _get_unit_centroid(target)
 	if target_centroid != Vector2.INF:
 		for obj_pos in objectives:
 			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				score += get_param("FIGHT_TARGET_ON_OBJ", FIGHT_TARGET_ON_OBJ)  # Killing/weakening units on objectives is valuable
+				score += _t_add(terms, "fight_target_on_objective", get_param("FIGHT_TARGET_ON_OBJ", FIGHT_TARGET_ON_OBJ))  # Killing/weakening units on objectives is valuable
 				break
 
 	# --- Low toughness bonus (likely to wound effectively) ---
 	var target_toughness = int(target.get("meta", {}).get("stats", {}).get("toughness", 4))
 	if target_toughness <= 3:
-		score += get_param("FIGHT_LOW_TOUGHNESS", FIGHT_LOW_TOUGHNESS)
+		score += _t_add(terms, "fight_low_toughness", get_param("FIGHT_LOW_TOUGHNESS", FIGHT_LOW_TOUGHNESS))
 
 	# --- AI-GAP-4: Factor in target's defensive abilities ---
 	var target_id = target.get("id", "")
@@ -16576,12 +16585,16 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 		var all_units = snapshot.get("units", {})
 		var def_mult = AIAbilityAnalyzerData.get_defensive_multiplier(target_id, target, all_units)
 		if def_mult > 1.0:
-			score /= def_mult
+			# Divide (not × 1/def_mult) so the score is bit-identical to before;
+			# book the exact change it made.
+			var def_after = score / def_mult
+			_t_add(terms, "fight_target_defences", def_after - score)
+			score = def_after
 
 	# --- Trade efficiency: prefer favorable point trades ---
 	var trade_eff = _get_trade_efficiency(attacker, target)
 	if trade_eff != 1.0:
-		score *= trade_eff
+		score = _t_mul(terms, "fight_points_trade", score, trade_eff)
 
 	# --- Fight coordination: bonus for concentrating attacks on targets already hit this phase ---
 	# T18-1: Horde units (10+ models) get larger finish-off bonus since they need to stack damage
@@ -16596,14 +16609,14 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 			var finish_bonus = 7.0 if is_horde_attacker else 5.0
 			var significant_bonus = 3.5 if is_horde_attacker else 2.5
 			if expected_damage >= remaining_after_prior:
-				score += finish_bonus  # Big bonus: we can finish off what others started
+				score += _t_add(terms, "fight_finish_off", finish_bonus)  # Big bonus: we can finish off what others started
 				print("AIDecisionMaker: [FIGHT-COORD] %s can finish off target (prior dmg %.1f + our %.1f >= %.1f HP, horde=%s)" % [
 					_dn(attacker, ""), prior_dmg, expected_damage, target_remaining_wounds, str(is_horde_attacker)])
 			elif expected_damage >= remaining_after_prior * 0.5:
-				score += significant_bonus  # Medium bonus: combined damage is significant
+				score += _t_add(terms, "fight_finish_off", significant_bonus)  # Medium bonus: combined damage is significant
 		elif remaining_after_prior <= 0:
 			# Target already overkilled by prior fighters — small penalty (reduced from -2.0)
-			score -= get_param("FIGHT_ALREADY_OVERKILLED", FIGHT_ALREADY_OVERKILLED)
+			score += _t_add(terms, "fight_already_overkilled", -get_param("FIGHT_ALREADY_OVERKILLED", FIGHT_ALREADY_OVERKILLED))
 	else:
 		# T19-2: PROACTIVE gang-up detection — first attacker on a target gets bonus if
 		# other friendly units are also engaged with the same target (they'll fight later)
@@ -16636,11 +16649,13 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 			if other_engaged_count > 0:
 				# Multiple horde units engaged with same target — initiate the gang-up
 				var gang_seed_bonus = 4.0 + (2.0 * min(other_engaged_count, 3))
-				score += gang_seed_bonus
+				score += _t_add(terms, "fight_gang_up", gang_seed_bonus)
 				print("AIDecisionMaker: [FIGHT-COORD-SEED] %s initiating gang-up on %s — %d other friendly units (%d models) also engaged, bonus=+%.1f" % [
 					_dn(attacker, ""), _dn(target, ""),
 					other_engaged_count, other_engaged_total_models, gang_seed_bonus])
 
+	if score < 0.0:
+		_t_add(terms, "fight_floor_zero", -score)  # the score never goes below 0
 	return max(0.0, score)
 
 # =============================================================================
