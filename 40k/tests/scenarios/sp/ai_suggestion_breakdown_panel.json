@@ -63,9 +63,10 @@
       "frames": 5
     },
     {
-      "act": "expect_node_visible",
-      "node": "/root/Main/AISuggestionBreakdownPanel",
-      "timeout_s": 2.0
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible and main._ai_suggestion_panel.get_path() == NodePath(\"/root/Main/AISuggestionBreakdownPanel\")",
+      "equals": true,
+      "comment": "the card is created on first click, so it is checked by script (the loop's selector dry-run cannot see it)"
     },
     {
       "act": "execute_script",
