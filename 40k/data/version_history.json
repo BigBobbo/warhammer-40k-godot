@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.52.1",
+      "date": "2026-10-26",
+      "summary": "Removed old leftover army lists from the army picker.",
+      "changes": [
+        "The army dropdown no longer lists Adeptus_Custodes_1995_Mar_7, ORK_test, Orks_2000_upload, Orks_Upload_Mar7 or the adeptus_custodes_roster_stubs placeholder. These were 10th edition imports and duplicates; Lions of the Emperor players can use custodes_lions instead."
+      ]
+    },
+    {
       "version": "1.52.0",
       "date": "2026-10-26",
       "summary": "The AI Suggestion (K) now opens a full breakdown of how the AI reached its pick, and works in local human-vs-human games too.",

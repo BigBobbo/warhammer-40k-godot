@@ -34,9 +34,9 @@ extends SceneTree
 # built from them and the lesson text names those units ("Witchseekers"), so
 # converting only the army files would change the roster mid-course. Rebuilding
 # the tutorial for the codex is a tracked follow-up (PLAN.md).
-const CUSTODES_FILES := ["A_C_test", "Adeptus_Custodes_1995_Mar_7", "adeptus_custodes",
+const CUSTODES_FILES := ["A_C_test", "adeptus_custodes",
 	"custodes_lions", "custodes_web_built_repro"]
-const ORK_FILES := ["ORK_test", "Orks_2000", "Orks_2000_upload", "Orks_Upload_Mar7", "battlewagons",
+const ORK_FILES := ["Orks_2000", "battlewagons",
 	"ork11e_codex_test", "orks", "orks_taktikal", "recon_stomps"]
 const SOURCE_PREFIX := "wahapedia-11e@"
 
@@ -225,7 +225,7 @@ func _check_spot_values() -> void:
 		"CUSTODIAN GUARD SODALITY" in bc.get("meta", {}).get("leader_data", {}).get("can_lead", []) and
 		"CUSTODIAN GUARD SODALITY" in cgs.get("meta", {}).get("keywords", []),
 		"%s / %s" % [str(bc.get("meta", {}).get("leader_data", {})), str(cgs.get("meta", {}).get("keywords", []))])
-	var bw := _unit_by_name("ORK_test", "Battlewagon")
+	var bw := _unit_by_name("orks", "Battlewagon")
 	var bs: Dictionary = bw.get("meta", {}).get("stats", {})
 	_check("Battlewagon: T11 W16, 160 pts (first copy)",
 		int(bs.get("toughness", 0)) == 11 and int(bs.get("wounds", 0)) == 16 and int(bw.get("meta", {}).get("points", 0)) == 160,

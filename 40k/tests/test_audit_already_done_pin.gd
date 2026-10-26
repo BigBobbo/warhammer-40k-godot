@@ -126,7 +126,6 @@ func _run_tests():
 	_test_t095_deployment_qol_bundle()
 	_test_t096_command_qol_bundle()
 	_test_t109_visual_polish_bundle()
-	_test_t029_custodes_roster_stubs()
 	_finish()
 
 func _read(path: String) -> String:
@@ -608,31 +607,6 @@ func _test_t082_movement_path_distance() -> void:
 		"var prior_total = move_data.model_distances.get(model_id, 0.0)" in src)
 	_check("total = prior_total + segment + terrain (path-sum)",
 		"prior_total + distance_inches + terrain_penalty" in src)
-
-
-func _test_t029_custodes_roster_stubs() -> void:
-	print("\n-- T-029: Custodes/Lions roster stubs registered (stat values pending Wahapedia review) --")
-	var src = _read("res://armies/adeptus_custodes_roster_stubs.json")
-	_check("roster stubs JSON readable", not src.is_empty())
-	for stub_id in [
-		"U_TRAJANN_VALORIS_STUB",
-		"U_ALLARUS_CUSTODIANS_STUB",
-		"U_PROSECUTORS_STUB",
-		"U_VERTUS_PRAETORS_STUB",
-		"U_CALLIDUS_ASSASSIN_STUB",
-		"U_INQUISITOR_DRAXUS_STUB",
-		"U_SHIELD_CAPTAIN_DAWNEAGLE_STUB",
-	]:
-		_check("stub %s present" % stub_id, "\"%s\"" % stub_id in src)
-	for strat_id in [
-		"shield_host_strat_1",
-		"shield_host_strat_2",
-		"shield_host_strat_3",
-		"shield_host_strat_4",
-		"shield_host_strat_5",
-		"shield_host_strat_6",
-	]:
-		_check("stratagem stub %s present" % strat_id, "\"%s\"" % strat_id in src)
 
 
 func _test_t109_visual_polish_bundle() -> void:
