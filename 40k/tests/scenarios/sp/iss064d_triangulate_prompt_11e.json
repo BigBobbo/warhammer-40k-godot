@@ -9,7 +9,7 @@
  "rng_seed": 42,
  "transition_to_phase": 11,
  "disable_ai": true,
- "description": "11e GDM card-action player prompt (single-pick): P2 plays Triangulation (Reconnaissance vs Purge the Foe); the P1 centre garrison withdraws and Warboss B takes obj_center so P2 controls obj_center + obj_nml_2 at end of turn. Clicking the real End Turn button pauses END_TURN behind the CardActionDialog listing both controlled objectives; a second END_TURN is rejected while the gate is up. The player clicks Pick_obj_nml_2 \u2014 the pick is applied, the deterministic auto-pick stands down (exactly one mark), EOT scores 3 VP for 1 Triangulated objective, and the turn ends.",
+ "description": "11e GDM card-action player prompt (single-pick): P2 plays Triangulation (Reconnaissance vs Purge the Foe); the P1 centre garrison withdraws and Warboss B takes obj_center so P2 controls obj_center + obj_nml_2 at end of turn. Clicking the real End Turn button pauses END_TURN behind the CardActionDialog listing both controlled objectives; a second END_TURN is rejected while the gate is up. The player clicks Pick_obj_nml_2 \u2014 the pick is applied, the deterministic auto-pick stands down (exactly one mark), EOT scores 3 VP for 1 Triangulated objective, and the turn ends. (Search and Destroy's markers come from the rotated official geometry, so obj_nml_2 sits bottom-LEFT at 400,1840 px; three U_BOYZ_E models are moved onto it so P2 holds it as the fixture intended.)",
  "steps": [
   {
    "act": "wait_seconds",
@@ -36,6 +36,18 @@
   {
    "act": "execute_script",
    "script": "MissionManager.initialize_mission(\"take_and_hold\")"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BOYZ_E\")[\"models\"][0].merge({\"position\": {\"x\": 380.0, \"y\": 1820.0}}, true)"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BOYZ_E\")[\"models\"][1].merge({\"position\": {\"x\": 420.0, \"y\": 1860.0}}, true)"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BOYZ_E\")[\"models\"][2].merge({\"position\": {\"x\": 380.0, \"y\": 1870.0}}, true)"
   },
   {
    "act": "execute_script",

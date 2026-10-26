@@ -9,7 +9,7 @@
   "rng_seed": 42,
   "transition_to_phase": 11,
   "disable_ai": true,
-  "description": "11e card-action state visibility: after the player Triangulates obj_nml_2 through the real End Turn button + CardActionDialog click, the objective visual shows a TRIANGULATED (P2) badge on the board. Booby-Trap and relic markers render on the CardActionOverlay at their terrain features, and the next Scoring panel lists P2's marker state row naming the picked objective.",
+  "description": "11e card-action state visibility: after the player Triangulates obj_nml_2 through the real End Turn button + CardActionDialog click, the objective visual shows a TRIANGULATED (P2) badge on the board. Booby-Trap and relic markers render on the CardActionOverlay at their terrain features, and the next Scoring panel lists P2's marker state row naming the picked objective. (Search and Destroy's markers come from the rotated official geometry, so obj_nml_2 sits bottom-LEFT at 400,1840 px; three U_BOYZ_E models are moved onto it so P2 holds it as the fixture intended.)",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 11 },
@@ -17,6 +17,9 @@
     { "act": "execute_script",
       "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"search_and_destroy\", \"player1_disposition\": \"purge_the_foe\", \"player2_disposition\": \"reconnaissance\"}}, true)" },
     { "act": "execute_script", "script": "MissionManager.initialize_mission(\"take_and_hold\")" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_E\")[\"models\"][0].merge({\"position\": {\"x\": 380.0, \"y\": 1820.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_E\")[\"models\"][1].merge({\"position\": {\"x\": 420.0, \"y\": 1860.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_E\")[\"models\"][2].merge({\"position\": {\"x\": 380.0, \"y\": 1870.0}}, true)" },
     { "act": "execute_script",
       "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
       "equals": "triangulation" },
