@@ -50,10 +50,11 @@
       "multiline": true,
       "script": "var ids = []\nfor e in MissionManager.get_booby_trap_candidates_11e(2):\n\tids.append(str(e[\"id\"]))\nreturn ids",
       "equals": [
-        "area-large-10",
+        "area-large-29",
         "area-large-9",
         "area-medium-15",
-        "area-medium-16"
+        "area-medium-35",
+        "area-short-line-43"
       ]
     },
     {
@@ -106,7 +107,7 @@
       "act": "execute_script",
       "multiline": true,
       "script": "var names = []\nfor c in tree.root.get_node(\"CardActionDialog/Content\").get_children():\n\tif str(c.name).begins_with(\"Check_\"):\n\t\tnames.append(str(c.name).replace(\"Check_\", \"\"))\nreturn names.size()",
-      "equals": 4
+      "equals": 5
     },
     {
       "act": "execute_script",
@@ -161,7 +162,7 @@
       "act": "execute_script",
       "multiline": true,
       "script": "var n = 0\nfor c in tree.current_scene.get_node(\"BoardRoot/CardActionOverlay\").get_children():\n\tif str(c.name).begins_with(\"Highlight_\"):\n\t\tn += 1\nreturn n",
-      "equals": 4
+      "equals": 5
     },
     {
       "act": "screenshot",
@@ -223,7 +224,7 @@
     {
       "act": "execute_script",
       "script": "MissionManager._primary_state_11e[\"2\"][\"trapped\"].size()",
-      "equals": 4
+      "equals": 5
     },
     {
       "act": "execute_script",

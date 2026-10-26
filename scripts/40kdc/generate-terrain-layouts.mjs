@@ -11,9 +11,10 @@
 //
 // Coordinate transform (spec §3): the dataset authors a landscape 60x44-inch
 // board (y-down); the game uses portrait 44x60 (y-down, origin top-left). The
-// mapping is a pure transpose — (x_game, y_game) = (y_dc, x_dc) — identical to
-// generate-deployment-zones.mjs (verified by the centre objective
-// (30,22) -> (22,30)).
+// mapping is a 90° clockwise rotation — (x_game, y_game) = (44 - y_dc, x_dc) —
+// identical to generate-deployment-zones.mjs (verified by the centre objective
+// (30,22) -> (22,30)). Not a transpose: that is a reflection and mirrored the
+// chiral layouts (Search and Destroy etc.).
 //
 // Field mapping (spec §6, judgment calls documented inline):
 //   type          -> "ruins" for every piece (spec: no woods-like template in
@@ -86,8 +87,8 @@ const DEPLOYMENT_ID_MAP = {
 export const gameLayoutId = dcId => dcId.replace(/-/g, '_');
 
 const r4 = v => Math.round(v * 1e4) / 1e4;
-// Dataset {x,y} (60x44 landscape) -> game [x,y] (44x60 portrait): transpose.
-export const transpose = v => [r4(v.y), r4(v.x)];
+// Dataset {x,y} (60x44 landscape) -> game [x,y] (44x60 portrait): rotate 90° CW.
+export const transpose = v => [r4(44 - v.y), r4(v.x)];
 
 // Spec §6 height thresholds. Dataset heights are 2 (barricade/pipe),
 // 3 (gantry/catwalk/generator), 5 (ruins/corner walls).
@@ -179,7 +180,7 @@ export function convertLayout(layout, templates, tplById) {
   return {
     id: gameLayoutId(layout.id),
     name: layout.name,
-    description: `${layout.description ? layout.description + ' ' : ''}Official 11e GW terrain layout (${layout.mission_matchup_id}, variant ${layout.variant}) from the 40kdc dataset, transposed to the game's 44x60 portrait board.`,
+    description: `${layout.description ? layout.description + ' ' : ''}Official 11e GW terrain layout (${layout.mission_matchup_id}, variant ${layout.variant}) from the 40kdc dataset, rotated to the game's 44x60 portrait board.`,
     source: 'gw-11e',
     mission_matchup_id: layout.mission_matchup_id,
     variant: layout.variant,

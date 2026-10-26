@@ -90,15 +90,15 @@ func _run_tests():
 	var ppi: float = meas.PX_PER_INCH
 
 	# Geometry (board inches): the 5"-tall dense wall corner-ruin-balanced-left-46
-	# (vertical stroke x 26.83..27.33, y 25.38..30.38). A 75mm Deffkopta-style
-	# base starting east of it, crossing west to open ground inside the
+	# (vertical stroke x 16.67..17.17, y 25.38..30.38). A 75mm Deffkopta-style
+	# base starting west of it, crossing east to open ground inside the
 	# enterable trapezoid area.
 	var wall_id := "corner-ruin-balanced-left-46"
-	var start := Vector2(29.5, 28.0) * ppi
-	var across := Vector2(25.0, 28.0) * ppi   # 4.5" west, fully clear of the wall
-	# Open lane (nothing within base reach): x=30.5, y 33 -> 44
-	var lane_a := Vector2(30.5, 33.0) * ppi
-	var lane_b := Vector2(30.5, 44.0) * ppi   # 11" — legal at M12, over the flying 10" cap
+	var start := Vector2(14.5, 28.0) * ppi
+	var across := Vector2(19.0, 28.0) * ppi   # 4.5" east, fully clear of the wall
+	# Open lane (nothing within base reach): x=13.5, y 33 -> 44
+	var lane_a := Vector2(13.5, 33.0) * ppi
+	var lane_b := Vector2(13.5, 44.0) * ppi   # 11" — legal at M12, over the flying 10" cap
 
 	print("-- T1: default-begun move is grounded — wall refusal + guidance --")
 	_seed_unit(gs, KOPTA_KW, 75, start, 12, "Deffkoptas")

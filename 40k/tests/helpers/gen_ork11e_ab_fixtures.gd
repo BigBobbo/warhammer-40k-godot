@@ -167,13 +167,13 @@ const FIXTURES := {
 		"active": 2,
 		"terrain": DENSE_LAYOUT,
 		"p1": [
-			["U_DEFFKOPTAS_A", 6.0, 8.0, 3],
-			["U_BURNA_BOMMER_A", 34.5, 8.0, 1],  # (at x 18 a ruin blocked its view of Custodian Guard B)
-			["U_BLITZA_BOMMER_A", 28.0, 8.0, 1],
+			["U_DEFFKOPTAS_A", 38.0, 8.0, 3],
+			["U_BURNA_BOMMER_A", 9.5, 8.0, 1],  # (at x 26 a ruin blocked its view of Custodian Guard B)
+			["U_BLITZA_BOMMER_A", 16.0, 8.0, 1],
 		],
 		"p2": [
-			["U_WITCHSEEKERS_C", 18.0, 26.0, 4],
-			["U_CUSTODIAN_GUARD_B", 30.0, 28.0, 3],
+			["U_WITCHSEEKERS_C", 26.0, 26.0, 4],
+			["U_CUSTODIAN_GUARD_B", 14.0, 28.0, 3],
 		],
 		"hidden": ["U_BOSS_SNIKROT_A"],
 		# Gate: every ability the scenarios use is on offer at the end of P2's Fight phase.

@@ -14,6 +14,12 @@ var terrain_visible: bool = true
 ## tests) were removed — the converted official 11e layouts are the only
 ## authored terrain now, and this is the default matchup's first variant.
 const DEFAULT_LAYOUT := "take_and_hold_mirror_1"
+## Fallback for saves that reference a deleted legacy layout id. It is a FROZEN
+## copy of take_and_hold_mirror_1 as converted before the 2026-10-25 rotation
+## fix (the old converter transposed, i.e. mirrored, the official geometry).
+## Those saves' units were placed against that terrain, so they keep it; new
+## games, the menu and every official layout use the corrected geometry.
+const LEGACY_FALLBACK_LAYOUT := "legacy_fallback_mirror_1"
 var current_layout: String = DEFAULT_LAYOUT
 
 # D3-a: objective markers authored by the loaded layout (the converted 11e
@@ -150,12 +156,13 @@ func load_terrain_layout(layout_name: String) -> void:
 		print("[TerrainManager] Loaded layout '%s' from JSON (%d terrain pieces)" % [layout_name, terrain_features.size()])
 	elif layout_name != DEFAULT_LAYOUT:
 		# Unknown/removed layout id (e.g. a stale setting or an old save that
-		# referenced the deleted legacy layouts) — fall back to the default
-		# official layout rather than an empty board.
-		print("[TerrainManager] Unknown layout '%s' — falling back to '%s'" % [layout_name, DEFAULT_LAYOUT])
-		if _load_layout_from_json(DEFAULT_LAYOUT):
-			current_layout = DEFAULT_LAYOUT
-			print("[TerrainManager] Loaded fallback layout '%s' (%d terrain pieces)" % [DEFAULT_LAYOUT, terrain_features.size()])
+		# referenced the deleted legacy layouts) — fall back to the frozen
+		# pre-rotation mirror_1 those saves were built on, rather than an
+		# empty board (see LEGACY_FALLBACK_LAYOUT).
+		print("[TerrainManager] Unknown layout '%s' — falling back to '%s'" % [layout_name, LEGACY_FALLBACK_LAYOUT])
+		if _load_layout_from_json(LEGACY_FALLBACK_LAYOUT):
+			current_layout = LEGACY_FALLBACK_LAYOUT
+			print("[TerrainManager] Loaded fallback layout '%s' (%d terrain pieces)" % [LEGACY_FALLBACK_LAYOUT, terrain_features.size()])
 	else:
 		print("[TerrainManager] Unknown layout: ", layout_name)
 

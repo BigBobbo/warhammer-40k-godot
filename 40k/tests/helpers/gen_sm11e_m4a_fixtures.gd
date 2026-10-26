@@ -54,13 +54,13 @@ const FIXTURES := {
 	"command": {
 		"sm": 1, "active": 1, "terrain": "priority_assets_vs_priority_assets_1",
 		"sms": [
-			["U_INTERCESSOR_SQUAD_A", 30.0, 46.0, 5],
-			["U_CAPTAIN_A", 30.0, 50.0, 1],
+			["U_INTERCESSOR_SQUAD_A", 14.0, 46.0, 5],
+			["U_CAPTAIN_A", 14.0, 50.0, 1],
 			["U_LIEUTENANT_WITH_COMBI_WEAPON_A", 22.0, 44.0, 1],
-			["U_INFILTRATOR_SQUAD_A", 16.0, 50.0, 5],
+			["U_INFILTRATOR_SQUAD_A", 28.0, 50.0, 5],
 		],
 		"orks": [
-			["U_BOYZ_B", 12.0, 24.0, 5],
+			["U_BOYZ_B", 32.0, 24.0, 5],
 		],
 		"attach": [["U_CAPTAIN_A", "U_INTERCESSOR_SQUAD_A"]],
 		"wargear": {"U_INFILTRATOR_SQUAD_A": [["1x Helix Gauntlet", "5x Marksman Bolt Carbine", "5x Bolt Pistol"], [HELIX]]},
