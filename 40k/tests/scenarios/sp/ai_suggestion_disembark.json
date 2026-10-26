@@ -5,6 +5,7 @@
     "scripts.AIDecisionMaker.disembark_record"
   ],
   "fixture": "audit_382_cp_grant",
+  "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
   "description": "K at the start of P2's Movement with Kommandos embarked in a Battlewagon: the disembark choice is recorded against 'Stay embarked'.",

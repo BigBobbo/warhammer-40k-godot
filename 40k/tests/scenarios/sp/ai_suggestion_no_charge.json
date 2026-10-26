@@ -5,6 +5,7 @@
     "scripts.AIDecisionMaker.charge_declined_record"
   ],
   "fixture": "audit_372_charge_modifier",
+  "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
   "description": "K breakdown when the AI declines to charge. Every charger\u2192target pair it weighed is recorded against a 'Don't charge' option at the charge threshold (pairs under 3% are listed as not considered, with the roll they need), so a skipped charge is explainable instead of showing the 'not instrumented' gap.",
@@ -28,6 +29,11 @@
     {
       "act": "execute_script",
       "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The AI's own charges go first: each unit it would still charge with is\n# marked as having charged, until what is left is a real no-charge call.\n# (Deterministic stand-in for letting the live AI declare its charges.)\nvar marked := []\nfor i in 8:\n\tvar d: Dictionary = AIPlayer.request_suggestion()\n\tif str(d.get(\"type\", \"\")) != \"DECLARE_CHARGE\":\n\t\tbreak\n\tvar uid := str(d.get(\"actor_unit_id\", d.get(\"unit_id\", \"\")))\n\tif uid == \"\" or uid in marked:\n\t\tbreak\n\tGameState.state.units[uid].flags[\"charged_this_turn\"] = true\n\tmarked.append(uid)\nreturn marked"
     },
     {
       "act": "simulate_key",

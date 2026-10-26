@@ -5,6 +5,7 @@
     "scripts.AIDecisionMaker.rule_based_record"
   ],
   "fixture": "ork11e_ab_command",
+  "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
   "description": "K in the Command phase, where the AI works through a fixed order of checks (battle-shock tests first): the card says it is rule-based and lists the other actions that were available, instead of the un-instrumented warning.",

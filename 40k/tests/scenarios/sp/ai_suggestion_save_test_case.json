@@ -5,6 +5,7 @@
     "ui.ai_suggestion.review_row"
   ],
   "fixture": "audit_382_cp_grant",
+  "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
   "description": "Turning a reviewed suggestion into a regression case. Press K, type a note (typing 'k' in the note field must not trigger the hotkey), click 'Bad call': the game state (.w40ksave) and a wh40k_ai_test_case JSON with the verdict, note and the suggestion's signature are written to user://ai_test_cases/, the card confirms it, and nothing is executed. 'Good call' saves a second case. tests/run_ai_test_cases.sh re-checks such cases.",

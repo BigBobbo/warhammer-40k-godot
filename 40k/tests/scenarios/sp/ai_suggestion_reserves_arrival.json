@@ -5,6 +5,7 @@
     "scripts.AIDecisionMaker.reserves_arrival_record"
   ],
   "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
   "description": "K in round 2 Movement with a unit in Strategic Reserves: which unit arrives is an itemised ledger (points, Deep Strike, melee/ranged, round urgency, objectives).",

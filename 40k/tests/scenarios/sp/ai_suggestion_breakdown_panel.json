@@ -7,6 +7,7 @@
     "ui.HUD.ai_suggestion_button"
   ],
   "fixture": "audit_382_cp_grant",
+  "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
   "description": "AI suggestion breakdown in a LOCAL human-vs-human game. Both players are configured HUMAN; the Suggest (K) button must still be visible (it doubles as an AI-reasoning inspector). In P1's Movement phase, clicking it opens AISuggestionBreakdownPanel listing the chosen action, the scored decision records (ranked candidates, CHOSEN row, score terms) and the reasoning steps \u2014 and executes nothing (action log empty, phase/active player unchanged). Esc closes the card; the K hotkey reopens it, the card stays on-screen, and K in the Shooting phase re-reasons for that phase.",

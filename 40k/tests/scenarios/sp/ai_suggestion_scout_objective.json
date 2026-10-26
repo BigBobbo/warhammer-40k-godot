@@ -5,6 +5,7 @@
     "scripts.AIDecisionMaker.scout_record"
   ],
   "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
   "description": "K in the Scout phase: the scout's objective choice is an itemised ledger (who holds it, no man's land, home/enemy-home penalties, distance), every objective recorded.",
