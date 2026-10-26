@@ -6,8 +6,9 @@
       "date": "2026-10-26",
       "summary": "The AI Suggestion (K) now opens a full breakdown of how the AI reached its pick, and works in local human-vs-human games too.",
       "changes": [
-        "Suggest (K) opens a breakdown card: the chosen action, every scored option ranked with its score and gap to the pick, the score terms behind each option, and the AI's narrated reasoning.",
-        "The card flags close calls (runner-up nearly tied) and picks that were not the top-scored option, and says plainly when a decision has no scored options to show.",
+        "Suggest (K) opens a 'Why the AI suggests this' card: what it picked and why in plain English, a 'Why not <runner-up>?' list of the factors that differed (green = favoured the pick, red = favoured the runner-up), and every option as a bar with how much lower it scored.",
+        "Factors use plain names and units (e.g. 'Weapon fit ×0.24 (very poor)', 'Wounds left in unit 20'); hover one for what it means. Click 'details' on any option to see what its score was made of.",
+        "The card flags close calls and picks that were not the top-scored option, and says plainly when a decision has nothing recorded to explain it. Raw values and tuning settings sit in a collapsed Developer details section.",
         "Suggest (K) is now available in local hot-seat human-vs-human games, so you can check what the AI would do at any point. 'Copy as text' puts the whole breakdown on the clipboard for bug reports."
       ]
     },

@@ -69,17 +69,17 @@
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== VERDICT ==\")",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== THE AI WOULD ==\")",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== DECISIONS\")",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"All options\")",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== REASONING\")",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== AI'S NOTES\")",
       "equals": true
     },
     {
@@ -94,7 +94,7 @@
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"(CHOSEN)\")",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Picked: \")",
       "equals": true
     },
     {
@@ -126,8 +126,58 @@
       "equals": true
     },
     {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Why not\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"objective_priority\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"WEIGHT_\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"tuning settings read\")",
+      "equals": true
+    },
+    {
       "act": "screenshot",
       "label": "01_breakdown_panel_movement"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.get_node(\"Body/Content/BreakdownText\").meta_clicked.emit(\"opt:0:\" + str(AIPlayer.request_suggestion().get(\"_ai_decision_records\", [{}])[0].get(\"chosen_index\", 0)))"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"\u25be hide\") or main._ai_suggestion_panel.breakdown_text.contains(\"      \")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.get_node(\"Body/Content/BreakdownText\").meta_clicked.emit(\"dev\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"tuning settings read\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_breakdown_details_and_dev_open"
     },
     {
       "act": "simulate_key",
@@ -201,7 +251,7 @@
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== VERDICT ==\")",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== THE AI WOULD ==\")",
       "equals": true
     },
     {
@@ -216,6 +266,11 @@
     {
       "act": "expect_phase",
       "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"efficiency=\")",
+      "equals": false
     },
     {
       "act": "screenshot",

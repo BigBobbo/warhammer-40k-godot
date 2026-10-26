@@ -3,60 +3,78 @@ class_name AISuggestionBreakdownPanel
 
 # AISuggestionBreakdownPanel — the "why" card for the on-demand AI suggestion (K).
 #
-# The suggestion used to surface only the final pick plus its narrated thinking
-# steps in the game log. AIDecisionMaker already records much more per decision
-# (_ai_decision_records): every candidate it scored, the additive score terms
-# each was built from, which one it chose, the tunable parameters it read and
-# the decision context. None of that reached the player, so a human reviewing
-# the AI could see WHAT it would do but not WHY. This card renders all of it:
+# AIDecisionMaker records, per decision, every option it scored, the values the
+# score was built from, which option it chose, the tuning settings it read and
+# the decision context (_ai_decision_records). This card turns that into
+# something a player can review, built around the question a reviewer actually
+# asks — "why THIS and not THAT?":
 #
-#   * Verdict      — chosen action, player / phase / round / difficulty
-#   * Decisions    — one block per decision record: candidates ranked by score,
-#                    chosen row marked, gap to the runner-up, each candidate's
-#                    score terms (largest contribution first), flags for close
-#                    calls and for picks that are not the top-scored option
-#   * Reasoning    — the narrated _ai_thinking_steps
-#   * Gaps         — explicitly says when a decision produced no scored record,
-#                    so un-instrumented decision paths are visible, not silent
+#   * The AI would …  — the chosen action, in words
+#   * Per decision    — what it picked and a one-line "mostly because" summary;
+#                       "Why not <runner-up>?" listing only the factors that
+#                       DIFFERED between the two (▲ favoured the pick, ▼ the
+#                       runner-up); every option as a bar with "% below the pick";
+#                       click "details" on any option for all its factors.
+#                       Flags: close calls, picks that are not top-scored, and
+#                       decisions where nothing recorded explains the difference.
+#   * AI's notes      — the narrated thinking steps
+#   * Developer details (collapsed) — raw keys/values, context, the tuning
+#                       settings read, and any value with no plain-English label
+#                       yet (add it to AIReasoningGlossary.gd)
+#
+# Every value name, unit and tooltip comes from AIReasoningGlossary.gd.
 #
 # Public API:
 #   show_decision(decision: Dictionary, meta: Dictionary)
 #   close()
-#   breakdown_text: String   (plain-text mirror — scenario asserts + Copy button)
+#   toggle_section(key: String)  (same as clicking a link: "dev", "notes", "opt:R:I")
+#   breakdown_text: String   (plain-text mirror of what is on screen)
+#   full_text: String        (everything expanded — what Copy puts on the clipboard)
 #   record_count: int
 #   candidate_count: int
 #
-# Static, side-effect-free: build_breakdown(decision, meta) -> {bbcode, text,
-# records, candidates} so the formatting can be unit-tested headless.
+# Static, side-effect-free: build_breakdown(decision, meta, expanded, everything)
+# -> {bbcode, text, records, candidates, subtitle}.
 
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+const _Glossary = preload("res://scripts/AIReasoningGlossary.gd")
 
-const PANEL_WIDTH := 640.0
+const PANEL_WIDTH := 660.0
 const SCREEN_MARGIN := 24.0
 const TOP_OFFSET := 110.0  # clear of the top bar
-const MAX_TERMS_PER_CANDIDATE := 8
-const MAX_CONTEXT_ITEMS := 12
-# A runner-up within this fraction of the chosen score (or this absolute gap)
-# counts as a close call — a small weight change could flip the decision.
+const BAR_CELLS := 12
+const MAX_WHY_ROWS := 4
+const MAX_SUMMARY_FACTS := 4
+# A runner-up within this fraction of the chosen score counts as a close call —
+# a small weight change could flip the decision.
 const CLOSE_CALL_REL := 0.05
-const CLOSE_CALL_ABS := 0.25
-
-# Per-candidate descriptors some records put in score_breakdown that are NOT
-# addends of the score (movement: AIDecisionMaker A2 comment). Kept out of the
-# Σ check and shown as info.
-const DESCRIPTOR_KEYS := ["expected_vp", "distance_inches", "turns_to_reach"]
+# Factors that differ by less than this (relative) are not worth listing.
+const MIN_REL_DIFF := 0.05
 
 const COL_CARD_BG := Color(0.07, 0.065, 0.05, 0.97)
 const COL_HEADER_BG := Color(0.14, 0.11, 0.075, 1.0)
 const COL_DIM := Color(0.78, 0.74, 0.66)
 
+const HEX_GOLD := "#d49761"
+const HEX_CYAN := "#9fe8ff"
+const HEX_DIM := "#a8a294"
+const HEX_FAINT := "#7d786c"
+const HEX_GOOD := "#8fd18f"
+const HEX_BAD := "#e98a7a"
+const HEX_WARN := "#ffc070"
+const HEX_LINK := "#7fc8e8"
+
 var breakdown_text: String = ""
+var full_text: String = ""
 var record_count: int = 0
 var candidate_count: int = 0
 
 var _title: Label = null
 var _subtitle: Label = null
 var _rich: RichTextLabel = null
+var _decision: Dictionary = {}
+var _meta: Dictionary = {}
+var _expanded: Dictionary = {}
 
 
 func _ready() -> void:
@@ -89,7 +107,7 @@ func _ready() -> void:
 	hcol.add_child(hrow)
 	_title = Label.new()
 	_title.name = "Title"
-	_title.text = "AI SUGGESTION — BREAKDOWN"
+	_title.text = "WHY THE AI SUGGESTS THIS"
 	_title.add_theme_font_size_override("font_size", 20)
 	_title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -122,9 +140,11 @@ func _ready() -> void:
 	_rich.selection_enabled = true
 	_rich.fit_content = false
 	_rich.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_rich.add_theme_font_size_override("normal_font_size", 14)
-	_rich.add_theme_font_size_override("bold_font_size", 14)
+	_rich.add_theme_font_size_override("normal_font_size", 15)
+	_rich.add_theme_font_size_override("bold_font_size", 15)
+	_rich.add_theme_constant_override("table_h_separation", 10)
 	_rich.add_theme_color_override("default_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	_rich.meta_clicked.connect(_on_meta_clicked)
 	content.add_child(_rich)
 
 	# Footer
@@ -137,7 +157,7 @@ func _ready() -> void:
 	frow.add_theme_constant_override("separation", 10)
 	footer.add_child(frow)
 	var hint := Label.new()
-	hint.text = "Preview only — nothing was executed. K refreshes, Esc closes."
+	hint.text = "Preview only — nothing was executed. Hover a factor for what it means. K refreshes, Esc closes."
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", COL_DIM)
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -146,7 +166,7 @@ func _ready() -> void:
 	var copy_btn := Button.new()
 	copy_btn.name = "CopyButton"
 	copy_btn.text = "Copy as text"
-	copy_btn.tooltip_text = "Copy the full breakdown to the clipboard (paste into a bug report)"
+	copy_btn.tooltip_text = "Copy the full breakdown, including developer details, to the clipboard (paste into a bug report)"
 	_WhiteDwarfTheme.apply_to_button(copy_btn)
 	copy_btn.pressed.connect(_on_copy_pressed)
 	frow.add_child(copy_btn)
@@ -167,20 +187,21 @@ func _input(event: InputEvent) -> void:
 
 
 func show_decision(decision: Dictionary, meta: Dictionary = {}) -> void:
-	var built := build_breakdown(decision, meta)
-	breakdown_text = built.text
-	record_count = built.records
-	candidate_count = built.candidates
-	if _subtitle:
-		_subtitle.text = str(built.subtitle)
-	if _rich:
-		_rich.clear()
-		_rich.append_text(built.bbcode)
-		_rich.scroll_to_line(0)
+	_decision = decision
+	_meta = meta
+	_expanded = {}
+	full_text = build_breakdown(decision, meta, {}, true).text
+	_render(true)
 	visible = true
 	_refit()
 	print("[AISuggestionBreakdownPanel] Showing breakdown: %d decision record(s), %d candidate(s)" % [record_count, candidate_count])
 	DebugLogger.info("AISuggestionBreakdownPanel shown", {"records": record_count, "candidates": candidate_count, "type": decision.get("type", "")})
+
+
+func toggle_section(key: String) -> void:
+	_expanded[key] = not bool(_expanded.get(key, false))
+	_render(false)
+	print("[AISuggestionBreakdownPanel] Toggled '%s' -> %s" % [key, str(_expanded[key])])
 
 
 func close() -> void:
@@ -188,9 +209,34 @@ func close() -> void:
 	print("[AISuggestionBreakdownPanel] Closed")
 
 
+func _render(reset_scroll: bool) -> void:
+	var built := build_breakdown(_decision, _meta, _expanded, false)
+	breakdown_text = built.text
+	record_count = built.records
+	candidate_count = built.candidates
+	if _subtitle:
+		_subtitle.text = str(built.subtitle)
+	if _rich == null:
+		return
+	var bar := _rich.get_v_scroll_bar()
+	var keep: float = 0.0 if reset_scroll or bar == null else bar.value
+	_rich.clear()
+	_rich.append_text(built.bbcode)
+	if reset_scroll:
+		_rich.scroll_to_line(0)
+	elif bar != null and is_inside_tree():
+		# Expanding a section re-renders the whole text; keep the reader's place.
+		await get_tree().process_frame
+		bar.value = keep
+
+
+func _on_meta_clicked(meta) -> void:
+	toggle_section(str(meta))
+
+
 func _on_copy_pressed() -> void:
-	DisplayServer.clipboard_set(breakdown_text)
-	print("[AISuggestionBreakdownPanel] Copied %d chars to clipboard" % breakdown_text.length())
+	DisplayServer.clipboard_set(full_text)
+	print("[AISuggestionBreakdownPanel] Copied %d chars to clipboard" % full_text.length())
 
 
 func _refit() -> void:
@@ -237,185 +283,443 @@ func _bar_style(bg: Color, h: int, v: int, top_border: bool) -> StyleBoxFlat:
 # Pure formatting
 # ---------------------------------------------------------------------------
 
-static func build_breakdown(decision: Dictionary, meta: Dictionary = {}) -> Dictionary:
-	"""Format a suggest_action() result into bbcode + a plain-text mirror.
-	meta: {player, phase_name, round, difficulty}."""
+# Two parallel outputs: bbcode for the card, plain text for asserts / clipboard.
+class _Out:
 	var bb := PackedStringArray()
 	var tx := PackedStringArray()
-	var total_cands := 0
 
-	var subtitle := "P%s · %s · Round %s · reasoning at %s difficulty" % [
+	func line(b: String, t = null) -> void:
+		bb.append(b)
+		if t != null:
+			tx.append(str(t))
+
+	func gap() -> void:
+		bb.append("")
+		tx.append("")
+
+
+static func build_breakdown(decision: Dictionary, meta: Dictionary = {},
+		expanded: Dictionary = {}, everything: bool = false) -> Dictionary:
+	"""Format a suggest_action() result. `expanded` holds the open sections
+	("dev", "notes_closed", "opt:R:I"); `everything` opens all of them (Copy)."""
+	var o := _Out.new()
+	var total_cands := 0
+	var subtitle := "Player %s · %s phase · Round %s · thinking at %s difficulty" % [
 		str(meta.get("player", "?")), str(meta.get("phase_name", "?")),
 		str(meta.get("round", "?")), str(meta.get("difficulty", "?"))]
 
-	# --- Verdict -----------------------------------------------------------
-	_section(bb, tx, "VERDICT")
+	_heading(o, "THE AI WOULD")
 	if decision.is_empty():
 		var why := str(meta.get("empty_reason", "The AI could not find a recommended action here."))
-		bb.append("[color=#ffb060]%s[/color]" % _esc(why))
-		tx.append(why)
-		return {"bbcode": "\n".join(bb), "text": "\n".join(tx), "records": 0,
+		o.line("[color=%s]%s[/color]" % [HEX_WARN, _esc(why)], why)
+		return {"bbcode": "\n".join(o.bb), "text": "\n".join(o.tx), "records": 0,
 			"candidates": 0, "subtitle": subtitle}
 	var desc := str(decision.get("_ai_description", decision.get("type", "unknown")))
-	bb.append("[b][color=#9fe8ff]%s[/color][/b]" % _esc(desc))
-	bb.append("[color=#a8a294]Action: %s[/color]" % _esc(str(decision.get("type", ""))))
-	tx.append("Chosen: %s" % desc)
-	tx.append("Action: %s" % str(decision.get("type", "")))
+	o.line("[font_size=17][b][color=%s]%s[/color][/b][/font_size]" % [HEX_CYAN, _esc(desc)], desc)
 
-	# --- Decisions ---------------------------------------------------------
 	var records: Array = decision.get("_ai_decision_records", [])
-	_section(bb, tx, "DECISIONS (%d)" % records.size())
+	var analyses: Array = []
+	for r in records:
+		analyses.append(_analyse(r))
+
 	if records.is_empty():
-		var gap := "⚠ No scored alternatives were recorded for this decision. This decision path is not instrumented — the AI's options and scores cannot be inspected here (instrumentation gap)."
-		bb.append("[color=#ffb060]%s[/color]" % _esc(gap))
-		tx.append(gap)
+		o.gap()
+		var gap := "The AI did not record the other options it weighed for this decision, so only its final choice can be shown. (This decision type is not instrumented yet.)"
+		o.line("[color=%s]⚠ %s[/color]" % [HEX_WARN, _esc(gap)], "! " + gap)
 	for r_i in range(records.size()):
-		total_cands += _format_record(bb, tx, records[r_i], r_i + 1)
+		_render_record(o, records[r_i], analyses[r_i], r_i, records.size(), expanded, everything)
+		total_cands += (records[r_i].get("candidates", []) as Array).size()
 
-	# --- Reasoning ---------------------------------------------------------
+	# AI's notes (narrated steps) — open by default
 	var steps: Array = decision.get("_ai_thinking_steps", [])
-	_section(bb, tx, "REASONING (%d steps)" % steps.size())
-	if steps.is_empty():
-		bb.append("[color=#a8a294](no narrated steps)[/color]")
-		tx.append("(no narrated steps)")
-	for s in steps:
-		bb.append("• %s" % _esc(str(s)))
-		tx.append("- %s" % str(s))
+	if not steps.is_empty():
+		var notes_open: bool = everything or not bool(expanded.get("notes_closed", false))
+		_heading(o, "AI'S NOTES", "notes_closed", notes_open, "hide" if notes_open else "show %d" % steps.size())
+		if notes_open:
+			for s in steps:
+				var st := str(s).strip_edges()
+				o.line("[color=%s]•[/color] %s" % [HEX_DIM, _esc(st)], "- " + st)
 
-	return {"bbcode": "\n".join(bb), "text": "\n".join(tx), "records": records.size(),
+	# Developer details — closed by default
+	var dev_open: bool = everything or bool(expanded.get("dev", false))
+	_heading(o, "DEVELOPER DETAILS", "dev", dev_open, "hide" if dev_open else "show")
+	if not dev_open:
+		o.line("[color=%s]Raw values, tuning settings and unlabelled values.[/color]" % HEX_FAINT)
+	else:
+		_render_dev(o, records, analyses)
+
+	return {"bbcode": "\n".join(o.bb), "text": "\n".join(o.tx), "records": records.size(),
 		"candidates": total_cands, "subtitle": subtitle}
 
 
-static func _format_record(bb: PackedStringArray, tx: PackedStringArray, rec: Dictionary, n: int) -> int:
+static func _analyse(rec: Dictionary) -> Dictionary:
+	"""Rank the options and work out how to read their values: an additive
+	ledger (the values add up to the score) or a set of factors."""
 	var cands: Array = rec.get("candidates", [])
-	var chosen_idx := int(rec.get("chosen_index", -1))
-	var ctx: Dictionary = rec.get("context", {})
-	var considered := int(ctx.get("options_considered", ctx.get("alternatives_considered", cands.size())))
-	var dtype := str(rec.get("decision_type", "?"))
-	var unit_name := str(rec.get("unit_name", rec.get("unit_id", "")))
-
-	bb.append("")
-	bb.append("[b][color=#d49761]%d. %s[/color][/b] — %s  [color=#a8a294](%d option(s) considered, %d shown)[/color]" % [
-		n, _esc(dtype.to_upper()), _esc(unit_name), considered, cands.size()])
-	tx.append("")
-	tx.append("%d. %s — %s (%d considered, %d shown)" % [n, dtype.to_upper(), unit_name, considered, cands.size()])
-
-	# Rank by score, remember where the chosen row landed
-	var order: Array = []
-	for i in range(cands.size()):
-		order.append(i)
+	var chosen := int(rec.get("chosen_index", -1))
+	if chosen < 0 or chosen >= cands.size():
+		chosen = 0 if not cands.is_empty() else -1
+	var order: Array = range(cands.size())
 	order.sort_custom(func(a, b): return _score_of(cands[a]) > _score_of(cands[b]))
-	var chosen_score := _score_of(cands[chosen_idx]) if chosen_idx >= 0 and chosen_idx < cands.size() else 0.0
-	var best_other := -INF
+	var runner := -1
 	for i in order:
-		if i != chosen_idx:
-			best_other = maxf(best_other, _score_of(cands[i]))
+		if i != chosen:
+			runner = i
+			break
+	# Ledger check on the chosen option: do its additive ("pts" or unlabelled)
+	# values sum to its score?
+	var ledger := false
+	var sum_ok := {}
+	for i in range(cands.size()):
+		var total := 0.0
+		var n := 0
+		var bd = cands[i].get("score_breakdown", {})
+		if bd is Dictionary:
+			for k in bd.keys():
+				var v = bd[k]
+				if not (v is float or v is int):
+					continue
+				var fmt := str(_Glossary.info(str(k)).get("fmt", "pts"))
+				if fmt == "pts":
+					total += float(v)
+					n += 1
+		sum_ok[i] = n >= 1 and absf(total - _score_of(cands[i])) <= maxf(0.01, absf(_score_of(cands[i])) * 0.001)
+	if chosen >= 0:
+		ledger = bool(sum_ok.get(chosen, false))
+	# Duplicate labels (two units with the same name) get a suffix
+	var labels: Array = []
+	var seen := {}
+	for c in cands:
+		var d := str(c.get("description", c.get("key", "option")))
+		seen[d] = int(seen.get(d, 0)) + 1
+	var nth := {}
+	for c in cands:
+		var d := str(c.get("description", c.get("key", "option")))
+		if int(seen[d]) > 1:
+			nth[d] = int(nth.get(d, 0)) + 1
+			var tid := str(c.get("target_unit_id", ""))
+			d += " (%s)" % (tid if tid != "" else "#%d" % nth[d])
+		labels.append(d)
+	return {"cands": cands, "chosen": chosen, "runner": runner, "order": order,
+		"ledger": ledger, "sum_ok": sum_ok, "labels": labels}
+
+
+static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_records: int,
+		expanded: Dictionary, everything: bool) -> void:
+	var cands: Array = a.cands
+	var chosen: int = a.chosen
+	var runner: int = a.runner
+	var dtype := str(rec.get("decision_type", "decision")).replace("_", " ").to_upper()
+	var who := str(rec.get("unit_name", rec.get("unit_id", "")))
+	var title := dtype + ((" · " + who) if who != "" else "")
+	if n_records > 1:
+		title = "%d. %s" % [r_i + 1, title]
+	_heading(o, title)
+	if chosen < 0:
+		o.line("[color=%s](no options recorded)[/color]" % HEX_DIM, "(no options recorded)")
+		return
+	var c_bd: Dictionary = _bd(cands[chosen])
+	o.line("[color=%s]✔[/color] [b]%s[/b]" % [HEX_GOOD, _esc(a.labels[chosen])], "Picked: " + str(a.labels[chosen]))
+
+	# One-line summary of the pick
+	var summary := _summary(c_bd, a.ledger)
+	if summary[0] != "":
+		o.line("[color=%s]%s[/color]" % [HEX_DIM, summary[0]], summary[1])
 
 	# Flags
-	if chosen_idx >= 0 and not order.is_empty() and order[0] != chosen_idx and _score_of(cands[order[0]]) > chosen_score:
-		var f := "⚠ Picked a LOWER-scored option than the top candidate (plan / override / constraint chose it)."
-		bb.append("[color=#ffb060]%s[/color]" % _esc(f))
-		tx.append(f)
-	if best_other > -INF and chosen_idx >= 0:
-		var gap := chosen_score - best_other
-		if absf(gap) <= maxf(CLOSE_CALL_ABS, absf(chosen_score) * CLOSE_CALL_REL):
-			var f2 := "⚖ Close call — runner-up within %.2f. A small weight change could flip this." % absf(gap)
-			bb.append("[color=#ffe080]%s[/color]" % _esc(f2))
-			tx.append(f2)
+	var top: int = a.order[0]
+	if top != chosen and _score_of(cands[top]) > _score_of(cands[chosen]):
+		var f := "The AI picked this even though \"%s\" scored higher — its plan or a rule overrode the score." % a.labels[top]
+		o.line("[color=%s]⚠ %s[/color]" % [HEX_WARN, _esc(f)], "! " + f)
+	if runner >= 0:
+		var cs := _score_of(cands[chosen])
+		var rs := _score_of(cands[runner])
+		if absf(cs - rs) <= absf(cs) * CLOSE_CALL_REL:
+			var f2 := "Close call: \"%s\" scored almost the same — a small change in the AI's weighting would flip this." % a.labels[runner]
+			o.line("[color=%s]⚖ %s[/color]" % [HEX_WARN, _esc(f2)], "~ " + f2)
 
-	for rank in range(order.size()):
-		var i: int = order[rank]
-		var cand: Dictionary = cands[i]
-		var score := _score_of(cand)
-		var is_chosen := i == chosen_idx
-		var delta := ""
-		if not is_chosen and chosen_idx >= 0:
-			delta = "  Δ %+.2f" % (score - chosen_score)
-		var marker := "▶" if is_chosen else "  "
-		var line := "%s #%d  %.2f%s  %s" % [marker, rank + 1, score, delta, str(cand.get("description", cand.get("key", "")))]
-		if is_chosen:
-			bb.append("[bgcolor=#1d3a40][b][color=#9fe8ff]%s  (CHOSEN)[/color][/b][/bgcolor]" % _esc(line))
-		else:
-			bb.append(_esc(line))
-		tx.append(line + ("  (CHOSEN)" if is_chosen else ""))
-		var terms := _format_terms(cand.get("score_breakdown", {}), score)
-		if not terms.is_empty():
-			bb.append("[indent][color=#a8a294]%s[/color][/indent]" % _esc(terms))
-			tx.append("      " + terms)
+	# Why not the runner-up?
+	if runner >= 0:
+		o.gap()
+		o.line("[b]Why not \"%s\"?[/b] [color=%s]It scored %s.[/color]" % [_esc(a.labels[runner]), HEX_DIM, _gap_words(_score_of(cands[chosen]), _score_of(cands[runner]))],
+			"Why not \"%s\"? It scored %s." % [a.labels[runner], _gap_words(_score_of(cands[chosen]), _score_of(cands[runner]))])
+		var rows := _why_rows(c_bd, _bd(cands[runner]), a.ledger)
+		if rows.is_empty():
+			var none := "Nothing the AI recorded differs between the two — the gap comes from something it does not report yet."
+			o.line("[color=%s]  %s[/color]" % [HEX_WARN, _esc(none)], "  " + none)
+		for row in rows:
+			o.line(row[0], row[1])
+	elif cands.size() == 1:
+		o.line("[color=%s]This was the only option it considered.[/color]" % HEX_DIM, "Only option considered.")
 
-	# Context + parameters (compact)
-	var ctx_items := PackedStringArray()
-	for k in ctx.keys():
-		var v = ctx[k]
-		if v is Array or v is Dictionary or k == "options_considered" or k == "alternatives_considered":
-			continue
-		ctx_items.append("%s=%s" % [str(k), _fmt_val(v)])
-		if ctx_items.size() >= MAX_CONTEXT_ITEMS:
-			break
-	if not ctx_items.is_empty():
-		var c := "Context: " + ", ".join(ctx_items)
-		bb.append("[color=#8c8678]%s[/color]" % _esc(c))
-		tx.append(c)
-	var params: Dictionary = rec.get("parameters_used", {})
-	if not params.is_empty():
-		var p_items := PackedStringArray()
-		for k in params.keys():
-			p_items.append("%s=%s" % [str(k), _fmt_val(params[k])])
-		var p := "Tunable params read: " + ", ".join(p_items)
-		bb.append("[color=#8c8678]%s[/color]" % _esc(p))
-		tx.append(p)
-	return cands.size()
+	# All options as bars
+	var considered := int(rec.get("context", {}).get("options_considered", rec.get("context", {}).get("alternatives_considered", cands.size())))
+	o.gap()
+	var more := "" if considered <= cands.size() else " (top %d of %d shown)" % [cands.size(), considered]
+	o.line("[b]All options[/b][color=%s]%s — bar = how much the AI liked it[/color]" % [HEX_DIM, more], "All options%s:" % more)
+	var max_s := 0.0
+	for c in cands:
+		max_s = maxf(max_s, _score_of(c))
+	var cs2 := _score_of(cands[chosen])
+	for rank in range(a.order.size()):
+		var i: int = a.order[rank]
+		var s := _score_of(cands[i])
+		var frac := clampf(s / max_s, 0.0, 1.0) if max_s > 0.0 else 0.0
+		var cells := roundi(frac * BAR_CELLS)
+		var is_c := i == chosen
+		var col := HEX_GOOD if is_c else HEX_GOLD
+		var bar := "[color=%s]%s[/color][color=#3a352c]%s[/color]" % [col, "█".repeat(cells), "█".repeat(BAR_CELLS - cells)]
+		var rel := "picked" if is_c else _gap_words(cs2, s)
+		var key := "opt:%d:%d" % [r_i, i]
+		var open: bool = everything or bool(expanded.get(key, false))
+		var link := "[url=%s][color=%s]%s[/color][/url]" % [key, HEX_LINK, "▾ hide" if open else "▸ details"]
+		var name_b := ("[b]%s[/b]" if is_c else "%s") % _esc(a.labels[i])
+		o.line("%s  %s  [color=%s]%s[/color]  %s" % [bar, name_b, HEX_DIM, rel, link],
+			"  %s %s — %s" % ["*" if is_c else "-", a.labels[i], rel])
+		if open:
+			for row in _detail_rows(_bd(cands[i]), a.ledger):
+				o.line(row[0], row[1])
+
+	# Player-relevant context
+	var ctx: Dictionary = rec.get("context", {})
+	var bits := PackedStringArray()
+	for k in _Glossary.CONTEXT_LABELS.keys():
+		if ctx.has(k) and str(ctx[k]) != "":
+			bits.append("%s: %s" % [_Glossary.CONTEXT_LABELS[k], str(ctx[k]).replace("_", " ")])
+	if not bits.is_empty():
+		o.line("[color=%s]%s[/color]" % [HEX_FAINT, _esc(" · ".join(bits))], " · ".join(bits))
 
 
-static func _format_terms(breakdown, score: float) -> String:
-	"""One line per candidate. When the numeric terms (minus known per-candidate
-	descriptors) sum to the score, the breakdown is an additive ledger and is
-	shown signed with a Σ check; otherwise the values are inputs/factors the
-	score was computed from and are shown unsigned."""
-	if not (breakdown is Dictionary) or breakdown.is_empty():
-		return ""
-	var addends: Array = []
-	var info: Array = []
-	var others := PackedStringArray()
-	for k in breakdown.keys():
-		var v = breakdown[k]
-		if v is float or v is int:
-			if DESCRIPTOR_KEYS.has(str(k)):
-				info.append([str(k), float(v)])
-			else:
-				addends.append([str(k), float(v)])
-		else:
-			others.append("%s: %s" % [str(k), str(v)])
-	var total := 0.0
-	for t in addends:
-		total += t[1]
-	var additive: bool = addends.size() > 1 and absf(total - score) <= maxf(0.01, absf(score) * 0.001)
-	if not additive:
-		# Not a ledger: everything numeric is a factor/input
-		addends.append_array(info)
-		info = []
-	addends.sort_custom(func(a, b): return absf(a[1]) > absf(b[1]))
+static func _summary(bd: Dictionary, ledger: bool) -> Array:
+	"""['Mostly because: …' bbcode, plain] for the chosen option."""
+	var nums := _numeric_terms(bd)
+	if nums.is_empty():
+		return ["", ""]
+	if ledger:
+		var pos: Array = []
+		var neg: Array = []
+		for t in nums:
+			if _Glossary.info(t[0]).get("fmt", "pts") != "pts":
+				continue
+			if t[1] > 0.0:
+				pos.append(t)
+			elif t[1] < 0.0:
+				neg.append(t)
+		pos.sort_custom(func(x, y): return x[1] > y[1])
+		neg.sort_custom(func(x, y): return x[1] < y[1])
+		var p := PackedStringArray()
+		for t in pos.slice(0, 3):
+			p.append("%s %s" % [_Glossary.label(t[0]), _Glossary.format_value(t[0], t[1])])
+		var n := PackedStringArray()
+		for t in neg.slice(0, 2):
+			n.append("%s %s" % [_Glossary.label(t[0]), _Glossary.format_value(t[0], t[1])])
+		var s := ""
+		if not p.is_empty():
+			s = "Mostly because of: " + ", ".join(p) + "."
+		if not n.is_empty():
+			s += (" " if s != "" else "") + "Held back by: " + ", ".join(n) + "."
+		var facts := _facts(bd, true)
+		if facts != "":
+			s += " (" + facts + ")"
+		return [_esc(s), s]
+	var f := _facts(bd, false)
+	return [_esc(f), f]
+
+
+static func _facts(bd: Dictionary, descriptors_only: bool) -> String:
 	var parts := PackedStringArray()
-	for t in addends.slice(0, MAX_TERMS_PER_CANDIDATE):
-		parts.append(("%s %+.2f" if additive else "%s=%.2f") % [t[0], t[1]])
-	if addends.size() > MAX_TERMS_PER_CANDIDATE:
-		parts.append("…+%d more" % (addends.size() - MAX_TERMS_PER_CANDIDATE))
-	var line := ("Terms (Σ=%.2f): " % total if additive else "Factors: ") + " · ".join(parts)
-	var tail := PackedStringArray()
-	for t in info:
-		tail.append("%s=%.2f" % [t[0], t[1]])
-	tail.append_array(others)
-	if not tail.is_empty():
-		line += "  |  " + ", ".join(tail)
-	return line
+	for k in _Glossary.TERMS.keys():  # glossary order = reading order
+		if not bd.has(k) or _Glossary.is_hidden(k):
+			continue
+		var v = bd[k]
+		if not (v is float or v is int):
+			continue
+		if descriptors_only and _Glossary.info(k).get("fmt", "pts") == "pts":
+			continue
+		if is_zero_approx(float(v)):
+			continue  # "Damage already assigned 0" says nothing
+		parts.append("%s %s" % [_Glossary.label(k), _Glossary.format_value(k, v)])
+		if parts.size() >= MAX_SUMMARY_FACTS:
+			break
+	return " · ".join(parts)
 
 
-static func _section(bb: PackedStringArray, tx: PackedStringArray, title: String) -> void:
-	if not bb.is_empty():
-		bb.append("")
-		tx.append("")
-	bb.append("[b][color=#d49761]━━ %s ━━[/color][/b]" % _esc(title))
-	tx.append("== %s ==" % title)
+static func _why_rows(a_bd: Dictionary, b_bd: Dictionary, ledger: bool) -> Array:
+	"""Values that differ between the pick (a) and the runner-up (b), biggest
+	difference first. ▲ = favoured the pick, ▼ = favoured the runner-up."""
+	var diffs: Array = []
+	var keys := {}
+	for k in a_bd.keys():
+		keys[k] = true
+	for k in b_bd.keys():
+		keys[k] = true
+	for k in keys.keys():
+		var ks := str(k)
+		if _Glossary.is_hidden(ks):
+			continue
+		var av = a_bd.get(k, 0.0)
+		var bv = b_bd.get(k, 0.0)
+		if not ((av is float or av is int) and (bv is float or bv is int)):
+			continue
+		var af := float(av)
+		var bf := float(bv)
+		var is_pts: bool = ledger and str(_Glossary.info(ks).get("fmt", "pts")) == "pts"
+		var favour := 0  # +1 pick, -1 runner-up, 0 neutral
+		var weight := 0.0
+		if is_pts:
+			var d := af - bf
+			if absf(d) < 0.05:
+				continue
+			favour = 1 if d > 0.0 else -1
+			weight = absf(d) * 1000.0  # contributions outrank descriptive facts
+		else:
+			var denom := maxf(maxf(absf(af), absf(bf)), 0.0001)
+			var rel := (af - bf) / denom
+			if absf(rel) < MIN_REL_DIFF:
+				continue
+			match _Glossary.good_direction(ks):
+				"high":
+					favour = 1 if af > bf else -1
+				"low":
+					favour = 1 if af < bf else -1
+			weight = absf(rel)
+		diffs.append([ks, af, bf, favour, weight])
+	diffs.sort_custom(func(x, y): return x[4] > y[4])
+	var rows: Array = []
+	for d in diffs:
+		if rows.size() >= MAX_WHY_ROWS:
+			break
+		var k: String = d[0]
+		var sym := "▲" if d[3] > 0 else ("▼" if d[3] < 0 else "•")
+		var col := HEX_GOOD if d[3] > 0 else (HEX_BAD if d[3] < 0 else HEX_DIM)
+		var fa := _Glossary.format_value(k, d[1])
+		var fb := _Glossary.format_value(k, d[2])
+		if fa == fb:
+			continue  # differs only below display precision — "1% vs 1%" reads as noise
+		var vals := "%s vs %s" % [fa, fb]
+		rows.append(["  [color=%s]%s[/color] %s: %s" % [col, sym, _hint(k), _esc(vals)],
+			"  %s %s: %s" % [sym, _Glossary.label(k), vals]])
+	return rows
+
+
+static func _detail_rows(bd: Dictionary, ledger: bool) -> Array:
+	"""Every labelled value for one option. In a ledger the score parts come
+	first (largest first, with a small bar), then the descriptive facts."""
+	var rows: Array = []
+	var parts: Array = []
+	var facts: Array = []
+	for t in _numeric_terms(bd):
+		if _Glossary.is_hidden(t[0]):
+			continue
+		if ledger and str(_Glossary.info(t[0]).get("fmt", "pts")) == "pts":
+			parts.append(t)
+		else:
+			facts.append(t)
+	parts.sort_custom(func(x, y): return absf(x[1]) > absf(y[1]))
+	var max_abs := 0.0
+	for t in parts:
+		max_abs = maxf(max_abs, absf(t[1]))
+	if not parts.is_empty():
+		rows.append(["      [color=%s]Score made of:[/color]" % HEX_DIM, "      Score made of:"])
+	for t in parts:
+		var cells := maxi(1, roundi(absf(t[1]) / maxf(max_abs, 0.0001) * 6.0))
+		var bar := "[color=%s]%s[/color]" % [HEX_GOOD if t[1] >= 0.0 else HEX_BAD, "▮".repeat(cells)]
+		rows.append(["        %s %s: %s" % [bar, _hint(t[0]), _esc(_Glossary.format_value(t[0], t[1]))],
+			"        %s: %s" % [_Glossary.label(t[0]), _Glossary.format_value(t[0], t[1])]])
+	if not facts.is_empty():
+		var fb := PackedStringArray()
+		var ft := PackedStringArray()
+		for t in facts:
+			fb.append("%s %s" % [_hint(t[0]), _esc(_Glossary.format_value(t[0], t[1]))])
+			ft.append("%s %s" % [_Glossary.label(t[0]), _Glossary.format_value(t[0], t[1])])
+		var lead := "Facts: " if ledger else ""
+		rows.append(["      [color=%s]%s[/color]%s" % [HEX_DIM, lead, " · ".join(fb)], "      %s%s" % [lead, " · ".join(ft)]])
+	if rows.is_empty():
+		rows.append(["      [color=%s](no values recorded for this option)[/color]" % HEX_FAINT, "      (no values)"])
+	return rows
+
+
+static func _render_dev(o: _Out, records: Array, analyses: Array) -> void:
+	var unlabelled := {}
+	for r_i in range(records.size()):
+		var rec: Dictionary = records[r_i]
+		var a: Dictionary = analyses[r_i]
+		o.line("[color=%s][b]%s[/b] (%s)[/color]" % [HEX_GOLD, _esc(str(rec.get("decision_type", "?"))), _esc(str(rec.get("unit_id", "")))],
+			"[%s] %s" % [str(rec.get("decision_type", "?")), str(rec.get("unit_id", ""))])
+		o.line("[color=%s]Values read as: %s[/color]" % [HEX_DIM, "additive score terms (they sum to the score)" if a.ledger else "factors (they do not sum to the score)"],
+			"  read as: %s" % ("ledger" if a.ledger else "factors"))
+		for i in a.order:
+			var c: Dictionary = a.cands[i]
+			var raw := PackedStringArray()
+			var bd := _bd(c)
+			for k in bd.keys():
+				raw.append("%s=%s" % [str(k), _fmt_raw(bd[k])])
+				if not _Glossary.has_term(str(k)):
+					unlabelled[str(k)] = true
+			var chk := ""
+			if a.ledger and not bool(a.sum_ok.get(i, false)):
+				chk = "  ✗ terms do not sum to score"
+			var line := "  %s score=%.3f%s  %s" % ["*" if i == a.chosen else "-", _score_of(c), chk, ", ".join(raw)]
+			o.line("[color=%s]%s[/color]" % [HEX_FAINT, _esc(line)], line)
+		var ctx: Dictionary = rec.get("context", {})
+		var cbits := PackedStringArray()
+		for k in ctx.keys():
+			cbits.append("%s=%s" % [str(k), _fmt_raw(ctx[k])])
+		if not cbits.is_empty():
+			var l2 := "  context: " + ", ".join(cbits)
+			o.line("[color=%s]%s[/color]" % [HEX_FAINT, _esc(l2)], l2)
+		var params: Dictionary = rec.get("parameters_used", {})
+		if not params.is_empty():
+			var pbits := PackedStringArray()
+			for k in params.keys():
+				pbits.append("%s=%s" % [str(k), _fmt_raw(params[k])])
+			var l3 := "  tuning settings read (AIDecisionMaker get_param): " + ", ".join(pbits)
+			o.line("[color=%s]%s[/color]" % [HEX_FAINT, _esc(l3)], l3)
+	if not unlabelled.is_empty():
+		var l4 := "Unlabelled values (add to AIReasoningGlossary.gd): " + ", ".join(PackedStringArray(unlabelled.keys()))
+		o.line("[color=%s]%s[/color]" % [HEX_WARN, _esc(l4)], l4)
+
+
+# --- helpers ---------------------------------------------------------------
+
+static func _heading(o: _Out, title: String, link_key: String = "", _open: bool = true, link_text: String = "") -> void:
+	if not o.bb.is_empty():
+		o.gap()
+	var link := ""
+	if link_key != "":
+		link = "  [url=%s][color=%s][font_size=13]%s[/font_size][/color][/url]" % [link_key, HEX_LINK, link_text]
+	o.line("[b][color=%s]%s[/color][/b]%s" % [HEX_GOLD, _esc(title), link], "== %s ==" % title)
+
+
+static func _hint(key: String) -> String:
+	# Hover tooltip with the glossary explanation
+	return "[hint=\"%s\"]%s[/hint]" % [_Glossary.help(key).replace("\"", "'").replace("]", ")").replace("[", "("), _esc(_Glossary.label(key))]
+
+
+static func _gap_words(chosen: float, other: float) -> String:
+	if is_equal_approx(chosen, other):
+		return "the same"
+	if chosen > 0.0:
+		var pct := roundi((chosen - other) / chosen * 100.0)
+		if pct > 0:
+			return "%d%% lower" % pct
+		return "%d%% higher" % -pct
+	return "%.1f points %s" % [absf(chosen - other), "lower" if other < chosen else "higher"]
+
+
+static func _numeric_terms(bd: Dictionary) -> Array:
+	var out: Array = []
+	for k in bd.keys():
+		var v = bd[k]
+		if v is float or v is int:
+			out.append([str(k), float(v)])
+	return out
+
+
+static func _bd(cand) -> Dictionary:
+	if cand is Dictionary and cand.get("score_breakdown", {}) is Dictionary:
+		return cand.get("score_breakdown", {})
+	return {}
 
 
 static func _score_of(cand) -> float:
@@ -424,9 +728,9 @@ static func _score_of(cand) -> float:
 	return 0.0
 
 
-static func _fmt_val(v) -> String:
+static func _fmt_raw(v) -> String:
 	if v is float:
-		return "%.2f" % v
+		return "%.3f" % v
 	return str(v)
 
 
