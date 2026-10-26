@@ -23286,6 +23286,28 @@ static func _are_units_close(unit_a: Dictionary, unit_b: Dictionary, max_inches:
 
 # --- HEROIC INTERVENTION (Reactive — after opponent's charge) ---
 
+static func _hi_target_for_unit_11e(unit: Dictionary, defending_player: int, snapshot: Dictionary) -> String:
+	"""11e 15.11: the enemy a Heroic Intervention by `unit` would go for —
+	LEAP TO DEFEND: the closest enemy that charged this turn within 12";
+	INTO THE FRAY: otherwise the closest enemy within 6". "" if neither."""
+	var best_leap := ""
+	var best_leap_d := INF
+	var best_fray := ""
+	var best_fray_d := INF
+	var enemies := _get_enemy_units(snapshot, defending_player)
+	for eid in enemies:
+		var e = enemies[eid]
+		if _get_alive_models(e).is_empty():
+			continue
+		var d := float(_get_closest_model_distance_inches(unit, e))
+		if e.get("flags", {}).get("charged_this_turn", false) and d <= 12.0 and d < best_leap_d:
+			best_leap_d = d
+			best_leap = str(eid)
+		if d <= 6.0 and d < best_fray_d:
+			best_fray_d = d
+			best_fray = str(eid)
+	return best_leap if best_leap != "" else best_fray
+
 static func evaluate_heroic_intervention(defending_player: int, charging_unit_id: String, snapshot: Dictionary) -> Dictionary:
 	"""
 	Evaluate whether the AI should use Heroic Intervention to counter-charge.
@@ -23378,14 +23400,24 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 			elif kw_upper == "MONSTER":
 				score += _t_add(hi_terms, "hi_monster", 1.0)
 
-		# Scale by enemy value (worth counter-charging valuable enemies)
+		# Scale by enemy value (worth counter-charging valuable enemies).
+		# 11e end-of-phase window: there is no single charger (the id is ""),
+		# and valuing an empty unit gave 0 — so EVERY candidate took the x0.7
+		# cheap-enemy penalty. Value the enemy this unit would actually charge
+		# (15.11: LEAP TO DEFEND → closest enemy that charged within 12";
+		# INTO THE FRAY → closest enemy within 6").
+		var hi_target_id := charging_unit_id
+		if charging_unit_id == "":
+			hi_target_id = _hi_target_for_unit_11e(unit, defending_player, snapshot)
+			charging_value = _estimate_unit_value(snapshot.get("units", {}).get(hi_target_id, {})) if hi_target_id != "" else 0.0
 		if charging_value >= 5.0:
 			score = _t_mul(hi_terms, "hi_enemy_value", score, 1.3)
 		elif charging_value <= 2.0:
 			score = _t_mul(hi_terms, "hi_enemy_value", score, 0.7)  # Still worth considering at 1 CP (v3.3) even against cheap units
 		var hi_bd: Dictionary = hi_terms.duplicate()
 		hi_bd["hi_charger_value"] = charging_value
-		hi_scored.append({"description": "%s counter-charges" % unit_name, "score": score, "key": str(unit_id), "score_breakdown": hi_bd})
+		var hi_target_name := _dn(snapshot.get("units", {}).get(hi_target_id, {}), hi_target_id) if hi_target_id != "" else "no enemy in reach"
+		hi_scored.append({"description": "%s counter-charges %s" % [unit_name, hi_target_name], "score": score, "key": str(unit_id), "score_breakdown": hi_bd})
 
 		if score > best_score:
 			best_score = score

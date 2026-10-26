@@ -193,8 +193,8 @@ const TERMS := {
 	"hi_unit_value": {"label": "How strong the unit is", "fmt": "pts", "help": "Half the unit's estimated value: stronger units make better counter-chargers."},
 	"hi_character": {"label": "CHARACTER", "fmt": "pts", "help": "+2: characters usually fight well."},
 	"hi_monster": {"label": "MONSTER", "fmt": "pts", "help": "+1."},
-	"hi_enemy_value": {"label": "Enemy worth intervening against", "fmt": "pts", "help": "×1.3 against a valuable charger (value 5+), ×0.7 against a cheap one (2 or less). Note: at 11th edition the window is at the end of the Charge phase with no single charger, so the charger's value reads 0 and this is always ×0.7."},
-	"hi_charger_value": {"label": "Charger's value", "fmt": "num", "help": "Estimated value of the enemy unit that charged (0 when there is no single charger — 11e end-of-phase window)."},
+	"hi_enemy_value": {"label": "Enemy worth intervening against", "fmt": "pts", "help": "×1.3 against a valuable enemy (value 5+), ×0.7 against a cheap one (2 or less), unchanged in between."},
+	"hi_charger_value": {"label": "Enemy's value", "fmt": "num", "help": "Estimated value of the enemy this unit would charge (11e: the closest enemy that charged within 12\", else the closest within 6\")."},
 	# Fire Overwatch (evaluate_fire_overwatch)
 	"ow_shots": {"label": "Ranged shots", "fmt": "num", "help": "Total ranged shots the unit can fire."},
 	"ow_expected_hits": {"label": "Expected hits (6s only)", "fmt": "num", "good": "high", "help": "Shots ÷ 6: Overwatch only hits on unmodified 6s."},

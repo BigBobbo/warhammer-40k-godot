@@ -117,6 +117,16 @@
       "equals": 0
     },
     {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"counter-charges no enemy in reach\")",
+      "equals": false,
+      "comment": "each candidate names the enemy it would charge (11e: no single charger)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text"
+    },
+    {
       "act": "screenshot",
       "label": "01_hi_card"
     },
