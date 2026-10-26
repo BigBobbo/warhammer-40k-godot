@@ -376,6 +376,10 @@ static var _thinking_steps: Array = []
 # Cleared at the start of each decide() call, and attached as "_ai_decision_records" to the result
 static var _decision_records: Array = []
 
+# Fight activation priorities from the last _build_fight_order_plan:
+# unit_id -> {score, terms}. Read by the SELECT_FIGHTER decision record.
+static var _fight_order_scores: Dictionary = {}
+
 # Config override system — allows runtime parameter tuning via ai_config.json
 # Loaded from user://ai_config.json exported by the AI Gameplay Visualizer web app
 static var _config_overrides: Dictionary = {}
@@ -2845,6 +2849,7 @@ static func _snapshot_planning_state() -> Dictionary:
 		"turn_movement_plan": _turn_movement_plan.duplicate(true),
 		"fight_order_plan": _fight_order_plan.duplicate(true),
 		"fight_order_plan_built": _fight_order_plan_built.duplicate(true),
+		"fight_order_scores": _fight_order_scores.duplicate(true),
 		"fight_order_logged": _fight_order_logged,
 		"fight_attack_retry_count": _fight_attack_retry_count.duplicate(true),
 		"charge_coordination": _charge_coordination.duplicate(true),
@@ -2887,6 +2892,7 @@ static func _restore_planning_state(s: Dictionary) -> void:
 	_turn_movement_plan = s["turn_movement_plan"]
 	_fight_order_plan = s["fight_order_plan"]
 	_fight_order_plan_built = s["fight_order_plan_built"]
+	_fight_order_scores = s["fight_order_scores"]
 	_fight_order_logged = s["fight_order_logged"]
 	_fight_attack_retry_count = s["fight_attack_retry_count"]
 	_charge_coordination = s["charge_coordination"]
@@ -14544,6 +14550,8 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			if charge_prob < 0.03:  # Less than ~3% chance (need 12 on 2d6) — reduced from 8% to attempt more charges
 				print("AIDecisionMaker: Skipping charge %s -> %s (prob=%.1f%%, need=%.1f\", terrain=%.1f\")" % [
 					unit_name, target_name, charge_prob * 100.0, charge_distance_needed, terrain_penalty])
+				charge_eval[uid][target_id] = {"score": 0.0, "prob": charge_prob, "target_score": 0.0,
+					"skipped": "needs %.0f\" — under 3%% chance" % charge_distance_needed}
 				continue
 
 			# Score the charge target
@@ -14674,6 +14682,23 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 	if best_score < charge_threshold:
 		print("AIDecisionMaker: No charge worth declaring (best score: %.1f, threshold: %.1f)" % [best_score, charge_threshold])
 		_add_thinking_step("No charge worth declaring (best score: %.1f, threshold: %.1f)" % [best_score, charge_threshold])
+		# Record the declined decision too: every charge it weighed against
+		# the "don't charge" bar, so a skipped charge is explainable.
+		var nc_cands: Array = [{"description": "Don't charge", "score": charge_threshold, "key": "none",
+			"score_breakdown": {"charge_threshold": charge_threshold}}]
+		for nc_uid in charge_eval:
+			var nc_unit = snapshot.get("units", {}).get(nc_uid, {})
+			for nc_tid in charge_eval[nc_uid]:
+				var nc: Dictionary = charge_eval[nc_uid][nc_tid]
+				var nc_t = snapshot.get("units", {}).get(nc_tid, {})
+				var nc_desc := "%s charges %s" % [_dn(nc_unit, nc_uid), _dn(nc_t, nc_tid)]
+				if nc.has("skipped"):
+					nc_desc += " (not considered: %s)" % str(nc.skipped)
+				nc_cands.append({"description": nc_desc, "score": float(nc.get("score", 0.0)), "key": "%s|%s" % [nc_uid, nc_tid],
+					"score_breakdown": {"charge_probability": float(nc.get("prob", 0.0)),
+						"charge_target_value": float(nc.get("target_score", 0.0))}})
+		_record_choice("charge", "", "no charge declared", nc_cands, "none",
+			{"phase": "charge", "round": snapshot.get("meta", {}).get("battle_round", 1)})
 		return {}
 
 	print("AIDecisionMaker: Best charge: %s (score=%.1f)" % [best_description, best_score])
@@ -16216,6 +16241,19 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		if chosen_uid != offered_uid:
 			print("AIDecisionMaker: T7-46 fight order optimization — selected %s over offered %s" % [unit_name, offered_uid])
 
+		# Which unit fights next — record every offered unit with its planned
+		# activation priority (units the plan did not score show 0).
+		var sel_cands: Array = []
+		for ouid2 in offered_ids:
+			var ou2 = snapshot.get("units", {}).get(ouid2, {})
+			var od: Dictionary = _fight_order_scores.get(ouid2, {})
+			sel_cands.append({"description": "%s fights now" % _dn(ou2, ouid2), "score": float(od.get("score", 0.0)),
+				"key": ouid2, "score_breakdown": (od.get("terms", {}) as Dictionary).duplicate()})
+		if not sel_cands.is_empty():
+			_record_choice("fight_order", chosen_uid, unit_name, sel_cands, chosen_uid,
+				{"phase": "fight", "round": snapshot.get("meta", {}).get("battle_round", 1),
+					"source": "fight order plan" if _fight_order_scores.has(chosen_uid) else "only unit offered"})
+
 		# Fight-phase faction stratagems on the unit about to be selected
 		# (UNBRIDLED CARNAGE crit 5+, AVENGE THE FALLEN +attacks) — they target
 		# "a unit that has not been selected to fight", so fire them first.
@@ -16697,9 +16735,14 @@ static func _build_fight_order_plan(snapshot: Dictionary, player: int) -> Array:
 	var scored_fighters = []
 	for unit_id in eligible_fighters:
 		var unit = all_units[unit_id]
-		var score = _score_fighter_priority(unit, unit_id, snapshot, player, enemies, objectives)
-		score = _apply_difficulty_noise(score)
+		var prio_terms := {}
+		var score = _score_fighter_priority(unit, unit_id, snapshot, player, enemies, objectives, prio_terms)
+		var noisy = _apply_difficulty_noise(score)
+		_t_add(prio_terms, "difficulty_noise", noisy - score)
+		score = noisy
 		scored_fighters.append({"unit_id": unit_id, "score": score})
+		# Kept for the SELECT_FIGHTER decision record (what the pick beat)
+		_fight_order_scores[unit_id] = {"score": score, "terms": prio_terms}
 
 		var unit_name = _dn(unit, unit_id)
 		print("AIDecisionMaker: T7-46 fight order score — %s: %.2f" % [unit_name, score])
@@ -16721,14 +16764,16 @@ static func _build_fight_order_plan(snapshot: Dictionary, player: int) -> Array:
 	return sorted_ids
 
 
-static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot: Dictionary, player: int, enemies: Dictionary, objectives: Array) -> float:
+static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot: Dictionary, player: int, enemies: Dictionary, objectives: Array, terms: Dictionary = {}) -> float:
 	"""T7-46: Score how urgently a unit should be activated first in the fight phase.
 	Higher score = should fight earlier. Considers:
 	- Kill potential: units that can eliminate targets should go first (denies enemy retaliation)
 	- Vulnerability: units likely to die should fight before being destroyed
 	- Target value: units engaging high-value targets (characters, shooters, objective holders)
 	- Damage output: units dealing more damage benefit from going earlier
-	- Overkill avoidance: don't waste high-damage units early on easy kills"""
+	- Overkill avoidance: don't waste high-damage units early on easy kills
+	`terms` (optional) receives the additive decomposition (sum == score) for
+	the decision record. Instrumentation only."""
 	var score = 0.0
 	var unit_name = _dn(unit, unit_id)
 
@@ -16755,39 +16800,40 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 
 	# If no damage can be dealt, very low priority
 	if best_target_damage < 0.1:
+		_t_add(terms, "order_cant_hurt", 0.5)
 		return 0.5
 
 	# --- Kill potential (highest weight): can we wipe the target? ---
 	# Units that can kill their target should go first — removes the target before it fights back
 	if best_target_remaining_wounds > 0 and best_target_damage >= best_target_remaining_wounds:
-		score += get_param("FIGHT_ORDER_CAN_WIPE", FIGHT_ORDER_CAN_WIPE)  # Can likely wipe — fight first to deny enemy retaliation
+		score += _t_add(terms, "order_can_wipe", get_param("FIGHT_ORDER_CAN_WIPE", FIGHT_ORDER_CAN_WIPE))  # Can likely wipe — fight first to deny enemy retaliation
 		print("AIDecisionMaker: T7-46   %s: +6.0 kill potential (%.1f dmg vs %.0f HP)" % [unit_name, best_target_damage, best_target_remaining_wounds])
 	elif best_target_remaining_wounds > 0 and best_target_damage >= best_target_remaining_wounds * 0.5:
-		score += get_param("FIGHT_ORDER_HALF_KILL", FIGHT_ORDER_HALF_KILL)  # Can take below half — still valuable to go early
+		score += _t_add(terms, "order_half_kill", get_param("FIGHT_ORDER_HALF_KILL", FIGHT_ORDER_HALF_KILL))  # Can take below half — still valuable to go early
 		print("AIDecisionMaker: T7-46   %s: +3.0 half-kill potential" % unit_name)
 
 	# --- Damage output: raw expected damage contribution ---
-	score += best_target_damage * get_param("FIGHT_ORDER_DAMAGE_WEIGHT", FIGHT_ORDER_DAMAGE_WEIGHT)
+	score += _t_add(terms, "order_damage", best_target_damage * get_param("FIGHT_ORDER_DAMAGE_WEIGHT", FIGHT_ORDER_DAMAGE_WEIGHT))
 
 	# --- Target value: is the best target high-value? ---
 	var target_keywords = best_target.get("meta", {}).get("keywords", [])
 
 	# CHARACTER targets — eliminate high-value leaders
 	if "CHARACTER" in target_keywords:
-		score += get_param("FIGHT_ORDER_CHARACTER", FIGHT_ORDER_CHARACTER)
+		score += _t_add(terms, "order_character", get_param("FIGHT_ORDER_CHARACTER", FIGHT_ORDER_CHARACTER))
 
 	# Dangerous ranged units — fight first to keep them locked or kill them
 	if _unit_has_ranged_weapons(best_target):
 		var ranged_output = _estimate_unit_ranged_strength(best_target)
 		if ranged_output >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS:
-			score += get_param("FIGHT_ORDER_DANGEROUS_SHOOTER", FIGHT_ORDER_DANGEROUS_SHOOTER)
+			score += _t_add(terms, "order_dangerous_shooter", get_param("FIGHT_ORDER_DANGEROUS_SHOOTER", FIGHT_ORDER_DANGEROUS_SHOOTER))
 
 	# Target on objective — clearing objective holders is valuable
 	var target_centroid = _get_unit_centroid(best_target)
 	if target_centroid != Vector2.INF:
 		for obj_pos in objectives:
 			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				score += get_param("FIGHT_ORDER_TARGET_ON_OBJ", FIGHT_ORDER_TARGET_ON_OBJ)
+				score += _t_add(terms, "order_target_on_objective", get_param("FIGHT_ORDER_TARGET_ON_OBJ", FIGHT_ORDER_TARGET_ON_OBJ))
 				break
 
 	# --- Vulnerability: units likely to die should fight first ---
@@ -16798,20 +16844,20 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 		incoming_damage += _estimate_melee_damage(enemy, unit, snapshot)
 	var our_remaining_wounds = _calculate_kill_threshold(unit)
 	if our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * get_param("SURVIVAL_LETHAL_THRESHOLD", SURVIVAL_LETHAL_THRESHOLD):
-		score += get_param("FIGHT_ORDER_LIKELY_TO_DIE", FIGHT_ORDER_LIKELY_TO_DIE)  # Unit is likely to die — fight first to get value
+		score += _t_add(terms, "order_likely_to_die", get_param("FIGHT_ORDER_LIKELY_TO_DIE", FIGHT_ORDER_LIKELY_TO_DIE))  # Unit is likely to die — fight first to get value
 		print("AIDecisionMaker: T7-46   %s: +3.0 vulnerability (%.1f incoming vs %.0f HP)" % [unit_name, incoming_damage, our_remaining_wounds])
 	elif our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * get_param("SURVIVAL_SEVERE_THRESHOLD", SURVIVAL_SEVERE_THRESHOLD):
-		score += get_param("FIGHT_ORDER_BADLY_HURT", FIGHT_ORDER_BADLY_HURT)  # Unit will be badly hurt — prefer fighting early
+		score += _t_add(terms, "order_badly_hurt", get_param("FIGHT_ORDER_BADLY_HURT", FIGHT_ORDER_BADLY_HURT))  # Unit will be badly hurt — prefer fighting early
 
 	# --- Overkill penalty: don't activate big damage units first against weak targets ---
 	if best_target_remaining_wounds > 0 and best_target_damage > best_target_remaining_wounds * 2.5:
-		score -= get_param("FIGHT_ORDER_MASSIVE_OVERKILL", FIGHT_ORDER_MASSIVE_OVERKILL)  # Massive overkill — let other units handle weak targets first
+		score += _t_add(terms, "order_overkill", -get_param("FIGHT_ORDER_MASSIVE_OVERKILL", FIGHT_ORDER_MASSIVE_OVERKILL))  # Massive overkill — let other units handle weak targets first
 
 	# --- AI-GAP-4: Factor in offensive multipliers from abilities ---
 	var all_units = snapshot.get("units", {})
 	var melee_mult = AIAbilityAnalyzerData.get_offensive_multiplier_melee(unit_id, unit, all_units)
 	if melee_mult > 1.0:
-		score *= melee_mult
+		score = _t_mul(terms, "order_melee_buffs", score, melee_mult)
 
 	# --- Round strategy modifier ---
 	# T7-41: Combine with army archetype modifiers
@@ -16819,8 +16865,10 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 	var strategy = _apply_army_archetype_to_strategy(
 		_get_round_strategy_modifiers(battle_round),
 		_get_army_strategy_modifiers(snapshot, player))
-	score *= strategy.aggression
+	score = _t_mul(terms, "order_round_aggression", score, strategy.aggression)
 
+	if score < 0.0:
+		_t_add(terms, "fight_floor_zero", -score)
 	return max(0.0, score)
 
 

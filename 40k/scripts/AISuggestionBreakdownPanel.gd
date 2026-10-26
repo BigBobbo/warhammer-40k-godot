@@ -474,6 +474,8 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 			var none := "Nothing the AI recorded differs between the two — the gap comes from something it does not report yet."
 			if is_equal_approx(_score_of(cands[chosen]), _score_of(cands[runner])):
 				none = "Exact tie — the AI kept the first option it evaluated. Nothing it scores tells these apart."
+			elif not _shares_numeric_key(c_bd, _bd(cands[runner])):
+				none = "These two are measured differently, so there is nothing to line up — compare their details below."
 			o.line("[color=%s]  %s[/color]" % [HEX_WARN, _esc(none)], "  " + none)
 		for row in rows:
 			o.line(row[0], row[1])
@@ -742,6 +744,13 @@ static func _gap_words(chosen: float, other: float) -> String:
 		return "%d%% higher" % -pct
 	var d := absf(chosen - other)
 	return ("%.2f points %s" if d < 1.0 else "%.1f points %s") % [d, "lower" if other < chosen else "higher"]
+
+
+static func _shares_numeric_key(a: Dictionary, b: Dictionary) -> bool:
+	for k in a.keys():
+		if b.has(k) and (a[k] is float or a[k] is int):
+			return true
+	return false
 
 
 static func _numeric_terms(bd: Dictionary) -> Array:

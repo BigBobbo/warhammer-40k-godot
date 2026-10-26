@@ -99,6 +99,22 @@ const TERMS := {
 	"fight_already_overkilled": {"label": "Already dead to earlier attacks", "fmt": "pts", "help": "Penalty when earlier fighters this phase already dealt enough damage to kill it."},
 	"fight_gang_up": {"label": "Starts a gang-up", "fmt": "pts", "help": "Horde units only: bonus when other friendly units are also engaged with this target, so attacks concentrate on it."},
 	"fight_floor_zero": {"label": "Raised to 0", "fmt": "pts", "help": "Fight scores never go below 0; this cancels the negative remainder."},
+	# Fight ORDER ledger (which unit activates next), from _score_fighter_priority
+	"order_damage": {"label": "Damage it would deal", "fmt": "pts", "help": "Expected melee damage against its best engaged target × the order damage weight (1 by default)."},
+	"order_can_wipe": {"label": "Can wipe its target first", "fmt": "pts", "help": "Bonus when it can destroy its target outright, removing that unit before it fights back."},
+	"order_half_kill": {"label": "Can halve its target", "fmt": "pts", "help": "Bonus when it can take its target below half its remaining wounds (but not wipe it)."},
+	"order_character": {"label": "Target is a CHARACTER", "fmt": "pts", "help": "Bonus when its best target is a CHARACTER."},
+	"order_dangerous_shooter": {"label": "Target is a dangerous shooter", "fmt": "pts", "help": "Bonus when its best target has dangerous ranged output."},
+	"order_target_on_objective": {"label": "Target on an objective", "fmt": "pts", "help": "Bonus when its best target stands on an objective."},
+	"order_likely_to_die": {"label": "Likely to die before it fights", "fmt": "pts", "help": "Bonus when the enemies engaged with it can deal 75%+ of its remaining wounds — fight now to get value from it."},
+	"order_badly_hurt": {"label": "Will be badly hurt", "fmt": "pts", "help": "Smaller bonus when the enemies engaged with it can deal 50–75% of its remaining wounds."},
+	"order_overkill": {"label": "Overkill — let others go first", "fmt": "pts", "help": "Penalty when its damage is over 2.5× its target's remaining wounds."},
+	"order_cant_hurt": {"label": "Can barely hurt anything", "fmt": "pts", "help": "Expected damage under 0.1: the priority is a flat 0.5."},
+	"order_melee_buffs": {"label": "Melee buffs", "fmt": "pts", "help": "Scaling from abilities that boost its melee attacks (leaders, auras)."},
+	"order_round_aggression": {"label": "Round / army aggression", "fmt": "pts", "help": "Scaling by how aggressive the AI plays this battle round with this army."},
+	"difficulty_noise": {"label": "Difficulty randomness", "fmt": "pts", "help": "Random noise added at lower difficulties to make the AI less exact."},
+	# Charge — 'no charge' option
+	"charge_threshold": {"label": "Minimum worth charging", "fmt": "num", "help": "A charge is only declared if its score beats this (1.0, lowered when behind on VP, by faction aggression and by difficulty)."},
 	"strategic_value": {"label": "Non-damage bonuses and penalties (older records)", "fmt": "num", "good": "high", "help": "The fight score minus expected damage × damage weight: bonuses for CHARACTERs, a unit below half strength, being able to wipe it or halve it, a target on an objective, low Toughness, locking long-range or dangerous shooters, and finishing what another unit started; penalties for overkill or not being able to hurt it. Also absorbs scaling for the target's defensive abilities and the points trade."},
 
 	# --- Deployment / formations / reserves / secondaries --------------------
@@ -121,6 +137,7 @@ const CONTEXT_LABELS := {
 	"round": "Battle round",
 	"weapon_id": "Weapon",
 	"assign_action": "Planned action",
+	"reason": "Why",
 	"source": "Picked by",
 	"targets_considered": "Targets considered",
 }
