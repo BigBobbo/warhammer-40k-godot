@@ -9,7 +9,7 @@
  "rng_seed": 42,
  "transition_to_phase": 6,
  "disable_ai": true,
- "description": "Audit Tier-1 #1 (GDM 2026 Force Dispositions): each player plays their own deck paired against the opponent disposition. P1 Take and Hold vs P2 Purge the Foe resolves to Immovable Object (P1) and Unstoppable Force (P2) via the meta.game_config path. Turn-start control snapshotted while P2 only holds obj_nml_2; the P1 centre garrison withdraws and Boyz K capture obj_center. Battle round is set to 2 because the official launch awards pay command/hold-new VP from round 2 onwards. END_COMMAND scores the official per-objective command award: P2 holds obj_center + obj_nml_2 = 2 non-home objectives x 4 = 8VP; the sourced card text puts hold-new at end of turn, so the EOT pass adds 3VP hold-new for the freshly captured obj_center = 11 total, P1 scores nothing. (Search and Destroy's markers are sourced from the rotated official geometry, so obj_nml_2 now sits bottom-LEFT at 400,1840 px; three U_BOYZ_E models are moved onto it before the turn-start snapshot so P2 holds it at turn start as the fixture intended.)",
+ "description": "Audit Tier-1 #1 (GDM 2026 Force Dispositions): each player plays their own deck paired against the opponent disposition. P1 Take and Hold vs P2 Purge the Foe resolves to Immovable Object (P1) and Unstoppable Force (P2) via the meta.game_config path. Turn-start control snapshotted while P2 only holds obj_nml_2; the P1 centre garrison withdraws and Boyz K capture obj_center. Battle round is set to 2 because the official launch awards pay command/hold-new VP from round 2 onwards. END_COMMAND scores the official per-objective command award: P2 holds obj_center + obj_nml_2 = 2 non-home objectives x 4 = 8VP; the sourced card text puts hold-new at end of turn, so the EOT pass adds 3VP hold-new for the freshly captured obj_center = 11 total, P1 scores nothing. (the objective markers come from the fixture's (fallback) take_and_hold_mirror_1 layout, now rotated to the official orientation, so obj_nml_2 sits bottom-LEFT at 260,1650 px; U_BOYZ_E and U_BOYZ_F (which sat on the pre-rotation obj_nml_2) are mirrored x -> 1760 - x onto it before the turn-start snapshot so P2 holds it at turn start as the fixture intended.)",
  "steps": [
   {
    "act": "wait_seconds",
@@ -49,15 +49,9 @@
   },
   {
    "act": "execute_script",
-   "script": "GameState.get_unit(\"U_BOYZ_E\")[\"models\"][0].merge({\"position\": {\"x\": 380.0, \"y\": 1820.0}}, true)"
-  },
-  {
-   "act": "execute_script",
-   "script": "GameState.get_unit(\"U_BOYZ_E\")[\"models\"][1].merge({\"position\": {\"x\": 420.0, \"y\": 1860.0}}, true)"
-  },
-  {
-   "act": "execute_script",
-   "script": "GameState.get_unit(\"U_BOYZ_E\")[\"models\"][2].merge({\"position\": {\"x\": 380.0, \"y\": 1870.0}}, true)"
+   "multiline": true,
+   "equals": true,
+   "script": "for uid in [\"U_BOYZ_E\", \"U_BOYZ_F\"]:\n\tfor m in GameState.get_unit(uid)[\"models\"]:\n\t\tif m.get(\"position\") != null:\n\t\t\tm[\"position\"][\"x\"] = 1760.0 - float(m[\"position\"][\"x\"])\nreturn true"
   },
   {
    "act": "execute_script",

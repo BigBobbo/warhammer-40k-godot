@@ -32,7 +32,7 @@
     { "act": "drag_board", "from_x": 540, "from_y": 1140, "to_x": 760, "to_y": 1120 },
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "execute_script", "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_SHIELD_CAPTAIN_JETBIKE_A\")", "equals": false },
-    { "act": "execute_script", "script": "abs(GameState.get_unit(\"U_SHIELD_CAPTAIN_JETBIKE_A\").get(\"models\")[0].get(\"position\").get(\"x\") - 1220.0) < 0.5", "equals": true },
+    { "act": "execute_script", "script": "abs(GameState.get_unit(\"U_SHIELD_CAPTAIN_JETBIKE_A\").get(\"models\")[0].get(\"position\").get(\"x\") - 540.0) < 0.5", "equals": true },
     { "act": "screenshot", "label": "03_grounded_crossing_refused" },
 
     { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/TakeToSkiesCheckBox" },
@@ -50,7 +50,7 @@
     { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "units.U_SHIELD_CAPTAIN_JETBIKE_A.flags.moved", "equals": true },
-    { "act": "execute_script", "script": "GameState.get_unit(\"U_SHIELD_CAPTAIN_JETBIKE_A\").get(\"models\")[0].get(\"position\").get(\"x\") < 1073.0", "equals": true },
-    { "act": "screenshot", "label": "06_landed_west_of_wall" }
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_SHIELD_CAPTAIN_JETBIKE_A\").get(\"models\")[0].get(\"position\").get(\"x\") > 687.0", "equals": true },
+    { "act": "screenshot", "label": "06_landed_east_of_wall" }
   ]
 }

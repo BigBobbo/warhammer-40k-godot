@@ -30,7 +30,7 @@
     { "act": "drag_board", "from_x": 540, "from_y": 1140, "to_x": 616, "to_y": 1120 },
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "execute_script", "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_TELEMON_HEAVY_DREADNOUGHT_I\")", "equals": false },
-    { "act": "execute_script", "script": "abs(GameState.get_unit(\"U_TELEMON_HEAVY_DREADNOUGHT_I\").get(\"models\")[0].get(\"position\").get(\"x\") - 1220.0) < 0.5", "equals": true },
+    { "act": "execute_script", "script": "abs(GameState.get_unit(\"U_TELEMON_HEAVY_DREADNOUGHT_I\").get(\"models\")[0].get(\"position\").get(\"x\") - 540.0) < 0.5", "equals": true },
     { "act": "screenshot", "label": "03_drop_onto_wall_refused" },
 
     { "act": "drag_board", "from_x": 540, "from_y": 1140, "to_x": 548, "to_y": 1112 },

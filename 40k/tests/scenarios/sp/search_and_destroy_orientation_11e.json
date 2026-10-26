@@ -64,23 +64,27 @@
     },
     {
       "act": "execute_script",
-      "script": "Geometry2D.is_point_in_polygon(Vector2(80, 80), BoardState.get_deployment_zone_for_player(1))",
-      "equals": true
+      "script": "return Geometry2D.is_point_in_polygon(Vector2(80, 80), BoardState.get_deployment_zone_for_player(1))",
+      "equals": true,
+      "multiline": true
     },
     {
       "act": "execute_script",
-      "script": "Geometry2D.is_point_in_polygon(Vector2(1680, 80), BoardState.get_deployment_zone_for_player(1))",
-      "equals": false
+      "script": "return Geometry2D.is_point_in_polygon(Vector2(1680, 80), BoardState.get_deployment_zone_for_player(1))",
+      "equals": false,
+      "multiline": true
     },
     {
       "act": "execute_script",
-      "script": "Geometry2D.is_point_in_polygon(Vector2(1680, 2320), BoardState.get_deployment_zone_for_player(2))",
-      "equals": true
+      "script": "return Geometry2D.is_point_in_polygon(Vector2(1680, 2320), BoardState.get_deployment_zone_for_player(2))",
+      "equals": true,
+      "multiline": true
     },
     {
       "act": "execute_script",
-      "script": "Geometry2D.is_point_in_polygon(Vector2(80, 2320), BoardState.get_deployment_zone_for_player(2))",
-      "equals": false
+      "script": "return Geometry2D.is_point_in_polygon(Vector2(80, 2320), BoardState.get_deployment_zone_for_player(2))",
+      "equals": false,
+      "multiline": true
     },
     {
       "act": "execute_script",
@@ -94,8 +98,9 @@
     },
     {
       "act": "execute_script",
-      "script": "Geometry2D.is_point_in_polygon(Vector2(260, 630), BoardState.get_deployment_zone_for_player(1))",
-      "equals": true
+      "script": "return Geometry2D.is_point_in_polygon(Vector2(260, 630), BoardState.get_deployment_zone_for_player(1))",
+      "equals": true,
+      "multiline": true
     },
     {
       "act": "dispatch_action",
