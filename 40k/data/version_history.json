@@ -10,6 +10,8 @@
         "Factors use plain names and units (e.g. 'Weapon fit ×0.24 (very poor)', 'Wounds left in unit 20'); hover one for what it means. Click 'details' on any option to see what its score was made of.",
         "The card flags close calls and picks that were not the top-scored option, and says plainly when a decision has nothing recorded to explain it. Raw values and tuning settings sit in a collapsed Developer details section.",
         "K now works while a dialog is open (e.g. Assign Attacks, Epic Challenge): the card opens above the dialog, and Esc returns you to it. The card also sits below the 'Game autosaved' message instead of under it.",
+        "Mark any suggestion 'Good call' or 'Bad call' (with a note) to save that exact position as an AI test case; tests/run_ai_test_cases.sh re-checks them all after AI changes (a bad call passes once the AI chooses differently).",
+        "AI fix: when picking a melee target the AI no longer counts damage that would be wasted on 1-wound models (a Damage 2 lance against Gretchin was valued at twice what actually lands), so it stops over-rating high-damage weapons against hordes.",
         "New suggestion cards: which unit should fight next (with its priority broken down, e.g. can wipe its target, likely to die first) and why the AI declines to charge (every charge it weighed against the 'don't charge' bar).",
         "Fight suggestions now show what the score was made of (damage dealt, can wipe it out, ties up a shooter, target on an objective, points trade…), including fights with only one target in reach.",
         "Charge suggestions now show each target's real score and its charge chance including terrain (other targets used to show as 0).",

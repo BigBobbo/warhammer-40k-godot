@@ -13,6 +13,7 @@ const GameLogEntryScript = preload("res://scripts/GameLogEntry.gd")
 const UnitStatsCardPopupScript = preload("res://scripts/UnitStatsCardPopup.gd")
 const HotkeyHelpOverlayScript = preload("res://scripts/HotkeyHelpOverlay.gd")
 const AISuggestionBreakdownPanelScript = preload("res://scripts/AISuggestionBreakdownPanel.gd")
+const AISuggestionTestCasesScript = preload("res://scripts/AISuggestionTestCases.gd")
 # Controller glyphs for inline button labels (PRP §"inline button labels"): the
 # phase-action button advertises the keyboard [Enter] OR the pad Menu (☰) button
 # depending on the active device, so a Steam Deck player sees which controller
@@ -2701,6 +2702,7 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 		add_child(_ai_suggestion_panel)
 		_ai_suggestion_panel.z_index = UI_MODAL_Z
 		_ai_suggestion_panel.refresh_requested.connect(_on_ai_suggestion_pressed)
+		_ai_suggestion_panel.save_case_requested.connect(_on_ai_suggestion_save_case)
 	# A modal dialog (Attack Assignment, Epic Challenge, stratagem windows…)
 	# draws above every Control and swallows input, so the card would be
 	# hidden under it and unclickable — exactly when the decision it explains
@@ -2715,6 +2717,19 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 	_ai_suggestion_panel.show_decision(decision, meta)
 	print("Main: AI suggestion breakdown shown (%d records)%s" % [_ai_suggestion_panel.record_count,
 		(" above modal '%s'" % modal.name) if modal != null else ""])
+
+func _on_ai_suggestion_save_case(verdict: String, note: String) -> void:
+	"""'Good call' / 'Bad call' on the breakdown card: save the position and the
+	suggestion as a regression case (AISuggestionTestCases)."""
+	var result: Dictionary = AISuggestionTestCasesScript.save_case(_ai_suggestion_panel._decision, _ai_suggestion_panel._meta, verdict, note)
+	_ai_suggestion_panel.show_case_saved(result)
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		if result.get("ok", false):
+			toast_mgr.show_toast("AI test case saved (%s call)" % verdict, Color(0.6, 0.9, 0.6), 2.0)
+		else:
+			toast_mgr.show_toast("Could not save AI test case", Color(0.95, 0.5, 0.45), 2.5)
+	print("Main: AI test case save (%s) -> %s" % [verdict, str(result)])
 
 func _top_modal_window() -> Window:
 	"""The most recently added visible exclusive (modal) window, if any."""

@@ -16423,11 +16423,12 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		var target_toughness = int(enemy.get("meta", {}).get("stats", {}).get("toughness", 4))
 		var target_save = int(enemy.get("meta", {}).get("stats", {}).get("save", 4))
 		var target_invuln = _get_target_invulnerable_save(enemy)
+		var target_wpm = _get_target_wounds_per_model(enemy)
 
 		# Calculate Extra Attacks weapon damage for this target (constant across primary weapon choices)
 		var ea_damage = 0.0
 		for ea_w in extra_attack_weapons:
-			ea_damage += _evaluate_melee_weapon_damage(ea_w, _weapon_carrier_count(unit, ea_w), target_toughness, target_save, target_invuln, waaagh_buffs)
+			ea_damage += _evaluate_melee_weapon_damage(ea_w, _weapon_carrier_count(unit, ea_w), target_toughness, target_save, target_invuln, waaagh_buffs, target_wpm)
 
 		# Find the best primary weapon for this target (highest raw damage)
 		var target_best_damage = ea_damage
@@ -16435,7 +16436,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		var target_best_weapon_name = "Close combat weapon"
 
 		for w in primary_weapons:
-			var primary_damage = _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), target_toughness, target_save, target_invuln, waaagh_buffs)
+			var primary_damage = _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), target_toughness, target_save, target_invuln, waaagh_buffs, target_wpm)
 			var total = primary_damage + ea_damage
 			if total > target_best_damage:
 				target_best_damage = total
@@ -16507,7 +16508,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		var e_invuln = _get_target_invulnerable_save(enemy)
 		var e_damage = 0.0
 		for w in primary_weapons:
-			e_damage = maxf(e_damage, _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), e_toughness, e_save, e_invuln, waaagh_buffs))
+			e_damage = maxf(e_damage, _evaluate_melee_weapon_damage(w, _weapon_carrier_count(unit, w), e_toughness, e_save, e_invuln, waaagh_buffs, _get_target_wounds_per_model(enemy)))
 		var e_hp = _calculate_kill_threshold(enemy)
 		# The additive ledger (sum == score) plus two descriptive facts.
 		var e_terms := {}
@@ -16884,7 +16885,7 @@ static func _weapon_has_extra_attacks(weapon_data: Dictionary) -> bool:
 	return false
 
 # T7-28: Helper — calculate expected damage for a single melee weapon against a target
-static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: int, target_toughness: int, target_save: int, target_invuln: int, waaagh_buffs: Dictionary = {}) -> float:
+static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: int, target_toughness: int, target_save: int, target_invuln: int, waaagh_buffs: Dictionary = {}, target_wounds_per_model: int = 0) -> float:
 	var attacks_str = str(weapon.get("attacks", "1"))
 	var attacks = _parse_average_damage(attacks_str)
 
@@ -16910,6 +16911,14 @@ static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: i
 		if waaagh_buffs.get("melee_bonus", GameConstants.edition < 11):
 			strength += 1
 			attacks += 1.0
+
+	# Damage does not carry over between models (05.04): a D2 hit on a 1-wound
+	# model removes 1 wound. Same cap (and same parameter gate) as
+	# _estimate_melee_damage — this fight-target path predicted 11.1 damage
+	# against 1W Gretchin where the attack dialog shows ~5.6 landing, and
+	# scored "can wipe it out" on the wasted half.
+	if target_wounds_per_model > 0 and get_param("MELEE_WOUND_OVERFLOW_CAP", MELEE_WOUND_OVERFLOW_CAP) > 0.0:
+		damage = minf(damage, float(target_wounds_per_model))
 
 	var p_hit = _hit_probability(ws)
 	var p_wound = _wound_probability(strength, target_toughness)

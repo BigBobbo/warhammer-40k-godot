@@ -1,0 +1,125 @@
+{
+  "id": "ai_suggestion_save_test_case",
+  "covers": [
+    "ai.suggestion.save_test_case",
+    "ui.ai_suggestion.review_row"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "Turning a reviewed suggestion into a regression case. Press K, type a note (typing 'k' in the note field must not trigger the hotkey), click 'Bad call': the game state (.w40ksave) and a wh40k_ai_test_case JSON with the verdict, note and the suggestion's signature are written to user://ai_test_cases/, the card confirms it, and nothing is executed. 'Good call' saves a second case. tests/run_ai_test_cases.sh re-checks such cases.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Review/Col/Row/BadCallButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Review/Col/Row/NoteEdit"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "S",
+      "unicode": "s"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K",
+      "unicode": "k"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node('/root/Main/AISuggestionBreakdownPanel/Body/Review/Col/Row/NoteEdit').text",
+      "equals": "sk",
+      "comment": "typing 'k' in the note must not trigger the K hotkey"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"/root/Main/AISuggestionBreakdownPanel/Body/Review/Col/Row/NoteEdit\").text = \"should stay on the home objective\"\nreturn true",
+      "multiline": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Review/Col/Row/BadCallButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node('/root/Main/AISuggestionBreakdownPanel/Body/Review/Col/ReviewStatus').text.begins_with(\"Saved test case\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return DirAccess.get_files_at(\"user://ai_test_cases/\").size()",
+      "expect_min": 2,
+      "multiline": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_bad_call_saved"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Review/Col/Row/GoodCallButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "return DirAccess.get_files_at(\"user://ai_test_cases/\").size()",
+      "expect_min": 4,
+      "multiline": true
+    }
+  ]
+}

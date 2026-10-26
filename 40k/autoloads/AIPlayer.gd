@@ -796,7 +796,7 @@ func clear_action_log() -> void:
 # panel (AISuggestionBreakdownPanel) for its header, and by scenario asserts.
 var last_suggestion_meta: Dictionary = {}
 
-func request_suggestion() -> Dictionary:
+func request_suggestion(difficulty_override: int = -1) -> Dictionary:
 	"""Compute what the AI would do for the CURRENT active player and surface its
 	reasoning in the game log — WITHOUT executing anything. Built for a human
 	playing against the AI who wants a hint, or for debugging the AI's reasoning
@@ -847,12 +847,16 @@ func request_suggestion() -> Dictionary:
 		difficulty = get_difficulty(opponent) if is_ai_player(opponent) else AIDifficultyConfigData.Difficulty.NORMAL
 	if AIDifficultyConfigData.use_random_actions(difficulty):
 		difficulty = AIDifficultyConfigData.Difficulty.NORMAL
+	# Saved AI test cases re-ask at the difficulty they were recorded at
+	if difficulty_override >= 0:
+		difficulty = difficulty_override
 
 	last_suggestion_meta = {
 		"player": player,
 		"phase_name": PHASE_DISPLAY_NAMES.get(phase, "Unknown"),
 		"round": GameState.get_battle_round(),
 		"difficulty": AIDifficultyConfigData.difficulty_name(difficulty),
+		"difficulty_level": difficulty,
 	}
 	var decision = AIDecisionMaker.suggest_action(phase, snapshot, available, player, difficulty)
 	if decision.is_empty():

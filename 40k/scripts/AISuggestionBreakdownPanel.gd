@@ -28,6 +28,8 @@ class_name AISuggestionBreakdownPanel
 #   show_decision(decision: Dictionary, meta: Dictionary)
 #   close()
 #   refresh_requested  (K pressed while the card has input — Main re-asks the AI)
+#   save_case_requested(verdict, note)  ("Good call" / "Bad call" — Main saves
+#                      an AISuggestionTestCases case); show_case_saved(result)
 #   toggle_section(key: String)  (same as clicking a link: "dev", "notes", "opt:R:I")
 #   breakdown_text: String   (plain-text mirror of what is on screen)
 #   full_text: String        (everything expanded — what Copy puts on the clipboard)
@@ -70,6 +72,7 @@ const HEX_LINK := "#7fc8e8"
 const HOST_META := "ai_suggestion_host"
 
 signal refresh_requested
+signal save_case_requested(verdict: String, note: String)
 
 var breakdown_text: String = ""
 var full_text: String = ""
@@ -82,6 +85,8 @@ var _rich: RichTextLabel = null
 var _decision: Dictionary = {}
 var _meta: Dictionary = {}
 var _expanded: Dictionary = {}
+var _note_edit: LineEdit = null
+var _review_status: Label = null
 
 
 func _ready() -> void:
@@ -154,6 +159,49 @@ func _ready() -> void:
 	_rich.meta_clicked.connect(_on_meta_clicked)
 	content.add_child(_rich)
 
+	# Review row: turn this suggestion into a regression test case
+	var review := PanelContainer.new()
+	review.name = "Review"
+	review.add_theme_stylebox_override("panel", _bar_style(COL_HEADER_BG, 12, 6, true))
+	body.add_child(review)
+	var rcol := VBoxContainer.new()
+	rcol.name = "Col"
+	rcol.add_theme_constant_override("separation", 4)
+	review.add_child(rcol)
+	var rrow := HBoxContainer.new()
+	rrow.name = "Row"
+	rrow.add_theme_constant_override("separation", 8)
+	rcol.add_child(rrow)
+	_note_edit = LineEdit.new()
+	_note_edit.name = "NoteEdit"
+	_note_edit.placeholder_text = "Note: what should it have done? (optional)"
+	_note_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_note_edit.add_theme_font_size_override("font_size", 14)
+	rrow.add_child(_note_edit)
+	var good_btn := Button.new()
+	good_btn.name = "GoodCallButton"
+	good_btn.text = "Good call"
+	good_btn.tooltip_text = "Save this position as a test case the AI must keep getting right"
+	_WhiteDwarfTheme.apply_to_button(good_btn)
+	good_btn.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
+	good_btn.pressed.connect(func(): save_case_requested.emit("good", _note_edit.text.strip_edges()))
+	rrow.add_child(good_btn)
+	var bad_btn := Button.new()
+	bad_btn.name = "BadCallButton"
+	bad_btn.text = "Bad call"
+	bad_btn.tooltip_text = "Save this position as a test case that fails until the AI chooses differently"
+	_WhiteDwarfTheme.apply_to_button(bad_btn)
+	bad_btn.add_theme_color_override("font_color", Color(0.95, 0.6, 0.55))
+	bad_btn.pressed.connect(func(): save_case_requested.emit("bad", _note_edit.text.strip_edges()))
+	rrow.add_child(bad_btn)
+	_review_status = Label.new()
+	_review_status.name = "ReviewStatus"
+	_review_status.add_theme_font_size_override("font_size", 13)
+	_review_status.add_theme_color_override("font_color", COL_DIM)
+	_review_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_review_status.text = "Mark this call to save the position as an AI test case (re-checked by tests/run_ai_test_cases.sh)."
+	rcol.add_child(_review_status)
+
 	# Footer
 	var footer := PanelContainer.new()
 	footer.name = "Footer"
@@ -193,6 +241,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
+	if _note_edit != null and _note_edit.has_focus() and event.keycode != KEY_ESCAPE:
+		return  # typing a note — 'k' is a letter here, not the hotkey
 	if event.keycode == KEY_ESCAPE:
 		close()
 		get_viewport().set_input_as_handled()
@@ -207,12 +257,29 @@ func show_decision(decision: Dictionary, meta: Dictionary = {}) -> void:
 	_decision = decision
 	_meta = meta
 	_expanded = {}
+	if _review_status:
+		_review_status.text = "Mark this call to save the position as an AI test case (re-checked by tests/run_ai_test_cases.sh)."
+		_review_status.add_theme_color_override("font_color", COL_DIM)
 	full_text = build_breakdown(decision, meta, {}, true).text
 	_render(true)
 	visible = true
 	_refit()
 	print("[AISuggestionBreakdownPanel] Showing breakdown: %d decision record(s), %d candidate(s)" % [record_count, candidate_count])
 	DebugLogger.info("AISuggestionBreakdownPanel shown", {"records": record_count, "candidates": candidate_count, "type": decision.get("type", "")})
+
+
+func show_case_saved(result: Dictionary) -> void:
+	"""Feedback after Main saved (or failed to save) a test case."""
+	if _review_status == null:
+		return
+	if bool(result.get("ok", false)):
+		_review_status.text = "Saved test case %s\n%s" % [str(result.get("id", "")), str(result.get("json_path", ""))]
+		_review_status.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
+		if _note_edit:
+			_note_edit.text = ""
+	else:
+		_review_status.text = "Could not save: " + str(result.get("error", "unknown error"))
+		_review_status.add_theme_color_override("font_color", Color(0.95, 0.6, 0.55))
 
 
 func toggle_section(key: String) -> void:
