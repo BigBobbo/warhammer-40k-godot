@@ -1,0 +1,72 @@
+{
+  "id": "ai_suggestion_deployment",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "scripts.AIDecisionMaker.deployment_record"
+  ],
+  "fixture": "asym_2000_predeploy",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 1,
+  "description": "K in Deployment: the record lists the REAL terrain spots the placement picker scored (terrain fit, objectives, front/back preference, drift from the column layout) plus the column-layout fallback, instead of a ring of spots scored by a different metric.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== DEPLOYMENT\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Next to\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Terrain fit for its role\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"scored higher\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_deployment_card"
+    }
+  ]
+}

@@ -136,6 +136,59 @@ const TERMS := {
 	"arrive_objectives": {"label": "Objectives in play", "fmt": "pts", "help": "+1.5 per contested/enemy-held objective, +0.5 per open one. Note: this counts objectives board-wide, so it is the same for every unit and never changes which unit arrives."},
 	# Disembark
 	"disembark_value": {"label": "Value of getting out", "fmt": "num", "good": "high", "help": "How much disembarking helps now (objective reach, charge/shoot opportunities, transport danger). Anything above 0 beats staying embarked."},
+	# Shooting target priority (_calculate_target_value), multipliers booked as the change they made
+	"tv_base": {"label": "Base", "fmt": "pts", "help": "Every target starts at 1."},
+	"tv_points": {"label": "Points cost", "fmt": "pts", "help": "Points × 0.01: expensive units are worth more to kill."},
+	"tv_points_per_wound": {"label": "Points per wound", "fmt": "pts", "help": "Expensive-per-wound models (vs 25 pts/wound) are better trades."},
+	"tv_ranged_threat": {"label": "Its shooting threat", "fmt": "pts", "help": "Expected ranged damage it deals (vs T4 Sv3+) × weight."},
+	"tv_melee_threat": {"label": "Its melee threat", "fmt": "pts", "help": "Expected melee damage it deals (vs T4 Sv3+) × weight."},
+	"tv_buffs": {"label": "Its buffs", "fmt": "pts", "help": "Bonus when abilities (e.g. an attached leader) boost its attacks."},
+	"tv_hard_to_kill": {"label": "Hard to kill", "fmt": "pts", "help": "Penalty when defensive abilities (Feel No Pain, invulnerable saves…) make it harder to kill."},
+	"tv_character": {"label": "CHARACTER", "fmt": "pts", "help": "×1.3 for a character, more if it is leading (buffing) a unit."},
+	"tv_vehicle_monster": {"label": "VEHICLE / MONSTER", "fmt": "pts", "help": "×1.2."},
+	"tv_wounded": {"label": "Below half strength", "fmt": "pts", "help": "Bonus for finishing off a unit that has lost over half its models."},
+	"tv_on_objective": {"label": "On an objective", "fmt": "pts", "help": "×1.4 plus its OC, more in round 4+."},
+	"tv_near_objective": {"label": "Near an objective", "fmt": "pts", "help": "×1.15 plus a little for its OC."},
+	"tv_regains_hidden": {"label": "About to regain Hidden", "fmt": "pts", "help": "Shoot it while it can still be targeted."},
+	"tv_secondary_target": {"label": "Secondary mission target", "fmt": "pts", "help": "Bonus when killing it scores one of your secondaries (kill keywords, Marked for Death, big units)."},
+	"tv_primary_kills": {"label": "Primary rewards kills", "fmt": "pts", "help": "×1.15 when this round's primary mission scores kills."},
+	"tv_round_aggression": {"label": "Round / army aggression", "fmt": "pts", "help": "Scaling by how aggressive the AI plays this round with this army."},
+	"tv_behind_on_vp": {"label": "Behind on VP", "fmt": "pts", "help": "When behind, targets on objectives are worth more (clear them to score)."},
+	"tv_planned_charge_target": {"label": "Planned charge target", "fmt": "pts", "help": "Reduced: the AI plans to charge it, so it leaves it for melee."},
+	# Charge score (_score_charge_target + the chance/multiplier chain)
+	"ch_damage": {"label": "Melee damage it would deal", "fmt": "pts", "help": "Expected melee damage × the charge damage weight."},
+	"ch_below_half": {"label": "Target below half strength", "fmt": "pts", "help": "Bonus when the target has lost over half its models."},
+	"ch_character": {"label": "Target is a CHARACTER", "fmt": "pts", "help": "Bonus for charging a CHARACTER."},
+	"ch_cant_hurt": {"label": "Can barely hurt it", "fmt": "pts", "help": "Penalty when expected melee damage is under 1 wound."},
+	"ch_tie_up_shooter": {"label": "Ties up a shooter", "fmt": "pts", "help": "Bonus for locking a 24\"+ shooter in combat."},
+	"ch_plan_lock_shooter": {"label": "Game plan: lock this shooter", "fmt": "pts", "help": "The AI's turn plan wants this dangerous shooter locked in combat."},
+	"ch_low_toughness": {"label": "Low Toughness target", "fmt": "pts", "help": "Bonus when the target's Toughness is 3 or less."},
+	"ch_melee_buffs": {"label": "Melee buffs", "fmt": "pts", "help": "Scaling from abilities boosting the charger's melee."},
+	"ch_target_defences": {"label": "Target's defensive abilities", "fmt": "pts", "help": "Reduction for the target's Feel No Pain, invulnerable saves, etc."},
+	"ch_points_trade": {"label": "Points trade", "fmt": "pts", "help": "Scaling for the points-per-wound trade (Competitive difficulty only)."},
+	"ch_gang_up": {"label": "Gang up", "fmt": "pts", "help": "Bonus for concentrating charges: a friendly unit is already fighting it, other units can charge it too, or combined damage can kill it."},
+	"ch_can_halve": {"label": "Can take it below half", "fmt": "pts", "help": "Bonus when expected damage is half its remaining wounds or more."},
+	"ch_can_wipe": {"label": "Can wipe it out", "fmt": "pts", "help": "Extra bonus when expected damage is enough to destroy it."},
+	"ch_deadly_demise": {"label": "Doomed with Deadly Demise", "fmt": "pts", "help": "A doomed vehicle with Deadly Demise wants to explode next to enemies."},
+	"ch_chance": {"label": "Charge may fail", "fmt": "pts", "help": "Reduction: the value is multiplied by the chance the 2D6 roll gets there (including terrain). The biggest reduction for long charges."},
+	"ch_melee_capable": {"label": "Melee weapons & buffs", "fmt": "pts", "help": "Units without melee weapons keep only 30% of the value; melee buffs from abilities (leaders, auras) raise it."},
+	"ch_short_charge": {"label": "Short, reliable charge", "fmt": "pts", "help": "Bonus for charges needing 6\" or less (more for 3\" or less)."},
+	"ch_target_on_objective": {"label": "Target on an objective", "fmt": "pts", "help": "Bonus for charging onto an objective (more in round 4+)."},
+	"ch_overwatch_risk": {"label": "Overwatch risk", "fmt": "pts", "help": "Reduction for the expected Overwatch damage on the way in."},
+	# Reserves value (_score_unit_for_reserves)
+	"res_deep_strike_fit": {"label": "Suits Deep Strike", "fmt": "pts", "help": "Melee units gain most, then short-range shooters; long-range shooters gain little."},
+	"res_flank_fit": {"label": "Suits Strategic Reserves", "fmt": "pts", "help": "Flank entry: good for melee, fine for short range, poor for units that want to shoot turn 1."},
+	"res_speed": {"label": "Fast unit", "fmt": "pts", "help": "Units moving 8\"+ (more for 10\" and 12\") make good use of a board-edge arrival."},
+	"res_points": {"label": "Points", "fmt": "pts", "help": "Expensive units gain more from a safe, well-timed arrival (capped)."},
+	"res_vehicle_monster": {"label": "VEHICLE / MONSTER", "fmt": "pts", "help": "Penalty: big units generally want table presence (smaller for melee ones)."},
+	"res_long_range": {"label": "Long-range platform", "fmt": "pts", "help": "Penalty: heavy ranged units want to shoot from turn 1."},
+	"res_cheap_screen": {"label": "Cheap screen", "fmt": "pts", "help": "Penalty: cheap units are better as turn-1 screens."},
+	# Deployment spot (_find_terrain_aware_position)
+	"deploy_terrain": {"label": "Terrain fit for its role", "fmt": "pts", "help": "How well the terrain suits the unit's role (cover, line of sight, height)."},
+	"deploy_objectives": {"label": "Near objectives", "fmt": "pts", "help": "Up to +1 per objective within 10\"."},
+	"deploy_depth": {"label": "Front / back preference", "fmt": "pts", "help": "Melee units like the front edge; characters and fragile shooters like the back."},
+	"deploy_drift": {"label": "Drift from the column layout", "fmt": "pts", "help": "−1 per 5\" away from its planned column spot (stops the army bunching up)."},
+	"deploy_baseline_bar": {"label": "Bar a terrain spot must beat", "fmt": "num", "help": "The column-layout spot is used unless a terrain spot scores 1.0 or more."},
 	"strategic_value": {"label": "Non-damage bonuses and penalties (older records)", "fmt": "num", "good": "high", "help": "The fight score minus expected damage × damage weight: bonuses for CHARACTERs, a unit below half strength, being able to wipe it or halve it, a target on an objective, low Toughness, locking long-range or dangerous shooters, and finishing what another unit started; penalties for overkill or not being able to hurt it. Also absorbs scaling for the target's defensive abilities and the points trade."},
 
 	# --- Deployment / formations / reserves / secondaries --------------------
@@ -207,7 +260,7 @@ static func format_value(key: String, v) -> String:
 	var f := float(v)
 	match fmt:
 		"pts":
-			return "%+.1f" % f
+			return ("%+.2f" if absf(f) < 1.0 else "%+.1f") % f
 		"in":
 			return "%.1f\"" % f
 		"wounds":

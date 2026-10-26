@@ -273,6 +273,12 @@
       "equals": false
     },
     {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Target priority\") and main._ai_suggestion_panel.full_text.contains(\"made of:\")",
+      "equals": true,
+      "comment": "shooting's target priority is itemised under each option"
+    },
+    {
       "act": "screenshot",
       "label": "03_breakdown_panel_shooting"
     }

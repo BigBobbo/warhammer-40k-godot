@@ -608,6 +608,8 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 		if open:
 			for row in _detail_rows(_bd(cands[i]), a.ledger):
 				o.line(row[0], row[1])
+			for row in _sub_rows(cands[i]):
+				o.line(row[0], row[1])
 
 	# Player-relevant context
 	var ctx: Dictionary = rec.get("context", {})
@@ -700,7 +702,7 @@ static func _why_rows(a_bd: Dictionary, b_bd: Dictionary, ledger: bool) -> Array
 		var weight := 0.0
 		if is_pts:
 			var d := af - bf
-			if absf(d) < 0.05:
+			if absf(d) < 0.005:
 				continue
 			favour = 1 if d > 0.0 else -1
 			weight = absf(d) * 1000.0  # contributions outrank descriptive facts
@@ -769,6 +771,32 @@ static func _detail_rows(bd: Dictionary, ledger: bool) -> Array:
 		rows.append(["      [color=%s]%s[/color]%s" % [HEX_DIM, lead, " · ".join(fb)], "      %s%s" % [lead, " · ".join(ft)]])
 	if rows.is_empty():
 		rows.append(["      [color=%s](no values recorded for this option)[/color]" % HEX_FAINT, "      (no values)"])
+	return rows
+
+
+static func _sub_rows(cand: Dictionary) -> Array:
+	"""A value that is itself built from parts (e.g. shooting's Target
+	priority) — show what it was made of, under the option's details."""
+	var rows: Array = []
+	var subs = cand.get("sub_breakdowns", {})
+	if not (subs is Dictionary):
+		return rows
+	for sk in subs.keys():
+		var terms: Dictionary = subs[sk]
+		if terms.is_empty():
+			continue
+		var parts := _numeric_terms(terms)
+		parts.sort_custom(func(x, y): return absf(x[1]) > absf(y[1]))
+		var total := 0.0
+		for t in parts:
+			total += t[1]
+		rows.append(["      [color=%s]%s %.1f made of:[/color]" % [HEX_DIM, _hint(str(sk)), total],
+			"      %s %.1f made of:" % [_Glossary.label(str(sk)), total]])
+		for t in parts:
+			if absf(t[1]) < 0.05:
+				continue  # "+0.0" lines are noise
+			rows.append(["        %s %s: %s" % ["[color=%s]+[/color]" % HEX_GOOD if t[1] >= 0.0 else "[color=%s]−[/color]" % HEX_BAD,
+				_hint(t[0]), _esc("%+.1f" % t[1])], "        %s: %+.1f" % [_Glossary.label(t[0]), t[1]]])
 	return rows
 
 
