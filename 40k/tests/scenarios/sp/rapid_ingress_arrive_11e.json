@@ -175,9 +175,9 @@
     },
     {
       "act": "click_board_at",
-      "x": 700.0,
+      "x": 1400.0,
       "y": 100.0,
-      "comment": "P1's own (top) edge: wholly within 6\", > 8\" from the Orks, clear of P1's models"
+      "comment": "P1's own (top) edge: wholly within 6\", > 8\" from the Orks, clear of P1's models (x 1400: the ghost's default facing follows the rotated Crucible zones, and at x 700 the tilted oval clips a P1 model)"
     },
     {
       "act": "wait_seconds",
@@ -221,7 +221,7 @@
     },
     {
       "act": "click_board_at",
-      "x": 700.0,
+      "x": 1400.0,
       "y": 100.0
     },
     {
@@ -288,7 +288,7 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var p = GameState.get_unit(\"U_CALADIUS_GRAV-TANK_E\").models[0].position\nreturn absf(float(p.x) - 700.0) < 2.0 and absf(float(p.y) - 100.0) < 2.0",
+      "script": "var p = GameState.get_unit(\"U_CALADIUS_GRAV-TANK_E\").models[0].position\nreturn absf(float(p.x) - 1400.0) < 2.0 and absf(float(p.y) - 100.0) < 2.0",
       "equals": true,
       "comment": "set up where the player clicked"
     },

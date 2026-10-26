@@ -128,7 +128,7 @@
     },
     {
       "act": "simulate_joy_axis",
-      "axis": 0,
+      "axis": 1,
       "value": 0.5,
       "hold_s": 0.25
     },
