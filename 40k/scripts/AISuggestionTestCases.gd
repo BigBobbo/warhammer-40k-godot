@@ -88,7 +88,7 @@ static func save_case(decision: Dictionary, meta: Dictionary, verdict: String, n
 	var id := "%s_%s_p%s_%s" % [stamp, str(meta.get("phase_name", "phase")).to_lower(), str(meta.get("player", 0)), verdict]
 	var save_path := USER_DIR + id + ".w40ksave"
 	var slm = Engine.get_main_loop().root.get_node_or_null("/root/SaveLoadManager")
-	if slm == null or not slm._save_game_to_path(save_path, {"description": "AI test case " + id}):
+	if slm == null or not slm._save_game_to_path(save_path, {"description": "AI test case " + id, "type": "ai_test_case"}):
 		return {"ok": false, "error": "could not write the game state to " + save_path}
 	var chosen_desc := ""
 	var records: Array = _main_records(decision)
@@ -133,7 +133,14 @@ static func check_case(json_path: String) -> Dictionary:
 	if not (case is Dictionary) or str(case.get("format", "")) != FORMAT:
 		return {"pass": false, "detail": "not a %s file: %s" % [FORMAT, json_path]}
 	var ai = Engine.get_main_loop().root.get_node_or_null("/root/AIPlayer")
-	var decision: Dictionary = ai.request_suggestion(int(case.get("difficulty_level", -1))) if ai else {}
+	var decision: Dictionary = {}
+	if ai:
+		# Older AI versions (compare mode runs this checker against another
+		# git ref) may not take a difficulty override.
+		if ai.get_method_argument_count("request_suggestion") >= 1:
+			decision = ai.request_suggestion(int(case.get("difficulty_level", -1)))
+		else:
+			decision = ai.request_suggestion()
 	var now := signature(decision)
 	var was: Dictionary = case.get("signature", {})
 	var same := same_choice(was, now)
@@ -147,7 +154,30 @@ static func check_case(json_path: String) -> Dictionary:
 		detail += " | note: " + str(case.note)
 	print("AISuggestionTestCases: %s %s" % ["PASS" if ok else "FAIL", detail])
 	return {"pass": ok, "verdict": verdict, "same": same, "detail": detail,
-		"saved_signature": was, "current_signature": now}
+		"saved_signature": was, "current_signature": now,
+		"now_description": str(decision.get("_ai_description", decision.get("type", ""))),
+		"now_options": _top_options(decision, 4)}
+
+
+static func _top_options(decision: Dictionary, n: int) -> Array:
+	"""The main decision's best-scored options, for compare reports."""
+	var out: Array = []
+	var recs: Array = _main_records(decision)
+	if recs.is_empty():
+		return out
+	var cands: Array = (recs[0].get("candidates", []) as Array).duplicate()
+	var chosen := int(recs[0].get("chosen_index", -1))
+	var picked: Dictionary = cands[chosen] if chosen >= 0 and chosen < cands.size() else {}
+	cands.sort_custom(func(a, b): return float(a.get("score", 0.0)) > float(b.get("score", 0.0)))
+	for c in cands.slice(0, n):
+		out.append({"option": str(c.get("description", "")), "score": snappedf(float(c.get("score", 0.0)), 0.01),
+			"picked": c == picked})
+	return out
+
+
+static func check_case_json(json_path: String) -> String:
+	"""check_case as one JSON line — what the runner parses."""
+	return JSON.stringify(check_case(json_path))
 
 
 static func _game_version() -> String:

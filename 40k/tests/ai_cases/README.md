@@ -17,6 +17,14 @@ The game state and the suggestion are saved to
 A "bad" case FAILS until the AI is fixed. That is expected: it is the to-do
 list for AI work, and it turns PASS the moment a change fixes it.
 
+**Compare two AI versions:** `bash 40k/tests/run_ai_test_cases.sh --compare main`
+(any git ref). Every case runs on that version and on your working tree; the
+report marks each case `=` (same choice) or `≠` (changed), shows both picks
+with their top-scored options, and each version's PASS/FAIL. Use it after an AI
+change to see exactly which reviewed positions it moved — including ones you
+marked "good" that it should not have touched. The other version is checked out
+into a temporary git worktree (first run imports the project: a few minutes).
+
 **Commit a case:** copy both files of the pair into this folder.
 
 Matching uses the action type, the unit/target ids, and which option the

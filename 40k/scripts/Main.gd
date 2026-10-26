@@ -11437,6 +11437,10 @@ func _on_save_completed(file_path: String, metadata: Dictionary) -> void:
 	var is_autosave = metadata.get("save_info", {}).get("save_type", "") == "autosave" or metadata.get("auto_generated", false)
 	if is_autosave:
 		return
+	# An AI test case snapshot (Good/Bad call on the suggestion card) confirms
+	# itself on the card + its own toast — not the game's "Game saved!" banner.
+	if metadata.get("save_info", {}).get("save_type", "") == "ai_test_case":
+		return
 	# Confirm manual saves on every platform (desktop used to save silently)
 	_show_save_notification("Game saved!", Color.GREEN)
 

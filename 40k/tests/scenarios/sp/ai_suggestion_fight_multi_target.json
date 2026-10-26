@@ -1,0 +1,213 @@
+{
+  "id": "ai_suggestion_fight_multi_target",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "scripts.AIDecisionMaker.fight_score_terms"
+  ],
+  "fixture": "cus11e_c7_fight",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 10,
+  "description": "K on a fight-target decision with TWO engaged enemies (Gretchin moved beside Trajann): the card ranks both targets, explains 'Why not' the runner-up from their itemised fight scores.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: put Gretchin squad C in base contact range beside Trajann so he is engaged with TWO units (Boyz + Gretchin) and the fight-target card has two options",
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar c := Vector2.ZERO\nvar n := 0\nfor m in GameState.state.units.U_TRAJANN_A.models:\n\tif m.get(\"position\") != null:\n\t\tc += Vector2(float(m.position.x), float(m.position.y))\n\t\tn += 1\nc /= float(max(n, 1))\nH.move_to(\"U_GRETCHIN_C\", c.x / 40.0 + 2.2, c.y / 40.0)\nPhaseManager.transition_to_phase(10)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight\" in types or str(d.get(\"_ai_description\", \"\")).contains(\" with \"):\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested step (pile-ins, fighter selection) until the fight TARGET decision is reached."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: if an Epic Challenge dialog popped up (modal \u2014 it swallows the K key), decline it through the dialog's own Decline handler, as a player would.",
+      "script": "var n = 0\nfor w in tree.root.find_children(\"*\", \"AcceptDialog\", true, false):\n\tif w.visible and w.get_script() != null and str(w.get_script().resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tw._on_decline_pressed()\n\t\tn += 1\nreturn n"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight\" in types or str(d.get(\"_ai_description\", \"\")).contains(\" with \"):\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested step (pile-ins, fighter selection) until the fight TARGET decision is reached."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: if an Epic Challenge dialog popped up (modal \u2014 it swallows the K key), decline it through the dialog's own Decline handler, as a player would.",
+      "script": "var n = 0\nfor w in tree.root.find_children(\"*\", \"AcceptDialog\", true, false):\n\tif w.visible and w.get_script() != null and str(w.get_script().resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tw._on_decline_pressed()\n\t\tn += 1\nreturn n"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight\" in types or str(d.get(\"_ai_description\", \"\")).contains(\" with \"):\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested step (pile-ins, fighter selection) until the fight TARGET decision is reached."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: if an Epic Challenge dialog popped up (modal \u2014 it swallows the K key), decline it through the dialog's own Decline handler, as a player would.",
+      "script": "var n = 0\nfor w in tree.root.find_children(\"*\", \"AcceptDialog\", true, false):\n\tif w.visible and w.get_script() != null and str(w.get_script().resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tw._on_decline_pressed()\n\t\tn += 1\nreturn n"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight\" in types or str(d.get(\"_ai_description\", \"\")).contains(\" with \"):\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested step (pile-ins, fighter selection) until the fight TARGET decision is reached."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: if an Epic Challenge dialog popped up (modal \u2014 it swallows the K key), decline it through the dialog's own Decline handler, as a player would.",
+      "script": "var n = 0\nfor w in tree.root.find_children(\"*\", \"AcceptDialog\", true, false):\n\tif w.visible and w.get_script() != null and str(w.get_script().resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tw._on_decline_pressed()\n\t\tn += 1\nreturn n"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight\" in types or str(d.get(\"_ai_description\", \"\")).contains(\" with \"):\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested step (pile-ins, fighter selection) until the fight TARGET decision is reached."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: if an Epic Challenge dialog popped up (modal \u2014 it swallows the K key), decline it through the dialog's own Decline handler, as a player would.",
+      "script": "var n = 0\nfor w in tree.root.find_children(\"*\", \"AcceptDialog\", true, false):\n\tif w.visible and w.get_script() != null and str(w.get_script().resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tw._on_decline_pressed()\n\t\tn += 1\nreturn n"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight\" in types or str(d.get(\"_ai_description\", \"\")).contains(\" with \"):\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested step (pile-ins, fighter selection) until the fight TARGET decision is reached."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: if an Epic Challenge dialog popped up (modal \u2014 it swallows the K key), decline it through the dialog's own Decline handler, as a player would.",
+      "script": "var n = 0\nfor w in tree.root.find_children(\"*\", \"AcceptDialog\", true, false):\n\tif w.visible and w.get_script() != null and str(w.get_script().resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tw._on_decline_pressed()\n\t\tn += 1\nreturn n"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nvar d = AIPlayer.request_suggestion()\nvar types = []\nfor rr in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(rr.get(\"decision_type\", \"\")))\nif \"fight\" in types or str(d.get(\"_ai_description\", \"\")).contains(\" with \"):\n\treturn \"FIGHT_RECORD \" + str(d.get(\"_ai_description\", \"\"))\nvar r = pi.execute_action(d)\nreturn str(types) + \" \" + str(d.get(\"_ai_description\", \"\")) + \" -> \" + str(r.get(\"success\", false))",
+      "comment": "Setup: decline any stratagem window, then play the AI's own suggested step (pile-ins, fighter selection) until the fight TARGET decision is reached."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: if an Epic Challenge dialog popped up (modal \u2014 it swallows the K key), decline it through the dialog's own Decline handler, as a player would.",
+      "script": "var n = 0\nfor w in tree.root.find_children(\"*\", \"AcceptDialog\", true, false):\n\tif w.visible and w.get_script() != null and str(w.get_script().resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tw._on_decline_pressed()\n\t\tn += 1\nreturn n"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: if an Epic Challenge dialog popped up (modal \u2014 it swallows the K key), decline it through the dialog's own Decline handler, as a player would.",
+      "script": "var n = 0\nfor w in tree.root.find_children(\"*\", \"AcceptDialog\", true, false):\n\tif w.visible and w.get_script() != null and str(w.get_script().resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tw._on_decline_pressed()\n\t\tn += 1\nreturn n"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._top_modal_window() != null and main._top_modal_window().name.contains(\"Attack\") or str(main._top_modal_window().get_script().resource_path).ends_with(\"AttackAssignmentDialog.gd\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== FIGHT\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.candidate_count",
+      "expect_min": 2,
+      "comment": "two engaged targets weighed"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Why not\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_multi_target_fight"
+    }
+  ]
+}

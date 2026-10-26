@@ -501,11 +501,30 @@ static func _analyse(rec: Dictionary) -> Dictionary:
 		var d := str(c.get("description", c.get("key", "option")))
 		if int(seen[d]) > 1:
 			nth[d] = int(nth.get(d, 0)) + 1
-			var tid := str(c.get("target_unit_id", ""))
-			d += " (%s)" % (tid if tid != "" else "#%d" % nth[d])
+			d += " (%s)" % _disambiguator(c, int(nth[d]))
 		labels.append(d)
 	return {"cands": cands, "chosen": chosen, "runner": runner, "order": order,
 		"ledger": ledger, "sum_ok": sum_ok, "labels": labels}
+
+
+static func _disambiguator(c: Dictionary, n: int) -> String:
+	"""Tell apart two options that read the same (two units both called
+	'Boyz'): the unit's squad letter (U_BOYZ_F → F) and, when recorded, how
+	many wounds it has left — something a player can match on the board."""
+	var bits := PackedStringArray()
+	var tid := str(c.get("target_unit_id", ""))
+	if tid != "":
+		var parts := tid.split("_")
+		var tail := parts[parts.size() - 1] if parts.size() > 1 else ""
+		bits.append("squad %s" % tail if tail.length() <= 2 and tail != "" else tid)
+	var bd: Dictionary = _bd(c)
+	for wk in ["kill_threshold", "target_hp"]:
+		if bd.has(wk):
+			bits.append("%s W left" % _Glossary.format_value("target_hp", bd[wk]))
+			break
+	if bits.is_empty():
+		bits.append("#%d" % n)
+	return ", ".join(bits)
 
 
 static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_records: int,
