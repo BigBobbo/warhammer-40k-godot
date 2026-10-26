@@ -15,6 +15,8 @@ class_name AIReasoningGlossary
 #               pct    0..1 shown as percent  mult    multiplier, with a word
 #               turns  battle turns           vp      victory points
 #               num    plain number           text    shown as-is
+#   sum     — true for a value that is added into the score even though it
+#             is printed with a unit (Warlord: wounds + bodyguard bonus)
 #   good    — which direction favours an option: "high", "low" or "" (neutral /
 #             not comparable). Only used for factor-style records; additive
 #             terms are compared by their signed contribution.
@@ -64,34 +66,36 @@ const TERMS := {
 	# --- Shooting -----------------------------------------------------------
 	"marginal_value": {"label": "Shot value", "fmt": "num", "good": "high", "hidden": true, "help": "The option's score: damage that counts toward kills × target priority × weapon fit, with overkill discounted."},
 	"expected_damage": {"label": "Expected damage", "fmt": "wounds", "good": "high", "help": "Average wounds this weapon deals after hit, wound and save rolls."},
-	"target_value": {"label": "Target priority", "fmt": "num", "good": "high", "help": "How much the AI wants this unit dead (points, threat, objective presence). Higher = more wanted."},
+	"target_value": {"label": "Target priority", "fmt": "num", "good": "high", "help": "How much the AI wants this unit dead: its points, damage output, objective presence and OC, buffs it gives, CHARACTER/VEHICLE/MONSTER, and how wounded it is. Raised when the AI is behind on VP and the target holds an objective; cut when the AI plans to charge it instead."},
 	"kill_threshold": {"label": "Wounds left in unit", "fmt": "wounds", "good": "low", "help": "Total wounds remaining across the target unit's models."},
 	"already_allocated": {"label": "Damage already assigned", "fmt": "wounds", "good": "low", "help": "Expected damage other weapons are already putting into this target."},
 	"efficiency": {"label": "Weapon fit", "fmt": "mult", "good": "high", "help": "How well the weapon suits the target (anti-tank vs vehicles, anti-infantry vs hordes, wasted damage). ×1.0 is neutral."},
 	"kill_fraction": {"label": "Share of unit killed", "fmt": "pct", "good": "high", "help": "Expected damage as a share of the target's remaining wounds."},
 	"target_hp": {"label": "Wounds left", "fmt": "wounds", "good": "low", "help": "Wounds remaining in the target unit."},
-	"hidden_forfeit_cost": {"label": "Cost of losing Hidden", "fmt": "num", "good": "low", "help": "What the unit gives up by revealing itself to shoot."},
-	"shoot_worth": {"label": "Value of shooting", "fmt": "num", "good": "high", "help": "Expected value of the shots this unit would make."},
-	"net": {"label": "Net", "fmt": "num", "good": "high", "hidden": true, "help": "Value of this choice minus the alternative."},
+	"hidden_forfeit_cost": {"label": "Cost of losing Hidden", "fmt": "num", "good": "low", "help": "Shooting removes Hidden for this turn and the next. Cost = the Hidden penalty setting × the share of enemies the unit is currently hidden from (0 if it already shot or is not Hidden)."},
+	"shoot_worth": {"label": "Value of shooting", "fmt": "num", "good": "high", "help": "10 per target fully destroyed: for each target, the share of its remaining wounds the shots should remove (capped at 1), summed and × 10."},
+	"net": {"label": "Advantage over the other option", "fmt": "num", "good": "high", "help": "This option's value minus the other option's (hold fire: cost of losing Hidden − value of shooting; shoot: the reverse)."},
 
 	# --- Charge / fight -----------------------------------------------------
-	"charge_probability": {"label": "Chance to make the charge", "fmt": "pct", "good": "high", "help": "Probability the 2D6 charge roll covers the distance."},
-	"melee_damage": {"label": "Expected melee damage", "fmt": "wounds", "good": "high", "help": "Average wounds the unit deals in melee against this target."},
+	"charge_probability": {"label": "Chance to make the charge", "fmt": "pct", "good": "high", "help": "Probability the 2D6 charge roll reaches the target, including extra distance for climbing terrain."},
+	"melee_damage": {"label": "Expected melee damage", "fmt": "wounds", "good": "high", "help": "Average wounds the unit deals in melee against this target (best weapon, after hit/wound/save rolls)."},
+	"charge_target_value": {"label": "Value if the charge lands", "fmt": "num", "good": "high", "help": "Expected melee damage × damage weight, plus bonuses (target below half strength, CHARACTER, long-range shooter to tie up, the AI's plan) minus a penalty if it cannot hurt the target. The final score is this × chance to make the charge × short-charge, on-objective and Overwatch-risk multipliers."},
 	"distance": {"label": "Distance", "fmt": "in", "good": "low", "help": "Distance to the target."},
-	"strategic_value": {"label": "Strategic value", "fmt": "num", "good": "high", "help": "Extra value beyond damage (objective holders, characters, threats)."},
+	"strategic_value": {"label": "Non-damage bonuses and penalties", "fmt": "num", "good": "high", "help": "The fight score minus expected damage × damage weight: bonuses for CHARACTERs, a unit below half strength, being able to wipe it or halve it, a target on an objective, low Toughness, locking long-range or dangerous shooters, and finishing what another unit started; penalties for overkill or not being able to hurt it. Also absorbs scaling for the target's defensive abilities and the points trade."},
 
 	# --- Deployment / formations / reserves / secondaries --------------------
 	"plan": {"label": "Follows deployment plan", "fmt": "num", "hidden": true, "help": "Chosen from the AI's pre-built deployment plan."},
-	"wounds": {"label": "Wounds", "fmt": "wounds", "good": "high", "help": "Total wounds of the unit."},
-	"attached_to_bodyguard": {"label": "Leading a unit", "fmt": "num", "good": "high", "help": "Bonus when the character is attached to a bodyguard unit."},
-	"pairing_synergy": {"label": "Leader–unit synergy", "fmt": "num", "good": "high", "help": "How well the leader's abilities suit the unit it joins."},
-	"reserve_value": {"label": "Value in reserve", "fmt": "num", "good": "high", "help": "How much the unit gains from arriving later via reserves / deep strike."},
-	"board_presence_penalty": {"label": "Board presence lost", "fmt": "num", "good": "low", "help": "Cost of leaving the board thin while the unit is in reserve."},
-	"objective_proximity": {"label": "Near objectives", "fmt": "num", "good": "high", "help": "Bonus for deploying close to objectives."},
-	"crowding": {"label": "Crowding", "fmt": "num", "good": "high", "help": "Penalty for deploying on top of friendly units."},
-	"achievability": {"label": "Chance to achieve", "fmt": "num", "good": "high", "help": "How achievable this secondary mission looks right now."},
-	"discard_value": {"label": "Value of discarding", "fmt": "num", "good": "high", "help": "Value of discarding this secondary card."},
-	"discard_threshold": {"label": "Discard threshold", "fmt": "num", "help": "Cards scoring below this are discarded."},
+	"wounds": {"label": "Wounds", "fmt": "wounds", "sum": true, "good": "high", "help": "The character's Wounds characteristic: tougher characters make safer Warlords."},
+	"attached_to_bodyguard": {"label": "Protected by a bodyguard", "fmt": "pts", "help": "Bonus when the character is leading a unit, so the bodyguard protects the Warlord."},
+	"pairing_synergy": {"label": "Leader–unit synergy", "fmt": "num", "good": "high", "help": "How much the leader improves this unit: its ranged, melee and defensive buff multipliers, weighted by the unit's model count and points, plus tactical rules (fall back and still charge/shoot, advance and charge)."},
+	"reserve_value": {"label": "Value in reserve", "fmt": "pts", "help": "How much the unit gains from arriving later: Deep Strike melee units most, then flexible short-range shooters and Strategic Reserves melee (flank entry). Long-range shooters, vehicles/monsters and leaders score low."},
+	"board_presence_penalty": {"label": "Board presence lost", "fmt": "pts", "help": "Penalty when reserving leaves fewer units on the table than objectives + 2 (1.5 per unit short), plus 1 per 100 pts of Strategic Reserves above 25% of the army."},
+	"points": {"label": "Points", "fmt": "num", "help": "Points value leaving the table (unit plus attached leaders)."},
+	"objective_proximity": {"label": "Near objectives", "fmt": "pts", "help": "24 minus the distance in inches to the nearest objective (0 when 24\" or more away)."},
+	"crowding": {"label": "Crowding", "fmt": "pts", "help": "Penalty for standing near friendly units already deployed: 6 minus the gap in inches, for each one closer than 6\"."},
+	"achievability": {"label": "How achievable (0–1)", "fmt": "num", "good": "low", "help": "The AI's estimate from the board: 0 = impossible, under 0.2 = extremely unlikely, 0.2–0.5 = difficult, 0.5+ = reasonably achievable. Less achievable cards are better to discard."},
+	"discard_value": {"label": "Value of discarding", "fmt": "num", "hidden": true, "help": "Minus the achievability: the option's score."},
+	"discard_threshold": {"label": "Discard below", "fmt": "num", "help": "A card is only discarded if its achievability is below this: 0.2, or 0.1 in round 4+ when the deck is empty."},
 }
 
 # Context keys worth showing to a player (everything else is developer-only).
@@ -123,6 +127,13 @@ static func label(key: String) -> String:
 
 static func help(key: String) -> String:
 	return str(TERMS.get(key, {}).get("help", "No description yet (internal value '%s')." % key))
+
+
+static func is_addend(key: String) -> bool:
+	"""Part of an additive ledger: printed as score points, or flagged `sum`.
+	Unlabelled keys count too — new _t_add terms are the common case."""
+	var e: Dictionary = TERMS.get(key, {})
+	return str(e.get("fmt", "pts")) == "pts" or bool(e.get("sum", false))
 
 
 static func is_hidden(key: String) -> bool:

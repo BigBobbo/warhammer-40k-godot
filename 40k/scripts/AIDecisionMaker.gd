@@ -14481,6 +14481,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 
 	# Score each (charger, target) pair and evaluate multi-target combinations (T7-50)
 	var best_score = -INF
+	# Every target's real score, so the decision record shows what the pick beat
+	# (it used to record 0.0 for every target but the chosen one).
+	var charge_eval := {}
 	var best_action = {}
 	var best_description = ""
 
@@ -14508,6 +14511,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 
 		# --- T7-50: Collect per-target scores for multi-target evaluation ---
 		var scored_targets = []  # Array of {target_id, dist, score, target_score, melee_dmg, target_hp, target_name, action}
+		charge_eval[uid] = {}  # target_id -> {score, prob, target_score} for the decision record
 
 		for target_info in charger_targets[uid]:
 			var target_id = target_info.target_id
@@ -14589,6 +14593,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			print("AIDecisionMaker: Charge eval %s -> %s: dist=%.1f\", prob=%.0f%%, target_score=%.1f, ow_risk=%.1f(%s), final=%.1f" % [
 				unit_name, target_name, dist, charge_prob * 100.0, target_score, ow_risk.expected_damage, ow_risk.risk_level, score])
 
+			charge_eval[uid][target_id] = {"score": score, "prob": charge_prob, "target_score": target_score}
 			# T7-50: Store scored target for multi-target evaluation
 			scored_targets.append({
 				"target_id": target_id,
@@ -14688,11 +14693,16 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var t_name = _dn(t_unit, tid)
 			var t_dist = target_info.distance_inches
 			# Find the scored entry for this target
-			var t_score = 0.0
-			var t_prob = _charge_success_probability(_charge_roll_needed(t_dist))
+			# Real per-target score / terrain-aware probability from the scoring
+			# pass above. Targets skipped there (<3% chance) score 0.
+			var t_eval: Dictionary = charge_eval.get(charge_unit_id, {}).get(tid, {})
+			var t_score = float(t_eval.get("score", 0.0))
+			var t_prob = float(t_eval.get("prob", _charge_success_probability(_charge_roll_needed(t_dist))))
+			var t_value = float(t_eval.get("target_score", 0.0))
 			var t_melee = _estimate_melee_damage(charge_unit, t_unit) if not t_unit.is_empty() else 0.0
 			var t_hp = _calculate_kill_threshold(t_unit) if not t_unit.is_empty() else 0.0
-			# Score comes from best_score for the chosen target, 0.0 for others
+			# The chosen target keeps best_score (a multi-target declaration's
+			# combined score can exceed its single-target score).
 			if tid == best_action.get("payload", {}).get("target_unit_ids", [null])[0] if not best_action.get("payload", {}).get("target_unit_ids", []).is_empty() else "":
 				t_score = best_score
 			var t_pos = _get_unit_centroid(t_unit) if not t_unit.is_empty() else Vector2.INF
@@ -14702,6 +14712,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 				"pos": [t_pos.x, t_pos.y] if t_pos != Vector2.INF else [],
 				"score_breakdown": {
 					"charge_probability": t_prob,
+					"charge_target_value": t_value,
 					"melee_damage": t_melee,
 					"target_hp": t_hp,
 					"distance": t_dist,
@@ -16464,7 +16475,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		fight_candidates.append({
 			"description": "Attack %s with melee" % ename,
 			"score": e_score,
-			"score_breakdown": {"melee_damage": e_damage, "target_hp": e_hp, "strategic_value": e_score - e_damage * 2.0}
+			"score_breakdown": {"melee_damage": e_damage, "target_hp": e_hp, "strategic_value": e_score - e_damage * get_param("FIGHT_MELEE_DAMAGE_WEIGHT", FIGHT_MELEE_DAMAGE_WEIGHT)}
 		})
 		if enemy_id == best_target_id:
 			fight_chosen_idx = fight_idx

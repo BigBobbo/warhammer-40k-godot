@@ -379,8 +379,7 @@ static func _analyse(rec: Dictionary) -> Dictionary:
 				var v = bd[k]
 				if not (v is float or v is int):
 					continue
-				var fmt := str(_Glossary.info(str(k)).get("fmt", "pts"))
-				if fmt == "pts":
+				if _Glossary.is_addend(str(k)):
 					total += float(v)
 					n += 1
 		sum_ok[i] = n >= 1 and absf(total - _score_of(cands[i])) <= maxf(0.01, absf(_score_of(cands[i])) * 0.001)
@@ -429,7 +428,7 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 	# Flags
 	var top: int = a.order[0]
 	if top != chosen and _score_of(cands[top]) > _score_of(cands[chosen]):
-		var f := "The AI picked this even though \"%s\" scored higher — its plan or a rule overrode the score." % a.labels[top]
+		var f := "The AI picked this even though \"%s\" scored higher — a plan, a rule or a separate scoring step chose it." % a.labels[top]
 		o.line("[color=%s]⚠ %s[/color]" % [HEX_WARN, _esc(f)], "! " + f)
 	if runner >= 0:
 		var cs := _score_of(cands[chosen])
@@ -446,6 +445,8 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 		var rows := _why_rows(c_bd, _bd(cands[runner]), a.ledger)
 		if rows.is_empty():
 			var none := "Nothing the AI recorded differs between the two — the gap comes from something it does not report yet."
+			if is_equal_approx(_score_of(cands[chosen]), _score_of(cands[runner])):
+				none = "Exact tie — the AI kept the first option it evaluated. Nothing it scores tells these apart."
 			o.line("[color=%s]  %s[/color]" % [HEX_WARN, _esc(none)], "  " + none)
 		for row in rows:
 			o.line(row[0], row[1])
@@ -499,7 +500,7 @@ static func _summary(bd: Dictionary, ledger: bool) -> Array:
 		var pos: Array = []
 		var neg: Array = []
 		for t in nums:
-			if _Glossary.info(t[0]).get("fmt", "pts") != "pts":
+			if not _Glossary.is_addend(t[0]):
 				continue
 			if t[1] > 0.0:
 				pos.append(t)
@@ -534,7 +535,7 @@ static func _facts(bd: Dictionary, descriptors_only: bool) -> String:
 		var v = bd[k]
 		if not (v is float or v is int):
 			continue
-		if descriptors_only and _Glossary.info(k).get("fmt", "pts") == "pts":
+		if descriptors_only and _Glossary.is_addend(k):
 			continue
 		if is_zero_approx(float(v)):
 			continue  # "Damage already assigned 0" says nothing
@@ -563,7 +564,10 @@ static func _why_rows(a_bd: Dictionary, b_bd: Dictionary, ledger: bool) -> Array
 			continue
 		var af := float(av)
 		var bf := float(bv)
-		var is_pts: bool = ledger and str(_Glossary.info(ks).get("fmt", "pts")) == "pts"
+		var is_pts: bool = ledger and _Glossary.is_addend(ks)
+		# A missing score part is a real 0; a missing fact is unknown, not 0.
+		if not is_pts and not (a_bd.has(k) and b_bd.has(k)):
+			continue
 		var favour := 0  # +1 pick, -1 runner-up, 0 neutral
 		var weight := 0.0
 		if is_pts:
@@ -611,8 +615,9 @@ static func _detail_rows(bd: Dictionary, ledger: bool) -> Array:
 	for t in _numeric_terms(bd):
 		if _Glossary.is_hidden(t[0]):
 			continue
-		if ledger and str(_Glossary.info(t[0]).get("fmt", "pts")) == "pts":
-			parts.append(t)
+		if ledger and _Glossary.is_addend(t[0]):
+			if not is_zero_approx(t[1]):  # "Crowding +0.0" is noise
+				parts.append(t)
 		else:
 			facts.append(t)
 	parts.sort_custom(func(x, y): return absf(x[1]) > absf(y[1]))
