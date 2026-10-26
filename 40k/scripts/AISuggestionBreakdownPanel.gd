@@ -458,14 +458,18 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 	o.gap()
 	var more := "" if considered <= cands.size() else " (top %d of %d shown)" % [cands.size(), considered]
 	o.line("[b]All options[/b][color=%s]%s — bar = how much the AI liked it[/color]" % [HEX_DIM, more], "All options%s:" % more)
-	var max_s := 0.0
+	# Bar scale runs from 0 (or the lowest score, when scores go negative —
+	# secondary discards score -achievability) to the highest score.
+	var max_s := -INF
+	var lo := 0.0
 	for c in cands:
 		max_s = maxf(max_s, _score_of(c))
+		lo = minf(lo, _score_of(c))
 	var cs2 := _score_of(cands[chosen])
 	for rank in range(a.order.size()):
 		var i: int = a.order[rank]
 		var s := _score_of(cands[i])
-		var frac := clampf(s / max_s, 0.0, 1.0) if max_s > 0.0 else 0.0
+		var frac := clampf((s - lo) / (max_s - lo), 0.0, 1.0) if max_s > lo else 1.0
 		var cells := roundi(frac * BAR_CELLS)
 		var is_c := i == chosen
 		var col := HEX_GOOD if is_c else HEX_GOLD
@@ -709,7 +713,8 @@ static func _gap_words(chosen: float, other: float) -> String:
 		if pct > 0:
 			return "%d%% lower" % pct
 		return "%d%% higher" % -pct
-	return "%.1f points %s" % [absf(chosen - other), "lower" if other < chosen else "higher"]
+	var d := absf(chosen - other)
+	return ("%.2f points %s" if d < 1.0 else "%.1f points %s") % [d, "lower" if other < chosen else "higher"]
 
 
 static func _numeric_terms(bd: Dictionary) -> Array:
