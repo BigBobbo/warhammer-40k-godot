@@ -242,6 +242,13 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			if log_text != "":
 				return prefix + log_text
 			return ""
+		"USE_HEROIC_INTERVENTION":
+			# The charge roll is auto-rolled on USE; show it even for AI actions
+			# (ai_desc would otherwise hide the roll in the default branch).
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			return prefix + ai_desc if ai_desc != "" else ""
 		"CHARGE_ROLL":
 			var log_text = action.get("_log_text", "")
 			if log_text != "":
