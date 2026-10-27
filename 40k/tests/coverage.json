@@ -6743,6 +6743,7 @@
       "id": "scripts.FightController.auto_pile_in_movements",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: auto_pile_in_closest_opponents.",
       "scenarios": [
+        "fight_step_snapshot_after_pile_in_11e",
         "auto_pile_in_closest_opponents"
       ],
       "last_verified_commit": "HEAD",

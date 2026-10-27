@@ -3,14 +3,15 @@
   "covers": [
     "phases.FightPhase.overrun_fight_12_06",
     "phases.FightPhase.pile_in_11e",
-    "scripts.FightController.pile_in_step_panel"
+    "scripts.FightController.pile_in_step_panel",
+    "scripts.FightController.auto_pile_in_movements"
   ],
   "fixture": "charged_unengaged_piles_in_11e",
   "edition": 11,
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "12.04 'engaged at the start of this step' is the FIGHT step, which starts after the 12.02 Pile In step. The sequencer used to snapshot engagement at phase entry, so a unit that piled INTO combat during the Pile In step was later treated as 'unengaged at the start of the Fight step' and got the 12.06 Overrun fight's additional pile-in on selection. Player path: the charged Custodian Guard + Blade Champion start the phase ~2.3\" from the Boyz (outside the 2\" Engagement Range); P1 clicks the Attached unit in the Pile In step panel, drags the Blade Champion's model 2.2\" toward the Boyz on the board, then Confirm, which brings it into Engagement Range; P2 ends their half; P1 clicks the unit in the Fight selection panel. The activation must go straight to the AttackAssignmentDialog (normal fight) \u2014 no PileInDialog, no overrun unit. Setup-only privilege: P1's CP is zeroed so the Epic Challenge prompt does not interleave.",
+  "description": "12.04 'engaged at the start of this step' is the FIGHT step, which starts after the 12.02 Pile In step. The sequencer used to snapshot engagement at phase entry, so a unit that piled INTO combat during the Pile In step was later treated as 'unengaged at the start of the Fight step' and got the 12.06 Overrun fight's additional pile-in on selection. Player path: the charged Custodian Guard + Blade Champion start the phase ~2.3\" from the Boyz (outside the 2\" Engagement Range); P1 clicks the Attached unit in the Pile In step panel, presses Auto Pile In, then Confirm, which brings it into Engagement Range; P2 ends their half; P1 clicks the unit in the Fight selection panel. The activation must go straight to the AttackAssignmentDialog (normal fight) \u2014 no PileInDialog, no overrun unit. Setup-only privilege: P1's CP is zeroed so the Epic Challenge prompt does not interleave.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -51,15 +52,17 @@
       "timeout_s": 5.0
     },
     {
-      "act": "drag_board",
-      "from_x": 600,
-      "from_y": 740,
-      "to_x": 600,
-      "to_y": 652
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/AutoButton",
+      "emit_pressed": true
     },
     {
-      "act": "wait_frames",
-      "frames": 4
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "screenshot",
+      "label": "00_auto_pile_in_preview"
     },
     {
       "act": "wait_seconds",

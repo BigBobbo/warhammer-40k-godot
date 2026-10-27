@@ -838,7 +838,8 @@
      },
      "status_effects": [],
      "wounds": 3.0,
-     "rotation": 0.0
+     "rotation": 0.0,
+     "base_type": "circular"
     },
     {
      "alive": true,
@@ -851,7 +852,8 @@
      },
      "status_effects": [],
      "wounds": 3.0,
-     "rotation": 0.0
+     "rotation": 0.0,
+     "base_type": "circular"
     },
     {
      "alive": true,
@@ -864,7 +866,8 @@
      },
      "status_effects": [],
      "wounds": 3.0,
-     "rotation": 0.0
+     "rotation": 0.0,
+     "base_type": "circular"
     }
    ],
    "owner": 1,
@@ -983,7 +986,8 @@
      },
      "status_effects": [],
      "wounds": 6.0,
-     "rotation": 0.0
+     "rotation": 0.0,
+     "base_type": "circular"
     }
    ],
    "owner": 1,
@@ -1017,7 +1021,7 @@
      "wounds": 1,
      "current_wounds": 1,
      "base_mm": 32,
-     "base_type": null,
+     "base_type": "circular",
      "position": {
       "x": 600.0,
       "y": 592.0
