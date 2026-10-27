@@ -2694,6 +2694,15 @@ func _on_ai_suggestion_pressed() -> void:
 	var decision: Dictionary = ai_player.request_suggestion()
 	_show_ai_suggestion_breakdown(decision, ai_player.last_suggestion_meta)
 
+func _on_ai_suggestion_unit_focus(unit_id: String) -> void:
+	"""Card ◀ / ▶ or a unit clicked in its move order: show what the AI's plan
+	has THAT unit do (movement phase). Still a pure preview."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if not ai_player:
+		return
+	var decision: Dictionary = ai_player.request_suggestion(-1, unit_id)
+	_show_ai_suggestion_breakdown(decision, ai_player.last_suggestion_meta)
+
 func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> void:
 	"""Open (or refresh) the breakdown card showing how the suggestion was reached."""
 	if _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel):
@@ -2703,6 +2712,7 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 		_ai_suggestion_panel.z_index = UI_MODAL_Z
 		_ai_suggestion_panel.refresh_requested.connect(_on_ai_suggestion_pressed)
 		_ai_suggestion_panel.save_case_requested.connect(_on_ai_suggestion_save_case)
+		_ai_suggestion_panel.unit_focus_requested.connect(_on_ai_suggestion_unit_focus)
 	# A modal dialog (Attack Assignment, Epic Challenge, stratagem windows…)
 	# draws above every Control and swallows input, so the card would be
 	# hidden under it and unclickable — exactly when the decision it explains

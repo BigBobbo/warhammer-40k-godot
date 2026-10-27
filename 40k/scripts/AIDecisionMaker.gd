@@ -318,6 +318,17 @@ static var _last_movement_candidates: Dictionary = {}
 # {player: {round, phase_signature, assignments: {unit_id: assignment}, replans: int}}
 static var _turn_movement_plan: Dictionary = {}
 
+# MOVE-ORDER (K card): the order the movement step works through its units and
+# why the first one goes first. Scratch — rebuilt by every
+# _select_movement_action() call and attached to that decision as
+# _ai_move_order, so the suggestion card can say "Moving first: … (N more
+# queued)" and let the player cycle through the rest of the plan.
+static var _last_move_order: Dictionary = {}
+# Suggestion-only: when set, the movement step acts for THIS unit instead of
+# the next one in the move order (the card's per-unit cycling). Set and cleared
+# by suggest_action() around its decide() — always empty on the live AI path.
+static var _suggest_focus_unit_id: String = ""
+
 # T7-46: Fight order optimization cache — built once per fight phase.
 # SOAK-3: keyed PER PLAYER — fight activation alternates between players, so a
 # single shared plan meant the second AI consumed the first AI's planned unit
@@ -2833,9 +2844,13 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 # the caches, run the decision, and restore them, so a suggestion is truly
 # side-effect-free. Returns the same dict decide() returns, including the
 # _ai_thinking_steps / _ai_decision_records / _ai_thinking_context reasoning.
-static func suggest_action(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
+static func suggest_action(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL, focus_unit_id: String = "") -> Dictionary:
+	# focus_unit_id (movement phase): preview what the plan has THAT unit do,
+	# rather than the unit the AI would move next.
 	var saved := _snapshot_planning_state()
+	_suggest_focus_unit_id = focus_unit_id
 	var decision := decide(phase, snapshot, available_actions, player, difficulty)
+	_suggest_focus_unit_id = ""
 	_restore_planning_state(saved)
 	_attach_rule_based_record(decision, snapshot, available_actions)
 	return decision
@@ -6344,6 +6359,11 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 
 	if can_begin:
 		var move_decision = _select_movement_action(snapshot, available_actions, player)
+		# MOVE-ORDER: say which unit acts and why it goes first (K card).
+		if not _last_move_order.is_empty() and str(move_decision.get("actor_unit_id", "")) != "":
+			var mo: Dictionary = _last_move_order.duplicate(true)
+			mo["acting_unit_id"] = str(move_decision.get("actor_unit_id", ""))
+			move_decision["_ai_move_order"] = mo
 		# COORD-4: attach the battle-plan assignment that produced this decision,
 		# so the decision card narrates the REAL assignment (and its coordination
 		# reasons) instead of re-deriving a guess from the destination.
@@ -6362,6 +6382,7 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 	return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase"}
 
 static func _select_movement_action(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	_last_move_order = {}
 	# Collect units that can begin moving
 	var movable_units = {}  # unit_id -> list of available move types
 	for a in available_actions:
@@ -6651,6 +6672,18 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		var score_b = _apply_difficulty_noise(assignments.get(b, {}).get("score", 0.0))
 		return score_a > score_b
 	)
+
+	_last_move_order = _build_move_order(snapshot, engaged_units, assigned_units, assignments, player)
+	if _suggest_focus_unit_id != "":
+		if _suggest_focus_unit_id in engaged_units:
+			engaged_units = [_suggest_focus_unit_id]
+			assigned_units = []
+		elif _suggest_focus_unit_id in assigned_units:
+			engaged_units = []
+			assigned_units = [_suggest_focus_unit_id]
+		if engaged_units.size() + assigned_units.size() == 1:
+			_last_move_order["focused"] = true
+			print("AIDecisionMaker: [MOVE-ORDER] suggestion focused on %s (not the next unit to move)" % _suggest_focus_unit_id)
 
 	for unit_id in assigned_units:
 		var unit = snapshot.get("units", {}).get(unit_id, {})
@@ -7063,6 +7096,74 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			}
 
 	return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase"}
+
+static func _move_tier(unit: Dictionary) -> int:
+	"""The movement step's ordering tier: 0 disembarked this phase (moves first to
+	clear space round its transport), 1 normal, 2 transport VEHICLE (moves last)."""
+	if unit.get("disembarked_this_phase", false):
+		return 0
+	if unit.get("transport_data", {}).get("capacity", 0) > 0 and "VEHICLE" in unit.get("meta", {}).get("keywords", []):
+		return 2
+	return 1
+
+static func _build_move_order(snapshot: Dictionary, engaged_units: Array, assigned_units: Array,
+		assignments: Dictionary, player: int) -> Dictionary:
+	"""MOVE-ORDER: the units in the order the movement step will act on them
+	(engaged first, then the sorted assigned units) and a plain-English reason
+	the first one goes first. Mirrors the sort in _select_movement_action."""
+	var units: Dictionary = snapshot.get("units", {})
+	# "Forward" = toward the enemy: player 1 moves units with a larger y first,
+	# player 2 a smaller y (see the sort above).
+	var front := -INF
+	for uid in assigned_units:
+		var c = _get_unit_centroid(units.get(uid, {}))
+		if c != Vector2.INF:
+			front = maxf(front, c.y if player != 2 else -c.y)
+	var entries: Array = []
+	for uid in engaged_units + assigned_units:
+		var u: Dictionary = units.get(uid, {})
+		var a: Dictionary = assignments.get(uid, {})
+		var engaged: bool = uid in engaged_units
+		var c = _get_unit_centroid(u)
+		var behind := -1.0
+		if not engaged and c != Vector2.INF and front != -INF:
+			behind = (front - (c.y if player != 2 else -c.y)) / PIXELS_PER_INCH
+		var target := str(a.get("attack_target_name", "")) if str(a.get("action", "")) == "attack" else str(a.get("objective_id", ""))
+		entries.append({
+			"unit_id": uid,
+			"name": _dn(u, uid),
+			"engaged": engaged,
+			"tier": _move_tier(u),
+			"action": "fall back or stay" if engaged else str(a.get("action", "move")),
+			"target": "" if target == "none" else target,
+			"behind_front_in": snappedf(behind, 0.1),
+			"score": snappedf(float(a.get("score", 0.0)), 0.01),
+		})
+	var reason := ""
+	if entries.size() == 1:
+		reason = "it is the only unit left to move"
+	elif not entries.is_empty():
+		reason = _move_order_reason(entries[0], entries[1], snapshot, player)
+	return {"order": entries, "first_reason": reason, "focused": false}
+
+static func _move_order_reason(a: Dictionary, b: Dictionary, snapshot: Dictionary, player: int) -> String:
+	if a.engaged:
+		return "it is locked in combat — engaged units are decided first (fall back or stay)"
+	var ta := int(a.tier)
+	var tb := int(b.tier)
+	if ta != tb:
+		if ta == 0:
+			return "it just disembarked — disembarked units move first to clear space around their transport"
+		return "%s is a transport — transports move last, once the units around them have cleared" % b.name
+	var ca = _get_unit_centroid(snapshot.get("units", {}).get(a.unit_id, {}))
+	var cb = _get_unit_centroid(snapshot.get("units", {}).get(b.unit_id, {}))
+	if ca != Vector2.INF and cb != Vector2.INF and absf(ca.y - cb.y) > 80.0:
+		return "it is the front-most unit — the AI moves front to back, and it is %.1f\" further forward than %s" % [
+			absf(ca.y - cb.y) / PIXELS_PER_INCH, b.name]
+	if float(a.score) >= float(b.score):
+		return "it is level with %s (within 2\"), so the plan's priority breaks the tie (%.1f vs %.1f)" % [
+			b.name, float(a.score), float(b.score)]
+	return "it is level with %s (within 2\") and the tie-break between them is partly random at this difficulty" % b.name
 
 # =============================================================================
 # RESERVES ARRIVAL (T7-16 / MOV-8)

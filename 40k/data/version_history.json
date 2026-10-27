@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.53.0",
+      "date": "2026-10-27",
+      "summary": "The AI Suggestion (K) card now says which unit moves first and why, and lets you step through every unit's planned move.",
+      "changes": [
+        "Movement phase: the card says 'Moving first: <unit> — <reason>' (e.g. front-most unit, locked in combat, just disembarked, or level with another unit and the plan's priority broke the tie) and how many more units are queued.",
+        "The card lists the whole move order: each unit's planned action and objective and how far behind the front it is.",
+        "New '◀ Unit' / 'Unit ▶' buttons (or click a unit's name in the list) show what the AI's plan has that unit do, with its full breakdown. Cards for later units say they are not what the AI does next, and 'Back to the AI's next move' returns to it.",
+        "Good call / Bad call on one of those cards saves a test case for that unit."
+      ]
+    },
+    {
       "version": "1.52.1",
       "date": "2026-10-26",
       "summary": "Removed old leftover army lists from the army picker.",
