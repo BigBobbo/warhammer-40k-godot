@@ -18440,6 +18440,79 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 			"_ai_description": "%s stays on the battlefield (%s)" % [rd_name, rd_verdict.reason]
 		}
 
+	# 11e score-or-hold: met Tactical cards (human players only — AI players
+	# score immediately) sit as pending offers until End Turn. The advisor used
+	# to ignore them entirely, so a scoreable card like Engage on All Fronts
+	# never appeared in its reasoning. Use the manager's REAL condition check
+	# (the pending list), not the achievability heuristic.
+	var pending_scores: Array = []
+	var pending_by_id: Dictionary = {}
+	var score_mgr = _secondary_mission_manager()
+	if score_mgr and score_mgr.has_method("get_pending_secondary_scores") and score_mgr.is_initialized(player):
+		pending_scores = score_mgr.get_pending_secondary_scores(player)
+	var score_missions: Array = score_mgr.get_active_missions(player) if (score_mgr and not pending_scores.is_empty()) else []
+	for pending in pending_scores:
+		pending_by_id[str(pending.get("mission_id", ""))] = pending
+		var p_id = str(pending.get("mission_id", ""))
+		var p_name = str(pending.get("mission_name", "?"))
+		var p_vp = int(pending.get("vp", 0))
+		var p_held = bool(pending.get("held", false))
+		# Holding only pays when the card scores again at the end of the
+		# OPPONENT's turn for more (Display of Might: 2 VP now vs 5 VP then).
+		# Discount that later VP for the risk the condition is lost meanwhile.
+		var later_vp = 0
+		for m in score_missions:
+			if str(m.get("id", "")) != p_id:
+				continue
+			var m_scoring = m.get("scoring", {})
+			if str(m_scoring.get("when", "")) == SecondaryMissionData.TIMING_END_OF_EITHER_TURN:
+				for c in m_scoring.get("conditions", []):
+					if str(c.get("timing", "")) == "opponent_turn":
+						later_vp = maxi(later_vp, int(c.get("vp", 0)))
+		var hold_value = float(later_vp) * 0.7
+		var want_hold = hold_value > float(p_vp)
+		var hold_scored: Array = [
+			{"description": "Score '%s' now (%d VP)" % [p_name, p_vp], "score": float(p_vp), "key": "score",
+				"score_breakdown": {"vp_now": float(p_vp)}},
+			{"description": "Hold '%s' (0 VP now, card stays active)" % p_name, "score": hold_value, "key": "hold",
+				"score_breakdown": {"vp_at_opponent_turn_end": float(later_vp), "risk_discount": 0.7}},
+		]
+		_record_choice("secondary_score", "", p_name, hold_scored, "hold" if want_hold else "score",
+			{"phase": "scoring", "mission_id": p_id, "vp": p_vp, "currently_held": p_held})
+		if want_hold:
+			_add_thinking_step("Secondary '%s' is MET for %d VP now, but holding it pays %d VP at the end of the opponent's turn — hold" % [p_name, p_vp, later_vp])
+			print("AIDecisionMaker: [SCORING] Pending '%s' %d VP now vs %d later — recommending HOLD" % [p_name, p_vp, later_vp])
+			if not p_held:
+				return {
+					"type": "HOLD_SECONDARY",
+					"mission_id": p_id,
+					"hold": true,
+					"player": player,
+					"_ai_description": "Hold %s (worth %d VP at the end of the opponent's turn)" % [p_name, later_vp],
+				}
+			continue
+		if p_held:
+			_add_thinking_step("Secondary '%s' is MET (%d VP) but currently held — score it now" % [p_name, p_vp])
+			print("AIDecisionMaker: [SCORING] Pending '%s' (%d VP) is held — recommending SCORE" % [p_name, p_vp])
+			return {
+				"type": "HOLD_SECONDARY",
+				"mission_id": p_id,
+				"hold": false,
+				"player": player,
+				"_ai_description": "Score %s (%d VP)" % [p_name, p_vp],
+			}
+		_add_thinking_step("Secondary '%s' is MET — End Turn scores it for %d VP" % [p_name, p_vp])
+		print("AIDecisionMaker: [SCORING] Pending '%s' met for %d VP — will score at End Turn" % [p_name, p_vp])
+	var end_turn_desc = "End Turn"
+	if not pending_scores.is_empty():
+		var score_bits: Array = []
+		for pending in pending_scores:
+			if bool(pending.get("held", false)):
+				continue
+			score_bits.append("%s %d VP" % [pending.get("mission_name", "?"), int(pending.get("vp", 0))])
+		if not score_bits.is_empty():
+			end_turn_desc = "End Turn — scores %s" % ", ".join(score_bits)
+
 	# T7-47: Evaluate active secondary missions and discard unachievable ones for +1 CP
 	var discard_actions = []
 	for action in available_actions:
@@ -18448,13 +18521,13 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 
 	if discard_actions.is_empty():
 		print("AIDecisionMaker: [SCORING] No secondary missions to evaluate, ending turn")
-		return {"type": "END_SCORING", "_ai_description": "End Turn"}
+		return {"type": "END_SCORING", "_ai_description": end_turn_desc}
 
 	# Get secondary mission manager for mission data
 	var secondary_mgr = _secondary_mission_manager()
 	if not secondary_mgr or not secondary_mgr.is_initialized(player):
 		print("AIDecisionMaker: [SCORING] SecondaryMissionManager not available, ending turn")
-		return {"type": "END_SCORING", "_ai_description": "End Turn"}
+		return {"type": "END_SCORING", "_ai_description": end_turn_desc}
 
 	var active_missions = secondary_mgr.get_active_missions(player)
 	var battle_round = snapshot.get("meta", {}).get("battle_round", 1)
@@ -18471,12 +18544,18 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 
 	for i in range(active_missions.size()):
 		var mission = active_missions[i]
-		var score = _evaluate_mission_achievability(snapshot, mission, player, battle_round)
 		var mission_name = mission.get("name", "Unknown")
-		print("AIDecisionMaker: [SCORING]   Mission '%s': achievability score = %.1f" % [mission_name, score])
-		_add_thinking_step("Secondary '%s': achievability %.2f %s" % [
-			mission_name, score,
-			"— looks scoreable, keeping" if score >= 0.5 else ("— difficult" if score >= 0.2 else "— close to impossible")])
+		var score: float
+		if pending_by_id.has(str(mission.get("id", ""))):
+			# Conditions met right now (manager's real check) — never a discard candidate.
+			score = 1.0
+			print("AIDecisionMaker: [SCORING]   Mission '%s': MET this turn — achievability 1.0" % mission_name)
+		else:
+			score = _evaluate_mission_achievability(snapshot, mission, player, battle_round)
+			print("AIDecisionMaker: [SCORING]   Mission '%s': achievability score = %.1f" % [mission_name, score])
+			_add_thinking_step("Secondary '%s': achievability %.2f %s" % [
+				mission_name, score,
+				"— looks scoreable, keeping" if score >= 0.5 else ("— difficult" if score >= 0.2 else "— close to impossible")])
 
 		# A6: score here is ACHIEVABILITY, so the discard candidate is the
 		# LOWEST — record it negated, so the record's "best" row is the option
@@ -18538,7 +18617,7 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 			worst_mission_name, worst_mission_score, discard_threshold])
 	print("AIDecisionMaker: [SCORING] All missions are potentially achievable (worst: '%s' score=%.1f), ending turn" % [
 		worst_mission_name if worst_mission_name != "" else "none", worst_mission_score])
-	return {"type": "END_SCORING", "_ai_description": "End Turn"}
+	return {"type": "END_SCORING", "_ai_description": end_turn_desc}
 
 # Late-bound reference to SecondaryMissionManager autoload
 static func _secondary_mission_manager():
@@ -19913,21 +19992,50 @@ static func _get_table_quarter(pos: Vector2) -> int:
 		return 1 if pos.y < mid_y else 3
 
 static func _get_covered_quarters(units: Dictionary, player: int) -> Array:
-	"""Returns which table quarters have friendly units (for Engage on All Fronts)."""
+	"""Returns which table quarters have friendly presence (for Engage on All Fronts).
+	Mirrors SecondaryMissionManager._check_table_quarter_presence: a unit gives
+	presence only if EVERY alive model is wholly within one quarter AND every
+	model's base edge is >6" from the centre; Battle-shocked and AIRCRAFT units
+	never count. The old centroid-only test counted units straddling the
+	halfway line or hugging the centre, so it over-reported covered quarters."""
 	var quarters = [false, false, false, false]
+	var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
+	var min_edge_px = 6.0 * PIXELS_PER_INCH
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("owner", 0) != player:
 			continue
-		var centroid = _get_unit_centroid(unit)
-		if centroid == Vector2.INF:
+		if unit.get("flags", {}).get("battle_shocked", false):
 			continue
-		# Engage on All Fronts requires >6" from center
-		var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
-		if centroid.distance_to(board_center) <= 6.0 * PIXELS_PER_INCH:
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var is_aircraft = false
+		for kw in keywords:
+			if str(kw).to_upper() == "AIRCRAFT":
+				is_aircraft = true
+				break
+		if is_aircraft:
 			continue
-		var q = _get_table_quarter(centroid)
-		quarters[q] = true
+		var unit_quarter = -1
+		var qualifies = true
+		var any_alive = false
+		for model in _get_alive_models(unit):
+			var pos = _get_model_position(model)
+			if pos == Vector2.INF:
+				qualifies = false
+				break
+			any_alive = true
+			var q = _get_table_quarter(pos)
+			if unit_quarter == -1:
+				unit_quarter = q
+			elif q != unit_quarter:
+				qualifies = false  # straddles a quarter line — not wholly within
+				break
+			var base_radius_px = (float(model.get("base_mm", 32)) / 2.0) * (PIXELS_PER_INCH / 25.4)
+			if pos.distance_to(board_center) - base_radius_px <= min_edge_px:
+				qualifies = false  # within 6" of the centre
+				break
+		if qualifies and any_alive and unit_quarter >= 0:
+			quarters[unit_quarter] = true
 	return quarters
 
 # =============================================================================
