@@ -2037,6 +2037,15 @@ const THREAT_SAFE_MARGIN_INCHES: float = 2.0 # Extra buffer beyond raw threat ra
 # Close melee proximity: 12" is the raw charge distance — being this close means
 # the enemy can charge without needing to move first, making it critically dangerous
 const THREAT_CLOSE_MELEE_DISTANCE_INCHES: float = 12.0
+# THREAT-EXP: weight a charge threat by the damage the enemy would actually do
+# to THIS unit (expected melee damage / its remaining wounds, i.e. the share of
+# the unit lost) times what the unit is worth, instead of the target-blind
+# 0.3-3.0 _estimate_enemy_threat_level. 1.0 = ON, 0.0 = legacy weighting.
+const THREAT_EXPECTED_DAMAGE: float = 1.0
+const THREAT_EXPECTED_LOSS_WEIGHT: float = 4.0     # weight when the charge would wipe a reference-value unit
+const THREAT_LOSS_POINTS_REF: float = 150.0        # points of a "reference" unit (value factor 1.0)
+const THREAT_LOSS_VALUE_MIN: float = 0.5           # value factor floor (cheap chaff still minds dying)
+const THREAT_LOSS_VALUE_MAX: float = 3.0           # value factor ceiling (sanity bound on odd points data)
 
 # =============================================================================
 # 11e HIDDEN AWARENESS (core rules 13.09) — corpus findings F001/F002/F003
@@ -24972,7 +24981,10 @@ static func _calculate_enemy_threat_data(enemies: Dictionary) -> Array:
 			"shoot_threat_px": shoot_threat_px,
 			"has_melee": has_melee,
 			"has_ranged": has_ranged,
-			"unit_value": unit_value
+			"unit_value": unit_value,
+			# THREAT-EXP: kept so the charge weight can be computed per target
+			"enemy": enemy,
+			"loss_weight_cache": {},
 		})
 	return threat_data
 
@@ -25055,14 +25067,18 @@ static func _evaluate_position_threat(
 
 	var close_melee_range_px = THREAT_CLOSE_MELEE_DISTANCE_INCHES * PIXELS_PER_INCH
 
+	var use_expected_damage: bool = get_param("THREAT_EXPECTED_DAMAGE", THREAT_EXPECTED_DAMAGE) > 0.0
+
 	for td in threat_data:
 		var dist = pos.distance_to(td.centroid)
 
 		# Check charge threat zone (enemy could move + charge to reach here)
 		if td.has_melee and dist < td.charge_threat_px:
+			# THREAT-EXP: how much a charge from this enemy would cost THIS unit
+			var melee_weight: float = _charge_threat_weight(td, own_unit) if use_expected_damage else float(td.unit_value)
 			# How deep into the charge threat zone are we? (0.0 = edge, 1.0 = right on top)
 			var depth = 1.0 - (dist / td.charge_threat_px)
-			var charge_penalty = depth * td.unit_value * get_param("THREAT_CHARGE_PENALTY", THREAT_CHARGE_PENALTY)
+			var charge_penalty = depth * melee_weight * get_param("THREAT_CHARGE_PENALTY", THREAT_CHARGE_PENALTY)
 			# Melee units care less about being charged (they want to fight)
 			if is_melee_focused:
 				charge_penalty *= get_param("THREAT_MELEE_UNIT_IGNORE", THREAT_MELEE_UNIT_IGNORE)
@@ -25079,7 +25095,7 @@ static func _evaluate_position_threat(
 			# charge without needing to move first, which is critically dangerous
 			if dist < close_melee_range_px:
 				var close_depth = 1.0 - (dist / close_melee_range_px)  # 0=edge of 12", 1=on top
-				var close_penalty = close_depth * td.unit_value * get_param("THREAT_CLOSE_MELEE_PENALTY", THREAT_CLOSE_MELEE_PENALTY)
+				var close_penalty = close_depth * melee_weight * get_param("THREAT_CLOSE_MELEE_PENALTY", THREAT_CLOSE_MELEE_PENALTY)
 				if is_melee_focused:
 					close_penalty *= get_param("THREAT_MELEE_UNIT_IGNORE", THREAT_MELEE_UNIT_IGNORE)
 				charge_threat += close_penalty
@@ -25104,18 +25120,24 @@ static func _evaluate_position_threat(
 				"penalty": shoot_penalty
 			})
 
-	var total_threat = charge_threat + shoot_threat
+	# Fragile units (low toughness, few wounds) get extra penalty in danger.
+	# THREAT-EXP: the expected-damage charge weight already prices fragility
+	# (low T / few wounds = bigger share lost), so only shooting gets the bump.
+	var own_stats = own_unit.get("meta", {}).get("stats", {})
+	var own_toughness = int(own_stats.get("toughness", 4))
+	var own_wounds = int(own_stats.get("wounds", 1))
+	var is_fragile: bool = own_toughness <= 3 or own_wounds <= 1
+	var fragile_mult: float = get_param("THREAT_FRAGILE_BONUS", THREAT_FRAGILE_BONUS) if is_fragile else 1.0
+
+	var total_threat = 0.0
+	if use_expected_damage:
+		total_threat = charge_threat + shoot_threat * fragile_mult
+	else:
+		total_threat = (charge_threat + shoot_threat) * fragile_mult
 
 	# T-108: characters apply higher threat-aversion multiplier so they steer
 	# toward LoS-blocked / cover positions when scoring movements.
 	total_threat *= character_threat_mult
-
-	# Fragile units (low toughness, few wounds) get extra penalty in danger
-	var own_stats = own_unit.get("meta", {}).get("stats", {})
-	var own_toughness = int(own_stats.get("toughness", 4))
-	var own_wounds = int(own_stats.get("wounds", 1))
-	if own_toughness <= 3 or own_wounds <= 1:
-		total_threat *= get_param("THREAT_FRAGILE_BONUS", THREAT_FRAGILE_BONUS)
 
 	return {
 		"charge_threat": charge_threat,
@@ -25123,6 +25145,39 @@ static func _evaluate_position_threat(
 		"total_threat": total_threat,
 		"threats": threats
 	}
+
+static func _charge_threat_weight(td: Dictionary, own_unit: Dictionary) -> float:
+	"""THREAT-EXP: weight of a charge threat from td's enemy against own_unit.
+	= share of own_unit the enemy's best melee profile is expected to kill
+	  (expected damage / remaining wounds, capped at 1 — a unit cannot lose
+	  more than itself) x what own_unit is worth (points / THREAT_LOSS_POINTS_REF)
+	  x THREAT_EXPECTED_LOSS_WEIGHT.
+	Memoised on td (threat_data is rebuilt every decision) per target unit."""
+	var enemy: Dictionary = td.get("enemy", {})
+	if enemy.is_empty():
+		return float(td.get("unit_value", 1.0))
+	var remaining := _estimate_unit_remaining_wounds(own_unit)
+	var cache_key := "%s|%.1f" % [str(own_unit.get("id", own_unit.get("meta", {}).get("name", ""))), remaining]
+	var cache: Dictionary = td.get("loss_weight_cache", {})
+	if cache.has(cache_key):
+		return float(cache[cache_key])
+	var weight := 0.0
+	if remaining > 0.0:
+		var expected_dmg := _estimate_melee_damage(enemy, own_unit)
+		var loss_share := clampf(expected_dmg / remaining, 0.0, 1.0)
+		var points := float(own_unit.get("meta", {}).get("points", 0))
+		var value_factor := 1.0
+		if points > 0.0:
+			value_factor = clampf(points / get_param("THREAT_LOSS_POINTS_REF", THREAT_LOSS_POINTS_REF),
+				get_param("THREAT_LOSS_VALUE_MIN", THREAT_LOSS_VALUE_MIN),
+				get_param("THREAT_LOSS_VALUE_MAX", THREAT_LOSS_VALUE_MAX))
+		weight = loss_share * value_factor * get_param("THREAT_EXPECTED_LOSS_WEIGHT", THREAT_EXPECTED_LOSS_WEIGHT)
+		print("AIDecisionMaker: [THREAT-EXP] %s charging %s: expected %.1f dmg / %.0f wounds = %.0f%% lost x value %.2f -> weight %.2f (legacy %.2f)" % [
+			str(td.get("unit_id", "?")), cache_key.get_slice("|", 0), expected_dmg, remaining,
+			loss_share * 100.0, value_factor, weight, float(td.get("unit_value", 0.0))])
+	cache[cache_key] = weight
+	td["loss_weight_cache"] = cache
+	return weight
 
 static func _is_position_in_charge_threat(pos: Vector2, threat_data: Array) -> bool:
 	"""Quick check: is this position within any enemy's charge threat range?"""

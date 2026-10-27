@@ -61,6 +61,9 @@ func _run_tests():
 	test_close_melee_penalty_not_applied_beyond_12_inches()
 	test_close_melee_penalty_scaled_by_depth()
 	test_melee_weapon_quality_affects_threat_level()
+	test_expected_damage_lethal_enemy_beats_old_cap()
+	test_expected_damage_scales_with_own_points()
+	test_expected_damage_legacy_flag()
 	test_close_melee_penalty_reduced_for_melee_units()
 
 # =========================================================================
@@ -671,3 +674,67 @@ func _get_objectives_from_snapshot(snapshot: Dictionary) -> Array:
 			else:
 				objectives.append(Vector2(float(pos.get("x", 0)), float(pos.get("y", 0))))
 	return objectives
+
+# =========================================================================
+# THREAT-EXP: charge threat weighted by expected melee damage to THIS unit
+# =========================================================================
+
+func _make_lethal_melee_weapons() -> Array:
+	return [{"type": "melee", "name": "Thunder Hammer", "range": "Melee", "attacks": "6",
+			"weapon_skill": "2", "strength": "10", "ap": "-3", "damage": "3", "abilities": ""}]
+
+func test_expected_damage_lethal_enemy_beats_old_cap():
+	print("\n--- test_expected_damage_lethal_enemy_beats_old_cap ---")
+	var snapshot = _create_test_snapshot()
+	_add_unit(snapshot, "weak", 1, Vector2(400, 600), "Weak", 2, 6, 5,
+			["INFANTRY"], _make_melee_weapons())
+	_add_unit(snapshot, "killer", 1, Vector2(1400, 600), "Killer", 2, 6, 5,
+			["INFANTRY"], _make_lethal_melee_weapons())
+	_add_unit(snapshot, "own", 2, Vector2(800, 1000), "Own Elite", 2, 6, 3,
+			["INFANTRY"], _make_ranged_weapons(), 6, 3)
+	snapshot.units["own"].meta["points"] = 150
+	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(_make_enemies(snapshot))
+	var own = snapshot.units["own"]
+	var w_weak := 0.0
+	var w_killer := 0.0
+	for td in threat_data:
+		if td.unit_id == "weak":
+			w_weak = AIDecisionMaker._charge_threat_weight(td, own)
+		else:
+			w_killer = AIDecisionMaker._charge_threat_weight(td, own)
+	_assert(w_killer > 3.0, "A unit-wiping enemy weighs above the old 3.0 cap (got %.2f)" % w_killer)
+	_assert(w_killer > w_weak * 3.0, "Killer weighs >3x a chainsword squad vs the same target (%.2f vs %.2f)" % [w_killer, w_weak])
+
+func test_expected_damage_scales_with_own_points():
+	print("\n--- test_expected_damage_scales_with_own_points ---")
+	var snapshot = _create_test_snapshot()
+	_add_unit(snapshot, "enemy1", 1, Vector2(800, 600), "Enemy", 2, 6, 5,
+			["INFANTRY"], _make_melee_weapons())
+	_add_unit(snapshot, "cheap", 2, Vector2(800, 1000), "Cheap", 2, 6, 5, ["INFANTRY"], [], 4, 2)
+	_add_unit(snapshot, "pricey", 2, Vector2(800, 1000), "Pricey", 2, 6, 5, ["INFANTRY"], [], 4, 2)
+	snapshot.units["cheap"].meta["points"] = 75
+	snapshot.units["pricey"].meta["points"] = 300
+	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(_make_enemies(snapshot))
+	var pos = Vector2(800, 1000)
+	var t_cheap = AIDecisionMaker._evaluate_position_threat(pos, threat_data, snapshot.units["cheap"])
+	var t_pricey = AIDecisionMaker._evaluate_position_threat(pos, threat_data, snapshot.units["pricey"])
+	_assert(t_pricey.charge_threat > t_cheap.charge_threat * 3.5,
+		"Same losses cost a 300pt unit 4x a 75pt unit (%.2f vs %.2f)" % [t_pricey.charge_threat, t_cheap.charge_threat])
+
+func test_expected_damage_legacy_flag():
+	print("\n--- test_expected_damage_legacy_flag ---")
+	var snapshot = _create_test_snapshot()
+	_add_unit(snapshot, "enemy1", 1, Vector2(800, 600), "Enemy", 2, 6, 5,
+			["INFANTRY"], _make_lethal_melee_weapons())
+	_add_unit(snapshot, "own", 2, Vector2(800, 1000), "Own", 2, 6, 5, ["INFANTRY"], _make_ranged_weapons())
+	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(_make_enemies(snapshot))
+	var pos = Vector2(800, 1000)
+	var on = AIDecisionMaker._evaluate_position_threat(pos, threat_data, snapshot.units["own"])
+	AIDecisionMaker._active_rule_overrides["THREAT_EXPECTED_DAMAGE"] = 0.0
+	var off = AIDecisionMaker._evaluate_position_threat(pos, threat_data, snapshot.units["own"])
+	AIDecisionMaker._active_rule_overrides.erase("THREAT_EXPECTED_DAMAGE")
+	var legacy_val: float = threat_data[0].unit_value
+	_assert(off.threats[0].penalty <= legacy_val * 2.0 + 0.001,
+		"Legacy flag uses the capped unit_value (penalty %.2f, value %.2f)" % [off.threats[0].penalty, legacy_val])
+	_assert(on.charge_threat > off.charge_threat,
+		"Expected-damage mode rates a hammer squad above legacy (%.2f > %.2f)" % [on.charge_threat, off.charge_threat])

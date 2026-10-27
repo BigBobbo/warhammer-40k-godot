@@ -1,0 +1,131 @@
+{
+  "id": "ai_threat_expected_damage",
+  "covers": [
+    "ai.movement.threat_expected_damage",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "THREAT-EXP. Round 1 of the Custodes mirror, P1 Movement, both seats HUMAN. P2's Allarus Custodians (275pt melee unit) is staged 4\" short of the centre objective, so P1 units heading there move into its charge reach. Clicking Suggest (K) opens the breakdown card: the Danger term is now weighted by the expected melee damage that enemy would do to the moving unit (share of its wounds lost x its points value) rather than the target-blind 0.3-3.0 threat level, and the per-pair weighting is logged as [THREAT-EXP]. Nothing is executed.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "stage P2 Allarus centroid at (800,1150), on the edge of obj_center",
+      "script": "var u = GameState.state.units['U_ALLARUS_CUSTODIANS_A_P2']\nvar c = Vector2.ZERO\nfor m in u.models:\n\tc += Vector2(m.position.x, m.position.y)\nc /= u.models.size()\nvar d = Vector2(800, 1150) - c\nfor m in u.models:\n\tm.position = {'x': m.position.x + d.x, 'y': m.position.y + d.y}\ntree.current_scene._recreate_unit_visuals()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._request_unit(\"U_CUSTODIAN_GUARD_E\")",
+      "comment": "same path as clicking the unit row in the card's move-order list"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"MOVEMENT · Custodian Guard Epsilon\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Danger\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "open every option's '▸ details' (same as clicking each link) so the Danger rows render",
+      "script": "var pnl = tree.current_scene._ai_suggestion_panel\nfor r in range(3):\n\tfor c in range(8):\n\t\tpnl._expanded['opt:%d:%d' % [r, c]] = true\npnl._render(false)\nreturn pnl._rich.get_parsed_text().contains('Danger: -')",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "scroll the card to Epsilon's options so the Danger rows are in frame",
+      "script": "var r = tree.current_scene._ai_suggestion_panel._rich\nvar t = r.get_parsed_text()\nvar line = t.substr(0, t.find('All options')).count('\\n')\nr.scroll_to_line(line)\nreturn line > 0",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_threat_expected_damage_breakdown"
+    }
+  ]
+}
