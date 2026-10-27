@@ -9,7 +9,7 @@
   "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
-  "description": "MOVE-ORDER refresh: with the K card open in P1's Movement phase, the player moves the suggested unit (BEGIN_NORMAL_MOVE, models staged at the suggested destinations, CONFIRM_UNIT_MOVE). The card re-asks the AI on its own: the moved unit leaves the move order, a different unit is suggested and the subtitle says 'updated after <unit> acted'. While viewing another unit (Unit ▶), a different unit remaining stationary keeps that view; when the viewed unit itself acts, the card goes back to the AI's next pick.",
+  "description": "MOVE-ORDER refresh: with the K card open in P1's Movement phase, the player moves a unit the card is showing (the first one planned to make a normal move) (BEGIN_NORMAL_MOVE, models staged at the suggested destinations, CONFIRM_UNIT_MOVE). The card re-asks the AI on its own: the moved unit leaves the move order, a different unit is suggested and the subtitle says 'updated after <unit> acted'. While viewing another unit (Unit ▶), a different unit remaining stationary keeps that view; when the viewed unit itself acts, the card goes back to the AI's next pick.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -58,13 +58,23 @@
     },
     {
       "act": "execute_script",
+      "multiline": true,
+      "comment": "view the first unit in the move order whose plan is a normal move (the AI's own first pick may be an Advance, which needs a dice roll) — through the card's own unit link",
+      "script": "var p = tree.root.get_node(\"Main\")._ai_suggestion_panel\nvar uid = \"\"\nfor e in p._decision.get(\"_ai_unit_order\", {}).get(\"order\", []):\n\tif str(e.get(\"action\", \"\")) == \"move\":\n\t\tuid = str(e.get(\"unit_id\", \"\"))\n\t\tbreak\nif uid != \"\" and uid != str(p._decision.get(\"actor_unit_id\", \"\")):\n\tp._on_meta_clicked(\"unit:\" + uid)\nreturn uid"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
       "script": "main._ai_suggestion_panel.set_meta(\"probe_first\", str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")))"
     },
     {
       "act": "execute_script",
       "script": "main._ai_suggestion_panel._decision.get(\"type\", \"\") == \"BEGIN_NORMAL_MOVE\" and not main._ai_suggestion_panel._decision.get(\"_ai_model_destinations\", {}).is_empty()",
       "equals": true,
-      "comment": "the AI's pick is a normal move with planned destinations"
+      "comment": "the viewed unit's plan is a normal move with planned destinations"
     },
     {
       "act": "screenshot",
@@ -74,7 +84,7 @@
       "act": "execute_script",
       "script": "PhaseManager.current_phase_instance.execute_action({\"type\": \"BEGIN_NORMAL_MOVE\", \"actor_unit_id\": main._ai_suggestion_panel.get_meta(\"probe_first\"), \"player\": 1}).get(\"success\", false)",
       "equals": true,
-      "comment": "the player starts moving the unit the card suggested"
+      "comment": "the player starts moving the unit the card is showing"
     },
     {
       "act": "execute_script",
