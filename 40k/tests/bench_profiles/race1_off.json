@@ -1,0 +1,8 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "RACE-1 off (pre-RACE-1 objective-trip scoring)",
+	"description": "Restores the objective-assignment behaviour before RACE-1: flat -2 per extra turn (no value-scaled distance cost), no contest-race discount, and no Advance on trips that take several turns. Benchmark this against the shipped default to measure RACE-1.",
+	"parameters": { "MOVE_TURNS_AWAY_FRACTION": 0.0, "MOVE_RACE_LOSS_FACTOR": 1.0, "MOVE_LONG_ADVANCE": 0.0 },
+	"rules": []
+}

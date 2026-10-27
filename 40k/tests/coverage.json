@@ -2861,7 +2861,18 @@
       "id": "phases.FightPhase.attached_units_19_03",
       "description": "11e 19.03: a CHARACTER attached to a bodyguard is ONE Attached unit in the fight phase's global Pile In (12.02) and Consolidate (12.07) steps — one picker entry named 'Bodyguard + Character', one move covering both units' models (payload keys 'char_unit:index'), union eligibility/engagement, and rejection of a direct PILE_IN/CONSOLIDATE for the attached character. Headless: tests/test_pile_in_attached_characters_11e.gd.",
       "scenarios": [
-        "attached_char_pile_in_step_11e"
+        "attached_char_pile_in_step_11e",
+        "attached_leader_only_engaged_no_overrun_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.overrun_fight_12_06",
+      "description": "11e 12.05/12.06 + 19.03: on selection to fight, the Overrun fight's additional pile-in is decided by the WHOLE Attached unit's engagement (now and at the start of the Fight step). A bodyguard engaged only through its Leader's model fights a normal fight — no extra pile-in. The 'start of the Fight step' engagement snapshot is retaken when the 12.02 Pile In step ends, so a unit engaged by its step pile-in also fights a normal fight. Headless: tests/test_attached_overrun_fold_11e.gd.",
+      "scenarios": [
+        "attached_leader_only_engaged_no_overrun_11e",
+        "fight_step_snapshot_after_pile_in_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -6732,6 +6743,7 @@
       "id": "scripts.FightController.auto_pile_in_movements",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: auto_pile_in_closest_opponents.",
       "scenarios": [
+        "fight_step_snapshot_after_pile_in_11e",
         "auto_pile_in_closest_opponents"
       ],
       "last_verified_commit": "HEAD",

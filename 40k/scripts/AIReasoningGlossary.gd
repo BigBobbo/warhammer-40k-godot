@@ -30,7 +30,8 @@ const TERMS := {
 	# --- Movement: objective scoring ledger (sums to the score) -------------
 	"objective_priority": {"label": "Objective value", "fmt": "pts", "help": "Base value of this objective right now: who controls it, how contested it is, and the VP at stake."},
 	"oc_efficiency": {"label": "Enough OC to take it", "fmt": "pts", "help": "Bonus when this unit's Objective Control is enough to win the objective."},
-	"distance_penalty": {"label": "Distance cost", "fmt": "pts", "help": "Penalty for each extra turn needed to get there."},
+	"contest_race": {"label": "Enemy gets there first", "fmt": "pts", "help": "Cut when the enemy can have at least this unit's OC on the objective before it arrives."},
+	"distance_penalty": {"label": "Distance cost", "fmt": "pts", "help": "Penalty for each extra turn needed to get there — a share of the objective's value per turn."},
 	"reach_horizon": {"label": "Rounds left to score", "fmt": "pts", "help": "Reduced when the unit would arrive too late to score here in the remaining rounds."},
 	"stay_on_objective": {"label": "Already holding it", "fmt": "pts", "help": "Bonus for staying on an objective the unit already holds."},
 	"horde_presence": {"label": "Big squad", "fmt": "pts", "help": "Large squads are hard to shift off an objective."},
