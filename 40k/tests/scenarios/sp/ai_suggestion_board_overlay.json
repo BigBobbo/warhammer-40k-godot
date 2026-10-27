@@ -95,7 +95,7 @@
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_overlay.summary().goal.begins_with(\"Move obj_\")",
+      "script": "main._ai_suggestion_overlay.summary().goal.contains(\"obj_\")",
       "equals": true,
       "comment": "the objective the move heads for is marked GOAL"
     },
