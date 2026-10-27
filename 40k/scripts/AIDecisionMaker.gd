@@ -1682,8 +1682,9 @@ const MOVE_LADDER_FAIL_BUDGET: float = 0.0   # 0 = off; see the note above
 # a behaviour-preserving no-op that simply enlarges the search space.
 const MOVE_TURNS_AWAY_PENALTY: float = 2.0        # per extra turn needed to arrive
 # OBJ-ASSIGN-1: in the capture pass a unit at least MIN_INCHES closer to an
-# objective, scoring within MARGIN of the unit the greedy order would send and
-# bringing as much of the still-needed OC, takes the objective instead.
+# objective IN MOVES (distance left after one Normal move, so a faster unit
+# counts as closer), scoring within MARGIN of the unit the greedy order would
+# send and bringing as much of the still-needed OC, takes the objective instead.
 const MOVE_ASSIGN_CLOSER_MARGIN: float = 4.0
 const MOVE_ASSIGN_CLOSER_MIN_INCHES: float = 3.0
 const MOVE_STAY_BONUS_LATE: float = 7.0           # already on objective, round >= 4
@@ -8940,6 +8941,7 @@ static func _assign_units_to_objectives(
 				"unit_oc": unit_oc,
 				"already_on_obj": already_on_obj,
 				"turns_to_reach": turns_to_reach,
+				"move_inches": move_inches,
 				"vp_value": eval.get("vp_value", 0.0),
 				"score_terms": score_terms
 			})
@@ -9092,12 +9094,16 @@ static func _assign_units_to_objectives(
 		# OBJ-ASSIGN-1: the greedy order is by score only, and distance enters
 		# the score in whole-turn steps — so a unit 10" away and one 16" away
 		# look the same and the farther one could claim the objective. Prefer a
-		# meaningfully closer, still-unassigned unit that scores nearly as well
-		# here and covers as much of the remaining need.
+		# still-unassigned unit that scores nearly as well here, covers as much
+		# of the remaining need, and is meaningfully closer IN MOVES: compared
+		# on distance left after one Normal move (distance - M), so a M12 unit
+		# 11" away (arrives with 1" spare) beats a M6 unit 6.5" away (0.5" short).
 		var closer_margin = get_param("MOVE_ASSIGN_CLOSER_MARGIN", MOVE_ASSIGN_CLOSER_MARGIN)
-		var closer_min_px = get_param("MOVE_ASSIGN_CLOSER_MIN_INCHES", MOVE_ASSIGN_CLOSER_MIN_INCHES) * PIXELS_PER_INCH
+		var closer_min_in = get_param("MOVE_ASSIGN_CLOSER_MIN_INCHES", MOVE_ASSIGN_CLOSER_MIN_INCHES)
 		var needed_cover = mini(int(cand.unit_oc), remaining)
+		var cand_left_in = float(cand.distance) / PIXELS_PER_INCH - float(cand.move_inches)
 		var closer: Dictionary = {}
+		var closer_left_in := INF
 		for alt in candidates:
 			if alt.objective_id != oid or alt.unit_id == uid or assigned_unit_ids.has(alt.unit_id):
 				continue
@@ -9105,19 +9111,22 @@ static func _assign_units_to_objectives(
 				continue
 			if float(alt.score) < float(cand.score) - closer_margin:
 				continue
-			if float(alt.distance) > float(cand.distance) - closer_min_px:
+			var alt_left_in = float(alt.distance) / PIXELS_PER_INCH - float(alt.move_inches)
+			if alt_left_in > cand_left_in - closer_min_in:
 				continue
 			if mini(int(alt.unit_oc), remaining) < needed_cover:
 				continue
-			if closer.is_empty() or float(alt.distance) < float(closer.distance):
+			if alt_left_in < closer_left_in:
 				closer = alt
+				closer_left_in = alt_left_in
 		if not closer.is_empty():
 			apply_capture_assignment.call(closer)
 			var far_name = _dn(snapshot.get("units", {}).get(uid, {}), uid)
-			assignments[closer.unit_id]["reason"] += " — closer than %s (%.1f\" vs %.1f\")" % [
-				far_name, float(closer.distance) / PIXELS_PER_INCH, float(cand.distance) / PIXELS_PER_INCH]
-			print("AIDecisionMaker: [OBJ-ASSIGN-1] %s: %s is %.1f\" closer than %s (score %.1f vs %.1f) — it takes the objective" % [
-				oid, closer.unit_id, (float(cand.distance) - float(closer.distance)) / PIXELS_PER_INCH, uid,
+			assignments[closer.unit_id]["reason"] += " — quicker to reach than %s (%.1f\" at M%d vs %.1f\" at M%d)" % [
+				far_name, float(closer.distance) / PIXELS_PER_INCH, int(closer.move_inches),
+				float(cand.distance) / PIXELS_PER_INCH, int(cand.move_inches)]
+			print("AIDecisionMaker: [OBJ-ASSIGN-1] %s: %s is %.1f\" closer in moves than %s (left after a move %.1f\" vs %.1f\", score %.1f vs %.1f) — it takes the objective" % [
+				oid, closer.unit_id, cand_left_in - closer_left_in, uid, closer_left_in, cand_left_in,
 				float(closer.score), float(cand.score)])
 			if obj_oc_remaining.get(oid, 0) <= 0:
 				continue  # covered — this unit falls through to its next option
