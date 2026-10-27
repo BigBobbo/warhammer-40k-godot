@@ -1681,6 +1681,12 @@ const MOVE_LADDER_FAIL_BUDGET: float = 0.0   # 0 = off; see the note above
 # could reach it at any games budget. Values are UNCHANGED; promoting them is
 # a behaviour-preserving no-op that simply enlarges the search space.
 const MOVE_TURNS_AWAY_PENALTY: float = 2.0        # per extra turn needed to arrive
+# OBJ-ASSIGN-1: in the capture pass a unit that reaches an objective QUICKER —
+# in fewer Movement phases at its own M, or in the same number with at least
+# MIN_INCHES more spare movement — scoring within MARGIN of the unit the greedy
+# order would send and bringing as much of the still-needed OC, takes it instead.
+const MOVE_ASSIGN_CLOSER_MARGIN: float = 4.0
+const MOVE_ASSIGN_CLOSER_MIN_INCHES: float = 3.0
 # RACE-1: multi-turn objective trips. FRACTION scales the per-extra-turn cost
 # with the objective's value (a flat -2 was dwarfed by a +20 objective), the
 # race factor is the share of value kept when the enemy can stand in range
@@ -3710,29 +3716,18 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 				chosen_idx = 0
 			elif chosen_idx < 0:
 				chosen_idx = 0
-			_add_decision_record("movement", unit_id, unit_name, cand_cards, chosen_idx,
-				{"WEIGHT_UNCONTROLLED_OBJ": get_param("WEIGHT_UNCONTROLLED_OBJ", WEIGHT_UNCONTROLLED_OBJ),
-				 "WEIGHT_CONTESTED_OBJ": get_param("WEIGHT_CONTESTED_OBJ", WEIGHT_CONTESTED_OBJ),
-				 "WEIGHT_VP_PER_POINT": get_param("WEIGHT_VP_PER_POINT", WEIGHT_VP_PER_POINT)},
-				{"phase": "movement", "round": snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)),
-				 "unit_pos": [centroid.x, centroid.y] if centroid != Vector2.INF else [],
-				 "unit_oc": int(unit_candidates[0].get("unit_oc", 0)),
-				 "assigned_by": assign_pass_name,
-				 "assign_action": assign_action,
-				 # PM-3: which earmark, if any, biased this assignment — the
-				 # field a run reads to count earmark adherence per seat.
-				 "earmark": _plan_earmark_context(unit_id, player, snapshot, unit_candidates)})
 			# COORD-4: whenever the assignment overrode raw scores (hold rules,
 			# redirects, backfills), SAY SO — a card that reads "chose 10.9,
 			# rejected 20.2" with no explanation looks like the AI can't compare
-			# numbers, and erodes all trust in the log.
+			# numbers, and erodes all trust in the log. OBJ-EXPLAIN-1: the reason
+			# also rides in the record's context so the breakdown panel shows it.
 			var chosen_score = float(cand_cards[chosen_idx].get("score", 0.0))
 			var best_other := -INF
 			for ci2 in range(cand_cards.size()):
 				if ci2 != chosen_idx:
 					best_other = maxf(best_other, float(cand_cards[ci2].get("score", 0.0)))
+			var why := ""
 			if best_other > chosen_score + 0.01:
-				var why: String
 				match assign_action:
 					"hold":
 						why = assignment.get("reason", "holding is worth more than the raw score shows")
@@ -3743,6 +3738,20 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 							why = str(assignment.coordination_note)
 						else:
 							why = "higher-scored objectives are already covered by other units this turn"
+			_add_decision_record("movement", unit_id, unit_name, cand_cards, chosen_idx,
+				{"WEIGHT_UNCONTROLLED_OBJ": get_param("WEIGHT_UNCONTROLLED_OBJ", WEIGHT_UNCONTROLLED_OBJ),
+				 "WEIGHT_CONTESTED_OBJ": get_param("WEIGHT_CONTESTED_OBJ", WEIGHT_CONTESTED_OBJ),
+				 "WEIGHT_VP_PER_POINT": get_param("WEIGHT_VP_PER_POINT", WEIGHT_VP_PER_POINT)},
+				{"phase": "movement", "round": snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)),
+				 "unit_pos": [centroid.x, centroid.y] if centroid != Vector2.INF else [],
+				 "unit_oc": int(unit_candidates[0].get("unit_oc", 0)),
+				 "assigned_by": assign_pass_name,
+				 "assign_action": assign_action,
+				 "override_reason": why,
+				 # PM-3: which earmark, if any, biased this assignment — the
+				 # field a run reads to count earmark adherence per seat.
+				 "earmark": _plan_earmark_context(unit_id, player, snapshot, unit_candidates)})
+			if why != "":
 				_add_thinking_step("  ↳ why not the top score: %s" % why)
 
 # =============================================================================
@@ -8595,7 +8604,11 @@ static func _assign_units_to_objectives(
 			var dist_px = centroid.distance_to(obj_pos)
 			var dist_inches = dist_px / PIXELS_PER_INCH
 			var turns_to_reach = max(1.0, ceil(dist_inches / move_inches)) if move_inches > 0 else 99.0
-			var already_on_obj = dist_px <= OBJECTIVE_CONTROL_RANGE_PX
+			# OBJ-HOLD-1: a unit is "on" an objective when ANY alive model is in
+			# control range (that is what scores — see _unit_oc_at_position), not
+			# just its centroid. A spread squad with models on the marker but a
+			# centroid >3.79" away was treated as off-objective and sent away.
+			var already_on_obj = dist_px <= OBJECTIVE_CONTROL_RANGE_PX or _unit_has_model_in_control_range(unit, obj_pos)
 			# RACE-1: a long trip the unit will Advance on is costed (distance,
 			# contest race) at the Advance pace it will actually travel.
 			var long_adv: bool = long_adv_ok and not already_on_obj \
@@ -8987,6 +9000,7 @@ static func _assign_units_to_objectives(
 				"unit_oc": unit_oc,
 				"already_on_obj": already_on_obj,
 				"turns_to_reach": turns_to_reach,
+				"move_inches": move_inches,
 				"race_enemy_oc": race_enemy_oc,
 				"race_lost": race_lost,
 				"vp_value": eval.get("vp_value", 0.0),
@@ -9005,6 +9019,23 @@ static func _assign_units_to_objectives(
 	for cand in candidates:
 		if cand.already_on_obj:
 			units_on_obj[cand.objective_id] = units_on_obj.get(cand.objective_id, 0) + 1
+	var units_on_obj_initial = units_on_obj.duplicate()
+
+	# OBJ-HOLD-2: when several units sit on an objective that needs no more OC,
+	# exactly ONE stays — the one with the least to gain elsewhere (lowest best
+	# off-objective score). Previously each was released because "another unit
+	# is here", so with two holders BOTH could walk off and drop control.
+	var best_elsewhere = {}  # unit_id -> best score among objectives it is NOT on
+	for cand in candidates:
+		if not cand.already_on_obj:
+			best_elsewhere[cand.unit_id] = maxf(float(best_elsewhere.get(cand.unit_id, -INF)), float(cand.score))
+	var obj_keeper = {}  # objective_id -> {uid, best_elsewhere}
+	for cand in candidates:
+		if not cand.already_on_obj:
+			continue
+		var be = float(best_elsewhere.get(cand.unit_id, -INF))
+		if not obj_keeper.has(cand.objective_id) or be < float(obj_keeper[cand.objective_id].best_elsewhere):
+			obj_keeper[cand.objective_id] = {"uid": cand.unit_id, "best_elsewhere": be}
 
 	for cand in candidates:
 		var uid = cand.unit_id
@@ -9024,8 +9055,9 @@ static func _assign_units_to_objectives(
 			should_hold = true  # OC still needed at this objective
 		elif obj_state == "held_threatened":
 			should_hold = true  # Threatened, keep defender
-		elif units_on_obj.get(oid, 0) <= 1:
-			# Only one unit on this objective — generally hold to maintain control.
+		elif obj_keeper.get(oid, {}).get("uid", "") == uid:
+			# This unit is the objective's keeper (OBJ-HOLD-2) — the only unit
+			# on it, or the one of several with the least to gain elsewhere — generally hold to maintain control.
 			# EXCEPTION: aggressive faction melee hordes on HOME objectives in early game
 			# should advance rather than camp. Their OC is wasted when they could be
 			# fighting and a smaller unit or character can hold a home objective later.
@@ -9055,8 +9087,10 @@ static func _assign_units_to_objectives(
 				hold_reason = "holding under threat (enemy OC %d nearby)" % hold_eval.get("enemy_oc", 0)
 			elif hold_eval.get("projected_enemy_oc", 0) > 0:
 				hold_reason = "holding (enemy can bring ~%d OC next move)" % hold_eval.get("projected_enemy_oc", 0)
-			elif units_on_obj.get(oid, 0) <= 1:
+			elif units_on_obj_initial.get(oid, 0) <= 1:
 				hold_reason = "sole holder — leaving would drop control"
+			elif obj_keeper.get(oid, {}).get("uid", "") == uid:
+				hold_reason = "keeping hold — the other unit(s) here are freed to move"
 			else:
 				hold_reason = "holding objective (OC: %d)" % cand.unit_oc
 			assignments[uid]["reason"] = hold_reason
@@ -9121,6 +9155,51 @@ static func _assign_units_to_objectives(
 				blocked_best[uid] = {"objective_id": oid, "names": incoming_names.get(oid, [])}
 			continue  # Skip objectives that don't need more OC
 
+		# OBJ-ASSIGN-1: the greedy order is by score only, and distance enters
+		# the score in whole-turn steps — so the unit the greedy order sends may
+		# not be the one that gets there first. Prefer a still-unassigned unit
+		# that scores nearly as well here, covers as much of the remaining need,
+		# and arrives QUICKER at its own Move: fewer Movement phases to bring a
+		# model within control range (an M12 unit 24" away arrives in 2, an M4
+		# unit 12" away needs 3), or — arriving the same phase — at least
+		# MIN_INCHES more spare movement. Advance is ignored (its roll is random).
+		var closer_margin = get_param("MOVE_ASSIGN_CLOSER_MARGIN", MOVE_ASSIGN_CLOSER_MARGIN)
+		var closer_min_in = get_param("MOVE_ASSIGN_CLOSER_MIN_INCHES", MOVE_ASSIGN_CLOSER_MIN_INCHES)
+		var needed_cover = mini(int(cand.unit_oc), remaining)
+		var cand_arrival = _capture_arrival(cand)
+		var closer: Dictionary = {}
+		var closer_arrival := {}
+		for alt in candidates:
+			if alt.objective_id != oid or alt.unit_id == uid or assigned_unit_ids.has(alt.unit_id):
+				continue
+			if alt.action not in ["move", "advance"]:
+				continue
+			if float(alt.score) < float(cand.score) - closer_margin:
+				continue
+			if mini(int(alt.unit_oc), remaining) < needed_cover:
+				continue
+			var alt_arrival = _capture_arrival(alt)
+			var quicker: bool = alt_arrival.phases < cand_arrival.phases \
+					or (alt_arrival.phases == cand_arrival.phases
+						and alt_arrival.spare_in >= cand_arrival.spare_in + closer_min_in)
+			if not quicker:
+				continue
+			if closer.is_empty() or alt_arrival.phases < closer_arrival.phases \
+					or (alt_arrival.phases == closer_arrival.phases and alt_arrival.spare_in > closer_arrival.spare_in):
+				closer = alt
+				closer_arrival = alt_arrival
+		if not closer.is_empty():
+			apply_capture_assignment.call(closer)
+			var far_name = _dn(snapshot.get("units", {}).get(uid, {}), uid)
+			assignments[closer.unit_id]["reason"] += " — quicker to reach than %s (%s at M%d vs %s at M%d)" % [
+				far_name, _arrival_text(closer, closer_arrival), int(closer.move_inches),
+				_arrival_text(cand, cand_arrival), int(cand.move_inches)]
+			print("AIDecisionMaker: [OBJ-ASSIGN-1] %s: %s arrives quicker than %s (%d phase(s), %.1f\" spare vs %d phase(s), %.1f\" spare; score %.1f vs %.1f) — it takes the objective" % [
+				oid, closer.unit_id, uid, closer_arrival.phases, closer_arrival.spare_in,
+				cand_arrival.phases, cand_arrival.spare_in, float(closer.score), float(cand.score)])
+			if obj_oc_remaining.get(oid, 0) <= 0:
+				continue  # covered — this unit falls through to its next option
+
 		apply_capture_assignment.call(cand)
 
 	# =========================================================================
@@ -9170,9 +9249,26 @@ static func _assign_units_to_objectives(
 	# COORD-4 backfill: OC needs re-opened by attack conversions get the next
 	# best still-unassigned unit, same greedy order as pass 2.
 	for cand in candidates:
-		if assigned_unit_ids.has(cand.unit_id):
-			continue
 		if obj_oc_remaining.get(cand.objective_id, 0) <= 0:
+			continue
+		if assigned_unit_ids.has(cand.unit_id):
+			# OBJ-BACKFILL-1: a unit already sent to a LOWER-scored objective
+			# switches to the re-opened one. Previously only unassigned units
+			# could backfill, so a unit redirected away because this objective
+			# looked covered stayed redirected and nobody went.
+			var cur: Dictionary = assignments.get(cand.unit_id, {})
+			if cur.get("assign_pass", "") != "capture" or cand.action not in ["move", "advance"] \
+					or cur.get("objective_id", "") == cand.objective_id \
+					or float(cand.score) <= float(cur.get("score", 0.0)):
+				continue
+			var old_oid = str(cur.get("objective_id", ""))
+			obj_oc_remaining[old_oid] = obj_oc_remaining.get(old_oid, 0) + int(cur.get("oc_consumed", 0))
+			assignments.erase(cand.unit_id)
+			assigned_unit_ids.erase(cand.unit_id)
+			apply_capture_assignment.call(cand)
+			assignments[cand.unit_id]["reason"] += " — switched from %s to backfill for a unit that went hunting" % old_oid
+			print("AIDecisionMaker: [OBJ-BACKFILL-1] %s switches %s -> %s (score %.1f > %.1f)" % [
+				cand.unit_id, old_oid, cand.objective_id, float(cand.score), float(cur.get("score", 0.0))])
 			continue
 		apply_capture_assignment.call(cand)
 		assignments[cand.unit_id]["reason"] += " — backfilling for a unit that went hunting"
@@ -9441,6 +9537,34 @@ static func _assign_units_to_objectives(
 		if assigned_oid != "" and assigned_oid != bb.objective_id:
 			assignments[uid]["coordination_note"] = "%s is already covered (%s en route) — redirecting to %s" % [
 				bb.objective_id, ", ".join(bb.names), assigned_oid]
+
+	# OBJ-EXPLAIN-1: every capture assignment that is NOT the unit's top-scored
+	# objective names WHO took that objective (or that it needs no more OC),
+	# so the decision card says it instead of a generic "a plan chose it".
+	for uid in assignments:
+		var a = assignments[uid]
+		if a.get("assign_pass", "") != "capture" or a.has("coordination_note"):
+			continue
+		var top: Dictionary = {}
+		for c in _last_movement_candidates.get(uid, []):
+			if top.is_empty() or float(c.score) > float(top.score):
+				top = c
+		var a_oid = str(a.get("objective_id", ""))
+		if top.is_empty() or top.objective_id == a_oid or float(top.score) <= float(a.get("score", 0.0)) + 0.01:
+			continue
+		var takers: Array = []
+		for other_uid in assignments:
+			if other_uid != uid and assignments[other_uid].get("objective_id", "") == top.objective_id \
+					and assignments[other_uid].get("action", "") in ["hold", "move", "advance"]:
+				takers.append(_dn(snapshot.get("units", {}).get(other_uid, {}), other_uid))
+		for n in incoming_names.get(top.objective_id, []):
+			if not n in takers:
+				takers.append(n)
+		if not takers.is_empty():
+			a["coordination_note"] = "%s is already taken by %s — sent to %s instead" % [
+				top.objective_id, ", ".join(takers), a_oid]
+		else:
+			a["coordination_note"] = "%s already has enough OC — sent to %s instead" % [top.objective_id, a_oid]
 
 	return assignments
 
@@ -10256,6 +10380,31 @@ static func _unit_oc_at_position(pos: Vector2, unit_id: String, unit: Dictionary
 		if mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
 			total_oc += _ai_model_oc(unit, model)
 	return total_oc
+
+## OBJ-ASSIGN-1: when a capture candidate's unit gets a model within control
+## range, moving at its own M each Movement phase (no Advance): `phases` = how
+## many Movement phases (min 1), `spare_in` = movement left over in the arrival
+## phase. Both measured from the centroid, like every other candidate distance.
+static func _capture_arrival(cand: Dictionary) -> Dictionary:
+	var move_in = maxf(float(cand.get("move_inches", 6.0)), 0.1)
+	var gap_in = maxf(0.0, (float(cand.distance) - OBJECTIVE_CONTROL_RANGE_PX) / PIXELS_PER_INCH)
+	var phases = maxi(1, int(ceil(gap_in / move_in)))
+	return {"phases": phases, "spare_in": float(phases) * move_in - gap_in}
+
+static func _arrival_text(cand: Dictionary, arrival: Dictionary) -> String:
+	var turns = "this turn" if int(arrival.phases) == 1 else "in %d turns" % int(arrival.phases)
+	return "%.1f\" away, there %s" % [float(cand.distance) / PIXELS_PER_INCH, turns]
+
+## OBJ-HOLD-1: true when any alive model of `unit` stands within control
+## range of `pos` — the per-model test _unit_oc_at_position scores with.
+static func _unit_has_model_in_control_range(unit: Dictionary, pos: Vector2) -> bool:
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var mpos = _get_model_position(model)
+		if mpos != Vector2.INF and mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			return true
+	return false
 
 ## The OC a unit brings once its models stand in range — every alive model's
 ## own OC (14.02), the planner's capacity for "how much of an objective's need
