@@ -2,6 +2,8 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.55.2",
+      "date": "2026-10-27",
       "summary": "AI Suggestion now helps with a move you've already started.",
       "changes": [
         "If you start moving a unit yourself and then press Suggest (K), the AI now says where it would take that unit instead of just \"Confirmed move\".",
