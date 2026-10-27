@@ -31,6 +31,10 @@ class_name AISuggestionBreakdownPanel
 #   save_case_requested(verdict, note)  ("Good call" / "Bad call" — Main saves
 #                      an AISuggestionTestCases case); show_case_saved(result)
 #   toggle_section(key: String)  (same as clicking a link: "dev", "notes", "opt:R:I")
+#   closed             (card hidden — Main clears the board overlay)
+#   option_hovered(record, cand_index, chosen) / option_unhovered
+#                      (pointer over an option row — Main previews it on the
+#                      board via AISuggestionBoardOverlay); hover_option(key)
 #   breakdown_text: String   (plain-text mirror of what is on screen)
 #   full_text: String        (everything expanded — what Copy puts on the clipboard)
 #   record_count: int
@@ -73,6 +77,9 @@ const HOST_META := "ai_suggestion_host"
 
 signal refresh_requested
 signal save_case_requested(verdict: String, note: String)
+signal closed
+signal option_hovered(record: Dictionary, cand_index: int, chosen: bool)
+signal option_unhovered
 
 var breakdown_text: String = ""
 var full_text: String = ""
@@ -157,6 +164,8 @@ func _ready() -> void:
 	_rich.add_theme_constant_override("table_h_separation", 10)
 	_rich.add_theme_color_override("default_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	_rich.meta_clicked.connect(_on_meta_clicked)
+	_rich.meta_hover_started.connect(func(m): hover_option(str(m)))
+	_rich.meta_hover_ended.connect(func(_m): option_unhovered.emit())
 	content.add_child(_rich)
 
 	# Review row: turn this suggestion into a regression test case
@@ -212,7 +221,7 @@ func _ready() -> void:
 	frow.add_theme_constant_override("separation", 10)
 	footer.add_child(frow)
 	var hint := Label.new()
-	hint.text = "Preview only — nothing was executed. Hover a factor for what it means. K refreshes, Esc closes."
+	hint.text = "Preview only — nothing was executed. The board shows the suggested unit (cyan), its target (red) and where it would move; hover an option to see it on the board. K refreshes, Esc closes."
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", COL_DIM)
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -294,7 +303,22 @@ func close() -> void:
 	var host := get_parent() as Window
 	if host != null and host.has_meta(HOST_META):
 		host.hide()
+	closed.emit()
 	print("[AISuggestionBreakdownPanel] Closed")
+
+
+func hover_option(key: String) -> void:
+	"""Pointer over an option ("opt:R:I") — ask Main to preview it on the board."""
+	var parts := key.split(":")
+	if parts.size() != 3 or parts[0] != "opt":
+		return
+	var records: Array = _decision.get("_ai_decision_records", [])
+	var r_i := int(parts[1])
+	if r_i < 0 or r_i >= records.size() or not (records[r_i] is Dictionary):
+		return
+	var rec: Dictionary = records[r_i]
+	var i := int(parts[2])
+	option_hovered.emit(rec, i, i == int(rec.get("chosen_index", -1)))
 
 
 func _render(reset_scroll: bool) -> void:
@@ -621,7 +645,8 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 		var key := "opt:%d:%d" % [r_i, i]
 		var open: bool = everything or bool(expanded.get(key, false))
 		var link := "[url=%s][color=%s]%s[/color][/url]" % [key, HEX_LINK, "▾ hide" if open else "▸ details"]
-		var name_b := ("[b]%s[/b]" if is_c else "%s") % _esc(a.labels[i])
+		# The name is a link too: hovering it previews this option on the board.
+		var name_b := ("[url=%s][b]%s[/b][/url]" if is_c else "[url=%s]%s[/url]") % [key, _esc(a.labels[i])]
 		o.line("%s  %s  [color=%s]%s[/color]  %s" % [bar, name_b, HEX_DIM, rel, link],
 			"  %s %s — %s" % ["*" if is_c else "-", a.labels[i], rel])
 		if open:
