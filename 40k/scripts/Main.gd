@@ -14,6 +14,7 @@ const UnitStatsCardPopupScript = preload("res://scripts/UnitStatsCardPopup.gd")
 const HotkeyHelpOverlayScript = preload("res://scripts/HotkeyHelpOverlay.gd")
 const AISuggestionBreakdownPanelScript = preload("res://scripts/AISuggestionBreakdownPanel.gd")
 const AISuggestionTestCasesScript = preload("res://scripts/AISuggestionTestCases.gd")
+const AISuggestionBoardOverlayScript = preload("res://scripts/AISuggestionBoardOverlay.gd")
 # Controller glyphs for inline button labels (PRP §"inline button labels"): the
 # phase-action button advertises the keyboard [Enter] OR the pad Menu (☰) button
 # depending on the active device, so a Steam Deck player sees which controller
@@ -252,6 +253,9 @@ var _ai_suggestion_button: Button = null
 var _ai_suggestion_panel: PanelContainer = null
 # Window the card moves into while a modal dialog is open (see _host_ai_suggestion_panel_over)
 var _ai_suggestion_host: Window = null
+# Board half of the card: rings the suggested unit / its target, dashed paths and
+# ghost bases for a suggested move (AISuggestionBoardOverlay)
+var _ai_suggestion_overlay: Node2D = null
 
 # P2-44: Player turn screen-edge color indicator
 var _player_turn_border: PlayerTurnBorder = null
@@ -2797,6 +2801,13 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 			PhaseManager.phase_action_taken.connect(_on_action_for_ai_suggestion_card)
 		if PhaseManager and not PhaseManager.phase_changed.is_connected(_on_action_for_ai_suggestion_card):
 			PhaseManager.phase_changed.connect(_on_action_for_ai_suggestion_card)
+		_ai_suggestion_panel.closed.connect(_clear_ai_suggestion_overlay)
+		_ai_suggestion_panel.option_hovered.connect(func(rec, i, chosen):
+			if _ai_suggestion_overlay and is_instance_valid(_ai_suggestion_overlay):
+				_ai_suggestion_overlay.preview_candidate(rec, i, chosen))
+		_ai_suggestion_panel.option_unhovered.connect(func():
+			if _ai_suggestion_overlay and is_instance_valid(_ai_suggestion_overlay):
+				_ai_suggestion_overlay.clear_preview())
 	# A modal dialog (Attack Assignment, Epic Challenge, stratagem windows…)
 	# draws above every Control and swallows input, so the card would be
 	# hidden under it and unclickable — exactly when the decision it explains
@@ -2810,8 +2821,33 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 			_ai_suggestion_host.hide()
 	_ai_suggestion_panel.show_decision(decision, meta)
 	_ai_card_pick_signature = str(_ai_card_board_signature().sig)
+	_show_ai_suggestion_overlay(decision)
 	print("Main: AI suggestion breakdown shown (%d records)%s" % [_ai_suggestion_panel.record_count,
 		(" above modal '%s'" % modal.name) if modal != null else ""])
+
+func _show_ai_suggestion_overlay(decision: Dictionary) -> void:
+	"""Mark the suggestion on the board: which unit, its target, where it moves."""
+	if _ai_suggestion_overlay == null or not is_instance_valid(_ai_suggestion_overlay):
+		_ai_suggestion_overlay = AISuggestionBoardOverlayScript.new()
+		_ai_suggestion_overlay.name = "AISuggestionBoardOverlay"
+		$BoardRoot.add_child(_ai_suggestion_overlay)
+		if PhaseManager:
+			PhaseManager.phase_changed.connect(func(_p): _clear_ai_suggestion_overlay())
+			# An action moved/killed models: re-resolve so rings follow the units.
+			PhaseManager.phase_action_taken.connect(func(_a): _refresh_ai_suggestion_overlay.call_deferred())
+	_ai_suggestion_overlay.show_suggestion(decision)
+	print("Main: AI suggestion board overlay -> %s" % str(_ai_suggestion_overlay.summary()))
+
+func _refresh_ai_suggestion_overlay() -> void:
+	if _ai_suggestion_overlay == null or not is_instance_valid(_ai_suggestion_overlay):
+		return
+	if _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel) or not _ai_suggestion_panel.visible:
+		return
+	_ai_suggestion_overlay.show_suggestion(_ai_suggestion_panel._decision)
+
+func _clear_ai_suggestion_overlay() -> void:
+	if _ai_suggestion_overlay and is_instance_valid(_ai_suggestion_overlay):
+		_ai_suggestion_overlay.clear()
 
 func _on_ai_suggestion_save_case(verdict: String, note: String) -> void:
 	"""'Good call' / 'Bad call' on the breakdown card: save the position and the
