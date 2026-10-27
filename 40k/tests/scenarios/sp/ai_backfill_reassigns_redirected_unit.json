@@ -1,0 +1,101 @@
+{
+  "id": "ai_backfill_reassigns_redirected_unit",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "ai.movement.backfill"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "OBJ-BACKFILL-1: P1 (Custodes) Movement, only the Custodian Guard and a Witchseekers squad free to move. The Custodian Guard is planned onto obj_nml_1 then converts to attacking the Kommandos, re-opening obj_nml_1. The Witchseekers had been redirected to obj_center because obj_nml_1 looked covered; they must now switch back to obj_nml_1 (their top score) instead of leaving it empty. The Suggest card shows the switch.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for uid in [\"U_CUSTODIAN_GUARD_B\", \"U_WITCHSEEKERS_D\"]:\n\tvar f = GameState.state.units[uid].get(\"flags\", {})\n\tfor k in [\"moved\", \"advanced\", \"fell_back\", \"remained_stationary\", \"has_shot\", \"cannot_charge\", \"move_cap_inches\"]:\n\t\tf.erase(k)\nvar ws = GameState.state.units[\"U_WITCHSEEKERS_D\"]\nvar i = 0\nfor m in ws.models:\n\tm[\"position\"] = {\"x\": 300.0 + i * 45.0, \"y\": 1330.0}\n\ti += 1\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"MOVEMENT \u00b7 Witchseekers\")",
+      "equals": true,
+      "comment": "the suggested unit is the forward-placed Witchseekers squad"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Picked: Move obj_nml_1\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"switched from obj_center to backfill\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"scored higher\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0,
+      "comment": "preview only \u2014 nothing executed"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "01_backfill_switch"
+    }
+  ]
+}

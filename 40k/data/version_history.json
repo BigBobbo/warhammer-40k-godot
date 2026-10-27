@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.52.2",
+      "date": "2026-10-27",
+      "summary": "Smarter AI objective choices, and the AI's reasoning card now says which unit took an objective.",
+      "changes": [
+        "The AI now counts a unit as holding an objective when any of its models is in range. A spread-out squad on a marker no longer walks off it.",
+        "When two AI units sit on the same held objective, one stays and the other is freed to move. Before, both could stay put or both could leave.",
+        "When two AI units want the same objective and score about the same, the clearly closer one (3\"+) goes.",
+        "If the unit sent to an objective switches to attacking instead, a unit that had been sent elsewhere because that objective looked covered now switches back to it.",
+        "In the Suggest (K) card, 'The AI picked this even though X scored higher' now gives the reason, e.g. 'obj_nml_1 is already taken by Telemon Heavy Dreadnought'."
+      ]
+    },
+    {
       "version": "1.52.1",
       "date": "2026-10-26",
       "summary": "Removed old leftover army lists from the army picker.",
