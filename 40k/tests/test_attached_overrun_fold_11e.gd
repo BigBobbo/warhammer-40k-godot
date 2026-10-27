@@ -13,6 +13,10 @@ extends SceneTree
 #  - leader-only engaged    -> normal fight, no extra pile-in
 #  - bodyguard-only engaged -> normal fight, no extra pile-in
 #  - whole unit unengaged (charged, targets gone) -> overrun pile-in still offered
+#  - 12.04 "engaged at the start of this step" is the FIGHT step, after the
+#    12.02 Pile In step: a charged unit unengaged at phase start that piles
+#    into combat fights a normal fight (the sequencer used to snapshot
+#    engagement at phase entry, so it got a spurious overrun pile-in)
 #
 # Usage: godot --headless --path . -s tests/test_attached_overrun_fold_11e.gd
 
@@ -104,6 +108,36 @@ func _run_tests():
 	_check("selection succeeds", c.result.get("success", false), str(c.result.get("errors", [])))
 	_check("overrun pile-in triggered", c.result.get("trigger_pile_in", false), str(c.result.keys()))
 	_check("overrun unit is the bodyguard", c.fp.overrun_pile_in_unit_11e == "U_G", c.fp.overrun_pile_in_unit_11e)
+
+	print("\n-- unengaged at phase start, piles in during 12.02 -> normal fight --")
+	# Lone charged unit U_S 2.5" from the Boyz (its charge target was moved
+	# off); it piles in 2" to 0.5" during the Pile In step.
+	gs.state["units"] = {
+		"U_S": {"id": "U_S", "owner": 1, "status": 2, "flags": {"charged_this_turn": true},
+			"meta": {"name": "Shield-Captain", "keywords": ["INFANTRY"], "stats": {"move": 6, "wounds": 6},
+				"weapons": _melee("Spear")},
+			"models": [_m("s1", 600, 360, 6)]},
+		"U_B": {"id": "U_B", "owner": 2, "status": 2, "flags": {},
+			"meta": {"name": "Boyz", "keywords": ["INFANTRY"], "stats": {"move": 6, "wounds": 1}},
+			"models": [_m("e1", 600, 500, 1)]},
+	}
+	gs.state["meta"]["active_player"] = 1
+	gs.state["meta"]["phase"] = 10
+	var rules = root.get_node("RulesEngine")
+	_check("fixture: U_S unengaged at phase start", not rules.is_unit_engaged("U_S", gs.state))
+	pm.transition_to_phase(10)
+	var fp_d = pm.get_current_phase_instance()
+	var pi = fp_d.execute_action({"type": "PILE_IN", "unit_id": "U_S", "movements": {"0": Vector2(600, 440)}, "player": 1})
+	_check("pile-in into engagement succeeds", pi.get("success", false), str(pi.get("errors", pi)))
+	_check("U_S engaged after its pile-in", rules.is_unit_engaged("U_S", gs.state))
+	fp_d.execute_action({"type": "END_PILE_IN", "player": 1})
+	fp_d.execute_action({"type": "END_PILE_IN", "player": 2})
+	_check("Fight step snapshot records U_S as engaged at step start",
+		fp_d.sequencer_11e.engaged_at_step_start.get("U_S", false), str(fp_d.sequencer_11e.engaged_at_step_start))
+	var d = fp_d.execute_action({"type": "SELECT_FIGHTER", "unit_id": "U_S", "player": 1})
+	_check("selection succeeds", d.get("success", false), str(d.get("errors", [])))
+	_check("no overrun pile-in triggered", not d.get("trigger_pile_in", false), str(d.keys()))
+	_check("overrun unit not set", fp_d.overrun_pile_in_unit_11e == "", fp_d.overrun_pile_in_unit_11e)
 
 	GameConstants.edition = prev_edition
 	gs.state = prev_state

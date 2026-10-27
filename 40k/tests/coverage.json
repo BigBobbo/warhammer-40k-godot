@@ -2869,9 +2869,10 @@
     },
     {
       "id": "phases.FightPhase.overrun_fight_12_06",
-      "description": "11e 12.05/12.06 + 19.03: on selection to fight, the Overrun fight's additional pile-in is decided by the WHOLE Attached unit's engagement (now and at the start of the Fight step). A bodyguard engaged only through its Leader's model fights a normal fight — no extra pile-in. Headless: tests/test_attached_overrun_fold_11e.gd.",
+      "description": "11e 12.05/12.06 + 19.03: on selection to fight, the Overrun fight's additional pile-in is decided by the WHOLE Attached unit's engagement (now and at the start of the Fight step). A bodyguard engaged only through its Leader's model fights a normal fight — no extra pile-in. The 'start of the Fight step' engagement snapshot is retaken when the 12.02 Pile In step ends, so a unit engaged by its step pile-in also fights a normal fight. Headless: tests/test_attached_overrun_fold_11e.gd.",
       "scenarios": [
-        "attached_leader_only_engaged_no_overrun_11e"
+        "attached_leader_only_engaged_no_overrun_11e",
+        "fight_step_snapshot_after_pile_in_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

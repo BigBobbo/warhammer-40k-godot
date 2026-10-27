@@ -4213,6 +4213,18 @@ func _advance_pile_in_step_11e(result: Dictionary) -> Dictionary:
 		_pending_pile_in_step_data = {}
 		log_phase_message("[11e 12.02] PILE IN step complete — the Fight step begins (12.04)")
 		emit_signal("subphase_transition", "PILE_IN", "FIGHT")
+		# 12.04 "engaged at the start of this step" means the Fight step, i.e.
+		# after the pile-in moves just made — retake the snapshot the
+		# sequencer took at phase entry, then re-stamp 12.08 eligibility
+		# (cumulative) for units the pile-ins brought into combat.
+		if sequencer_11e != null:
+			sequencer_11e.snapshot_step_start(GameState.state)
+			var engaged_ids: Array = []
+			for snap_id in sequencer_11e.engaged_at_step_start:
+				if sequencer_11e.engaged_at_step_start[snap_id]:
+					engaged_ids.append(snap_id)
+			log_phase_message("[11e 12.04] Fight step engagement snapshot (after Pile In): %s" % str(engaged_ids))
+			_stamp_fight_eligibility_11e()
 		# Selection order is the sequencer's; sync the pointer before the dialog.
 		if sequencer_11e != null:
 			var sel_11e = sequencer_11e.next_selection(GameState.state)

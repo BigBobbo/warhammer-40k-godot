@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.52.3",
+      "date": "2026-10-27",
+      "summary": "Units that pile into combat at the start of the Fight phase no longer get a second pile-in.",
+      "changes": [
+        "A unit that was out of Engagement Range when the Fight phase began, but piled into combat during the Pile In step, now fights normally when selected. It no longer gets an extra Overrun pile-in, because the 'engaged at the start of the Fight step' check now happens after the Pile In step."
+      ]
+    },
+    {
       "version": "1.52.2",
       "date": "2026-10-27",
       "summary": "Fixed attached units getting a second pile-in when selected to fight.",
