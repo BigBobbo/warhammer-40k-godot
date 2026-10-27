@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.52.2",
+      "version": "1.52.3",
       "date": "2026-10-27",
       "summary": "AI suggestions now notice secondary missions you can score this turn.",
       "changes": [
@@ -10,6 +10,14 @@
         "A met secondary is never offered as a discard candidate.",
         "The AI's Engage on All Fronts estimate only counts units wholly within a table quarter and more than 6\" from the centre, matching the real scoring check."
       ]
+    },
+    {
+      "version": "1.52.2",
+      "date": "2026-10-27",
+      "summary": "Heroic Intervention now shows its 2D6 charge roll.",
+      "changes": [
+        "When you use Heroic Intervention, the 2D6 charge roll is now animated on screen and written to the Dice Log and Game Log, with SUCCESS or FAILED.",
+        "If you picked Into the Fray and rolled more than 6, the log says the roll was c      ]
     },
     {
       "version": "1.52.1",
