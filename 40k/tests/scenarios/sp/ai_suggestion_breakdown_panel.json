@@ -4,7 +4,8 @@
     "ai.suggestion.breakdown_panel",
     "ai.suggestion.human_vs_human",
     "ai.suggestion.pure_preview",
-    "ui.HUD.ai_suggestion_button"
+    "ui.HUD.ai_suggestion_button",
+    "ai.suggestion.competitive_difficulty"
   ],
   "fixture": "audit_382_cp_grant",
   "disable_ai": true,
@@ -72,6 +73,17 @@
     {
       "act": "execute_script",
       "script": "main._ai_suggestion_panel.breakdown_text.contains(\"== THE AI WOULD ==\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.last_suggestion_meta.get(\"difficulty_level\", -1)",
+      "equals": 3,
+      "comment": "suggestions always reason at Competitive, even in a human-vs-human game"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._subtitle.text.contains(\"thinking at Competitive difficulty\")",
       "equals": true
     },
     {

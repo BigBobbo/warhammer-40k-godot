@@ -871,16 +871,10 @@ func request_suggestion(difficulty_override: int = -1, focus_unit_id: String = "
 		emit_signal("ai_suggestion_ready", player, {}, "No actions available")
 		return {}
 
-	# Preview at the difficulty of the AI the player is actually facing, so the
-	# hint reflects that specific opponent. If the active player is themselves an
-	# AI, use their own difficulty. Never preview at Easy (random picks, no scored
-	# rationale) — bump to Normal so there is an actual reasoning trace to show.
-	var difficulty = get_difficulty(player)
-	if not is_ai_player(player):
-		var opponent = 2 if player == 1 else 1
-		difficulty = get_difficulty(opponent) if is_ai_player(opponent) else AIDifficultyConfigData.Difficulty.NORMAL
-	if AIDifficultyConfigData.use_random_actions(difficulty):
-		difficulty = AIDifficultyConfigData.Difficulty.NORMAL
+	# Suggestions always reason at the strongest AI (Competitive), regardless of
+	# the opponent's or the active player's configured difficulty, so the hint is
+	# the best move the AI knows.
+	var difficulty = AIDifficultyConfigData.Difficulty.COMPETITIVE
 	# Saved AI test cases re-ask at the difficulty they were recorded at
 	if difficulty_override >= 0:
 		difficulty = difficulty_override
