@@ -1,0 +1,32 @@
+{
+  "id": "ai_objective_race_long_trip",
+  "covers": [
+    "ai.movement.objective_race",
+    "ai.movement.long_trip_advance",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "RACE-1. Round 1 of the Custodes mirror, P1 Movement, both seats HUMAN. Clicking Suggest (K) opens the breakdown card for P1's first movement decision. The plan must show the RACE-1 reasoning a player can read: units on multi-turn trips with nothing to shoot advance ('advances toward ...'), a unit the enemy beats to its objective is labelled 'racing for it (enemy can have ~N OC there before we arrive in T turns)', and nothing is executed.",
+  "steps": [
+    {"act": "wait_seconds", "seconds": 0.8},
+    {"act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"},
+    {"act": "execute_script", "script": "AIPlayer.clear_action_log()"},
+    {"act": "execute_script", "script": "GameState.set_active_player(1)"},
+    {"act": "execute_script", "script": "PhaseManager.transition_to_phase(7)"},
+    {"act": "execute_script", "script": "main.refresh_ai_suggestion_button()"},
+    {"act": "wait_frames", "frames": 3},
+    {"act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton", "timeout_s": 2.0},
+    {"act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"},
+    {"act": "wait_frames", "frames": 5},
+    {"act": "execute_script", "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible", "equals": true},
+    {"act": "execute_script", "script": "main._ai_suggestion_panel.full_text", "comment": "logged for the transcript"},
+    {"act": "execute_script", "script": "main._ai_suggestion_panel.full_text.contains(\"racing for it (enemy can have ~\")", "equals": true},
+    {"act": "execute_script", "script": "main._ai_suggestion_panel.full_text.contains(\"advance\")", "equals": true},
+    {"act": "execute_script", "script": "AIPlayer.get_action_log().size()", "equals": 0},
+    {"act": "expect_phase", "equals": 7},
+    {"act": "screenshot", "label": "01_race_long_trip_breakdown"}
+  ]
+}

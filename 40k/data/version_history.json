@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.52.2",
+      "version": "1.54.1",
       "date": "2026-10-27",
       "summary": "Smarter AI objective choices, and the AI's reasoning card now says which unit took an objective.",
       "changes": [
@@ -11,6 +11,62 @@
         "When two AI units want the same objective and score about the same, the one that gets there in fewer turns at its own Move goes (an M12 unit 24\" away beats an M4 unit 12\" away). If both arrive the same turn, the one with clearly more movement to spare (3\"+) goes.",
         "If the unit sent to an objective switches to attacking instead, a unit that had been sent elsewhere because that objective looked covered now switches back to it.",
         "In the Suggest (K) card, 'The AI picked this even though X scored higher' now gives the reason, e.g. 'obj_nml_1 is already taken by Telemon Heavy Dreadnought'."
+      ]
+    },
+    {
+      "version": "1.54.0",
+      "date": "2026-10-27",
+      "summary": "The AI Suggestion (K) now shows on the board which unit it means, what it targets and where it would move.",
+      "changes": [
+        "While the suggestion card is open, the suggested unit is ringed in cyan with a 'SUGGESTED' tag, and any unit it would shoot, charge or fight is ringed in red with a 'TARGET' tag and a dashed line from the attacker.",
+        "Suggested moves (normal move, advance, fall back, scout, deployment) draw a dashed arrow from every model to a see-through ghost base where it would end up, plus a 'GOAL' marker on the objective it is heading for.",
+        "Hover any option in the card's 'All options' list to see that option on the board in amber — the objective or target the AI weighed against its pick.",
+        "Markings scale with the camera zoom so they stay readable on a zoomed-out board, and clear when you close the card or the phase changes."
+      ]
+    },
+    {
+      "version": "1.53.3",
+      "date": "2026-10-27",
+      "summary": "AI suggestions now notice secondary missions you can score this turn.",
+      "changes": [
+        "The Suggest (K) panel shows when a secondary is met, e.g. 'End Turn \u2014 scores Engage on All Fronts 3 VP', with a Score vs Hold breakdown.",
+        "A met secondary is never offered as a discard candidate.",
+        "The AI's Engage on All Fronts estimate only counts units wholly within a table quarter and more than 6\" from the centre, matching the real scoring check."
+      ]
+    },
+    {
+      "version": "1.53.2",
+      "date": "2026-10-27",
+      "summary": "Units that pile into combat at the start of the Fight phase no longer get a second pile-in.",
+      "changes": [
+        "A unit that was out of Engagement Range when the Fight phase began, but piled into combat during the Pile In step, now fights normally when selected. It no longer gets an extra Overrun pile-in, because the 'engaged at the start of the Fight step' check now happens after the Pile In step."
+      ]
+    },
+    {
+      "version": "1.53.1",
+      "date": "2026-10-27",
+      "summary": "Fixed attached units getting a second pile-in when selected to fight.",
+      "changes": [
+        "A unit led by a Character no longer gets an extra pile-in when it is selected to fight if only the Character's model was in Engagement Range. The whole Attached unit counts as engaged, so it fights normally. The extra Overrun pile-in is still offered when the whole unit is out of Engagement Range."
+      ]
+    },
+    {
+      "version": "1.53.0",
+      "date": "2026-10-27",
+      "summary": "The AI no longer chases objectives the enemy will reach first, weighs distance properly, and Advances on long trips.",
+      "changes": [
+        "Objectives several turns away now cost a share of their value for each extra turn, instead of a flat -2 that a high-value objective could ignore.",
+        "The AI checks who wins the race: if the enemy can get at least as much OC onto an objective before the unit arrives, that objective is worth much less. The Suggest (K) card shows this as 'Enemy gets there first', and the plan says 'racing for it (enemy can have ~N OC there before we arrive in T turns)'.",
+        "Units on a trip that takes several turns now Advance when that gets them there a whole turn sooner and they have nothing to shoot anyway ('advancing to arrive a turn sooner')."
+      ]
+    },
+    {
+      "version": "1.52.2",
+      "date": "2026-10-27",
+      "summary": "Heroic Intervention now shows its 2D6 charge roll.",
+      "changes": [
+        "When you use Heroic Intervention, the 2D6 charge roll is now animated on screen and written to the Dice Log and Game Log, with SUCCESS or FAILED.",
+        "If you picked Into the Fray and rolled more than 6, the log says the roll was capped at 6\"."
       ]
     },
     {

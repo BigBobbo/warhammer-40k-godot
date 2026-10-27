@@ -1,0 +1,49 @@
+{
+  "id": "attached_leader_only_engaged_no_overrun_11e",
+  "covers": [
+    "phases.FightPhase.attached_units_19_03",
+    "phases.FightPhase.overrun_fight_12_06",
+    "scripts.FightController._populate_fight_selection_panel"
+  ],
+  "fixture": "attached_leader_only_engaged_11e",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Reported bug: an Attached unit that was engaged the whole phase got a SECOND pile-in when selected to fight. Only the Blade Champion's model is within Engagement Range of the Boyz; the Custodian Guard's own models trail behind in coherency. FightPhase._proceed_to_fight_moves measured just the bodyguard's own models, read the Attached unit as unengaged and granted the 12.06 Overrun fight's additional pile-in (the FightSequencer, which folds the components per 19.03, had already logged types: [\"normal\"]). Player path: both players pass the 12.02 Pile In step via the End Pile In button; P1 clicks 'Custodian Guard' in the Fight selection panel; the activation must go straight to the AttackAssignmentDialog — no PileInDialog, no overrun unit, no PILE_IN legal action. Setup-only privilege: P1's CP is zeroed so the Epic Challenge prompt does not interleave.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "RulesEngine.is_attached_character(\"U_BLADE_CHAMPION_A\", GameState.state)", "equals": true, "comment": "the fixture really has the Attached unit formed" },
+    { "act": "execute_script", "script": "RulesEngine.is_unit_engaged(\"U_CUSTODIAN_GUARD_B\", GameState.state)", "equals": false, "comment": "the bodyguard's OWN models are out of Engagement Range" },
+    { "act": "execute_script", "script": "RulesEngine.is_unit_engaged(\"U_BLADE_CHAMPION_A\", GameState.state)", "equals": true, "comment": "the Leader's model is engaged, so the Attached unit is engaged (19.03)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "01_fight_selection_leader_only_engaged" },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node_or_null(\"PileInDialog\") == null", "equals": true, "comment": "no second pile-in offered on the activation" },
+    { "act": "expect_phase_property", "property": "overrun_pile_in_unit_11e", "equals": "" },
+    { "act": "expect_phase_property", "property": "active_fighter_id", "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_active", "equals": false },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for a in PhaseManager.get_current_phase_instance().get_available_actions():\n\tif a.get(\"type\") == \"PILE_IN\":\n\t\treturn true\nreturn false",
+      "equals": false,
+      "comment": "PILE_IN is not a legal action for the activated Attached unit"
+    },
+    { "act": "screenshot", "label": "02_straight_to_attack_assignment" }
+  ]
+}

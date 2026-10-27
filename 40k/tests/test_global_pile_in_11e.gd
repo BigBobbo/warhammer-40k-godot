@@ -15,9 +15,9 @@ extends SceneTree
 #      applies; a step pile-in that engages a new enemy makes it
 #      fight-eligible (and stamps 12.08 consolidation eligibility).
 #   4. Halves pass active -> opponent; both done -> fight selection begins.
-#   5. Overrun: the mid-step-engaged unit is offered the additional
-#      pile-in on selection; an engaged-from-start unit goes straight to
-#      attack assignment.
+#   5. The Fight step's engagement snapshot is taken AFTER the Pile In
+#      step: a unit engaged by its step pile-in makes a normal fight (no
+#      additional pile-in), as does an engaged-from-start unit.
 #   6. Edition 10 unchanged (no step; per-activation pile-in intact).
 #
 # Usage: godot --headless --path . -s tests/test_global_pile_in_11e.gd
@@ -135,22 +135,25 @@ func _run_tests():
 	_check("fight selection was offered when the step finished",
 		r_end2.get("trigger_fight_selection", false), str(r_end2))
 
-	print("\n-- 12.06: overrun fight gets the additional pile-in; normal fight does not --")
-	# U_E was UNENGAGED at the start of the Fight step snapshot (phase
-	# entry) and became engaged via its step pile-in -> overrun-eligible.
+	print("\n-- 12.04/12.06: engagement is snapshotted at the start of the FIGHT step --")
+	# U_E was unengaged when the phase began but piled into U_D during the
+	# 12.02 Pile In step, so it WAS engaged at the start of the Fight step
+	# (12.04 runs after 12.02). 12.06's "unengaged at the start of the Fight
+	# step" does not apply: a normal fight, no additional pile-in. (The
+	# genuine overrun path — a unit still unengaged when selected — is
+	# covered by test_attached_overrun_fold_11e.gd.)
+	_check("Fight step snapshot taken after the pile-ins: U_E engaged at step start",
+		fp.sequencer_11e.engaged_at_step_start.get("U_E", false), str(fp.sequencer_11e.engaged_at_step_start))
 	var r_sel_e = fp.execute_action({"type": "SELECT_FIGHTER", "unit_id": "U_E", "player": 1})
 	_check("U_E selected to fight", r_sel_e.get("success", false), str(r_sel_e))
-	_check("U_E's selection offers the overrun additional pile-in (12.06)",
-		r_sel_e.get("trigger_pile_in", false), str(r_sel_e))
-	_check("overrun flag stamped for the 12.03 template gate",
-		gs.state["units"]["U_E"].get("flags", {}).get("selected_for_overrun_fight", false))
-	var overrun_offers = []
+	_check("U_E (engaged by its step pile-in) makes a NORMAL fight — no overrun pile-in (12.05)",
+		r_sel_e.get("trigger_attack_assignment", false) and not r_sel_e.get("trigger_pile_in", false), str(r_sel_e))
+	_check("no overrun flag stamped",
+		not gs.state["units"]["U_E"].get("flags", {}).get("selected_for_overrun_fight", false))
+	var e_offers = []
 	for a in fp.get_available_actions():
-		overrun_offers.append(a.get("type", ""))
-	_check("PILE_IN offered mid-activation only for the overrun unit", "PILE_IN" in overrun_offers, str(overrun_offers))
-	var r_op = fp.execute_action({"type": "PILE_IN", "unit_id": "U_E", "movements": {}, "player": 1})
-	_check("overrun pile-in (declined, empty) succeeds and moves on to attacks",
-		r_op.get("success", false) and r_op.get("trigger_attack_assignment", false), str(r_op))
+		e_offers.append(a.get("type", ""))
+	_check("no PILE_IN offered during U_E's normal fight", not ("PILE_IN" in e_offers), str(e_offers))
 	var r_skip_e = fp.execute_action({"type": "SKIP_UNIT", "unit_id": "U_E", "player": 1})
 	_check("U_E's activation skipped (attack flow covered windowed)", r_skip_e.get("success", false), str(r_skip_e))
 

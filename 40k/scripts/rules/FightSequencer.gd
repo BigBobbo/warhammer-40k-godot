@@ -64,15 +64,25 @@ static func _measurement() -> Node:
 	return Engine.get_main_loop().root.get_node("/root/Measurement")
 
 
-## Snapshot engagement state at the start of the Fight step (12.04's
-## "was engaged at the start of this step" clause).
+## Reset the sequence for a new Fight phase. The engagement snapshot taken
+## here is provisional (it covers the 12.02 Pile In step that runs first);
+## the phase retakes it with snapshot_step_start once that step ends.
 func begin(board: Dictionary, p_active_player: int) -> void:
 	active_player = p_active_player
 	picker = p_active_player
 	step = "fights_first"
 	fought = {}
-	engaged_at_step_start = {}
 	passed = {}
+	snapshot_step_start(board)
+
+
+## Snapshot engagement state at the start of the Fight step (12.04's
+## "was engaged at the start of this step" clause, which also decides the
+## 12.06 Overrun fight). The Fight step starts AFTER the 12.02 Pile In step,
+## so the phase calls this when that step completes — pile-in moves can
+## engage a unit that was unengaged when the phase began.
+func snapshot_step_start(board: Dictionary) -> void:
+	engaged_at_step_start = {}
 	var rules = _rules()
 	for unit_id in board.get("units", {}):
 		engaged_at_step_start[unit_id] = rules.is_unit_engaged(unit_id, board)

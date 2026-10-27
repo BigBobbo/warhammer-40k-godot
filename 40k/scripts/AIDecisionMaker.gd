@@ -1687,6 +1687,16 @@ const MOVE_TURNS_AWAY_PENALTY: float = 2.0        # per extra turn needed to arr
 # order would send and bringing as much of the still-needed OC, takes it instead.
 const MOVE_ASSIGN_CLOSER_MARGIN: float = 4.0
 const MOVE_ASSIGN_CLOSER_MIN_INCHES: float = 3.0
+# RACE-1: multi-turn objective trips. FRACTION scales the per-extra-turn cost
+# with the objective's value (a flat -2 was dwarfed by a +20 objective), the
+# race factor is the share of value kept when the enemy can stand in range
+# with at least our OC before we arrive, and LONG_ADVANCE lets a unit Advance
+# on a trip it will not finish this turn when that saves a whole turn. Set
+# FRACTION 0 / RACE_LOSS 1 / LONG_ADVANCE 0 to restore the old behaviour.
+const MOVE_TURNS_AWAY_FRACTION: float = 0.2       # x (objective value) per extra turn
+const MOVE_RACE_LOSS_FACTOR: float = 0.5          # value kept when the enemy wins the race
+const MOVE_LONG_ADVANCE: float = 1.0              # 1 = advance on long trips when it saves a turn
+const ADVANCE_EXPECTED_EXTRA_INCHES: float = 3.5  # mean D6 Advance roll
 const MOVE_STAY_BONUS_LATE: float = 7.0           # already on objective, round >= 4
 const MOVE_STAY_BONUS_SCORING: float = 6.0        # already on objective, round >= 2
 const MOVE_STAY_BONUS_EARLY: float = 5.0          # already on objective, round 1
@@ -8225,6 +8235,7 @@ static func _evaluate_all_objectives(
 		# and to tell the player WHY the AI is massing units on a "free" objective.
 		var projected_enemy_oc = 0
 		var projected_names: Array = []
+		var enemy_arrivals: Array = []  # RACE-1: [{moves, oc, name}] for enemies outside range
 		for e_uid in enemies:
 			var e_unit = enemies[e_uid]
 			if e_unit.get("flags", {}).get("battle_shocked", false):
@@ -8246,6 +8257,12 @@ static func _evaluate_all_objectives(
 			if e_dist <= (e_move + 2.0) * PIXELS_PER_INCH + OBJECTIVE_CONTROL_RANGE_PX:
 				projected_enemy_oc += e_oc
 				projected_names.append(_dn(e_unit, e_uid))
+			# RACE-1: how many enemy moves this unit needs to stand in range, so a
+			# multi-turn trip can ask "who gets there first" (see the race term).
+			var e_step_px = (e_move + 2.0) * PIXELS_PER_INCH
+			if e_step_px > 0.0:
+				enemy_arrivals.append({"moves": int(ceil((e_dist - OBJECTIVE_CONTROL_RANGE_PX) / e_step_px)),
+					"oc": e_oc, "name": _dn(e_unit, e_uid)})
 
 		# 14.02 CONTEST CAPACITY — the OC we can stand in range with soon, in the
 		# same per-model units as enemy_oc: every alive model's OC of each of our
@@ -8426,7 +8443,8 @@ static func _evaluate_all_objectives(
 			"oc_needed": max(0, enemy_oc - friendly_oc + 1),  # OC we need to add to flip control
 			"contest_oc": contest_oc,  # 14.02: OC we can stand in range with within our next two moves
 			"projected_enemy_oc": projected_enemy_oc,  # COORD-5: enemy OC one move away
-			"projected_names": projected_names
+			"projected_names": projected_names,
+			"enemy_arrivals": enemy_arrivals  # RACE-1: enemy moves-to-range + OC
 		})
 
 	# Narrate the VP stakes once per evaluation (top objectives by VP), so the
@@ -8575,6 +8593,11 @@ static func _assign_units_to_objectives(
 			_get_round_strategy_modifiers(battle_round),
 			_get_army_strategy_modifiers(snapshot, player))
 
+		# RACE-1: may this unit Advance on a multi-turn trip at no shooting cost?
+		var long_adv_ok: bool = get_param("MOVE_LONG_ADVANCE", MOVE_LONG_ADVANCE) > 0.0 \
+				and "BEGIN_ADVANCE" in move_types \
+				and _should_unit_advance_long_trip(unit, has_ranged, max_weapon_range, enemies, centroid)
+
 		for eval in obj_evaluations:
 			var obj_pos = eval.position
 			var obj_id = eval.id
@@ -8586,6 +8609,13 @@ static func _assign_units_to_objectives(
 			# just its centroid. A spread squad with models on the marker but a
 			# centroid >3.79" away was treated as off-objective and sent away.
 			var already_on_obj = dist_px <= OBJECTIVE_CONTROL_RANGE_PX or _unit_has_model_in_control_range(unit, obj_pos)
+			# RACE-1: a long trip the unit will Advance on is costed (distance,
+			# contest race) at the Advance pace it will actually travel.
+			var long_adv: bool = long_adv_ok and not already_on_obj \
+					and dist_inches > move_inches + 2.0 \
+					and _long_trip_advance_saves_turn(dist_inches, move_inches)
+			if long_adv:
+				turns_to_reach = max(1.0, ceil(dist_inches / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES))))
 
 			# Base score from objective priority
 			# T7-43: Scale objective priority by round strategy modifier
@@ -8600,9 +8630,32 @@ static func _assign_units_to_objectives(
 			if eval.oc_needed > 0:
 				score += _t_add(score_terms, "oc_efficiency", min(float(unit_oc) / max(1.0, float(eval.oc_needed)), 1.5) * get_param("WEIGHT_OC_EFFICIENCY", WEIGHT_OC_EFFICIENCY))
 
-			# Distance penalty: further away = less useful
+			# RACE-1: CONTEST RACE. COORD-5's projected_enemy_oc looks one enemy
+			# move ahead, but a unit 3 turns out gives the enemy 2 moves before it
+			# arrives. Sum the OC the enemy can stand in range with by then (its
+			# holders plus every unit whose moves-to-range fit before our arrival)
+			# and, if that matches or beats what we would have there, keep only
+			# MOVE_RACE_LOSS_FACTOR of the value: we'd arrive to a fight we lose.
+			var race_enemy_oc := 0
+			var race_lost := false
+			if turns_to_reach > 1 and not already_on_obj:
+				race_enemy_oc = int(eval.get("enemy_oc", 0))
+				for arr in eval.get("enemy_arrivals", []):
+					if int(arr.moves) <= int(turns_to_reach) - 1:
+						race_enemy_oc += int(arr.oc)
+				var race_our_oc: int = int(unit_oc) + int(eval.get("friendly_oc", 0))
+				if race_enemy_oc > 0 and race_enemy_oc >= race_our_oc and score > 0.0:
+					race_lost = true
+					score = _t_mul(score_terms, "contest_race", score,
+						get_param("MOVE_RACE_LOSS_FACTOR", MOVE_RACE_LOSS_FACTOR))
+
+			# Distance penalty: further away = less useful. RACE-1: each extra turn
+			# costs a share of the objective's value (floored at the flat penalty),
+			# so a +20 objective three turns away is no longer down just -4.
 			if turns_to_reach > 1:
-				score += _t_add(score_terms, "distance_penalty", -((turns_to_reach - 1) * get_param("MOVE_TURNS_AWAY_PENALTY", MOVE_TURNS_AWAY_PENALTY)))
+				var per_turn := maxf(get_param("MOVE_TURNS_AWAY_PENALTY", MOVE_TURNS_AWAY_PENALTY),
+					get_param("MOVE_TURNS_AWAY_FRACTION", MOVE_TURNS_AWAY_FRACTION) * maxf(0.0, score))
+				score += _t_add(score_terms, "distance_penalty", -((turns_to_reach - 1) * per_turn))
 
 			# SCORING HORIZON. An objective is only worth what it can still score.
 			# A unit arriving in round A holds it for the command phases of
@@ -8921,6 +8974,12 @@ static func _assign_units_to_objectives(
 				if should_advance:
 					action = "advance"
 					reason = "advancing for extra range"
+			elif long_adv:
+				# RACE-1: a trip that takes several turns either way — Advance when
+				# the expected roll gets there a whole turn sooner and the unit has
+				# nothing to shoot this turn anyway.
+				action = "advance"
+				reason = "advancing to arrive a turn sooner"
 
 			# PM-3: the plan's HOLD_OBJECTIVE / PUSH_CENTER bias, as a named
 			# additive term so it shows up in score_breakdown like every other.
@@ -8942,6 +9001,8 @@ static func _assign_units_to_objectives(
 				"already_on_obj": already_on_obj,
 				"turns_to_reach": turns_to_reach,
 				"move_inches": move_inches,
+				"race_enemy_oc": race_enemy_oc,
+				"race_lost": race_lost,
 				"vp_value": eval.get("vp_value", 0.0),
 				"score_terms": score_terms
 			})
@@ -9069,6 +9130,9 @@ static func _assign_units_to_objectives(
 			var proj = eval_for_assign.get("projected_enemy_oc", 0)
 			if st in ["enemy_weak", "enemy_strong", "contested"]:
 				assign_reason = "flipping it (enemy holds with OC %d)" % eval_for_assign.get("enemy_oc", 0)
+			elif cand.get("race_lost", false):
+				assign_reason = "racing for it (enemy can have ~%d OC there before we arrive in %d turns)" % [
+					cand.get("race_enemy_oc", 0), int(cand.get("turns_to_reach", 1))]
 			elif proj > 0:
 				assign_reason = "capturing it (enemy can bring ~%d OC next move)" % proj
 			else:
@@ -10223,6 +10287,43 @@ static func _should_unit_advance(
 
 	# Otherwise, prefer shooting over advancing
 	return false
+
+## RACE-1: true when a trip that a normal move cannot finish this turn takes
+## at least one fewer turn if the unit Advances (expected M + D6) each turn.
+static func _long_trip_advance_saves_turn(dist_inches: float, move_inches: float) -> bool:
+	if move_inches <= 0.0 or dist_inches <= move_inches:
+		return false
+	var turns_normal := ceilf(dist_inches / move_inches)
+	var turns_adv := ceilf(dist_inches / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES)))
+	return turns_adv < turns_normal
+
+## RACE-1: Advancing costs the unit its shooting (and charge) this turn, so on
+## a long trip only do it when that costs nothing: no enemy within charge reach
+## (M + 12") unless it can Advance and charge, and then Advance-and-shoot
+## units, units without ranged weapons, or nothing in weapon range right now.
+static func _should_unit_advance_long_trip(unit: Dictionary, has_ranged: bool,
+		max_weapon_range: float, enemies: Dictionary, centroid: Vector2) -> bool:
+	var adv_and_charge: bool = unit.get("flags", {}).get("effect_advance_and_charge", false) \
+			or (AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge"))
+	if not adv_and_charge:
+		var charge_reach_px := (float(unit.get("meta", {}).get("stats", {}).get("move", 6)) + 12.0) * PIXELS_PER_INCH
+		for enemy_id in enemies:
+			var ec = _get_unit_centroid(enemies[enemy_id])
+			if ec != Vector2.INF and centroid.distance_to(ec) <= charge_reach_px:
+				return false
+	if unit.get("flags", {}).get("effect_advance_and_shoot", false):
+		return true
+	if AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "shoot"):
+		return true
+	if not has_ranged:
+		return true
+	for enemy_id in enemies:
+		var enemy_centroid = _get_unit_centroid(enemies[enemy_id])
+		if enemy_centroid == Vector2.INF:
+			continue
+		if centroid.distance_to(enemy_centroid) <= max_weapon_range * PIXELS_PER_INCH:
+			return false
+	return true
 
 # =============================================================================
 # MOVEMENT HELPERS (Enhanced)
@@ -15103,6 +15204,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			charge_candidates.append({
 				"description": "Charge %s (%.1f\" away, %.0f%% chance)" % [t_name, t_dist, t_prob * 100.0],
 				"score": t_score,
+				"target_unit_id": tid,  # board overlay rings the hovered option's target
 				"pos": [t_pos.x, t_pos.y] if t_pos != Vector2.INF else [],
 				"score_breakdown": (t_eval.get("terms", {}) as Dictionary).merged({
 					"charge_probability": t_prob,
@@ -16893,6 +16995,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		fight_candidates.append({
 			"description": "Attack %s with melee" % ename,
 			"score": e_score,
+			"target_unit_id": enemy_id,  # board overlay rings the hovered option's target
 			"score_breakdown": e_breakdown
 		})
 		if enemy_id == best_target_id:
@@ -18589,6 +18692,79 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 			"_ai_description": "%s stays on the battlefield (%s)" % [rd_name, rd_verdict.reason]
 		}
 
+	# 11e score-or-hold: met Tactical cards (human players only — AI players
+	# score immediately) sit as pending offers until End Turn. The advisor used
+	# to ignore them entirely, so a scoreable card like Engage on All Fronts
+	# never appeared in its reasoning. Use the manager's REAL condition check
+	# (the pending list), not the achievability heuristic.
+	var pending_scores: Array = []
+	var pending_by_id: Dictionary = {}
+	var score_mgr = _secondary_mission_manager()
+	if score_mgr and score_mgr.has_method("get_pending_secondary_scores") and score_mgr.is_initialized(player):
+		pending_scores = score_mgr.get_pending_secondary_scores(player)
+	var score_missions: Array = score_mgr.get_active_missions(player) if (score_mgr and not pending_scores.is_empty()) else []
+	for pending in pending_scores:
+		pending_by_id[str(pending.get("mission_id", ""))] = pending
+		var p_id = str(pending.get("mission_id", ""))
+		var p_name = str(pending.get("mission_name", "?"))
+		var p_vp = int(pending.get("vp", 0))
+		var p_held = bool(pending.get("held", false))
+		# Holding only pays when the card scores again at the end of the
+		# OPPONENT's turn for more (Display of Might: 2 VP now vs 5 VP then).
+		# Discount that later VP for the risk the condition is lost meanwhile.
+		var later_vp = 0
+		for m in score_missions:
+			if str(m.get("id", "")) != p_id:
+				continue
+			var m_scoring = m.get("scoring", {})
+			if str(m_scoring.get("when", "")) == SecondaryMissionData.TIMING_END_OF_EITHER_TURN:
+				for c in m_scoring.get("conditions", []):
+					if str(c.get("timing", "")) == "opponent_turn":
+						later_vp = maxi(later_vp, int(c.get("vp", 0)))
+		var hold_value = float(later_vp) * 0.7
+		var want_hold = hold_value > float(p_vp)
+		var hold_scored: Array = [
+			{"description": "Score '%s' now (%d VP)" % [p_name, p_vp], "score": float(p_vp), "key": "score",
+				"score_breakdown": {"vp_now": float(p_vp)}},
+			{"description": "Hold '%s' (0 VP now, card stays active)" % p_name, "score": hold_value, "key": "hold",
+				"score_breakdown": {"vp_at_opponent_turn_end": float(later_vp), "risk_discount": 0.7}},
+		]
+		_record_choice("secondary_score", "", p_name, hold_scored, "hold" if want_hold else "score",
+			{"phase": "scoring", "mission_id": p_id, "vp": p_vp, "currently_held": p_held})
+		if want_hold:
+			_add_thinking_step("Secondary '%s' is MET for %d VP now, but holding it pays %d VP at the end of the opponent's turn — hold" % [p_name, p_vp, later_vp])
+			print("AIDecisionMaker: [SCORING] Pending '%s' %d VP now vs %d later — recommending HOLD" % [p_name, p_vp, later_vp])
+			if not p_held:
+				return {
+					"type": "HOLD_SECONDARY",
+					"mission_id": p_id,
+					"hold": true,
+					"player": player,
+					"_ai_description": "Hold %s (worth %d VP at the end of the opponent's turn)" % [p_name, later_vp],
+				}
+			continue
+		if p_held:
+			_add_thinking_step("Secondary '%s' is MET (%d VP) but currently held — score it now" % [p_name, p_vp])
+			print("AIDecisionMaker: [SCORING] Pending '%s' (%d VP) is held — recommending SCORE" % [p_name, p_vp])
+			return {
+				"type": "HOLD_SECONDARY",
+				"mission_id": p_id,
+				"hold": false,
+				"player": player,
+				"_ai_description": "Score %s (%d VP)" % [p_name, p_vp],
+			}
+		_add_thinking_step("Secondary '%s' is MET — End Turn scores it for %d VP" % [p_name, p_vp])
+		print("AIDecisionMaker: [SCORING] Pending '%s' met for %d VP — will score at End Turn" % [p_name, p_vp])
+	var end_turn_desc = "End Turn"
+	if not pending_scores.is_empty():
+		var score_bits: Array = []
+		for pending in pending_scores:
+			if bool(pending.get("held", false)):
+				continue
+			score_bits.append("%s %d VP" % [pending.get("mission_name", "?"), int(pending.get("vp", 0))])
+		if not score_bits.is_empty():
+			end_turn_desc = "End Turn — scores %s" % ", ".join(score_bits)
+
 	# T7-47: Evaluate active secondary missions and discard unachievable ones for +1 CP
 	var discard_actions = []
 	for action in available_actions:
@@ -18597,13 +18773,13 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 
 	if discard_actions.is_empty():
 		print("AIDecisionMaker: [SCORING] No secondary missions to evaluate, ending turn")
-		return {"type": "END_SCORING", "_ai_description": "End Turn"}
+		return {"type": "END_SCORING", "_ai_description": end_turn_desc}
 
 	# Get secondary mission manager for mission data
 	var secondary_mgr = _secondary_mission_manager()
 	if not secondary_mgr or not secondary_mgr.is_initialized(player):
 		print("AIDecisionMaker: [SCORING] SecondaryMissionManager not available, ending turn")
-		return {"type": "END_SCORING", "_ai_description": "End Turn"}
+		return {"type": "END_SCORING", "_ai_description": end_turn_desc}
 
 	var active_missions = secondary_mgr.get_active_missions(player)
 	var battle_round = snapshot.get("meta", {}).get("battle_round", 1)
@@ -18620,12 +18796,18 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 
 	for i in range(active_missions.size()):
 		var mission = active_missions[i]
-		var score = _evaluate_mission_achievability(snapshot, mission, player, battle_round)
 		var mission_name = mission.get("name", "Unknown")
-		print("AIDecisionMaker: [SCORING]   Mission '%s': achievability score = %.1f" % [mission_name, score])
-		_add_thinking_step("Secondary '%s': achievability %.2f %s" % [
-			mission_name, score,
-			"— looks scoreable, keeping" if score >= 0.5 else ("— difficult" if score >= 0.2 else "— close to impossible")])
+		var score: float
+		if pending_by_id.has(str(mission.get("id", ""))):
+			# Conditions met right now (manager's real check) — never a discard candidate.
+			score = 1.0
+			print("AIDecisionMaker: [SCORING]   Mission '%s': MET this turn — achievability 1.0" % mission_name)
+		else:
+			score = _evaluate_mission_achievability(snapshot, mission, player, battle_round)
+			print("AIDecisionMaker: [SCORING]   Mission '%s': achievability score = %.1f" % [mission_name, score])
+			_add_thinking_step("Secondary '%s': achievability %.2f %s" % [
+				mission_name, score,
+				"— looks scoreable, keeping" if score >= 0.5 else ("— difficult" if score >= 0.2 else "— close to impossible")])
 
 		# A6: score here is ACHIEVABILITY, so the discard candidate is the
 		# LOWEST — record it negated, so the record's "best" row is the option
@@ -18687,7 +18869,7 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 			worst_mission_name, worst_mission_score, discard_threshold])
 	print("AIDecisionMaker: [SCORING] All missions are potentially achievable (worst: '%s' score=%.1f), ending turn" % [
 		worst_mission_name if worst_mission_name != "" else "none", worst_mission_score])
-	return {"type": "END_SCORING", "_ai_description": "End Turn"}
+	return {"type": "END_SCORING", "_ai_description": end_turn_desc}
 
 # Late-bound reference to SecondaryMissionManager autoload
 static func _secondary_mission_manager():
@@ -20062,21 +20244,50 @@ static func _get_table_quarter(pos: Vector2) -> int:
 		return 1 if pos.y < mid_y else 3
 
 static func _get_covered_quarters(units: Dictionary, player: int) -> Array:
-	"""Returns which table quarters have friendly units (for Engage on All Fronts)."""
+	"""Returns which table quarters have friendly presence (for Engage on All Fronts).
+	Mirrors SecondaryMissionManager._check_table_quarter_presence: a unit gives
+	presence only if EVERY alive model is wholly within one quarter AND every
+	model's base edge is >6" from the centre; Battle-shocked and AIRCRAFT units
+	never count. The old centroid-only test counted units straddling the
+	halfway line or hugging the centre, so it over-reported covered quarters."""
 	var quarters = [false, false, false, false]
+	var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
+	var min_edge_px = 6.0 * PIXELS_PER_INCH
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("owner", 0) != player:
 			continue
-		var centroid = _get_unit_centroid(unit)
-		if centroid == Vector2.INF:
+		if unit.get("flags", {}).get("battle_shocked", false):
 			continue
-		# Engage on All Fronts requires >6" from center
-		var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
-		if centroid.distance_to(board_center) <= 6.0 * PIXELS_PER_INCH:
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var is_aircraft = false
+		for kw in keywords:
+			if str(kw).to_upper() == "AIRCRAFT":
+				is_aircraft = true
+				break
+		if is_aircraft:
 			continue
-		var q = _get_table_quarter(centroid)
-		quarters[q] = true
+		var unit_quarter = -1
+		var qualifies = true
+		var any_alive = false
+		for model in _get_alive_models(unit):
+			var pos = _get_model_position(model)
+			if pos == Vector2.INF:
+				qualifies = false
+				break
+			any_alive = true
+			var q = _get_table_quarter(pos)
+			if unit_quarter == -1:
+				unit_quarter = q
+			elif q != unit_quarter:
+				qualifies = false  # straddles a quarter line — not wholly within
+				break
+			var base_radius_px = (float(model.get("base_mm", 32)) / 2.0) * (PIXELS_PER_INCH / 25.4)
+			if pos.distance_to(board_center) - base_radius_px <= min_edge_px:
+				qualifies = false  # within 6" of the centre
+				break
+		if qualifies and any_alive and unit_quarter >= 0:
+			quarters[unit_quarter] = true
 	return quarters
 
 # =============================================================================
