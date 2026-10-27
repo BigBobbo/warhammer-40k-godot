@@ -719,6 +719,11 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 	var top: int = a.order[0]
 	if top != chosen and _score_of(cands[top]) > _score_of(cands[chosen]):
 		var f := "The AI picked this even though \"%s\" scored higher — a plan, a rule or a separate scoring step chose it." % a.labels[top]
+		# OBJ-EXPLAIN-1: when the decision recorded WHY it overrode the top
+		# score (e.g. "obj_nml_1 is already taken by Telemon"), say that instead.
+		var override_reason := str(rec.get("context", {}).get("override_reason", ""))
+		if override_reason != "":
+			f = "The AI picked this even though \"%s\" scored higher: %s." % [a.labels[top], override_reason]
 		o.line("[color=%s]⚠ %s[/color]" % [HEX_WARN, _esc(f)], "! " + f)
 	if runner >= 0:
 		var cs := _score_of(cands[chosen])
