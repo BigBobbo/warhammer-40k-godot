@@ -466,6 +466,8 @@ static func build_breakdown(decision: Dictionary, meta: Dictionary = {},
 	var subtitle := "Player %s · %s phase · Round %s · thinking at %s difficulty" % [
 		str(meta.get("player", "?")), str(meta.get("phase_name", "?")),
 		str(meta.get("round", "?")), str(meta.get("difficulty", "?"))]
+	if str(meta.get("refreshed_after", "")) != "":
+		subtitle += " · updated after %s acted" % str(meta.refreshed_after)
 
 	_heading(o, "THE AI WOULD")
 	if decision.is_empty():

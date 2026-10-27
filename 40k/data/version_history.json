@@ -9,7 +9,8 @@
         "Movement phase: the card says 'Moving first: <unit> — <reason>' (e.g. front-most unit, locked in combat, just disembarked, or level with another unit and the plan's priority broke the tie) and how many more units are queued.",
         "The card lists the whole move order: each unit's planned action and objective and how far behind the front it is.",
         "New '◀ Unit' / 'Unit ▶' buttons (or click a unit's name in the list) show what the AI's plan has that unit do, with its full breakdown. Cards for later units say they are not what the AI does next, and 'Back to the AI's next move' returns to it.",
-        "Good call / Bad call on one of those cards saves a test case for that unit."
+        "Good call / Bad call on one of those cards saves a test case for that unit.",
+        "The open card updates itself each time one of your units finishes moving (or stays still, arrives from reserves, embarks or disembarks): the moved unit leaves the order and the AI re-plans the rest. If you were viewing another unit, it stays on that unit."
       ]
     },
     {

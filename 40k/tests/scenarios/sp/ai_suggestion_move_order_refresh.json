@@ -1,0 +1,202 @@
+{
+  "id": "ai_suggestion_move_order_refresh",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "ai.suggestion.move_order",
+    "ai.suggestion.move_order_refresh"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "MOVE-ORDER refresh: with the K card open in P1's Movement phase, the player moves the suggested unit (BEGIN_NORMAL_MOVE, models staged at the suggested destinations, CONFIRM_UNIT_MOVE). The card re-asks the AI on its own: the moved unit leaves the move order, a different unit is suggested and the subtitle says 'updated after <unit> acted'. While viewing another unit (Unit ▶), a different unit remaining stationary keeps that view; when the viewed unit itself acts, the card goes back to the AI's next pick.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._cycle_order.size()",
+      "expect_min": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.set_meta(\"probe_n\", main._ai_suggestion_panel._cycle_order.size())"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.set_meta(\"probe_first\", str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")))"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._decision.get(\"type\", \"\") == \"BEGIN_NORMAL_MOVE\" and not main._ai_suggestion_panel._decision.get(\"_ai_model_destinations\", {}).is_empty()",
+      "equals": true,
+      "comment": "the AI's pick is a normal move with planned destinations"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_before_move"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.execute_action({\"type\": \"BEGIN_NORMAL_MOVE\", \"actor_unit_id\": main._ai_suggestion_panel.get_meta(\"probe_first\"), \"player\": 1}).get(\"success\", false)",
+      "equals": true,
+      "comment": "the player starts moving the unit the card suggested"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer._execute_ai_movement(1, main._ai_suggestion_panel._decision)",
+      "comment": "stage each model at the suggested destination and confirm (CONFIRM_UNIT_MOVE through the real phase)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(main._ai_suggestion_panel.get_meta(\"probe_first\")).get(\"flags\", {}).get(\"moved\", false)",
+      "equals": true,
+      "comment": "the move was really confirmed"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._cycle_order.has(main._ai_suggestion_panel.get_meta(\"probe_first\"))",
+      "equals": false,
+      "comment": "the moved unit has left the move order"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._cycle_order.size() == main._ai_suggestion_panel.get_meta(\"probe_n\") - 1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) != main._ai_suggestion_panel.get_meta(\"probe_first\")",
+      "equals": true,
+      "comment": "the card now suggests a different unit"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._subtitle.text.contains(\"updated after\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Moving first: \")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_after_move_refreshed"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Footer/Row/NextUnitButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.set_meta(\"probe_focus\", str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")))"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.set_meta(\"probe_pick\", str(main._ai_suggestion_panel._decision.get(\"_ai_move_order\", {}).get(\"order\", [{}])[0].get(\"unit_id\", \"\")))"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.get_meta(\"probe_focus\") != main._ai_suggestion_panel.get_meta(\"probe_pick\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.execute_action({\"type\": \"REMAIN_STATIONARY\", \"actor_unit_id\": main._ai_suggestion_panel.get_meta(\"probe_pick\"), \"player\": 1}).get(\"success\", false)",
+      "equals": true,
+      "comment": "the AI's next pick stays still"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) == main._ai_suggestion_panel.get_meta(\"probe_focus\")",
+      "equals": true,
+      "comment": "the card keeps showing the unit the player was looking at"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._cycle_order.has(main._ai_suggestion_panel.get_meta(\"probe_pick\"))",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.execute_action({\"type\": \"REMAIN_STATIONARY\", \"actor_unit_id\": main._ai_suggestion_panel.get_meta(\"probe_focus\"), \"player\": 1}).get(\"success\", false)",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._cycle_order.has(main._ai_suggestion_panel.get_meta(\"probe_focus\"))",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Moving first: \")",
+      "equals": true,
+      "comment": "viewing the AI's own next pick again"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._cycle_order.size() == main._ai_suggestion_panel.get_meta(\"probe_n\") - 3",
+      "equals": true
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    }
+  ]
+}

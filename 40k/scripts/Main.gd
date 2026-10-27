@@ -2703,6 +2703,43 @@ func _on_ai_suggestion_unit_focus(unit_id: String) -> void:
 	var decision: Dictionary = ai_player.request_suggestion(-1, unit_id)
 	_show_ai_suggestion_breakdown(decision, ai_player.last_suggestion_meta)
 
+# Movement actions that finish a unit (or put a new one on the board) — the open
+# K card's move order and plan are stale after any of them.
+const AI_CARD_REFRESH_ACTIONS := ["CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY", "CONFIRM_DISEMBARK",
+	"EMBARK_UNIT", "PLACE_REINFORCEMENT", "PLACE_RAPID_INGRESS_REINFORCEMENT"]
+
+func _on_action_for_ai_suggestion_card(action: Dictionary) -> void:
+	"""MOVE-ORDER: while the K card is open in the Movement phase, re-ask the AI
+	after each unit finishes moving so the card follows the board. Keeps the unit
+	the player was looking at when it can still move; otherwise shows the AI's
+	next pick."""
+	if _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel) or not _ai_suggestion_panel.visible:
+		return
+	var t := str(action.get("type", ""))
+	if not (t in AI_CARD_REFRESH_ACTIONS) or GameState.get_current_phase() != GameStateData.Phase.MOVEMENT:
+		return
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if not ai_player or ai_player.is_ai_player(GameState.get_active_player()):
+		return  # the AI's own turn — K is unavailable while it acts
+	call_deferred("_refresh_ai_suggestion_after_action", t, str(action.get("actor_unit_id", action.get("unit_id", ""))))
+
+func _refresh_ai_suggestion_after_action(action_type: String, unit_id: String) -> void:
+	if _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel) or not _ai_suggestion_panel.visible:
+		return
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if not ai_player:
+		return
+	var focus := str(_ai_suggestion_panel._meta.get("focus_unit_id", ""))
+	if focus == unit_id:
+		focus = ""  # the unit being viewed just acted — show the AI's next pick
+	var decision: Dictionary = ai_player.request_suggestion(-1, focus)
+	var meta: Dictionary = ai_player.last_suggestion_meta.duplicate()
+	var u = GameState.get_unit(unit_id) if unit_id != "" else {}
+	var uname := str(u.get("meta", {}).get("name", unit_id)) if u is Dictionary else unit_id
+	meta["refreshed_after"] = uname
+	print("Main: AI suggestion card refreshed after %s (%s), focus='%s'" % [action_type, unit_id, focus])
+	_show_ai_suggestion_breakdown(decision, meta)
+
 func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> void:
 	"""Open (or refresh) the breakdown card showing how the suggestion was reached."""
 	if _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel):
@@ -2713,6 +2750,8 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 		_ai_suggestion_panel.refresh_requested.connect(_on_ai_suggestion_pressed)
 		_ai_suggestion_panel.save_case_requested.connect(_on_ai_suggestion_save_case)
 		_ai_suggestion_panel.unit_focus_requested.connect(_on_ai_suggestion_unit_focus)
+		if PhaseManager and not PhaseManager.phase_action_taken.is_connected(_on_action_for_ai_suggestion_card):
+			PhaseManager.phase_action_taken.connect(_on_action_for_ai_suggestion_card)
 	# A modal dialog (Attack Assignment, Epic Challenge, stratagem windows…)
 	# draws above every Control and swallows input, so the card would be
 	# hidden under it and unclickable — exactly when the decision it explains
