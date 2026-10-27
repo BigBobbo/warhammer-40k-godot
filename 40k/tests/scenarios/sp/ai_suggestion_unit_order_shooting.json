@@ -82,8 +82,9 @@
       "label": "01_shooting_order"
     },
     {
-      "act": "click_node",
-      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Footer/Row/NextUnitButton"
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._next_unit_btn.pressed.emit()",
+      "comment": "press the card's Unit ▶ button via its own pressed signal — the card is created on the first K press, so the loop's selector dry-run cannot resolve a click_node into it"
     },
     {
       "act": "wait_frames",
@@ -110,8 +111,9 @@
       "label": "02_shooting_second_unit"
     },
     {
-      "act": "click_node",
-      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Footer/Row/PrevUnitButton"
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._prev_unit_btn.pressed.emit()",
+      "comment": "press the card's ◀ Unit button via its own pressed signal — the card is created on the first K press, so the loop's selector dry-run cannot resolve a click_node into it"
     },
     {
       "act": "wait_frames",
