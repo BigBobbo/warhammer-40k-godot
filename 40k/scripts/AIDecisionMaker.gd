@@ -2887,7 +2887,11 @@ static func suggest_action(phase: int, snapshot: Dictionary, available_actions: 
 		"copied from the seeded live AI" if live_seeded else "seeded from the board", _ai_rng.seed, _ai_rng.state])
 	_suggest_focus_unit_id = focus_unit_id
 	_last_unit_order = {}
-	var decision := decide(phase, snapshot, available_actions, player, difficulty)
+	var decision := {}
+	if phase == GameStateData.Phase.MOVEMENT:
+		decision = _suggest_in_progress_move(snapshot, available_actions, player, difficulty)
+	if decision.is_empty():
+		decision = decide(phase, snapshot, available_actions, player, difficulty)
 	_suggest_focus_unit_id = ""
 	_ai_rng = live_rng
 	_ai_rng_seeded = live_seeded
@@ -2909,6 +2913,65 @@ static func suggest_action(phase: int, snapshot: Dictionary, available_actions: 
 	_last_unit_order = {}
 	_attach_rule_based_record(decision, snapshot, available_actions)
 	return decision
+
+# Suggestion-only: a move the player began themselves (Begin Move clicked,
+# models maybe dragged) leaves only Confirm/Reset for that unit, and decide()
+# answers its safety fallback "confirm it" — no unit named, no plan, nothing
+# to learn from. Plan THAT unit instead, as if its move were just starting
+# (positions are only committed on confirm, so the snapshot still holds where
+# it began), and say where the AI would take it.
+static func _suggest_in_progress_move(snapshot: Dictionary, available_actions: Array, player: int, difficulty: int) -> Dictionary:
+	var uid := ""
+	for a in available_actions:
+		if str(a.get("type", "")) == "CONFIRM_UNIT_MOVE":
+			uid = str(a.get("actor_unit_id", a.get("unit_id", "")))
+			break
+	if uid == "":
+		return {}
+	var move: Dictionary = {}
+	var pm = Engine.get_main_loop().root.get_node_or_null("/root/PhaseManager") if Engine.get_main_loop() else null
+	var phase_inst = pm.current_phase_instance if pm != null else null
+	if phase_inst != null and "active_moves" in phase_inst:
+		move = phase_inst.active_moves.get(uid, {})
+	var mode := str(move.get("mode", "NORMAL"))
+	var begin_type: String = {"NORMAL": "BEGIN_NORMAL_MOVE", "ADVANCE": "BEGIN_ADVANCE", "FALL_BACK": "BEGIN_FALL_BACK"}.get(mode, "BEGIN_NORMAL_MOVE")
+	var uname := _dn(snapshot.get("units", {}).get(uid, {}), uid)
+	var staged := int(move.get("staged_moves", []).size())
+	# An advancing unit may still move less than its cap, so a plain-move plan
+	# (sized at M, within any Advance cap) is a valid answer for it too.
+	var offer_types: Array = [begin_type]
+	if begin_type == "BEGIN_ADVANCE":
+		offer_types.append("BEGIN_NORMAL_MOVE")
+	var offered: Array = []
+	for t in offer_types:
+		offered.append({"type": t, "actor_unit_id": uid})
+	var plan := decide(GameStateData.Phase.MOVEMENT, snapshot, offered, player, difficulty)
+	if not (str(plan.get("type", "")) in offer_types) or str(plan.get("actor_unit_id", "")) != uid:
+		print("AIDecisionMaker: suggestion for in-progress move of %s found no plan (got %s) — suggesting confirm" % [uid, str(plan.get("type", ""))])
+		return {}
+	# The planner sizes an Advance at the average roll (M+2"). This one is
+	# already rolled — re-plan to the real cap the same way the live AI does
+	# after its own roll, so the suggestion never asks for more than was rolled.
+	var cap := float(move.get("move_cap_inches", 0.0))
+	var roll_note := ""
+	if mode == "ADVANCE" and cap > 0.0 and str(plan.get("type", "")) == "BEGIN_ADVANCE":
+		var ai = Engine.get_main_loop().root.get_node_or_null("/root/AIPlayer") if Engine.get_main_loop() else null
+		var unit: Dictionary = snapshot.get("units", {}).get(uid, {})
+		if ai != null and ai.has_method("recompute_destinations_for_cap"):
+			var dests: Dictionary = ai.recompute_destinations_for_cap(player, uid, unit, plan, cap)
+			if not dests.is_empty():
+				plan["_ai_model_destinations"] = dests
+				roll_note = " (planned for your Advance roll of %d — %.0f\" total)" % [int(move.get("advance_roll", 0)), cap]
+				print("AIDecisionMaker: suggestion re-planned in-progress advance of %s for actual cap %.1f\"" % [uid, cap])
+	if mode == "ADVANCE" and roll_note == "":
+		roll_note = " (within your Advance roll of %d — %.0f\" total)" % [int(move.get("advance_roll", 0)), cap]
+	var desc := str(plan.get("_ai_description", "%s moves" % uname)) + roll_note
+	var next_step := "Move its models that way, then Confirm Move." if staged == 0 \
+		else "%d model(s) already placed — adjust them (or Reset Unit Move), then Confirm Move." % staged
+	plan["_ai_description"] = "%s's move is in progress — AI plan: %s. %s" % [uname, desc, next_step]
+	plan["_ai_in_progress_move"] = true
+	print("AIDecisionMaker: suggestion for in-progress %s move of %s -> %s" % [mode, uid, desc])
+	return plan
 
 # Suggestion-only: decisions taken by a fixed chain of checks (command phase,
 # pile-in, disembark…) score nothing, so the card had nothing to show but a
@@ -6419,7 +6482,7 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 		return {
 			"type": "CONFIRM_UNIT_MOVE",
 			"actor_unit_id": uid,
-			"_ai_description": "Confirmed move"
+			"_ai_description": "Confirm move — %s" % _dn(snapshot.get("units", {}).get(uid, {}), uid)
 		}
 
 	# Step 1.5: Deploy reserves (reinforcements) before normal movement (MOV-8 / T7-16)
