@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.53.0",
+      "version": "1.54.0",
       "date": "2026-10-27",
       "summary": "The AI Suggestion (K) now shows on the board which unit it means, what it targets and where it would move.",
       "changes": [
