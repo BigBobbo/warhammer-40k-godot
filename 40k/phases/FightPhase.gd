@@ -5092,8 +5092,20 @@ func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
 func _proceed_to_fight_moves(unit_id: String) -> Dictionary:
 	var overrun_available := false
 	if sequencer_11e != null:
-		var engaged_now = RulesEngine.is_unit_engaged(unit_id, GameState.state)
-		overrun_available = (not engaged_now) or not sequencer_11e.engaged_at_step_start.get(unit_id, false)
+		# 19.03: engagement is the ATTACHED unit's — a bodyguard engaged only
+		# through its Leader's model (or vice versa) is engaged, and fights a
+		# normal fight. Checking unit_id's own models alone granted the
+		# bodyguard a spurious overrun pile-in. Same fold as
+		# FightSequencer.select_to_fight.
+		var engaged_now := false
+		var engaged_at_start := false
+		for component_id in RulesEngine.attached_unit_component_ids(unit_id, GameState.state):
+			if RulesEngine.is_unit_engaged(component_id, GameState.state):
+				engaged_now = true
+			if sequencer_11e.engaged_at_step_start.get(component_id, false):
+				engaged_at_start = true
+		overrun_available = (not engaged_now) or not engaged_at_start
+		log_phase_message("[11e 12.05/12.06] %s fight check — Attached unit engaged now: %s, at step start: %s" % [unit_id, engaged_now, engaged_at_start])
 	# 12.06 grants ONE additional pile-in per unit per phase — a cancelled and
 	# re-made selection re-enters here, so an already-spent move stays spent.
 	if GameState.get_unit(unit_id).get("flags", {}).get("overrun_pile_in_made_this_phase", false):

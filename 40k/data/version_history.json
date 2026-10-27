@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.52.2",
+      "date": "2026-10-27",
+      "summary": "Fixed attached units getting a second pile-in when selected to fight.",
+      "changes": [
+        "A unit led by a Character no longer gets an extra pile-in when it is selected to fight if only the Character's model was in Engagement Range. The whole Attached unit counts as engaged, so it fights normally. The extra Overrun pile-in is still offered when the whole unit is out of Engagement Range."
+      ]
+    },
+    {
       "version": "1.52.1",
       "date": "2026-10-26",
       "summary": "Removed old leftover army lists from the army picker.",
