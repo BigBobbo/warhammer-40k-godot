@@ -2,6 +2,22 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.53.2",
+      "date": "2026-10-27",
+      "summary": "Units that pile into combat at the start of the Fight phase no longer get a second pile-in.",
+      "changes": [
+        "A unit that was out of Engagement Range when the Fight phase began, but piled into combat during the Pile In step, now fights normally when selected. It no longer gets an extra Overrun pile-in, because the 'engaged at the start of the Fight step' check now happens after the Pile In step."
+      ]
+    },
+    {
+      "version": "1.53.1",
+      "date": "2026-10-27",
+      "summary": "Fixed attached units getting a second pile-in when selected to fight.",
+      "changes": [
+        "A unit led by a Character no longer gets an extra pile-in when it is selected to fight if only the Character's model was in Engagement Range. The whole Attached unit counts as engaged, so it fights normally. The extra Overrun pile-in is still offered when the whole unit is out of Engagement Range."
+      ]
+    },
+    {
       "version": "1.53.0",
       "date": "2026-10-27",
       "summary": "The AI no longer chases objectives the enemy will reach first, weighs distance properly, and Advances on long trips.",
