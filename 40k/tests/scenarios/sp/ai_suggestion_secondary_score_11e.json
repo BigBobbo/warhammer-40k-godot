@@ -1,0 +1,81 @@
+{
+  "id": "ai_suggestion_secondary_score_11e",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "scripts.AIDecisionMaker.secondary_score_record",
+    "scripts.AIDecisionMaker.covered_quarters_wholly_within"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 6,
+  "description": "11e Tactical, human player: Engage on All Fronts is MET (3 units wholly in 3 quarters, >6\" from centre), so the Scoring phase offers it as Score-or-Hold. The AI suggestion must say End Turn scores it (secondary_score record, 'MET' note) instead of only weighing a discard. Also: the quarter heuristic no longer counts a unit straddling the halfway line.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mgr = SecondaryMissionManager\nvar p = GameState.get_active_player()\nvar opp = 2 if p == 1 else 1\nEngine.set_meta(\"eoaf_player\", p)\nGameState.state[\"meta\"][\"game_config\"][\"player1_type\"] = \"HUMAN\"\nGameState.state[\"meta\"][\"game_config\"][\"player2_type\"] = \"HUMAN\"\nfor k in [p, opp]:\n\tif not mgr.is_initialized(k):\n\t\tmgr.setup_tactical_deck(k)\n\tmgr._player_state[str(k)][\"mode\"] = \"tactical\"\n\tmgr._player_state[str(k)][\"active\"] = []\nvar st = mgr._player_state[str(p)]\nfor mid in [\"burden_of_trust\", \"engage_on_all_fronts\"]:\n\tst[\"active\"].append(mgr._create_active_mission(SecondaryMissionData.get_mission_by_id(mid)))\nvar bw = Measurement.inches_to_px(44.0)\nvar bh = Measurement.inches_to_px(60.0)\nvar spots = [Vector2(bw * 0.2, bh * 0.2), Vector2(bw * 0.7, bh * 0.2), Vector2(bw * 0.2, bh * 0.7)]\nvar placed = 0\nfor uid in GameState.state[\"units\"].keys():\n\tvar u = GameState.state[\"units\"][uid]\n\tvar models = u.get(\"models\", [])\n\tif models.size() == 0 or int(u.get(\"owner\", 0)) != p:\n\t\tcontinue\n\tif placed >= spots.size():\n\t\tfor m in models:\n\t\t\tm[\"alive\"] = false\n\t\tcontinue\n\tvar c = spots[placed]\n\tvar mi = 0\n\tfor m in models:\n\t\tm[\"position\"] = {\"x\": c.x + Measurement.inches_to_px((mi % 3) * 1.4), \"y\": c.y + Measurement.inches_to_px(int(mi / 3) * 1.4)}\n\t\tmi += 1\n\tplaced += 1\nreturn \"placed=%d quarters=%s\" % [placed, str(AIDecisionMaker._get_covered_quarters(GameState.state[\"units\"], p))]",
+      "equals": "placed=3 quarters=[true, true, true, false]"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(11)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "str(SecondaryMissionManager.get_pending_secondary_scores(int(Engine.get_meta(\"eoaf_player\"))))",
+      "equals": "[{ \"mission_id\": \"engage_on_all_fronts\", \"mission_name\": \"Engage on All Fronts\", \"vp\": 3, \"held\": false }]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = AIPlayer.request_suggestion()\nvar types = []\nfor r in d.get(\"_ai_decision_records\", []):\n\ttypes.append(str(r.get(\"decision_type\", \"\")))\nreturn \"%s|%s|%s\" % [d.get(\"type\", \"\"), d.get(\"_ai_description\", \"\"), str(\"secondary_score\" in types)]",
+      "equals": "END_SCORING|End Turn — scores Engage on All Fronts 3 VP|true"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Score 'Engage on All Fronts' now (3 VP)\") and main._ai_suggestion_panel.breakdown_text.contains(\"is MET\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_suggestion_scores_eoaf"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# A unit straddling the vertical halfway line is NOT wholly within a quarter\nvar p = int(Engine.get_meta(\"eoaf_player\"))\nvar mid_x = Measurement.inches_to_px(22.0)\nfor uid in GameState.state[\"units\"].keys():\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"owner\", 0)) != p:\n\t\tcontinue\n\tvar first = u[\"models\"][0][\"position\"]\n\tif first[\"x\"] > mid_x:\n\t\tvar mi = 0\n\t\tfor m in u[\"models\"]:\n\t\t\tm[\"position\"][\"x\"] = mid_x - Measurement.inches_to_px(1.5) + Measurement.inches_to_px((mi % 3) * 1.4)\n\t\t\tmi += 1\nreturn str(AIDecisionMaker._get_covered_quarters(GameState.state[\"units\"], p))",
+      "equals": "[true, false, true, false]"
+    }
+  ]
+}
