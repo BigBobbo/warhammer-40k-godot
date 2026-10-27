@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.53.0",
+      "date": "2026-10-27",
+      "summary": "The AI no longer chases objectives the enemy will reach first, weighs distance properly, and Advances on long trips.",
+      "changes": [
+        "Objectives several turns away now cost a share of their value for each extra turn, instead of a flat -2 that a high-value objective could ignore.",
+        "The AI checks who wins the race: if the enemy can get at least as much OC onto an objective before the unit arrives, that objective is worth much less. The Suggest (K) card shows this as 'Enemy gets there first', and the plan says 'racing for it (enemy can have ~N OC there before we arrive in T turns)'.",
+        "Units on a trip that takes several turns now Advance when that gets them there a whole turn sooner and they have nothing to shoot anyway ('advancing to arrive a turn sooner')."
+      ]
+    },
+    {
       "version": "1.52.2",
       "date": "2026-10-27",
       "summary": "Heroic Intervention now shows its 2D6 charge roll.",

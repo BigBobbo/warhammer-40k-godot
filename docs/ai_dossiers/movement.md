@@ -288,7 +288,8 @@ VP when the marker matches. Secondary hints add their VP for matching zones (188
 |---|---|---|---|
 | objective_priority | table 1 × strategy | Marker priority × round-strategy × army-archetype `objective_priority` multiplier | 8909 |
 | oc_efficiency | **up to +3.0** | min(unit OC ÷ OC needed, 1.5) × WEIGHT_OC_EFFICIENCY 2.0 — high-OC units to contested markers | 1820, 8918 |
-| distance_penalty | **−2.0 / extra turn** | MOVE_TURNS_AWAY_PENALTY per movement turn beyond the first | 1524, 8922 |
+| contest_race | **×0.5** when lost (RACE-1) | Multi-turn trips: if the enemy's in-range OC plus every enemy unit that can reach range (M+2" per move) before our arrival ≥ our unit OC + friendly OC already there, keep MOVE_RACE_LOSS_FACTOR of the value | `_assign_units_to_objectives` |
+| distance_penalty | **−max(2.0, 0.2 × value) / extra turn** (RACE-1) | Per movement turn beyond the first: the larger of MOVE_TURNS_AWAY_PENALTY and MOVE_TURNS_AWAY_FRACTION × the score so far. Long trips the unit will Advance on (MOVE_LONG_ADVANCE: saves a whole turn at M+3.5", nothing in weapon range) are costed at the Advance pace | `_assign_units_to_objectives` |
 | reach_horizon | **OFF** (MOVE_REACH_HORIZON 0.0) | Would scale value by remaining scoring chances; measured at −4.29 VP/game and shipped off | 1495, 8929-8935 |
 | stay_on_objective | **+5.0 R1 / +6.0 R2-3 / +7.0 R4-5** | MOVE_STAY_BONUS_EARLY/SCORING/LATE for a unit already on the marker; divided by faction aggression on home markers early for aggressive armies | 1525-1527, 8940-8952 |
 | horde_presence | **+2.0 (≥10 models) / +1.0 (≥5)** | Big squads are hard to shift off a marker | 1528-1529, 8959-8962 |
