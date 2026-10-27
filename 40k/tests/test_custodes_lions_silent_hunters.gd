@@ -188,7 +188,7 @@ func _test_stratagem_loading() -> void:
 	var alm = root.get_node("ArmyListManager")
 	var sm = root.get_node("StratagemManager")
 
-	var lions = alm.load_army_list("Adeptus_Custodes_1995_Mar_7", 1)
+	var lions = alm.load_army_list("custodes_lions", 1)
 	_check("Lions army loads", not lions.is_empty())
 	alm.apply_army_to_game_state(lions, 1)
 	var cust = alm.load_army_list("adeptus_custodes", 2)
@@ -418,7 +418,7 @@ func _test_gilded_champion() -> void:
 	var uam = root.get_node("UnitAbilityManager")
 
 	# Fresh Lions army for player 1
-	var lions = alm.load_army_list("Adeptus_Custodes_1995_Mar_7", 1)
+	var lions = alm.load_army_list("custodes_lions", 1)
 	alm.apply_army_to_game_state(lions, 1)
 	sm.load_faction_stratagems_for_player(1)
 	gs.state["players"]["1"]["cp"] = 5

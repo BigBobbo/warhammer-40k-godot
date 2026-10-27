@@ -311,11 +311,13 @@ func _check_paired_wargear_options() -> void:
 	# A swap the roster names with NO count, on a datasheet that allows any
 	# number, cannot be sized — answering with the default kit would silently
 	# drop the sentinel blades this roster paid for.
-	var cust = _load_json("res://armies/Adeptus_Custodes_1995_Mar_7.json")
+	# (Roster lines from the retired 10e import Adeptus_Custodes_1995_Mar_7.)
+	var cust = _load_json("res://armies/custodes_lions.json")
 	if typeof(cust) == TYPE_DICTIONARY:
 		var g = cust["units"].get("U_CUSTODIAN_GUARD_A", {})
 		if not g.is_empty():
 			g = g.duplicate(true)
+			g["meta"]["wargear"] = ["3x Guardian Spear", "Sentinel blade", "Praesidium Shield"]
 			g.erase("_loadout_checked")
 			g.erase("_loadout_version")
 			for m in g.get("models", []):

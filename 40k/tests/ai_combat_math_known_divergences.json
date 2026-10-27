@@ -1,33 +1,6 @@
 {
   "defender_wounds": 120,
   "divergences": {
-    "Dirgesinger [18\" A4 BS3+ S4 AP0 D2; anti-infantry 4+, assault, devastating wounds]|T4 Sv3+ W120 (armoured)": {
-      "cause": "anti+devastating-wounds",
-      "kind": "ranged",
-      "predicted": 1.926,
-      "ratio": 0.709,
-      "resolved": 2.715,
-      "se": 0.049,
-      "why": "[ANTI] + [DEVASTATING WOUNDS] maths — estimator gap, edition-independent. Against INFANTRY the ANTI-INFANTRY 4+ threshold makes every successful wound roll (S4 vs T4 needs 4+) a critical wound, and each becomes D mortal wounds with no save (24.03, 24.10). The AI gets two terms wrong at once: it adds the anti chance as a union, (1-pc)p+pc = 0.75 instead of the better threshold 0.5, and it gives the devastating save-bypass to only CRIT 1/6 of rolls instead of the anti threshold's 1/2 — so it over-predicts against a weak save and under-predicts against a strong one. Fixing either term alone does not reproduce the engine; fixing both does, exactly. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: crit_p from the best matching [ANTI], p_wound = max(normal, crit_p), devastating share uses crit_p."
-    },
-    "Dirgesinger [18\" A4 BS3+ S4 AP0 D2; anti-infantry 4+, assault, devastating wounds]|T4 Sv6+ W120 (soft)": {
-      "cause": "anti+devastating-wounds",
-      "kind": "ranged",
-      "predicted": 3.481,
-      "ratio": 1.282,
-      "resolved": 2.715,
-      "se": 0.049,
-      "why": "[ANTI] + [DEVASTATING WOUNDS] maths — estimator gap, edition-independent. Against INFANTRY the ANTI-INFANTRY 4+ threshold makes every successful wound roll (S4 vs T4 needs 4+) a critical wound, and each becomes D mortal wounds with no save (24.03, 24.10). The AI gets two terms wrong at once: it adds the anti chance as a union, (1-pc)p+pc = 0.75 instead of the better threshold 0.5, and it gives the devastating save-bypass to only CRIT 1/6 of rolls instead of the anti threshold's 1/2 — so it over-predicts against a weak save and under-predicts against a strong one. Fixing either term alone does not reproduce the engine; fixing both does, exactly. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: crit_p from the best matching [ANTI], p_wound = max(normal, crit_p), devastating share uses crit_p."
-    },
-    "Dirgesinger [18\" A4 BS3+ S4 AP0 D2; anti-infantry 4+, assault, devastating wounds]|T6 Sv2+ W120 4++ (elite)": {
-      "cause": "anti+devastating-wounds",
-      "kind": "ranged",
-      "predicted": 1.333,
-      "ratio": 0.491,
-      "resolved": 2.715,
-      "se": 0.049,
-      "why": "[ANTI] + [DEVASTATING WOUNDS] maths — estimator gap, edition-independent. Against INFANTRY the ANTI-INFANTRY 4+ threshold makes every successful wound roll (S4 vs T6 needs 5+) a critical wound, and each becomes D mortal wounds with no save (24.03, 24.10). The AI gets two terms wrong at once: it adds the anti chance as a union, (1-pc)p+pc = (1-0.5)(1/3)+0.5 = 0.667 instead of the better threshold 0.5, and it gives the devastating save-bypass to only CRIT 1/6 of rolls instead of the anti threshold's 1/2 — so it over-predicts against a weak save and under-predicts against a strong one. Fixing either term alone does not reproduce the engine; fixing both does, exactly. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: crit_p from the best matching [ANTI], p_wound = max(normal, crit_p), devastating share uses crit_p."
-    },
     "Mork's Teef [Melee A6 WS2+ S6 AP-2 D2; anti-infantry 2+, precision]|T4 Sv3+ W120 (armoured)": {
       "cause": "anti-union",
       "kind": "melee",
@@ -45,6 +18,24 @@
       "resolved": 8.457,
       "se": 0.058,
       "why": "[ANTI] maths — estimator gap, edition-independent (the codex Mork's Teef, melee path). Against this INFANTRY defender ANTI-INFANTRY 2+ makes every wound roll of 2+ a critical wound. The AI adds the anti critical-wound chance on top of the normal wound chance as a union, (1-pc)p+pc = (1/6)(0.667)+0.833 = 0.944. 24.03 only lowers the critical-wound threshold, so the wound chance is the better of the two thresholds: S6 vs T4 wounds on 3+ (0.667) against the 2+ anti threshold (0.833), true p_wound 0.833. WS2+ gives 5.0 hits from A6; no save (Sv6+ at AP-2) (unsaved 1.000); D2. AI: 5.0 x 0.944 x 1.000 x 2 = 9.444; 11e rules: 5.0 x 0.833 x 1.000 x 2 = 8.333 (x1.133). Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: p_wound = max(normal, crit_p) (melee path)."
+    },
+    "Power Snappa [Melee A3 WS3+ S8 AP-2 D2; anti-monster 4+, anti-vehicle 4+]|T12 Sv2+ W120 (hull)": {
+      "cause": "anti-union",
+      "kind": "melee",
+      "predicted": 1.667,
+      "ratio": 1.64,
+      "resolved": 1.016,
+      "se": 0.034,
+      "why": "[ANTI] maths — estimator gap, edition-independent (the codex Power Snappa, melee path). S8 vs T12 wounds on 5+ (0.333); against this defender both ANTI-MONSTER 4+ and ANTI-VEHICLE 4+ match, and the AI's `break` only leaves the inner keyword loop, so the two compound. 24.03 only lowers the critical-wound threshold, so the wound chance is the better threshold, 4+ (0.5). The AI adds each anti chance as a union: 0.333 -> (1-0.5)(0.333)+0.5 = 0.667 -> (1-0.5)(0.667)+0.5 = 0.833. WS3+ gives 2.0 hits from A3; Sv2+ at AP-2 saves on 4+ (unsaved 0.500); D2. AI: 2.0 x 0.833 x 0.500 x 2 = 1.667; 11e rules: 2.0 x 0.5 x 0.500 x 2 = 1.000 (x1.667). Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: p_wound = max(normal, crit_p) from the single best matching [ANTI] (melee path)."
+    },
+    "Power Snappa [Melee A3 WS3+ S8 AP-2 D2; anti-monster 4+, anti-vehicle 4+]|T9 Sv3+ W120 (walker)": {
+      "cause": "anti-union",
+      "kind": "melee",
+      "predicted": 1.778,
+      "ratio": 1.32,
+      "resolved": 1.347,
+      "se": 0.038,
+      "why": "[ANTI] maths — estimator gap, edition-independent (the codex Power Snappa, melee path). S8 vs T9 wounds on 5+ (0.333); against this defender ANTI-VEHICLE 4+ matches, and 24.03 only lowers the critical-wound threshold, so the wound chance is the better threshold, 4+ (0.5). The AI adds the anti chance as a union, (1-0.5)(0.333)+0.5 = 0.667. WS3+ gives 2.0 hits from A3; Sv3+ at AP-2 saves on 5+ (unsaved 0.667); D2. AI: 2.0 x 0.667 x 0.667 x 2 = 1.778; 11e rules: 2.0 x 0.5 x 0.667 x 2 = 1.333 (x1.333). Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: p_wound = max(normal, crit_p) from the single best matching [ANTI] (melee path)."
     },
     "Squigstoppa [12\" A1 BS5+ S4 AP-1 D1; anti-monster 4+, anti-vehicle 4+, close quarters, devastating wounds]|T12 Sv2+ W120 (hull)": {
       "cause": "anti+devastating-wounds",
@@ -156,7 +147,7 @@
     }
   },
   "edition": 11,
-  "generated": "2026-10-18",
+  "generated": "2026-10-26",
   "note": "Generated by tests/test_ai_combat_math_property.gd --write-catalogue at the harness default rules edition (11e), fast tier, 1500 seeded Monte-Carlo samples per pair, then every `why` written by hand. Each entry is a REPRODUCED divergence between AIDecisionMaker's expected-damage arithmetic and what RulesEngine resolves, with the predicted/resolved ratio measured on the harness's open-ground duel (terrain neutralised, ranged 4in centre-to-centre so unengaged and in half range, one W120 defender so nothing saturates). Every surviving entry is a real, isolated, edition-independent estimator gap or a named engine bug (`cause`): twin-linked, anti-union, anti+devastating-wounds, dice-valued-strength. This file is a RATCHET, not an excuse: a pair that is NOT listed must agree within 10% (or 3 SE), and a listed pair fails if its error flips to the other side of 1.0 or grows, in log space, more than 15% beyond the recorded ratio. The test refuses to compare against this file at any other edition. Owned by task D1b in .llm/ai-overhaul-todo.md. Regenerate with --write-catalogue after a deliberate change and READ THE DIFF.",
   "samples": 1500,
   "tier": "fast"
