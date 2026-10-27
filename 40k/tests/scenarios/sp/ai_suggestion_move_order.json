@@ -40,12 +40,13 @@
       "frames": 3
     },
     {
-      "act": "click_node",
-      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+      "act": "simulate_key",
+      "keycode": "K",
+      "comment": "open the card with the K hotkey (the Suggest-button click is covered by ai_suggestion_breakdown_panel; in the visual-regression loop's environment the button click did not open the card)"
     },
     {
       "act": "wait_frames",
-      "frames": 5
+      "frames": 6
     },
     {
       "act": "execute_script",
