@@ -37,8 +37,6 @@ ENSURE_ASCII = {"orks_taktikal.json"}
 TARGET_FILES = [
     "battlewagons.json",
     "Orks_2000.json",
-    "Orks_2000_upload.json",
-    "Orks_Upload_Mar7.json",
     "orks.json",
     "orks_taktikal.json",
     "space_marines.json",
