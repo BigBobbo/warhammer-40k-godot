@@ -1681,6 +1681,16 @@ const MOVE_LADDER_FAIL_BUDGET: float = 0.0   # 0 = off; see the note above
 # could reach it at any games budget. Values are UNCHANGED; promoting them is
 # a behaviour-preserving no-op that simply enlarges the search space.
 const MOVE_TURNS_AWAY_PENALTY: float = 2.0        # per extra turn needed to arrive
+# RACE-1: multi-turn objective trips. FRACTION scales the per-extra-turn cost
+# with the objective's value (a flat -2 was dwarfed by a +20 objective), the
+# race factor is the share of value kept when the enemy can stand in range
+# with at least our OC before we arrive, and LONG_ADVANCE lets a unit Advance
+# on a trip it will not finish this turn when that saves a whole turn. Set
+# FRACTION 0 / RACE_LOSS 1 / LONG_ADVANCE 0 to restore the old behaviour.
+const MOVE_TURNS_AWAY_FRACTION: float = 0.2       # x (objective value) per extra turn
+const MOVE_RACE_LOSS_FACTOR: float = 0.5          # value kept when the enemy wins the race
+const MOVE_LONG_ADVANCE: float = 1.0              # 1 = advance on long trips when it saves a turn
+const ADVANCE_EXPECTED_EXTRA_INCHES: float = 3.5  # mean D6 Advance roll
 const MOVE_STAY_BONUS_LATE: float = 7.0           # already on objective, round >= 4
 const MOVE_STAY_BONUS_SCORING: float = 6.0        # already on objective, round >= 2
 const MOVE_STAY_BONUS_EARLY: float = 5.0          # already on objective, round 1
@@ -8216,6 +8226,7 @@ static func _evaluate_all_objectives(
 		# and to tell the player WHY the AI is massing units on a "free" objective.
 		var projected_enemy_oc = 0
 		var projected_names: Array = []
+		var enemy_arrivals: Array = []  # RACE-1: [{moves, oc, name}] for enemies outside range
 		for e_uid in enemies:
 			var e_unit = enemies[e_uid]
 			if e_unit.get("flags", {}).get("battle_shocked", false):
@@ -8237,6 +8248,12 @@ static func _evaluate_all_objectives(
 			if e_dist <= (e_move + 2.0) * PIXELS_PER_INCH + OBJECTIVE_CONTROL_RANGE_PX:
 				projected_enemy_oc += e_oc
 				projected_names.append(_dn(e_unit, e_uid))
+			# RACE-1: how many enemy moves this unit needs to stand in range, so a
+			# multi-turn trip can ask "who gets there first" (see the race term).
+			var e_step_px = (e_move + 2.0) * PIXELS_PER_INCH
+			if e_step_px > 0.0:
+				enemy_arrivals.append({"moves": int(ceil((e_dist - OBJECTIVE_CONTROL_RANGE_PX) / e_step_px)),
+					"oc": e_oc, "name": _dn(e_unit, e_uid)})
 
 		# 14.02 CONTEST CAPACITY — the OC we can stand in range with soon, in the
 		# same per-model units as enemy_oc: every alive model's OC of each of our
@@ -8417,7 +8434,8 @@ static func _evaluate_all_objectives(
 			"oc_needed": max(0, enemy_oc - friendly_oc + 1),  # OC we need to add to flip control
 			"contest_oc": contest_oc,  # 14.02: OC we can stand in range with within our next two moves
 			"projected_enemy_oc": projected_enemy_oc,  # COORD-5: enemy OC one move away
-			"projected_names": projected_names
+			"projected_names": projected_names,
+			"enemy_arrivals": enemy_arrivals  # RACE-1: enemy moves-to-range + OC
 		})
 
 	# Narrate the VP stakes once per evaluation (top objectives by VP), so the
@@ -8566,6 +8584,11 @@ static func _assign_units_to_objectives(
 			_get_round_strategy_modifiers(battle_round),
 			_get_army_strategy_modifiers(snapshot, player))
 
+		# RACE-1: may this unit Advance on a multi-turn trip at no shooting cost?
+		var long_adv_ok: bool = get_param("MOVE_LONG_ADVANCE", MOVE_LONG_ADVANCE) > 0.0 \
+				and "BEGIN_ADVANCE" in move_types \
+				and _should_unit_advance_long_trip(unit, has_ranged, max_weapon_range, enemies, centroid)
+
 		for eval in obj_evaluations:
 			var obj_pos = eval.position
 			var obj_id = eval.id
@@ -8573,6 +8596,13 @@ static func _assign_units_to_objectives(
 			var dist_inches = dist_px / PIXELS_PER_INCH
 			var turns_to_reach = max(1.0, ceil(dist_inches / move_inches)) if move_inches > 0 else 99.0
 			var already_on_obj = dist_px <= OBJECTIVE_CONTROL_RANGE_PX
+			# RACE-1: a long trip the unit will Advance on is costed (distance,
+			# contest race) at the Advance pace it will actually travel.
+			var long_adv: bool = long_adv_ok and not already_on_obj \
+					and dist_inches > move_inches + 2.0 \
+					and _long_trip_advance_saves_turn(dist_inches, move_inches)
+			if long_adv:
+				turns_to_reach = max(1.0, ceil(dist_inches / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES))))
 
 			# Base score from objective priority
 			# T7-43: Scale objective priority by round strategy modifier
@@ -8587,9 +8617,32 @@ static func _assign_units_to_objectives(
 			if eval.oc_needed > 0:
 				score += _t_add(score_terms, "oc_efficiency", min(float(unit_oc) / max(1.0, float(eval.oc_needed)), 1.5) * get_param("WEIGHT_OC_EFFICIENCY", WEIGHT_OC_EFFICIENCY))
 
-			# Distance penalty: further away = less useful
+			# RACE-1: CONTEST RACE. COORD-5's projected_enemy_oc looks one enemy
+			# move ahead, but a unit 3 turns out gives the enemy 2 moves before it
+			# arrives. Sum the OC the enemy can stand in range with by then (its
+			# holders plus every unit whose moves-to-range fit before our arrival)
+			# and, if that matches or beats what we would have there, keep only
+			# MOVE_RACE_LOSS_FACTOR of the value: we'd arrive to a fight we lose.
+			var race_enemy_oc := 0
+			var race_lost := false
+			if turns_to_reach > 1 and not already_on_obj:
+				race_enemy_oc = int(eval.get("enemy_oc", 0))
+				for arr in eval.get("enemy_arrivals", []):
+					if int(arr.moves) <= int(turns_to_reach) - 1:
+						race_enemy_oc += int(arr.oc)
+				var race_our_oc: int = int(unit_oc) + int(eval.get("friendly_oc", 0))
+				if race_enemy_oc > 0 and race_enemy_oc >= race_our_oc and score > 0.0:
+					race_lost = true
+					score = _t_mul(score_terms, "contest_race", score,
+						get_param("MOVE_RACE_LOSS_FACTOR", MOVE_RACE_LOSS_FACTOR))
+
+			# Distance penalty: further away = less useful. RACE-1: each extra turn
+			# costs a share of the objective's value (floored at the flat penalty),
+			# so a +20 objective three turns away is no longer down just -4.
 			if turns_to_reach > 1:
-				score += _t_add(score_terms, "distance_penalty", -((turns_to_reach - 1) * get_param("MOVE_TURNS_AWAY_PENALTY", MOVE_TURNS_AWAY_PENALTY)))
+				var per_turn := maxf(get_param("MOVE_TURNS_AWAY_PENALTY", MOVE_TURNS_AWAY_PENALTY),
+					get_param("MOVE_TURNS_AWAY_FRACTION", MOVE_TURNS_AWAY_FRACTION) * maxf(0.0, score))
+				score += _t_add(score_terms, "distance_penalty", -((turns_to_reach - 1) * per_turn))
 
 			# SCORING HORIZON. An objective is only worth what it can still score.
 			# A unit arriving in round A holds it for the command phases of
@@ -8908,6 +8961,12 @@ static func _assign_units_to_objectives(
 				if should_advance:
 					action = "advance"
 					reason = "advancing for extra range"
+			elif long_adv:
+				# RACE-1: a trip that takes several turns either way — Advance when
+				# the expected roll gets there a whole turn sooner and the unit has
+				# nothing to shoot this turn anyway.
+				action = "advance"
+				reason = "advancing to arrive a turn sooner"
 
 			# PM-3: the plan's HOLD_OBJECTIVE / PUSH_CENTER bias, as a named
 			# additive term so it shows up in score_breakdown like every other.
@@ -8928,6 +8987,8 @@ static func _assign_units_to_objectives(
 				"unit_oc": unit_oc,
 				"already_on_obj": already_on_obj,
 				"turns_to_reach": turns_to_reach,
+				"race_enemy_oc": race_enemy_oc,
+				"race_lost": race_lost,
 				"vp_value": eval.get("vp_value", 0.0),
 				"score_terms": score_terms
 			})
@@ -9035,6 +9096,9 @@ static func _assign_units_to_objectives(
 			var proj = eval_for_assign.get("projected_enemy_oc", 0)
 			if st in ["enemy_weak", "enemy_strong", "contested"]:
 				assign_reason = "flipping it (enemy holds with OC %d)" % eval_for_assign.get("enemy_oc", 0)
+			elif cand.get("race_lost", false):
+				assign_reason = "racing for it (enemy can have ~%d OC there before we arrive in %d turns)" % [
+					cand.get("race_enemy_oc", 0), int(cand.get("turns_to_reach", 1))]
 			elif proj > 0:
 				assign_reason = "capturing it (enemy can bring ~%d OC next move)" % proj
 			else:
@@ -10099,6 +10163,43 @@ static func _should_unit_advance(
 
 	# Otherwise, prefer shooting over advancing
 	return false
+
+## RACE-1: true when a trip that a normal move cannot finish this turn takes
+## at least one fewer turn if the unit Advances (expected M + D6) each turn.
+static func _long_trip_advance_saves_turn(dist_inches: float, move_inches: float) -> bool:
+	if move_inches <= 0.0 or dist_inches <= move_inches:
+		return false
+	var turns_normal := ceilf(dist_inches / move_inches)
+	var turns_adv := ceilf(dist_inches / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES)))
+	return turns_adv < turns_normal
+
+## RACE-1: Advancing costs the unit its shooting (and charge) this turn, so on
+## a long trip only do it when that costs nothing: no enemy within charge reach
+## (M + 12") unless it can Advance and charge, and then Advance-and-shoot
+## units, units without ranged weapons, or nothing in weapon range right now.
+static func _should_unit_advance_long_trip(unit: Dictionary, has_ranged: bool,
+		max_weapon_range: float, enemies: Dictionary, centroid: Vector2) -> bool:
+	var adv_and_charge: bool = unit.get("flags", {}).get("effect_advance_and_charge", false) \
+			or (AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge"))
+	if not adv_and_charge:
+		var charge_reach_px := (float(unit.get("meta", {}).get("stats", {}).get("move", 6)) + 12.0) * PIXELS_PER_INCH
+		for enemy_id in enemies:
+			var ec = _get_unit_centroid(enemies[enemy_id])
+			if ec != Vector2.INF and centroid.distance_to(ec) <= charge_reach_px:
+				return false
+	if unit.get("flags", {}).get("effect_advance_and_shoot", false):
+		return true
+	if AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "shoot"):
+		return true
+	if not has_ranged:
+		return true
+	for enemy_id in enemies:
+		var enemy_centroid = _get_unit_centroid(enemies[enemy_id])
+		if enemy_centroid == Vector2.INF:
+			continue
+		if centroid.distance_to(enemy_centroid) <= max_weapon_range * PIXELS_PER_INCH:
+			return false
+	return true
 
 # =============================================================================
 # MOVEMENT HELPERS (Enhanced)
