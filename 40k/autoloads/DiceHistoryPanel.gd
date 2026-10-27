@@ -112,7 +112,7 @@ func format_entry_bbcode(entry: Dictionary) -> String:
 			text += _format_save_roll(data)
 		"feel_no_pain":
 			text += _format_fnp_roll(data)
-		"charge_roll":
+		"charge_roll", "heroic_intervention_charge_roll":
 			text += _format_charge_roll(data)
 		"auto_hit":
 			text += _format_auto_hit(data)

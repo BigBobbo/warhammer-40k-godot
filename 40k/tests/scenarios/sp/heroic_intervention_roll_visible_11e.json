@@ -1,0 +1,145 @@
+{
+  "id": "heroic_intervention_roll_visible_11e",
+  "covers": [
+    "phases.ChargePhase.11e_heroic_intervention_end_of_phase",
+    "scripts.ChargeController.hi_roll_display"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Reported bug: using HEROIC INTERVENTION never showed the defender their 2D6 charge roll \u2014 the phase auto-rolls on USE and tags the dice 'heroic_intervention_charge_roll', which ChargeController / DiceRollVisual / GameEventLog only rendered for 'charge_roll'. Drives the real End Charge Phase -> HI dialog -> Into the Fray click (setup copied from iss15_heroic_intervention_fray_11e) and asserts the roll is animated, written to the Dice Log (with the Into the Fray 6\" cap explained) and to the Game Log.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "CharacterAttachmentManager.detach_character(\"U_WARBOSS_C\")",
+      "comment": "he leads Boyz Beta in this fixture; a lone CHARACTER is what this scenario exercises, and 19.01 would otherwise pull the whole 22-model squad along with the teleport below"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_attached_character(\"U_WARBOSS_C\", GameState.state)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WARBOSS_C\")[\"models\"][0].merge({\"position\": {\"x\": 933.24, \"y\": 1343.63}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._sync_all_token_positions()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/HeroicInterventionDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(42)",
+      "comment": "pin the HI charge roll: the next unseeded 2D6 is [6,6] (Into the Fray caps it at 6). Unpinned, a roll of 2 (1 in 36) fails 15.11's within-the-maximum-distance rule against the 2.5\" target and made this scenario flaky"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WARBOSS_C/Fray_U_WARBOSS_C",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().heroic_intervention_pending_charge[\"mode\"]",
+      "equals": "into_the_fray"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().heroic_intervention_pending_charge[\"targets\"])",
+      "equals": "[\"U_SHIELD_CAPTAIN_A\"]"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().heroic_intervention_pending_charge[\"distance\"]",
+      "expect_min": 2,
+      "expect_max": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().heroic_intervention_pending_charge[\"distance\"]",
+      "equals": 6,
+      "comment": "the pinned roll (12) capped by Into the Fray"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.dice_roll_visual._context_label",
+      "equals": "Heroic Intervention Charge (2D6)",
+      "comment": "the HI 2D6 is animated on the board (was skipped: only context=='charge_roll' animated)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.dice_roll_visual.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.dice_log_display.get_parsed_text().contains(\"(Heroic Intervention)\")",
+      "equals": true,
+      "comment": "structured charge block in the Dice Log"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.dice_log_display.get_parsed_text().contains(\"capped at 6\")",
+      "equals": true,
+      "comment": "seed 42 rolls 6+6=12, Into the Fray caps it \u2014 say so instead of showing [6,6] = 6"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for e in GameEventLog.get_all_entries():\n\tif str(e.get(\"text\", \"\")).contains(\"Heroic Intervention charge roll: 2D6\"):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "Game Log line for the roll"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_hi_roll_shown"
+    }
+  ]
+}

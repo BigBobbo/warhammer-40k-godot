@@ -386,6 +386,8 @@ func show_dice_roll(dice_data: Dictionary) -> void:
 			_threshold = fnp_val
 		"charge_roll":
 			_context_label = "Charge Roll (2D6)"
+		"heroic_intervention_charge_roll":
+			_context_label = "Heroic Intervention Charge (2D6)"
 		_:
 			if threshold_str.is_empty():
 				_context_label = context.capitalize().replace("_", " ")
