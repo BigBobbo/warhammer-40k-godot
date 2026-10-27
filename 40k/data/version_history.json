@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.52.3",
+      "version": "1.52.4",
       "date": "2026-10-27",
       "summary": "Units that pile into combat at the start of the Fight phase no longer get a second pile-in.",
       "changes": [
@@ -10,11 +10,20 @@
       ]
     },
     {
-      "version": "1.52.2",
+      "version": "1.52.3",
       "date": "2026-10-27",
       "summary": "Fixed attached units getting a second pile-in when selected to fight.",
       "changes": [
         "A unit led by a Character no longer gets an extra pile-in when it is selected to fight if only the Character's model was in Engagement Range. The whole Attached unit counts as engaged, so it fights normally. The extra Overrun pile-in is still offered when the whole unit is out of Engagement Range."
+      ]
+    },
+    {
+      "version": "1.52.2",
+      "date": "2026-10-27",
+      "summary": "Heroic Intervention now shows its 2D6 charge roll.",
+      "changes": [
+        "When you use Heroic Intervention, the 2D6 charge roll is now animated on screen and written to the Dice Log and Game Log, with SUCCESS or FAILED.",
+        "If you picked Into the Fray and rolled more than 6, the log says the roll was capped at 6\"."
       ]
     },
     {

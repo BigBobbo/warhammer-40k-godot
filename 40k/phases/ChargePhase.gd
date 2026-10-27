@@ -3881,6 +3881,7 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 	var rng = RulesEngine.RNGService.new(rng_seed)
 	var rolls = rng.roll_d6(2)
 	var total_distance = rolls[0] + rolls[1]
+	var uncapped_total: int = total_distance
 	# 11e INTO THE FRAY: "the charge roll cannot exceed 6"
 	if GameConstants.edition >= 11 and hi_mode == "into_the_fray" and total_distance > 6:
 		log_phase_message("[11e 15.11] INTO THE FRAY — charge roll %d capped at 6" % total_distance)
@@ -3902,6 +3903,11 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 		"total": total_distance,
 		"targets": target_ids,
 		"charge_failed": not roll_sufficient,
+		# Shown to the player in the dice visual / dice log so a capped
+		# INTO THE FRAY roll (e.g. 5+4 -> 6") doesn't read as a mis-sum.
+		"mode": hi_mode,
+		"uncapped_total": uncapped_total,
+		"capped": uncapped_total != total_distance,
 	}
 	dice_log.append(dice_result)
 	emit_signal("dice_rolled", dice_result)
@@ -3922,6 +3928,7 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 
 		return create_result(true, [], "", {
 			"dice": [dice_result],
+			"log_text": _hi_roll_log_text(unit_name, rolls, total_distance, uncapped_total, false),
 			"heroic_intervention_failed": true,
 			"heroic_intervention_unit_id": unit_id,
 		})
@@ -3932,10 +3939,19 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 
 	return create_result(true, [], "", {
 		"dice": [dice_result],
+		"log_text": _hi_roll_log_text(unit_name, rolls, total_distance, uncapped_total, true),
 		"heroic_intervention_roll_success": true,
 		"heroic_intervention_unit_id": unit_id,
 		"heroic_intervention_distance": total_distance,
 	})
+
+# Player-facing Game Log line for a Heroic Intervention charge roll. Without it
+# the roll only reached the debug log, so the defender never saw what they rolled.
+func _hi_roll_log_text(unit_name: String, rolls: Array, total: int, uncapped_total: int, success: bool) -> String:
+	var cap_note := " (%d, capped at 6 — Into the Fray)" % uncapped_total if uncapped_total != total else ""
+	return "%s Heroic Intervention charge roll: 2D6 [%d, %d] = %d\"%s — %s" % [
+		unit_name, int(rolls[0]), int(rolls[1]), total, cap_note,
+		"SUCCESS, move into engagement range" if success else "FAILED"]
 
 func _process_decline_heroic_intervention(action: Dictionary) -> Dictionary:
 	var player = action.get("player", heroic_intervention_player)
