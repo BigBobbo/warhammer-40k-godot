@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.55.0",
+      "date": "2026-10-27",
+      "summary": "The AI Suggestion (K) card now says which unit the AI acts with first and why, and lets you step through every unit's suggestion — in deployment, movement, shooting, charge and fight.",
+      "changes": [
+        "The card says which unit goes first and why: 'Moving first' (front-most unit, locked in combat, just disembarked, or a tie broken by the plan), 'Shooting first' (first shooter in the focus-fire plan), 'Charging first' (best charge score, or 'Skipping first' when no charge is worth it), 'Fighting next' (highest fight-order priority) or 'Deploying next' (deployment plan or army-list order), plus how many more units are queued.",
+        "It lists the whole order: each unit's planned move and objective, shooting target, best charge target and chance, or fight priority.",
+        "New '◀ Unit' / 'Unit ▶' buttons (or click a unit's name in the list) show what the AI would do with that unit, with its full breakdown. Cards for later units say they are not what the AI does next, and 'Back to the AI's next move' returns to it.",
+        "The open card updates itself whenever a unit finishes acting (moves, stays still, shoots or skips, charges or skips, fights, deploys, arrives from reserves) and when the phase changes. It never updates while a unit is mid-action. If you were viewing another unit, it stays on that unit.",
+        "The same position now always gives the same suggestion (the AI's random tie-breaks are fixed per position while previewing), so re-asking or stepping through units never reshuffles the order.",
+        "Good call / Bad call on one of those cards saves a test case for that unit."
+      ]
+    },
+    {
       "version": "1.54.1",
       "date": "2026-10-27",
       "summary": "Smarter AI objective choices, and the AI's reasoning card now says which unit took an objective.",

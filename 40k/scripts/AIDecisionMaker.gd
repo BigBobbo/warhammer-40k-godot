@@ -318,6 +318,21 @@ static var _last_movement_candidates: Dictionary = {}
 # {player: {round, phase_signature, assignments: {unit_id: assignment}, replans: int}}
 static var _turn_movement_plan: Dictionary = {}
 
+# UNIT-ORDER (K card): the units the current step will act on, in order, and
+# why the first one goes first — movement (move order), shooting (focus-fire
+# plan), charge (best charge per unit), fight (fight-order plan), deployment.
+# Scratch: cleared by suggest_action() and rebuilt by the step that picks a
+# unit; suggest_action attaches it to the decision as _ai_unit_order, so the
+# card can say "Moving first: … (N more queued)" and let the player cycle.
+# {order: [{unit_id, name, action, target, tag?, ...}], first_reason,
+#  first_label ("Moving first"), verb ("move"), focused}
+static var _last_unit_order: Dictionary = {}
+# Suggestion-only: when set, the unit-picking step (move, shoot, charge,
+# fight, deploy) acts for THIS unit instead of the one it would pick (the
+# card's per-unit cycling). Set and cleared by suggest_action() around its
+# decide() — always empty on the live AI path.
+static var _suggest_focus_unit_id: String = ""
+
 # T7-46: Fight order optimization cache — built once per fight phase.
 # SOAK-3: keyed PER PLAYER — fight activation alternates between players, so a
 # single shared plan meant the second AI consumed the first AI's planned unit
@@ -2849,10 +2864,49 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 # the caches, run the decision, and restore them, so a suggestion is truly
 # side-effect-free. Returns the same dict decide() returns, including the
 # _ai_thinking_steps / _ai_decision_records / _ai_thinking_context reasoning.
-static func suggest_action(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
+static func suggest_action(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL, focus_unit_id: String = "") -> Dictionary:
+	# focus_unit_id (movement phase): preview what the plan has THAT unit do,
+	# rather than the unit the AI would move next.
 	var saved := _snapshot_planning_state()
+	# Same position → same answer: the preview draws its difficulty noise from
+	# a generator seeded by the board (not the live AI's stream, which a seeded
+	# game must not see consumed), so re-asking — or cycling the card to
+	# another unit — never reshuffles the order by chance.
+	# A seeded game (tests, replays) previews from a COPY of the live
+	# generator — same seed and position, never advanced — so runs stay
+	# reproducible from the seed; unseeded play seeds from the board.
+	var live_rng := _rng()
+	var live_seeded := _ai_rng_seeded
+	_ai_rng = RandomNumberGenerator.new()
+	if live_seeded:
+		_ai_rng.seed = live_rng.seed
+		_ai_rng.state = live_rng.state
+	else:
+		_ai_rng.seed = hash("%d|%d|%s" % [phase, player, JSON.stringify(snapshot.get("units", {}))])
+	print("AIDecisionMaker: suggest_action preview RNG %s (seed %d, state %d)" % [
+		"copied from the seeded live AI" if live_seeded else "seeded from the board", _ai_rng.seed, _ai_rng.state])
+	_suggest_focus_unit_id = focus_unit_id
+	_last_unit_order = {}
 	var decision := decide(phase, snapshot, available_actions, player, difficulty)
+	_suggest_focus_unit_id = ""
+	_ai_rng = live_rng
+	_ai_rng_seeded = live_seeded
 	_restore_planning_state(saved)
+	# UNIT-ORDER: say which unit acts and why it goes first (K card) — only
+	# when the decision really is about one of the ordered units.
+	var actor := str(decision.get("actor_unit_id", decision.get("unit_id", "")))
+	if not _last_unit_order.is_empty() and actor != "":
+		var in_order := false
+		for e in _last_unit_order.get("order", []):
+			if str(e.get("unit_id", "")) == actor:
+				in_order = true
+		if in_order:
+			var uo: Dictionary = _last_unit_order.duplicate(true)
+			uo["acting_unit_id"] = actor
+			if focus_unit_id != "" and actor == focus_unit_id:
+				uo["focused"] = true
+			decision["_ai_unit_order"] = uo
+	_last_unit_order = {}
 	_attach_rule_based_record(decision, snapshot, available_actions)
 	return decision
 
@@ -4587,6 +4641,26 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 # DEPLOYMENT PHASE
 # =============================================================================
 
+static func _build_deploy_order(snapshot: Dictionary, deploy_actions: Array, first_uid: String, plan_name: String) -> Dictionary:
+	"""UNIT-ORDER: units still to deploy — the AI's pick first, then the army list."""
+	var units: Dictionary = snapshot.get("units", {})
+	var ids: Array = [first_uid] if first_uid != "" else []
+	for da in deploy_actions:
+		var uid := str(da.get("unit_id", ""))
+		if uid != "" and not (uid in ids):
+			ids.append(uid)
+	var entries: Array = []
+	for uid in ids:
+		entries.append({"unit_id": uid, "name": _dn(units.get(uid, {}), uid), "action": "deploy", "target": "", "tag": ""})
+	var reason := "it is the only unit left to deploy"
+	if entries.size() > 1:
+		if plan_name != "":
+			reason = "it is next in the army's deployment plan '%s'" % plan_name
+		else:
+			reason = "the AI deploys in army-list order — it does not rank units against each other here"
+	return {"order": entries, "first_reason": reason, "focused": false,
+		"first_label": "Deploying next", "verb": "deploy"}
+
 static func _decide_deployment(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
 	# Filter to DEPLOY_UNIT actions
 	var deploy_actions = available_actions.filter(func(a): return a.get("type") == "DEPLOY_UNIT")
@@ -4614,10 +4688,20 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 
 	# Pick first undeployed unit (plan order first, else the phase's own order)
 	var action_template = deploy_actions[0]
+	var from_plan := false
 	if not plan.is_empty():
 		var planned_action := _plan_pick_deploy_action(plan, deploy_actions, player, snapshot)
 		if not planned_action.is_empty():
 			action_template = planned_action
+			from_plan = true
+	# UNIT-ORDER (K card): deployment order; a focused suggestion deploys that unit.
+	_last_unit_order = _build_deploy_order(snapshot, deploy_actions, str(action_template.get("unit_id", "")), plan_name if from_plan else "")
+	if _suggest_focus_unit_id != "":
+		for da in deploy_actions:
+			if str(da.get("unit_id", "")) == _suggest_focus_unit_id:
+				action_template = da
+				print("AIDecisionMaker: [UNIT-ORDER] suggestion focused on deploying %s" % _suggest_focus_unit_id)
+				break
 	var unit_id = action_template.get("unit_id", "")
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
@@ -6381,6 +6465,7 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 	return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase"}
 
 static func _select_movement_action(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	_last_unit_order = {}
 	# Collect units that can begin moving
 	var movable_units = {}  # unit_id -> list of available move types
 	for a in available_actions:
@@ -6670,6 +6755,17 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		var score_b = _apply_difficulty_noise(assignments.get(b, {}).get("score", 0.0))
 		return score_a > score_b
 	)
+
+	_last_unit_order = _build_move_order(snapshot, engaged_units, assigned_units, assignments, player)
+	if _suggest_focus_unit_id != "":
+		if _suggest_focus_unit_id in engaged_units:
+			engaged_units = [_suggest_focus_unit_id]
+			assigned_units = []
+		elif _suggest_focus_unit_id in assigned_units:
+			engaged_units = []
+			assigned_units = [_suggest_focus_unit_id]
+		if engaged_units.size() + assigned_units.size() == 1:
+			print("AIDecisionMaker: [MOVE-ORDER] suggestion focused on %s (not the next unit to move)" % _suggest_focus_unit_id)
 
 	for unit_id in assigned_units:
 		var unit = snapshot.get("units", {}).get(unit_id, {})
@@ -7082,6 +7178,75 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			}
 
 	return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase"}
+
+static func _move_tier(unit: Dictionary) -> int:
+	"""The movement step's ordering tier: 0 disembarked this phase (moves first to
+	clear space round its transport), 1 normal, 2 transport VEHICLE (moves last)."""
+	if unit.get("disembarked_this_phase", false):
+		return 0
+	if unit.get("transport_data", {}).get("capacity", 0) > 0 and "VEHICLE" in unit.get("meta", {}).get("keywords", []):
+		return 2
+	return 1
+
+static func _build_move_order(snapshot: Dictionary, engaged_units: Array, assigned_units: Array,
+		assignments: Dictionary, player: int) -> Dictionary:
+	"""MOVE-ORDER: the units in the order the movement step will act on them
+	(engaged first, then the sorted assigned units) and a plain-English reason
+	the first one goes first. Mirrors the sort in _select_movement_action."""
+	var units: Dictionary = snapshot.get("units", {})
+	# "Forward" = toward the enemy: player 1 moves units with a larger y first,
+	# player 2 a smaller y (see the sort above).
+	var front := -INF
+	for uid in assigned_units:
+		var c = _get_unit_centroid(units.get(uid, {}))
+		if c != Vector2.INF:
+			front = maxf(front, c.y if player != 2 else -c.y)
+	var entries: Array = []
+	for uid in engaged_units + assigned_units:
+		var u: Dictionary = units.get(uid, {})
+		var a: Dictionary = assignments.get(uid, {})
+		var engaged: bool = uid in engaged_units
+		var c = _get_unit_centroid(u)
+		var behind := -1.0
+		if not engaged and c != Vector2.INF and front != -INF:
+			behind = (front - (c.y if player != 2 else -c.y)) / PIXELS_PER_INCH
+		var target := str(a.get("attack_target_name", "")) if str(a.get("action", "")) == "attack" else str(a.get("objective_id", ""))
+		entries.append({
+			"unit_id": uid,
+			"name": _dn(u, uid),
+			"engaged": engaged,
+			"tier": _move_tier(u),
+			"action": "fall back or stay" if engaged else str(a.get("action", "move")),
+			"target": "" if target == "none" else target,
+			"behind_front_in": snappedf(behind, 0.1),
+			"score": snappedf(float(a.get("score", 0.0)), 0.01),
+		})
+	var reason := ""
+	if entries.size() == 1:
+		reason = "it is the only unit left to move"
+	elif not entries.is_empty():
+		reason = _move_order_reason(entries[0], entries[1], snapshot, player)
+	return {"order": entries, "first_reason": reason, "focused": false,
+		"first_label": "Moving first", "verb": "move"}
+
+static func _move_order_reason(a: Dictionary, b: Dictionary, snapshot: Dictionary, player: int) -> String:
+	if a.engaged:
+		return "it is locked in combat — engaged units are decided first (fall back or stay)"
+	var ta := int(a.tier)
+	var tb := int(b.tier)
+	if ta != tb:
+		if ta == 0:
+			return "it just disembarked — disembarked units move first to clear space around their transport"
+		return "%s is a transport — transports move last, once the units around them have cleared" % b.name
+	var ca = _get_unit_centroid(snapshot.get("units", {}).get(a.unit_id, {}))
+	var cb = _get_unit_centroid(snapshot.get("units", {}).get(b.unit_id, {}))
+	if ca != Vector2.INF and cb != Vector2.INF and absf(ca.y - cb.y) > 80.0:
+		return "it is the front-most unit — the AI moves front to back, and it is %.1f\" further forward than %s" % [
+			absf(ca.y - cb.y) / PIXELS_PER_INCH, b.name]
+	if float(a.score) >= float(b.score):
+		return "it is level with %s (within 2\"), so the plan's priority breaks the tie (%.1f vs %.1f)" % [
+			b.name, float(a.score), float(b.score)]
+	return "it is level with %s (within 2\") and the tie-break between them is partly random at this difficulty" % b.name
 
 # =============================================================================
 # RESERVES ARRIVAL (T7-16 / MOV-8)
@@ -13249,6 +13414,16 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				selected_unit_id = sid
 				break
 
+		# UNIT-ORDER (K card): the shooting order and each shooter's planned
+		# target; a focused suggestion shoots with that unit instead.
+		_last_unit_order = _build_shoot_order(snapshot, action_types["SELECT_SHOOTER"], selected_unit_id)
+		if _suggest_focus_unit_id != "" and selected_unit_id != "":
+			for sa in action_types["SELECT_SHOOTER"]:
+				if str(sa.get("actor_unit_id", sa.get("unit_id", ""))) == _suggest_focus_unit_id:
+					selected_unit_id = _suggest_focus_unit_id
+					print("AIDecisionMaker: [UNIT-ORDER] suggestion focused on shooter %s" % selected_unit_id)
+					break
+
 		if selected_unit_id == "":
 			_focus_fire_plan_built = false
 			_focus_fire_plan.clear()
@@ -13606,6 +13781,41 @@ static func _capture_shooting_alternatives(weapon_entry: Dictionary, chosen_enem
 # =============================================================================
 # FOCUS FIRE PLAN BUILDER
 # =============================================================================
+
+static func _build_shoot_order(snapshot: Dictionary, shooter_actions: Array, first_uid: String) -> Dictionary:
+	"""UNIT-ORDER: shooters in the order the AI will select them — the unit it
+	picks now, then the rest of the focus-fire plan, then units with no plan —
+	each with the target(s) the plan gives it."""
+	var units: Dictionary = snapshot.get("units", {})
+	var planned: Array = []
+	var unplanned: Array = []
+	for sa in shooter_actions:
+		var sid := str(sa.get("actor_unit_id", sa.get("unit_id", "")))
+		if sid == "" or sid in planned or sid in unplanned or sid == first_uid:
+			continue
+		if _focus_fire_plan.has(sid):
+			planned.append(sid)
+		else:
+			unplanned.append(sid)
+	var ids: Array = ([first_uid] if first_uid != "" else []) + planned + unplanned
+	var entries: Array = []
+	for sid in ids:
+		var tnames: Array = []
+		for a in _focus_fire_plan.get(sid, []):
+			var tn := _dn(units.get(str(a.get("target_unit_id", "")), {}), str(a.get("target_unit_id", "")))
+			if not (tn in tnames):
+				tnames.append(tn)
+		entries.append({"unit_id": sid, "name": _dn(units.get(sid, {}), sid), "action": "shoot",
+			"target": ", ".join(tnames), "tag": "" if _focus_fire_plan.has(sid) else "no target planned"})
+	var reason := ""
+	if entries.size() == 1:
+		reason = "it is the only unit left to shoot"
+	elif _focus_fire_plan.has(first_uid):
+		reason = "the focus-fire plan picks every shooter's target up front, so the firing order only follows the army list — this is the first planned shooter"
+	else:
+		reason = "no unit has a planned target, so the AI takes the first unit in the army list"
+	return {"order": entries, "first_reason": reason, "focused": false,
+		"first_label": "Shooting first", "verb": "shoot with"}
 
 static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array, player: int) -> Dictionary:
 	"""
@@ -14898,6 +15108,9 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 	# No good charge found (or no targets) — skip remaining chargeable units one at a time
 	if action_types.has("SKIP_CHARGE"):
 		var a = action_types["SKIP_CHARGE"][0]
+		for sk in action_types["SKIP_CHARGE"]:
+			if _suggest_focus_unit_id != "" and str(sk.get("actor_unit_id", "")) == _suggest_focus_unit_id:
+				a = sk  # focused suggestion (K card): skip THAT unit
 		var uid = a.get("actor_unit_id", "")
 		var unit = snapshot.get("units", {}).get(uid, {})
 		var unit_name = _dn(unit, uid)
@@ -14913,6 +15126,57 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 # =============================================================================
 # CHARGE EVALUATION
 # =============================================================================
+
+static func _build_charge_order(snapshot: Dictionary, available_actions: Array, unit_best: Dictionary,
+		threshold: float) -> Dictionary:
+	"""UNIT-ORDER: chargeable units ranked by their own best charge. The AI
+	declares the top one if it clears the bar; otherwise it skips units in
+	army-list order (the first SKIP_CHARGE offer)."""
+	var units: Dictionary = snapshot.get("units", {})
+	var listed: Array = []
+	for a in available_actions:
+		var t := str(a.get("type", ""))
+		var uid := str(a.get("actor_unit_id", ""))
+		if (t == "DECLARE_CHARGE" or t == "SKIP_CHARGE") and uid != "" and not (uid in listed):
+			listed.append(uid)
+	if listed.is_empty():
+		return {}
+	var ranked: Array = listed.duplicate()
+	ranked.sort_custom(func(x, y):
+		return float(unit_best.get(x, {}).get("score", -INF)) > float(unit_best.get(y, {}).get("score", -INF)))
+	var top_score := float(unit_best.get(ranked[0], {}).get("score", -INF))
+	var will_charge := top_score >= threshold
+	var ids: Array = ranked if will_charge else listed
+	var entries: Array = []
+	for uid in ids:
+		var ub: Dictionary = unit_best.get(uid, {})
+		var tag := "no enemy in charge range"
+		var what := "skip charge"
+		var target := ""
+		if not ub.is_empty():
+			var sc := float(ub.score)
+			target = str(ub.target_name)
+			what = "charge" if sc >= threshold else "skip charge"
+			tag = "best charge score %.2f" % sc
+			if float(ub.prob) >= 0.0:
+				tag += ", %.0f%% to make it" % (float(ub.prob) * 100.0)
+			if sc < threshold:
+				tag += " — under the %.2f bar" % threshold
+				target = "(best: %s)" % target
+		entries.append({"unit_id": uid, "name": _dn(units.get(uid, {}), uid), "action": what,
+			"target": target, "tag": tag})
+	var reason := ""
+	if entries.size() == 1:
+		reason = "it is the only unit that can charge"
+	elif will_charge:
+		var nxt: Dictionary = unit_best.get(ids[1], {})
+		reason = "its best charge scores highest (%.2f vs %s for %s; the bar to charge is %.2f)" % [
+			top_score, ("%.2f" % float(nxt.score)) if not nxt.is_empty() else "no charge", entries[1].name, threshold]
+	else:
+		reason = "no charge clears the %.2f bar (best %.2f), so the AI skips units one at a time in army-list order" % [
+			threshold, top_score if top_score > -INF else 0.0]
+	return {"order": entries, "first_reason": reason, "focused": false,
+		"first_label": "Charging first" if will_charge else "Skipping first", "verb": "charge with" if will_charge else "skip"}
 
 static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
 	"""Evaluate all possible charge declarations and return the best one, or {} if none worth taking."""
@@ -14956,6 +15220,10 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 	var charge_eval := {}
 	var best_action = {}
 	var best_description = ""
+	# UNIT-ORDER (K card): every unit's own best charge, and — for a focused
+	# suggestion — only the focused unit may win the pick.
+	var unit_best := {}  # uid -> {score, target_name, prob}
+	var focus_charge: bool = _suggest_focus_unit_id != "" and charger_targets.has(_suggest_focus_unit_id)
 
 	for uid in charger_targets:
 		var unit = snapshot.get("units", {}).get(uid, {})
@@ -14965,6 +15233,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 
 		# Units without melee weapons should generally not charge (except for objective play)
 		var melee_bonus = 1.0 if has_melee else 0.3
+		var may_pick: bool = (not focus_charge) or uid == _suggest_focus_unit_id
 
 		# --- AI-GAP-4: Check if charger has melee ability bonuses ---
 		var all_units_charge = snapshot.get("units", {})
@@ -15084,7 +15353,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 				"action": target_info.action,
 			})
 
-			if score > best_score:
+			if score > float(unit_best.get(uid, {}).get("score", -INF)):
+				unit_best[uid] = {"score": score, "target_name": target_name, "prob": charge_prob}
+			if score > best_score and may_pick:
 				best_score = score
 				best_action = target_info.action
 				var kill_pct = (melee_dmg / target_hp * 100.0) if target_hp > 0 else 0.0
@@ -15101,7 +15372,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 		if scored_targets.size() >= 2:
 			var multi_target_result = _evaluate_multi_target_charge(
 				uid, unit, unit_name, scored_targets, melee_bonus, ow_risk, snapshot, player)
-			if multi_target_result.score > best_score:
+			if multi_target_result.score > float(unit_best.get(uid, {}).get("score", -INF)):
+				unit_best[uid] = {"score": multi_target_result.score, "target_name": "several units", "prob": -1.0}
+			if multi_target_result.score > best_score and may_pick:
 				best_score = multi_target_result.score
 				best_action = multi_target_result.action
 				best_description = multi_target_result.description
@@ -15147,6 +15420,8 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 		charge_threshold /= charge_faction_aggression
 		print("AIDecisionMaker: [FACTION] Charge threshold reduced by faction aggression %.1f (now: %.2f)" % [
 			charge_faction_aggression, charge_threshold])
+
+	_last_unit_order = _build_charge_order(snapshot, available_actions, unit_best, charge_threshold)
 
 	# Minimum threshold to declare a charge
 	if best_score < charge_threshold:
@@ -16576,6 +16851,33 @@ static func _cm_repair_close_obligation(ctx: Dictionary, per_model_paths: Dictio
 # FIGHT PHASE
 # =============================================================================
 
+static func _build_fight_order(snapshot: Dictionary, plan: Array, offered_ids: Array, first_uid: String) -> Dictionary:
+	"""UNIT-ORDER: units that can be selected to fight now, the AI's pick first,
+	then in fight-order plan order (activation priority from _fight_order_scores)."""
+	var units: Dictionary = snapshot.get("units", {})
+	var ids: Array = [first_uid] if first_uid in offered_ids else []
+	for uid in plan:
+		if uid in offered_ids and not (uid in ids):
+			ids.append(uid)
+	for uid in offered_ids:
+		if not (uid in ids):
+			ids.append(uid)
+	var entries: Array = []
+	for uid in ids:
+		var sc = _fight_order_scores.get(uid, {}).get("score", null)
+		entries.append({"unit_id": uid, "name": _dn(units.get(uid, {}), uid), "action": "fight", "target": "",
+			"tag": ("priority %.1f" % float(sc)) if sc != null else "not in the fight plan"})
+	var reason := "it is the only unit that can fight now"
+	if entries.size() > 1:
+		var a = _fight_order_scores.get(ids[0], {}).get("score", null)
+		var b = _fight_order_scores.get(ids[1], {}).get("score", null)
+		if a != null and b != null:
+			reason = "it has the highest fight-order priority (%.1f vs %.1f for %s)" % [float(a), float(b), entries[1].name]
+		else:
+			reason = "it is first in the AI's fight-order plan"
+	return {"order": entries, "first_reason": reason, "focused": false,
+		"first_label": "Fighting next", "verb": "fight with"}
+
 static func _decide_fight(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
 	var action_types = {}
 	for a in available_actions:
@@ -16687,6 +16989,13 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			if planned_uid in offered_ids:
 				chosen_uid = planned_uid
 				break
+
+		# UNIT-ORDER (K card): the units that can fight now, in plan order; a
+		# focused suggestion activates that unit instead.
+		_last_unit_order = _build_fight_order(snapshot, player_plan, offered_ids, chosen_uid)
+		if _suggest_focus_unit_id != "" and _suggest_focus_unit_id in offered_ids:
+			chosen_uid = _suggest_focus_unit_id
+			print("AIDecisionMaker: [UNIT-ORDER] suggestion focused on fighter %s" % chosen_uid)
 
 		# Remove the chosen unit from the plan (consumed)
 		player_plan.erase(chosen_uid)

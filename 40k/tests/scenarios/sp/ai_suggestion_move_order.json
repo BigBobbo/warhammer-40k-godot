@@ -1,0 +1,170 @@
+{
+  "id": "ai_suggestion_move_order",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "ai.suggestion.move_order",
+    "ai.suggestion.pure_preview"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "MOVE-ORDER: in P1's Movement phase the K card says which unit the AI moves first and why ('Moving first: <unit> — <reason>. N more queued'), lists the whole move order, and shows Unit ▶ / ◀ Unit buttons. Clicking Unit ▶ re-asks the AI about the 2nd unit in the order (card says 'Showing <unit> — 2nd in the order'), ◀ Unit walks back to the first, and clicking a unit name in the list jumps to it. Nothing is executed (action log empty, phase unchanged).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K",
+      "comment": "open the card with the K hotkey (the Suggest-button click is covered by ai_suggestion_breakdown_panel; in the visual-regression loop's environment the button click did not open the card)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Moving first: \")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"more queued\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._decision.get(\"_ai_unit_order\", {}).get(\"order\", []).size()",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) == str(main._ai_suggestion_panel._decision.get(\"_ai_unit_order\", {}).get(\"order\", [{}])[0].get(\"unit_id\", \"?\"))",
+      "equals": true,
+      "comment": "the AI's own pick is the first unit in its move order"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._next_unit_btn.visible and main._ai_suggestion_panel._prev_unit_btn.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"(OC\")",
+      "equals": true,
+      "comment": "the per-unit plan lines ('<unit> (OC2): MOVE …') are in AI's notes"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_move_order_first_unit"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._next_unit_btn.pressed.emit()",
+      "comment": "press the card's Unit ▶ button via its own pressed signal — the card is created on the first K press, so the loop's selector dry-run cannot resolve a click_node into it"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) == str(main._ai_suggestion_panel._cycle_order[1])",
+      "equals": true,
+      "comment": "Unit ▶ shows the 2nd unit in the order"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"2nd in the order\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.last_suggestion_meta.get(\"focus_unit_id\", \"\") == str(main._ai_suggestion_panel._cycle_order[1])",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_move_order_second_unit"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._prev_unit_btn.pressed.emit()",
+      "comment": "press the card's ◀ Unit button via its own pressed signal — the card is created on the first K press, so the loop's selector dry-run cannot resolve a click_node into it"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) == str(main._ai_suggestion_panel._cycle_order[0])",
+      "equals": true,
+      "comment": "◀ Unit walks back to the first unit"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Moving first: \")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._on_meta_clicked(\"unit:\" + str(main._ai_suggestion_panel._cycle_order[main._ai_suggestion_panel._cycle_order.size() - 1]))",
+      "comment": "clicking the last unit's name in the list (the RichTextLabel meta link)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) == str(main._ai_suggestion_panel._cycle_order[main._ai_suggestion_panel._cycle_order.size() - 1])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_active_player()",
+      "equals": 1
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    }
+  ]
+}
