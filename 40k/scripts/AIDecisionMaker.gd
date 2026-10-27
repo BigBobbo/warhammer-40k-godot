@@ -2867,11 +2867,35 @@ static func _suggest_in_progress_move(snapshot: Dictionary, available_actions: A
 	var begin_type: String = {"NORMAL": "BEGIN_NORMAL_MOVE", "ADVANCE": "BEGIN_ADVANCE", "FALL_BACK": "BEGIN_FALL_BACK"}.get(mode, "BEGIN_NORMAL_MOVE")
 	var uname := _dn(snapshot.get("units", {}).get(uid, {}), uid)
 	var staged := int(move.get("staged_moves", []).size())
-	var plan := decide(GameStateData.Phase.MOVEMENT, snapshot, [{"type": begin_type, "actor_unit_id": uid}], player, difficulty)
-	if str(plan.get("type", "")) != begin_type or str(plan.get("actor_unit_id", "")) != uid:
+	# An advancing unit may still move less than its cap, so a plain-move plan
+	# (sized at M, within any Advance cap) is a valid answer for it too.
+	var offer_types: Array = [begin_type]
+	if begin_type == "BEGIN_ADVANCE":
+		offer_types.append("BEGIN_NORMAL_MOVE")
+	var offered: Array = []
+	for t in offer_types:
+		offered.append({"type": t, "actor_unit_id": uid})
+	var plan := decide(GameStateData.Phase.MOVEMENT, snapshot, offered, player, difficulty)
+	if not (str(plan.get("type", "")) in offer_types) or str(plan.get("actor_unit_id", "")) != uid:
 		print("AIDecisionMaker: suggestion for in-progress move of %s found no plan (got %s) — suggesting confirm" % [uid, str(plan.get("type", ""))])
 		return {}
-	var desc := str(plan.get("_ai_description", "%s moves" % uname))
+	# The planner sizes an Advance at the average roll (M+2"). This one is
+	# already rolled — re-plan to the real cap the same way the live AI does
+	# after its own roll, so the suggestion never asks for more than was rolled.
+	var cap := float(move.get("move_cap_inches", 0.0))
+	var roll_note := ""
+	if mode == "ADVANCE" and cap > 0.0 and str(plan.get("type", "")) == "BEGIN_ADVANCE":
+		var ai = Engine.get_main_loop().root.get_node_or_null("/root/AIPlayer") if Engine.get_main_loop() else null
+		var unit: Dictionary = snapshot.get("units", {}).get(uid, {})
+		if ai != null and ai.has_method("recompute_destinations_for_cap"):
+			var dests: Dictionary = ai.recompute_destinations_for_cap(player, uid, unit, plan, cap)
+			if not dests.is_empty():
+				plan["_ai_model_destinations"] = dests
+				roll_note = " (planned for your Advance roll of %d — %.0f\" total)" % [int(move.get("advance_roll", 0)), cap]
+				print("AIDecisionMaker: suggestion re-planned in-progress advance of %s for actual cap %.1f\"" % [uid, cap])
+	if mode == "ADVANCE" and roll_note == "":
+		roll_note = " (within your Advance roll of %d — %.0f\" total)" % [int(move.get("advance_roll", 0)), cap]
+	var desc := str(plan.get("_ai_description", "%s moves" % uname)) + roll_note
 	var next_step := "Move its models that way, then Confirm Move." if staged == 0 \
 		else "%d model(s) already placed — adjust them (or Reset Unit Move), then Confirm Move." % staged
 	plan["_ai_description"] = "%s's move is in progress — AI plan: %s. %s" % [uname, desc, next_step]

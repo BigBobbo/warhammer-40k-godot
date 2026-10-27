@@ -1632,29 +1632,7 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 
 	if actual_differs:
 		print("AIPlayer: Advance actual cap %.1f\" differs from estimate %.1f\" — recomputing destinations for %s" % [actual_move_cap, estimated_move, unit_id])
-		var snapshot = GameState.create_snapshot(false)
-		var enemies = _get_enemies_for_recompute(player, snapshot)
-		var objectives = snapshot.get("board", {}).get("objectives", [])
-
-		# BUGFIX (orc-waagh-movement-bug): recompute toward the SAME heading the AI
-		# originally chose for this advance — derived from the pre-roll per-model
-		# destinations — NOT the nearest objective. The old _get_target_pos_for_unit()
-		# snapped every advance to the closest objective, which at the start of the
-		# game is the unit's OWN home objective sitting directly behind it. That turned
-		# "advance toward the enemy" into a ~1" shuffle backward that collided with the
-		# unit's own tightly-packed models, so a Boyz blob barely moved (or, when boxed
-		# in, remained stationary) even though the log said it was advancing.
-		var target_pos = _advance_heading_target(unit, decision.get("_ai_model_destinations", {}), actual_move_cap)
-		if target_pos == Vector2.INF:
-			# No usable heading from the original destinations — fall back to the
-			# previous behaviour so a degenerate case still produces some move.
-			target_pos = _get_target_pos_for_unit(unit, snapshot, objectives)
-
-		var new_destinations = AIDecisionMaker._compute_movement_toward_target(
-			unit, unit_id, target_pos, actual_move_cap, snapshot, enemies,
-			0.0, [], objectives
-		)
-
+		var new_destinations := recompute_destinations_for_cap(player, unit_id, unit, decision, actual_move_cap)
 		if new_destinations.is_empty():
 			print("AIPlayer: Recomputed destinations empty for %s with actual cap %.1f\" — trying with original destinations" % [unit_id, actual_move_cap])
 			# Fall through to use original destinations — staging will clamp or fail per-model
@@ -1663,6 +1641,34 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 			print("AIPlayer: Recomputed %d model destinations for %s" % [new_destinations.size(), unit_id])
 
 	_execute_ai_movement(player, decision)
+
+func recompute_destinations_for_cap(player: int, unit_id: String, unit: Dictionary, decision: Dictionary, move_cap_inches: float) -> Dictionary:
+	"""Re-plan a move decision's per-model destinations for the move cap the unit
+	ACTUALLY has (e.g. the real Advance roll, not the M+2 average it was planned
+	at), keeping the heading the AI chose. Used by the live AI after rolling and
+	by the suggestion for a player's already-rolled Advance. {} if none found."""
+	var snapshot = GameState.create_snapshot(false)
+	var enemies = _get_enemies_for_recompute(player, snapshot)
+	var objectives = snapshot.get("board", {}).get("objectives", [])
+
+	# BUGFIX (orc-waagh-movement-bug): recompute toward the SAME heading the AI
+	# originally chose for this advance — derived from the pre-roll per-model
+	# destinations — NOT the nearest objective. The old _get_target_pos_for_unit()
+	# snapped every advance to the closest objective, which at the start of the
+	# game is the unit's OWN home objective sitting directly behind it. That turned
+	# "advance toward the enemy" into a ~1" shuffle backward that collided with the
+	# unit's own tightly-packed models, so a Boyz blob barely moved (or, when boxed
+	# in, remained stationary) even though the log said it was advancing.
+	var target_pos = _advance_heading_target(unit, decision.get("_ai_model_destinations", {}), move_cap_inches)
+	if target_pos == Vector2.INF:
+		# No usable heading from the original destinations — fall back to the
+		# previous behaviour so a degenerate case still produces some move.
+		target_pos = _get_target_pos_for_unit(unit, snapshot, objectives)
+
+	return AIDecisionMaker._compute_movement_toward_target(
+		unit, unit_id, target_pos, move_cap_inches, snapshot, enemies,
+		0.0, [], objectives
+	)
 
 ## True when the unit's just-begun Normal move has a higher cap than the
 ## datasheet M its destinations were planned at (e.g. FUNGUS-FUEL INJECTION).

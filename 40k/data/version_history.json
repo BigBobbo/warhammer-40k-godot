@@ -7,6 +7,7 @@
       "summary": "AI Suggestion now helps with a move you've already started.",
       "changes": [
         "If you start moving a unit yourself and then press Suggest (K), the AI now says where it would take that unit instead of just \"Confirmed move\".",
+        "If that move is an Advance you've already rolled, the plan uses your actual roll rather than an average one.",
         "Rule-based options in the suggestion's developer details now show their names instead of blank rows."
       ]
     },
