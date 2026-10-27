@@ -31,7 +31,7 @@ class_name AISuggestionBreakdownPanel
 #   save_case_requested(verdict, note)  ("Good call" / "Bad call" — Main saves
 #                      an AISuggestionTestCases case); show_case_saved(result)
 #   toggle_section(key: String)  (same as clicking a link: "dev", "notes", "opt:R:I")
-#   unit_focus_requested(unit_id)  (movement: a unit in the move order clicked,
+#   unit_focus_requested(unit_id)  (a unit in the move/shoot/charge/fight/deploy order clicked,
 #                      or ◀ / ▶ pressed — Main re-asks the AI about that unit)
 #   cycle_unit(step: int)  (same as ◀ (-1) / ▶ (+1))
 #   breakdown_text: String   (plain-text mirror of what is on screen)
@@ -91,7 +91,7 @@ var _meta: Dictionary = {}
 var _expanded: Dictionary = {}
 var _note_edit: LineEdit = null
 var _review_status: Label = null
-# MOVE-ORDER: the move order of the AI's own (unfocused) pick, kept while the
+# UNIT-ORDER: the unit order of the AI's own (unfocused) pick, kept while the
 # player cycles so ◀ / ▶ walk a stable list (lower difficulties add random
 # noise to tie-breaks, so re-asking can reshuffle level units).
 var _cycle_order: Array = []
@@ -231,7 +231,7 @@ func _ready() -> void:
 	_prev_unit_btn = Button.new()
 	_prev_unit_btn.name = "PrevUnitButton"
 	_prev_unit_btn.text = "◀ Unit"
-	_prev_unit_btn.tooltip_text = "Show what the AI's plan has the previous unit in its move order do"
+	_prev_unit_btn.tooltip_text = "Show what the AI would do with the previous unit in its order"
 	_WhiteDwarfTheme.apply_to_button(_prev_unit_btn)
 	_prev_unit_btn.pressed.connect(func(): cycle_unit(-1))
 	_prev_unit_btn.visible = false
@@ -239,7 +239,7 @@ func _ready() -> void:
 	_next_unit_btn = Button.new()
 	_next_unit_btn.name = "NextUnitButton"
 	_next_unit_btn.text = "Unit ▶"
-	_next_unit_btn.tooltip_text = "Show what the AI's plan has the next unit in its move order do"
+	_next_unit_btn.tooltip_text = "Show what the AI would do with the next unit in its order"
 	_WhiteDwarfTheme.apply_to_button(_next_unit_btn)
 	_next_unit_btn.pressed.connect(func(): cycle_unit(1))
 	_next_unit_btn.visible = false
@@ -357,7 +357,7 @@ func cycle_unit(step: int) -> void:
 	"""◀ / ▶: re-ask the AI about the previous / next unit in its move order."""
 	if _cycle_order.size() < 2:
 		return
-	var acting := str(_decision.get("_ai_move_order", {}).get("acting_unit_id", ""))
+	var acting := str(_decision.get("_ai_unit_order", {}).get("acting_unit_id", ""))
 	var i := _cycle_order.find(acting)
 	var next_i := posmod((i if i >= 0 else 0) + step, _cycle_order.size())
 	_request_unit(str(_cycle_order[next_i]))
@@ -371,7 +371,7 @@ func _request_unit(unit_id: String) -> void:
 
 
 func _update_cycle_order(decision: Dictionary) -> void:
-	var mo: Dictionary = decision.get("_ai_move_order", {})
+	var mo: Dictionary = decision.get("_ai_unit_order", {})
 	var ids: Array = []
 	for e in mo.get("order", []):
 		ids.append(str(e.get("unit_id", "")))
@@ -477,7 +477,7 @@ static func build_breakdown(decision: Dictionary, meta: Dictionary = {},
 			"candidates": 0, "subtitle": subtitle}
 	var desc := str(decision.get("_ai_description", decision.get("type", "unknown")))
 	o.line("[font_size=17][b][color=%s]%s[/color][/b][/font_size]" % [HEX_CYAN, _esc(desc)], desc)
-	_render_move_order(o, decision.get("_ai_move_order", {}))
+	_render_move_order(o, decision.get("_ai_unit_order", {}))
 
 	var records: Array = decision.get("_ai_decision_records", [])
 	var analyses: Array = []
@@ -523,8 +523,9 @@ static func build_breakdown(decision: Dictionary, meta: Dictionary = {},
 
 
 static func _render_move_order(o: _Out, mo: Dictionary) -> void:
-	"""MOVE-ORDER: which unit acts, why it goes first, and the rest of the queue
-	(each a link that shows what the plan has that unit do)."""
+	"""UNIT-ORDER: which unit acts, why it goes first, and the rest of the queue
+	(each a link that shows what the plan has that unit do). Movement, shooting,
+	charge, fight and deployment each fill it (AIDecisionMaker._build_*_order)."""
 	var order: Array = mo.get("order", [])
 	if order.is_empty():
 		return
@@ -533,7 +534,7 @@ static func _render_move_order(o: _Out, mo: Dictionary) -> void:
 	var more := order.size() - 1
 	o.gap()
 	if acting == str(first.get("unit_id", "")):
-		var t := "Moving first: %s — %s." % [str(first.get("name", "")), str(mo.get("first_reason", ""))]
+		var t := "%s: %s — %s." % [str(mo.get("first_label", "Moving first")), str(first.get("name", "")), str(mo.get("first_reason", ""))]
 		if more > 0:
 			t += " %d more queued — click a unit below (or ◀ / ▶) to see its plan." % more
 		o.line("[color=%s]%s[/color]" % [HEX_WARN, _esc(t)], t)
@@ -544,8 +545,8 @@ static func _render_move_order(o: _Out, mo: Dictionary) -> void:
 			if str(order[i].get("unit_id", "")) == acting:
 				pos = i + 1
 				acting_name = str(order[i].get("name", acting))
-		var t := "Showing %s — %s in the move order. Not what the AI does next: it would move %s first (%s). This is %s's order once its turn comes." % [
-			acting_name, _ordinal(pos), str(first.get("name", "")), str(mo.get("first_reason", "")), acting_name]
+		var t := "Showing %s — %s in the order. Not what the AI does next: it would %s %s first (%s). This is what %s does once its turn comes." % [
+			acting_name, _ordinal(pos), str(mo.get("verb", "move")), str(first.get("name", "")), str(mo.get("first_reason", "")), acting_name]
 		o.line("[color=%s]%s[/color] [url=unit:%s]Back to the AI's next move[/url]" % [
 			HEX_WARN, _esc(t), str(first.get("unit_id", ""))], t)
 	for i in range(order.size()):
@@ -553,8 +554,10 @@ static func _render_move_order(o: _Out, mo: Dictionary) -> void:
 		var what := str(e.get("action", "move"))
 		if str(e.get("target", "")) != "":
 			what += " " + str(e.get("target", ""))
-		var tag := ""
-		if bool(e.get("engaged", false)):
+		var tag := str(e.get("tag", ""))
+		if e.has("tag"):
+			pass
+		elif bool(e.get("engaged", false)):
 			tag = "engaged"
 		elif int(e.get("tier", 1)) == 0:
 			tag = "just disembarked"

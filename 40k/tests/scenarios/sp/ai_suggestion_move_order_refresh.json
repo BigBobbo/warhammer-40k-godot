@@ -141,7 +141,7 @@
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel.set_meta(\"probe_pick\", str(main._ai_suggestion_panel._decision.get(\"_ai_move_order\", {}).get(\"order\", [{}])[0].get(\"unit_id\", \"\")))"
+      "script": "main._ai_suggestion_panel.set_meta(\"probe_pick\", str(main._ai_suggestion_panel._decision.get(\"_ai_unit_order\", {}).get(\"order\", [{}])[0].get(\"unit_id\", \"\")))"
     },
     {
       "act": "execute_script",

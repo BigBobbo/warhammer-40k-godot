@@ -9,7 +9,7 @@
   "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
-  "description": "MOVE-ORDER: in P1's Movement phase the K card says which unit the AI moves first and why ('Moving first: <unit> — <reason>. N more queued'), lists the whole move order, and shows Unit ▶ / ◀ Unit buttons. Clicking Unit ▶ re-asks the AI about the 2nd unit in the order (card says 'Showing <unit> — 2nd in the move order'), ◀ Unit walks back to the first, and clicking a unit name in the list jumps to it. Nothing is executed (action log empty, phase unchanged).",
+  "description": "MOVE-ORDER: in P1's Movement phase the K card says which unit the AI moves first and why ('Moving first: <unit> — <reason>. N more queued'), lists the whole move order, and shows Unit ▶ / ◀ Unit buttons. Clicking Unit ▶ re-asks the AI about the 2nd unit in the order (card says 'Showing <unit> — 2nd in the order'), ◀ Unit walks back to the first, and clicking a unit name in the list jumps to it. Nothing is executed (action log empty, phase unchanged).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -64,12 +64,12 @@
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel._decision.get(\"_ai_move_order\", {}).get(\"order\", []).size()",
+      "script": "main._ai_suggestion_panel._decision.get(\"_ai_unit_order\", {}).get(\"order\", []).size()",
       "expect_min": 2
     },
     {
       "act": "execute_script",
-      "script": "str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) == str(main._ai_suggestion_panel._decision.get(\"_ai_move_order\", {}).get(\"order\", [{}])[0].get(\"unit_id\", \"?\"))",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) == str(main._ai_suggestion_panel._decision.get(\"_ai_unit_order\", {}).get(\"order\", [{}])[0].get(\"unit_id\", \"?\"))",
       "equals": true,
       "comment": "the AI's own pick is the first unit in its move order"
     },
@@ -104,7 +104,7 @@
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"2nd in the move order\")",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"2nd in the order\")",
       "equals": true
     },
     {
