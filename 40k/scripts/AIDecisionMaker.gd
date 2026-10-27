@@ -1681,10 +1681,10 @@ const MOVE_LADDER_FAIL_BUDGET: float = 0.0   # 0 = off; see the note above
 # could reach it at any games budget. Values are UNCHANGED; promoting them is
 # a behaviour-preserving no-op that simply enlarges the search space.
 const MOVE_TURNS_AWAY_PENALTY: float = 2.0        # per extra turn needed to arrive
-# OBJ-ASSIGN-1: in the capture pass a unit at least MIN_INCHES closer to an
-# objective IN MOVES (distance left after one Normal move, so a faster unit
-# counts as closer), scoring within MARGIN of the unit the greedy order would
-# send and bringing as much of the still-needed OC, takes the objective instead.
+# OBJ-ASSIGN-1: in the capture pass a unit that reaches an objective QUICKER —
+# in fewer Movement phases at its own M, or in the same number with at least
+# MIN_INCHES more spare movement — scoring within MARGIN of the unit the greedy
+# order would send and bringing as much of the still-needed OC, takes it instead.
 const MOVE_ASSIGN_CLOSER_MARGIN: float = 4.0
 const MOVE_ASSIGN_CLOSER_MIN_INCHES: float = 3.0
 const MOVE_STAY_BONUS_LATE: float = 7.0           # already on objective, round >= 4
@@ -9092,18 +9092,19 @@ static func _assign_units_to_objectives(
 			continue  # Skip objectives that don't need more OC
 
 		# OBJ-ASSIGN-1: the greedy order is by score only, and distance enters
-		# the score in whole-turn steps — so a unit 10" away and one 16" away
-		# look the same and the farther one could claim the objective. Prefer a
-		# still-unassigned unit that scores nearly as well here, covers as much
-		# of the remaining need, and is meaningfully closer IN MOVES: compared
-		# on distance left after one Normal move (distance - M), so a M12 unit
-		# 11" away (arrives with 1" spare) beats a M6 unit 6.5" away (0.5" short).
+		# the score in whole-turn steps — so the unit the greedy order sends may
+		# not be the one that gets there first. Prefer a still-unassigned unit
+		# that scores nearly as well here, covers as much of the remaining need,
+		# and arrives QUICKER at its own Move: fewer Movement phases to bring a
+		# model within control range (an M12 unit 24" away arrives in 2, an M4
+		# unit 12" away needs 3), or — arriving the same phase — at least
+		# MIN_INCHES more spare movement. Advance is ignored (its roll is random).
 		var closer_margin = get_param("MOVE_ASSIGN_CLOSER_MARGIN", MOVE_ASSIGN_CLOSER_MARGIN)
 		var closer_min_in = get_param("MOVE_ASSIGN_CLOSER_MIN_INCHES", MOVE_ASSIGN_CLOSER_MIN_INCHES)
 		var needed_cover = mini(int(cand.unit_oc), remaining)
-		var cand_left_in = float(cand.distance) / PIXELS_PER_INCH - float(cand.move_inches)
+		var cand_arrival = _capture_arrival(cand)
 		var closer: Dictionary = {}
-		var closer_left_in := INF
+		var closer_arrival := {}
 		for alt in candidates:
 			if alt.objective_id != oid or alt.unit_id == uid or assigned_unit_ids.has(alt.unit_id):
 				continue
@@ -9111,23 +9112,27 @@ static func _assign_units_to_objectives(
 				continue
 			if float(alt.score) < float(cand.score) - closer_margin:
 				continue
-			var alt_left_in = float(alt.distance) / PIXELS_PER_INCH - float(alt.move_inches)
-			if alt_left_in > cand_left_in - closer_min_in:
-				continue
 			if mini(int(alt.unit_oc), remaining) < needed_cover:
 				continue
-			if alt_left_in < closer_left_in:
+			var alt_arrival = _capture_arrival(alt)
+			var quicker: bool = alt_arrival.phases < cand_arrival.phases \
+					or (alt_arrival.phases == cand_arrival.phases
+						and alt_arrival.spare_in >= cand_arrival.spare_in + closer_min_in)
+			if not quicker:
+				continue
+			if closer.is_empty() or alt_arrival.phases < closer_arrival.phases \
+					or (alt_arrival.phases == closer_arrival.phases and alt_arrival.spare_in > closer_arrival.spare_in):
 				closer = alt
-				closer_left_in = alt_left_in
+				closer_arrival = alt_arrival
 		if not closer.is_empty():
 			apply_capture_assignment.call(closer)
 			var far_name = _dn(snapshot.get("units", {}).get(uid, {}), uid)
-			assignments[closer.unit_id]["reason"] += " — quicker to reach than %s (%.1f\" at M%d vs %.1f\" at M%d)" % [
-				far_name, float(closer.distance) / PIXELS_PER_INCH, int(closer.move_inches),
-				float(cand.distance) / PIXELS_PER_INCH, int(cand.move_inches)]
-			print("AIDecisionMaker: [OBJ-ASSIGN-1] %s: %s is %.1f\" closer in moves than %s (left after a move %.1f\" vs %.1f\", score %.1f vs %.1f) — it takes the objective" % [
-				oid, closer.unit_id, cand_left_in - closer_left_in, uid, closer_left_in, cand_left_in,
-				float(closer.score), float(cand.score)])
+			assignments[closer.unit_id]["reason"] += " — quicker to reach than %s (%s at M%d vs %s at M%d)" % [
+				far_name, _arrival_text(closer, closer_arrival), int(closer.move_inches),
+				_arrival_text(cand, cand_arrival), int(cand.move_inches)]
+			print("AIDecisionMaker: [OBJ-ASSIGN-1] %s: %s arrives quicker than %s (%d phase(s), %.1f\" spare vs %d phase(s), %.1f\" spare; score %.1f vs %.1f) — it takes the objective" % [
+				oid, closer.unit_id, uid, closer_arrival.phases, closer_arrival.spare_in,
+				cand_arrival.phases, cand_arrival.spare_in, float(closer.score), float(cand.score)])
 			if obj_oc_remaining.get(oid, 0) <= 0:
 				continue  # covered — this unit falls through to its next option
 
@@ -10274,6 +10279,20 @@ static func _unit_oc_at_position(pos: Vector2, unit_id: String, unit: Dictionary
 		if mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
 			total_oc += _ai_model_oc(unit, model)
 	return total_oc
+
+## OBJ-ASSIGN-1: when a capture candidate's unit gets a model within control
+## range, moving at its own M each Movement phase (no Advance): `phases` = how
+## many Movement phases (min 1), `spare_in` = movement left over in the arrival
+## phase. Both measured from the centroid, like every other candidate distance.
+static func _capture_arrival(cand: Dictionary) -> Dictionary:
+	var move_in = maxf(float(cand.get("move_inches", 6.0)), 0.1)
+	var gap_in = maxf(0.0, (float(cand.distance) - OBJECTIVE_CONTROL_RANGE_PX) / PIXELS_PER_INCH)
+	var phases = maxi(1, int(ceil(gap_in / move_in)))
+	return {"phases": phases, "spare_in": float(phases) * move_in - gap_in}
+
+static func _arrival_text(cand: Dictionary, arrival: Dictionary) -> String:
+	var turns = "this turn" if int(arrival.phases) == 1 else "in %d turns" % int(arrival.phases)
+	return "%.1f\" away, there %s" % [float(cand.distance) / PIXELS_PER_INCH, turns]
 
 ## OBJ-HOLD-1: true when any alive model of `unit` stands within control
 ## range of `pos` — the per-model test _unit_oc_at_position scores with.

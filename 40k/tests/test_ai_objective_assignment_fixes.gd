@@ -8,6 +8,8 @@ extends SceneTree
 # 3. A faster unit farther away in inches but closer IN MOVES keeps the objective.
 # 4. A unit meaningfully closer in moves, scoring nearly as well, takes the
 #    objective ahead of the unit the score-only greedy order would send.
+# 6. A unit arriving in fewer Movement phases keeps the objective even when a
+#    slower unit is nearer after one move (M12 at 24" beats M4 at 12").
 # 5. The displaced unit's coordination_note names who took its top objective.
 #
 # Run via: godot --headless --path 40k --script tests/test_ai_objective_assignment_fixes.gd
@@ -131,6 +133,23 @@ func _run_tests():
 		"QUICK->%s (%s), SLOW->%s" % [q_obj, a4.get("U_QUICK", {}).get("reason", ""), sl_obj])
 	var note := str(a4.get("U_SLOW", {}).get("coordination_note", ""))
 	_check("displaced unit's note names the taker", "obj_1" in note and "Quick Squad" in note, "note='%s'" % note)
+
+	# --- 6: whole turns matter. U_FAST (M12, 24") vs U_PLOD (M4, 12"): after
+	# one move U_PLOD is nearer (8" vs 12" short), but U_FAST arrives on its 2nd
+	# move and U_PLOD needs a 3rd — U_FAST keeps obj_1. ---
+	var s6 = _snapshot({
+		"U_FAST": _unit(2, "Fast Bikers", [Vector2(600.0, 600.0 + 24.0 * PPI)], 2, 12),
+		"U_PLOD": _unit(2, "Plodding Squad", [Vector2(600.0 - 12.0 * PPI, 600.0)], 2, 4),
+	})
+	var a6 = _assign(s6, ["U_FAST", "U_PLOD"])
+	_dump(["U_FAST", "U_PLOD"])
+	_check("unit arriving in fewer turns keeps obj_1",
+		a6.get("U_FAST", {}).get("objective_id", "") == "obj_1" and a6.get("U_PLOD", {}).get("objective_id", "") == "obj_2",
+		"FAST->%s, PLOD->%s" % [a6.get("U_FAST", {}).get("objective_id", ""), a6.get("U_PLOD", {}).get("objective_id", "")])
+	var arr_fast = AIDecisionMaker._capture_arrival({"distance": 24.0 * PPI, "move_inches": 12.0})
+	var arr_plod = AIDecisionMaker._capture_arrival({"distance": 12.0 * PPI, "move_inches": 4.0})
+	_check("arrival turns: M12 at 24\" = 2, M4 at 12\" = 3", arr_fast.phases == 2 and arr_plod.phases == 3,
+		"fast=%s plod=%s" % [str(arr_fast), str(arr_plod)])
 
 	AIDecisionMaker.reset_caches()
 	print("\n=== Results: %d passed, %d failed ===" % [passed, failed])
