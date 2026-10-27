@@ -2866,10 +2866,19 @@ static func suggest_action(phase: int, snapshot: Dictionary, available_actions: 
 	# a generator seeded by the board (not the live AI's stream, which a seeded
 	# game must not see consumed), so re-asking — or cycling the card to
 	# another unit — never reshuffles the order by chance.
+	# A seeded game (tests, replays) previews from a COPY of the live
+	# generator — same seed and position, never advanced — so runs stay
+	# reproducible from the seed; unseeded play seeds from the board.
 	var live_rng := _rng()
 	var live_seeded := _ai_rng_seeded
 	_ai_rng = RandomNumberGenerator.new()
-	_ai_rng.seed = hash("%d|%d|%s" % [phase, player, JSON.stringify(snapshot.get("units", {}))])
+	if live_seeded:
+		_ai_rng.seed = live_rng.seed
+		_ai_rng.state = live_rng.state
+	else:
+		_ai_rng.seed = hash("%d|%d|%s" % [phase, player, JSON.stringify(snapshot.get("units", {}))])
+	print("AIDecisionMaker: suggest_action preview RNG %s (seed %d, state %d)" % [
+		"copied from the seeded live AI" if live_seeded else "seeded from the board", _ai_rng.seed, _ai_rng.state])
 	_suggest_focus_unit_id = focus_unit_id
 	_last_unit_order = {}
 	var decision := decide(phase, snapshot, available_actions, player, difficulty)
