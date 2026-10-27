@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.53.0",
+      "version": "1.54.0",
       "date": "2026-10-27",
       "summary": "The AI Suggestion (K) card now says which unit the AI acts with first and why, and lets you step through every unit's suggestion — in deployment, movement, shooting, charge and fight.",
       "changes": [
@@ -12,6 +12,42 @@
         "The open card updates itself whenever a unit finishes acting (moves, stays still, shoots or skips, charges or skips, fights, deploys, arrives from reserves) and when the phase changes. It never updates while a unit is mid-action. If you were viewing another unit, it stays on that unit.",
         "The same position now always gives the same suggestion (the AI's random tie-breaks are fixed per position while previewing), so re-asking or stepping through units never reshuffles the order.",
         "Good call / Bad call on one of those cards saves a test case for that unit."
+      ]
+    },
+    {
+      "version": "1.53.3",
+      "date": "2026-10-27",
+      "summary": "AI suggestions now notice secondary missions you can score this turn.",
+      "changes": [
+        "The Suggest (K) panel shows when a secondary is met, e.g. 'End Turn \u2014 scores Engage on All Fronts 3 VP', with a Score vs Hold breakdown.",
+        "A met secondary is never offered as a discard candidate.",
+        "The AI's Engage on All Fronts estimate only counts units wholly within a table quarter and more than 6\" from the centre, matching the real scoring check."
+      ]
+    },
+    {
+      "version": "1.53.2",
+      "date": "2026-10-27",
+      "summary": "Units that pile into combat at the start of the Fight phase no longer get a second pile-in.",
+      "changes": [
+        "A unit that was out of Engagement Range when the Fight phase began, but piled into combat during the Pile In step, now fights normally when selected. It no longer gets an extra Overrun pile-in, because the 'engaged at the start of the Fight step' check now happens after the Pile In step."
+      ]
+    },
+    {
+      "version": "1.53.1",
+      "date": "2026-10-27",
+      "summary": "Fixed attached units getting a second pile-in when selected to fight.",
+      "changes": [
+        "A unit led by a Character no longer gets an extra pile-in when it is selected to fight if only the Character's model was in Engagement Range. The whole Attached unit counts as engaged, so it fights normally. The extra Overrun pile-in is still offered when the whole unit is out of Engagement Range."
+      ]
+    },
+    {
+      "version": "1.53.0",
+      "date": "2026-10-27",
+      "summary": "The AI no longer chases objectives the enemy will reach first, weighs distance properly, and Advances on long trips.",
+      "changes": [
+        "Objectives several turns away now cost a share of their value for each extra turn, instead of a flat -2 that a high-value objective could ignore.",
+        "The AI checks who wins the race: if the enemy can get at least as much OC onto an objective before the unit arrives, that objective is worth much less. The Suggest (K) card shows this as 'Enemy gets there first', and the plan says 'racing for it (enemy can have ~N OC there before we arrive in T turns)'.",
+        "Units on a trip that takes several turns now Advance when that gets them there a whole turn sooner and they have nothing to shoot anyway ('advancing to arrive a turn sooner')."
       ]
     },
     {
