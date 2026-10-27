@@ -4187,6 +4187,12 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if not is_instance_valid(dice_log_display):
 		return
 
+	# HEROIC INTERVENTION counter-charge roll: the phase rolls it automatically
+	# on USE, so this is the only place the defender gets to SEE the 2D6.
+	if dice_data.get("context", "") == "heroic_intervention_charge_roll":
+		_show_heroic_intervention_roll(dice_data)
+		return
+
 	# T5-V1: Trigger animated dice visualization for charge rolls
 	if dice_roll_visual and dice_data.get("context", "") == "charge_roll":
 		var charge_rolls = dice_data.get("rolls", [])
@@ -4992,6 +4998,32 @@ func _on_charge_path_tools_enabled(unit_id: String, distance: int) -> void:
 	_enable_charge_movement(unit_id, distance)
 	_show_charge_distance_display(distance)
 	_update_button_states()
+
+func _show_heroic_intervention_roll(dice_data: Dictionary) -> void:
+	"""Animate + log the Heroic Intervention 2D6 (previously skipped because
+	only context == "charge_roll" was rendered, so the roll was invisible)."""
+	var rolls: Array = dice_data.get("rolls", [])
+	if rolls.size() != 2:
+		return
+	var total := int(dice_data.get("total", 0))
+	var uncapped := int(dice_data.get("uncapped_total", total))
+	var failed: bool = dice_data.get("charge_failed", false)
+	var unit_name := str(dice_data.get("unit_name", dice_data.get("unit_id", "")))
+	print("ChargeController: Heroic Intervention roll for %s: %s = %d (uncapped %d, failed=%s)" % [unit_name, str(rolls), total, uncapped, str(failed)])
+	if dice_roll_visual:
+		dice_roll_visual.show_dice_roll({
+			"context": "heroic_intervention_charge_roll",
+			"rolls_raw": rolls,
+			"threshold": "",
+		})
+	if is_instance_valid(dice_log_display):
+		DiceLogFormatter.charge_roll(dice_log_display, "%s (Heroic Intervention)" % unit_name, rolls, total)
+		if uncapped != total:
+			dice_log_display.append_text("[color=gray]Rolled %d — capped at 6\" (Into the Fray)[/color]\n" % uncapped)
+		if failed:
+			dice_log_display.append_text("[color=#FF6B6B]Heroic Intervention charge FAILED — %d\" is not enough to reach the target.[/color]\n" % total)
+	if failed and is_instance_valid(charge_info_label):
+		charge_info_label.text = "Heroic Intervention FAILED — %s rolled %d\" (%d + %d)" % [unit_name, total, int(rolls[0]), int(rolls[1])]
 
 func _on_heroic_intervention_declined(player: int) -> void:
 	"""Handle player declining Heroic Intervention."""
