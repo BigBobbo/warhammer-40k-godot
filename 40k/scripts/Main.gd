@@ -2698,6 +2698,95 @@ func _on_ai_suggestion_pressed() -> void:
 	var decision: Dictionary = ai_player.request_suggestion()
 	_show_ai_suggestion_breakdown(decision, ai_player.last_suggestion_meta)
 
+func _on_ai_suggestion_unit_focus(unit_id: String) -> void:
+	"""Card ◀ / ▶ or a unit clicked in its move order: show what the AI's plan
+	has THAT unit do (movement phase). Still a pure preview."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if not ai_player:
+		return
+	var decision: Dictionary = ai_player.request_suggestion(-1, unit_id)
+	_show_ai_suggestion_breakdown(decision, ai_player.last_suggestion_meta)
+
+# UNIT-ORDER auto-refresh. The open K card follows the board: after any game
+# action it re-asks the AI once the set of units the AI could pick from has
+# changed (a unit finished moving / shooting / charging / fighting / deploying,
+# or the phase moved on) — but never while a unit is mid-action, so the card
+# does not flip to "confirm move" / "apply saves" under the player.
+const AI_CARD_PICK_TYPES := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "REMAIN_STATIONARY",
+	"PLACE_REINFORCEMENT", "SELECT_SHOOTER", "DECLARE_CHARGE", "SKIP_CHARGE", "SELECT_FIGHTER",
+	"DEPLOY_UNIT", "BEGIN_SCOUT_MOVE"]
+const AI_CARD_BUSY_TYPES := ["CONFIRM_UNIT_MOVE", "CONFIRM_SCOUT_MOVE", "APPLY_SAVES", "CONTINUE_SEQUENCE",
+	"CONFIRM_TARGETS", "RESOLVE_SHOOTING", "CHARGE_ROLL", "APPLY_CHARGE_MOVE", "COMPLETE_UNIT_CHARGE",
+	"USE_COMMAND_REROLL", "ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS", "ASSIGN_ATTACKS", "APPLY_MELEE_SAVES",
+	"PILE_IN", "SELECT_MELEE_WEAPON"]
+var _ai_card_pick_signature: String = ""
+var _ai_card_refresh_queued: bool = false
+
+func _ai_card_board_signature() -> Dictionary:
+	"""{sig, busy}: which units the AI could pick from right now (per phase and
+	deciding player), and whether a unit is mid-action."""
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm == null or pm.current_phase_instance == null:
+		return {"sig": "", "busy": true}
+	var ids: Array = []
+	var busy := false
+	for a in pm.get_available_actions():
+		var t := str(a.get("type", ""))
+		if t in AI_CARD_BUSY_TYPES:
+			busy = true
+		elif t in AI_CARD_PICK_TYPES:
+			var uid := str(a.get("actor_unit_id", a.get("unit_id", "")))
+			if uid != "" and not (uid in ids):
+				ids.append(uid)
+	var inst = pm.current_phase_instance
+	if inst.has_method("has_pending_stratagem_window") and inst.has_pending_stratagem_window():
+		busy = true
+	ids.sort()
+	return {"sig": "%d|%d|%s" % [int(GameState.get_current_phase()), int(GameState.get_active_player()), ",".join(PackedStringArray(ids))],
+		"busy": busy, "ids": ids}
+
+func _on_action_for_ai_suggestion_card(action) -> void:
+	"""PhaseManager.phase_action_taken / phase_changed while the K card is open:
+	queue one deferred check (several actions can land in one frame)."""
+	if _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel) or not _ai_suggestion_panel.visible:
+		return
+	if _ai_card_refresh_queued:
+		return
+	_ai_card_refresh_queued = true
+	var who := ""
+	if action is Dictionary:
+		who = str(action.get("actor_unit_id", action.get("unit_id", "")))
+	call_deferred("_refresh_ai_suggestion_after_action", who)
+
+func _refresh_ai_suggestion_after_action(unit_id: String) -> void:
+	_ai_card_refresh_queued = false
+	if _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel) or not _ai_suggestion_panel.visible:
+		return
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if not ai_player or ai_player._processing_turn:
+		return  # the AI is acting — K is unavailable while it does
+	var decider := int(GameState.get_active_player())
+	if GameState.get_current_phase() == GameStateData.Phase.FIGHT:
+		var sel := int(ai_player._get_fight_phase_selecting_player())
+		if sel > 0:
+			decider = sel
+	if ai_player.is_ai_player(decider):
+		return  # the AI's own pick — it is about to act on it
+	var bs := _ai_card_board_signature()
+	if bool(bs.busy) or str(bs.sig) == _ai_card_pick_signature:
+		return
+	var focus := str(_ai_suggestion_panel._meta.get("focus_unit_id", ""))
+	if not (focus in bs.ids):
+		focus = ""  # the viewed unit has acted (or left the phase) — show the AI's next pick
+	var decision: Dictionary = ai_player.request_suggestion(-1, focus)
+	var meta: Dictionary = ai_player.last_suggestion_meta.duplicate()
+	var u = GameState.get_unit(unit_id) if unit_id != "" else {}
+	var uname := str(u.get("meta", {}).get("name", unit_id)) if u is Dictionary else unit_id
+	if uname != "":
+		meta["refreshed_after"] = uname
+	print("Main: AI suggestion card refreshed (board changed: %s), after unit '%s', focus='%s'" % [str(bs.sig).left(80), unit_id, focus])
+	_show_ai_suggestion_breakdown(decision, meta)
+
 func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> void:
 	"""Open (or refresh) the breakdown card showing how the suggestion was reached."""
 	if _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel):
@@ -2707,6 +2796,11 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 		_ai_suggestion_panel.z_index = UI_MODAL_Z
 		_ai_suggestion_panel.refresh_requested.connect(_on_ai_suggestion_pressed)
 		_ai_suggestion_panel.save_case_requested.connect(_on_ai_suggestion_save_case)
+		_ai_suggestion_panel.unit_focus_requested.connect(_on_ai_suggestion_unit_focus)
+		if PhaseManager and not PhaseManager.phase_action_taken.is_connected(_on_action_for_ai_suggestion_card):
+			PhaseManager.phase_action_taken.connect(_on_action_for_ai_suggestion_card)
+		if PhaseManager and not PhaseManager.phase_changed.is_connected(_on_action_for_ai_suggestion_card):
+			PhaseManager.phase_changed.connect(_on_action_for_ai_suggestion_card)
 		_ai_suggestion_panel.closed.connect(_clear_ai_suggestion_overlay)
 		_ai_suggestion_panel.option_hovered.connect(func(rec, i, chosen):
 			if _ai_suggestion_overlay and is_instance_valid(_ai_suggestion_overlay):
@@ -2726,6 +2820,7 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 		if _ai_suggestion_host and is_instance_valid(_ai_suggestion_host):
 			_ai_suggestion_host.hide()
 	_ai_suggestion_panel.show_decision(decision, meta)
+	_ai_card_pick_signature = str(_ai_card_board_signature().sig)
 	_show_ai_suggestion_overlay(decision)
 	print("Main: AI suggestion breakdown shown (%d records)%s" % [_ai_suggestion_panel.record_count,
 		(" above modal '%s'" % modal.name) if modal != null else ""])
