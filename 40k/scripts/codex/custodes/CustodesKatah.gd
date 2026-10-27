@@ -84,9 +84,11 @@ const DAUGHTERS_FNP := 3
 const PSYCHIC_NULL_FNP := 5
 const PSYCHIC_NULL_RANGE_IN := 6.0
 ## Ruling (RULINGS.md WP-C3): Dacatarai / Kaptaris are offered at the start of
-## the Fight phase only for readied units within 6" of an enemy unit — no melee
-## attack can involve a unit farther away this phase (pile-in targets must be
-## within 5"), so the card would only throw the readied state away.
+## the Fight phase only for readied units that can be in a fight this phase —
+## the unit can pile in itself (engaged / charged / overrun, 12.03), or an enemy
+## unit within 6" can pile in and so may engage it. Any other unit (e.g. one
+## merely near an idle enemy) cannot make or receive a melee attack this phase,
+## so the card would only throw its readied state away.
 const FIGHT_START_RANGE_IN := 6.0
 
 const KATAH_ORDER := ["conservai", "calistus", "salvus", "dacatarai", "kaptaris", "rendax"]
@@ -214,6 +216,27 @@ static func active_katahs(u: Dictionary) -> Array:
 	for kid in KATAH_ORDER:
 		if bool(flags.get(flag_for(kid), false)):
 			out.append(kid)
+	return out
+
+## "<unit> — <KA'TAH>" for each of `player`'s units (Attached units once) with
+## an active ka'tah — the window dialog lists them, so a unit that already
+## chose one is not silently missing from a re-opened window.
+static func active_katah_summary(player: int) -> Array:
+	var out: Array = []
+	var seen: Array = []
+	var units: Dictionary = Common.state().get("units", {})
+	for uid in units:
+		var head := Common.head_id(str(uid))
+		if head in seen:
+			continue
+		var u := Common.unit(head)
+		if int(u.get("owner", 0)) != player:
+			continue
+		var kids := active_katahs(u)
+		if kids.is_empty():
+			continue
+		seen.append(head)
+		out.append("%s — %s" % [Common.unit_name(head), ", ".join(kids.map(func(k): return katah_display_name(k)))])
 	return out
 
 static func katah_active(u: Dictionary, katah_id: String) -> bool:
@@ -373,7 +396,7 @@ static func _window_candidates(player: int, kid: String, window_id: String, ctx:
 				var hu := Common.unit(head)
 				if int(hu.get("owner", 0)) != player:
 					continue
-				if window_id == "fight_phase_start" and Common.nearest_enemy_inches(_group_union(head)) > FIGHT_START_RANGE_IN:
+				if window_id == "fight_phase_start" and not _can_be_in_fight(head):
 					continue
 				out.append(head)
 	var filtered: Array = []
@@ -393,6 +416,30 @@ static func _window_candidates(player: int, kid: String, window_id: String, ctx:
 			continue
 		filtered.append(head)
 	return filtered
+
+## Fight-phase-start filter (see FIGHT_START_RANGE_IN): `head` (any
+## component) can pile in itself, or an enemy unit within 6" can pile in.
+static func _can_be_in_fight(head: String) -> bool:
+	var board: Dictionary = Common.state()
+	var tmpl = MoveTypes.get_type("pile_in")
+	if tmpl == null:
+		return Common.nearest_enemy_inches(_group_union(head)) <= FIGHT_START_RANGE_IN
+	for gid in Common.attached_group_ids(head):
+		if tmpl.eligible(str(gid), board).get("eligible", false):
+			return true
+	var union := _group_union(head)
+	var owner := int(union.get("owner", 0))
+	var units: Dictionary = board.get("units", {})
+	for eid in units:
+		var eu: Dictionary = units[eid]
+		if int(eu.get("owner", 0)) == owner or not Common.is_on_battlefield(eu):
+			continue
+		if Common.unit_distance_inches(union, eu) > FIGHT_START_RANGE_IN:
+			continue
+		if tmpl.eligible(str(eid), board).get("eligible", false):
+			return true
+	Common.log_info("[CustodesKatah] fight_phase_start: %s not offered — it cannot pile in and no enemy within %.0f\" can pile in" % [Common.unit_name(head), FIGHT_START_RANGE_IN])
+	return false
 
 ## Models of every component, merged — distances from an Attached unit.
 static func _group_union(head: String) -> Dictionary:

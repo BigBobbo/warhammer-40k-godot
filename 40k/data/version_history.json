@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.52.2",
+      "date": "2026-10-27",
+      "summary": "Custodes Fight-phase ka'tahs are now offered only to units that can actually fight.",
+      "changes": [
+        "Dacatarai / Kaptaris at the start of the Fight phase are no longer offered to a unit that is merely near an enemy. A unit gets the card only if it can pile in itself (engaged or charged) or an enemy within 6\" can pile into it.",
+        "When the ka'tah window re-opens after you pick one, it now lists the units that already chose a ka'tah (e.g. \"Ka'tah already chosen: Telemon Heavy Dreadnought — KAPTARIS\"), so they are not silently missing."
+      ]
+    },
+    {
       "version": "1.52.1",
       "date": "2026-10-26",
       "summary": "Removed old leftover army lists from the army picker.",

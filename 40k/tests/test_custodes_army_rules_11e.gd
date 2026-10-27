@@ -440,10 +440,27 @@ func _section_offers() -> void:
 	var fs = K.window_offers(1, "fight_phase_start", {"phase": "fight"})
 	_check("fight_phase_start: DACATARAI and KAPTARIS", _offer_ids(fs) == [ids.dacatarai, ids.kaptaris], str(_offer_ids(fs)))
 	var fs_t := _targets(fs, ids.dacatarai)
-	for want in [CG, SC, BC, CONT, WS_D]:
-		_check("fight_phase_start offers %s (within 6\" of an enemy)" % want, want in fs_t, str(fs_t))
+	for want in [CG, SC, BC, CONT]:
+		_check("fight_phase_start offers %s (can be in a fight this phase)" % want, want in fs_t, str(fs_t))
 	for not_want in [CALADIUS, JETBIKE, TELEMON, WS_C]:
 		_check("fight_phase_start does not offer %s (> 6\" from every enemy)" % not_want, not not_want in fs_t)
+	# Within 6" of an enemy but neither it nor that enemy can pile in: it
+	# cannot fight or be fought this phase, so no card (user report: a unit
+	# out of combat was offered while the units fighting were the point).
+	_check("fight_phase_start does not offer %s (near an enemy, but nobody there can pile in)" % WS_D, not WS_D in fs_t, str(fs_t))
+	var ws_d_enemies: Array = []
+	for eid in GS.state.units:
+		var eu = GS.state.units[eid]
+		if int(eu.get("owner", 0)) == 2 and K.Common.unit_distance_inches(K._group_union(WS_D), eu) <= K.FIGHT_START_RANGE_IN:
+			ws_d_enemies.append(eid)
+	_check("%s has an enemy within 6\"" % WS_D, not ws_d_enemies.is_empty())
+	if not ws_d_enemies.is_empty():
+		_flags(ws_d_enemies[0])["charged_this_turn"] = true
+		_check("...offered once that enemy charged (it can pile into %s)" % WS_D, WS_D in _targets(K.window_offers(1, "fight_phase_start", {"phase": "fight"}), ids.dacatarai))
+		_flags(ws_d_enemies[0]).erase("charged_this_turn")
+	_flags(TELEMON)["charged_this_turn"] = true
+	_check("a charged unit > 6\" from every enemy is offered (it can pile in)", TELEMON in _targets(K.window_offers(1, "fight_phase_start", {"phase": "fight"}), ids.dacatarai))
+	_flags(TELEMON).erase("charged_this_turn")
 	GS.state.meta["active_player"] = 2
 	_check("Dacatarai / Kaptaris also in the OPPONENT's Fight phase", _targets(K.window_offers(1, "fight_phase_start", {}), ids.kaptaris).size() == fs_t.size())
 	GS.state.meta["active_player"] = 1

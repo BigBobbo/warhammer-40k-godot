@@ -1,0 +1,41 @@
+{
+  "id": "cus11e_katah_fight_start_only_fighting_units",
+  "covers": [
+    "codex.custodes.martial_katah.fight_start_filter",
+    "codex.custodes.martial_katah.kaptaris",
+    "stratagem.window.fight_phase_start",
+    "dialogs.StratagemDialog.katah_already_chosen"
+  ],
+  "description": "User report: at the start of the Fight phase the ka'tah window offered a unit that was out of combat. Codex: Adeptus Custodes (11e) DACATARAI / KAPTARIS are now offered only to readied units that can be in a fight this phase (the unit can pile in — engaged / charged / overrun — or an enemy within 6\" can pile in). Fixture cus11e_c3_custodes_active, Custodes' own Fight phase. Setup privileges: the Telemon is moved into engagement with the Boyz (charged this turn); the Caladius is parked ~3\" from the idle Gretchin (not engaged, nobody there can pile in). (1) The window offers the Telemon, not the Caladius. (2) A real click on Kaptaris for the Telemon; the re-opened window names 'Ka'tah already chosen: Telemon … — KAPTARIS' so the unit is not silently missing.",
+  "fixture": "cus11e_c3_custodes_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "martial_katah": true,
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 6 },
+    { "act": "click_if_visible", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "comment": "setup privileges (see description)", "script": "GameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nvar b = GameState.state.units[\"U_BOYZ_B\"].models[0].position\nGameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0][\"position\"] = {\"x\": float(b.x) + 90.0, \"y\": float(b.y)}\nGameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].flags[\"charged_this_turn\"] = true\nvar g = GameState.state.units[\"U_GRETCHIN_C\"].models[0].position\nGameState.state.units[\"U_CALADIUS_GRAV-TANK_E\"].models[0][\"position\"] = {\"x\": float(g.x) + 420.0, \"y\": float(g.y)}\ntree.current_scene._recreate_unit_visuals()\nPhaseManager.transition_to_phase(10)\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_phase", "equals": 10 },
+    { "act": "expect_state", "path": "units.U_CALADIUS_GRAV-TANK_E.flags.cus11e_readied", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var C = load(\"res://scripts/codex/custodes/CustodesCommon.gd\")\nvar d = C.nearest_enemy_inches(GameState.get_unit(\"U_CALADIUS_GRAV-TANK_E\"))\nprint(\"[scenario] Caladius nearest enemy: \", d)\nreturn d < 6.0", "equals": true, "comment": "the Caladius IS within 6\" of an enemy (the old filter offered it)" },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id", "equals": "fight_phase_start" },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_katah_kaptaris/Buttons/Use_cus11e_katah_kaptaris_U_TELEMON_HEAVY_DREADNOUGHT_I", "property": "disabled", "equals": false },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_cus11e_katah_kaptaris/Buttons/Use_cus11e_katah_kaptaris_U_CALADIUS_GRAV-TANK_E\") == null", "equals": true, "comment": "the out-of-combat Caladius is not offered" },
+    { "act": "screenshot", "label": "01_telemon_offered_caladius_not" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_katah_kaptaris/Buttons/Use_cus11e_katah_kaptaris_U_TELEMON_HEAVY_DREADNOUGHT_I" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "units.U_TELEMON_HEAVY_DREADNOUGHT_I.flags.cus11e_katah_kaptaris", "equals": true },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0, "comment": "re-opened for the other readied units in a fight" },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/KatahAlreadyChosen\").text.contains(\"KAPTARIS\")", "equals": true },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/KatahAlreadyChosen\").text.contains(\"Telemon\")", "equals": true },
+    { "act": "screenshot", "label": "02_reopened_window_names_telemon_kaptaris" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()", "equals": false }
+  ]
+}

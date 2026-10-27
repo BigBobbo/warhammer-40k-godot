@@ -363,6 +363,21 @@ func _build_window_ui() -> void:
 	who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	main_container.add_child(who)
 
+	# Ka'tah windows: name the units that already chose a ka'tah — they are no
+	# longer readied, so they are (correctly) absent from the cards below.
+	if _window_has_katah():
+		var used: Array = load("res://scripts/codex/custodes/CustodesKatah.gd").active_katah_summary(defending_player)
+		if not used.is_empty():
+			var used_lbl = Label.new()
+			used_lbl.name = "KatahAlreadyChosen"
+			used_lbl.text = "Ka'tah already chosen: %s" % "; ".join(used)
+			used_lbl.add_theme_font_size_override("font_size", 16)
+			used_lbl.add_theme_color_override("font_color", Color(0.86, 0.68, 0.22))
+			used_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			used_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			main_container.add_child(used_lbl)
+			print("StratagemDialog: window %s — ka'tah already chosen: %s" % [window_id, str(used)])
+
 	main_container.add_child(HSeparator.new())
 
 	var scroll = ScrollContainer.new()
