@@ -31,6 +31,13 @@ class_name AISuggestionBreakdownPanel
 #   save_case_requested(verdict, note)  ("Good call" / "Bad call" — Main saves
 #                      an AISuggestionTestCases case); show_case_saved(result)
 #   toggle_section(key: String)  (same as clicking a link: "dev", "notes", "opt:R:I")
+#   unit_focus_requested(unit_id)  (a unit in the move/shoot/charge/fight/deploy order clicked,
+#                      or ◀ / ▶ pressed — Main re-asks the AI about that unit)
+#   cycle_unit(step: int)  (same as ◀ (-1) / ▶ (+1))
+#   closed             (card hidden — Main clears the board overlay)
+#   option_hovered(record, cand_index, chosen) / option_unhovered
+#                      (pointer over an option row — Main previews it on the
+#                      board via AISuggestionBoardOverlay); hover_option(key)
 #   breakdown_text: String   (plain-text mirror of what is on screen)
 #   full_text: String        (everything expanded — what Copy puts on the clipboard)
 #   record_count: int
@@ -73,6 +80,10 @@ const HOST_META := "ai_suggestion_host"
 
 signal refresh_requested
 signal save_case_requested(verdict: String, note: String)
+signal unit_focus_requested(unit_id: String)
+signal closed
+signal option_hovered(record: Dictionary, cand_index: int, chosen: bool)
+signal option_unhovered
 
 var breakdown_text: String = ""
 var full_text: String = ""
@@ -87,6 +98,12 @@ var _meta: Dictionary = {}
 var _expanded: Dictionary = {}
 var _note_edit: LineEdit = null
 var _review_status: Label = null
+# UNIT-ORDER: the unit order of the AI's own (unfocused) pick, kept while the
+# player cycles so ◀ / ▶ walk a stable list (lower difficulties add random
+# noise to tie-breaks, so re-asking can reshuffle level units).
+var _cycle_order: Array = []
+var _prev_unit_btn: Button = null
+var _next_unit_btn: Button = null
 
 
 func _ready() -> void:
@@ -157,6 +174,8 @@ func _ready() -> void:
 	_rich.add_theme_constant_override("table_h_separation", 10)
 	_rich.add_theme_color_override("default_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	_rich.meta_clicked.connect(_on_meta_clicked)
+	_rich.meta_hover_started.connect(func(m): hover_option(str(m)))
+	_rich.meta_hover_ended.connect(func(_m): option_unhovered.emit())
 	content.add_child(_rich)
 
 	# Review row: turn this suggestion into a regression test case
@@ -212,12 +231,28 @@ func _ready() -> void:
 	frow.add_theme_constant_override("separation", 10)
 	footer.add_child(frow)
 	var hint := Label.new()
-	hint.text = "Preview only — nothing was executed. Hover a factor for what it means. K refreshes, Esc closes."
+	hint.text = "Preview only — nothing was executed. The board shows the suggested unit (cyan), its target (red) and where it would move; hover an option to see it on the board. K refreshes, Esc closes."
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", COL_DIM)
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	frow.add_child(hint)
+	_prev_unit_btn = Button.new()
+	_prev_unit_btn.name = "PrevUnitButton"
+	_prev_unit_btn.text = "◀ Unit"
+	_prev_unit_btn.tooltip_text = "Show what the AI would do with the previous unit in its order"
+	_WhiteDwarfTheme.apply_to_button(_prev_unit_btn)
+	_prev_unit_btn.pressed.connect(func(): cycle_unit(-1))
+	_prev_unit_btn.visible = false
+	frow.add_child(_prev_unit_btn)
+	_next_unit_btn = Button.new()
+	_next_unit_btn.name = "NextUnitButton"
+	_next_unit_btn.text = "Unit ▶"
+	_next_unit_btn.tooltip_text = "Show what the AI would do with the next unit in its order"
+	_WhiteDwarfTheme.apply_to_button(_next_unit_btn)
+	_next_unit_btn.pressed.connect(func(): cycle_unit(1))
+	_next_unit_btn.visible = false
+	frow.add_child(_next_unit_btn)
 	var copy_btn := Button.new()
 	copy_btn.name = "CopyButton"
 	copy_btn.text = "Copy as text"
@@ -260,6 +295,7 @@ func show_decision(decision: Dictionary, meta: Dictionary = {}) -> void:
 	if _review_status:
 		_review_status.text = "Mark this call to save the position as an AI test case (re-checked by tests/run_ai_test_cases.sh)."
 		_review_status.add_theme_color_override("font_color", COL_DIM)
+	_update_cycle_order(decision)
 	full_text = build_breakdown(decision, meta, {}, true).text
 	_render(true)
 	visible = true
@@ -294,7 +330,22 @@ func close() -> void:
 	var host := get_parent() as Window
 	if host != null and host.has_meta(HOST_META):
 		host.hide()
+	closed.emit()
 	print("[AISuggestionBreakdownPanel] Closed")
+
+
+func hover_option(key: String) -> void:
+	"""Pointer over an option ("opt:R:I") — ask Main to preview it on the board."""
+	var parts := key.split(":")
+	if parts.size() != 3 or parts[0] != "opt":
+		return
+	var records: Array = _decision.get("_ai_decision_records", [])
+	var r_i := int(parts[1])
+	if r_i < 0 or r_i >= records.size() or not (records[r_i] is Dictionary):
+		return
+	var rec: Dictionary = records[r_i]
+	var i := int(parts[2])
+	option_hovered.emit(rec, i, i == int(rec.get("chosen_index", -1)))
 
 
 func _render(reset_scroll: bool) -> void:
@@ -319,7 +370,45 @@ func _render(reset_scroll: bool) -> void:
 
 
 func _on_meta_clicked(meta) -> void:
-	toggle_section(str(meta))
+	var key := str(meta)
+	if key.begins_with("unit:"):
+		_request_unit(key.trim_prefix("unit:"))
+		return
+	toggle_section(key)
+
+
+func cycle_unit(step: int) -> void:
+	"""◀ / ▶: re-ask the AI about the previous / next unit in its move order."""
+	if _cycle_order.size() < 2:
+		return
+	var acting := str(_decision.get("_ai_unit_order", {}).get("acting_unit_id", ""))
+	var i := _cycle_order.find(acting)
+	var next_i := posmod((i if i >= 0 else 0) + step, _cycle_order.size())
+	_request_unit(str(_cycle_order[next_i]))
+
+
+func _request_unit(unit_id: String) -> void:
+	if unit_id == "":
+		return
+	print("[AISuggestionBreakdownPanel] Unit focus requested: %s" % unit_id)
+	unit_focus_requested.emit(unit_id)
+
+
+func _update_cycle_order(decision: Dictionary) -> void:
+	var mo: Dictionary = decision.get("_ai_unit_order", {})
+	var ids: Array = []
+	for e in mo.get("order", []):
+		ids.append(str(e.get("unit_id", "")))
+	# Keep the list from the AI's own pick while cycling through it; replace it
+	# on a fresh (unfocused) ask, or when the board changed under it.
+	var acting := str(mo.get("acting_unit_id", ""))
+	if not bool(mo.get("focused", false)) or not (acting in _cycle_order) or ids.size() != _cycle_order.size():
+		_cycle_order = ids
+	var show_nav := _cycle_order.size() >= 2
+	if _prev_unit_btn:
+		_prev_unit_btn.visible = show_nav
+	if _next_unit_btn:
+		_next_unit_btn.visible = show_nav
 
 
 func _on_copy_pressed() -> void:
@@ -401,6 +490,8 @@ static func build_breakdown(decision: Dictionary, meta: Dictionary = {},
 	var subtitle := "Player %s · %s phase · Round %s · thinking at %s difficulty" % [
 		str(meta.get("player", "?")), str(meta.get("phase_name", "?")),
 		str(meta.get("round", "?")), str(meta.get("difficulty", "?"))]
+	if str(meta.get("refreshed_after", "")) != "":
+		subtitle += " · updated after %s acted" % str(meta.refreshed_after)
 
 	_heading(o, "THE AI WOULD")
 	if decision.is_empty():
@@ -410,6 +501,7 @@ static func build_breakdown(decision: Dictionary, meta: Dictionary = {},
 			"candidates": 0, "subtitle": subtitle}
 	var desc := str(decision.get("_ai_description", decision.get("type", "unknown")))
 	o.line("[font_size=17][b][color=%s]%s[/color][/b][/font_size]" % [HEX_CYAN, _esc(desc)], desc)
+	_render_move_order(o, decision.get("_ai_unit_order", {}))
 
 	var records: Array = decision.get("_ai_decision_records", [])
 	var analyses: Array = []
@@ -452,6 +544,71 @@ static func build_breakdown(decision: Dictionary, meta: Dictionary = {},
 
 	return {"bbcode": "\n".join(o.bb), "text": "\n".join(o.tx), "records": records.size(),
 		"candidates": total_cands, "subtitle": subtitle}
+
+
+static func _render_move_order(o: _Out, mo: Dictionary) -> void:
+	"""UNIT-ORDER: which unit acts, why it goes first, and the rest of the queue
+	(each a link that shows what the plan has that unit do). Movement, shooting,
+	charge, fight and deployment each fill it (AIDecisionMaker._build_*_order)."""
+	var order: Array = mo.get("order", [])
+	if order.is_empty():
+		return
+	var acting := str(mo.get("acting_unit_id", ""))
+	var first: Dictionary = order[0]
+	var more := order.size() - 1
+	o.gap()
+	if acting == str(first.get("unit_id", "")):
+		var t := "%s: %s — %s." % [str(mo.get("first_label", "Moving first")), str(first.get("name", "")), str(mo.get("first_reason", ""))]
+		if more > 0:
+			t += " %d more queued — click a unit below (or ◀ / ▶) to see its plan." % more
+		o.line("[color=%s]%s[/color]" % [HEX_WARN, _esc(t)], t)
+	else:
+		var pos := 0
+		var acting_name := acting
+		for i in range(order.size()):
+			if str(order[i].get("unit_id", "")) == acting:
+				pos = i + 1
+				acting_name = str(order[i].get("name", acting))
+		var t := "Showing %s — %s in the order. Not what the AI does next: it would %s %s first (%s). This is what %s does once its turn comes." % [
+			acting_name, _ordinal(pos), str(mo.get("verb", "move")), str(first.get("name", "")), str(mo.get("first_reason", "")), acting_name]
+		o.line("[color=%s]%s[/color] [url=unit:%s]Back to the AI's next move[/url]" % [
+			HEX_WARN, _esc(t), str(first.get("unit_id", ""))], t)
+	for i in range(order.size()):
+		var e: Dictionary = order[i]
+		var what := str(e.get("action", "move"))
+		if str(e.get("target", "")) != "":
+			what += " " + str(e.get("target", ""))
+		var tag := str(e.get("tag", ""))
+		if e.has("tag"):
+			pass
+		elif bool(e.get("engaged", false)):
+			tag = "engaged"
+		elif int(e.get("tier", 1)) == 0:
+			tag = "just disembarked"
+		elif int(e.get("tier", 1)) == 2:
+			tag = "transport — moves last"
+		elif float(e.get("behind_front_in", -1.0)) > 0.05:
+			tag = "%.1f\" behind the front" % float(e.get("behind_front_in", 0.0))
+		elif float(e.get("behind_front_in", -1.0)) >= 0.0:
+			tag = "front"
+		var nm := str(e.get("name", ""))
+		var uid := str(e.get("unit_id", ""))
+		var is_acting := uid == acting
+		var mark := "[color=%s]▶[/color]" % HEX_GOOD if is_acting else " "
+		var name_bb := "[b]%s[/b]" % _esc(nm) if is_acting else "[url=unit:%s]%s[/url]" % [uid, _esc(nm)]
+		var tail := " — %s" % what + ((" · %s" % tag) if tag != "" else "")
+		o.line("%s %d. %s[color=%s]%s[/color]" % [mark, i + 1, name_bb, HEX_DIM, _esc(tail)],
+			"%s %d. %s%s" % [">" if is_acting else " ", i + 1, nm, tail])
+
+
+static func _ordinal(n: int) -> String:
+	var suf := "th"
+	if n % 100 < 11 or n % 100 > 13:
+		match n % 10:
+			1: suf = "st"
+			2: suf = "nd"
+			3: suf = "rd"
+	return "%d%s" % [n, suf]
 
 
 static func _analyse(rec: Dictionary) -> Dictionary:
@@ -562,6 +719,11 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 	var top: int = a.order[0]
 	if top != chosen and _score_of(cands[top]) > _score_of(cands[chosen]):
 		var f := "The AI picked this even though \"%s\" scored higher — a plan, a rule or a separate scoring step chose it." % a.labels[top]
+		# OBJ-EXPLAIN-1: when the decision recorded WHY it overrode the top
+		# score (e.g. "obj_nml_1 is already taken by Telemon"), say that instead.
+		var override_reason := str(rec.get("context", {}).get("override_reason", ""))
+		if override_reason != "":
+			f = "The AI picked this even though \"%s\" scored higher: %s." % [a.labels[top], override_reason]
 		o.line("[color=%s]⚠ %s[/color]" % [HEX_WARN, _esc(f)], "! " + f)
 	if runner >= 0:
 		var cs := _score_of(cands[chosen])
@@ -621,7 +783,8 @@ static func _render_record(o: _Out, rec: Dictionary, a: Dictionary, r_i: int, n_
 		var key := "opt:%d:%d" % [r_i, i]
 		var open: bool = everything or bool(expanded.get(key, false))
 		var link := "[url=%s][color=%s]%s[/color][/url]" % [key, HEX_LINK, "▾ hide" if open else "▸ details"]
-		var name_b := ("[b]%s[/b]" if is_c else "%s") % _esc(a.labels[i])
+		# The name is a link too: hovering it previews this option on the board.
+		var name_b := ("[url=%s][b]%s[/b][/url]" if is_c else "[url=%s]%s[/url]") % [key, _esc(a.labels[i])]
 		o.line("%s  %s  [color=%s]%s[/color]  %s" % [bar, name_b, HEX_DIM, rel, link],
 			"  %s %s — %s" % ["*" if is_c else "-", a.labels[i], rel])
 		if open:

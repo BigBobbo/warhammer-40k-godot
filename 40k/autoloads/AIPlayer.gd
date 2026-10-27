@@ -802,14 +802,16 @@ func _unique_action_types(actions: Array) -> Array:
 		seen[str(a.get("type", ""))] = true
 	return seen.keys()
 
-func request_suggestion(difficulty_override: int = -1) -> Dictionary:
+func request_suggestion(difficulty_override: int = -1, focus_unit_id: String = "") -> Dictionary:
 	"""Compute what the AI would do for the CURRENT active player and surface its
 	reasoning in the game log — WITHOUT executing anything. Built for a human
 	playing against the AI who wants a hint, or for debugging the AI's reasoning
 	on any board position. Pure preview: dispatches no action, advances no phase,
 	appends nothing to the AI action log, and (via AIDecisionMaker.suggest_action)
 	does not disturb the opponent AI's planning caches. Returns the decision dict
-	(with _ai_* reasoning fields), or an empty dict if no suggestion is available."""
+	(with _ai_* reasoning fields), or an empty dict if no suggestion is available.
+	focus_unit_id (movement phase): show what the AI's plan has that unit do
+	instead of the unit it would move next — the card's per-unit cycling."""
 	# Don't interleave with the AI actively taking its own turn — that path owns
 	# the decision caches while it runs.
 	last_suggestion_meta = {}
@@ -893,6 +895,7 @@ func request_suggestion(difficulty_override: int = -1) -> Dictionary:
 		# apart from "a choice the AI does not record".
 		"available_count": available.size(),
 		"available_types": _unique_action_types(available),
+		"focus_unit_id": focus_unit_id,
 	}
 	var decision: Dictionary = {}
 	if window_owner > 0:
@@ -903,7 +906,7 @@ func request_suggestion(difficulty_override: int = -1) -> Dictionary:
 			last_suggestion_meta["available_count"] = -1  # a window, not the phase's action list
 			last_suggestion_meta["available_types"] = []
 	if decision.is_empty():
-		decision = AIDecisionMaker.suggest_action(phase, snapshot, available, player, difficulty)
+		decision = AIDecisionMaker.suggest_action(phase, snapshot, available, player, difficulty, focus_unit_id)
 	if decision.is_empty():
 		last_suggestion_meta["empty_reason"] = "The AI could not find a recommended action here."
 		_log_ai_thinking(player, "The AI could not find a recommended action here.")

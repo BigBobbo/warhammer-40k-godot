@@ -105,6 +105,8 @@ static func save_case(decision: Dictionary, meta: Dictionary, verdict: String, n
 		"player": meta.get("player", 0), "phase_name": meta.get("phase_name", ""),
 		"round": meta.get("round", 0), "difficulty": meta.get("difficulty", ""),
 		"difficulty_level": int(meta.get("difficulty_level", -1)),
+		# Saved while cycling the card to another unit: re-ask about that unit.
+		"focus_unit_id": str(meta.get("focus_unit_id", "")),
 		"suggestion": str(decision.get("_ai_description", decision.get("type", ""))),
 		"chosen_option": chosen_desc,
 		"signature": signature(decision),
@@ -137,7 +139,9 @@ static func check_case(json_path: String) -> Dictionary:
 	if ai:
 		# Older AI versions (compare mode runs this checker against another
 		# git ref) may not take a difficulty override.
-		if ai.get_method_argument_count("request_suggestion") >= 1:
+		if ai.get_method_argument_count("request_suggestion") >= 2:
+			decision = ai.request_suggestion(int(case.get("difficulty_level", -1)), str(case.get("focus_unit_id", "")))
+		elif ai.get_method_argument_count("request_suggestion") >= 1:
 			decision = ai.request_suggestion(int(case.get("difficulty_level", -1)))
 		else:
 			decision = ai.request_suggestion()
