@@ -15055,6 +15055,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			charge_candidates.append({
 				"description": "Charge %s (%.1f\" away, %.0f%% chance)" % [t_name, t_dist, t_prob * 100.0],
 				"score": t_score,
+				"target_unit_id": tid,  # board overlay rings the hovered option's target
 				"pos": [t_pos.x, t_pos.y] if t_pos != Vector2.INF else [],
 				"score_breakdown": (t_eval.get("terms", {}) as Dictionary).merged({
 					"charge_probability": t_prob,
@@ -16845,6 +16846,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		fight_candidates.append({
 			"description": "Attack %s with melee" % ename,
 			"score": e_score,
+			"target_unit_id": enemy_id,  # board overlay rings the hovered option's target
 			"score_breakdown": e_breakdown
 		})
 		if enemy_id == best_target_id:

@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.54.0",
+      "date": "2026-10-27",
+      "summary": "The AI Suggestion (K) now shows on the board which unit it means, what it targets and where it would move.",
+      "changes": [
+        "While the suggestion card is open, the suggested unit is ringed in cyan with a 'SUGGESTED' tag, and any unit it would shoot, charge or fight is ringed in red with a 'TARGET' tag and a dashed line from the attacker.",
+        "Suggested moves (normal move, advance, fall back, scout, deployment) draw a dashed arrow from every model to a see-through ghost base where it would end up, plus a 'GOAL' marker on the objective it is heading for.",
+        "Hover any option in the card's 'All options' list to see that option on the board in amber — the objective or target the AI weighed against its pick.",
+        "Markings scale with the camera zoom so they stay readable on a zoomed-out board, and clear when you close the card or the phase changes."
+      ]
+    },
+    {
       "version": "1.53.3",
       "date": "2026-10-27",
       "summary": "AI suggestions now notice secondary missions you can score this turn.",
