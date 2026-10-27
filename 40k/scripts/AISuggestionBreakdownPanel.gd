@@ -836,6 +836,9 @@ static func _render_dev(o: _Out, records: Array, analyses: Array) -> void:
 				raw.append("%s=%s" % [str(k), _fmt_raw(bd[k])])
 				if not _Glossary.has_term(str(k)):
 					unlabelled[str(k)] = true
+			if raw.is_empty():
+				# No score terms (rule-based pick) — name the option so the row isn't blank
+				raw.append(str(c.get("description", "")))
 			var chk := ""
 			if a.ledger and not bool(a.sum_ok.get(i, false)):
 				chk = "  ✗ terms do not sum to score"

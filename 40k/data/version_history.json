@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.52.2",
+      "date": "2026-10-27",
+      "summary": "AI Suggestion now helps with a move you've already started.",
+      "changes": [
+        "If you start moving a unit yourself and then press Suggest (K), the AI now says where it would take that unit instead of just \"Confirmed move\".",
+        "Rule-based options in the suggestion's developer details now show their names instead of blank rows."
+      ]
+    },
+    {
       "version": "1.52.1",
       "date": "2026-10-26",
       "summary": "Removed old leftover army lists from the army picker.",

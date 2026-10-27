@@ -1,0 +1,41 @@
+{
+  "id": "ai_suggestion_in_progress_move",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "scripts.AIDecisionMaker.suggest_in_progress_move"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "K while a move the player began is still open (only Confirm/Reset offered for that unit). The suggestion must plan THAT unit — name it and say where the AI would take it — instead of the bare 'Confirmed move' fallback with blank score rows.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})" },
+    { "act": "execute_script", "script": "AIPlayer.clear_action_log()" },
+    { "act": "execute_script", "script": "GameState.set_active_player(1)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(7)" },
+    { "act": "execute_script", "script": "main.refresh_ai_suggestion_button()" },
+    { "act": "wait_frames", "frames": 3 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Ignore the suggestion: begin a normal move on a unit the AI did NOT pick.\nvar sug: Dictionary = AIPlayer.request_suggestion()\nvar picked := str(sug.get(\"actor_unit_id\", \"\"))\nvar uid := \"\"\nfor a in PhaseManager.get_available_actions():\n\tif str(a.get(\"type\", \"\")) == \"BEGIN_NORMAL_MOVE\":\n\t\tvar u := str(a.get(\"actor_unit_id\", \"\"))\n\t\tif uid == \"\" or u != picked:\n\t\t\tuid = u\n\t\t\tif u != picked:\n\t\t\t\tbreak\nvar r = PhaseManager.current_phase_instance.execute_action({\"type\": \"BEGIN_NORMAL_MOVE\", \"actor_unit_id\": uid})\nreturn r.get(\"success\", false)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for a in PhaseManager.get_available_actions():\n\tif str(a.get(\"type\", \"\")) == \"CONFIRM_UNIT_MOVE\":\n\t\treturn true\nreturn false",
+      "equals": true
+    },
+    { "act": "simulate_key", "keycode": "K" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()", "equals": true },
+    { "act": "execute_script", "script": "main._ai_suggestion_panel.breakdown_text.contains(\"move is in progress — AI plan:\")", "equals": true },
+    { "act": "execute_script", "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Confirmed move\")", "equals": false },
+    { "act": "execute_script", "script": "AIPlayer.get_action_log().size()", "equals": 0 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "screenshot", "label": "01_in_progress_move_suggestion" }
+  ]
+}
