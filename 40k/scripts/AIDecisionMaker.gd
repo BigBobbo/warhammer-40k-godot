@@ -9516,8 +9516,11 @@ static func _assign_units_to_objectives(
 	var too_late := func(c: Dictionary) -> bool:
 		return c.get("action", "") in ["move", "advance"] \
 			and battle_round + int(c.get("turns_to_reach", 1)) - 1 > MAX_BATTLE_ROUNDS_AI
+	# Only long trips (3+ turns): a 2-turn contest is the normal fight for an
+	# objective and contest_race already prices it — skipping it too made both
+	# armies of a mirror game avoid the centre and stack on side objectives.
 	var race_hopeless := func(c: Dictionary) -> bool:
-		if not c.get("race_lost", false):
+		if not c.get("race_lost", false) or int(c.get("turns_to_reach", 1)) < 3:
 			return false
 		var ours = int(c.get("race_our_oc", c.get("unit_oc", 1))) + int(incoming_oc.get(c.objective_id, 0))
 		return float(c.get("race_enemy_oc", 0)) >= race_ratio * float(maxi(ours, 1))
