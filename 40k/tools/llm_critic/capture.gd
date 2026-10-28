@@ -24,6 +24,41 @@ var rec: Dictionary = main_recs[0]
 var cands: Array = rec.get("candidates", [])
 if cands.size() < 2:
 	return {"skipped": "single_option", "type": str(decision.get("type", "")), "description": str(decision.get("_ai_description", ""))}
+# shot_prep.gd draws the board overlay for this exact decision.
+tree.root.set_meta("llm_critic_decision", decision)
+# Line of sight + distance from the acting unit to every enemy unit on the
+# board, with the same predicate target eligibility uses (unit_sight_line).
+var actor_id := str(decision.get("actor_unit_id", decision.get("unit_id", rec.get("unit_id", ""))))
+var los := []
+var snap_board: Dictionary = GameState.create_snapshot(false)
+var actor_u = GameState.get_unit(actor_id)
+if typeof(actor_u) == TYPE_DICTIONARY and not actor_u.is_empty():
+	var actor_owner := int(actor_u.get("owner", 0))
+	var centroid := func(u) -> Variant:
+		var s := Vector2.ZERO
+		var n := 0
+		for mm in u.get("models", []):
+			var pos = mm.get("position", null) if mm.get("alive", true) else null
+			if pos is Vector2:
+				s += pos
+				n += 1
+			elif pos is Dictionary and pos.has("x"):
+				s += Vector2(float(pos.x), float(pos.y))
+				n += 1
+		return s / n if n > 0 else null
+	var ac = centroid.call(actor_u)
+	if ac != null:
+		for uid in GameState.state.get("units", {}).keys():
+			var u = GameState.state.units[uid]
+			if int(u.get("owner", 0)) == actor_owner:
+				continue
+			var c = centroid.call(u)
+			if c == null:
+				continue
+			var sl: Dictionary = RulesEngine.unit_sight_line(actor_id, uid, snap_board, false)
+			los.append({"enemy": GameState.get_unit_display_name(uid), "id": uid,
+				"has_los": bool(sl.get("has_los", false)),
+				"centroid_dist_in": snappedf((ac as Vector2).distance_to(c) / 40.0, 0.1)})
 var chosen_i := int(rec.get("chosen_index", -1))
 var picked: Dictionary = cands[chosen_i] if chosen_i >= 0 and chosen_i < cands.size() else {}
 var sorted_c: Array = cands.duplicate()
@@ -94,6 +129,7 @@ return {
 	"unit_name": str(rec.get("unit_name", "")),
 	"unit_id": str(rec.get("unit_id", "")),
 	"context": ctx,
+	"line_of_sight": los,
 	"options": options,
 	"options_total": cands.size(),
 	"ai_reasoning": decision.get("_ai_thinking_steps", []),

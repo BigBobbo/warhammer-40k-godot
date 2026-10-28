@@ -3,7 +3,10 @@
 The LLM does **not** pick moves (legality stays with the engine). It reads what
 the AI suggests at sampled decision points — chosen option, rejected options,
 every score term, the AI's own reasoning lines, the board and datasheets — and
-judges whether the *logic* is flawed. A second pass reads the AI source and
+judges whether the *logic* is flawed. It sees what a player sees: two
+screenshots per decision (whole board + close-up, with the K card's
+suggestion overlay drawn), every terrain piece, and engine-computed line of
+sight from the acting unit to each enemy. A second pass reads the AI source and
 groups the flags into root causes with proposed code changes. **A human
 validates every proposal before anything changes.**
 
@@ -11,16 +14,19 @@ validates every proposal before anything changes.**
 critic.py collect   AI-vs-AI game (PlanSimulator, Competitive, seeded)
    │  at sampled decision points: freeze (time_scale 0) →
    │  AIPlayer.request_suggestion() (same call as the K card, pure preview) →
-   │  capture.gd (options + score terms + reasoning, saves the position +
-   │  a pending AI test case) + snapshot.gd (board) → unfreeze
+   │  capture.gd (options + score terms + reasoning + LoS, saves the position
+   │  + a pending AI test case) + snapshot.gd (board) + shot_prep.gd (overlay,
+   │  HUD hidden) → 2 screenshots → shot_restore.gd → unfreeze
+   │  once per game: roster.gd (datasheets), terrain.gd (terrain in inches)
 critic.py review    claude -p per decision → verdict JSON (sound/questionable/flawed)
 critic.py synthesize claude -p over the flags, read-only access to the AI source
    │  → proposals.md: root causes, file/term, proposed change, how to verify
 critic.py verify    (close the game first) reload each flagged position in a
                     fresh game; mark whether the AI still suggests the same thing
-critic.py report    REPORT.md; flagged positions → "llm_critic_<case>" in the
+critic.py report    REPORT.html (validation page, below) + REPORT.md; flagged positions → "llm_critic_<case>" in the
                     in-game Load menu, flawed cases get verdict "bad" + the note
 critic.py promote   (after YOU agree) copy case pairs into tests/ai_cases/
+                    --from-verdicts <file>: use what you marked in REPORT.html
 ```
 
 ## Run
@@ -43,7 +49,25 @@ Output per run: `runs/<stamp>_<label>/` (gitignored) — `bundles.jsonl`
 saves + case JSONs live in `<godot-userdata>/40k/llm_critic/<run>/`, outside
 `ai_test_cases/`, so unreviewed cases never enter `run_ai_test_cases.sh`.
 
-## Validating a flag (the human step)
+## Validating (the human step)
+
+`REPORT.html` is one self-contained page (screenshots embedded): the grouped
+proposals, then a card per decision — both screenshots (click to enlarge),
+what the AI suggested, the reviewer's verdict / logic flaw / proposed fix,
+the options with their score terms, the AI's reasoning, line of sight. Under
+each card mark **the AI's decision was good / bad** and **the reviewer was
+right / wrong** (+ a note). Answers stay in your browser; **Export verdicts**
+downloads them, then:
+
+```bash
+python3 critic.py promote runs/<run> --from-verdicts ~/Downloads/verdicts_<run>.json
+```
+
+promotes every decision you called good/bad to `tests/ai_cases/` with your
+verdict and note, and prints the reviewer's accuracy by your judgement — the
+number to watch when tuning the reviewer prompt.
+
+Manual route:
 
 1. Read `REPORT.md` — proposals first, then per-decision reviews.
 2. Only cases with Repro = yes are worth promoting: some in-phase state
@@ -66,14 +90,18 @@ saves + case JSONs live in `<godot-userdata>/40k/llm_critic/<run>/`, outside
 | `--time-scale` | 2.0 | higher = fewer catchable mid-phase points |
 | `--review-model` / `--synth-model` | sonnet-5-5 / opus-5-5 | |
 | `--jobs` | 4 | parallel reviews |
+| `--no-shots` | off | skip screenshots |
 
 ## Known limits (v1)
 
 - Positions are saved with the deciding seat as HUMAN (the K-card situation),
   so the AI does not act on reload before you or the checker can ask it.
 - Decisions with fewer than two scored options are skipped (nothing to judge).
-- The board view is centroids + OC + datasheets — no terrain/LoS. The reviewer
-  is told to mark terrain-dependent calls "questionable", not "flawed".
+- LoS is from the acting unit only, to each enemy unit, at its current
+  position (not from a move's destination) — the screenshots cover the rest.
+- Both armies of a mirror match look alike in the screenshots; the reviewer
+  is told to tell sides apart with the board JSON coordinates.
+- `--no-shots` skips screenshots (faster, blind reviewer).
 - Reviewer verdicts are opinions; expect some false positives. That is why the
   synthesis step may reject flags and why promotion is manual.
 - `orks` (Ghazghkull list) currently stalls AI-vs-AI at Formations

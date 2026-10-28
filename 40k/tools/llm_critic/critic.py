@@ -32,6 +32,8 @@ Usage:
 See README.md.
 """
 import argparse
+import base64
+import io
 import concurrent.futures as cf
 import glob
 import json
@@ -42,6 +44,8 @@ import socket
 import subprocess
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.abspath(os.path.join(HERE, "..", ".."))  # 40k/
@@ -112,6 +116,9 @@ def read_jsonl(path):
 def collect(args, run_dir):
     capture_src = load_gd(os.path.join(HERE, "capture.gd"))
     roster_src = load_gd(os.path.join(HERE, "roster.gd"))
+    terrain_src = load_gd(os.path.join(HERE, "terrain.gd"))
+    prep_src = load_gd(os.path.join(HERE, "shot_prep.gd"))
+    restore_src = load_gd(os.path.join(HERE, "shot_restore.gd"))
     snapshot_src = load_gd(os.path.join(HERE, "..", "llm_commander", "snapshot.gd"))
     phases = {PHASES[p.strip().upper()] for p in args.phases.split(",") if p.strip()}
     seats = {1, 2} if args.seat == 0 else {args.seat}
@@ -152,12 +159,15 @@ def collect(args, run_dir):
                     if roster is None:
                         roster = script(roster_src)
                         jdump(os.path.join(run_dir, f"roster_s{seed}.json"), roster)
+                        jdump(os.path.join(run_dir, f"terrain_s{seed}.json"), script(terrain_src))
                     cap = script(capture_src.replace("__RUN_DIR__", user_dir).replace("__ID__", cid))
                     st[0] += 1
                     st[1] = p["actions"]
                     if cap.get("id") and int(cap.get("player", 0)) in seats:
                         cap["seed"] = seed
                         cap["board"] = script(snapshot_src)
+                        if not args.no_shots:
+                            cap["shots"] = take_shots(cid, run_dir, prep_src, restore_src)
                         out.write(json.dumps(cap) + "\n")
                         out.flush()
                         n_game += 1
@@ -172,6 +182,43 @@ def collect(args, run_dir):
         print(f"  seed {seed} done: {n_game} decisions captured in {time.time() - t0:.0f}s", flush=True)
     out.close()
     return n_total
+
+
+def take_shots(cid, run_dir, prep_src, restore_src):
+    """Two screenshots of the frozen game with the K-card board overlay drawn
+    for this decision and the HUD hidden (shot_prep.gd): the whole board,
+    cropped to the table, and a close-up of the actor, its targets and the
+    chosen option's point. Saved as PNG under <run>/shots/. Returns
+    {board, zoom, board_px_per_inch}: in the board image, pixel = inches *
+    board_px_per_inch from the top-left corner, same axes as the board JSON."""
+    from PIL import Image
+    shots_dir = os.path.join(run_dir, "shots")
+    os.makedirs(shots_dir, exist_ok=True)
+    out = {}
+    try:
+        for mode in ("board", "zoom"):
+            info = script(prep_src.replace("__MODE__", mode))
+            if mode == "zoom" and not info.get("zoomed"):
+                continue
+            time.sleep(0.25)  # let a frame render with the new camera/overlay
+            r = call("capture_screenshot", {})
+            src = r.get("result", {}).get("absolute_path")
+            if not src or not os.path.exists(src):
+                print(f"  screenshot failed ({mode}): {json.dumps(r)[:200]}", flush=True)
+                continue
+            img = Image.open(src).convert("RGB")
+            if mode == "board":
+                x, y, w, h = info["board_rect"]
+                img = img.crop((max(0, int(x)), max(0, int(y)),
+                                min(img.width, int(x + w)), min(img.height, int(y + h))))
+                out["board_px_per_inch"] = round(float(info["px_per_inch"]), 3)
+            dest = os.path.join(shots_dir, f"{cid}_{mode}.png")
+            img.save(dest)
+            os.remove(src)
+            out[mode] = os.path.relpath(dest, run_dir)
+    finally:
+        script(restore_src)
+    return out
 
 
 def stop_previous_run():
@@ -219,6 +266,19 @@ weapon range, a better target, an objective it could take for free, giving up a 
 held objective); reasoning text that contradicts the numbers; plans that ignore \
 round number / game end; wasting a unit's turn.
 
+You get the full picture: screenshots of the board (attached images — look at them \
+before judging), every terrain piece, line of sight from the acting unit to \
+each enemy unit (computed by the engine), the board state and datasheets. Use the \
+screenshots for what the numbers miss: terrain blocking a move or a firing lane, \
+units bunched or isolated, screening, who can reach whom next turn. Screenshot \
+legend: the AI's own suggestion overlay is drawn on top — cyan ring + \
+"SUGGESTED" tag = the acting unit; red ring + "TARGET" tag + dashed line = its \
+target(s); dashed arrows + translucent ghost bases = where a move would put the \
+models; cyan "GOAL" marker = the point a move heads for. Objective markers are \
+labelled (HOME 1, CENTER, NML 1...). Terrain: dark footprints are ruins / area \
+terrain, walls are the dark strips inside them. Both armies may be the same \
+faction — tell sides apart with the board JSON coordinates, not colours.
+
 Board facts: coordinates are in inches; each player's home objective is \
 obj_home_<player>. Objectives are controlled by the player with more total OC \
 within range. "oc_p1/oc_p2" on each objective is current OC in range; "holder" is \
@@ -227,14 +287,16 @@ the current controller (0 = nobody). Units marked in_reserve are not on the boar
 Be calibrated. "flawed" = a strong human player would clearly and confidently \
 choose differently AND you can name the logic error. Close calls, reasonable \
 alternatives and situations you lack information to judge are "questionable" or \
-"sound". You do NOT see terrain or line of sight: if the call hinges on them, it is \
-at most "questionable". If a rule matters and you are not sure how 11th edition handles it, say \
+"sound". If a rule matters and you are not sure how 11th edition handles it, say \
 so in rules_uncertainty rather than guessing.
 
-Reply with ONLY one JSON object, no prose, no code fences:
+Reply with ONLY one JSON object, no prose, no code fences. Write distances as \
+"10 in", never with the " symbol:
 {"verdict": "sound" | "questionable" | "flawed",
  "confidence": "low" | "medium" | "high",
  "severity": 0-3 (0 none, 1 minor inefficiency, 2 costs VP/units, 3 game-losing),
+ "board_observations": "<1-2 sentences: what the screenshots show that matters here (terrain, \
+lanes, who is near whom); write 'no screenshots' if none were attached>",
  "summary": "<one line: what the AI did and the problem, if any>",
  "better_option": "<the listed option text you would pick, or 'unlisted: ...', or '' if sound>",
  "logic_flaw": "<which score term(s) or missing consideration caused it, or ''>",
@@ -242,7 +304,7 @@ Reply with ONLY one JSON object, no prose, no code fences:
  "rules_uncertainty": "<any rules you were unsure about, or ''>"}"""
 
 
-def build_review_prompt(bundle, roster):
+def build_review_prompt(bundle, roster, terrain=None, run_dir=""):
     me = int(bundle.get("player", 0))
     lines = [REVIEW_PREAMBLE, "",
              f"== Decision under review (Player {me}, round {bundle.get('round')}, {bundle.get('phase')} phase) ==",
@@ -253,7 +315,21 @@ def build_review_prompt(bundle, roster):
     for o in bundle.get("options", []):
         lines.append(json.dumps(o, separators=(",", ":")))
     lines += ["", "AI reasoning:"] + [f"  {s}" for s in bundle.get("ai_reasoning", [])[:40]]
+    shots = bundle.get("shots", {})
+    if shots.get("board") or shots.get("zoom"):
+        lines += ["", "== Screenshots (attached above) =="]
+        if shots.get("board"):
+            lines.append(f"Image 1, whole board: pixel = board inches x {shots.get('board_px_per_inch')} "
+                         "before any downscaling, origin top-left, same axes as the board JSON.")
+        if shots.get("zoom"):
+            lines.append(f"Image {2 if shots.get('board') else 1}: close-up of the decision.")
+    if bundle.get("line_of_sight"):
+        lines += ["", "== Line of sight from the acting unit (engine-computed, ignores range) =="]
+        for l in bundle["line_of_sight"]:
+            lines.append(json.dumps(l, separators=(",", ":")))
     lines += ["", "== Board ==", json.dumps(bundle.get("board", {}), separators=(",", ":"))]
+    if terrain:
+        lines += ["", "== Terrain (inches) =="] + [json.dumps(t, separators=(",", ":")) for t in terrain]
     if roster:
         lines += ["", "== Datasheets (unit id: line) =="]
         alive_ids = {u.get("id") for u in bundle.get("board", {}).get("units", []) if u.get("alive", 0) > 0}
@@ -264,15 +340,44 @@ def build_review_prompt(bundle, roster):
     return "\n".join(lines)
 
 
-def call_claude(prompt, model, timeout_s, read_code=False):
+def _image_block(path):
+    from PIL import Image
+    img = Image.open(path).convert("RGB")
+    img.thumbnail((1568, 1568))  # the API's useful maximum; larger is downscaled anyway
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=85)
+    return {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                        "data": base64.b64encode(buf.getvalue()).decode()}}
+
+
+def call_claude(prompt, model, timeout_s, read_code=False, images=()):
+    """`claude -p`. With images, they are sent INLINE as image blocks
+    (stream-json input) — handing the model file paths to Read is not enough:
+    measured 2026-10-28, the reviewer made zero tool calls and judged blind."""
     cmd = ["claude", "-p", "--model", model]
     if read_code:
         cmd += ["--allowedTools", "Read", "Grep", "Glob"]
+    stdin = prompt.encode()
+    if images:
+        cmd += ["--input-format", "stream-json", "--output-format", "stream-json", "--verbose"]
+        content = [_image_block(p) for p in images] + [{"type": "text", "text": prompt}]
+        stdin = (json.dumps({"type": "user", "message": {"role": "user", "content": content}}) + "\n").encode()
     t0 = time.time()
     try:
-        proc = subprocess.run(cmd, input=prompt.encode(), capture_output=True,
+        proc = subprocess.run(cmd, input=stdin, capture_output=True,
                               timeout=timeout_s, cwd=PROJECT)
-        return proc.stdout.decode(errors="replace"), time.time() - t0, None
+        out = proc.stdout.decode(errors="replace")
+        if images:
+            text = ""
+            for line in out.splitlines():
+                try:
+                    ev = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if ev.get("type") == "result":
+                    text = str(ev.get("result", ""))
+            out = text
+        return out, time.time() - t0, None
     except subprocess.TimeoutExpired:
         return "", time.time() - t0, "timeout"
     except Exception as e:  # noqa: BLE001 - report, never crash the run
@@ -286,6 +391,12 @@ def parse_json_obj(raw):
     try:
         return json.loads(m.group(0))
     except json.JSONDecodeError:
+        pass
+    # Models write distances as 10" inside JSON strings; escape a quote that
+    # follows a digit unless it closes a value (next char is , } ] or :).
+    try:
+        return json.loads(re.sub(r'(?<=\d)"(?!\s*[,}\]:])', r'\\"', m.group(0)))
+    except json.JSONDecodeError:
         return None
 
 
@@ -294,19 +405,26 @@ def review(args, run_dir):
     rosters = {}
     for p in glob.glob(os.path.join(run_dir, "roster_s*.json")):
         rosters[int(re.search(r"roster_s(\d+)", p).group(1))] = json.load(open(p))
+    terrains = {}
+    for p in glob.glob(os.path.join(run_dir, "terrain_s*.json")):
+        terrains[int(re.search(r"terrain_s(\d+)", p).group(1))] = json.load(open(p))
     out_path = os.path.join(run_dir, "reviews.jsonl")
-    done = {r["id"] for r in read_jsonl(out_path)} if not args.fresh else set()
+    # errored reviews are retried; --fresh redoes everything
+    done = {r["id"] for r in read_jsonl(out_path) if "error" not in r} if not args.fresh else set()
     if args.fresh and os.path.exists(out_path):
         os.remove(out_path)
     todo = [b for b in bundles if b["id"] not in done]
     print(f"reviewing {len(todo)} decision(s) with {args.review_model} ({args.jobs} parallel)", flush=True)
 
     def one(b):
-        prompt = build_review_prompt(b, rosters.get(b.get("seed")))
-        raw, dt, err = call_claude(prompt, args.review_model, args.timeout)
+        prompt = build_review_prompt(b, rosters.get(b.get("seed")), terrains.get(b.get("seed")), run_dir)
+        shots = b.get("shots", {})
+        imgs = [os.path.join(run_dir, shots[k]) for k in ("board", "zoom")
+                if shots.get(k) and os.path.exists(os.path.join(run_dir, shots[k]))]
+        raw, dt, err = call_claude(prompt, args.review_model, args.timeout, images=imgs)
         rv = parse_json_obj(raw) if not err else None
         rec = {"id": b["id"], "model": args.review_model, "latency_s": round(dt, 1),
-               "prompt_chars": len(prompt)}
+               "prompt_chars": len(prompt), "images": len(imgs)}
         if rv is None:
             rec.update({"error": err or "unparseable reply", "raw": raw[:800]})
         else:
@@ -448,6 +566,11 @@ def report(args, run_dir):
     path = os.path.join(run_dir, "REPORT.md")
     open(path, "w").write("\n".join(md) + "\n")
     print(f"report: {path}", flush=True)
+    import html_report
+    hpath = os.path.join(run_dir, "REPORT.html")
+    open(hpath, "w").write(html_report.build(run_dir, bundles, rows, repro,
+                                             open(prop).read() if os.path.exists(prop) else ""))
+    print(f"html report: {hpath}", flush=True)
     return path
 
 
@@ -486,6 +609,9 @@ def verify(args, run_dir):
 def promote(args, run_dir):
     run_name = os.path.basename(run_dir.rstrip("/"))
     dest = os.path.join(PROJECT, "tests", "ai_cases")
+    if args.from_verdicts:
+        promote_from_verdicts(args, run_dir, run_name, dest)
+        return
     for cid in args.cases:
         cj = user_path(run_name, cid + ".json")
         if not os.path.exists(cj):
@@ -498,6 +624,39 @@ def promote(args, run_dir):
         shutil.copy(cj, os.path.join(dest, cid + ".json"))
         shutil.copy(user_path(run_name, case["save_file"]), os.path.join(dest, case["save_file"]))
         print(f"  promoted {cid} ({case['verdict']}) -> tests/ai_cases/")
+
+
+def promote_from_verdicts(args, run_dir, run_name, dest):
+    """Verdicts exported from REPORT.html: every decision you called good or
+    bad becomes a test case with YOUR verdict (good locks the choice in, bad
+    fails until the AI changes it), your note first. Also scores the reviewer."""
+    data = json.load(open(args.from_verdicts))
+    verdicts = data.get("verdicts", {})
+    reviews = {r["id"]: r for r in read_jsonl(os.path.join(run_dir, "reviews.jsonl"))}
+    right = wrong = 0
+    for cid, v in sorted(verdicts.items()):
+        if v.get("critic") == "right":
+            right += 1
+        elif v.get("critic") == "wrong":
+            wrong += 1
+        if v.get("ai") not in ("good", "bad"):
+            continue
+        cj = user_path(run_name, cid + ".json")
+        if not os.path.exists(cj):
+            print(f"  no case {cid} ({cj})")
+            continue
+        case = json.load(open(cj))
+        r = reviews.get(cid, {})
+        case["verdict"] = v["ai"]
+        case["note"] = (v.get("note", "").strip() + (" | " if v.get("note") else "") +
+                        f"[LLM critic said {r.get('verdict')}: {r.get('summary', '')}]")[:800]
+        jdump(cj, case)
+        shutil.copy(cj, os.path.join(dest, cid + ".json"))
+        shutil.copy(user_path(run_name, case["save_file"]), os.path.join(dest, case["save_file"]))
+        print(f"  promoted {cid} ({v['ai']}) -> tests/ai_cases/")
+    if right + wrong:
+        print(f"reviewer accuracy (your judgement): {right}/{right + wrong} right")
+    jdump(os.path.join(run_dir, "human_verdicts.json"), data)
 
 
 # ---------------------------------------------------------------- main
@@ -524,6 +683,7 @@ def main():
     g.add_argument("--time-scale", type=float, default=2.0)
     g.add_argument("--max-seconds", type=float, default=1800.0)
     g.add_argument("--poll", type=float, default=0.3)
+    g.add_argument("--no-shots", action="store_true", help="skip screenshots (faster, blind reviewer)")
     g = ap.add_argument_group("review / synthesize")
     g.add_argument("--review-model", default="claude-sonnet-5-5")
     g.add_argument("--synth-model", default="claude-opus-5-5")
@@ -533,6 +693,7 @@ def main():
     g.add_argument("--fresh", action="store_true", help="review: discard earlier reviews")
     g.add_argument("--no-synth", action="store_true")
     g.add_argument("--verify-timeout", type=float, default=1800)
+    g.add_argument("--from-verdicts", help="promote: verdicts JSON exported from REPORT.html")
     g.add_argument("--verdict", default="bad", choices=["bad", "good"], help="promote: verdict for still-pending cases")
     args = ap.parse_args()
 
