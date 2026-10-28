@@ -12139,9 +12139,12 @@ static func _compute_movement_toward_target_impl(
 	# waypoints (sidestep order) then the destinations (leg-2 order) can never
 	# park one model where a squadmate still has to pass. The per-model ladder
 	# below may reshuffle the formation, which can deadlock that staging.
-	if get_param("MOVE_RIGID_BLOCK_FIRST", MOVE_RIGID_BLOCK_FIRST) > 0.0 or dogleg_active:
+	# (Single models gain nothing from it and the per-model ladder can still
+	# relocate them at full length, so it is squads only.)
+	var rigid_for_dogleg: bool = dogleg_active and alive_models.size() > 1
+	if get_param("MOVE_RIGID_BLOCK_FIRST", MOVE_RIGID_BLOCK_FIRST) > 0.0 or rigid_for_dogleg:
 		for fraction in fractions_to_try:
-			if dogleg_active and get_param("MOVE_RIGID_BLOCK_FIRST", MOVE_RIGID_BLOCK_FIRST) <= 0.0 and fraction < 0.75:
+			if rigid_for_dogleg and get_param("MOVE_RIGID_BLOCK_FIRST", MOVE_RIGID_BLOCK_FIRST) <= 0.0 and fraction < 0.75:
 				break  # a stub of a dogleg is worse than the per-model ladder
 			var rigid_vector = final_move_vector * fraction
 			var rigid_dests = _try_move_with_collision_check(
