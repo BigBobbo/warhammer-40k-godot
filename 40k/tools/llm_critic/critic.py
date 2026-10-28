@@ -409,12 +409,18 @@ def review(args, run_dir):
     for p in glob.glob(os.path.join(run_dir, "terrain_s*.json")):
         terrains[int(re.search(r"terrain_s(\d+)", p).group(1))] = json.load(open(p))
     out_path = os.path.join(run_dir, "reviews.jsonl")
-    # errored reviews are retried; --fresh redoes everything
-    done = {r["id"] for r in read_jsonl(out_path) if "error" not in r} if not args.fresh else set()
+    # errored reviews are retried; --fresh redoes everything; --repeats N
+    # reviews every decision N times independently (same inputs) to measure
+    # how consistent the reviewer is.
     if args.fresh and os.path.exists(out_path):
         os.remove(out_path)
-    todo = [b for b in bundles if b["id"] not in done]
-    print(f"reviewing {len(todo)} decision(s) with {args.review_model} ({args.jobs} parallel)", flush=True)
+    have = {}
+    for r in read_jsonl(out_path):
+        if "error" not in r:
+            have[r["id"]] = have.get(r["id"], 0) + 1
+    todo = [b for b in bundles for _ in range(max(0, args.repeats - have.get(b["id"], 0)))]
+    print(f"reviewing {len(todo)} decision(s) with {args.review_model} ({args.jobs} parallel, "
+          f"{args.repeats} review(s) per decision)", flush=True)
 
     def one(b):
         prompt = build_review_prompt(b, rosters.get(b.get("seed")), terrains.get(b.get("seed")), run_dir)
@@ -505,9 +511,18 @@ def report(args, run_dir):
     run_name = os.path.basename(run_dir.rstrip("/"))
     bundles = {b["id"]: b for b in read_jsonl(os.path.join(run_dir, "bundles.jsonl"))}
     reviews = read_jsonl(os.path.join(run_dir, "reviews.jsonl"))
-    latest = {}
+    by_id = {}
     for r in reviews:
-        latest[r["id"]] = r
+        by_id.setdefault(r["id"], []).append(r)
+    latest = {}
+    for cid, rs in by_id.items():
+        ok = [r for r in rs if "verdict" in r] or rs
+        # the card leads with the majority verdict (ties: the most severe)
+        tally = {}
+        for r in ok:
+            tally[r.get("verdict")] = tally.get(r.get("verdict"), 0) + 1
+        top = max(tally, key=lambda v: (tally[v], -SEV.get(v, 3)))
+        latest[cid] = [r for r in ok if r.get("verdict") == top][-1]
     rows = sorted(latest.values(), key=lambda r: (SEV.get(r.get("verdict"), 3), -int(r.get("severity") or 0)))
     counts = {}
     for r in rows:
@@ -531,7 +546,8 @@ def report(args, run_dir):
            "| Verdict | Sev | Conf | Repro | Case | AI suggested | Problem |", "|---|---|---|---|---|---|---|"]
     for r in rows:
         b = bundles.get(r["id"], {})
-        rp = "yes" if repro.get(r["id"]) else "no" if r["id"] in repro else ""
+        rv = repro.get(r["id"])
+        rp = ("yes" if (rv.get("same") if isinstance(rv, dict) else rv) else "no") if r["id"] in repro else ""
         md.append("| {} | {} | {} | {} | `{}` | {} | {} |".format(
             r.get("verdict", "ERROR"), r.get("severity", ""), r.get("confidence", ""), rp, r["id"],
             cell(b.get("suggestion", "")), cell(r.get("summary", r.get("error", "")))))
@@ -567,9 +583,11 @@ def report(args, run_dir):
     open(path, "w").write("\n".join(md) + "\n")
     print(f"report: {path}", flush=True)
     import html_report
+    open(os.path.join(run_dir, "REPORT.artifact.html"), "w").write(html_report.build(
+        run_dir, bundles, rows, repro, open(prop).read() if os.path.exists(prop) else "", by_id, standalone=False))
     hpath = os.path.join(run_dir, "REPORT.html")
     open(hpath, "w").write(html_report.build(run_dir, bundles, rows, repro,
-                                             open(prop).read() if os.path.exists(prop) else ""))
+                                             open(prop).read() if os.path.exists(prop) else "", by_id))
     print(f"html report: {hpath}", flush=True)
     return path
 
@@ -595,15 +613,20 @@ def verify(args, run_dir):
     print(f"reloading {len(cases)} flagged position(s) to check they reproduce...", flush=True)
     proc = subprocess.run(["bash", "tests/run_ai_test_cases.sh"] + cases, cwd=PROJECT,
                           capture_output=True, timeout=args.verify_timeout)
-    out = proc.stdout.decode(errors="replace")
+    # the runner's structured per-case results (what the AI picks on reload)
+    rpath = os.path.join(USERDATA, "ai_case_results_current.json")
+    raw = json.load(open(rpath)) if os.path.exists(rpath) else {}
     res = {}
-    for line in out.splitlines():
-        m = re.search(r"(PASS|FAIL) \w+ case (\S+): AI (still chooses the same|now chooses differently)", line)
-        if m:
-            res[m.group(2).rstrip(":")] = m.group(3) == "still chooses the same"
+    for sid, r in raw.items():
+        cid = sid[len("ai_case_"):] if sid.startswith("ai_case_") else sid
+        if cid in flagged and "same" in r:
+            res[cid] = {"same": bool(r["same"]), "now": r.get("now_description", ""),
+                        "now_options": r.get("now_options", [])}
     jdump(os.path.join(run_dir, "verify.json"), res)
-    for cid in flagged:
-        print(f"  {cid}: {'reproduces' if res.get(cid) else 'DRIFTS on reload' if cid in res else 'not checked'}", flush=True)
+    for cid in dict.fromkeys(flagged):
+        v = res.get(cid)
+        print(f"  {cid}: " + ("not checked" if v is None else "reproduces" if v["same"]
+                             else f"DRIFTS on reload -> {v['now'][:90]}"), flush=True)
 
 
 def promote(args, run_dir):
@@ -630,7 +653,7 @@ def promote_from_verdicts(args, run_dir, run_name, dest):
     """Verdicts exported from REPORT.html: every decision you called good or
     bad becomes a test case with YOUR verdict (good locks the choice in, bad
     fails until the AI changes it), your note first. Also scores the reviewer."""
-    data = json.load(open(args.from_verdicts))
+    data = json.load(sys.stdin if args.from_verdicts == "-" else open(args.from_verdicts))
     verdicts = data.get("verdicts", {})
     reviews = {r["id"]: r for r in read_jsonl(os.path.join(run_dir, "reviews.jsonl"))}
     right = wrong = 0
@@ -691,9 +714,10 @@ def main():
     g.add_argument("--timeout", type=float, default=180)
     g.add_argument("--synth-timeout", type=float, default=900)
     g.add_argument("--fresh", action="store_true", help="review: discard earlier reviews")
+    g.add_argument("--repeats", type=int, default=1, help="review: independent reviews per decision (consistency check)")
     g.add_argument("--no-synth", action="store_true")
     g.add_argument("--verify-timeout", type=float, default=1800)
-    g.add_argument("--from-verdicts", help="promote: verdicts JSON exported from REPORT.html")
+    g.add_argument("--from-verdicts", help="promote: verdicts JSON copied from REPORT.html (- = stdin)")
     g.add_argument("--verdict", default="bad", choices=["bad", "good"], help="promote: verdict for still-pending cases")
     args = ap.parse_args()
 

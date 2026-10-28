@@ -75,8 +75,49 @@ def _options_table(options):
             '</tr></thead><tbody>' + "".join(rows) + "</tbody></table>")
 
 
-def build(run_dir, bundles, rows, repro, proposals_md):
+def _same(v):
+    """verify.json value: bool (older runs) or {"same", "now", "now_options"}."""
+    return v.get("same") if isinstance(v, dict) else bool(v)
+
+
+def _consistency_block(runs):
+    """Every review of this same captured state, side by side."""
+    verdicts = [r.get("verdict", "error") for r in runs]
+    agree = len(set(verdicts)) == 1
+    head = (f'<p class="cons {"ok" if agree else "bad"}"><span class="label">Reviewer consistency</span> '
+            f'{len(runs)} independent reviews of this exact state: '
+            + ", ".join(f'<span class="badge {_e(v)}">{_e(v)}</span>' for v in verdicts)
+            + (" — consistent" if agree else " — <strong>inconsistent</strong>") + "</p>")
+    rows = "".join(
+        f'<tr><td>{i + 1}</td><td><span class="badge {_e(r.get("verdict", "error"))}">{_e(r.get("verdict", "error"))}</span>'
+        f'<br><span class="muted">sev {_e(r.get("severity"))} · {_e(r.get("confidence"))}</span></td>'
+        f'<td>{_e(r.get("summary", r.get("error", "")))}</td><td>{_e(r.get("better_option"))}</td>'
+        f'<td>{_e(r.get("proposed_fix"))}</td></tr>'
+        for i, r in enumerate(runs))
+    table = ('<table class="opts runs"><thead><tr><th>#</th><th>Verdict</th><th>Review</th><th>Better option</th>'
+             '<th>Proposed fix</th></tr></thead><tbody>' + rows + "</tbody></table>")
+    if agree:
+        return head + f"<details><summary>Compare the {len(runs)} reviews</summary>{table}</details>"
+    return head + table
+
+
+def _drift_block(v):
+    if not isinstance(v, dict) or v.get("same", True):
+        return ""
+    opts = "".join(f'<li>{"<strong>" if o.get("picked") else ""}{_e(o.get("option"))} ({_e(o.get("score"))})'
+                   f'{"</strong> ← picked" if o.get("picked") else ""}</li>' for o in v.get("now_options", []))
+    return (f'<div class="drift"><span class="label">Same position reloaded</span> the AI now suggests '
+            f'<strong>{_e(v.get("now"))}</strong> instead.'
+            + (f"<ul class='plain'>{opts}</ul>" if opts else "") + "</div>")
+
+
+def build(run_dir, bundles, rows, repro, proposals_md, all_reviews=None, standalone=True):
+    """standalone=False: body content only (title/meta/style first), for an
+    Artifact publish, which wraps the page in its own document skeleton."""
     run_name = os.path.basename(run_dir.rstrip("/"))
+    all_reviews = all_reviews or {}
+    n_inconsistent = 0
+    n_drift = 0
     counts = {}
     for r in rows:
         counts[r.get("verdict", "error")] = counts.get(r.get("verdict", "error"), 0) + 1
@@ -92,7 +133,12 @@ def build(run_dir, bundles, rows, repro, proposals_md):
             if p and os.path.exists(p):
                 imgs.append(f'<figure><a href="#" class="zoomable"><img loading="lazy" alt="{label} for {_e(cid)}" '
                             f'src="{_img_uri(p, w)}"></a><figcaption>{label}</figcaption></figure>')
-        rp = "reproduces on reload" if repro.get(cid) else "drifts on reload" if cid in repro else ""
+        rp = ("reproduces on reload" if _same(repro[cid]) else "drifts on reload") if cid in repro else ""
+        drift = cid in repro and not _same(repro[cid])
+        n_drift += drift
+        runs = [x for x in all_reviews.get(cid, []) if "verdict" in x] or [r]
+        inconsistent = len({x.get("verdict") for x in runs}) > 1
+        n_inconsistent += inconsistent
         detail = lambda title, body: f"<details><summary>{title}</summary>{body}</details>"  # noqa: E731
         los = "".join(f'<li>{_e(l.get("enemy"))} — {l.get("centroid_dist_in")}" — '
                       f'{"<strong>visible</strong>" if l.get("has_los") else "no line of sight"}</li>'
@@ -105,7 +151,7 @@ def build(run_dir, bundles, rows, repro, proposals_md):
                                ("rules_uncertainty", "Rules uncertainty"), ("error", "Error"))
             if r.get(key))
         cards.append(f"""
-<article class="card" data-id="{_e(cid)}" data-verdict="{_e(v)}">
+<article class="card" data-id="{_e(cid)}" data-verdict="{_e(v)}" data-flags="{"inconsistent " if inconsistent else ""}{"drift" if drift else ""}">
   <header>
     <span class="badge {_e(v)}">{_e(v)}</span>
     <h2>{_e(cid)}</h2>
@@ -114,7 +160,9 @@ def build(run_dir, bundles, rows, repro, proposals_md):
   </header>
   <div class="shots">{"".join(imgs) or '<p class="muted">No screenshots for this decision.</p>'}</div>
   <p class="suggestion"><span class="label">AI suggested</span> {_e(b.get("suggestion"))}</p>
+  {_drift_block(repro.get(cid))}
   <dl class="review">{review_rows}</dl>
+  {_consistency_block(runs) if len(runs) > 1 else ""}
   {detail(f"Options the AI weighed ({len(b.get('options', []))} of {b.get('options_total', '?')})", _options_table(b.get("options", [])))}
   {detail("AI reasoning", f"<ul class='plain'>{reasoning}</ul>")}
   {detail("Line of sight from the acting unit", f"<ul class='plain'>{los or '<li>n/a</li>'}</ul>") if b.get("line_of_sight") else ""}
@@ -135,19 +183,25 @@ def build(run_dir, bundles, rows, repro, proposals_md):
     summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
     filters = "".join(f'<button type="button" data-f="{k}">{k} ({n})</button>'
                       for k, n in [("all", len(rows))] + sorted(counts.items()))
-    return TEMPLATE.replace("%%TITLE%%", _e(f"Critic review {run_name}")) \
+    if n_inconsistent:
+        filters += f'<button type="button" data-f="inconsistent">reviewer inconsistent ({n_inconsistent})</button>'
+    if n_drift:
+        filters += f'<button type="button" data-f="drift">AI drifts on reload ({n_drift})</button>'
+    page = TEMPLATE \
         .replace("%%RUN%%", _e(run_name)) \
         .replace("%%RUN_JSON%%", json.dumps(run_name)) \
         .replace("%%SUMMARY%%", _e(f"{len(rows)} decisions reviewed — {summary}")) \
         .replace("%%PROPOSALS%%", _md(proposals_md) if proposals_md else '<p class="muted">No synthesis yet.</p>') \
         .replace("%%FILTERS%%", filters) \
         .replace("%%CARDS%%", "\n".join(cards))
+    page = page.replace("%%TITLE%%", "AI Suggestion Critic")
+    return ("<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n" + page.replace("</style>", "</style></head><body>", 1)
+            + "\n</body></html>\n") if standalone else page
 
 
-TEMPLATE = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>%%TITLE%%</title>
+TEMPLATE = """<title>%%TITLE%%</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
 <style>
 :root { --bg:#f6f5f2; --panel:#ffffff; --ink:#1d1d1b; --muted:#6b6a65; --line:#dedbd3;
   --accent:#8a5a00; --flawed:#b42318; --questionable:#b54708; --sound:#067647; --error:#475467;
@@ -155,18 +209,21 @@ TEMPLATE = """<!doctype html>
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg:#17171a; --panel:#212126; --ink:#ecebe8; --muted:#a3a19b; --line:#36363d;
   --accent:#e0a640; --flawed:#f97066; --questionable:#fdb022; --sound:#47cd89; --error:#98a2b3;
-  --chosen:#3a3220; --pos:#1d3326; --neg:#3d2020; } }
+  --chosen:#3a3220; --pos:#1d3326; --neg:#3d2020; color-scheme:dark; } }
 :root[data-theme="dark"] { --bg:#17171a; --panel:#212126; --ink:#ecebe8; --muted:#a3a19b; --line:#36363d;
   --accent:#e0a640; --flawed:#f97066; --questionable:#fdb022; --sound:#47cd89; --error:#98a2b3;
-  --chosen:#3a3220; --pos:#1d3326; --neg:#3d2020; }
+  --chosen:#3a3220; --pos:#1d3326; --neg:#3d2020; color-scheme:dark; }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, -apple-system, Segoe UI, sans-serif; }
-main { max-width:1200px; margin:0 auto; padding:24px 16px 80px; }
+main { max-width:1200px; margin:0 auto; padding-block:24px 80px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); }
+.card, .proposals { min-width:0; } details { overflow-x:auto; }
+#copied { display:none; width:100%; } #copied.show { display:block; }
 h1 { font-size:24px; margin:0 0 4px; } h2 { font-size:16px; margin:0; font-family:ui-monospace, monospace; }
 h3 { font-size:16px; margin:20px 0 6px; }
 .muted, .meta { color:var(--muted); font-size:13px; }
 section.proposals, .card, .toolbar { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin:16px 0; }
-.toolbar { position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.toolbar { position:sticky; top:env(safe-area-inset-top, 0px); z-index:5; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 .toolbar button { border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:999px; padding:4px 12px; cursor:pointer; font:inherit; font-size:13px; }
 .toolbar button.on { border-color:var(--accent); color:var(--accent); font-weight:600; }
 .toolbar .spacer { flex:1; } .toolbar .stat { font-size:13px; color:var(--muted); }
@@ -191,18 +248,23 @@ legend { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:v
 .q { display:flex; flex-wrap:wrap; gap:4px 14px; align-items:center; margin:4px 0; } .q > span { min-width:170px; }
 textarea { width:100%; margin-top:6px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px; font:inherit; }
 code { font-family:ui-monospace, monospace; font-size:13px; }
+.cons { margin:10px 0 4px; } .cons .badge { margin:0 2px; }
+.cons.bad { border-left:3px solid var(--flawed); padding-left:8px; }
+.drift { border-left:3px solid var(--questionable); padding:4px 0 4px 8px; margin:8px 0; }
+.runs td:nth-child(3), .runs td:nth-child(5) { min-width:220px; }
 #lightbox { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:10; cursor:zoom-out; }
 #lightbox img { max-width:96vw; max-height:96vh; }
 @media (max-width: 760px) { .shots { grid-template-columns:1fr; } dl.review { grid-template-columns:1fr; } .q > span { min-width:0; width:100%; } }
-</style></head>
-<body><main>
+</style>
+<main>
 <h1>LLM critic review</h1>
 <p class="muted">Run <code>%%RUN%%</code> · %%SUMMARY%%</p>
-<p class="muted">For each decision, judge the AI and the reviewer, then <strong>Export verdicts</strong> and run
-<code>python3 40k/tools/llm_critic/critic.py promote &lt;run&gt; --from-verdicts &lt;file&gt;</code>. Your answers are kept in this browser until you export them.</p>
+<p class="muted">For each decision, judge the AI and the reviewer, then <strong>Copy verdicts</strong> and paste them into
+<code>python3 40k/tools/llm_critic/critic.py promote &lt;run&gt; --from-verdicts -</code> (or save them to a file and pass its path). Your answers are kept in this browser.</p>
 <section class="proposals"><h2 style="font-family:inherit;font-size:18px">Proposed improvements</h2>%%PROPOSALS%%</section>
 <div class="toolbar">%%FILTERS%%<span class="spacer"></span><span class="stat" id="stat"></span>
-<button type="button" id="export">Export verdicts</button></div>
+<button type="button" id="export">Copy verdicts</button>
+<textarea id="copied" rows="4" readonly aria-label="Verdicts JSON"></textarea></div>
 %%CARDS%%
 </main>
 <div id="lightbox"><img alt="Full-size screenshot"></div>
@@ -237,13 +299,19 @@ code { font-family:ui-monospace, monospace; font-size:13px; }
     b.addEventListener("click", function () {
       document.querySelectorAll(".toolbar button[data-f]").forEach(function (x) { x.classList.remove("on"); });
       b.classList.add("on");
-      cards.forEach(function (c) { c.style.display = (b.dataset.f === "all" || c.dataset.verdict === b.dataset.f) ? "" : "none"; });
+      cards.forEach(function (c) { var f = b.dataset.f;
+        c.style.display = (f === "all" || c.dataset.verdict === f || (" " + c.dataset.flags + " ").indexOf(" " + f + " ") >= 0) ? "" : "none"; });
     });
   });
-  document.getElementById("export").addEventListener("click", function () {
-    var blob = new Blob([JSON.stringify({run: RUN, exported: new Date().toISOString(), verdicts: state}, null, 1)], {type: "application/json"});
-    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "verdicts_" + RUN + ".json";
-    document.body.appendChild(a); a.click(); a.remove();
+  var exp = document.getElementById("export"), box = document.getElementById("copied");
+  exp.addEventListener("click", function () {
+    var text = JSON.stringify({run: RUN, exported: new Date().toISOString(), verdicts: state}, null, 1);
+    box.value = text;
+    function fallback() { box.classList.add("show"); box.focus(); box.select(); exp.textContent = "Select all and copy"; }
+    try {
+      navigator.clipboard.writeText(text).then(function () { exp.textContent = "Copied"; box.classList.remove("show");
+        setTimeout(function () { exp.textContent = "Copy verdicts"; }, 2000); }, fallback);
+    } catch (e) { fallback(); }
   });
   var lb = document.getElementById("lightbox");
   document.querySelectorAll("a.zoomable").forEach(function (a) {
@@ -252,5 +320,4 @@ code { font-family:ui-monospace, monospace; font-size:13px; }
   lb.addEventListener("click", function () { lb.style.display = "none"; });
 })();
 </script>
-</body></html>
 """
