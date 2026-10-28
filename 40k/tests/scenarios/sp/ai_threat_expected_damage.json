@@ -8,11 +8,12 @@
   "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
-  "description": "THREAT-EXP. Round 1 of the Custodes mirror, P1 Movement, both seats HUMAN. P2's Allarus Custodians (275pt melee unit) is staged 4\" short of the centre objective, so P1 units heading there move into its charge reach. Clicking Suggest (K) opens the breakdown card: the Danger term is now weighted by the expected melee damage that enemy would do to the moving unit (share of its wounds lost x its points value) rather than the target-blind 0.3-3.0 threat level, and the per-pair weighting is logged as [THREAT-EXP]. Nothing is executed.",
+  "description": "THREAT-EV. Round 1 of the Custodes mirror, P1 Movement, both seats HUMAN. P2's Allarus Custodians (275pt melee unit) is staged just past obj_nml_2, away from P1's main body, so a P1 unit heading there is its only target. Clicking Suggest (K) opens the breakdown card. A move into charge reach is scored by its expected outcome: 'Likely dead before it scores' cuts the plan by P(charged and wiped) (2D6 charge odds after the enemy's Move x the chance its expected damage wipes the unit, weighted by how attractive the unit is to that enemy vs other targets), 'Unit at risk' charges the VP the loss would cost, and the card's Facts show 'Survives the enemy's charge'. Each candidate is logged as [THREAT-EV]. Nothing is executed.",
   "steps": [
     {
       "act": "wait_seconds",
-      "seconds": 0.8
+      "seconds": 0.8,
+      "script": ""
     },
     {
       "act": "execute_script",
@@ -25,8 +26,8 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "comment": "stage P2 Allarus centroid at (800,1150), on the edge of obj_center",
-      "script": "var u = GameState.state.units['U_ALLARUS_CUSTODIANS_A_P2']\nvar c = Vector2.ZERO\nfor m in u.models:\n\tc += Vector2(m.position.x, m.position.y)\nc /= u.models.size()\nvar d = Vector2(800, 1150) - c\nfor m in u.models:\n\tm.position = {'x': m.position.x + d.x, 'y': m.position.y + d.y}\ntree.current_scene._recreate_unit_visuals()\nreturn true",
+      "comment": "stage P2 Allarus centroid at (300,1750), just past obj_nml_2 and away from P1's main body, so a unit heading for obj_nml_2 is its only target",
+      "script": "var u = GameState.state.units['U_ALLARUS_CUSTODIANS_A_P2']\nvar c = Vector2.ZERO\nfor m in u.models:\n\tc += Vector2(m.position.x, m.position.y)\nc /= u.models.size()\nvar d = Vector2(300, 1750) - c\nfor m in u.models:\n\tm.position = {'x': m.position.x + d.x, 'y': m.position.y + d.y}\ntree.current_scene._recreate_unit_visuals()\nreturn true",
       "equals": true
     },
     {
@@ -43,20 +44,24 @@
     },
     {
       "act": "wait_frames",
-      "frames": 3
+      "frames": 3,
+      "script": ""
     },
     {
       "act": "expect_node_visible",
       "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
-      "timeout_s": 2.0
+      "timeout_s": 2.0,
+      "script": ""
     },
     {
       "act": "click_node",
-      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "script": ""
     },
     {
       "act": "wait_frames",
-      "frames": 5
+      "frames": 5,
+      "script": ""
     },
     {
       "act": "execute_script",
@@ -70,12 +75,13 @@
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel._request_unit(\"U_CUSTODIAN_GUARD_E\")",
+      "script": "main._ai_suggestion_panel._request_unit(\"U_BLADE_CHAMPION_A\")",
       "comment": "same path as clicking the unit row in the card's move-order list"
     },
     {
       "act": "wait_frames",
-      "frames": 8
+      "frames": 8,
+      "script": ""
     },
     {
       "act": "execute_script",
@@ -84,13 +90,24 @@
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel.full_text.contains(\"MOVEMENT · Custodian Guard Epsilon\")",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"MOVEMENT · Blade Champion Alpha\")",
       "equals": true
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel.full_text.contains(\"Danger\")",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Unit at risk\")",
       "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Likely dead before it scores\") and main._ai_suggestion_panel.full_text.contains(\"Survives the enemy's charge\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "not main._ai_suggestion_panel.full_text.contains(\"Picked: Move obj_nml_2\") and not main._ai_suggestion_panel.full_text.contains(\"Picked: Advance obj_nml_2\")",
+      "equals": true,
+      "comment": "the AI no longer walks Blade Champion Alpha into the Allarus at obj_nml_2"
     },
     {
       "act": "execute_script",
@@ -99,18 +116,20 @@
     },
     {
       "act": "expect_phase",
-      "equals": 7
+      "equals": 7,
+      "script": ""
     },
     {
       "act": "execute_script",
       "multiline": true,
       "comment": "open every option's '▸ details' (same as clicking each link) so the Danger rows render",
-      "script": "var pnl = tree.current_scene._ai_suggestion_panel\nfor r in range(3):\n\tfor c in range(8):\n\t\tpnl._expanded['opt:%d:%d' % [r, c]] = true\npnl._render(false)\nreturn pnl._rich.get_parsed_text().contains('Danger: -')",
+      "script": "var pnl = tree.current_scene._ai_suggestion_panel\nfor r in range(3):\n\tfor c in range(8):\n\t\tpnl._expanded['opt:%d:%d' % [r, c]] = true\npnl._render(false)\nreturn pnl._rich.get_parsed_text().contains('Unit at risk: -')",
       "equals": true
     },
     {
       "act": "wait_frames",
-      "frames": 3
+      "frames": 3,
+      "script": ""
     },
     {
       "act": "execute_script",
@@ -121,11 +140,13 @@
     },
     {
       "act": "wait_frames",
-      "frames": 3
+      "frames": 3,
+      "script": ""
     },
     {
       "act": "screenshot",
-      "label": "01_threat_expected_damage_breakdown"
+      "label": "01_threat_expected_damage_breakdown",
+      "script": ""
     }
   ]
 }

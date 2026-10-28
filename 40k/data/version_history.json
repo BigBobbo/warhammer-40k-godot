@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.55.4",
+      "date": "2026-10-28",
+      "summary": "AI no longer walks units into charges that would wipe them for the sake of an objective.",
+      "changes": [
+        "When the AI considers moving into an enemy's charge reach, it now works out the real odds: the 2D6 roll the enemy needs, how likely it is to pick this unit over others, and whether the charge would wipe it.",
+        "A move only counts for its objective value if the unit is likely to survive to hold it, and losing the unit costs the VP it would have been worth.",
+        "The suggestion card (K) shows the new lines \"Likely dead before it scores\" and \"Unit at risk\", plus the unit's chance of surviving the enemy's charge."
+      ]
+    },
+    {
       "version": "1.55.3",
       "date": "2026-10-27",
       "summary": "AI now judges charge danger by how badly the enemy would actually hurt the unit it is moving.",

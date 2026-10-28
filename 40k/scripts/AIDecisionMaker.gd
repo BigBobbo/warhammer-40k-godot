@@ -2046,6 +2046,21 @@ const THREAT_EXPECTED_LOSS_WEIGHT: float = 4.0     # weight when the charge woul
 const THREAT_LOSS_POINTS_REF: float = 150.0        # points of a "reference" unit (value factor 1.0)
 const THREAT_LOSS_VALUE_MIN: float = 0.5           # value factor floor (cheap chaff still minds dying)
 const THREAT_LOSS_VALUE_MAX: float = 3.0           # value factor ceiling (sanity bound on odd points data)
+# THREAT-EV: score a move into charge reach by its expected OUTCOME instead of an
+# additive "danger" penalty. P(die) = chance an enemy charges it (2D6 vs the gap
+# left after the enemy's Move) x chance that charge wipes it. The move's whole
+# score only pays out if the unit survives (x (1 - P(die))), and losing the unit
+# costs its own value in VP (kill VP the enemy scores + VP it would still have
+# earned + its points), converted at THREAT_SCORE_PER_VP — the objective term's
+# own rate (~20 score for a ~4 VP objective). Gated by THREAT_EXPECTED_DAMAGE.
+const THREAT_SCORE_PER_VP: float = 5.0          # score points per VP (objective_priority ~ 20 for ~4 VP)
+const THREAT_LOSS_KILL_VP: float = 1.0          # VP the enemy is assumed to score for destroying a unit
+const THREAT_LOSS_VP_PER_ROUND: float = 0.5     # VP a unit would still earn per remaining battle round
+const THREAT_LOSS_VP_PER_100PTS: float = 1.0    # material value: VP per 100 points (scaled by share lost)
+const THREAT_WIPE_STEEPNESS: float = 4.0        # P(wipe) = 1 / (1 + (wounds / expected dmg)^k): 50% at dmg == wounds
+const THREAT_TARGET_SPLIT: float = 1.0          # weight of the other friendly units the enemy could charge instead (0 = assume it always picks us)
+const THREAT_TRADE_CREDIT: float = 0.5          # share of the expected kill-back credited against the loss (never past it)
+const THREAT_EV_MIN_P_DIE: float = 0.02         # below this the outcome terms are skipped (noise)
 
 # =============================================================================
 # 11e HIDDEN AWARENESS (core rules 13.09) — corpus findings F001/F002/F003
@@ -3830,6 +3845,8 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 				cand_terms["expected_vp"] = cand_vp
 				cand_terms["distance_inches"] = cand.get("distance", 0.0) / PIXELS_PER_INCH
 				cand_terms["turns_to_reach"] = float(cand.get("turns_to_reach", 0.0))
+				if float(cand.get("survival_chance", -1.0)) >= 0.0:
+					cand_terms["survival_chance"] = float(cand.get("survival_chance", 1.0))
 				cand_terms["assigned_by"] = assign_pass_name
 				cand_cards.append({
 					"description": cand_desc,
@@ -8977,13 +8994,20 @@ static func _assign_units_to_objectives(
 			# --- THREAT AWARENESS (AI-TACTIC-4, MOV-2) ---
 			# Penalize assignments that route units into enemy threat zones
 			# T7-43: Scale threat penalties by survival modifier (early=less cautious, late=more cautious)
+			var threat_ev_on: bool = get_param("THREAT_EXPECTED_DAMAGE", THREAT_EXPECTED_DAMAGE) > 0.0
 			if not threat_data.is_empty() and not already_on_obj:
 				var dest_threat = _evaluate_position_threat(estimated_dest, threat_data, unit)
 				var current_threat = _evaluate_position_threat(centroid, threat_data, unit)
 
 				# Penalize moving INTO more danger than we're currently in
 				var threat_increase = dest_threat.total_threat - current_threat.total_threat
-				if threat_increase > 0.5:
+				if threat_ev_on:
+					# THREAT-EV: charge risk is scored as an outcome below; only
+					# the shooting share stays an additive danger penalty here.
+					threat_increase = dest_threat.shoot_total - current_threat.shoot_total
+					if threat_increase > 0.5:
+						score += _t_add(score_terms, "threat_delta", -(threat_increase * move_strategy.survival))
+				elif threat_increase > 0.5:
 					score += _t_add(score_terms, "threat_delta", -(threat_increase * move_strategy.survival))
 					# Extra charge threat penalty: being chargeable is worse than being shot at
 					if dest_threat.charge_threat > current_threat.charge_threat + 0.5:
@@ -9225,6 +9249,36 @@ static func _assign_units_to_objectives(
 			if float(plan_bias.get("bonus", 0.0)) != 0.0:
 				score += _t_add(score_terms, "plan_earmark", float(plan_bias["bonus"]))
 
+			# --- THREAT-EV: EXPECTED OUTCOME OF THE ENEMY'S NEXT CHARGE ---
+			# Everything above only pays out if the unit is still alive to
+			# hold / score it, so the plan's value is scaled by its survival
+			# chance; losing the unit then costs its own value in VP.
+			var survival_chance := -1.0
+			if threat_ev_on and not threat_data.is_empty() and not already_on_obj:
+				var risk := _estimate_charge_risk(unit, unit_id, centroid, estimated_dest, threat_data, friendly_units, battle_round)
+				var p_die: float = risk.p_die
+				survival_chance = 1.0 - p_die
+				if p_die >= get_param("THREAT_EV_MIN_P_DIE", THREAT_EV_MIN_P_DIE) or float(risk.share_lost) > 0.05:
+					var plan_value_before: float = score
+					if score > 0.0:
+						score += _t_add(score_terms, "survival_odds", -(score * p_die))
+					var per_vp := get_param("THREAT_SCORE_PER_VP", THREAT_SCORE_PER_VP)
+					var net_loss_vp: float = float(risk.loss_vp) - float(risk.trade_vp)
+					if net_loss_vp > 0.0:
+						score += _t_add(score_terms, "unit_at_risk", -(net_loss_vp * per_vp * move_strategy.survival))
+					var worst := ""
+					var worst_p := 0.0
+					for t in risk.threats:
+						var tp: float = float(t.p_pick) * float(t.p_charge) * float(t.p_wipe)
+						if tp > worst_p:
+							worst_p = tp
+							worst = "%s (%.1f\" gap, charge %.0f%%, pick %.0f%%, %.1f dmg, wipe %.0f%%)" % [
+								t.enemy_id, t.gap_in, t.p_charge * 100.0, t.p_pick * 100.0, t.expected_dmg, t.p_wipe * 100.0]
+					print("AIDecisionMaker: [THREAT-EV] %s -> %s: P(die)=%.0f%% share_lost=%.0f%% plan %.1f -> survival_odds %.1f, loss %.2f VP - trade %.2f VP -> unit_at_risk %.1f; worst: %s" % [
+						unit_id, obj_id, p_die * 100.0, float(risk.share_lost) * 100.0, plan_value_before,
+						float(score_terms.get("survival_odds", 0.0)), float(risk.loss_vp), float(risk.trade_vp),
+						float(score_terms.get("unit_at_risk", 0.0)), worst])
+
 			candidates.append({
 				"unit_id": unit_id,
 				"objective_id": obj_id,
@@ -9241,6 +9295,7 @@ static func _assign_units_to_objectives(
 				"race_enemy_oc": race_enemy_oc,
 				"race_lost": race_lost,
 				"vp_value": eval.get("vp_value", 0.0),
+				"survival_chance": survival_chance,
 				"score_terms": score_terms
 			})
 
@@ -25143,6 +25198,9 @@ static func _evaluate_position_threat(
 		"charge_threat": charge_threat,
 		"shoot_threat": shoot_threat,
 		"total_threat": total_threat,
+		# THREAT-EV: the shooting share of total_threat (charge risk is scored
+		# separately by _estimate_charge_risk in expected-damage mode)
+		"shoot_total": shoot_threat * fragile_mult * character_threat_mult,
 		"threats": threats
 	}
 
@@ -25163,7 +25221,7 @@ static func _charge_threat_weight(td: Dictionary, own_unit: Dictionary) -> float
 		return float(cache[cache_key])
 	var weight := 0.0
 	if remaining > 0.0:
-		var expected_dmg := _estimate_melee_damage(enemy, own_unit)
+		var expected_dmg := _cached_melee_damage(td, enemy, own_unit, "in")
 		var loss_share := clampf(expected_dmg / remaining, 0.0, 1.0)
 		var points := float(own_unit.get("meta", {}).get("points", 0))
 		var value_factor := 1.0
@@ -25178,6 +25236,142 @@ static func _charge_threat_weight(td: Dictionary, own_unit: Dictionary) -> float
 	cache[cache_key] = weight
 	td["loss_weight_cache"] = cache
 	return weight
+
+static func _cached_melee_damage(td: Dictionary, attacker: Dictionary, defender: Dictionary, direction: String) -> float:
+	"""THREAT-EV: _estimate_melee_damage memoised on td (rebuilt every decision).
+	direction "in" = td's enemy hitting our unit, "out" = our unit hitting back."""
+	var other: Dictionary = defender if direction == "in" else attacker
+	var key := "%s|%s|%.1f" % [direction, str(other.get("id", other.get("meta", {}).get("name", ""))),
+		_estimate_unit_remaining_wounds(other)]
+	var cache: Dictionary = td.get("dmg_cache", {})
+	if not cache.has(key):
+		cache[key] = _estimate_melee_damage(attacker, defender)
+		td["dmg_cache"] = cache
+	return float(cache[key])
+
+static func _unit_loss_vp(unit: Dictionary, battle_round: int) -> Dictionary:
+	"""THREAT-EV: what losing `unit` costs, in VP. Returns {whole, material}:
+	whole    — paid in full when it is destroyed (kill VP to the enemy + the VP
+	           it would still earn over the remaining rounds)
+	material — its points as VP, paid in proportion to the share lost."""
+	var rounds_left := maxi(0, MAX_BATTLE_ROUNDS_AI - battle_round)
+	var whole := get_param("THREAT_LOSS_KILL_VP", THREAT_LOSS_KILL_VP) \
+		+ float(rounds_left) * get_param("THREAT_LOSS_VP_PER_ROUND", THREAT_LOSS_VP_PER_ROUND)
+	var material := float(unit.get("meta", {}).get("points", 0)) / 100.0 \
+		* get_param("THREAT_LOSS_VP_PER_100PTS", THREAT_LOSS_VP_PER_100PTS)
+	return {"whole": whole, "material": material}
+
+static func _min_gap_inches(own_unit: Dictionary, offset: Vector2, enemy: Dictionary) -> float:
+	"""THREAT-EV: closest base-edge gap, in inches, between own_unit's alive
+	models shifted by `offset` and enemy's alive models."""
+	var best := INF
+	var mm_to_px := PIXELS_PER_INCH / 25.4
+	for om in _get_alive_models(own_unit):
+		var op := _get_model_position(om)
+		if op == Vector2.INF:
+			continue
+		op += offset
+		var orad := float(om.get("base_mm", 32)) * mm_to_px * 0.5
+		for em in _get_alive_models(enemy):
+			var ep := _get_model_position(em)
+			if ep == Vector2.INF:
+				continue
+			var erad := float(em.get("base_mm", 32)) * mm_to_px * 0.5
+			best = minf(best, op.distance_to(ep) - orad - erad)
+	return maxf(0.0, best) / PIXELS_PER_INCH if best != INF else INF
+
+static func _charge_target_appeal(dmg: float, wounds: float, unit: Dictionary, battle_round: int, k: float) -> float:
+	"""THREAT-EV: what charging `unit` is worth to the enemy, in VP — the same
+	loss model used for our own unit. Floored so a target it barely scratches
+	still counts as a possible pick."""
+	if wounds <= 0.0:
+		return 0.0
+	var loss := _unit_loss_vp(unit, battle_round)
+	var p_wipe := 1.0 / (1.0 + pow(wounds / dmg, k)) if dmg > 0.0 else 0.0
+	return maxf(0.1, p_wipe * float(loss.whole) + minf(1.0, dmg / wounds) * float(loss.material))
+
+static func _estimate_charge_risk(own_unit: Dictionary, own_unit_id: String, from_centroid: Vector2,
+		dest: Vector2, threat_data: Array, friendly_units: Dictionary, battle_round: int) -> Dictionary:
+	"""THREAT-EV: what the enemy's next Charge phase is expected to do to
+	own_unit if it ends its move at `dest`.
+	Per enemy with melee weapons:
+	  p_charge = P(2D6 >= gap - enemy M - engagement range)   (gap = base edges, after our move)
+	  p_pick   = our appeal to it / (ours + THREAT_TARGET_SPLIT x appeal of other friendlies it could charge at 50%+)
+	  p_wipe   = 1 / (1 + (remaining wounds / expected melee damage)^THREAT_WIPE_STEEPNESS)
+	P(die) = 1 - prod(1 - p_pick x p_charge x p_wipe); share_lost sums the
+	expected share each charge removes. Returns {p_die, share_lost, loss_vp,
+	trade_vp, threats}."""
+	var out := {"p_die": 0.0, "share_lost": 0.0, "loss_vp": 0.0, "trade_vp": 0.0, "threats": []}
+	var remaining := _estimate_unit_remaining_wounds(own_unit)
+	if remaining <= 0.0 or threat_data.is_empty():
+		return out
+	var offset := dest - from_centroid
+	var er := GameConstants.engagement_range_inches()
+	var k := get_param("THREAT_WIPE_STEEPNESS", THREAT_WIPE_STEEPNESS)
+	var split := get_param("THREAT_TARGET_SPLIT", THREAT_TARGET_SPLIT)
+	var survive_all := 1.0
+	var share := 0.0
+	var trade := 0.0
+	for td in threat_data:
+		if not td.get("has_melee", false):
+			continue
+		var enemy: Dictionary = td.get("enemy", {})
+		if enemy.is_empty():
+			continue
+		var enemy_move := float(enemy.get("meta", {}).get("stats", {}).get("move", 6))
+		var gap := _min_gap_inches(own_unit, offset, enemy)
+		if gap == INF:
+			continue
+		var p_charge := _charge_success_probability(gap - enemy_move - er)
+		if p_charge <= 0.0:
+			continue
+		# The enemy charges one target and picks the one it gains most from:
+		# P(it picks us) = our value to it / (ours + every other friendly unit
+		# it could charge at 50%+ from their current positions).
+		var dmg := _cached_melee_damage(td, enemy, own_unit, "in")
+		var our_appeal := _charge_target_appeal(dmg, remaining, own_unit, battle_round, k)
+		var pick_cache: Dictionary = td.get("pick_others_cache", {})
+		if not pick_cache.has(own_unit_id):
+			var others_appeal := 0.0
+			for fid in friendly_units:
+				if str(fid) == own_unit_id:
+					continue
+				var fu: Dictionary = friendly_units[fid]
+				if _get_alive_models(fu).is_empty():
+					continue
+				var fgap := _min_gap_inches(fu, Vector2.ZERO, enemy)
+				if fgap != INF and _charge_success_probability(fgap - enemy_move - er) >= 0.5:
+					var f_dmg := _cached_melee_damage(td, enemy, fu, "in")
+					others_appeal += _charge_target_appeal(f_dmg, _estimate_unit_remaining_wounds(fu), fu, battle_round, k)
+			pick_cache[own_unit_id] = others_appeal
+			td["pick_others_cache"] = pick_cache
+		var others_total: float = float(pick_cache[own_unit_id]) * split
+		var p_pick := our_appeal / (our_appeal + others_total) if our_appeal + others_total > 0.0 else 1.0
+		var ratio := dmg / remaining
+		var p_wipe := 0.0
+		if dmg > 0.0:
+			p_wipe = 1.0 / (1.0 + pow(remaining / dmg, k))
+		var p_hit_us := p_pick * p_charge
+		survive_all *= (1.0 - p_hit_us * p_wipe)
+		share += p_hit_us * minf(1.0, ratio)
+		# Kill-back: if we live through it, we fight back. Credited (in VP)
+		# against the loss only — being charged is never scored as a gain.
+		var back := _cached_melee_damage(td, own_unit, enemy, "out")
+		var e_wounds := _estimate_unit_remaining_wounds(enemy)
+		if back > 0.0 and e_wounds > 0.0:
+			var e_loss := _unit_loss_vp(enemy, battle_round)
+			var e_share := minf(1.0, back / e_wounds)
+			var e_wipe := 1.0 / (1.0 + pow(e_wounds / back, k))
+			trade += p_hit_us * (1.0 - p_wipe) * (e_wipe * e_loss.whole + e_share * e_loss.material)
+		out.threats.append({"enemy_id": td.unit_id, "gap_in": gap, "p_charge": p_charge, "p_pick": p_pick,
+			"expected_dmg": dmg, "p_wipe": p_wipe})
+	var p_die := 1.0 - survive_all
+	var own_loss := _unit_loss_vp(own_unit, battle_round)
+	out.p_die = p_die
+	out.share_lost = minf(1.0, share)
+	out.loss_vp = p_die * own_loss.whole + out.share_lost * own_loss.material
+	out.trade_vp = minf(trade * get_param("THREAT_TRADE_CREDIT", THREAT_TRADE_CREDIT), out.loss_vp)
+	return out
 
 static func _is_position_in_charge_threat(pos: Vector2, threat_data: Array) -> bool:
 	"""Quick check: is this position within any enemy's charge threat range?"""

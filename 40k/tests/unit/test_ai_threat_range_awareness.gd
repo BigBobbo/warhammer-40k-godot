@@ -64,6 +64,10 @@ func _run_tests():
 	test_expected_damage_lethal_enemy_beats_old_cap()
 	test_expected_damage_scales_with_own_points()
 	test_expected_damage_legacy_flag()
+	test_charge_risk_close_killer_wipes()
+	test_charge_risk_out_of_reach_is_zero()
+	test_charge_risk_split_across_targets()
+	test_charge_risk_trade_credit_bounded()
 	test_close_melee_penalty_reduced_for_melee_units()
 
 # =========================================================================
@@ -738,3 +742,57 @@ func test_expected_damage_legacy_flag():
 		"Legacy flag uses the capped unit_value (penalty %.2f, value %.2f)" % [off.threats[0].penalty, legacy_val])
 	_assert(on.charge_threat > off.charge_threat,
 		"Expected-damage mode rates a hammer squad above legacy (%.2f > %.2f)" % [on.charge_threat, off.charge_threat])
+
+# =========================================================================
+# THREAT-EV: expected outcome of the enemy's next charge
+# =========================================================================
+
+func _risk(snapshot: Dictionary, own_id: String, dest: Vector2, friendlies: Dictionary = {}) -> Dictionary:
+	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(_make_enemies(snapshot))
+	var own = snapshot.units[own_id]
+	var c = AIDecisionMaker._get_unit_centroid(own)
+	return AIDecisionMaker._estimate_charge_risk(own, own_id, c, dest, threat_data, friendlies, 1)
+
+func test_charge_risk_close_killer_wipes():
+	print("\n--- test_charge_risk_close_killer_wipes ---")
+	var snapshot = _create_test_snapshot()
+	# Hammer squad, M6. Own 2-model squad (4 wounds) ends 8" away (base edges ~7"):
+	# needs a 2D6 roll of ~0 after a 6" move -> charge is certain, wipe near-certain.
+	_add_unit(snapshot, "killer", 1, Vector2(800, 600), "Killer", 2, 6, 5, ["INFANTRY"], _make_lethal_melee_weapons())
+	_add_unit(snapshot, "pros", 2, Vector2(800, 1400), "Prosecutors", 2, 6, 2, ["INFANTRY"], _make_ranged_weapons(), 3, 2)
+	snapshot.units["pros"].meta["points"] = 45
+	var r = _risk(snapshot, "pros", Vector2(840, 920))
+	_assert(r.p_die > 0.9, "Close hammer squad: P(die) > 90%% (got %.0f%%)" % (r.p_die * 100.0))
+	_assert(r.loss_vp > 3.0, "Loss covers kill VP + remaining-round VP + points (got %.2f VP)" % r.loss_vp)
+
+func test_charge_risk_out_of_reach_is_zero():
+	print("\n--- test_charge_risk_out_of_reach_is_zero ---")
+	var snapshot = _create_test_snapshot()
+	_add_unit(snapshot, "killer", 1, Vector2(800, 600), "Killer", 2, 6, 5, ["INFANTRY"], _make_lethal_melee_weapons())
+	_add_unit(snapshot, "pros", 2, Vector2(800, 1600), "Prosecutors", 2, 6, 2, ["INFANTRY"], _make_ranged_weapons(), 3, 2)
+	# 25" gap: needs 2D6 >= 17 after the 6" move -> impossible
+	var r = _risk(snapshot, "pros", Vector2(840, 1600))
+	_assert(r.p_die == 0.0, "25\" away: P(die) = 0 (got %.3f)" % r.p_die)
+	# ~15" gap: needs 2D6 >= ~7 -> a real but partial chance
+	var r2 = _risk(snapshot, "pros", Vector2(840, 1200))
+	_assert(r2.p_die > 0.2 and r2.p_die < 0.8, "~15\" away: P(die) between 20%% and 80%% (got %.0f%%)" % (r2.p_die * 100.0))
+
+func test_charge_risk_split_across_targets():
+	print("\n--- test_charge_risk_split_across_targets ---")
+	var snapshot = _create_test_snapshot()
+	_add_unit(snapshot, "killer", 1, Vector2(800, 600), "Killer", 2, 6, 5, ["INFANTRY"], _make_lethal_melee_weapons())
+	_add_unit(snapshot, "pros", 2, Vector2(800, 1400), "Prosecutors", 2, 6, 2, ["INFANTRY"], _make_ranged_weapons(), 3, 2)
+	_add_unit(snapshot, "buddy", 2, Vector2(600, 900), "Buddy", 2, 6, 5, ["INFANTRY"], _make_ranged_weapons())
+	var alone = _risk(snapshot, "pros", Vector2(840, 1100), {"pros": snapshot.units["pros"]})
+	var shared = _risk(snapshot, "pros", Vector2(840, 1100), {"pros": snapshot.units["pros"], "buddy": snapshot.units["buddy"]})
+	_assert(shared.p_die < alone.p_die, "Another chargeable friendly lowers P(it picks us) (%.2f < %.2f)" % [shared.p_die, alone.p_die])
+
+func test_charge_risk_trade_credit_bounded():
+	print("\n--- test_charge_risk_trade_credit_bounded ---")
+	var snapshot = _create_test_snapshot()
+	# Weak chargers vs a hammer squad: tiny loss, big kill-back -> credit capped at the loss
+	_add_unit(snapshot, "weak", 1, Vector2(800, 600), "Weak", 2, 6, 5, ["INFANTRY"], _make_melee_weapons())
+	_add_unit(snapshot, "hammers", 2, Vector2(800, 1400), "Hammers", 2, 6, 5, ["INFANTRY"], _make_lethal_melee_weapons(), 5, 3)
+	var r = _risk(snapshot, "hammers", Vector2(840, 920))
+	_assert(r.trade_vp <= r.loss_vp + 0.0001, "Trade credit never exceeds the loss (%.2f <= %.2f)" % [r.trade_vp, r.loss_vp])
+	_assert(r.p_die < 0.05, "Weak chargers do not wipe a hammer squad (P(die) %.1f%%)" % (r.p_die * 100.0))

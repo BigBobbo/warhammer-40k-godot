@@ -38,6 +38,8 @@ const TERMS := {
 	"reachability": {"label": "Can get there this turn", "fmt": "pts", "help": "Bonus if reachable with a normal move (or an advance); penalty in round 1 if it cannot arrive by round 2."},
 	"firing_position": {"label": "Shooting targets kept", "fmt": "pts", "help": "Whether moving here keeps, gains or loses enemies within weapon range."},
 	"threat_delta": {"label": "Danger", "fmt": "pts", "help": "Penalty for moving into more enemy shooting / charge threat than the unit faces now."},
+	"survival_odds": {"label": "Likely dead before it scores", "fmt": "pts", "help": "The rest of this plan only pays off if the unit survives the enemy's next charge, so its value is cut by the chance it gets charged and wiped."},
+	"unit_at_risk": {"label": "Unit at risk", "fmt": "pts", "help": "Expected cost of losing this unit to the enemy's next charge: VP the enemy scores for it, VP it would still have earned, and its points (less what it would kill back)."},
 	"overwatch_risk": {"label": "Overwatch risk", "fmt": "pts", "help": "Penalty for moving where enemies can fire Overwatch."},
 	"hidden_gain": {"label": "Stays Hidden", "fmt": "pts", "help": "Bonus for ending where the unit stays Hidden."},
 	"charge_lane": {"label": "On the way to its charge", "fmt": "pts", "help": "Bonus when the objective lies toward the unit's planned charge target (penalty if opposite)."},
@@ -62,6 +64,7 @@ const TERMS := {
 	"expected_vp": {"label": "VP at stake", "fmt": "vp", "good": "high", "help": "Victory points this objective is worth to you over the game."},
 	"distance_inches": {"label": "Distance", "fmt": "in", "good": "low", "help": "Distance from the unit to the objective."},
 	"turns_to_reach": {"label": "Turns to get there", "fmt": "turns", "good": "low", "help": "Battle turns of movement needed to arrive."},
+	"survival_chance": {"label": "Survives the enemy's charge", "fmt": "pct", "good": "high", "help": "Chance the unit is not charged and wiped in the enemy's next turn if it ends its move here."},
 	"assigned_by": {"label": "Assigned by", "fmt": "text", "hidden": true, "help": "Which planning pass assigned the unit."},
 
 	# --- Shooting -----------------------------------------------------------
