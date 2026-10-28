@@ -9424,7 +9424,8 @@ static func _assign_units_to_objectives(
 			should_hold = true  # OC still needed at this objective
 		elif obj_state == "held_threatened":
 			should_hold = true  # Threatened, keep defender
-		elif obj_keeper.get(oid, {}).get("uid", "") == uid and locked_oc_holds.call(oid):
+		elif obj_keeper.get(oid, {}).get("uid", "") == uid and locked_oc_holds.call(oid) \
+				and get_param("PLAN_KEEP_OC_ENABLED", 1.0) >= 0.5:
 			print("AIDecisionMaker: [KEEP-OC] %s: %s freed — units that are not moving this phase already hold it (OC %d vs enemy threat %d)" % [
 				oid, uid, int(eval_for_obj.get("friendly_oc", 0)) - int(movable_oc_on_obj.get(oid, 0)),
 				maxi(int(eval_for_obj.get("enemy_oc", 0)), int(eval_for_obj.get("projected_enemy_oc", 0)))])
@@ -9513,8 +9514,9 @@ static func _assign_units_to_objectives(
 	# TOO-LATE: a capture the unit cannot complete before the game ends scores
 	# nothing — the reach horizon only shrinks its score, so when it was the
 	# only objective still needing OC it was assigned anyway (a lone 36" trip).
+	var too_late_on = get_param("PLAN_TOO_LATE_ENABLED", 1.0) >= 0.5
 	var too_late := func(c: Dictionary) -> bool:
-		return c.get("action", "") in ["move", "advance"] \
+		return too_late_on and c.get("action", "") in ["move", "advance"] \
 			and battle_round + int(c.get("turns_to_reach", 1)) - 1 > MAX_BATTLE_ROUNDS_AI
 	# Only long trips (3+ turns): a 2-turn contest is the normal fight for an
 	# objective and contest_race already prices it — skipping it too made both
@@ -15065,6 +15067,8 @@ static func _calculate_marginal_value(
 	# cheap one. Only relative values matter (the allocator takes the best
 	# positive marginal), so the change of scale is safe.
 	var value_per_wound = target_value / maxf(threshold, 1.0)
+	if get_param("SHOOT_PER_WOUND_ENABLED", 1.0) < 0.5:
+		value_per_wound = target_value  # ablation: the pre-SHOOT-PW scale
 
 	# Base marginal value: useful damage × value per wound
 	var marginal = useful_damage * value_per_wound

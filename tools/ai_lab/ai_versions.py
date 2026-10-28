@@ -67,9 +67,9 @@ def extract(specs: list[str]) -> None:
         print("extracted %s = %s (%s)" % (name, ref, sha))
 
 
-def play(seeds, args, tag, arm, p1_ai, p2_ai, stamp, sha):
+def play(seeds, args, tag, arm, p1_ai, p2_ai, stamp, sha, p1_profile="", p2_profile=""):
     import concurrent.futures
-    a = Args(fixture=args.fixture, arm="%s_%s" % (tag, arm), p1_profile="", p2_profile="",
+    a = Args(fixture=args.fixture, arm="%s_%s" % (tag, arm), p1_profile=p1_profile, p2_profile=p2_profile,
              p1_plan="", p2_plan="", p1_ai=p1_ai, p2_ai=p2_ai, dispositions=args.dispositions,
              difficulty=args.difficulty, time_scale=args.time_scale, max_seconds=args.max_seconds,
              lanes=args.lanes, seeds="", season=args.season, skip_gate=True)
@@ -123,8 +123,14 @@ def cmd_run(args) -> int:
     sha, stamp = run_lanes.git_sha(), time.strftime("%Y%m%d_%H%M%S")
     seeds = list(range(args.seed_base + 1, args.seed_base + args.pairs + 1))
     print("%s: seeds %s" % (tag, seeds), flush=True)
-    play(seeds, args, tag, "M1", base, cand, stamp, sha)
-    play(seeds, args, tag, "M2", cand, base, stamp, sha)
+    # --cand-profile: parameter overrides for the candidate seat (ablation
+    # toggles). Profiles load into the current AIDecisionMaker only, so the
+    # candidate must be HEAD.
+    prof = os.path.abspath(args.cand_profile) if args.cand_profile else ""
+    if prof and args.cand != "HEAD":
+        raise SystemExit("--cand-profile needs --cand HEAD")
+    play(seeds, args, tag, "M1", base, cand, stamp, sha, p2_profile=prof)
+    play(seeds, args, tag, "M2", cand, base, stamp, sha, p1_profile=prof)
     s = summarise(args.season, tag)
     print(json.dumps({k: v for k, v in s.items() if k != "per_seed"}), flush=True)
     with open(os.path.join(args.season, "%s.summary.json" % tag), "w") as f:
@@ -141,6 +147,7 @@ def main(argv=None) -> int:
     r.add_argument("--base", required=True, help="version name, or HEAD for the current code")
     r.add_argument("--cand", required=True)
     r.add_argument("--tag", default="")
+    r.add_argument("--cand-profile", default="", help="profile JSON for the HEAD candidate seat")
     r.add_argument("--season", required=True)
     r.add_argument("--seed-base", type=int, default=9100)
     r.add_argument("--pairs", type=int, default=6)
