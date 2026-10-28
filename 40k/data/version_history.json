@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.1",
+      "date": "2026-10-28",
+      "summary": "More AI fixes: the cheapest unit keeps home, charges count real help and the cost of being hit back.",
+      "changes": [
+        "When several units stand on an objective, the cheapest unit that can hold it alone stays and the expensive units go forward.",
+        "Charges: the AI only counts help from friendly units that can really charge the same target this turn, and only when the charger cannot destroy the target alone.",
+        "Charges: a charge that does not destroy its target now counts the damage the target does back.",
+        "The AI judges a contested objective better: an enemy unit that is nearer to another objective counts for half.",
+        "Reserves: the AI values the one best objective an arriving unit can help with, and only objectives a deep-striking unit can land next to.",
+        "The suggestion card says 'enemy' and the player number for each shooting target, and 'reinforcing' when a unit joins an objective you already hold."
+      ]
+    },
+    {
       "version": "1.56.0",
       "date": "2026-10-28",
       "summary": "The AI keeps its army together, finishes wounded units and stops several wasted moves.",

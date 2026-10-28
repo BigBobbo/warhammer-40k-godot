@@ -1492,6 +1492,12 @@ const CHARGE_LEAVE_OBJ_PENALTY: float = 0.5
 # Shooting (SHOOT-UNIT): value of removing one whole enemy unit, paid per
 # share of the unit a shot removes (on top of value per wound).
 const SHOOT_UNIT_REMOVAL_VALUE: float = 2.0
+# Movement plan (KEEPER-PICK): score units per 100 points when choosing which
+# holder stays on an objective — the cheaper sufficient unit keeps it.
+const KEEPER_POINTS_WEIGHT: float = 2.0
+# Charge (RETALIATION): share of the surviving target's melee damage on the
+# charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+const CHARGE_RETALIATION_WEIGHT: float = 0.5
 const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
 const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
 const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
@@ -7534,14 +7540,22 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 		# P2-80: Include placement_type override if different from reserve_type
 		if chosen_type != reserve_type:
 			result["placement_type"] = chosen_type
-		# Which unit arrives: every reserve unit's urgency (the spot itself is
-		# the first legal placement found, not a scored choice).
+		# Which unit arrives: every reserve unit's urgency. The spot is the best
+		# of the ranked legal placements; the context gives it and its distance
+		# to the nearest objective.
 		var arr_cands: Array = []
 		for sc_u in scored_units:
 			arr_cands.append({"description": "%s arrives%s" % [sc_u.name, " (no legal spot found)" if sc_u.get("no_room", false) else ""],
 				"score": float(sc_u.score), "key": str(sc_u.unit_id), "score_breakdown": (sc_u.get("terms", {}) as Dictionary).duplicate()})
-		_record_choice("reserves_arrival", unit_id, unit_name, arr_cands, unit_id,
-			{"phase": "movement", "round": battle_round, "source": "highest urgency with a legal spot; spot = best-scored legal placement"})
+		var arr_ctx := {"phase": "movement", "round": battle_round, "source": "highest urgency with a legal spot; spot = best-scored legal placement",
+			"spot_in": [snappedf(centroid.x / PIXELS_PER_INCH, 0.1), snappedf(centroid.y / PIXELS_PER_INCH, 0.1)]}
+		var arr_best_d := INF
+		for o_pos in objectives:
+			var od = centroid.distance_to(o_pos) / PIXELS_PER_INCH
+			if od < arr_best_d:
+				arr_best_d = od
+				arr_ctx["nearest_objective_in"] = snappedf(od, 0.1)
+		_record_choice("reserves_arrival", unit_id, unit_name, arr_cands, unit_id, arr_ctx)
 		return result
 
 	print("AIDecisionMaker: [RESERVES] No reserve units could be deployed this turn")
@@ -7586,12 +7600,34 @@ static func _score_reserves_deployment(unit: Dictionary, unit_id: String, reserv
 	# and scale by the OC the unit brings so a high-OC unit arrives first when
 	# objectives are in play — it was a constant shared by every unit.
 	var arrive_oc_factor = clampf(float(_unit_alive_oc(unit)) / 6.0, 0.5, 2.0)
+	# RES-OBJ2: value the ONE best objective the unit can actually help with,
+	# not one bonus per objective on the board. Enemy-strong objectives are
+	# skipped (one arriving unit will not flip them). A deep-striking unit
+	# cannot move after it arrives, so it only helps where it can land in
+	# control range more than 9" from every enemy model: the nearest enemy
+	# model must be farther than 9" minus control range from the marker.
+	var ds_clear_px = (9.0 * PIXELS_PER_INCH) - OBJECTIVE_CONTROL_RANGE_PX
+	var best_arrive := 0.0
 	for eval in obj_evaluations:
 		var obj_state = eval.get("state", "")
-		if obj_state in ["contested", "enemy_weak", "enemy_strong", "held_threatened"]:
-			score += _t_add(terms, "arrive_objectives", get_param("RESERVE_DEPLOY_CONTESTED_OBJ", RESERVE_DEPLOY_CONTESTED_OBJ) * arrive_oc_factor)  # Contested objectives benefit from reinforcement
+		var base := 0.0
+		if obj_state in ["contested", "enemy_weak", "held_threatened"]:
+			base = get_param("RESERVE_DEPLOY_CONTESTED_OBJ", RESERVE_DEPLOY_CONTESTED_OBJ)  # Contested objectives benefit from reinforcement
 		elif obj_state == "uncontrolled":
-			score += _t_add(terms, "arrive_objectives", get_param("RESERVE_DEPLOY_OPEN_OBJ", RESERVE_DEPLOY_OPEN_OBJ) * arrive_oc_factor)
+			base = get_param("RESERVE_DEPLOY_OPEN_OBJ", RESERVE_DEPLOY_OPEN_OBJ)
+		else:
+			continue
+		if reserve_type == "deep_strike":
+			var nearest_enemy := INF
+			for e_uid in enemies:
+				for em in _get_alive_models_with_positions(enemies[e_uid]):
+					nearest_enemy = minf(nearest_enemy, _get_model_position(em).distance_to(eval.position))
+			if nearest_enemy <= ds_clear_px:
+				continue
+		var v = base * arrive_oc_factor + float(eval.get("vp_value", 0.0)) * get_param("WEIGHT_VP_PER_POINT", WEIGHT_VP_PER_POINT)
+		best_arrive = maxf(best_arrive, v)
+	if best_arrive > 0.0:
+		score += _t_add(terms, "arrive_objectives", best_arrive)
 
 	return score
 
@@ -8465,9 +8501,10 @@ static func _evaluate_all_objectives(
 			their_holds += 1
 	var vp_stake_notes: Array = []
 	# RACE-1b: an enemy unit can only stand on one objective, so in the
-	# contest race it counts toward its NEAREST objective(s) only (by moves to
-	# control range). Counting every enemy toward every objective it could
-	# reach made each contested objective look like a lost race against the
+	# contest race it counts in full toward its NEAREST objective(s) (by moves
+	# to control range) and at half OC elsewhere. Counting every enemy in full
+	# toward every objective it could reach made each contested objective look
+	# like a lost race against the
 	# whole enemy army. Units already in range of an objective count there.
 	var enemy_min_moves := {}
 	for e_uid in enemies:
@@ -8543,8 +8580,8 @@ static func _evaluate_all_objectives(
 			var e_step_px = (e_move + 2.0) * PIXELS_PER_INCH
 			if e_step_px > 0.0:
 				var e_moves = int(ceil((e_dist - OBJECTIVE_CONTROL_RANGE_PX) / e_step_px))
-				if e_moves <= int(enemy_min_moves.get(e_uid, e_moves)):
-					enemy_arrivals.append({"moves": e_moves, "oc": e_oc, "name": _dn(e_unit, e_uid)})
+				enemy_arrivals.append({"moves": e_moves, "oc": e_oc, "name": _dn(e_unit, e_uid),
+					"nearest": e_moves <= int(enemy_min_moves.get(e_uid, e_moves))})
 
 		# 14.02 CONTEST CAPACITY — the OC we can stand in range with soon, in the
 		# same per-model units as enemy_oc: every alive model's OC of each of our
@@ -8933,9 +8970,16 @@ static func _assign_units_to_objectives(
 				# The objective first scores for us at our NEXT Command phase
 				# after we arrive, so the enemy gets one move per turn we spend
 				# travelling — turns_to_reach moves, not one fewer.
+				# RACE-1b: an enemy unit nearer another objective can still switch
+				# to this one, but it can stand on only one — half its OC.
+				var race_half_oc := 0
 				for arr in eval.get("enemy_arrivals", []):
 					if int(arr.moves) <= int(turns_to_reach):
-						race_enemy_oc += int(arr.oc)
+						if arr.get("nearest", true):
+							race_enemy_oc += int(arr.oc)
+						else:
+							race_half_oc += int(arr.oc)
+				race_enemy_oc += int(round(race_half_oc * 0.5))
 				var race_our_oc: int = int(unit_oc) + int(eval.get("friendly_oc", 0))
 				if race_enemy_oc > 0 and race_enemy_oc >= race_our_oc and score > 0.0:
 					race_lost = true
@@ -9319,9 +9363,13 @@ static func _assign_units_to_objectives(
 	# exactly ONE stays — the one with the least to gain elsewhere (lowest best
 	# off-objective score). Previously each was released because "another unit
 	# is here", so with two holders BOTH could walk off and drop control.
+	# KEEPER-PICK: "elsewhere" only counts objectives that still need OC — an
+	# objective another unit already covers is not a real alternative (pass 2
+	# skips it), and counting it made the unit with the highest raw score
+	# elsewhere look indispensable there.
 	var best_elsewhere = {}  # unit_id -> best score among objectives it is NOT on
 	for cand in candidates:
-		if not cand.already_on_obj:
+		if not cand.already_on_obj and int(obj_oc_remaining.get(cand.objective_id, 0)) > 0:
 			best_elsewhere[cand.unit_id] = maxf(float(best_elsewhere.get(cand.unit_id, -INF)), float(cand.score))
 	# KEEP-OC: OC on each objective from units the plan CANNOT move this phase
 	# (already moved, engaged, not in movable_units). A keeper is only needed
@@ -9337,13 +9385,26 @@ static func _assign_units_to_objectives(
 		var locked = int(o_eval.get("friendly_oc", 0)) - int(movable_oc_on_obj.get(o_id, 0))
 		var threat = maxi(int(o_eval.get("enemy_oc", 0)), int(o_eval.get("projected_enemy_oc", 0)))
 		return locked > threat
-	var obj_keeper = {}  # objective_id -> {uid, best_elsewhere}
+	# KEEPER-PICK: the keeper must hold on its own (OC above the enemy OC
+	# there or one move away) when any holder can; among those, the cheapest
+	# unit with the least to do elsewhere stays — points break the near-ties
+	# that equal objective_priority leaves between units, so a 45 pt squad
+	# keeps home and the Custodian Guard go forward.
+	var keeper_pts_w = get_param("KEEPER_POINTS_WEIGHT", KEEPER_POINTS_WEIGHT)
+	var obj_keeper = {}  # objective_id -> {uid, key, sufficient}
 	for cand in candidates:
 		if not cand.already_on_obj:
 			continue
-		var be = float(best_elsewhere.get(cand.unit_id, -INF))
-		if not obj_keeper.has(cand.objective_id) or be < float(obj_keeper[cand.objective_id].best_elsewhere):
-			obj_keeper[cand.objective_id] = {"uid": cand.unit_id, "best_elsewhere": be}
+		var k_eval = _get_obj_eval_by_id(obj_evaluations, cand.objective_id)
+		var k_threat = maxi(int(k_eval.get("enemy_oc", 0)), int(k_eval.get("projected_enemy_oc", 0)))
+		var sufficient = int(cand.unit_oc) > k_threat
+		var k_pts = float(snapshot.get("units", {}).get(cand.unit_id, {}).get("meta", {}).get("points", 0))
+		# no open objective elsewhere -> a finite floor, so points still break ties
+		var key = float(best_elsewhere.get(cand.unit_id, -1000.0)) + keeper_pts_w * k_pts / 100.0
+		var cur = obj_keeper.get(cand.objective_id, {})
+		if cur.is_empty() or (sufficient and not cur.sufficient) \
+				or (sufficient == cur.sufficient and key < float(cur.key)):
+			obj_keeper[cand.objective_id] = {"uid": cand.unit_id, "key": key, "sufficient": sufficient}
 
 	for cand in candidates:
 		var uid = cand.unit_id
@@ -9513,6 +9574,10 @@ static func _assign_units_to_objectives(
 			var proj = eval_for_assign.get("projected_enemy_oc", 0)
 			if st in ["enemy_weak", "enemy_strong", "contested"]:
 				assign_reason = "flipping it (enemy holds with OC %d)" % eval_for_assign.get("enemy_oc", 0)
+			elif st in ["held_safe", "held_threatened"]:
+				assign_reason = "reinforcing it (we hold with OC %d, enemy can bring ~%d)" % [
+					int(eval_for_assign.get("friendly_oc", 0)),
+					maxi(int(eval_for_assign.get("enemy_oc", 0)), int(proj))]
 			elif cand.get("race_lost", false):
 				assign_reason = "racing for it (enemy can have ~%d OC there before we arrive in %d turns)" % [
 					cand.get("race_enemy_oc", 0), int(cand.get("turns_to_reach", 1))]
@@ -14029,7 +14094,7 @@ static func _capture_shooting_alternatives(weapon_entry: Dictionary, chosen_enem
 		var enemy = enemies[enemy_id]
 		var threshold = float(kill_thresholds.get(enemy_id, 0.0))
 		scored.append({
-			"description": "%s → %s" % [weapon_name, _dn(enemy, enemy_id)],
+			"description": "%s → enemy %s (P%d)" % [weapon_name, _dn(enemy, enemy_id), int(enemy.get("owner", 0))],
 			"score": mv,
 			"target_unit_id": enemy_id,
 			"sub_breakdowns": {"target_value": (_target_value_terms.get(enemy_id, {}) as Dictionary).duplicate()},
@@ -15191,7 +15256,7 @@ static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: A
 			var score = _score_shooting_target(weapon, enemy, snapshot, unit)
 			if score > 0.0:
 				fb_scored.append({
-					"description": "%s → %s" % [weapon_name, _dn(enemy, enemy_id)],
+					"description": "%s → enemy %s (P%d)" % [weapon_name, _dn(enemy, enemy_id), int(enemy.get("owner", 0))],
 					"score": score,
 					"target_unit_id": enemy_id,
 					"score_breakdown": {
@@ -16181,8 +16246,11 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		if faction_agg >= 1.5:  # Only for aggressive horde factions (Orks)
 			var charger_id_for_seed = charger.get("id", "")
 			var target_centroid_seed = _get_unit_centroid(target)
-			if target_centroid_seed != Vector2.INF:
+			# SEED-REAL: count only help that can really arrive this phase, and
+			# only when this charger cannot kill the target alone.
+			if target_centroid_seed != Vector2.INF and melee_damage < float(_calculate_kill_threshold(target)):
 				var other_potential_chargers = 0
+				var help_prob := 0.0
 				var all_units_seed = snapshot.get("units", {})
 				for fuid in all_units_seed:
 					if fuid == charger_id_for_seed:
@@ -16199,19 +16267,30 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 						continue  # Already engaged — won't charge
 					if funit.get("flags", {}).get("has_charged", false):
 						continue  # Already charged
+					# 11e 11.02: advanced / fell back units cannot declare a charge
+					if funit.get("flags", {}).get("advanced", false) or funit.get("flags", {}).get("fell_back", false):
+						continue
+					if not _unit_has_melee_weapons(funit):
+						continue
 					var f_centroid = _get_unit_centroid(funit)
 					if f_centroid == Vector2.INF:
 						continue
-					# Check if within reasonable charge range (12" charge + 6" move = 18")
-					var charge_dist = f_centroid.distance_to(target_centroid_seed) / PIXELS_PER_INCH
-					if charge_dist <= 18.0:
-						other_potential_chargers += 1
+					# 11.02: a charge needs the target within 12"; weight each helper
+					# by its own chance to make the charge.
+					var help_dist = _get_closest_model_distance_inches(funit, target)
+					if help_dist > 12.0:
+						continue
+					var help_p = _charge_success_probability(_charge_roll_needed(help_dist))
+					if help_p < 0.3:
+						continue
+					other_potential_chargers += 1
+					help_prob += help_p
 				if other_potential_chargers > 0:
-					var seed_bonus = 3.0 + (2.0 * min(other_potential_chargers, 3))
+					var seed_bonus = minf(3.0 * help_prob, 9.0)
 					score += _t_add(terms, "ch_gang_up", seed_bonus)
-					print("AIDecisionMaker: [CHARGE-COORD-SEED] %s first charge on %s — %d other units in charge range, seed bonus=+%.1f" % [
+					print("AIDecisionMaker: [CHARGE-COORD-SEED] %s first charge on %s — %d other unit(s) can charge it (summed chance %.2f), seed bonus=+%.1f" % [
 						_dn(charger, ""), _dn(target, ""),
-						other_potential_chargers, seed_bonus])
+						other_potential_chargers, help_prob, seed_bonus])
 
 	# --- Charge coordination: bonus for piling onto targets already declared as charge targets ---
 	# This makes the AI gang up multiple chargers on the same target for concentrated kills
@@ -16238,6 +16317,15 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 			score += _t_add(terms, "ch_gang_up", gang_pile_bonus * num_already_charging)
 			print("AIDecisionMaker: [CHARGE-COORD] Piling on %s — %d other charger(s) already incoming (+%.1f)" % [
 				_dn(target, ""), num_already_charging, gang_pile_bonus * num_already_charging])
+
+	# --- RETALIATION: a target the charge does not kill fights back. The
+	# charger has Fights First, so it strikes first, but the survivor's melee
+	# damage on the charger is a real cost (same units as ch_damage).
+	var ret_hp = float(_calculate_kill_threshold(target))
+	if ret_hp > 0.0 and melee_damage < ret_hp:
+		var back = _estimate_melee_damage(target, charger, snapshot)
+		if back > 0.0:
+			score += _t_add(terms, "ch_retaliation", -back * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT) * get_param("CHARGE_RETALIATION_WEIGHT", CHARGE_RETALIATION_WEIGHT))
 
 	# --- Bonus for wounded targets (close to dying) ---
 	# Use CURRENT wounds, not max — a wounded target is closer to dying.
