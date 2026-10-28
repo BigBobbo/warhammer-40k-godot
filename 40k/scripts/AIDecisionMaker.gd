@@ -392,6 +392,19 @@ static var _thinking_steps: Array = []
 # attached to the move decision as "_ai_move_adjustments" for the K card.
 static var _move_shape_notes: Array = []
 
+# TWO-LEG: when a unit's straight line is blocked by a solid feature its base
+# can't cross, _compute_movement_toward_target may plan a dogleg — leg 1 to a
+# waypoint beside the obstacle, leg 2 on toward the target. While that unit's
+# models are being placed, _move_waypoint_offset holds the leg-1 vector (each
+# model's waypoint = its start + offset) and _move_waypoint_cap_px the move
+# allowance the summed path must fit (the engine sums staged legs, T-082).
+# Vector2.INF = no dogleg active. Waypoints that end up used are logged per
+# unit in _move_waypoint_log (keyed by the final destination) and attached to
+# the returned decision as "_ai_model_waypoints" by decide().
+static var _move_waypoint_offset: Vector2 = Vector2.INF
+static var _move_waypoint_cap_px: float = 0.0
+static var _move_waypoint_log: Dictionary = {}  # unit_id -> Array of {model_id, dest: Vector2, wp: Vector2}
+
 # Structured decision records — captures full scoring breakdowns for the AI Gameplay Visualizer
 # Each entry is a dictionary with decision_type, unit_id, candidates[], chosen_index, parameters_used, etc.
 # Cleared at the start of each decide() call, and attached as "_ai_decision_records" to the result
@@ -2731,6 +2744,7 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		evaluate_rules(player, rule_context)
 	_thinking_steps.clear()  # Reset thinking log for this decision
 	_decision_records.clear()  # Reset decision records for this decision
+	_move_waypoint_log = {}  # TWO-LEG waypoints planned during this decision
 	_param_reads.clear()  # A3: parameter reads are attributed per decision
 	_thinking_context = {}  # Reset board-link context for this decision
 	var diff_name = AIDifficultyConfigData.difficulty_name(difficulty)
@@ -2846,6 +2860,7 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 					result = {"type": t, "_ai_description": "End phase (fallback)"}
 					break
 
+	_attach_move_waypoints(result)
 	# Attach accumulated thinking steps and decision records to the decision
 	if not _thinking_steps.is_empty() and not result.is_empty():
 		result["_ai_thinking_steps"] = _thinking_steps.duplicate()
@@ -11476,6 +11491,115 @@ static func _compute_movement_toward_target(
 	move_inches: float, snapshot: Dictionary, enemies: Dictionary,
 	max_weapon_range: float = 0.0, threat_data: Array = [], objectives: Array = []
 ) -> Dictionary:
+	# TWO-LEG wrapper: the impl may arm a dogleg (_move_waypoint_offset) for its
+	# placement; afterwards record which models actually need their waypoint
+	# (straight line still blocked, dogleg legal) so decide() can attach them.
+	_move_waypoint_offset = Vector2.INF
+	var dests := _compute_movement_toward_target_impl(unit, unit_id, target_pos, move_inches,
+		snapshot, enemies, max_weapon_range, threat_data, objectives)
+	var offset := _move_waypoint_offset
+	_move_waypoint_offset = Vector2.INF
+	if offset == Vector2.INF or dests.is_empty():
+		return dests
+	var kw: Array = unit.get("meta", {}).get("keywords", [])
+	var entries: Array = _move_waypoint_log.get(unit_id, [])
+	for m in _get_alive_models_with_positions(unit):
+		var mid := str(m.get("id", ""))
+		if not dests.has(mid):
+			continue
+		var p = dests[mid]
+		var to: Vector2 = Vector2(float(p[0]), float(p[1])) if p is Array else p
+		var from := _get_model_position(m)
+		var bm := int(m.get("base_mm", 32))
+		var bt := str(m.get("base_type", "circular"))
+		var bd: Dictionary = m.get("base_dimensions", {})
+		if not _path_blocked_by_solid_terrain_direct(from, to, bm, bt, bd, kw):
+			continue  # straight line is fine for this model
+		if _dogleg_legal(from, from + offset, to, bm, bt, bd, kw, _move_waypoint_cap_px):
+			entries.append({"model_id": mid, "dest": to, "wp": from + offset})
+	if not entries.is_empty():
+		_move_waypoint_log[unit_id] = entries
+	return dests
+
+static func _dogleg_legal(from: Vector2, wp: Vector2, to: Vector2, base_mm: int, base_type: String,
+		base_dimensions: Dictionary, kw: Array, cap_px: float) -> bool:
+	"""Both legs clear of solid terrain for this base, and the summed path
+	(+ per-leg terrain penalty, as MovementPhase sums staged legs) fits cap_px."""
+	if _path_blocked_by_solid_terrain_direct(from, wp, base_mm, base_type, base_dimensions, kw):
+		return false
+	if _path_blocked_by_solid_terrain_direct(wp, to, base_mm, base_type, base_dimensions, kw):
+		return false
+	if cap_px > 0.0:
+		var fly := "FLY" in kw
+		var path_px := from.distance_to(wp) + wp.distance_to(to) \
+			+ (_estimate_charge_terrain_penalty(from, wp, fly, kw) + _estimate_charge_terrain_penalty(wp, to, fly, kw)) * PIXELS_PER_INCH
+		if path_px > cap_px:
+			return false
+	return true
+
+static func _attach_move_waypoints(result: Dictionary) -> void:
+	"""Give a move decision the waypoints its destinations were planned with
+	(matched by unit and final destination, so an earlier discarded plan for
+	the same unit cannot leak in). AIPlayer stages the waypoint first."""
+	if result.is_empty() or _move_waypoint_log.is_empty():
+		return
+	var dests = result.get("_ai_model_destinations", null)
+	var uid := str(result.get("actor_unit_id", ""))
+	if not (dests is Dictionary) or not _move_waypoint_log.has(uid):
+		return
+	var wps := {}
+	for e in _move_waypoint_log[uid]:
+		var mid := str(e.model_id)
+		if not dests.has(mid):
+			continue
+		var p = dests[mid]
+		var to: Vector2 = Vector2(float(p[0]), float(p[1])) if p is Array else p
+		if to.distance_to(e.dest) < 0.5:
+			wps[mid] = [e.wp.x, e.wp.y]
+	if not wps.is_empty():
+		result["_ai_model_waypoints"] = wps
+
+static func _plan_dogleg(centroid: Vector2, target_pos: Vector2, move_px: float, base_mm: int,
+		base_type: String, base_dimensions: Dictionary, kw: Array, terrain_features: Array) -> Dictionary:
+	"""Best two-leg path toward target_pos when the straight line is blocked:
+	leg 1 at 15°..90° either side for 1".."M-1", then straight on toward the
+	target with what is left of the move. Returns {wp_offset, final_vector,
+	progress_px} or {} when nothing clears."""
+	var to_t := target_pos - centroid
+	var dist_t := to_t.length()
+	if dist_t < 1.0:
+		return {}
+	var dir := to_t / dist_t
+	var best := {}
+	var best_progress := -INF
+	var max_leg1 := int(floor(move_px / PIXELS_PER_INCH)) - 1
+	for deg in [15, -15, 30, -30, 45, -45, 60, -60, 75, -75, 90, -90]:
+		var d1_dir := dir.rotated(deg_to_rad(deg))
+		for leg1_in in range(1, max_leg1 + 1):
+			var wp := centroid + d1_dir * (leg1_in * PIXELS_PER_INCH)
+			if wp.x < BASE_MARGIN_PX or wp.y < BASE_MARGIN_PX or wp.x > BOARD_WIDTH_PX - BASE_MARGIN_PX or wp.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+				break
+			if _path_blocked_by_terrain(centroid, wp, kw, terrain_features) \
+					or _path_blocked_by_solid_terrain_direct(centroid, wp, base_mm, base_type, base_dimensions, kw):
+				break  # longer along this heading is blocked too
+			var left_px := move_px - leg1_in * PIXELS_PER_INCH
+			var wp_to_t := target_pos - wp
+			var fin := wp + wp_to_t.normalized() * minf(left_px, wp_to_t.length())
+			if _path_blocked_by_terrain(wp, fin, kw, terrain_features) \
+					or not _dogleg_legal(centroid, wp, fin, base_mm, base_type, base_dimensions, kw, move_px):
+				continue
+			var progress := dist_t - fin.distance_to(target_pos)
+			if progress > best_progress:
+				best_progress = progress
+				best = {"wp_offset": wp - centroid, "final_vector": fin - centroid, "progress_px": progress,
+					"angle": deg, "leg1_in": leg1_in}
+	return best
+
+static func _compute_movement_toward_target_impl(
+	unit: Dictionary, unit_id: String, target_pos: Vector2,
+	move_inches: float, snapshot: Dictionary, enemies: Dictionary,
+	max_weapon_range: float = 0.0, threat_data: Array = [], objectives: Array = []
+) -> Dictionary:
 	# Generalized version of _compute_movement_toward_objective that takes a specific target position
 	if target_pos == Vector2.INF:
 		return {}
@@ -11514,6 +11638,41 @@ static func _compute_movement_toward_target(
 		lead_model.get("base_dimensions", {})
 	)
 
+	# TWO-LEG: when the straight line is blocked by solid terrain the base
+	# can't cross, a dogleg around it can beat the best single rotated line.
+	var dogleg_active := false
+	var lead_bm := int(lead_model.get("base_mm", 0))
+	if lead_bm > 0 and not ("FLY" in unit_keywords) \
+			and _path_blocked_by_solid_terrain_direct(centroid, centroid + move_vector, lead_bm,
+				str(lead_model.get("base_type", "circular")), lead_model.get("base_dimensions", {}), unit_keywords):
+		var dl := _plan_dogleg(centroid, target_pos, move_inches * PIXELS_PER_INCH * 0.95, lead_bm,
+			str(lead_model.get("base_type", "circular")), lead_model.get("base_dimensions", {}),
+			unit_keywords, terrain_features)
+		var single_progress := centroid.distance_to(target_pos) - (centroid + final_move_vector).distance_to(target_pos) \
+			if final_move_vector != Vector2.ZERO else -INF
+		if not dl.is_empty() and float(dl.progress_px) > single_progress + PIXELS_PER_INCH * 0.5:
+			print("AIDecisionMaker: [TWO-LEG] %s doglegs around solid terrain: %d\" at %d°, then on toward target (%.1f\" progress vs %.1f\" single line)" % [
+				_dn(unit, unit_id), int(dl.leg1_in), int(dl.angle), float(dl.progress_px) / PIXELS_PER_INCH,
+				single_progress / PIXELS_PER_INCH if single_progress > -INF else 0.0])
+			# The single-line detour note no longer describes this move
+			for i in range(_move_shape_notes.size() - 1, -1, -1):
+				if str(_move_shape_notes[i]).begins_with("Straight line to the target is blocked"):
+					_move_shape_notes.remove_at(i)
+			var dl_blockers := ""
+			var tm_dl = _terrain_manager()
+			if tm_dl and tm_dl.has_method("can_move_through_11e"):
+				var trav_dl = tm_dl.can_move_through_11e(unit_keywords, centroid, centroid + move_vector, [], {
+					"position": centroid, "base_mm": lead_bm, "base_type": str(lead_model.get("base_type", "circular")),
+					"base_dimensions": lead_model.get("base_dimensions", {})})
+				if not trav_dl.get("blockers", []).is_empty():
+					dl_blockers = " (%s)" % ", ".join(PackedStringArray(trav_dl.blockers))
+			_move_shape_notes.append("Straight line is blocked by solid terrain%s its base can't cross — goes around it: %d\" to the side first, then on toward the target (%.1f\" closer this turn vs %.1f\" on the best single line)" % [
+				dl_blockers, int(dl.leg1_in), float(dl.progress_px) / PIXELS_PER_INCH, maxf(single_progress, 0.0) / PIXELS_PER_INCH])
+			final_move_vector = dl.final_vector
+			_move_waypoint_offset = dl.wp_offset
+			_move_waypoint_cap_px = move_inches * PIXELS_PER_INCH * 0.95
+			dogleg_active = true
+
 	if final_move_vector == Vector2.ZERO:
 		print("AIDecisionMaker: All movement paths blocked by terrain")
 		return {}
@@ -11522,7 +11681,7 @@ static func _compute_movement_toward_target(
 	# MovementPhase validates: raw_distance + terrain_penalty <= move_cap
 	# So we must ensure our destination satisfies: raw_distance + terrain_penalty <= move_inches
 	var has_fly_move = "FLY" in unit_keywords
-	if not has_fly_move:
+	if not has_fly_move and not dogleg_active:  # a dogleg's legs are already penalty-checked
 		var dest_candidate = centroid + final_move_vector
 		var terrain_move_penalty = _estimate_charge_terrain_penalty(centroid, dest_candidate, false, unit_keywords)
 		if terrain_move_penalty > 0.0:
@@ -12446,6 +12605,17 @@ static func _dest_overlaps_wall(dest: Vector2, base_mm: int, base_type: String, 
 # the same way so the AI routes around ruin walls instead of dispatching
 # doomed staged moves.
 static func _path_blocked_by_solid_terrain(from_pos: Vector2, to_pos: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary, unit_keywords: Array) -> bool:
+	# Placement checks call this with the model's START position; while a
+	# TWO-LEG dogleg is armed a blocked straight line is still fine when the
+	# path via (start + leg-1 offset) is clear and fits the move.
+	if not _path_blocked_by_solid_terrain_direct(from_pos, to_pos, base_mm, base_type, base_dimensions, unit_keywords):
+		return false
+	if _move_waypoint_offset == Vector2.INF or from_pos == Vector2.INF:
+		return true
+	return not _dogleg_legal(from_pos, from_pos + _move_waypoint_offset, to_pos, base_mm, base_type,
+		base_dimensions, unit_keywords, _move_waypoint_cap_px)
+
+static func _path_blocked_by_solid_terrain_direct(from_pos: Vector2, to_pos: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary, unit_keywords: Array) -> bool:
 	_prof_terrain += 1
 	if from_pos == Vector2.INF:
 		return false
