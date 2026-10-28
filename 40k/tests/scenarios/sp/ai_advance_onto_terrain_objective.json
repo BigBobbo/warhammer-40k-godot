@@ -112,9 +112,9 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var sy = 0.0\nvar n = 0\nfor m in GameState.state.units[\"U_WITCHSEEKERS_D\"].models:\n\tif m.get(\"alive\", true):\n\t\tsy += float(m.position.y)\n\t\tn += 1\nreturn \"dy=%.0f\" % (sy / n - 900.0) if absf(sy / n - 900.0) >= 40.0 else \"level\"",
-      "equals": "level",
-      "comment": "OBJ-PATH-1: the squad stood level with the area, so its centroid stays within 1\" of y=900 (moving straight left onto the nearest edge). The old marker-centre heading (-0.96, -0.28) would lift it ~3\" toward y=750."
+      "script": "var m1 = GameState.state.units[\"U_WITCHSEEKERS_D\"].models[0]\nvar v = Vector2(float(m1.position.x) - 700.0, float(m1.position.y) - 900.0)\nvar deg = absf(rad_to_deg(atan2(-v.y, -v.x)))\nreturn \"straight\" if v.x < 0.0 and deg < 8.0 else \"angle %.1f deg\" % deg",
+      "equals": "straight",
+      "comment": "OBJ-PATH-1: the lead model (front, 6.9\" from the area's right edge, level with it) travels within 8 deg of straight left onto the nearest edge. The marker-centre heading would be ~16 deg (toward y=750). The trailing models re-pack slightly for spacing, so the check is on the lead model's line."
     },
     {
       "act": "execute_script",
