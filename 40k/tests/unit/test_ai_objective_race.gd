@@ -82,9 +82,11 @@ func _assign(snapshot: Dictionary, our_ids: Array, enemy_ids: Array) -> Dictiona
 	var evals = AIDecisionMaker._evaluate_all_objectives(snapshot, objectives, 2, enemies, friendlies, 2)
 	return AIDecisionMaker._assign_units_to_objectives(snapshot, movable, evals, objectives, enemies, friendlies, 2, 2)
 
-# 20.8" from the objective, like the reported Sentinel Guard squad.
+# A 20.8" GAP to close, like the reported Sentinel Guard squad. OBJ-GAP-1:
+# the planner measures the gap to control range (marker centre less 3.79" on
+# open ground), so the squad stands 20.8" + 3.79" from the marker.
 func _our_pos() -> Vector2:
-	return OBJ_POS + Vector2(0, 20.8 * 40.0)
+	return OBJ_POS + Vector2(0, (20.8 + 3.79) * 40.0)
 
 func test_long_trip_advance_saves_turn():
 	print("\n--- test_long_trip_advance_saves_turn ---")

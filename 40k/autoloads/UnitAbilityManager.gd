@@ -4397,9 +4397,6 @@ func _is_unit_within_controlled_objective_range(unit_id: String, unit: Dictionar
 	if objectives.is_empty():
 		return false
 
-	# Same control radius used by MissionManager: 3" + 20mm objective marker radius
-	var control_radius = Measurement.inches_to_px(3.78740157)
-
 	# Get objective control state from MissionManager
 	var obj_control = MissionManager.objective_control_state
 
@@ -4413,16 +4410,16 @@ func _is_unit_within_controlled_objective_range(unit_id: String, unit: Dictionar
 		if obj_pos == null:
 			continue
 
-		# Check if any alive model is within range
+		# Check if any alive model is within range. OBJ-GAP-2: the shared
+		# MissionManager predicate — base touching the hosting area of an 11e
+		# terrain objective, base edge within 3" of the marker otherwise (this
+		# used the model CENTRE within 3.79", missing large bases and areas).
 		for model in unit.get("models", []):
 			if not model.get("alive", true):
 				continue
-			var model_pos = model.get("position")
-			if model_pos == null:
+			if model.get("position") == null:
 				continue
-			if model_pos is Dictionary:
-				model_pos = Vector2(model_pos.x, model_pos.y)
-			if model_pos.distance_to(obj_pos) <= control_radius:
+			if MissionManager.model_in_objective_range(model, obj):
 				print("UnitAbilityManager: Unit %s is within range of controlled objective %s" % [unit_id, obj_id])
 				return true
 
