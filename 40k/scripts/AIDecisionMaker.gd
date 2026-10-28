@@ -2705,12 +2705,12 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 				rule_context["is_vehicle"] = "VEHICLE" in kws
 				# unit_points
 				rule_context["unit_points"] = int(active_unit.get("meta", {}).get("points", 0))
-				# on_objective — check if unit centroid is within objective control range
+				# on_objective — OBJ-GAP-2: any model in range (terrain-aware), not the centroid
 				var centroid = _get_unit_centroid(active_unit)
 				if centroid != Vector2.INF:
 					var objectives = _get_objectives(snapshot)
 					for obj_pos in objectives:
-						if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+						if _unit_has_model_in_control_range(active_unit, obj_pos):
 							rule_context["on_objective"] = true
 							break
 				# nearest_enemy_inches
@@ -3557,7 +3557,8 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 			# Bonus for targets on objectives
 			var objectives = _get_objectives(snapshot)
 			for obj_pos in objectives:
-				if enemy_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+				if _unit_has_model_in_control_range(enemy, obj_pos):
 					score *= 1.3
 					break
 
@@ -3739,7 +3740,10 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 				# Only claim the objective if we are heading to/holding it:
 				# within the band at the destination, and not moving away from it.
 				var d_now = centroid.distance_to(obj_pos) if centroid != Vector2.INF else d_dest
-				if d_dest <= assoc_range_px and d_dest <= d_now + 1.0:
+				# OBJ-GAP-2: a unit staying put "holds" an objective when a model
+				# is in range of it (terrain-aware), not when its centroid is.
+				var holding_it: bool = dtype == "REMAIN_STATIONARY" and _unit_has_model_in_control_range(unit, obj_pos)
+				if holding_it or (dtype != "REMAIN_STATIONARY" and d_dest <= assoc_range_px and d_dest <= d_now + 1.0):
 					objective_id = obj_data[i].get("id", "obj_%d" % i) if i < obj_data.size() else "obj_%d" % i
 				else:
 					objective_id = ""
@@ -6140,7 +6144,8 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			var dk_centroid = _get_unit_centroid(dk_unit)
 			if dk_centroid != Vector2.INF:
 				for obj_pos in _get_objectives(snapshot):
-					if dk_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+					if _unit_has_model_in_control_range(dk_unit, obj_pos):
 						dk_on_obj = true
 						break
 			if dk_pts >= 100.0 or dk_on_obj:
@@ -6873,8 +6878,10 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 			var advance_move = move_inches + 2.0  # Average advance roll
 			var target_pos = assigned_obj_pos if assigned_obj_pos != Vector2.INF else _nearest_objective_pos(_get_unit_centroid(unit), objectives)
+			# OBJ-PATH-1: steer along the shortest line onto the objective footprint.
+			var approach_pos = _objective_approach_target(unit, target_pos) if assigned_obj_pos != Vector2.INF else target_pos
 			var model_destinations = _compute_movement_toward_target(
-				unit, unit_id, target_pos, advance_move, snapshot, enemies,
+				unit, unit_id, approach_pos, advance_move, snapshot, enemies,
 				0.0, threat_data, objectives
 			)
 			if not model_destinations.is_empty():
@@ -7158,7 +7165,9 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			# --- T7-23: Charge-intent-aware movement target ---
 			# If this unit intends to charge, blend the movement target toward
 			# the charge target to set up a good charge angle
-			var move_target = target_pos
+			# OBJ-PATH-1: head along the shortest line onto the objective's
+			# footprint (its terrain area's nearest edge), not at the marker dot.
+			var move_target = _objective_approach_target(unit, target_pos) if target_pos != Vector2.INF else target_pos
 			var charge_intent = _get_charge_intent(unit_id)
 			if not charge_intent.is_empty():
 				var charge_target_id = charge_intent.get("target_id", "")
@@ -8975,9 +8984,13 @@ static func _assign_units_to_objectives(
 
 			# Estimate where the unit would end up after moving toward this objective
 			# (used by both weapon range scoring and threat awareness)
-			var move_direction = (obj_pos - centroid).normalized() if dist_px > 1.0 else Vector2.ZERO
+			# OBJ-PATH-1: the heading the executor will take (shortest line onto
+			# the objective footprint), so threat / range / quarter estimates
+			# score the square the unit will actually reach.
+			var approach_pos: Vector2 = obj_pos if already_on_obj else _objective_approach_target(unit, obj_pos)
+			var move_direction = (approach_pos - centroid).normalized() if centroid.distance_to(approach_pos) > 1.0 else Vector2.ZERO
 			var move_px_cap = (move_inches + (get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES) if adv_now else 0.0)) * PIXELS_PER_INCH
-			var estimated_dest = centroid + move_direction * min(move_px_cap, dist_px)
+			var estimated_dest = centroid + move_direction * min(move_px_cap, centroid.distance_to(approach_pos))
 
 			# --- T7-14: Weapon range consideration in movement scoring (MOV-1) ---
 			# Score destinations based on whether they maintain or lose weapon range
@@ -9883,7 +9896,8 @@ static func _decide_engaged_unit(
 	var on_objective = false
 	var obj_id_held = ""
 	for obj_pos in objectives:
-		if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+		# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+		if _unit_has_model_in_control_range(unit, obj_pos):
 			on_objective = true
 			# Find the objective ID
 			var obj_data = snapshot.get("board", {}).get("objectives", [])
@@ -10769,6 +10783,63 @@ static func _unit_gap_to_objective_px(unit: Dictionary, pos: Vector2) -> float:
 		best = minf(best, gap)
 	return best
 
+## OBJ-PATH-1: the point to steer `unit` at so the SHORTEST move puts a model
+## within range of the objective at `pos`. The mover translates the whole unit
+## from its centroid toward its target, so heading for the marker centre walks
+## a squad diagonally at a terrain objective whose nearest edge is straight
+## ahead. Instead: take the model with the smallest gap (OBJ-GAP-1), the
+## nearest point of the objective footprint to it (the hosting AREA's edge on
+## an 11e terrain objective; the marker on open ground), and aim the centroid
+## along that model's line to it, 2" past the edge so the lead model ends
+## firmly on the area (the move cap trims the rest). Returns `pos` when a model
+## is already in range or nothing better can be resolved.
+static func _objective_approach_target(unit: Dictionary, pos: Vector2) -> Vector2:
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF or pos == Vector2.INF:
+		return pos
+	var mm = _mission_manager()
+	var objective := _objective_at_pos(pos)
+	var polys: Array = []
+	if mm != null and not objective.is_empty() and mm.has_method("_objective_host_areas_for_edition"):
+		for area in mm._objective_host_areas_for_edition(objective):
+			var poly: PackedVector2Array = area.get("polygon", PackedVector2Array())
+			if poly.size() >= 3:
+				polys.append(poly)
+	var best_gap := INF
+	var best_dir := Vector2.ZERO
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var gap: float
+		if mm != null and not objective.is_empty() and mm.has_method("model_gap_to_objective_range_px"):
+			gap = float(mm.model_gap_to_objective_range_px(model, objective))
+		else:
+			gap = maxf(0.0, mpos.distance_to(pos) - OBJECTIVE_CONTROL_RANGE_PX)
+		if gap <= 0.0:
+			return pos  # already in range: keep heading for the marker
+		if gap >= best_gap:
+			continue
+		var nearest: Vector2 = pos
+		if not polys.is_empty():
+			var nearest_d := INF
+			for poly in polys:
+				for i in range(poly.size()):
+					var cp := Geometry2D.get_closest_point_to_segment(mpos, poly[i], poly[(i + 1) % poly.size()])
+					var d := mpos.distance_to(cp)
+					if d < nearest_d:
+						nearest_d = d
+						nearest = cp
+		if mpos.distance_to(nearest) < 1.0:
+			continue
+		best_gap = gap
+		best_dir = (nearest - mpos).normalized()
+	if best_dir == Vector2.ZERO:
+		return pos
+	return centroid + best_dir * (best_gap + 2.0 * PIXELS_PER_INCH)
+
 ## ADV-ODDS-1: the chance an Advance THIS turn closes a `gap_in` gap at Move
 ## `move_in` — Advance adds a D6 to M, so it is the chance of rolling at least
 ## (gap - M): 1.0 when a Move already covers it or the shortfall is <= 1"
@@ -11507,7 +11578,8 @@ static func _find_best_remaining_objective(
 			var reason = "supporting nearby objective"
 			if committed > 0:
 				reason = "reinforcing %s (%d unit%s already committed)" % [eval.id, committed, "" if committed == 1 else "s"]
-			if dist <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+			if _unit_has_model_in_control_range(unit, eval.position):
 				action = "hold"
 				reason = "already at objective"
 			best = {
@@ -14149,7 +14221,8 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			if enemy_centroid != Vector2.INF:
 				var obj_positions = _get_objectives(snapshot)
 				for obj_pos in obj_positions:
-					if enemy_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+					if _unit_has_model_in_control_range(enemy, obj_pos):
 						base_value = _t_mul(tv_terms, "tv_behind_on_vp", base_value, shooting_tempo)
 						break
 
@@ -14814,11 +14887,13 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		var on_objective = false
 		var near_objective = false
 		for obj_pos in objectives:
-			var dist = unit_centroid.distance_to(obj_pos)
-			if dist < OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-2: on = a model in range (terrain-aware); near = within
+			# another 3.79" of being in range (was: centroid within 2 x 3.79").
+			var gap_px = _unit_gap_to_objective_px(target_unit, obj_pos)
+			if gap_px <= 0.0:
 				on_objective = true
 				break
-			elif dist < OBJECTIVE_CONTROL_RANGE_PX * 2:
+			elif gap_px < OBJECTIVE_CONTROL_RANGE_PX:
 				near_objective = true
 
 		if on_objective:
@@ -15541,7 +15616,8 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var objectives = _get_objectives(snapshot)
 			var charge_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 			for obj_pos in objectives:
-				if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+				if target_centroid != Vector2.INF and _unit_has_model_in_control_range(target_unit, obj_pos):
 					score = _t_mul(ch_terms, "ch_target_on_objective", score, get_param("CHARGE_TARGET_ON_OBJ_MULT", CHARGE_TARGET_ON_OBJ_MULT))  # Target is on an objective
 					if charge_battle_round >= 4:
 						score = _t_mul(ch_terms, "ch_target_on_objective", score, get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS))
@@ -15930,7 +16006,8 @@ static func _score_multi_target_combo(
 		var target_unit = snapshot.get("units", {}).get(t.target_id, {})
 		var target_centroid = _get_unit_centroid(target_unit)
 		for obj_pos in objectives:
-			if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+			if target_centroid != Vector2.INF and _unit_has_model_in_control_range(target_unit, obj_pos):
 				score *= get_param("CHARGE_COMBO_OBJ_MULT", CHARGE_COMBO_OBJ_MULT)
 				if charge_battle_round >= 4:
 					score *= get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS)
@@ -17623,7 +17700,8 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 	var target_centroid = _get_unit_centroid(target)
 	if target_centroid != Vector2.INF:
 		for obj_pos in objectives:
-			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+			if _unit_has_model_in_control_range(target, obj_pos):
 				score += _t_add(terms, "fight_target_on_objective", get_param("FIGHT_TARGET_ON_OBJ", FIGHT_TARGET_ON_OBJ))  # Killing/weakening units on objectives is valuable
 				break
 
@@ -17847,7 +17925,8 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 	var target_centroid = _get_unit_centroid(best_target)
 	if target_centroid != Vector2.INF:
 		for obj_pos in objectives:
-			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+			if _unit_has_model_in_control_range(best_target, obj_pos):
 				score += _t_add(terms, "order_target_on_objective", get_param("FIGHT_ORDER_TARGET_ON_OBJ", FIGHT_ORDER_TARGET_ON_OBJ))
 				break
 
@@ -19139,7 +19218,8 @@ static func _evaluate_end_turn_redeploy(snapshot: Dictionary, unit: Dictionary, 
 		var d = centroid.distance_to(obj_pos)
 		if d < nearest_obj_dist_px:
 			nearest_obj_dist_px = d
-		if d <= OBJECTIVE_CONTROL_RANGE_PX:
+		# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+		if _unit_has_model_in_control_range(unit, obj_pos):
 			return {"use": false, "reason": "declining From Golden Light — holding an objective (board OC beats a re-drop)"}
 	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 	var enemies = _get_enemy_units(snapshot, owner)
@@ -22623,8 +22703,8 @@ static func _battle_shock_flip_value(
 		for m in target_unit.get("models", []):
 			if not m.get("alive", true):
 				continue
-			var mp = _get_model_position(m)
-			if mp != Vector2.INF and mp.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-2: the same per-model predicate objective control uses.
+			if _ai_model_in_objective_range(m, obj_pos):
 				contributes = true
 				break
 		if not contributes:
@@ -22728,7 +22808,8 @@ static func _evaluate_insane_bravery(snapshot: Dictionary, use_strat_actions: Ar
 		var on_objective = false
 		if centroid != Vector2.INF:
 			for obj_pos in objectives:
-				if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+				if _unit_has_model_in_control_range(unit, obj_pos):
 					on_objective = true
 					break
 		if on_objective:
@@ -23199,7 +23280,8 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 				if centroid == Vector2.INF:
 					continue
 				for obj_pos in objectives:
-					if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+					if _unit_has_model_in_control_range(unit, obj_pos):
 						# Only worth it when enemies aren't about to contest anyway
 						var enemy_oc = _get_oc_at_position(obj_pos, snapshot.get("units", {}), player, false)
 						if enemy_oc == 0:

@@ -1427,7 +1427,6 @@ func _count_guarded_objectives(player: int, _params: Dictionary, mission: Dictio
 				legacy_count += 1
 		return legacy_count
 
-	var control_radius = Measurement.inches_to_px(3.0) + Measurement.base_radius_px(40)
 	var objectives = GameState.state.get("board", {}).get("objectives", [])
 	var count = 0
 	for obj_id in guards:
@@ -1436,16 +1435,16 @@ func _count_guarded_objectives(player: int, _params: Dictionary, mission: Dictio
 		var unit = GameState.state.get("units", {}).get(str(guards[obj_id]), {})
 		if unit.is_empty() or _is_unit_excluded(unit, []):
 			continue  # guard destroyed or off the battlefield
-		var obj_pos = null
+		var guard_obj: Dictionary = {}
 		for obj in objectives:
 			if str(obj.get("id", "")) == str(obj_id):
-				obj_pos = obj.get("position", null)
+				guard_obj = obj
 				break
-		if obj_pos == null:
+		if guard_obj.get("position", null) == null:
 			continue
-		if obj_pos is Dictionary:
-			obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
-		if _has_model_within_range(unit, obj_pos, control_radius):
+		# OBJ-GAP-2: "within range" — base on the hosting area of an 11e
+		# terrain objective, 3" of the marker otherwise (MissionManager).
+		if _unit_in_objective_range(unit, guard_obj):
 			count += 1
 			print("SecondaryMissionManager: [GUARD] P%d objective %s is guarded by %s" % [player, obj_id, guards[obj_id]])
 	return count
@@ -2071,6 +2070,7 @@ func _check_unit_near_any_objective(unit: Dictionary) -> bool:
 		return false
 
 	var range_px = Measurement.inches_to_px(3.0)
+	var mm = get_node_or_null("/root/MissionManager")
 
 	for obj in objectives:
 		var obj_pos = obj.get("position", null)
@@ -2078,6 +2078,15 @@ func _check_unit_near_any_objective(unit: Dictionary) -> bool:
 			continue
 		if obj_pos is Dictionary:
 			obj_pos = Vector2(obj_pos.x, obj_pos.y)
+
+		# OBJ-GAP-2: a terrain-hosted 11e objective IS its area — "within 3\""
+		# of it is measured to the area, not to the marker dot.
+		if mm != null and mm.has_method("_objective_host_areas_for_edition") \
+				and not mm._objective_host_areas_for_edition(obj).is_empty():
+			for model in unit.get("models", []):
+				if model.get("position", null) != null and mm.model_within_inches_of_objective(model, obj, 3.0):
+					return true
+			continue
 
 		for model in unit.get("models", []):
 			var pos = model.get("position", null)
@@ -2229,7 +2238,6 @@ func _restore_beacon_visuals() -> void:
 func _auto_assign_guards(player: int, mission: Dictionary) -> void:
 	var guards: Dictionary = {}
 	var used_units: Dictionary = {}
-	var control_radius = Measurement.inches_to_px(3.0) + Measurement.base_radius_px(40)
 	var units = GameState.state.get("units", {})
 
 	# Candidates are exactly the units the revision dialog offers, so an auto
@@ -2237,7 +2245,7 @@ func _auto_assign_guards(player: int, mission: Dictionary) -> void:
 	var candidates: Array = _get_guard_eligible_units(player)
 
 	# Resolve each marker position once.
-	var markers: Array = []  # [{objective_id, position}]
+	var markers: Array = []  # [{objective_id, position, objective}]
 	for obj in GameState.state.get("board", {}).get("objectives", []):
 		var obj_id = str(obj.get("id", ""))
 		var obj_pos = obj.get("position", null)
@@ -2245,7 +2253,7 @@ func _auto_assign_guards(player: int, mission: Dictionary) -> void:
 			continue
 		if obj_pos is Dictionary:
 			obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
-		markers.append({"objective_id": obj_id, "position": obj_pos})
+		markers.append({"objective_id": obj_id, "position": obj_pos, "objective": obj})
 
 	# Pass 1 — units already in range (they score immediately), highest OC first.
 	for marker in markers:
@@ -2257,9 +2265,11 @@ func _auto_assign_guards(player: int, mission: Dictionary) -> void:
 			# Embarked units are never "within range" of a marker while mounted.
 			if used_units.has(cand_id) or cand.get("embarked", false):
 				continue
-			var dist = _unit_edge_distance_to(units.get(cand_id, {}), marker["position"])
-			if dist > control_radius:
+			# OBJ-GAP-2: in range by the terrain-aware predicate; marker-edge
+			# distance still breaks OC ties.
+			if not _unit_in_objective_range(units.get(cand_id, {}), marker["objective"]):
 				continue
+			var dist = _unit_edge_distance_to(units.get(cand_id, {}), marker["position"])
 			var oc = int(units.get(cand_id, {}).get("meta", {}).get("stats", {}).get("objective_control", 0))
 			if oc > best_oc or (oc == best_oc and dist < best_dist):
 				best_oc = oc
@@ -2278,7 +2288,10 @@ func _auto_assign_guards(player: int, mission: Dictionary) -> void:
 			var cand_id: String = str(cand.get("unit_id", ""))
 			if used_units.has(cand_id):
 				continue
-			var dist = _unit_edge_distance_to(units.get(cand_id, {}), marker["position"])
+			# OBJ-GAP-2: how far the unit is from being in range (0 on a
+			# terrain objective's area) — the closest guard is the one that
+			# gets there soonest, not the one nearest the marker dot.
+			var dist = _unit_gap_to_objective(units.get(cand_id, {}), marker["objective"])
 			if dist == INF:
 				continue  # no alive, positioned model — nothing to measure from
 			pairs.append({
@@ -2302,6 +2315,43 @@ func _auto_assign_guards(player: int, mission: Dictionary) -> void:
 	mission["mission_data"]["guards"] = guards
 	mission["mission_data"]["guards_prompt_pending"] = true
 	print("SecondaryMissionManager: Burden of Trust auto-guards for Player %d: %s (%d objectives, %d candidate units)" % [player, str(guards), markers.size(), candidates.size()])
+
+## OBJ-GAP-2: is any alive, positioned model of `unit` within range of `obj`?
+## The shared MissionManager predicate (base touching the hosting area of an
+## 11e terrain objective; base within 3" of the 40mm marker otherwise), with the
+## open-ground marker test as a fallback when MissionManager is unavailable.
+func _unit_in_objective_range(unit: Dictionary, obj: Dictionary) -> bool:
+	var mm = get_node_or_null("/root/MissionManager")
+	var obj_pos = obj.get("position", null)
+	if obj_pos is Dictionary:
+		obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
+	for model in unit.get("models", []):
+		if not model.get("alive", true) or model.get("position") == null:
+			continue
+		if mm != null and mm.has_method("model_in_objective_range"):
+			if mm.model_in_objective_range(model, obj):
+				return true
+		elif obj_pos is Vector2 and Measurement.model_edge_to_point_distance_px(model, obj_pos) \
+				<= Measurement.inches_to_px(3.0) + Measurement.base_radius_px(40):
+			return true
+	return false
+
+## OBJ-GAP-2: smallest distance (px) any alive model of `unit` still has to
+## move to be within range of `obj` (0 when in range) — terrain-aware via
+## MissionManager.model_gap_to_objective_range_px. INF with no positioned model.
+func _unit_gap_to_objective(unit: Dictionary, obj: Dictionary) -> float:
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm == null or not mm.has_method("model_gap_to_objective_range_px"):
+		var obj_pos = obj.get("position", null)
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
+		return _unit_edge_distance_to(unit, obj_pos) if obj_pos is Vector2 else INF
+	var best := INF
+	for model in unit.get("models", []):
+		if not model.get("alive", true) or model.get("position") == null:
+			continue
+		best = minf(best, float(mm.model_gap_to_objective_range_px(model, obj)))
+	return best
 
 ## Shortest distance from any alive model's BASE EDGE to a point, measured the
 ## same way _has_model_within_range() gates range. INF when the unit has no
@@ -2340,7 +2390,6 @@ func get_pending_guard_choice(player: int) -> Dictionary:
 			continue
 		if not mission.get("mission_data", {}).get("guards_prompt_pending", false):
 			continue
-		var control_radius = Measurement.inches_to_px(3.0) + Measurement.base_radius_px(40)
 		var friendly = _get_guard_eligible_units(player)  # every on-field friendly unit
 		var units = GameState.state.get("units", {})
 		var objectives_out = []
@@ -2355,7 +2404,7 @@ func get_pending_guard_choice(player: int) -> Dictionary:
 			for fu in friendly:
 				var unit = units.get(fu["unit_id"], {})
 				# Embarked units can never be "within range" of a marker.
-				var in_range = (not fu.get("embarked", false)) and _has_model_within_range(unit, obj_pos, control_radius)
+				var in_range = (not fu.get("embarked", false)) and _unit_in_objective_range(unit, obj)
 				eligible.append({
 					"unit_id": fu["unit_id"],
 					"unit_name": fu["unit_name"],

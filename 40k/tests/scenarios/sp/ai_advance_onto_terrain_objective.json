@@ -9,7 +9,7 @@
   "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
-  "description": "OBJ-GAP-1 / ADV-ODDS-1: obj_nml_1 is a terrain objective (area-large-2, x 3-10\"). A Witchseekers squad (M6) has its front model 6.9\" from the area's edge (centroid 13\" from the marker). The AI must measure the real gap (edge -> area, not centroid -> marker less 3.79\"), see that ANY Advance roll gets a model onto the area this turn, plan ADVANCE obj_nml_1 with 'Turns to get there 1', show the odds on the Suggest card, then actually Advance onto the area when it plays.",
+  "description": "OBJ-GAP-1 / ADV-ODDS-1: obj_nml_1 is a terrain objective (area-large-2, x 3-10\"). A Witchseekers squad (M6) has its front model 6.9\" from the area's edge (centroid 13\" from the marker). The AI must measure the real gap (edge -> area, not centroid -> marker less 3.79\"), see that ANY Advance roll gets a model onto the area this turn, plan ADVANCE obj_nml_1 with 'Turns to get there 1', show the odds on the Suggest card, then actually Advance onto the area when it plays. OBJ-PATH-1: the move heads straight for the area's nearest edge (horizontal here), not diagonally at the marker dot.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -108,6 +108,13 @@
       "script": "var ws = GameState.state.units[\"U_WITCHSEEKERS_D\"]\nvar nml = {}\nfor o in GameState.state.board.objectives:\n\tif o.id == \"obj_nml_1\":\n\t\tnml = o\nvar on := false\nfor m in ws.models:\n\tif m.get(\"alive\", true) and MissionManager.model_in_objective_range(m, nml):\n\t\ton = true\nreturn on and bool(ws.flags.get(\"advanced\", false))",
       "equals": true,
       "comment": "the squad Advanced and a model's base now touches the obj_nml_1 area"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ys = []\nfor m in GameState.state.units[\"U_WITCHSEEKERS_D\"].models:\n\tif m.get(\"alive\", true):\n\t\tys.append(absf(float(m.position.y) - 900.0))\nreturn ys.max() < 25.0",
+      "equals": true,
+      "comment": "OBJ-PATH-1: the squad stood level with the area, so it moved straight left onto its nearest edge (y stays ~900), not diagonally toward the marker dot at y=750"
     },
     {
       "act": "execute_script",

@@ -112,6 +112,16 @@ func _run_tests():
 			and AIDecisionMaker._unit_gap_to_objective_px(touching, nml1_pos) == 0.0,
 		"model centre %.1f\" from the marker" % ((10.0 * PPI + r32 - 2.0 - nml1_pos.x) / PPI))
 
+	# OBJ-PATH-1: the squad stands level with the area (y 900 inside its 520-980
+	# span), so the shortest way on is straight left (-x) — not diagonally at
+	# the marker dot (260, 750).
+	var approach = AIDecisionMaker._objective_approach_target(squad, nml1_pos)
+	var cen = AIDecisionMaker._get_unit_centroid(squad)
+	var head = (approach - cen).normalized()
+	var to_marker = (nml1_pos - cen).normalized()
+	_check("heads straight at the area's nearest edge", head.x < -0.999 and absf(head.y) < 0.01,
+		"heading (%.3f, %.3f); marker-centre heading was (%.3f, %.3f)" % [head.x, head.y, to_marker.x, to_marker.y])
+
 	# --- 2: Advance odds ---
 	var u = _unit(2, "U", [Vector2.ZERO], 1, 8)
 	var odds := [
