@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.0",
+      "date": "2026-10-28",
+      "summary": "The AI now measures distance to terrain objectives properly and will Advance onto an objective when the roll is likely to get it there.",
+      "changes": [
+        "The AI now measures from its nearest model to the edge of an objective's terrain area (being on any part of it counts), not from the middle of the squad to the objective marker. Before, a squad 9\" from a ruin could think it was 14\" away and two turns out.",
+        "The AI now counts its Advance roll. If any roll gets a model onto the objective, it Advances and treats the objective as reached this turn. If it needs a good roll, it weighs the odds (e.g. 50% for 4+) against giving up its shooting or charge.",
+        "When deciding which unit should go for an objective, a unit that will very likely get there this turn by Advancing now beats one that needs two normal moves.",
+        "The Suggest (K) card shows the new 'Gap to close' and 'Advance roll gets there' facts, and says when an Advance is a sure thing or what chance the roll has."
+      ]
+    },
+    {
       "version": "1.55.2",
       "date": "2026-10-27",
       "summary": "AI Suggestion now helps with a move you've already started.",
