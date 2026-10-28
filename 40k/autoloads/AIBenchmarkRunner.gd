@@ -98,6 +98,10 @@ var _profile_inline: Dictionary = {1: {}, 2: {}}
 # AB-SEAT: optional per-seat AIDecisionMaker version (script path), for
 # old-vs-new AI head-to-head games. "" = the current AIDecisionMaker.
 var _seat_ai: Dictionary = {1: "", 2: ""}
+# AB-11E: "p1,p2" force dispositions. Older fixture saves carry no 11e primary
+# cards, so the game falls back to legacy Take and Hold scoring (5 VP/objective)
+# and the AI has no card to plan for. "" = keep what the fixture has.
+var _dispositions: String = ""
 
 func _ready() -> void:
 	var args = OS.get_cmdline_args() + OS.get_cmdline_user_args()
@@ -124,6 +128,8 @@ func _ready() -> void:
 			_seat_ai[1] = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-p2-ai="):
 			_seat_ai[2] = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-dispositions="):
+			_dispositions = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-difficulty="):
 			_difficulty = int(a.split("=", true, 1)[1])
 		elif a.begins_with("--bench-max-seconds="):
@@ -293,6 +299,16 @@ func _kick_off() -> void:
 		return
 	GameState.state["meta"]["from_save"] = true
 	GameConstants.edition = 11
+	if _dispositions != "":
+		var mm = get_node_or_null("/root/MissionManager")
+		var parts = _dispositions.split(",")
+		if mm == null or parts.size() != 2:
+			_finish_with_error("bad --bench-dispositions: %s" % _dispositions)
+			return
+		mm.initialize_dispositions_11e(parts[0], parts[1])
+		print("[AIBench] AB-11E dispositions %s -> P1 '%s', P2 '%s'" % [_dispositions,
+			mm.player_primary_missions.get("1", {}).get("name", "?"),
+			mm.player_primary_missions.get("2", {}).get("name", "?")])
 
 	# Both players are AI for the whole game. This must be written into
 	# game_config, not just AIPlayer — engine human-gates (e.g. the 03.03

@@ -70,7 +70,7 @@ def extract(specs: list[str]) -> None:
 def play(seeds, args, tag, arm, p1_ai, p2_ai, stamp, sha):
     import concurrent.futures
     a = Args(fixture=args.fixture, arm="%s_%s" % (tag, arm), p1_profile="", p2_profile="",
-             p1_plan="", p2_plan="", p1_ai=p1_ai, p2_ai=p2_ai,
+             p1_plan="", p2_plan="", p1_ai=p1_ai, p2_ai=p2_ai, dispositions=args.dispositions,
              difficulty=args.difficulty, time_scale=args.time_scale, max_seconds=args.max_seconds,
              lanes=args.lanes, seeds="", season=args.season, skip_gate=True)
     ud = run_lanes.userdata_dir()
@@ -145,6 +145,9 @@ def main(argv=None) -> int:
     r.add_argument("--seed-base", type=int, default=9100)
     r.add_argument("--pairs", type=int, default=6)
     r.add_argument("--fixture", default="mirror_custodes_2000_postdeploy")
+    r.add_argument("--dispositions", default="",
+                   help="e.g. take_and_hold,take_and_hold: play the 11e primary cards "
+                        "(the fixture save has none, so it scores legacy Take and Hold)")
     r.add_argument("--lanes", type=int, default=3)
     r.add_argument("--difficulty", type=int, default=3, help="3 = Competitive")
     r.add_argument("--time-scale", type=float, default=6.0)
