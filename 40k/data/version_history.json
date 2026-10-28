@@ -2,6 +2,28 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.1",
+      "date": "2026-10-28",
+      "summary": "Terrain objectives now count as 'in range' everywhere, and the AI takes the shortest route onto them.",
+      "changes": [
+        "Mission and secondary rules now treat a model as within range of a terrain objective once its base touches the objective's area, not only when it is near the marker. This covers Burden of Trust guards (scoring, auto-pick and the guard dropdown), Sabotage, Gather Intel, Punishment, Decoy, Cleanse, Stand Vigil and Dat's Our Loot!.",
+        "Clicking anywhere on a terrain objective's area now selects that objective when a prompt asks you to pick one on the board.",
+        "The AI checks whether enemy and friendly units are 'on an objective' the same way the game scores it (any base in range), so its shooting, charge, fight and stratagem choices value objective holders correctly.",
+        "AI units heading for a terrain objective now move straight at its nearest edge instead of angling toward the marker in the middle."
+      ]
+    },
+    {
+      "version": "1.56.0",
+      "date": "2026-10-28",
+      "summary": "The AI now measures distance to terrain objectives properly and will Advance onto an objective when the roll is likely to get it there.",
+      "changes": [
+        "The AI now measures from its nearest model to the edge of an objective's terrain area (being on any part of it counts), not from the middle of the squad to the objective marker. Before, a squad 9\" from a ruin could think it was 14\" away and two turns out.",
+        "The AI now counts its Advance roll. If any roll gets a model onto the objective, it Advances and treats the objective as reached this turn. If it needs a good roll, it weighs the odds (e.g. 50% for 4+) against giving up its shooting or charge.",
+        "When deciding which unit should go for an objective, a unit that will very likely get there this turn by Advancing now beats one that needs two normal moves.",
+        "The Suggest (K) card shows the new 'Gap to close' and 'Advance roll gets there' facts, and says when an Advance is a sure thing or what chance the roll has."
+      ]
+    },
+    {
       "version": "1.55.3",
       "date": "2026-10-28",
       "summary": "AI moves head for their objective instead of drifting toward far-off charges, and the suggestion card explains why a move bends.",
