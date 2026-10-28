@@ -1470,15 +1470,15 @@ const MELEE_WOUND_OVERFLOW_CAP: float = 1.0  # melee damage capped at the target
 # fixture fields 9 elite units; B3 re-screens them on the 16-unit Ork horde,
 # where melee decisions are frequent. They cannot be judged until they are
 # reachable. VALUES ARE UNCHANGED.
-const CHARGE_COMBO_OBJ_MULT: float = 1.3  # multi-charge: a target is on an objective
-const CHARGE_COMBO_SHORT_3IN_MULT: float = 1.3  # multi-charge: farthest target within 3"
-const CHARGE_COMBO_SHORT_6IN_MULT: float = 1.2  # multi-charge: farthest target within 6"
-const CHARGE_COMBO_TIGHT_CLUSTER_MULT: float = 1.1  # multi-charge: targets are tightly clustered
 const CHARGE_GANG_UP_BONUS: float = 3.0  # charge target: a friendly unit is already fighting it
 const CHARGE_HALF_KILL_BONUS: float = 3.0  # charge target: we can remove half its remaining wounds
 const CHARGE_LIKELY_KILL_BONUS: float = 5.0  # charge target: we can likely kill it outright
 const CHARGE_LOW_TOUGHNESS_BONUS: float = 1.0  # charge target: toughness 3 or less
 const CHARGE_SHORT_3IN_MULT: float = 1.3  # charge: needs 3" or less (reliability multiplier)
+# 11e multi-target charge: share of each EXTRA target's value (beyond the best
+# one) that a declaration listing several targets earns when the roll reaches
+# them — lock-down only; the charger has one set of attacks.
+const MULTI_CHARGE_EXTRA_TARGET_SHARE: float = 0.2
 const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
 const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
 const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
@@ -15414,6 +15414,8 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 				"target_hp": target_hp,
 				"target_name": target_name,
 				"action": target_info.action,
+				"need": charge_distance_needed,
+				"prob": charge_prob,
 			})
 
 			if score > float(unit_best.get(uid, {}).get("score", -INF)):
@@ -15429,9 +15431,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 					unit_name, target_name, charge_prob * 100.0, dist, melee_dmg, target_hp, ow_desc]
 
 		# --- T7-50: Evaluate multi-target charge combinations ---
-		# Per 10th Edition rules, a unit can declare a charge against multiple enemies.
-		# The charge roll must be sufficient to reach ALL declared targets (max distance).
-		# Benefit: the charger engages multiple enemies, locking them in combat.
+		# 11e 11.04: targets are picked after the roll, so a declaration that
+		# lists several targets pays off on high rolls and still takes the
+		# nearest on low ones — scored as an expected value over 2D6.
 		if scored_targets.size() >= 2:
 			var multi_target_result = _evaluate_multi_target_charge(
 				uid, unit, unit_name, scored_targets, melee_bonus, ow_risk, snapshot, player)
@@ -15633,9 +15635,10 @@ static func _evaluate_multi_target_charge(
 		scored_targets: Array, melee_bonus: float, ow_risk: Dictionary,
 		snapshot: Dictionary, player: int) -> Dictionary:
 	"""Evaluate multi-target charge combinations (2-3 targets).
-	Per 10th Edition rules, a unit can declare a charge against multiple enemies.
-	The charge roll must reach ALL declared targets (max distance determines difficulty).
-	Returns {score: float, action: Dictionary, description: String}."""
+	11e 11.04: after the roll the unit may select every enemy within 12" and
+	within the roll as a charge target and must end engaged with all of them.
+	Each combo is scored as an expected value over the roll (see
+	_score_multi_target_combo). Returns {score, action, description}."""
 	var best_multi = {"score": -INF, "action": {}, "description": ""}
 
 	# Sort targets by distance (closest first) for efficient pruning
@@ -15672,14 +15675,14 @@ static func _score_multi_target_combo(
 		charger_id: String, charger: Dictionary, charger_name: String,
 		combo: Array, melee_bonus: float, ow_risk: Dictionary,
 		snapshot: Dictionary, player: int) -> Dictionary:
-	"""Score a specific multi-target charge combination.
-	The charge probability is based on the FARTHEST target (must reach all).
-	The score is the sum of individual target scores, weighted by probability."""
+	"""Score declaring a charge with this target set (11e: targets picked after
+	the roll). Score = expected value over the 2D6 roll of the best subset in
+	reach: best target in full + MULTI_CHARGE_EXTRA_TARGET_SHARE per extra."""
 	var result = {"score": -INF, "action": {}, "description": ""}
 
-	# Physical feasibility: charger must end within engagement range (1") of ALL targets.
+	# Physical feasibility: charger must end within engagement range (2" at 11e) of ALL targets.
 	# Check that target units are close enough to each other for this to be possible.
-	# A model can reach ~base_radius + 1" ER in each direction, so targets must be
+	# A model can reach ~base_radius + ER in each direction, so targets must be
 	# within about charger_diameter + 2" of each other (plus target base sizes).
 	# base_mm lives on the MODELS, not on meta — reading meta.base_mm silently
 	# gave every unit a 32mm reach.
@@ -15708,88 +15711,64 @@ static func _score_multi_target_combo(
 			if pair_dist > max_spread:
 				return result
 
-	# Find the maximum distance (determines charge difficulty)
-	var max_dist = 0.0
+	# 11e 11.02/11.04: the unit declares the charge, rolls 2D6, and only THEN
+	# picks targets — every enemy within 12" and within the roll is selectable,
+	# and the post-roll step (_select_post_roll_charge_targets) keeps whichever
+	# of these declared targets the roll reached. So this declaration is not an
+	# all-or-nothing bet on the farthest target: its value is the expected
+	# value, over the eleven 2D6 outcomes, of the best subset in reach.
+	# A subset is worth its best target in full plus a share for each extra
+	# target (lock-down only: the charger has one set of attacks, and every
+	# extra target can fight back). Each target's value-if-reached is its
+	# single-target score without the probability (melee capability, short-
+	# charge reliability, objective, overwatch and Deadly Demise already in).
+	var extra_share = get_param("MULTI_CHARGE_EXTRA_TARGET_SHARE", MULTI_CHARGE_EXTRA_TARGET_SHARE)
+	var reach := []  # [{need: int roll needed, value: float, t}]
 	for t in combo:
-		if t.dist > max_dist:
-			max_dist = t.dist
+		var p_t = float(t.get("prob", 0.0))
+		if p_t <= 0.0:
+			return result
+		reach.append({"need": maxi(ceili(float(t.get("need", _charge_roll_needed(t.dist)))), 2), "value": float(t.score) / p_t, "t": t})
+	reach.sort_custom(func(a, b): return a.need < b.need)
 
-	# Every target must be within the roll at 11e (11.04), so the farthest one
-	# sets the roll needed — see _charge_roll_needed.
-	var charge_distance_needed = _charge_roll_needed(max_dist)
-	var charge_prob = _charge_success_probability(charge_distance_needed)
+	var ev := 0.0
+	var p_all := 0.0
+	var p_any := 0.0
+	for r in range(2, 13):
+		var p_r = float(6 - absi(r - 7)) / 36.0
+		var values := []
+		for e in reach:
+			if e.need <= r:
+				values.append(e.value)
+		if values.is_empty():
+			continue
+		p_any += p_r
+		if values.size() == reach.size():
+			p_all += p_r
+		values.sort()
+		values.reverse()
+		var v = float(values[0])
+		for k in range(1, values.size()):
+			v += extra_share * maxf(float(values[k]), 0.0)
+		ev += p_r * v
+	if p_all <= 0.0:
+		return result  # no roll reaches every target: a smaller combo covers it
 
-	# Skip if the multi-target charge has very low probability
-	if charge_prob < 0.08:
-		return result
-
-	# Sum individual target scores (without probability — we apply unified probability below)
-	var combined_target_score = 0.0
 	var target_names = []
 	var target_ids = []
-	var total_melee_dmg = 0.0
-	var total_target_hp = 0.0
-	for t in combo:
-		combined_target_score += t.target_score
-		target_names.append(t.target_name)
-		target_ids.append(t.target_id)
-		total_melee_dmg += t.melee_dmg
-		total_target_hp += t.target_hp
-
-	# Apply charge probability and melee bonus
-	var score = combined_target_score * charge_prob * melee_bonus
-
-	# Distance bonuses based on the farthest target (all must be reached)
-	if charge_distance_needed <= 6.0:
-		score *= get_param("CHARGE_COMBO_SHORT_6IN_MULT", CHARGE_COMBO_SHORT_6IN_MULT)
-	if charge_distance_needed <= 3.0:
-		score *= get_param("CHARGE_COMBO_SHORT_3IN_MULT", CHARGE_COMBO_SHORT_3IN_MULT)
-
-	# Multi-target bonus: engaging multiple enemies is tactically valuable
-	# (locks down more shooters, denies more overwatch, more fight targets)
-	# But apply a modest bonus — the probability penalty is already factored in
-	var multi_target_bonus = 1.0 + 0.15 * (combo.size() - 1)  # +15% per extra target
-	score *= multi_target_bonus
-
-	# Bonus if targets are clustered (close together = easier to reach all)
-	# If the farthest target isn't much farther than the closest, the combo is efficient
-	var min_dist = combo[0].dist  # Already sorted by distance
-	var dist_spread = max_dist - min_dist
-	if dist_spread <= 2.0:
-		score *= get_param("CHARGE_COMBO_TIGHT_CLUSTER_MULT", CHARGE_COMBO_TIGHT_CLUSTER_MULT)  # Targets are very close together — efficient multi-charge
-
-	# Objective bonus (any target on an objective)
-	var objectives = _get_objectives(snapshot)
-	var charge_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
-	for t in combo:
-		var target_unit = snapshot.get("units", {}).get(t.target_id, {})
-		var target_centroid = _get_unit_centroid(target_unit)
-		for obj_pos in objectives:
-			if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				score *= get_param("CHARGE_COMBO_OBJ_MULT", CHARGE_COMBO_OBJ_MULT)
-				if charge_battle_round >= 4:
-					score *= get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS)
-				break
-
-	# Apply overwatch risk penalty
-	if ow_risk.score_penalty < 1.0:
-		score *= ow_risk.score_penalty
-
-	# Deadly Demise leverage
-	if AIAbilityAnalyzerData.has_deadly_demise(charger) and AIAbilityAnalyzerData.is_unit_doomed(charger):
-		var dd_val = AIAbilityAnalyzerData.get_deadly_demise_value(charger)
-		var dd_bonus = 1.0 + (float(dd_val) / 6.0)
-		score *= dd_bonus
-
-	# Apply difficulty noise
-	score = _apply_difficulty_noise(score)
+	var tiers := []
+	for e in reach:
+		target_names.append(e.t.target_name)
+		target_ids.append(e.t.target_id)
+		tiers.append("%s on %d+ (%.0f%%)" % [e.t.target_name, e.need, _charge_success_probability(e.need) * 100.0])
+	var score = ev
 
 	var ow_desc = ""
 	if ow_risk.expected_damage > 0.0:
 		ow_desc = ", overwatch risk: %.1f dmg" % ow_risk.expected_damage
 	var target_names_str = " + ".join(target_names)
-	print("AIDecisionMaker: [T7-50] Multi-charge eval %s -> [%s]: max_dist=%.1f\", prob=%.0f%%, combined_score=%.1f, multi_bonus=x%.2f, final=%.1f" % [
-		charger_name, target_names_str, max_dist, charge_prob * 100.0, combined_target_score, multi_target_bonus, score])
+	print("AIDecisionMaker: [T7-50] Multi-charge eval %s -> [%s]: EV over 2D6=%.1f (any target %.0f%%, all %.0f%%, extra-target share %.2f)" % [
+		charger_name, target_names_str, ev, p_any * 100.0, p_all * 100.0, extra_share])
 
 	result.score = score
 	# Construct a multi-target DECLARE_CHARGE action
@@ -15798,8 +15777,8 @@ static func _score_multi_target_combo(
 		"actor_unit_id": charger_id,
 		"payload": {"target_unit_ids": target_ids},
 	}
-	result.description = "%s declares multi-target charge against %s (%.0f%% chance, max %.1f\" away, %d targets%s)" % [
-		charger_name, target_names_str, charge_prob * 100.0, max_dist, combo.size(), ow_desc]
+	result.description = "%s declares a charge at %s — targets picked after the roll: %s%s" % [
+		charger_name, target_names_str, ", ".join(tiers), ow_desc]
 
 	return result
 
@@ -19358,6 +19337,9 @@ static func _estimate_objective_vp_value(obj_info: Dictionary, player: int,
 
 	# --- Primary card rules (active this round) ---
 	var primary = _get_primary_awareness(player)
+	# Per-objective payouts in the Command-phase window are priced against the
+	# 15 VP per-turn primary cap below — per_obj_vp collects them first.
+	var per_obj_vp := 0.0
 	for rule in primary.get("vp_rules", []):
 		var rule_vp = float(rule.get("vp", rule.get("vp_per", 0)))
 		if rule_vp <= 0.0:
@@ -19368,25 +19350,33 @@ static func _estimate_objective_vp_value(obj_info: Dictionary, player: int,
 					# Home doesn't pay directly, but a require_hold_home rider
 					# makes holding home the enabler for every other payout.
 					if rule.get("require_hold_home", false):
-						vp += rule_vp
+						per_obj_vp += rule_vp
 						sources.append("home enables +%s/obj (primary)" % str(rule_vp))
 				else:
-					vp += rule_vp
+					per_obj_vp += rule_vp
 					sources.append("+%s/obj (primary)" % str(rule_vp))
 			"hold_min":
 				if rule.get("exclude_home", false) and is_home:
 					continue
 				var needed = int(rule.get("min", 1))
+				# Count only what the rule counts: "hold N non-home objectives"
+				# must not count our home (assumed held when anything is — see
+				# _primary_command_window_vp). Without this, holding home alone
+				# read as "hold 1 non-home already met" and the first non-home
+				# objective was priced as mere insurance.
+				var counted = my_holds
+				if rule.get("exclude_home", false):
+					counted = maxi(my_holds - 1, 0)
 				# Marginal value: full VP for the objective that reaches the
 				# threshold, a taper for insurance/overshoot.
-				if my_holds < needed:
-					if is_held or my_holds + 1 >= needed:
+				if counted < needed:
+					if is_held or counted + 1 >= needed:
 						vp += rule_vp
 						sources.append("reaches hold-%d (%s VP primary)" % [needed, str(rule_vp)])
 					else:
 						vp += rule_vp * 0.5
 						sources.append("builds toward hold-%d (primary)" % needed)
-				elif is_held and my_holds == needed:
+				elif is_held and counted == needed:
 					# Already exactly at threshold — losing THIS one loses the VP
 					vp += rule_vp
 					sources.append("keeps hold-%d alive (%s VP primary)" % [needed, str(rule_vp)])
@@ -19415,6 +19405,25 @@ static func _estimate_objective_vp_value(obj_info: Dictionary, player: int,
 					vp += rule_vp
 					sources.append("newly taken pays %s VP (primary)" % str(rule_vp))
 
+	# Diminishing returns: primary VP is capped at 15 per turn
+	# (PrimaryMissionData11e.MAX_PRIMARY_VP_PER_TURN_11E), so an objective is
+	# only worth the per-objective VP that still fits under the cap given what
+	# is already held — e.g. Battlefield Dominance pays 13 for home + 2 others,
+	# so a third non-home objective adds 2, a fourth adds 0.
+	if per_obj_vp > 0.0:
+		var window_vp = _primary_command_window_vp(primary.get("vp_rules", []), my_holds)
+		var cap = float(PrimaryMissionData11e.MAX_PRIMARY_VP_PER_TURN_11E)
+		var marginal: float
+		if is_held:
+			marginal = minf(cap, window_vp) - minf(cap, maxf(window_vp - per_obj_vp, 0.0))
+		else:
+			marginal = minf(cap, window_vp + per_obj_vp) - minf(cap, window_vp)
+		marginal = maxf(marginal, 0.0)
+		if marginal < per_obj_vp - 0.01:
+			sources.append("only +%s of %s/obj under the %d VP/turn primary cap (already ~%s VP held)" % [
+				str(snappedf(marginal, 0.1)), str(per_obj_vp), int(cap), str(snappedf(window_vp, 0.1))])
+		vp += marginal
+
 	# --- Secondary card hints ---
 	var secondary = _get_secondary_awareness(player)
 	for hint in secondary.get("vp_objective_hints", []):
@@ -19431,6 +19440,29 @@ static func _estimate_objective_vp_value(obj_info: Dictionary, player: int,
 			sources.append("%s pays %s VP" % [hint.get("card", "secondary"), str(hint.get("vp", 0))])
 
 	return {"vp": vp, "sources": sources}
+
+static func _primary_command_window_vp(vp_rules: Array, my_holds: int) -> float:
+	"""Uncapped primary VP the Command-phase rules pay for my_holds objectives
+	(per_objective and hold_min). Home is assumed held when anything is held —
+	the estimator only knows the count, and home is the first objective an
+	army keeps."""
+	var home_held = my_holds >= 1
+	var non_home = maxi(my_holds - (1 if home_held else 0), 0)
+	var total := 0.0
+	for rule in vp_rules:
+		if str(rule.get("when", "command")) != "command":
+			continue
+		var exclude_home: bool = rule.get("exclude_home", false)
+		var count = non_home if exclude_home else my_holds
+		match str(rule.get("type", "")):
+			"per_objective":
+				if rule.get("require_hold_home", false) and not home_held:
+					continue
+				total += float(rule.get("vp_per", rule.get("vp", 0))) * count
+			"hold_min":
+				if count >= int(rule.get("min", 1)):
+					total += float(rule.get("vp", 0))
+	return total
 
 static func _evaluate_mission_achievability(snapshot: Dictionary, mission: Dictionary, player: int, battle_round: int) -> float:
 	"""

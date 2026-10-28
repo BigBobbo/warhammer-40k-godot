@@ -46,6 +46,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rules_context  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.abspath(os.path.join(HERE, "..", ".."))  # 40k/
@@ -117,6 +118,7 @@ def collect(args, run_dir):
     capture_src = load_gd(os.path.join(HERE, "capture.gd"))
     roster_src = load_gd(os.path.join(HERE, "roster.gd"))
     terrain_src = load_gd(os.path.join(HERE, "terrain.gd"))
+    mission_src = load_gd(os.path.join(HERE, "mission.gd"))
     prep_src = load_gd(os.path.join(HERE, "shot_prep.gd"))
     restore_src = load_gd(os.path.join(HERE, "shot_restore.gd"))
     snapshot_src = load_gd(os.path.join(HERE, "..", "llm_commander", "snapshot.gd"))
@@ -160,6 +162,7 @@ def collect(args, run_dir):
                         roster = script(roster_src)
                         jdump(os.path.join(run_dir, f"roster_s{seed}.json"), roster)
                         jdump(os.path.join(run_dir, f"terrain_s{seed}.json"), script(terrain_src))
+                        jdump(os.path.join(run_dir, f"mission_s{seed}.json"), script(mission_src))
                     cap = script(capture_src.replace("__RUN_DIR__", user_dir).replace("__ID__", cid))
                     st[0] += 1
                     st[1] = p["actions"]
@@ -287,8 +290,12 @@ the current controller (0 = nobody). Units marked in_reserve are not on the boar
 Be calibrated. "flawed" = a strong human player would clearly and confidently \
 choose differently AND you can name the logic error. Close calls, reasonable \
 alternatives and situations you lack information to judge are "questionable" or \
-"sound". If a rule matters and you are not sure how 11th edition handles it, say \
-so in rules_uncertainty rather than guessing.
+"sound". The 11th edition rules primer below covers the rules decisions usually hinge \
+on, and the acting player's primary-mission table shows what objectives are \
+actually worth. If a rule you need is not in the primer, look it up in the full \
+core rules text with the Grep and Read tools (path given below) before \
+answering. Use rules_uncertainty only for something the rules text genuinely \
+does not settle, and say what you searched for.
 
 Reply with ONLY one JSON object, no prose, no code fences. Write distances as \
 "10 in", never with the " symbol:
@@ -304,9 +311,19 @@ lanes, who is near whom); write 'no screenshots' if none were attached>",
  "rules_uncertainty": "<any rules you were unsure about, or ''>"}"""
 
 
-def build_review_prompt(bundle, roster, terrain=None, run_dir=""):
+def build_review_prompt(bundle, roster, terrain=None, run_dir="", mission=None):
     me = int(bundle.get("player", 0))
-    lines = [REVIEW_PREAMBLE, "",
+    lines = [REVIEW_PREAMBLE, "", "== 11th edition rules primer ==", rules_context.primer(),
+             f"Full core rules text (Grep/Read it for anything else): {rules_context.RULES_TEXT}", ""]
+    if mission:
+        mine = mission.get(str(me), {})
+        theirs = mission.get(str(3 - me), {})
+        lines += [f"== Primary mission scoring for Player {me} (the acting player; "
+                  f"disposition {mine.get('disposition', '?')}) ==",
+                  rules_context.primary_table(mine.get("card_id", "")) or "(card unknown)", "",
+                  f"Opponent (Player {3 - me}) primary card: {theirs.get('card_name', '?')} — "
+                  "denying their objectives lowers their score even when yours is capped.", ""]
+    lines += [
              f"== Decision under review (Player {me}, round {bundle.get('round')}, {bundle.get('phase')} phase) ==",
              f"Suggestion: {bundle.get('suggestion')}",
              f"Decision type: {bundle.get('decision_type')}; acting unit: {bundle.get('unit_name')} ({bundle.get('unit_id')})",
@@ -350,13 +367,16 @@ def _image_block(path):
                                         "data": base64.b64encode(buf.getvalue()).decode()}}
 
 
-def call_claude(prompt, model, timeout_s, read_code=False, images=()):
+def call_claude(prompt, model, timeout_s, read_code=False, images=(), rules_lookup=False):
     """`claude -p`. With images, they are sent INLINE as image blocks
     (stream-json input) — handing the model file paths to Read is not enough:
     measured 2026-10-28, the reviewer made zero tool calls and judged blind."""
     cmd = ["claude", "-p", "--model", model]
     if read_code:
-        cmd += ["--allowedTools", "Read", "Grep", "Glob"]
+        cmd += ["--allowedTools", "Read", "Grep", "Glob", "--add-dir", os.path.dirname(rules_context.RULES_TEXT)]
+    elif rules_lookup:
+        # the reviewer may look rules up in the core rules text (outside 40k/)
+        cmd += ["--allowedTools", "Read", "Grep", "--add-dir", os.path.dirname(rules_context.RULES_TEXT)]
     stdin = prompt.encode()
     if images:
         cmd += ["--input-format", "stream-json", "--output-format", "stream-json", "--verbose"]
@@ -408,6 +428,9 @@ def review(args, run_dir):
     terrains = {}
     for p in glob.glob(os.path.join(run_dir, "terrain_s*.json")):
         terrains[int(re.search(r"terrain_s(\d+)", p).group(1))] = json.load(open(p))
+    missions = {}
+    for p in glob.glob(os.path.join(run_dir, "mission_s*.json")):
+        missions[int(re.search(r"mission_s(\d+)", p).group(1))] = json.load(open(p))
     out_path = os.path.join(run_dir, "reviews.jsonl")
     # errored reviews are retried; --fresh redoes everything; --repeats N
     # reviews every decision N times independently (same inputs) to measure
@@ -423,11 +446,12 @@ def review(args, run_dir):
           f"{args.repeats} review(s) per decision)", flush=True)
 
     def one(b):
-        prompt = build_review_prompt(b, rosters.get(b.get("seed")), terrains.get(b.get("seed")), run_dir)
+        prompt = build_review_prompt(b, rosters.get(b.get("seed")), terrains.get(b.get("seed")), run_dir,
+                                     missions.get(b.get("seed")))
         shots = b.get("shots", {})
         imgs = [os.path.join(run_dir, shots[k]) for k in ("board", "zoom")
                 if shots.get(k) and os.path.exists(os.path.join(run_dir, shots[k]))]
-        raw, dt, err = call_claude(prompt, args.review_model, args.timeout, images=imgs)
+        raw, dt, err = call_claude(prompt, args.review_model, args.timeout, images=imgs, rules_lookup=True)
         rv = parse_json_obj(raw) if not err else None
         rec = {"id": b["id"], "model": args.review_model, "latency_s": round(dt, 1),
                "prompt_chars": len(prompt), "images": len(imgs)}
@@ -481,7 +505,13 @@ def synthesize(args, run_dir):
         open(os.path.join(run_dir, "proposals.md"), "w").write("_No flawed or questionable decisions to synthesize._\n")
         print("nothing flagged — no proposals", flush=True)
         return
-    lines = [SYNTH_PREAMBLE, "", "== Flagged decisions =="]
+    lines = [SYNTH_PREAMBLE, "", "== 11th edition rules primer (the AI must follow these) ==",
+             rules_context.primer(), f"Full core rules text: {rules_context.RULES_TEXT}", "",
+             "== Flagged decisions =="]
+    human = {}
+    hpath = os.path.join(run_dir, "human_verdicts.json")
+    if os.path.exists(hpath):
+        human = json.load(open(hpath)).get("verdicts", {})
     for r in flagged:
         b = bundles.get(r["id"], {})
         lines.append(json.dumps({
@@ -490,7 +520,14 @@ def synthesize(args, run_dir):
             "suggestion": b.get("suggestion"), "decision_type": b.get("decision_type"),
             "options": b.get("options", [])[:4],
             "review": {k: r.get(k) for k in ("summary", "better_option", "logic_flaw", "proposed_fix", "rules_uncertainty")},
+            "human": human.get(r["id"], {}),
         }, separators=(",", ":")))
+    if human:
+        lines += ["", "== Human reviewer feedback (AUTHORITATIVE: it overrides the LLM reviewer; "
+                  "address every note in your proposals) =="]
+        for cid, v in sorted(human.items()):
+            if v.get("note") or v.get("ai") or v.get("critic"):
+                lines.append(json.dumps({"case": cid, **v}, separators=(",", ":")))
     print(f"synthesizing {len(flagged)} flag(s) with {args.synth_model} (reads AI source)...", flush=True)
     raw, dt, err = call_claude("\n".join(lines), args.synth_model, args.synth_timeout, read_code=True)
     text = raw.strip() if not err else f"_Synthesis failed: {err}_\n"

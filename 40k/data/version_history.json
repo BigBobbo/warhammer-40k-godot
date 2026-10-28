@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.55.3",
+      "date": "2026-10-28",
+      "summary": "The AI plans charges and objectives the 11th edition way.",
+      "changes": [
+        "Charges: the AI now knows targets are picked after the charge roll. Listing a second target pays off on a high roll and still takes the nearest one on a low roll, instead of being treated as an all-or-nothing gamble on the farthest target.",
+        "Charges: a second charge target is valued only for tying it up, not as if the charger could deal its full damage to both, so long-shot multi-target charges no longer win over a reliable single charge.",
+        "Objectives: the AI knows primary VP is capped at 15 per turn, so it values an extra objective by the VP it can still add under that cap (often little or nothing).",
+        "Objectives: on missions that pay for holding at least one objective outside your home, the AI now values that first objective properly. It used to count its home objective toward it."
+      ]
+    },
+    {
       "version": "1.55.2",
       "date": "2026-10-27",
       "summary": "AI Suggestion now helps with a move you've already started.",

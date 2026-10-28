@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Attack Custodian Guard Sodality Alpha (closing the distance (19.8\" away))",
+ "created": "2026-10-28 02:59:18",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.55.2",
+ "id": "s7001_r1_p1_movement_2",
+ "note": "[LLM critic said flawed: A fragile, 4-wound screening unit is sent to 'attack' a T7 Custodian Guard unit 19.8 in away with no LOS. It heads toward the contested centre alone and will be charged and wiped next turn. The 'melee seeker override' overrode the higher-scoring objective move (32.4 vs 12.4).]",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7001_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad advances to attack Custodian Guard Sodality Alpha (19.8\" away \u2014 closing the distance (19.8\" away))",
+ "verdict": "bad",
+ "version": 1
+}
