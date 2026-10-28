@@ -8,10 +8,11 @@
       "changes": [
         "Objectives: the AI now plans for diminishing returns. Each objective it decides to take lowers the value of the next one, and it does not send a unit to take an extra objective that would add almost no primary VP. Objectives the enemy holds still count, because taking one stops the enemy from scoring it.",
         "Objectives: in round 1 the AI now plans for the round-2 primary scoring, which depends on where its units stand at the end of round 1.",
-        "Objectives: the AI does not send a unit on a long trip to an objective where the enemy can have far more OC before it arrives.",
+        "Objectives: the AI does not send a unit on a long trip to an objective where the enemy can have far more OC before it arrives, or that it cannot reach before the game ends.",
         "Objectives: a unit is not kept on an objective that units which are not moving this phase already hold.",
         "Movement: the AI measures to the objective's control range, not to the marker, so it does not Advance (and lose its shooting and charge) when a normal move already gets there.",
-        "Shooting: the AI values damage by how much of the target unit it removes. It now finishes wounded units instead of chipping at healthy ones.",
+        "Shooting: the AI values damage by how much of the target unit it removes, and values destroying a whole unit. It now finishes wounded or cheap units it can kill instead of chipping at healthy ones.",
+        "Charges: an extra charge target is valued for tying it up, minus the damage it does back. The AI no longer charges into several units when the extras would hit back hard.",
         "Charges: the AI counts the cost of leaving an objective that only the charging unit holds.",
         "Units with weak guns and weak close-combat weapons (for example Prosecutors) no longer run across the board to attack in melee.",
         "Reserves: units that bring more OC now arrive first when objectives are in play."

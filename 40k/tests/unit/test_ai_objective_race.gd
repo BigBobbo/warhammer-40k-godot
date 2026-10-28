@@ -25,6 +25,7 @@ func _init():
 	test_long_trip_advances_with_no_targets()
 	test_long_trip_moves_when_it_can_shoot()
 	test_long_trip_no_advance_with_enemy_in_charge_reach()
+	test_too_late_trip_not_assigned()
 	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
 	print("SOME TESTS FAILED" if _fail_count > 0 else "ALL TESTS PASSED")
 	quit(1 if _fail_count > 0 else 0)
@@ -157,3 +158,17 @@ func test_long_trip_no_advance_with_enemy_in_charge_reach():
 	_add_unit(snap, "them", 1, _our_pos() + Vector2(15.0 * 40.0, 0), 6)
 	var a = _assign(snap, ["us"], ["them"]).get("us", {})
 	_assert(a.get("action", "") == "move", "enemy within charge reach: no long-trip advance (action=%s)" % a.get("action", ""))
+
+# TOO-LATE: a capture that cannot finish before the end of round 5 is not
+# assigned, even when it is the only objective still needing OC.
+func test_too_late_trip_not_assigned():
+	print("\n--- test_too_late_trip_not_assigned ---")
+	var snap = _snapshot()
+	_add_unit(snap, "us", 2, OBJ_POS + Vector2(0, 40.0 * 40.0), 6)  # 40" = 7 turns at M6
+	var enemies = {}
+	var friendlies = {"us": snap.units["us"]}
+	var objectives = [OBJ_POS]
+	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, 4)
+	var plan = AIDecisionMaker._assign_units_to_objectives(snap, {"us": MOVABLE}, evals, objectives, enemies, friendlies, 2, 4)
+	var a = plan.get("us", {})
+	_assert(a.get("assign_pass", "") != "capture", "round 4, 7 turns away: not sent to capture (pass=%s)" % a.get("assign_pass", ""))

@@ -127,8 +127,19 @@ func _test_shooting_value_per_wound() -> void:
 	tv["WOUNDED"] = 5.1
 	var wounded_full = AIDecisionMaker._calculate_marginal_value(2.22, "WOUNDED", tv, th, alloc, wpm, 1.0, {})
 	_assert(wounded_full > healthy, "per-wound value: the wounded unit (%.2f) beats chip damage on the healthy one (%.2f)" % [wounded_full, healthy])
-	_assert(_near(wounded, healthy, 0.05), "with the old charge-target halving it was a near tie (%.2f vs %.2f) — why SHOOT-FINISH is needed" % [wounded, healthy])
-	_assert(_near(healthy, 1.78 * 7.45 / 14.0, 0.01), "healthy target value = dmg x value / wounds (got %.3f)" % healthy)
+	_assert(wounded > healthy, "even at the halved value, SHOOT-UNIT puts the likely kill first (%.2f vs %.2f)" % [wounded, healthy])
+	var unit_v = AIDecisionMaker.SHOOT_UNIT_REMOVAL_VALUE
+	_assert(_near(healthy, 1.78 * 7.45 / 14.0 + 1.78 / 14.0 * unit_v, 0.01), "healthy target value = dmg x (value + unit value) / wounds (got %.3f)" % healthy)
+	# critic case s7001_r2_p2_shooting_1 (aifix run): healthy Custodian Guard
+	# (value 10.37, 15 W, 0.89 dmg) vs a 4-wound Prosecutor Squad (value 0.83,
+	# 1.87 dmg at efficiency 0.7) — the killable squad must win.
+	var tv2 = {"CG": 10.37, "PRO": 0.83}
+	var th2 = {"CG": 15.0, "PRO": 4.0}
+	var al2 = {"CG": 0.0, "PRO": 0.0}
+	var wp2 = {"CG": 5.0, "PRO": 1.0}
+	var cg = AIDecisionMaker._calculate_marginal_value(0.89, "CG", tv2, th2, al2, wp2, 1.0, {})
+	var pro = AIDecisionMaker._calculate_marginal_value(1.87, "PRO", tv2, th2, al2, wp2, 0.7, {})
+	_assert(pro > cg, "a likely kill on a cheap squad (%.2f) beats chip damage on an elite unit (%.2f)" % [pro, cg])
 
 func _weapon(type: String, s: int, a: String, ap: String, d: String, rules: String = "") -> Dictionary:
 	return {"type": type, "strength": str(s), "attacks": a, "ap": ap, "damage": d, "special_rules": rules}

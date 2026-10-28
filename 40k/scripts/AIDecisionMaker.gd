@@ -1489,6 +1489,9 @@ const MOVE_RACE_HOPELESS_RATIO: float = 2.0
 # Charge (CH-LEAVE): score multiplier lost when a successful charge would pull
 # the charger off an objective it alone keeps.
 const CHARGE_LEAVE_OBJ_PENALTY: float = 0.5
+# Shooting (SHOOT-UNIT): value of removing one whole enemy unit, paid per
+# share of the unit a shot removes (on top of value per wound).
+const SHOOT_UNIT_REMOVAL_VALUE: float = 2.0
 const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
 const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
 const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
@@ -9446,6 +9449,12 @@ static func _assign_units_to_objectives(
 	# counting friends already en route), sending the unit just strands it.
 	# Close races stay assignable so the AI does not turn passive.
 	var race_ratio = get_param("MOVE_RACE_HOPELESS_RATIO", MOVE_RACE_HOPELESS_RATIO)
+	# TOO-LATE: a capture the unit cannot complete before the game ends scores
+	# nothing — the reach horizon only shrinks its score, so when it was the
+	# only objective still needing OC it was assigned anyway (a lone 36" trip).
+	var too_late := func(c: Dictionary) -> bool:
+		return c.get("action", "") in ["move", "advance"] \
+			and battle_round + int(c.get("turns_to_reach", 1)) - 1 > MAX_BATTLE_ROUNDS_AI
 	var race_hopeless := func(c: Dictionary) -> bool:
 		if not c.get("race_lost", false):
 			return false
@@ -9538,6 +9547,12 @@ static func _assign_units_to_objectives(
 				extra_obj_skipped[uid] = {"objective_id": oid, "vp": float(price.new_vp), "extra": int(price.extra)}
 				print("AIDecisionMaker: [DIM-RETURNS] %s: not sending %s — with %d other objective(s) the plan already takes, %s adds only ~%.1f VP (primary cap / flat award)" % [
 					oid, uid, int(price.extra), oid, float(price.new_vp)])
+			continue
+		if too_late.call(cand):
+			if not extra_obj_skipped.has(uid):
+				extra_obj_skipped[uid] = {"objective_id": oid, "too_late": int(cand.get("turns_to_reach", 1))}
+				print("AIDecisionMaker: [TOO-LATE] %s: not sending %s — it needs %d turns and would arrive after the last battle round" % [
+					oid, uid, int(cand.get("turns_to_reach", 1))])
 			continue
 		if race_hopeless.call(cand):
 			if not extra_obj_skipped.has(uid):
@@ -9654,8 +9669,8 @@ static func _assign_units_to_objectives(
 			continue
 		if (reprice_capture.call(cand.objective_id) as Dictionary).get("skip", false):
 			continue  # DIM-RETURNS: another objective would add almost nothing
-		if race_hopeless.call(cand):
-			continue  # RACE-SKIP: a race this unit cannot win
+		if race_hopeless.call(cand) or too_late.call(cand):
+			continue  # RACE-SKIP / TOO-LATE: a trip that cannot pay off
 		if assigned_unit_ids.has(cand.unit_id):
 			# OBJ-BACKFILL-1: a unit already sent to a LOWER-scored objective
 			# switches to the re-opened one. Previously only unassigned units
@@ -9956,7 +9971,10 @@ static func _assign_units_to_objectives(
 		var xs = extra_obj_skipped[uid]
 		if str(assignments[uid].get("objective_id", "")) == str(xs.objective_id):
 			continue
-		if xs.has("race_enemy_oc"):
+		if xs.has("too_late"):
+			assignments[uid]["coordination_note"] = "not going for %s — it is %d turns away and the game ends first; staying with the army instead" % [
+				xs.objective_id, int(xs.too_late)]
+		elif xs.has("race_enemy_oc"):
 			assignments[uid]["coordination_note"] = "not racing for %s — the enemy can have ~%d OC there before we arrive in %d turn(s); staying with the army instead" % [
 				xs.objective_id, int(xs.race_enemy_oc), int(xs.turns)]
 		else:
@@ -14982,6 +15000,11 @@ static func _calculate_marginal_value(
 
 	# Base marginal value: useful damage × value per wound
 	var marginal = useful_damage * value_per_wound
+	# SHOOT-UNIT: removing a whole unit has value of its own — kill awards and
+	# secondaries count destroyed units, and its OC leaves the objective. Pay
+	# the share of a unit this shot removes, so a cheap squad that can die
+	# this phase is not ignored for chip damage on a healthy elite one.
+	marginal += (useful_damage / maxf(threshold, 1.0)) * get_param("SHOOT_UNIT_REMOVAL_VALUE", SHOOT_UNIT_REMOVAL_VALUE)
 
 	# T7-22: Kill threshold crossing bonus.
 	# If this weapon pushes us past a meaningful kill boundary, add a bonus.
