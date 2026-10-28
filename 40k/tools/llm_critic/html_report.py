@@ -131,7 +131,7 @@ def build(run_dir, bundles, rows, repro, proposals_md, all_reviews=None, standal
         for key, label, w in (("board", "Whole board", 900), ("zoom", "Close-up", 1400)):
             p = os.path.join(run_dir, shots.get(key, "")) if shots.get(key) else ""
             if p and os.path.exists(p):
-                imgs.append(f'<figure><a href="#" class="zoomable"><img loading="lazy" alt="{label} for {_e(cid)}" '
+                imgs.append(f'<figure><a href="#" class="zoomable"><img decoding="async" alt="{label} for {_e(cid)}" '
                             f'src="{_img_uri(p, w)}"></a><figcaption>{label}</figcaption></figure>')
         rp = ("reproduces on reload" if _same(repro[cid]) else "drifts on reload") if cid in repro else ""
         drift = cid in repro and not _same(repro[cid])
