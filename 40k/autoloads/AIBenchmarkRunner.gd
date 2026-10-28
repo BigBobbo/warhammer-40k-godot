@@ -95,6 +95,9 @@ var _vp_events: Array = []
 # Parsed profile JSON per player, kept for INLINE provenance so a record
 # stays self-describing even if the profile file is later edited or deleted.
 var _profile_inline: Dictionary = {1: {}, 2: {}}
+# AB-SEAT: optional per-seat AIDecisionMaker version (script path), for
+# old-vs-new AI head-to-head games. "" = the current AIDecisionMaker.
+var _seat_ai: Dictionary = {1: "", 2: ""}
 
 func _ready() -> void:
 	var args = OS.get_cmdline_args() + OS.get_cmdline_user_args()
@@ -117,6 +120,10 @@ func _ready() -> void:
 			_p1_plan_path = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-p2-plan="):
 			_p2_plan_path = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-p1-ai="):
+			_seat_ai[1] = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-p2-ai="):
+			_seat_ai[2] = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-difficulty="):
 			_difficulty = int(a.split("=", true, 1)[1])
 		elif a.begins_with("--bench-max-seconds="):
@@ -334,6 +341,16 @@ func _kick_off() -> void:
 	# clears the accumulator, so this must come AFTER it.
 	ai._max_decision_record_batches = BENCH_RECORD_BATCH_CAP
 	_connect_vp_events()
+	for seat in [1, 2]:
+		if _seat_ai[seat] == "":
+			continue
+		if not ai.set_seat_decision_maker(seat, _seat_ai[seat]):
+			_finish_with_error("AI version for P%d could not be loaded: %s" % [seat, _seat_ai[seat]])
+			return
+		var seat_dm = ai.get_seat_decision_makers()[seat]
+		seat_dm.reset_caches()
+		if _seed >= 0:
+			seat_dm.set_ai_seed(_seed)
 	_load_profile(1, _p1_profile_path)
 	_load_profile(2, _p2_profile_path)
 	# PM-2a: plans, like profiles, must be applied AFTER configure() — it calls

@@ -286,6 +286,8 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 	_gate_recoveries = 0
 	# P2-92: Clear AIDecisionMaker static caches to prevent stale data
 	AIDecisionMaker.reset_caches()
+	for seat_dm in _seat_dm.values():
+		seat_dm.reset_caches()
 
 	for player_id in player_types:
 		var pid = int(player_id)
@@ -303,6 +305,8 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 
 	# T7-41: Reset army archetype cache for new game
 	AIDecisionMaker.reset_army_archetype_cache()
+	for seat_dm in _seat_dm.values():
+		seat_dm.reset_army_archetype_cache()
 
 	# T7-57: Initialize per-game performance tracking
 	_game_performance.clear()
@@ -796,6 +800,32 @@ func clear_action_log() -> void:
 # panel (AISuggestionBreakdownPanel) for its header, and by scenario asserts.
 var last_suggestion_meta: Dictionary = {}
 
+# AB-SEAT: an optional per-seat AIDecisionMaker VERSION, for old-vs-new AI
+# benchmarks (tools/ai_lab/ai_version.py writes the copy; AIBenchmarkRunner
+# installs it with --bench-pN-ai=). The copy is the same script without its
+# class_name, so it keeps its own static caches, profile and RNG. Only the
+# per-player decision entry points route through _dm(); shared helpers and the
+# K-card suggestion stay on the current AIDecisionMaker.
+var _seat_dm: Dictionary = {}  # player -> GDScript
+
+func set_seat_decision_maker(player: int, script_path: String) -> bool:
+	if script_path == "":
+		_seat_dm.erase(player)
+		return true
+	var scr = load(script_path)
+	if scr == null or not scr.has_method("decide"):
+		push_error("AIPlayer: seat %d decision maker %s could not be loaded" % [player, script_path])
+		return false
+	_seat_dm[player] = scr
+	print("AIPlayer: AB-SEAT P%d plays with %s" % [player, script_path])
+	return true
+
+func get_seat_decision_makers() -> Dictionary:
+	return _seat_dm
+
+func _dm(player: int):
+	return _seat_dm.get(player, AIDecisionMaker)
+
 func _unique_action_types(actions: Array) -> Array:
 	var seen := {}
 	for a in actions:
@@ -1151,7 +1181,7 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 		return
 
 	var snapshot = GameState.create_snapshot(false)
-	var decision = AIDecisionMaker.evaluate_reactive_stratagem(
+	var decision = _dm(defending_player).evaluate_reactive_stratagem(
 		defending_player, available_stratagems, target_unit_ids, snapshot
 	)
 	_flush_reactive_thinking(defending_player, "Defensive stratagem window (being shot at)")
@@ -1192,7 +1222,7 @@ func _on_movement_fire_overwatch_opportunity(defending_player: int, eligible_uni
 		return
 
 	var snapshot = GameState.create_snapshot(false)
-	var decision = AIDecisionMaker.evaluate_fire_overwatch(
+	var decision = _dm(defending_player).evaluate_fire_overwatch(
 		defending_player, eligible_units, enemy_unit_id, snapshot
 	)
 	_flush_reactive_thinking(defending_player, "Fire Overwatch window (enemy moved)")
@@ -1226,7 +1256,7 @@ func _on_movement_rapid_ingress_opportunity(defending_player: int, eligible_unit
 		return
 
 	var snapshot = GameState.create_snapshot(false)
-	var decision = AIDecisionMaker.evaluate_rapid_ingress(defending_player, eligible_units, snapshot)
+	var decision = _dm(defending_player).evaluate_rapid_ingress(defending_player, eligible_units, snapshot)
 	_flush_reactive_thinking(defending_player, "Rapid Ingress window (end of enemy movement)")
 
 	if decision.is_empty():
@@ -1422,7 +1452,7 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 		return
 
 	var snapshot = GameState.create_snapshot(false)
-	var decision = AIDecisionMaker.evaluate_counter_offensive(player, eligible_units, snapshot)
+	var decision = _dm(player).evaluate_counter_offensive(player, eligible_units, snapshot)
 	_flush_reactive_thinking(player, "Counteroffensive window (enemy just fought)")
 
 	print("AIPlayer: Counter-Offensive decision for player %d — %s" % [player, decision.get("_ai_description", "?")])
@@ -1442,7 +1472,7 @@ func _on_epic_challenge_opportunity(unit_id: String, player: int) -> void:
 
 	var unit_name = _get_unit_name(unit_id)
 	var snapshot = GameState.create_snapshot(false)
-	var decision = AIDecisionMaker.evaluate_epic_challenge(player, unit_id, snapshot)
+	var decision = _dm(player).evaluate_epic_challenge(player, unit_id, snapshot)
 	_flush_reactive_thinking(player, "Epic Challenge window (%s selected to fight)" % unit_name)
 	if decision.is_empty():
 		decision = {
@@ -1545,20 +1575,20 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 			# tolerance (10e: distance minus ER).
 			var needed = max(0.0, min_distance - ChargeMove11e.WITHIN_TOLERANCE_INCHES) if GameConstants.edition >= 11 \
 				else max(0.0, min_distance - GameConstants.engagement_range_inches())
-			should_reroll = AIDecisionMaker.evaluate_command_reroll_charge(
+			should_reroll = _dm(player).evaluate_command_reroll_charge(
 				player, total, int(ceil(needed)), snapshot
 			)
 			print("AIPlayer: Charge reroll evaluation — rolled %d, need %d, reroll: %s" % [total, int(ceil(needed)), str(should_reroll)])
 
 		"advance_roll":
 			var total = roll_context.get("total", 0)
-			should_reroll = AIDecisionMaker.evaluate_command_reroll_advance(player, total, snapshot)
+			should_reroll = _dm(player).evaluate_command_reroll_advance(player, total, snapshot)
 			print("AIPlayer: Advance reroll evaluation — rolled %d, reroll: %s" % [total, str(should_reroll)])
 
 		"battle_shock_test":
 			var total = roll_context.get("total", 0)
 			var leadership = roll_context.get("leadership", 6)
-			should_reroll = AIDecisionMaker.evaluate_command_reroll_battleshock(player, total, leadership, snapshot)
+			should_reroll = _dm(player).evaluate_command_reroll_battleshock(player, total, leadership, snapshot)
 			print("AIPlayer: Battle-shock reroll evaluation — rolled %d, leadership %d, reroll: %s" % [total, leadership, str(should_reroll)])
 
 		_:
@@ -1832,7 +1862,7 @@ func _answer_ai_owned_pending_window() -> bool:
 		var action: Dictionary = {"type": "DECLINE_WINDOW_STRATAGEM", "player": decider, "window_id": wid,
 			"_ai_description": "AI (took over Player %d) declines the %s stratagem window" % [decider, wid]}
 		if attempt == 0:
-			var decision: Dictionary = AIDecisionMaker.decide_window_stratagem(decider, wid, w.get("offers", []), wctx)
+			var decision: Dictionary = _dm(decider).decide_window_stratagem(decider, wid, w.get("offers", []), wctx)
 			if decision.get("use", false):
 				action = {"type": "USE_WINDOW_STRATAGEM", "player": decider, "window_id": wid,
 					"stratagem_id": str(decision.get("stratagem_id", "")), "target_unit_id": str(decision.get("target_unit_id", "")),
@@ -1856,7 +1886,7 @@ func _answer_ai_owned_pending_window() -> bool:
 		var r_action: Dictionary = {"type": "DECLINE_REACTIVE_STRATAGEM", "player": defender,
 			"_ai_description": "AI (took over Player %d) declines reactive stratagems" % defender}
 		if r_attempt == 0 and opp.get("has_opportunities", false) and AIDifficultyConfigData.use_stratagems(get_difficulty(defender)):
-			var decision = AIDecisionMaker.evaluate_reactive_stratagem(defender, opp.get("available_stratagems", []),
+			var decision = _dm(defender).evaluate_reactive_stratagem(defender, opp.get("available_stratagems", []),
 				opp.get("target_unit_ids", []), GameState.create_snapshot(false))
 			if not decision.is_empty():
 				r_action = decision
@@ -2202,7 +2232,7 @@ func _execute_next_action(player: int) -> void:
 		_log_ai_thinking(player, "Thinking about %s Phase... (%s)" % [phase_name, action_summary])
 
 	# Ask decision maker what to do
-	var decision = AIDecisionMaker.decide(phase, snapshot, available, player, difficulty)
+	var decision = _dm(player).decide(phase, snapshot, available, player, difficulty)
 
 	if decision.is_empty():
 		push_warning("AIPlayer: No decision made for player %d in phase %d" % [player, phase])

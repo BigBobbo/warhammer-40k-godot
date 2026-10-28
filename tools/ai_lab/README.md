@@ -24,6 +24,7 @@ nothing could learn from them.
 | M2 | `run_lanes.py` | Plays one arm across concurrent lanes into a season |
 | M2 | `determinism_check.py` | Proves two same-seed seasons are identical |
 | M2 | `run_paired.py` | **The evaluator**: side-swapped pairs, sequential stopping |
+| AB-SEAT | `ai_versions.py` | **Old vs new AI code**: each seat plays its own `AIDecisionMaker.gd` from a git ref (`extract V0=<ref>`, `run --base V0 --cand V3`); same side-swapped E as run_paired |
 | M3 | `sensitivity_screen.py` | Ranks which constants actually move the margin |
 | M4 | `cem_driver.py` | Cross-entropy search with racing over the ranked dims |
 | — | `gate_candidate.py` | The five accept/reject gates a change must clear |

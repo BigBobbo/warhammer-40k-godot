@@ -133,6 +133,11 @@ def run_one(seed: int, args, stamp: str, ud: str, season: str, sha: str) -> dict
         cmd.append("--bench-p1-profile=%s" % args.p1_profile)
     if args.p2_profile:
         cmd.append("--bench-p2-profile=%s" % args.p2_profile)
+    # AB-SEAT: per-seat AIDecisionMaker version (tools/ai_lab/ai_versions.py)
+    if getattr(args, "p1_ai", ""):
+        cmd.append("--bench-p1-ai=%s" % args.p1_ai)
+    if getattr(args, "p2_ai", ""):
+        cmd.append("--bench-p2-ai=%s" % args.p2_ai)
     # PM-10: a wh40k_ai_plan per seat. The AIBenchmarkRunner flags already
     # exist (PM-2a); this just plumbs them through the lane driver so a paired
     # campaign can hold the plan constant and vary PLANS_ENABLED in the profile.
