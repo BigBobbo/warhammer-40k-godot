@@ -176,7 +176,7 @@ def build(run_dir, bundles, rows, repro, proposals_md, all_reviews=None, standal
       <label><input type="radio" name="critic_{_e(cid)}" value="right"> right</label>
       <label><input type="radio" name="critic_{_e(cid)}" value="wrong"> wrong</label>
       <label><input type="radio" name="critic_{_e(cid)}" value="unsure"> unsure</label></div>
-    <textarea name="note_{_e(cid)}" rows="2" placeholder="Note (what should it have done? where is the reviewer wrong?)"></textarea>
+    <textarea name="note_{_e(cid)}" rows="2" placeholder="Note: what must the AI do? Where is the reviewer wrong?"></textarea>
   </fieldset>
 </article>""")
 
@@ -259,8 +259,8 @@ code { font-family:ui-monospace, monospace; font-size:13px; }
 <main>
 <h1>LLM critic review</h1>
 <p class="muted">Run <code>%%RUN%%</code> · %%SUMMARY%%</p>
-<p class="muted">For each decision, judge the AI and the reviewer, then <strong>Copy verdicts</strong> and paste them into
-<code>python3 40k/tools/llm_critic/critic.py promote &lt;run&gt; --from-verdicts -</code> (or save them to a file and pass its path). Your answers are kept in this browser.</p>
+<p class="muted">Examine each decision. Give your verdict on the AI and on the reviewer. Then click <strong>Copy verdicts</strong>.
+Paste the verdicts into <code>python3 40k/tools/llm_critic/critic.py promote &lt;run&gt; --from-verdicts -</code>. This browser keeps your answers.</p>
 <section class="proposals"><h2 style="font-family:inherit;font-size:18px">Proposed improvements</h2>%%PROPOSALS%%</section>
 <div class="toolbar">%%FILTERS%%<span class="spacer"></span><span class="stat" id="stat"></span>
 <button type="button" id="export">Copy verdicts</button>

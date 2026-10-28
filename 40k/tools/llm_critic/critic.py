@@ -311,6 +311,11 @@ lanes, who is near whom); write 'no screenshots' if none were attached>",
  "rules_uncertainty": "<any rules you were unsure about, or ''>"}"""
 
 
+STE = ("Write every text value in ASD-STE100 Simplified Technical English: "
+       "short sentences (20 words or fewer), active voice, one statement per sentence, "
+       "simple common words with one meaning each, no idioms or slang. "
+       "Keep game terms (unit names, rule names, score term names) as they are.")
+
 def build_review_prompt(bundle, roster, terrain=None, run_dir="", mission=None):
     me = int(bundle.get("player", 0))
     lines = [REVIEW_PREAMBLE, "", "== 11th edition rules primer ==", rules_context.primer(),
@@ -353,7 +358,7 @@ def build_review_prompt(bundle, roster, terrain=None, run_dir="", mission=None):
         for uid, line in sorted(roster.items()):
             if uid in alive_ids:
                 lines.append(f"{uid}: {line}")
-    lines += ["", "Review the decision now. JSON only."]
+    lines += ["", STE, "", "Review the decision now. JSON only."]
     return "\n".join(lines)
 
 
@@ -529,6 +534,7 @@ def synthesize(args, run_dir):
             if v.get("note") or v.get("ai") or v.get("critic"):
                 lines.append(json.dumps({"case": cid, **v}, separators=(",", ":")))
     print(f"synthesizing {len(flagged)} flag(s) with {args.synth_model} (reads AI source)...", flush=True)
+    lines += ["", STE]
     raw, dt, err = call_claude("\n".join(lines), args.synth_model, args.synth_timeout, read_code=True)
     text = raw.strip() if not err else f"_Synthesis failed: {err}_\n"
     open(os.path.join(run_dir, "proposals.md"), "w").write(text + "\n")
