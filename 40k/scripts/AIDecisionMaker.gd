@@ -8812,6 +8812,8 @@ static func _initial_objective_oc_needs(obj_evaluations: Array, friendly_units: 
 			# a held objective with surplus OC needs nothing now (the projected
 			# enemy OC below still adds what the next enemy move could bring).
 			base_need = max(0, eval.enemy_oc - eval.friendly_oc + 1)
+			if get_param("PLAN_HELD_THREAT_SURPLUS", 1.0) < 0.5:
+				base_need = max(1, eval.enemy_oc)  # ablation: pre-KEEP-OC need
 		else:
 			# Need enough OC to control: enemy_oc + 1 (minus what we already have)
 			base_need = max(1, eval.oc_needed)
@@ -8920,6 +8922,7 @@ static func _assign_units_to_objectives(
 				and "BEGIN_ADVANCE" in move_types \
 				and _should_unit_advance_long_trip(unit, has_ranged, max_weapon_range, enemies, centroid)
 
+		var race_same_turn: bool = get_param("PLAN_RACE_SAME_TURN", 1.0) >= 0.5
 		for eval in obj_evaluations:
 			var obj_pos = eval.position
 			var obj_id = eval.id
@@ -8930,6 +8933,8 @@ static func _assign_units_to_objectives(
 			# gap to control range (same as _capture_arrival), so a unit 9" away
 			# at M8 is "there this turn" and does not Advance for nothing.
 			var gap_in = maxf(0.0, dist_inches - OBJECTIVE_CONTROL_RANGE_PX / PIXELS_PER_INCH)
+			if get_param("PLAN_REACH_CR", 1.0) < 0.5:
+				gap_in = dist_inches  # ablation: pre-REACH-CR distance
 			var turns_to_reach = max(1.0, ceil(gap_in / move_inches)) if move_inches > 0 else 99.0
 			# OBJ-HOLD-1: a unit is "on" an objective when ANY alive model is in
 			# control range (that is what scores — see _unit_oc_at_position), not
@@ -8974,7 +8979,7 @@ static func _assign_units_to_objectives(
 				# to this one, but it can stand on only one — half its OC.
 				var race_half_oc := 0
 				for arr in eval.get("enemy_arrivals", []):
-					if int(arr.moves) <= int(turns_to_reach):
+					if int(arr.moves) <= int(turns_to_reach) - (0 if race_same_turn else 1):
 						if arr.get("nearest", true):
 							race_enemy_oc += int(arr.oc)
 						else:
