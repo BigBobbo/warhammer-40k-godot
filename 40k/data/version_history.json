@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.55.3",
+      "date": "2026-10-28",
+      "summary": "AI moves head for their objective instead of drifting toward far-off charges, and the suggestion card explains why a move bends.",
+      "changes": [
+        "The AI only bends a unit's move toward a planned charge when that actually leaves it within 9\" of the target — otherwise it heads straight for its objective (a Telemon was crawling 5\" sideways toward a charge it could not make).",
+        "Big-based models (e.g. a Telemon) now plan their path around solid terrain the way the rules check it, so they detour around a tall wall or gantry instead of being dropped on a random side of it.",
+        "When a tall wall or gantry blocks the straight line, the AI now goes around it in two legs (a short sidestep, then on toward the target) instead of veering off at an angle.",
+        "Suggest (K) now lists \"How this turn's move was shaped\": charge steering, terrain detours, staying out of enemy reach, and how far the unit really moves."
+      ]
+    },
+    {
       "version": "1.55.2",
       "date": "2026-10-27",
       "summary": "AI Suggestion now helps with a move you've already started.",
