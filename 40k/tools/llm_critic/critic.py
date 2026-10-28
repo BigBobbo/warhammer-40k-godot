@@ -1,0 +1,566 @@
+#!/usr/bin/env python3
+"""LLM critic — an LLM reviews the AI's suggestions while the AI plays itself.
+
+The LLM never picks moves (legality stays with the engine). It reads what the
+AI suggests at sampled decision points — the chosen option, the rejected ones,
+every score term, the AI's own reasoning lines, the board — and judges whether
+the LOGIC is flawed. Flagged decisions become loadable save files + AI test
+cases; a final pass groups recurring flaws into improvement proposals for a
+human to validate.
+
+Stages (run all, or one at a time against an existing run dir):
+  collect     seeded AI-vs-AI game(s) under PlanSimulator; at sampled decision
+              points freeze (Engine.time_scale 0), capture the suggestion
+              (capture.gd) + board (../llm_commander/snapshot.gd), save the
+              position, unfreeze.                         [needs the game]
+  review      one `claude -p` call per captured decision -> verdict JSON.
+  synthesize  one `claude -p` call over the flagged reviews, with read access
+              to the AI source, -> grouped improvement proposals.
+  verify      reload each flagged position in a fresh game and check the AI
+              still suggests the same thing (some drift)  [close the game first]
+  report      REPORT.md; flagged positions get a "bad" test case + a copy in
+              user://saves/ so they show up in the in-game Load menu.
+  promote     copy reviewed case pairs into tests/ai_cases/ (after YOU agree).
+
+Usage:
+  python3 critic.py all --seeds 7001 --label first_look
+  python3 critic.py collect --seeds 7001-7002 --army1 custodes_lions --army2 custodes_lions
+  python3 critic.py review runs/<run>            # re-review with another model
+  python3 critic.py report runs/<run>
+  python3 critic.py promote runs/<run> <case_id> [...]
+
+See README.md.
+"""
+import argparse
+import concurrent.futures as cf
+import glob
+import json
+import os
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PROJECT = os.path.abspath(os.path.join(HERE, "..", ".."))  # 40k/
+BRIDGE = ("127.0.0.1", 9080)
+USERDATA = os.path.expanduser(
+    "~/Library/Application Support/Godot/app_userdata/40k" if sys.platform == "darwin"
+    else "~/.local/share/godot/app_userdata/40k")
+
+# GameState.Phase enum (verified live 2026-10-28)
+PHASES = {"FORMATIONS": 0, "DEPLOYMENT": 1, "COMMAND": 6, "MOVEMENT": 7,
+          "SHOOTING": 8, "CHARGE": 9, "FIGHT": 10}
+DEFAULT_PHASES = "MOVEMENT,SHOOTING,CHARGE,FIGHT"
+
+POLL_CODE = """var meta = GameState.state.get("meta", {})
+return {"running": PlanSimulator.is_running(),
+\t"round": int(meta.get("battle_round", 0)),
+\t"phase": int(meta.get("phase", 0)),
+\t"active": int(meta.get("active_player", 1)),
+\t"actions": AIPlayer._action_log.size()}"""
+
+# cancel() only stops the simulator WATCHING the game; the AI keeps playing it
+# to the end unless stood down (both seats HUMAN, as between sim games).
+CANCEL_CODE = "PlanSimulator.cancel()\nPlanSimulator._quiesce_ai()\nreturn true"
+
+
+# ---------------------------------------------------------------- bridge
+
+def call(command, params, timeout=180.0):
+    s = socket.create_connection(BRIDGE, timeout=timeout)
+    s.sendall((json.dumps({"id": 1, "command": command, "params": params}) + "\n").encode())
+    buf = b""
+    while b"\n" not in buf:
+        chunk = s.recv(65536)
+        if not chunk:
+            break
+        buf += chunk
+    s.close()
+    return json.loads(buf.decode().split("\n")[0]) if buf else {"error": "no response"}
+
+
+def script(code, timeout=180.0):
+    r = call("execute_script", {"code": code, "multiline": True}, timeout)
+    res = r.get("result", {})
+    if res.get("status") != "ok":
+        raise RuntimeError(f"execute_script failed: {json.dumps(r)[:600]}")
+    return res.get("result")
+
+
+def load_gd(path):
+    with open(path) as f:
+        return "".join(l for l in f if not l.lstrip().startswith("#"))
+
+
+def jdump(path, obj):
+    with open(path, "w") as f:
+        json.dump(obj, f, indent=1)
+
+
+def read_jsonl(path):
+    if not os.path.exists(path):
+        return []
+    with open(path) as f:
+        return [json.loads(l) for l in f if l.strip()]
+
+
+# ---------------------------------------------------------------- collect
+
+def collect(args, run_dir):
+    capture_src = load_gd(os.path.join(HERE, "capture.gd"))
+    roster_src = load_gd(os.path.join(HERE, "roster.gd"))
+    snapshot_src = load_gd(os.path.join(HERE, "..", "llm_commander", "snapshot.gd"))
+    phases = {PHASES[p.strip().upper()] for p in args.phases.split(",") if p.strip()}
+    seats = {1, 2} if args.seat == 0 else {args.seat}
+    run_name = os.path.basename(run_dir.rstrip("/"))
+    user_dir = f"user://llm_critic/{run_name}/"
+    bundles_path = os.path.join(run_dir, "bundles.jsonl")
+    out = open(bundles_path, "a")
+    n_total = 0
+    for seed in parse_seeds(args.seeds):
+        cfg = {"zone_id": args.zone, "layout_id": args.layout, "mission_id": args.mission,
+               "army1": args.army1, "army2": args.army2, "games": 1, "seed_base": seed,
+               "difficulty": 3,  # Competitive: the AI plays the same tier the K card suggests at
+               "time_scale": args.time_scale, "max_seconds_per_game": args.max_seconds}
+        stop_previous_run()
+        if not script(f"PlanSimulator.start({json.dumps(cfg)})\nreturn PlanSimulator.is_running()"):
+            raise RuntimeError("PlanSimulator did not start (another run in progress?)")
+        print(f"=== seed {seed}: {args.army1} vs {args.army2} ===", flush=True)
+        roster = None
+        seen = {}  # (round, active, phase) -> [captures, last_action_count]
+        n_game = 0
+        t0 = time.time()
+        while True:
+            p = script(POLL_CODE)
+            if not p["running"]:
+                break
+            if p["round"] > args.max_round:
+                script(CANCEL_CODE)
+                print(f"  stopping after round {args.max_round}", flush=True)
+                break
+            key = (p["round"], p["active"], p["phase"])
+            st = seen.setdefault(key, [0, -10**9])
+            due = (p["phase"] in phases and st[0] < args.per_phase
+                   and p["actions"] - st[1] >= args.stride and n_game < args.max_captures)
+            if due:
+                cid = f"s{seed}_r{p['round']}_p{p['active']}_{phase_name(p['phase']).lower()}_{st[0] + 1}"
+                prev = script("var p := Engine.time_scale\nEngine.time_scale = 0.0\nreturn p")
+                try:
+                    if roster is None:
+                        roster = script(roster_src)
+                        jdump(os.path.join(run_dir, f"roster_s{seed}.json"), roster)
+                    cap = script(capture_src.replace("__RUN_DIR__", user_dir).replace("__ID__", cid))
+                    st[0] += 1
+                    st[1] = p["actions"]
+                    if cap.get("id") and int(cap.get("player", 0)) in seats:
+                        cap["seed"] = seed
+                        cap["board"] = script(snapshot_src)
+                        out.write(json.dumps(cap) + "\n")
+                        out.flush()
+                        n_game += 1
+                        print(f"  captured {cid}: {cap['suggestion'][:110]}", flush=True)
+                    elif cap.get("error"):
+                        print(f"  capture error {cid}: {cap['error']}", flush=True)
+                finally:
+                    # never restore a freeze (prev is 0 if something else froze the game)
+                    script(f"Engine.time_scale = {prev if prev and prev > 0 else args.time_scale}\nreturn true")
+            time.sleep(args.poll)
+        n_total += n_game
+        print(f"  seed {seed} done: {n_game} decisions captured in {time.time() - t0:.0f}s", flush=True)
+    out.close()
+    return n_total
+
+
+def stop_previous_run():
+    """PlanSimulator.start() silently ignores a call while a run is in
+    progress, and a run left frozen (time_scale 0, e.g. by an interrupted
+    critic) never finishes its cancel. Unfreeze, cancel, wait it out."""
+    if not script("return PlanSimulator.is_running()"):
+        return
+    print("  a PlanSimulator run is still in progress — cancelling it", flush=True)
+    script("if Engine.time_scale <= 0.0:\n\tEngine.time_scale = 1.0\n" + CANCEL_CODE)
+    for _ in range(120):
+        if not script("return PlanSimulator.is_running()"):
+            return
+        time.sleep(1)
+    raise RuntimeError("previous PlanSimulator run did not stop within 120s")
+
+
+def phase_name(i):
+    for k, v in PHASES.items():
+        if v == i:
+            return k
+    return str(i)
+
+
+def parse_seeds(s):
+    if "-" in s:
+        a, b = s.split("-")
+        return list(range(int(a), int(b) + 1))
+    return [int(x) for x in s.split(",")]
+
+
+# ---------------------------------------------------------------- review
+
+REVIEW_PREAMBLE = """You are an expert Warhammer 40,000 (11th edition) player reviewing \
+the decision-making of a rules-based game AI. The engine already enforces legality — \
+every option listed is legal. Your job is to judge the AI's JUDGEMENT: is the chosen \
+option sensible given the board, and is the scoring logic that produced it flawed?
+
+How the AI decides: for each decision it scores candidate options as a sum of named \
+score terms (shown per option under "score_terms") and picks the highest score. Its \
+own reasoning lines are under "ai_reasoning". Flaws you are looking for include: a \
+term with the wrong sign or a wildly wrong magnitude; a term that double-counts \
+another; a consideration the AI is missing entirely (e.g. an enemy threat, a unit's \
+weapon range, a better target, an objective it could take for free, giving up a \
+held objective); reasoning text that contradicts the numbers; plans that ignore \
+round number / game end; wasting a unit's turn.
+
+Board facts: coordinates are in inches; each player's home objective is \
+obj_home_<player>. Objectives are controlled by the player with more total OC \
+within range. "oc_p1/oc_p2" on each objective is current OC in range; "holder" is \
+the current controller (0 = nobody). Units marked in_reserve are not on the board.
+
+Be calibrated. "flawed" = a strong human player would clearly and confidently \
+choose differently AND you can name the logic error. Close calls, reasonable \
+alternatives and situations you lack information to judge are "questionable" or \
+"sound". You do NOT see terrain or line of sight: if the call hinges on them, it is \
+at most "questionable". If a rule matters and you are not sure how 11th edition handles it, say \
+so in rules_uncertainty rather than guessing.
+
+Reply with ONLY one JSON object, no prose, no code fences:
+{"verdict": "sound" | "questionable" | "flawed",
+ "confidence": "low" | "medium" | "high",
+ "severity": 0-3 (0 none, 1 minor inefficiency, 2 costs VP/units, 3 game-losing),
+ "summary": "<one line: what the AI did and the problem, if any>",
+ "better_option": "<the listed option text you would pick, or 'unlisted: ...', or '' if sound>",
+ "logic_flaw": "<which score term(s) or missing consideration caused it, or ''>",
+ "proposed_fix": "<a concrete, general heuristic change (not a one-off), or ''>",
+ "rules_uncertainty": "<any rules you were unsure about, or ''>"}"""
+
+
+def build_review_prompt(bundle, roster):
+    me = int(bundle.get("player", 0))
+    lines = [REVIEW_PREAMBLE, "",
+             f"== Decision under review (Player {me}, round {bundle.get('round')}, {bundle.get('phase')} phase) ==",
+             f"Suggestion: {bundle.get('suggestion')}",
+             f"Decision type: {bundle.get('decision_type')}; acting unit: {bundle.get('unit_name')} ({bundle.get('unit_id')})",
+             f"Decision context: {json.dumps(bundle.get('context', {}), separators=(',', ':'))}",
+             f"Options (top {len(bundle.get('options', []))} of {bundle.get('options_total')}, best score first):"]
+    for o in bundle.get("options", []):
+        lines.append(json.dumps(o, separators=(",", ":")))
+    lines += ["", "AI reasoning:"] + [f"  {s}" for s in bundle.get("ai_reasoning", [])[:40]]
+    lines += ["", "== Board ==", json.dumps(bundle.get("board", {}), separators=(",", ":"))]
+    if roster:
+        lines += ["", "== Datasheets (unit id: line) =="]
+        alive_ids = {u.get("id") for u in bundle.get("board", {}).get("units", []) if u.get("alive", 0) > 0}
+        for uid, line in sorted(roster.items()):
+            if uid in alive_ids:
+                lines.append(f"{uid}: {line}")
+    lines += ["", "Review the decision now. JSON only."]
+    return "\n".join(lines)
+
+
+def call_claude(prompt, model, timeout_s, read_code=False):
+    cmd = ["claude", "-p", "--model", model]
+    if read_code:
+        cmd += ["--allowedTools", "Read", "Grep", "Glob"]
+    t0 = time.time()
+    try:
+        proc = subprocess.run(cmd, input=prompt.encode(), capture_output=True,
+                              timeout=timeout_s, cwd=PROJECT)
+        return proc.stdout.decode(errors="replace"), time.time() - t0, None
+    except subprocess.TimeoutExpired:
+        return "", time.time() - t0, "timeout"
+    except Exception as e:  # noqa: BLE001 - report, never crash the run
+        return "", time.time() - t0, f"{type(e).__name__}: {e}"
+
+
+def parse_json_obj(raw):
+    m = re.search(r"\{.*\}", raw, re.DOTALL)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return None
+
+
+def review(args, run_dir):
+    bundles = read_jsonl(os.path.join(run_dir, "bundles.jsonl"))
+    rosters = {}
+    for p in glob.glob(os.path.join(run_dir, "roster_s*.json")):
+        rosters[int(re.search(r"roster_s(\d+)", p).group(1))] = json.load(open(p))
+    out_path = os.path.join(run_dir, "reviews.jsonl")
+    done = {r["id"] for r in read_jsonl(out_path)} if not args.fresh else set()
+    if args.fresh and os.path.exists(out_path):
+        os.remove(out_path)
+    todo = [b for b in bundles if b["id"] not in done]
+    print(f"reviewing {len(todo)} decision(s) with {args.review_model} ({args.jobs} parallel)", flush=True)
+
+    def one(b):
+        prompt = build_review_prompt(b, rosters.get(b.get("seed")))
+        raw, dt, err = call_claude(prompt, args.review_model, args.timeout)
+        rv = parse_json_obj(raw) if not err else None
+        rec = {"id": b["id"], "model": args.review_model, "latency_s": round(dt, 1),
+               "prompt_chars": len(prompt)}
+        if rv is None:
+            rec.update({"error": err or "unparseable reply", "raw": raw[:800]})
+        else:
+            rec.update(rv)
+        return rec
+
+    with open(out_path, "a") as out, cf.ThreadPoolExecutor(args.jobs) as ex:
+        for rec in ex.map(one, todo):
+            out.write(json.dumps(rec) + "\n")
+            out.flush()
+            tag = rec.get("verdict", "ERROR").upper()
+            print(f"  [{tag:12}] {rec['id']}: {rec.get('summary', rec.get('error', ''))[:120]}", flush=True)
+
+
+# ---------------------------------------------------------------- synthesize
+
+SYNTH_PREAMBLE = """You are improving a rules-based Warhammer 40,000 (11th edition) \
+game AI written in GDScript (Godot 4). An expert reviewer has flagged the decisions \
+below as flawed or questionable. You are running in the project root (the 40k/ \
+folder) with read-only access: the decision logic lives mainly in \
+scripts/AIDecisionMaker.gd (huge — use Grep for score term names such as the keys \
+under score_terms, then Read around the hits) and autoloads/AIPlayer.gd.
+
+Task:
+1. Group the flags into distinct ROOT CAUSES (several flags often share one).
+2. For each root cause, find where in the code the responsible score term or rule \
+lives and propose a concrete, general change. Prefer small, targeted changes to \
+existing terms over new systems. Reject flags you think the reviewer got wrong and \
+say why — the reviewer can be mistaken.
+3. Rank by expected impact on winning games.
+
+Write Markdown (no preamble) with one section per root cause:
+### <n>. <short title>  (impact: high|medium|low, confidence: high|medium|low)
+- **Seen in:** case ids
+- **What goes wrong:** ...
+- **Where:** file:line / function / score term
+- **Proposed change:** ...
+- **How to verify:** which saved case(s) should change their choice, and what \
+should NOT change.
+Then a final section "### Reviewer flags I disagree with" (may be empty)."""
+
+
+def synthesize(args, run_dir):
+    bundles = {b["id"]: b for b in read_jsonl(os.path.join(run_dir, "bundles.jsonl"))}
+    flagged = [r for r in read_jsonl(os.path.join(run_dir, "reviews.jsonl"))
+               if r.get("verdict") in ("flawed", "questionable")]
+    if not flagged:
+        open(os.path.join(run_dir, "proposals.md"), "w").write("_No flawed or questionable decisions to synthesize._\n")
+        print("nothing flagged — no proposals", flush=True)
+        return
+    lines = [SYNTH_PREAMBLE, "", "== Flagged decisions =="]
+    for r in flagged:
+        b = bundles.get(r["id"], {})
+        lines.append(json.dumps({
+            "case": r["id"], "verdict": r.get("verdict"), "confidence": r.get("confidence"),
+            "severity": r.get("severity"), "phase": b.get("phase"), "round": b.get("round"),
+            "suggestion": b.get("suggestion"), "decision_type": b.get("decision_type"),
+            "options": b.get("options", [])[:4],
+            "review": {k: r.get(k) for k in ("summary", "better_option", "logic_flaw", "proposed_fix", "rules_uncertainty")},
+        }, separators=(",", ":")))
+    print(f"synthesizing {len(flagged)} flag(s) with {args.synth_model} (reads AI source)...", flush=True)
+    raw, dt, err = call_claude("\n".join(lines), args.synth_model, args.synth_timeout, read_code=True)
+    text = raw.strip() if not err else f"_Synthesis failed: {err}_\n"
+    open(os.path.join(run_dir, "proposals.md"), "w").write(text + "\n")
+    print(f"  proposals.md written ({dt:.0f}s)", flush=True)
+
+
+# ---------------------------------------------------------------- report
+
+SEV = {"flawed": 0, "questionable": 1, "sound": 2}
+
+
+def user_path(user_dir_name, fname):
+    return os.path.join(USERDATA, "llm_critic", user_dir_name, fname)
+
+
+def report(args, run_dir):
+    run_name = os.path.basename(run_dir.rstrip("/"))
+    bundles = {b["id"]: b for b in read_jsonl(os.path.join(run_dir, "bundles.jsonl"))}
+    reviews = read_jsonl(os.path.join(run_dir, "reviews.jsonl"))
+    latest = {}
+    for r in reviews:
+        latest[r["id"]] = r
+    rows = sorted(latest.values(), key=lambda r: (SEV.get(r.get("verdict"), 3), -int(r.get("severity") or 0)))
+    counts = {}
+    for r in rows:
+        counts[r.get("verdict", "error")] = counts.get(r.get("verdict", "error"), 0) + 1
+    saves_dir = os.path.join(USERDATA, "saves")
+    os.makedirs(saves_dir, exist_ok=True)
+    md = [f"# LLM critic report — {run_name}", "",
+          f"Decisions reviewed: {len(rows)} — " + ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())), "",
+          "Flagged positions are saved as `llm_critic_<case>` in the in-game **Load** menu: load one, press **K**, "
+          "and check the AI's card against the review. Agree → "
+          f"`python3 40k/tools/llm_critic/critic.py promote {os.path.relpath(run_dir, os.path.dirname(PROJECT))} <case>` "
+          "turns it into a regression case in `40k/tests/ai_cases/` (FAILS until the AI is fixed).", ""]
+    prop = os.path.join(run_dir, "proposals.md")
+    if os.path.exists(prop):
+        md += ["## Proposed improvements (grouped by root cause)", "", open(prop).read().strip(), ""]
+    vpath = os.path.join(run_dir, "verify.json")
+    repro = json.load(open(vpath)) if os.path.exists(vpath) else {}
+    md += ["## Per-decision reviews", "",
+           "Repro = the position reloads to the same AI suggestion (`critic.py verify`); "
+           "only promote cases marked yes.", "",
+           "| Verdict | Sev | Conf | Repro | Case | AI suggested | Problem |", "|---|---|---|---|---|---|---|"]
+    for r in rows:
+        b = bundles.get(r["id"], {})
+        rp = "yes" if repro.get(r["id"]) else "no" if r["id"] in repro else ""
+        md.append("| {} | {} | {} | {} | `{}` | {} | {} |".format(
+            r.get("verdict", "ERROR"), r.get("severity", ""), r.get("confidence", ""), rp, r["id"],
+            cell(b.get("suggestion", "")), cell(r.get("summary", r.get("error", "")))))
+    md += [""]
+    for r in rows:
+        if r.get("verdict") not in ("flawed", "questionable"):
+            continue
+        b = bundles.get(r["id"], {})
+        md += [f"### `{r['id']}` — {r.get('verdict')} (severity {r.get('severity')}, {r.get('confidence')} confidence)",
+               f"- **AI suggested:** {b.get('suggestion', '')}",
+               f"- **Problem:** {r.get('summary', '')}",
+               f"- **Better option:** {r.get('better_option', '')}",
+               f"- **Logic flaw:** {r.get('logic_flaw', '')}",
+               f"- **Proposed fix:** {r.get('proposed_fix', '')}"]
+        if r.get("rules_uncertainty"):
+            md.append(f"- **Rules uncertainty:** {r['rules_uncertainty']}")
+        md.append("- **Options the AI weighed:** " + "; ".join(
+            f"{'**' if o.get('chosen') else ''}{o.get('option')} ({o.get('score')}){'**' if o.get('chosen') else ''}"
+            for o in b.get("options", [])[:5]))
+        md.append("")
+        # Mark the pending case "bad" with the critic's note, and expose the
+        # position in the Load menu.
+        cj = user_path(run_name, r["id"] + ".json")
+        if os.path.exists(cj):
+            case = json.load(open(cj))
+            case["verdict"] = "bad" if r.get("verdict") == "flawed" else "pending"
+            case["note"] = f"[LLM critic, {r.get('confidence')} conf] {r.get('summary', '')} Fix: {r.get('proposed_fix', '')}"[:600]
+            jdump(cj, case)
+            sv = user_path(run_name, r["id"] + ".w40ksave")
+            if os.path.exists(sv):
+                shutil.copy(sv, os.path.join(saves_dir, f"llm_critic_{r['id']}.w40ksave"))
+    path = os.path.join(run_dir, "REPORT.md")
+    open(path, "w").write("\n".join(md) + "\n")
+    print(f"report: {path}", flush=True)
+    return path
+
+
+def cell(s):
+    return str(s).replace("|", "/").replace("\n", " ")[:160]
+
+
+def verify(args, run_dir):
+    """Reload each flagged position in a fresh game (tests/run_ai_test_cases.sh,
+    one windowed scenario per case) and record whether the AI still makes the
+    same suggestion. Some in-phase state (e.g. the shooting order) is not in a
+    save, so a few positions drift on reload — those are poor regression cases
+    and the report says so. Launches its own game: close the running one."""
+    run_name = os.path.basename(run_dir.rstrip("/"))
+    flagged = [r["id"] for r in read_jsonl(os.path.join(run_dir, "reviews.jsonl"))
+               if r.get("verdict") in ("flawed", "questionable")]
+    cases = [user_path(run_name, cid + ".json") for cid in dict.fromkeys(flagged)]
+    cases = [c for c in cases if os.path.exists(c)]
+    if not cases:
+        print("no flagged cases to verify", flush=True)
+        return
+    print(f"reloading {len(cases)} flagged position(s) to check they reproduce...", flush=True)
+    proc = subprocess.run(["bash", "tests/run_ai_test_cases.sh"] + cases, cwd=PROJECT,
+                          capture_output=True, timeout=args.verify_timeout)
+    out = proc.stdout.decode(errors="replace")
+    res = {}
+    for line in out.splitlines():
+        m = re.search(r"(PASS|FAIL) \w+ case (\S+): AI (still chooses the same|now chooses differently)", line)
+        if m:
+            res[m.group(2).rstrip(":")] = m.group(3) == "still chooses the same"
+    jdump(os.path.join(run_dir, "verify.json"), res)
+    for cid in flagged:
+        print(f"  {cid}: {'reproduces' if res.get(cid) else 'DRIFTS on reload' if cid in res else 'not checked'}", flush=True)
+
+
+def promote(args, run_dir):
+    run_name = os.path.basename(run_dir.rstrip("/"))
+    dest = os.path.join(PROJECT, "tests", "ai_cases")
+    for cid in args.cases:
+        cj = user_path(run_name, cid + ".json")
+        if not os.path.exists(cj):
+            print(f"  no case {cid} ({cj})")
+            continue
+        case = json.load(open(cj))
+        if case.get("verdict") not in ("good", "bad"):
+            case["verdict"] = args.verdict
+            jdump(cj, case)
+        shutil.copy(cj, os.path.join(dest, cid + ".json"))
+        shutil.copy(user_path(run_name, case["save_file"]), os.path.join(dest, case["save_file"]))
+        print(f"  promoted {cid} ({case['verdict']}) -> tests/ai_cases/")
+
+
+# ---------------------------------------------------------------- main
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("stage", choices=["all", "collect", "review", "synthesize", "report", "verify", "promote"])
+    ap.add_argument("run_dir", nargs="?", help="existing run dir (all stages but collect/all)")
+    ap.add_argument("cases", nargs="*", help="promote: case ids")
+    g = ap.add_argument_group("collect")
+    g.add_argument("--seeds", default="7001")
+    g.add_argument("--label", default="run")
+    g.add_argument("--army1", default="custodes_lions")
+    g.add_argument("--army2", default="custodes_lions")
+    g.add_argument("--zone", default="hammer_anvil")
+    g.add_argument("--layout", default="take_and_hold_mirror_1")
+    g.add_argument("--mission", default="take_and_hold")
+    g.add_argument("--seat", type=int, default=0, choices=[0, 1, 2], help="review only this player's decisions (0 = both)")
+    g.add_argument("--phases", default=DEFAULT_PHASES, help="comma list of " + ",".join(PHASES))
+    g.add_argument("--per-phase", type=int, default=2, help="max captures per player-phase")
+    g.add_argument("--stride", type=int, default=2, help="min AI actions between captures in one phase")
+    g.add_argument("--max-captures", type=int, default=40, help="per game")
+    g.add_argument("--max-round", type=int, default=5)
+    g.add_argument("--time-scale", type=float, default=2.0)
+    g.add_argument("--max-seconds", type=float, default=1800.0)
+    g.add_argument("--poll", type=float, default=0.3)
+    g = ap.add_argument_group("review / synthesize")
+    g.add_argument("--review-model", default="claude-sonnet-5-5")
+    g.add_argument("--synth-model", default="claude-opus-5-5")
+    g.add_argument("--jobs", type=int, default=4)
+    g.add_argument("--timeout", type=float, default=180)
+    g.add_argument("--synth-timeout", type=float, default=900)
+    g.add_argument("--fresh", action="store_true", help="review: discard earlier reviews")
+    g.add_argument("--no-synth", action="store_true")
+    g.add_argument("--verify-timeout", type=float, default=1800)
+    g.add_argument("--verdict", default="bad", choices=["bad", "good"], help="promote: verdict for still-pending cases")
+    args = ap.parse_args()
+
+    if args.stage in ("all", "collect"):
+        run_dir = os.path.join(HERE, "runs", time.strftime("%Y%m%d_%H%M%S") + "_" + args.label)
+        os.makedirs(run_dir, exist_ok=True)
+        jdump(os.path.join(run_dir, "config.json"), vars(args))
+        print(f"run dir: {run_dir}", flush=True)
+        n = collect(args, run_dir)
+        if args.stage == "collect" or n == 0:
+            print(f"collected {n} decision(s)")
+            return
+    else:
+        if not args.run_dir:
+            ap.error("run_dir is required for this stage")
+        run_dir = os.path.abspath(args.run_dir)
+    if args.stage in ("all", "review"):
+        review(args, run_dir)
+    if args.stage in ("all", "synthesize") and not args.no_synth:
+        synthesize(args, run_dir)
+    if args.stage in ("all", "review", "synthesize", "report"):
+        report(args, run_dir)
+    if args.stage == "verify":
+        verify(args, run_dir)
+        report(args, run_dir)
+    if args.stage == "promote":
+        promote(args, run_dir)
+
+
+if __name__ == "__main__":
+    main()
