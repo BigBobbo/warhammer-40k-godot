@@ -26,6 +26,7 @@ func _init():
 	_test_shooting_value_per_wound()
 	_test_melee_classifier()
 	_test_charge_leaves_held_objective()
+	_test_extra_target_that_hits_back_adds_nothing()
 	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
 	quit(1 if _fail_count > 0 else 0)
 
@@ -162,3 +163,18 @@ func _test_charge_leaves_held_objective() -> void:
 	snap.units["F"] = friend
 	var leave2 = AIDecisionMaker._charge_leaves_held_objective("C", charger, target, snap, 1)
 	_assert(leave2.is_empty(), "no cost when other friendly units still hold the objective")
+
+func _test_extra_target_that_hits_back_adds_nothing() -> void:
+	# B is a melee monster (S10 A10 AP-3 D3): as an extra target it would maul
+	# the charger, so the declaration is worth exactly declaring A alone.
+	var a = _target("A", 5.0, 5.0, 10.0)
+	var b = _target("B", 9.0, 9.0, 10.0)
+	var charger = _unit(1, [_model("c1", 0, 0, 2), _model("c2", 30, 0, 2)], 2)
+	charger.meta.stats["toughness"] = 4
+	charger.meta.stats["save"] = 4
+	var brute = _unit(2, [_model("b1", 0, 300, 1)], 1)
+	brute.meta.weapons = [_weapon("Melee", 10, "10", "-3", "3")]
+	var res = AIDecisionMaker._score_multi_target_combo("C", charger, "Charger", [a, b], 1.0,
+		{"expected_damage": 0.0, "score_penalty": 1.0}, {"units": {"B": brute}}, 1)
+	var single_ev = (30.0 / 36.0) * 10.0
+	_assert(_near(res.score, single_ev, 0.05), "a hard-hitting extra target adds 0: EV %.2f == A alone %.2f" % [res.score, single_ev])

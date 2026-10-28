@@ -8461,6 +8461,24 @@ static func _evaluate_all_objectives(
 		elif pre_e_oc > 0 and pre_e_oc > pre_f_oc:
 			their_holds += 1
 	var vp_stake_notes: Array = []
+	# RACE-1b: an enemy unit can only stand on one objective, so in the
+	# contest race it counts toward its NEAREST objective(s) only (by moves to
+	# control range). Counting every enemy toward every objective it could
+	# reach made each contested objective look like a lost race against the
+	# whole enemy army. Units already in range of an objective count there.
+	var enemy_min_moves := {}
+	for e_uid in enemies:
+		var e_unit = enemies[e_uid]
+		var e_c = _get_unit_centroid(e_unit)
+		if e_c == Vector2.INF:
+			continue
+		var e_step = (float(e_unit.get("meta", {}).get("stats", {}).get("move", 6)) + 2.0) * PIXELS_PER_INCH
+		var best_m := 999
+		for o_pos in objectives:
+			var m = 0 if e_c.distance_to(o_pos) <= OBJECTIVE_CONTROL_RANGE_PX else \
+				int(ceil((e_c.distance_to(o_pos) - OBJECTIVE_CONTROL_RANGE_PX) / maxf(e_step, 1.0)))
+			best_m = mini(best_m, m)
+		enemy_min_moves[e_uid] = best_m
 
 	for i in range(objectives.size()):
 		var obj_pos = objectives[i]
@@ -8521,8 +8539,9 @@ static func _evaluate_all_objectives(
 			# multi-turn trip can ask "who gets there first" (see the race term).
 			var e_step_px = (e_move + 2.0) * PIXELS_PER_INCH
 			if e_step_px > 0.0:
-				enemy_arrivals.append({"moves": int(ceil((e_dist - OBJECTIVE_CONTROL_RANGE_PX) / e_step_px)),
-					"oc": e_oc, "name": _dn(e_unit, e_uid)})
+				var e_moves = int(ceil((e_dist - OBJECTIVE_CONTROL_RANGE_PX) / e_step_px))
+				if e_moves <= int(enemy_min_moves.get(e_uid, e_moves)):
+					enemy_arrivals.append({"moves": e_moves, "oc": e_oc, "name": _dn(e_unit, e_uid)})
 
 		# 14.02 CONTEST CAPACITY — the OC we can stand in range with soon, in the
 		# same per-model units as enemy_oc: every alive model's OC of each of our
@@ -15952,12 +15971,21 @@ static func _score_multi_target_combo(
 	# single-target score without the probability (melee capability, short-
 	# charge reliability, objective, overwatch and Deadly Demise already in).
 	var extra_share = get_param("MULTI_CHARGE_EXTRA_TARGET_SHARE", MULTI_CHARGE_EXTRA_TARGET_SHARE)
-	var reach := []  # [{need: int roll needed, value: float, t}]
+	# An extra target is also an extra unit that fights back: its lock-down
+	# share is reduced by the melee damage it deals the charger (in the same
+	# score units as ch_damage), and never goes below 0 — so a strong melee
+	# unit (a Blade Champion) adds nothing as a second target.
+	var dmg_w = get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT)
+	var reach := []  # [{need: int roll needed, value: float, extra: float, t}]
 	for t in combo:
 		var p_t = float(t.get("prob", 0.0))
 		if p_t <= 0.0:
 			return result
-		reach.append({"need": maxi(ceili(float(t.get("need", _charge_roll_needed(t.dist)))), 2), "value": float(t.score) / p_t, "t": t})
+		var value_if = float(t.score) / p_t
+		var t_unit = snapshot.get("units", {}).get(t.target_id, {})
+		var hits_back = _estimate_melee_damage(t_unit, charger, snapshot) * dmg_w if not t_unit.is_empty() else 0.0
+		reach.append({"need": maxi(ceili(float(t.get("need", _charge_roll_needed(t.dist)))), 2), "value": value_if,
+			"extra": maxf(extra_share * value_if - hits_back, 0.0), "t": t})
 	reach.sort_custom(func(a, b): return a.need < b.need)
 
 	var ev := 0.0
@@ -15965,20 +15993,24 @@ static func _score_multi_target_combo(
 	var p_any := 0.0
 	for r in range(2, 13):
 		var p_r = float(6 - absi(r - 7)) / 36.0
-		var values := []
+		var in_reach := []
 		for e in reach:
 			if e.need <= r:
-				values.append(e.value)
-		if values.is_empty():
+				in_reach.append(e)
+		if in_reach.is_empty():
 			continue
 		p_any += p_r
-		if values.size() == reach.size():
+		if in_reach.size() == reach.size():
 			p_all += p_r
-		values.sort()
-		values.reverse()
-		var v = float(values[0])
-		for k in range(1, values.size()):
-			v += extra_share * maxf(float(values[k]), 0.0)
+		# the best target is taken in full, every other one at its extra value
+		var best_i := 0
+		for k in range(in_reach.size()):
+			if float(in_reach[k].value) > float(in_reach[best_i].value):
+				best_i = k
+		var v = float(in_reach[best_i].value)
+		for k in range(in_reach.size()):
+			if k != best_i:
+				v += float(in_reach[k].extra)
 		ev += p_r * v
 	if p_all <= 0.0:
 		return result  # no roll reaches every target: a smaller combo covers it
