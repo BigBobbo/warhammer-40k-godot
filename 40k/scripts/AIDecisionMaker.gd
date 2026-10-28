@@ -386,6 +386,12 @@ static var _bodyguards_with_leaders: Array = []
 # Cleared at the start of each decide() call, and attached as "_ai_thinking_steps" to the result
 static var _thinking_steps: Array = []
 
+# MOVE-SHAPE: plain-English notes on why a unit's move this turn does not head
+# straight at its objective (charge steering, threat dodge, terrain detours,
+# weapon-range clamp). Cleared per unit before its move is computed and
+# attached to the move decision as "_ai_move_adjustments" for the K card.
+static var _move_shape_notes: Array = []
+
 # Structured decision records — captures full scoring breakdowns for the AI Gameplay Visualizer
 # Each entry is a dictionary with decision_type, unit_id, candidates[], chosen_index, parameters_used, etc.
 # Cleared at the start of each decide() call, and attached as "_ai_decision_records" to the result
@@ -1985,6 +1991,12 @@ const WEIGHT_FIRING_POSITION_KEPT: float = 3.0     # Bonus for destinations that
 const WEIGHT_FIRING_POSITION_LOST: float = -2.5    # Penalty for destinations that lose all current shooting targets
 const WEIGHT_FIRING_POSITION_GAINED: float = 1.5   # Bonus for destinations that bring new enemies into range
 const FIRING_POSITION_BLEND: float = 0.35           # How much to blend movement toward firing position vs objective (0-1)
+# T7-23: steer a move toward a planned charge target only when that leaves the
+# unit within this many inches (centroid to centroid) of it — a realistic next
+# turn charge. Steering is tried objective-first (30%, then 50%, then 70% toward
+# the charge target); if none gets there the unit just heads for its objective.
+const CHARGE_BLEND_REACH_INCHES: float = 9.0
+const CHARGE_BLEND_WEIGHTS: Array = [0.3, 0.5, 0.7]
 
 # T7-26: Heavy weapon stationary bonus consideration (MOV-3)
 # When a unit has Heavy weapons and targets in range, prefer remaining stationary
@@ -7145,26 +7157,59 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						}
 
 			# --- T7-23: Charge-intent-aware movement target ---
-			# If this unit intends to charge, blend the movement target toward
-			# the charge target to set up a good charge angle
+			# If this unit intends to charge, steer the move toward the charge
+			# target — but only as far as needed to end within
+			# CHARGE_BLEND_REACH_INCHES of it, objective-first. A steer that
+			# cannot set up the charge this turn just costs objective progress,
+			# so the unit heads straight for its objective instead.
+			_move_shape_notes = []
 			var move_target = target_pos
 			var charge_intent = _get_charge_intent(unit_id)
+			var charge_steer_centroid := Vector2.INF  # set when the move IS steered toward the charge
+			var charge_steer_name := ""
+			var charge_reach_in := float(get_param("CHARGE_BLEND_REACH_INCHES", CHARGE_BLEND_REACH_INCHES))
 			if not charge_intent.is_empty():
 				var charge_target_id = charge_intent.get("target_id", "")
 				if charge_target_id != "" and enemies.has(charge_target_id):
 					var charge_target = enemies[charge_target_id]
 					var charge_centroid = _get_unit_centroid(charge_target)
+					var ct_name := str(charge_intent.get("target_name", charge_target_id))
 					if charge_centroid != Vector2.INF:
-						# Move toward charge target, but try to stay near objectives
 						var dist_to_charge = centroid.distance_to(charge_centroid) / PIXELS_PER_INCH
 						if dist_to_charge <= move_inches + 12.0:  # Within move + charge range
-							# Blend: 70% toward charge target, 30% toward objective
-							if target_pos != Vector2.INF:
-								move_target = charge_centroid * 0.7 + target_pos * 0.3
-							else:
+							if target_pos == Vector2.INF:
 								move_target = charge_centroid
-							print("AIDecisionMaker: [PHASE-PLAN] %s blending movement toward charge target %s" % [
-								unit_name, charge_intent.get("target_name", charge_target_id)])
+								charge_steer_centroid = charge_centroid
+								charge_steer_name = ct_name
+								_move_shape_notes.append("Heads for its planned charge on %s (%.1f\" away) — no objective to balance it against" % [ct_name, dist_to_charge])
+							else:
+								var obj_end := _projected_move_end(centroid, target_pos, move_inches)
+								var obj_end_dist := obj_end.distance_to(charge_centroid) / PIXELS_PER_INCH
+								if obj_end_dist <= charge_reach_in:
+									print("AIDecisionMaker: [PHASE-PLAN] %s objective move already ends %.1f\" from charge target %s — no steer" % [unit_name, obj_end_dist, ct_name])
+									_move_shape_notes.append("Planned charge on %s: the straight objective move already ends %.1f\" from it, so no steering needed" % [ct_name, obj_end_dist])
+								else:
+									var steered := false
+									var last_end_dist := obj_end_dist
+									for w in CHARGE_BLEND_WEIGHTS:
+										var blended: Vector2 = charge_centroid * float(w) + target_pos * (1.0 - float(w))
+										var end_dist := _projected_move_end(centroid, blended, move_inches).distance_to(charge_centroid) / PIXELS_PER_INCH
+										last_end_dist = end_dist
+										if end_dist <= charge_reach_in:
+											move_target = blended
+											charge_steer_centroid = charge_centroid
+											charge_steer_name = ct_name
+											steered = true
+											print("AIDecisionMaker: [PHASE-PLAN] %s blending movement %d%% toward charge target %s (ends %.1f\" from it)" % [
+												unit_name, int(float(w) * 100.0), ct_name, end_dist])
+											_move_shape_notes.append("Steered %d%% toward its planned charge on %s so it ends %.1f\" away (straight to the objective would end %.1f\" away, needs ≤%.0f\")" % [
+												int(float(w) * 100.0), ct_name, end_dist, obj_end_dist, charge_reach_in])
+											break
+									if not steered:
+										print("AIDecisionMaker: [PHASE-PLAN] %s NOT steering toward charge target %s — best steer ends %.1f\" away (needs <= %.0f\")" % [
+											unit_name, ct_name, last_end_dist, charge_reach_in])
+										_move_shape_notes.append("Planned charge on %s is out of reach this turn (even steering %d%% toward it ends %.1f\" away, needs ≤%.0f\") — heads straight for the objective" % [
+											ct_name, int(float(CHARGE_BLEND_WEIGHTS.back()) * 100.0), last_end_dist, charge_reach_in])
 
 			# --- T7-30: Half-range optimization for Rapid Fire/Melta ---
 			# If this unit has weapons that benefit from half range and isn't planning
@@ -7216,16 +7261,46 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				max_weapon_range_inches, threat_data, objectives
 			)
 
+			# T7-23 follow-through: the steer only pays if the move that actually
+			# comes out (after threat dodge / terrain / collisions) still ends in
+			# charge reach. If it doesn't, redo the move straight at the objective.
+			if charge_steer_centroid != Vector2.INF and target_pos != Vector2.INF and move_target != target_pos \
+					and not model_destinations.is_empty():
+				var steered_end := _destinations_centroid(model_destinations)
+				var steered_end_dist := steered_end.distance_to(charge_steer_centroid) / PIXELS_PER_INCH if steered_end != Vector2.INF else INF
+				if steered_end_dist > charge_reach_in:
+					print("AIDecisionMaker: [PHASE-PLAN] %s steered move ends %.1f\" from %s after adjustments — re-planning straight to objective" % [
+						unit_name, steered_end_dist, charge_steer_name])
+					var steer_notes: Array = _move_shape_notes.duplicate()
+					_move_shape_notes = []
+					var straight = _compute_movement_toward_target(
+						unit, unit_id, target_pos, move_inches, snapshot, enemies,
+						max_weapon_range_inches, threat_data, objectives
+					)
+					if not straight.is_empty():
+						model_destinations = straight
+						charge_steer_centroid = Vector2.INF
+						_move_shape_notes.push_front("Dropped the steer toward its planned charge on %s: after the adjustments below it would only have ended %.1f\" away (needs ≤%.0f\"), so it heads straight for the objective" % [
+							charge_steer_name, steered_end_dist, charge_reach_in])
+					else:
+						_move_shape_notes = steer_notes
+
 			if not model_destinations.is_empty():
 				var obj_dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH if target_pos != Vector2.INF else 0.0
 				var reason = assignment.get("reason", "moving to objective")
-				if not charge_intent.is_empty():
-					reason = "moving toward charge target %s" % charge_intent.get("target_name", "")
+				if charge_steer_centroid != Vector2.INF:
+					reason = "%s, steering toward charge target %s" % [reason, charge_steer_name]
 				print("AIDecisionMaker: %s moving toward %s (%s, M: %.0f\")" % [unit_name, assigned_obj_id, reason, move_inches])
+				var moved_in := _destinations_max_move_inches(_get_alive_models_with_positions(unit), model_destinations)
+				if moved_in >= 0.0 and moved_in < move_inches - 0.5 and obj_dist_inches > moved_in + 0.5 and not _move_shape_notes.is_empty():
+					_move_shape_notes.append("Net result: moves %.1f\" of its %.0f\" this turn" % [moved_in, move_inches])
+				for n in _move_shape_notes:
+					_add_thinking_step("%s move: %s" % [unit_name, n])
 				return {
 					"type": "BEGIN_NORMAL_MOVE",
 					"actor_unit_id": unit_id,
 					"_ai_model_destinations": model_destinations,
+					"_ai_move_adjustments": _move_shape_notes.duplicate(),
 					"_ai_description": "%s moves toward %s (%s, obj: %.1f\" away)" % [unit_name, assigned_obj_id, reason, obj_dist_inches]
 				}
 			else:
@@ -11044,6 +11119,7 @@ static func _clamp_move_for_weapon_range(
 	var clamped = move_vector * best_fraction
 	print("AIDecisionMaker: %s movement clamped to %.0f%% to stay within %.0f\" weapon range of nearest enemy" % [
 		unit_name, best_fraction * 100.0, max_weapon_range])
+	_move_shape_notes.append("Shortened to %.0f%% so an enemy stays within its %.0f\" weapon range" % [best_fraction * 100.0, max_weapon_range])
 	return clamped
 
 static func _find_firing_position_toward_objective(
@@ -11357,6 +11433,44 @@ static func _find_best_remaining_objective(
 
 	return best
 
+static func _projected_move_end(from: Vector2, toward: Vector2, move_inches: float) -> Vector2:
+	"""Where a straight move of up to move_inches from `from` toward `toward` ends."""
+	var d := from.distance_to(toward)
+	if d < 0.001:
+		return from
+	return from + (toward - from) / d * minf(move_inches * PIXELS_PER_INCH, d)
+
+static func _destinations_centroid(dests: Dictionary) -> Vector2:
+	var sum := Vector2.ZERO
+	var n := 0
+	for mid in dests:
+		var p = dests[mid]
+		if p is Array and p.size() >= 2:
+			sum += Vector2(float(p[0]), float(p[1]))
+			n += 1
+		elif p is Vector2:
+			sum += p
+			n += 1
+	return sum / n if n > 0 else Vector2.INF
+
+static func _destinations_max_move_inches(models: Array, dests: Dictionary) -> float:
+	"""Longest distance any model travels in `dests` (inches), -1 if unknown."""
+	var best := -1.0
+	for m in models:
+		var mid := str(m.get("id", ""))
+		if mid == "" or not dests.has(mid):
+			continue
+		var p = dests[mid]
+		var to := Vector2.INF
+		if p is Array and p.size() >= 2:
+			to = Vector2(float(p[0]), float(p[1]))
+		elif p is Vector2:
+			to = p
+		var from := _get_model_position(m)
+		if to != Vector2.INF and from != Vector2.INF:
+			best = maxf(best, from.distance_to(to) / PIXELS_PER_INCH)
+	return best
+
 static func _compute_movement_toward_target(
 	unit: Dictionary, unit_id: String, target_pos: Vector2,
 	move_inches: float, snapshot: Dictionary, enemies: Dictionary,
@@ -11388,9 +11502,16 @@ static func _compute_movement_toward_target(
 	var terrain_features = snapshot.get("board", {}).get("terrain_features", [])
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 
-	# Check if the direct path is blocked by terrain (Task 8: terrain-aware pathing)
+	# Check if the direct path is blocked by terrain (Task 8: terrain-aware pathing).
+	# The lead model's base is passed so the check also uses the engine's 11e
+	# swept-base rule (13.06 solid dense features) — the legacy polygon check
+	# alone can pass a line the engine rejects, and the per-model placement
+	# below then relocates the model to an arbitrary legal spot.
+	var lead_model: Dictionary = alive_models[0] if alive_models.size() > 0 else {}
 	var final_move_vector = _find_unblocked_move_enhanced(
-		centroid, move_vector, actual_move_px, unit_keywords, terrain_features, enemies, unit
+		centroid, move_vector, actual_move_px, unit_keywords, terrain_features, enemies, unit,
+		int(lead_model.get("base_mm", 0)), str(lead_model.get("base_type", "circular")),
+		lead_model.get("base_dimensions", {})
 	)
 
 	if final_move_vector == Vector2.ZERO:
@@ -11440,6 +11561,8 @@ static func _compute_movement_toward_target(
 				if direct_score < best_alt_score:
 					print("AIDecisionMaker: Found terrain-avoiding path (penalty %.1f\" -> %.1f\", net progress %.1f\") at alternate angle" % [
 						terrain_move_penalty, best_alt_penalty, best_alt_score])
+					_move_shape_notes.append("Angled around terrain that would cost %.1f\" of climbing (%.1f\" on the new line)" % [
+						terrain_move_penalty, best_alt_penalty])
 					final_move_vector = best_alt_vector
 					terrain_move_penalty = best_alt_penalty
 					raw_move_inches = final_move_vector.length() / PIXELS_PER_INCH
@@ -11709,9 +11832,16 @@ static func _compute_movement_toward_target(
 static func _find_unblocked_move_enhanced(
 	centroid: Vector2, move_vector: Vector2, move_distance_px: float,
 	unit_keywords: Array, terrain_features: Array,
-	enemies: Dictionary, unit: Dictionary
+	enemies: Dictionary, unit: Dictionary,
+	base_mm: int = 0, base_type: String = "circular", base_dimensions: Dictionary = {}
 ) -> Vector2:
-	if not _path_blocked_by_terrain(centroid, centroid + move_vector, unit_keywords, terrain_features):
+	# Blocked = legacy polygon rule OR the engine's 11e swept-base rule for
+	# solid dense features (only when the caller passed a base).
+	var _blocked := func(to: Vector2) -> bool:
+		if _path_blocked_by_terrain(centroid, to, unit_keywords, terrain_features):
+			return true
+		return base_mm > 0 and _path_blocked_by_solid_terrain(centroid, to, base_mm, base_type, base_dimensions, unit_keywords)
+	if not _blocked.call(centroid + move_vector):
 		var cover_path = _find_cover_path(centroid, move_vector, move_distance_px, unit_keywords, terrain_features, enemies)
 		if cover_path != Vector2.ZERO:
 			return cover_path
@@ -11740,7 +11870,7 @@ static func _find_unblocked_move_enhanced(
 			var alt_vector = rotated_dir * alt_dist
 			var dest = centroid + alt_vector
 			checked_count += 1
-			if not _path_blocked_by_terrain(centroid, dest, unit_keywords, terrain_features):
+			if not _blocked.call(dest):
 				var forward_progress = alt_vector.dot(base_direction)
 				var score = forward_progress
 				if score > best_score:
@@ -11756,7 +11886,7 @@ static func _find_unblocked_move_enhanced(
 	# Also try direct path at reduced distances
 	for frac in [0.75, 0.5, 0.25]:
 		var short_vector = move_vector * frac
-		if not _path_blocked_by_terrain(centroid, centroid + short_vector, unit_keywords, terrain_features):
+		if not _blocked.call(centroid + short_vector):
 			var forward_progress = short_vector.dot(base_direction)
 			if forward_progress > best_score:
 				best_score = forward_progress
@@ -11765,6 +11895,15 @@ static func _find_unblocked_move_enhanced(
 	if best_vector != Vector2.ZERO:
 		print("AIDecisionMaker: Found unblocked path, forward progress=%.1fpx (%.1fin)" % [
 			best_score, best_score / PIXELS_PER_INCH])
+		var blocker_label := "terrain"
+		var tm_b = _terrain_manager()
+		if base_mm > 0 and tm_b and tm_b.has_method("can_move_through_11e"):
+			var trav_b = tm_b.can_move_through_11e(unit_keywords, centroid, centroid + move_vector, [], {
+				"position": centroid, "base_mm": base_mm, "base_type": base_type, "base_dimensions": base_dimensions})
+			if not trav_b.get("blockers", []).is_empty():
+				blocker_label = "solid terrain (%s) its base can't pass" % ", ".join(PackedStringArray(trav_b.blockers))
+		_move_shape_notes.append("Straight line to the target is blocked by %s — turned %.0f° to get past (%.1f\" of forward progress this turn)" % [
+			blocker_label, absf(rad_to_deg(base_direction.angle_to(best_vector.normalized()))), best_score / PIXELS_PER_INCH])
 		return best_vector
 
 	print("AIDecisionMaker: All %d paths blocked" % (len(angles_to_try) * len(distance_fractions) + 3))
@@ -11809,6 +11948,7 @@ static func _find_cover_path(
 		if not _path_blocked_by_terrain(centroid, alt_dest, unit_keywords, terrain_features):
 			if _position_has_cover(alt_dest, enemy_positions, terrain_features):
 				print("AIDecisionMaker: Found cover path at %.0f degrees offset" % rad_to_deg(angle))
+				_move_shape_notes.append("Angled %.0f° off the straight line to end behind terrain (cover from enemy fire)" % absf(rad_to_deg(angle)))
 				return alt_vector
 
 	return Vector2.ZERO  # No better cover path found
@@ -13139,12 +13279,20 @@ static func _resolve_movement_collision(
 	# Third pass: full spiral search around destination for horde congestion.
 	# Coherency is still enforced via _accept, so this can only relocate a model
 	# to a spot that keeps the unit legal (or fail, letting a shorter move try).
+	# Points in each ring are tried nearest-to-the-move-direction first
+	# (0, +1, -1, +2, -2 … steps), so the first legal spot keeps as much
+	# forward progress as possible. Previously each ring started due east and
+	# went clockwise, which dropped blocked movers on an arbitrary side (a
+	# Telemon heading north-east ended up south-east of where it started).
 	var step = base_radius * 2.0 + 4.0
+	var fwd_angle: float = move_vector.angle() if move_vector.length() > 0.001 else 0.0
 	for ring in range(1, 10):
 		var ring_radius = step * ring
 		var points_in_ring = maxi(12, ring * 8)
 		for p_idx in range(points_in_ring):
-			var angle = (2.0 * PI * p_idx) / points_in_ring
+			var k := (p_idx + 1) / 2
+			var sgn := 1.0 if p_idx % 2 == 1 else -1.0
+			var angle = fwd_angle + sgn * (2.0 * PI * k) / points_in_ring
 			var candidate = Vector2(dest.x + cos(angle) * ring_radius, dest.y + sin(angle) * ring_radius)
 			_rej.tried += 1
 			var _r3: String = _reject_reason.call(candidate)
@@ -25218,11 +25366,19 @@ static func _find_safer_position(
 			best_pos = candidate
 
 	if best_pos != desired_pos:
+		var best_threat: float = _evaluate_position_threat(best_pos, threat_data, own_unit).total_threat
 		print("AIDecisionMaker: Threat-adjusted position from (%.0f, %.0f) to (%.0f, %.0f) — threat %.1f -> %.1f" % [
 			desired_pos.x, desired_pos.y, best_pos.x, best_pos.y,
-			desired_threat.total_threat,
-			_evaluate_position_threat(best_pos, threat_data, own_unit).total_threat
+			desired_threat.total_threat, best_threat
 		])
+		var shape := "shifted sideways"
+		var along: float = (best_pos - current_pos).dot(move_dir) / move_dist
+		if along < 0.9 and best_pos.distance_to(current_pos + move_dir * move_dist * along) > PIXELS_PER_INCH:
+			shape = "cut to %.0f%% and shifted sideways" % (along * 100.0)
+		elif along < 0.9:
+			shape = "cut to %.0f%%" % (along * 100.0)
+		_move_shape_notes.append("Move %s to stay out of enemy charge/shooting reach (danger %.1f → %.1f)" % [
+			shape, desired_threat.total_threat, best_threat])
 
 	return best_pos
 

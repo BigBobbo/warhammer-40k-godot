@@ -1,0 +1,31 @@
+{
+  "id": "ai_move_shape_telemon_gantry",
+  "covers": [
+    "ai.movement.charge_steer_gate",
+    "ai.movement.solid_terrain_detour",
+    "ai.suggestion.move_shape_notes"
+  ],
+  "fixture": "telemon_move_issue",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "Regression for the TELEMON_MOVE_ISSUE save (R1 Movement, Custodes mirror). The Telemon's objective is obj_nml_1 to the north-east, it has a planned charge on the enemy Sentinel Guard Sodality Beta 19.1\" away to the south-east, and a 3\" solid gantry (gantry-38) is touching its base on the north-east side. Before: the move was bent 70% toward the charge target and then cut short by the threat dodge, so it went 5.4\" south-east and gained ~0.2\" on the objective. After: the charge steer is dropped (even 70% only ends 10\" away, needs <=9\"), the 100mm base's path is checked against the engine's 11e solid-terrain rule so it detours around the gantry, and the suggestion card lists every adjustment under 'How this turn's move was shaped'.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})" },
+    { "act": "execute_script", "script": "main.refresh_ai_suggestion_button()" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "GameState.get_current_phase()", "equals": 7 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "execute_script", "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible", "equals": true },
+    { "act": "execute_script", "script": "main._on_ai_suggestion_unit_focus(\"U_TELEMON_HEAVY_DREADNOUGHT_A\")", "comment": "what clicking the Telemon in the card's move order does" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "execute_script", "script": "main._ai_suggestion_panel.breakdown_text.contains(\"How this turn's move was shaped\")", "equals": true },
+    { "act": "execute_script", "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Planned charge on Sentinel Guard Sodality Beta is out of reach this turn\")", "equals": true },
+    { "act": "execute_script", "script": "main._ai_suggestion_panel.breakdown_text.contains(\"gantry-38\")", "equals": true },
+    { "act": "execute_script", "script": "main._ai_suggestion_panel.breakdown_text.contains(\"steering toward charge target\")", "equals": false },
+    { "act": "execute_script", "script": "Vector2(AIPlayer.request_suggestion(-1, \"U_TELEMON_HEAVY_DREADNOUGHT_A\").get(\"_ai_model_destinations\").get(\"m1\")[0], AIPlayer.request_suggestion(-1, \"U_TELEMON_HEAVY_DREADNOUGHT_A\").get(\"_ai_model_destinations\").get(\"m1\")[1]).distance_to(Vector2(1380, 430)) < 520.0", "equals": true, "comment": "ends within 13\" of obj_nml_1 (starts 15.9\"; the old charge-steered move ended 15.7\" away)" },
+    { "act": "screenshot", "label": "01_telemon_move_shaped" }
+  ]
+}
