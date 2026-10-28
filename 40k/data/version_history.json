@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.1",
+      "date": "2026-10-28",
+      "summary": "Terrain objectives now count as 'in range' everywhere, and the AI takes the shortest route onto them.",
+      "changes": [
+        "Mission and secondary rules now treat a model as within range of a terrain objective once its base touches the objective's area, not only when it is near the marker. This covers Burden of Trust guards (scoring, auto-pick and the guard dropdown), Sabotage, Gather Intel, Punishment, Decoy, Cleanse, Stand Vigil and Dat's Our Loot!.",
+        "Clicking anywhere on a terrain objective's area now selects that objective when a prompt asks you to pick one on the board.",
+        "The AI checks whether enemy and friendly units are 'on an objective' the same way the game scores it (any base in range), so its shooting, charge, fight and stratagem choices value objective holders correctly.",
+        "AI units heading for a terrain objective now move straight at its nearest edge instead of angling toward the marker in the middle."
+      ]
+    },
+    {
       "version": "1.56.0",
       "date": "2026-10-28",
       "summary": "The AI now measures distance to terrain objectives properly and will Advance onto an objective when the roll is likely to get it there.",
