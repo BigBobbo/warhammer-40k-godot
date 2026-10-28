@@ -23,6 +23,9 @@ func _init():
 	_test_flat_hold_min_card_unchanged()
 	_test_multi_charge_expected_value()
 	_test_multi_charge_unreachable_combo()
+	_test_shooting_value_per_wound()
+	_test_melee_classifier()
+	_test_charge_leaves_held_objective()
 	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
 	quit(1 if _fail_count > 0 else 0)
 
@@ -108,3 +111,54 @@ func _test_multi_charge_unreachable_combo() -> void:
 	var res = AIDecisionMaker._score_multi_target_combo("C", charger, "Charger", [a, b], 1.0,
 		{"expected_damage": 0.0, "score_penalty": 1.0}, {"units": {}}, 1)
 	_assert(res.score == -INF, "a combo no roll can complete is not offered")
+
+# SHOOT-PW: the critic case s7001_r2_p1_shooting_1 — a healthy 14-wound unit
+# (value 7.45, 1.78 dmg) vs a wounded 6-wound one (value 2.55, 2.22 dmg).
+func _test_shooting_value_per_wound() -> void:
+	var tv = {"HEALTHY": 7.45, "WOUNDED": 2.55}
+	var th = {"HEALTHY": 14.0, "WOUNDED": 6.0}
+	var alloc = {"HEALTHY": 0.0, "WOUNDED": 0.0}
+	var wpm = {"HEALTHY": 5.0, "WOUNDED": 3.0}
+	var healthy = AIDecisionMaker._calculate_marginal_value(1.78, "HEALTHY", tv, th, alloc, wpm, 1.0, {})
+	var wounded = AIDecisionMaker._calculate_marginal_value(2.22, "WOUNDED", tv, th, alloc, wpm, 1.0, {})
+	# 2.55 was the wounded unit's value AFTER the planned-charge-target halving
+	# (SHOOT-FINISH no longer halves a unit below half its wounds): 5.1 here.
+	tv["WOUNDED"] = 5.1
+	var wounded_full = AIDecisionMaker._calculate_marginal_value(2.22, "WOUNDED", tv, th, alloc, wpm, 1.0, {})
+	_assert(wounded_full > healthy, "per-wound value: the wounded unit (%.2f) beats chip damage on the healthy one (%.2f)" % [wounded_full, healthy])
+	_assert(_near(wounded, healthy, 0.05), "with the old charge-target halving it was a near tie (%.2f vs %.2f) — why SHOOT-FINISH is needed" % [wounded, healthy])
+	_assert(_near(healthy, 1.78 * 7.45 / 14.0, 0.01), "healthy target value = dmg x value / wounds (got %.3f)" % healthy)
+
+func _weapon(type: String, s: int, a: String, ap: String, d: String, rules: String = "") -> Dictionary:
+	return {"type": type, "strength": str(s), "attacks": a, "ap": ap, "damage": d, "special_rules": rules}
+
+func _test_melee_classifier() -> void:
+	var prosecutors = {"meta": {"weapons": [_weapon("Ranged", 4, "1", "0", "1", "rapid fire 1"), _weapon("Melee", 3, "2", "0", "1")]}}
+	var boyz = {"meta": {"weapons": [_weapon("Ranged", 4, "1", "0", "1", "pistol"), _weapon("Melee", 4, "3", "-1", "1")]}}
+	var guard = {"meta": {"weapons": [_weapon("Ranged", 5, "2", "-1", "2", "assault, rapid fire 2"), _weapon("Melee", 8, "6", "-2", "2")]}}
+	var champion = {"meta": {"weapons": [_weapon("Melee", 10, "5", "-3", "3")]}}
+	_assert(not AIDecisionMaker._is_melee_focused_unit(prosecutors), "Prosecutors (boltgun + S3 close combat weapon) are not melee-focused")
+	_assert(AIDecisionMaker._is_melee_focused_unit(boyz), "Ork Boyz (pistols + choppas) stay melee-focused")
+	_assert(not AIDecisionMaker._is_melee_focused_unit(guard), "Custodian Guard (strong ranged spear) are not melee-focused")
+	_assert(AIDecisionMaker._is_melee_focused_unit(champion), "a unit with only a strong melee weapon is melee-focused")
+
+func _model(id: String, x: float, y: float, oc: int) -> Dictionary:
+	return {"id": id, "alive": true, "current_wounds": 2, "wounds": 2, "base_mm": 32,
+		"position": {"x": x, "y": y}, "oc": oc}
+
+func _unit(owner: int, models: Array, oc: int) -> Dictionary:
+	return {"owner": owner, "status": 2, "models": models,
+		"meta": {"name": "u", "stats": {"objective_control": oc}, "keywords": ["INFANTRY"], "weapons": []}}
+
+func _test_charge_leaves_held_objective() -> void:
+	var obj = {"id": "obj_a", "position": {"x": 400.0, "y": 400.0}}
+	var charger = _unit(1, [_model("c1", 400, 400, 2), _model("c2", 410, 400, 2)], 2)
+	var target = _unit(2, [_model("t1", 400, 700, 1)], 1)
+	var enemy_near = _unit(2, [_model("e1", 420, 410, 1)], 1)
+	var snap = {"board": {"objectives": [obj]}, "units": {"C": charger, "T": target, "E": enemy_near}}
+	var leave = AIDecisionMaker._charge_leaves_held_objective("C", charger, target, snap, 1)
+	_assert(not leave.is_empty(), "sole holder (OC %s vs enemy %s) leaving the objective is flagged" % [str(leave.get("friendly", "?")), str(leave.get("enemy", "?"))])
+	var friend = _unit(1, [_model("f1", 390, 410, 2), _model("f2", 395, 390, 2)], 2)
+	snap.units["F"] = friend
+	var leave2 = AIDecisionMaker._charge_leaves_held_objective("C", charger, target, snap, 1)
+	_assert(leave2.is_empty(), "no cost when other friendly units still hold the objective")

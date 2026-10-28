@@ -1479,6 +1479,16 @@ const CHARGE_SHORT_3IN_MULT: float = 1.3  # charge: needs 3" or less (reliabilit
 # one) that a declaration listing several targets earns when the roll reaches
 # them — lock-down only; the charger has one set of attacks.
 const MULTI_CHARGE_EXTRA_TARGET_SHARE: float = 0.2
+# Movement plan (DIM-RETURNS): do not send a unit to take another objective
+# that, with the objectives the plan already takes, adds less primary VP than
+# this (unless the enemy holds it — denial — or it is home).
+const PLAN_EXTRA_OBJECTIVE_MIN_VP: float = 1.0
+# Movement plan (RACE-SKIP): a lost contest race is not assigned when the enemy
+# can bring at least this multiple of our OC there before we arrive.
+const MOVE_RACE_HOPELESS_RATIO: float = 2.0
+# Charge (CH-LEAVE): score multiplier lost when a successful charge would pull
+# the charger off an objective it alone keeps.
+const CHARGE_LEAVE_OBJ_PENALTY: float = 0.5
 const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
 const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
 const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
@@ -2351,7 +2361,24 @@ static func _is_melee_focused_unit(unit: Dictionary) -> bool:
 		if attacks >= 4:
 			strong_ranged = true
 			break
-	return not strong_ranged
+	if strong_ranged:
+		return false
+	# MELEE-CLASS: weak guns alone do not make a melee unit — it also needs a
+	# real melee weapon. Prosecutors (boltgun S4 A1, close combat weapon S3 A2
+	# AP0 D1) were classed melee-focused and sent 20" to "attack" Custodians.
+	return _unit_has_real_melee_weapon(unit)
+
+static func _unit_has_real_melee_weapon(unit: Dictionary) -> bool:
+	"""A melee profile worth seeking combat for: S5+, AP-1 or better, D2+ (or
+	random damage), or 3+ attacks per model."""
+	for w in unit.get("meta", {}).get("weapons", []):
+		if w.get("type", "").to_lower() != "melee":
+			continue
+		var dmg = str(w.get("damage", "1")).to_upper()
+		if int(w.get("strength", 0)) >= 5 or int(str(w.get("ap", "0"))) <= -1 \
+				or "D" in dmg or int(dmg) >= 2 or int(str(w.get("attacks", "0"))) >= 3:
+			return true
+	return false
 
 # SOAK-5: single source of truth for "should this unit leave its objective
 # assignment to seek melee?" — used by the hold-decision, melee-aggression and
@@ -7511,7 +7538,7 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 			arr_cands.append({"description": "%s arrives%s" % [sc_u.name, " (no legal spot found)" if sc_u.get("no_room", false) else ""],
 				"score": float(sc_u.score), "key": str(sc_u.unit_id), "score_breakdown": (sc_u.get("terms", {}) as Dictionary).duplicate()})
 		_record_choice("reserves_arrival", unit_id, unit_name, arr_cands, unit_id,
-			{"phase": "movement", "round": battle_round, "source": "highest urgency with a legal spot; spot = first legal placement"})
+			{"phase": "movement", "round": battle_round, "source": "highest urgency with a legal spot; spot = best-scored legal placement"})
 		return result
 
 	print("AIDecisionMaker: [RESERVES] No reserve units could be deployed this turn")
@@ -7551,12 +7578,17 @@ static func _score_reserves_deployment(unit: Dictionary, unit_id: String, reserv
 	# Check if there are contested objectives that need reinforcement
 	var friendly_units = _get_units_for_player(snapshot, player)
 	var obj_evaluations = _evaluate_all_objectives(snapshot, objectives, player, enemies, friendly_units, battle_round)
+	# RES-OBJ: match the states _evaluate_all_objectives really produces (the
+	# old "enemy_held"/"uncontested" never matched, so this term was always 0),
+	# and scale by the OC the unit brings so a high-OC unit arrives first when
+	# objectives are in play — it was a constant shared by every unit.
+	var arrive_oc_factor = clampf(float(_unit_alive_oc(unit)) / 6.0, 0.5, 2.0)
 	for eval in obj_evaluations:
 		var obj_state = eval.get("state", "")
-		if obj_state in ["contested", "enemy_held"]:
-			score += _t_add(terms, "arrive_objectives", get_param("RESERVE_DEPLOY_CONTESTED_OBJ", RESERVE_DEPLOY_CONTESTED_OBJ))  # Contested objectives benefit from reinforcement
-		elif obj_state == "uncontested":
-			score += _t_add(terms, "arrive_objectives", get_param("RESERVE_DEPLOY_OPEN_OBJ", RESERVE_DEPLOY_OPEN_OBJ))
+		if obj_state in ["contested", "enemy_weak", "enemy_strong", "held_threatened"]:
+			score += _t_add(terms, "arrive_objectives", get_param("RESERVE_DEPLOY_CONTESTED_OBJ", RESERVE_DEPLOY_CONTESTED_OBJ) * arrive_oc_factor)  # Contested objectives benefit from reinforcement
+		elif obj_state == "uncontrolled":
+			score += _t_add(terms, "arrive_objectives", get_param("RESERVE_DEPLOY_OPEN_OBJ", RESERVE_DEPLOY_OPEN_OBJ) * arrive_oc_factor)
 
 	return score
 
@@ -8717,7 +8749,10 @@ static func _initial_objective_oc_needs(obj_evaluations: Array, friendly_units: 
 		if eval.state in ["held_safe"]:
 			base_need = 0  # Already fully held
 		elif eval.state == "held_threatened":
-			base_need = max(1, eval.enemy_oc)  # Might need reinforcement
+			# Reinforce only what the friendly OC already there does not cover;
+			# a held objective with surplus OC needs nothing now (the projected
+			# enemy OC below still adds what the next enemy move could bring).
+			base_need = max(0, eval.enemy_oc - eval.friendly_oc + 1)
 		else:
 			# Need enough OC to control: enemy_oc + 1 (minus what we already have)
 			base_need = max(1, eval.oc_needed)
@@ -8831,7 +8866,12 @@ static func _assign_units_to_objectives(
 			var obj_id = eval.id
 			var dist_px = centroid.distance_to(obj_pos)
 			var dist_inches = dist_px / PIXELS_PER_INCH
-			var turns_to_reach = max(1.0, ceil(dist_inches / move_inches)) if move_inches > 0 else 99.0
+			# REACH-CR: a unit takes an objective when a model is within control
+			# range of the marker, not on it — every reach/advance test uses the
+			# gap to control range (same as _capture_arrival), so a unit 9" away
+			# at M8 is "there this turn" and does not Advance for nothing.
+			var gap_in = maxf(0.0, dist_inches - OBJECTIVE_CONTROL_RANGE_PX / PIXELS_PER_INCH)
+			var turns_to_reach = max(1.0, ceil(gap_in / move_inches)) if move_inches > 0 else 99.0
 			# OBJ-HOLD-1: a unit is "on" an objective when ANY alive model is in
 			# control range (that is what scores — see _unit_oc_at_position), not
 			# just its centroid. A spread squad with models on the marker but a
@@ -8840,10 +8880,10 @@ static func _assign_units_to_objectives(
 			# RACE-1: a long trip the unit will Advance on is costed (distance,
 			# contest race) at the Advance pace it will actually travel.
 			var long_adv: bool = long_adv_ok and not already_on_obj \
-					and dist_inches > move_inches + 2.0 \
-					and _long_trip_advance_saves_turn(dist_inches, move_inches)
+					and gap_in > move_inches + 2.0 \
+					and _long_trip_advance_saves_turn(gap_in, move_inches)
 			if long_adv:
-				turns_to_reach = max(1.0, ceil(dist_inches / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES))))
+				turns_to_reach = max(1.0, ceil(gap_in / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES))))
 
 			# Base score from objective priority
 			# T7-43: Scale objective priority by round strategy modifier
@@ -8868,8 +8908,11 @@ static func _assign_units_to_objectives(
 			var race_lost := false
 			if turns_to_reach > 1 and not already_on_obj:
 				race_enemy_oc = int(eval.get("enemy_oc", 0))
+				# The objective first scores for us at our NEXT Command phase
+				# after we arrive, so the enemy gets one move per turn we spend
+				# travelling — turns_to_reach moves, not one fewer.
 				for arr in eval.get("enemy_arrivals", []):
-					if int(arr.moves) <= int(turns_to_reach) - 1:
+					if int(arr.moves) <= int(turns_to_reach):
 						race_enemy_oc += int(arr.oc)
 				var race_our_oc: int = int(unit_oc) + int(eval.get("friendly_oc", 0))
 				if race_enemy_oc > 0 and race_enemy_oc >= race_our_oc and score > 0.0:
@@ -8926,9 +8969,9 @@ static func _assign_units_to_objectives(
 					score += _t_add(score_terms, "horde_presence", get_param("MOVE_HORDE_BONUS_MEDIUM", MOVE_HORDE_BONUS_MEDIUM))  # Medium squad — decent presence
 
 			# Can reach this turn: bonus
-			if dist_inches <= move_inches:
+			if gap_in <= move_inches:
 				score += _t_add(score_terms, "reachability", get_param("MOVE_REACHABLE_BONUS", MOVE_REACHABLE_BONUS))
-			elif dist_inches <= move_inches + 2.0:  # Reachable with advance
+			elif gap_in <= move_inches + 2.0:  # Reachable with advance
 				score += _t_add(score_terms, "reachability", get_param("MOVE_ADVANCE_REACHABLE_BONUS", MOVE_ADVANCE_REACHABLE_BONUS))
 
 			# Scoring round awareness: if this is round 1 and we can't reach by round 2, lower priority
@@ -9193,10 +9236,10 @@ static func _assign_units_to_objectives(
 			if already_on_obj:
 				action = "hold"
 				reason = "on objective, OC needed"
-			elif dist_inches > move_inches and dist_inches <= move_inches + 2.0:
-				# Advance consideration (Task 3)
+			elif gap_in > move_inches and gap_in <= move_inches + 2.0:
+				# Advance consideration (Task 3) — on the gap to control range
 				var should_advance = _should_unit_advance(
-					unit, dist_inches, move_inches, has_ranged, max_weapon_range,
+					unit, gap_in, move_inches, has_ranged, max_weapon_range,
 					enemies, centroid, battle_round, eval
 				)
 				if should_advance:
@@ -9231,6 +9274,7 @@ static func _assign_units_to_objectives(
 				"move_inches": move_inches,
 				"race_enemy_oc": race_enemy_oc,
 				"race_lost": race_lost,
+				"race_our_oc": int(unit_oc) + int(eval.get("friendly_oc", 0)),
 				"vp_value": eval.get("vp_value", 0.0),
 				"score_terms": score_terms
 			})
@@ -9257,6 +9301,20 @@ static func _assign_units_to_objectives(
 	for cand in candidates:
 		if not cand.already_on_obj:
 			best_elsewhere[cand.unit_id] = maxf(float(best_elsewhere.get(cand.unit_id, -INF)), float(cand.score))
+	# KEEP-OC: OC on each objective from units the plan CANNOT move this phase
+	# (already moved, engaged, not in movable_units). A keeper is only needed
+	# when that locked OC alone would not hold the objective against the enemy
+	# OC there or one move away. Counting every movable holder out (not just
+	# this one) keeps two movable holders from both walking off.
+	var movable_oc_on_obj = {}  # obj_id -> sum of OC of movable units on it
+	for cand in candidates:
+		if cand.already_on_obj:
+			movable_oc_on_obj[cand.objective_id] = int(movable_oc_on_obj.get(cand.objective_id, 0)) + int(cand.unit_oc)
+	var locked_oc_holds = func(o_id: String) -> bool:
+		var o_eval = _get_obj_eval_by_id(obj_evaluations, o_id)
+		var locked = int(o_eval.get("friendly_oc", 0)) - int(movable_oc_on_obj.get(o_id, 0))
+		var threat = maxi(int(o_eval.get("enemy_oc", 0)), int(o_eval.get("projected_enemy_oc", 0)))
+		return locked > threat
 	var obj_keeper = {}  # objective_id -> {uid, best_elsewhere}
 	for cand in candidates:
 		if not cand.already_on_obj:
@@ -9283,6 +9341,10 @@ static func _assign_units_to_objectives(
 			should_hold = true  # OC still needed at this objective
 		elif obj_state == "held_threatened":
 			should_hold = true  # Threatened, keep defender
+		elif obj_keeper.get(oid, {}).get("uid", "") == uid and locked_oc_holds.call(oid):
+			print("AIDecisionMaker: [KEEP-OC] %s: %s freed — units that are not moving this phase already hold it (OC %d vs enemy threat %d)" % [
+				oid, uid, int(eval_for_obj.get("friendly_oc", 0)) - int(movable_oc_on_obj.get(oid, 0)),
+				maxi(int(eval_for_obj.get("enemy_oc", 0)), int(eval_for_obj.get("projected_enemy_oc", 0)))])
 		elif obj_keeper.get(oid, {}).get("uid", "") == uid:
 			# This unit is the objective's keeper (OBJ-HOLD-2) — the only unit
 			# on it, or the one of several with the least to gain elsewhere — generally hold to maintain control.
@@ -9337,6 +9399,62 @@ static func _assign_units_to_objectives(
 	# COORD-2: remember each unit's best candidate that was skipped because
 	# earlier movers already have it covered — so the redirect can be narrated.
 	var blocked_best = {}  # unit_id -> {objective_id, names}
+	var extra_obj_skipped = {}  # unit_id -> {objective_id, vp, extra}: DIM-RETURNS skips (narration)
+
+	# DIM-RETURNS: objective VP is priced once (in _evaluate_all_objectives) at
+	# the CURRENT hold count, but every capture this plan makes raises that
+	# count — and primary VP has diminishing returns (15 VP/turn cap, flat
+	# "hold at least one" awards). Re-price each NEW objective as if the
+	# objectives the plan is already taking were held, and do not send a unit
+	# to one that would then add almost nothing: spreading the army thin costs
+	# more than it scores. Enemy-held objectives keep their denial value, and
+	# home is never skipped.
+	var plan_base_holds := 0
+	var plan_base_theirs := 0
+	for ev in obj_evaluations:
+		if ev.state in ["held_safe", "held_threatened"]:
+			plan_base_holds += 1
+		elif ev.state in ["enemy_weak", "enemy_strong"]:
+			plan_base_theirs += 1
+	var planned_new_objs := {}  # objective_id -> true: not held now, the plan is taking it
+	for inc_oid in incoming_oc:
+		var inc_eval = _get_obj_eval_by_id(obj_evaluations, inc_oid)
+		if not inc_eval.is_empty() and inc_eval.state not in ["held_safe", "held_threatened"]:
+			planned_new_objs[inc_oid] = true
+	var extra_obj_min_vp = get_param("PLAN_EXTRA_OBJECTIVE_MIN_VP", PLAN_EXTRA_OBJECTIVE_MIN_VP)
+	# RACE-SKIP: a lost race is only costed (contest_race) — when the enemy can
+	# have far more OC there before we arrive (MOVE_RACE_HOPELESS_RATIO x ours,
+	# counting friends already en route), sending the unit just strands it.
+	# Close races stay assignable so the AI does not turn passive.
+	var race_ratio = get_param("MOVE_RACE_HOPELESS_RATIO", MOVE_RACE_HOPELESS_RATIO)
+	var race_hopeless := func(c: Dictionary) -> bool:
+		if not c.get("race_lost", false):
+			return false
+		var ours = int(c.get("race_our_oc", c.get("unit_oc", 1))) + int(incoming_oc.get(c.objective_id, 0))
+		return float(c.get("race_enemy_oc", 0)) >= race_ratio * float(maxi(ours, 1))
+	var reprice_capture := func(c_oid: String) -> Dictionary:
+		var ev = _get_obj_eval_by_id(obj_evaluations, c_oid)
+		if ev.is_empty() or ev.state in ["held_safe", "held_threatened"] or planned_new_objs.has(c_oid) or planned_new_objs.is_empty():
+			return {"drop": 0.0, "skip": false}
+		var extra = planned_new_objs.size()
+		var c_pos: Vector2 = ev.get("position", Vector2.INF)
+		var new_vp = float(_estimate_objective_vp_value({
+			"is_home": ev.get("is_home", false),
+			"is_enemy_home": ev.get("is_enemy_home", false),
+			"is_central": c_pos != Vector2.INF and c_pos.distance_to(Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)) <= 4.0 * PIXELS_PER_INCH,
+			"is_held_by_me": false,
+		}, player, plan_base_holds + extra, plan_base_theirs).vp)
+		var denial = ev.state in ["enemy_weak", "enemy_strong", "contested"]
+		return {
+			"drop": maxf(float(ev.get("vp_value", 0.0)) - new_vp, 0.0),
+			"new_vp": new_vp,
+			"extra": extra,
+			# Only an objective the card DID value, that the plan's own captures
+			# devalued — with no primary info (no card, 10e) every vp is 0 and
+			# nothing is skipped.
+			"skip": not denial and not ev.get("is_home", false) and new_vp < extra_obj_min_vp \
+					and float(ev.get("vp_value", 0.0)) >= extra_obj_min_vp,
+		}
 
 	# Shared capture-assignment applier (used by pass 2 and the COORD-4
 	# backfill pass after attack conversions re-open OC needs). Mutates the
@@ -9345,7 +9463,16 @@ static func _assign_units_to_objectives(
 		var c_uid = cand.unit_id
 		var c_oid = cand.objective_id
 		var c_remaining = obj_oc_remaining.get(c_oid, 0)
+		var c_price: Dictionary = reprice_capture.call(c_oid)
 		assignments[c_uid] = cand.duplicate()
+		if float(c_price.get("drop", 0.0)) > 0.0:
+			var c_terms: Dictionary = (cand.get("score_terms", {}) as Dictionary).duplicate()
+			assignments[c_uid]["score"] = float(cand.score) + _t_add(c_terms, "vp_after_commitments",
+				-float(c_price.drop) * get_param("WEIGHT_VP_PER_POINT", WEIGHT_VP_PER_POINT))
+			assignments[c_uid]["score_terms"] = c_terms
+		var c_eval = _get_obj_eval_by_id(obj_evaluations, c_oid)
+		if not c_eval.is_empty() and c_eval.state not in ["held_safe", "held_threatened"]:
+			planned_new_objs[c_oid] = true
 		assigned_unit_ids[c_uid] = true
 		assignments[c_uid]["oc_consumed"] = min(cand.unit_oc, max(0, c_remaining))
 		obj_oc_remaining[c_oid] = max(0, c_remaining - cand.unit_oc)
@@ -9367,6 +9494,9 @@ static func _assign_units_to_objectives(
 				assign_reason = "capturing it (uncontrolled)"
 			if obj_oc_remaining[c_oid] > 0:
 				assign_reason += ", needs %d more OC after this unit" % obj_oc_remaining[c_oid]
+			if float(c_price.get("drop", 0.0)) > 0.0:
+				assign_reason += " — worth ~%.0f VP with the %d other objective(s) this plan takes" % [
+					float(c_price.new_vp), int(c_price.extra)]
 		assignments[c_uid]["reason"] = assign_reason
 		assignments[c_uid]["assign_pass"] = "capture"
 		print("AIDecisionMaker: Assigned %s to %s %s (score: %.1f, reason: %s)" % [c_uid, cand.action.to_upper(), c_oid, cand.score, assign_reason])
@@ -9382,6 +9512,22 @@ static func _assign_units_to_objectives(
 			if incoming_oc.get(oid, 0) > 0 and not blocked_best.has(uid):
 				blocked_best[uid] = {"objective_id": oid, "names": incoming_names.get(oid, [])}
 			continue  # Skip objectives that don't need more OC
+
+		var price: Dictionary = reprice_capture.call(oid)
+		if price.get("skip", false):
+			if not extra_obj_skipped.has(uid):
+				extra_obj_skipped[uid] = {"objective_id": oid, "vp": float(price.new_vp), "extra": int(price.extra)}
+				print("AIDecisionMaker: [DIM-RETURNS] %s: not sending %s — with %d other objective(s) the plan already takes, %s adds only ~%.1f VP (primary cap / flat award)" % [
+					oid, uid, int(price.extra), oid, float(price.new_vp)])
+			continue
+		if race_hopeless.call(cand):
+			if not extra_obj_skipped.has(uid):
+				extra_obj_skipped[uid] = {"objective_id": oid, "race_enemy_oc": int(cand.race_enemy_oc),
+					"turns": int(cand.get("turns_to_reach", 1))}
+				print("AIDecisionMaker: [RACE-SKIP] %s: not sending %s — the enemy can have ~%d OC there before it arrives in %d turn(s), vs our %d" % [
+					oid, uid, int(cand.race_enemy_oc), int(cand.get("turns_to_reach", 1)),
+					int(cand.get("race_our_oc", 0)) + int(incoming_oc.get(oid, 0))])
+			continue
 
 		# OBJ-ASSIGN-1: the greedy order is by score only, and distance enters
 		# the score in whole-turn steps — so the unit the greedy order sends may
@@ -9450,6 +9596,14 @@ static func _assign_units_to_objectives(
 			continue
 		var a_oid = a.get("objective_id", "")
 		var reopened = int(a.get("oc_consumed", 0))
+		if a.get("action", "") == "hold":
+			# A holder that leaves takes its OC with it: re-open what the
+			# objective then lacks against the enemy OC there or one move away
+			# (its own consumed share can be 0 when it held with surplus).
+			var h_eval = _get_obj_eval_by_id(obj_evaluations, a_oid)
+			var h_threat = maxi(int(h_eval.get("enemy_oc", 0)), int(h_eval.get("projected_enemy_oc", 0)))
+			var h_left = int(h_eval.get("friendly_oc", 0)) - int(a.get("unit_oc", 1))
+			reopened = maxi(reopened, h_threat - h_left + 1)
 		if reopened > 0 and obj_oc_remaining.has(a_oid):
 			obj_oc_remaining[a_oid] = obj_oc_remaining[a_oid] + reopened
 			print("AIDecisionMaker: [COORD-4] %s: OC need re-opened to %d (planned unit is attacking instead)" % [
@@ -9479,6 +9633,10 @@ static func _assign_units_to_objectives(
 	for cand in candidates:
 		if obj_oc_remaining.get(cand.objective_id, 0) <= 0:
 			continue
+		if (reprice_capture.call(cand.objective_id) as Dictionary).get("skip", false):
+			continue  # DIM-RETURNS: another objective would add almost nothing
+		if race_hopeless.call(cand):
+			continue  # RACE-SKIP: a race this unit cannot win
 		if assigned_unit_ids.has(cand.unit_id):
 			# OBJ-BACKFILL-1: a unit already sent to a LOWER-scored objective
 			# switches to the re-opened one. Previously only unassigned units
@@ -9724,7 +9882,13 @@ static func _assign_units_to_objectives(
 
 		# --- FALLBACK: Assign to best remaining objective (COORD-4: with the
 		# shared support ledger so spare units spread instead of stacking) ---
-		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player, support_counts)
+		var support_allowed := {}
+		if extra_obj_skipped.has(unit_id):
+			for s_eval in obj_evaluations:
+				if s_eval.state in ["held_safe", "held_threatened", "contested", "enemy_weak", "enemy_strong"] \
+						or planned_new_objs.has(s_eval.id):
+					support_allowed[s_eval.id] = true
+		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player, support_counts, support_allowed)
 		if not best_obj.is_empty():
 			assignments[unit_id] = best_obj
 			assignments[unit_id]["assign_pass"] = "support"
@@ -9765,6 +9929,20 @@ static func _assign_units_to_objectives(
 		if assigned_oid != "" and assigned_oid != bb.objective_id:
 			assignments[uid]["coordination_note"] = "%s is already covered (%s en route) — redirecting to %s" % [
 				bb.objective_id, ", ".join(bb.names), assigned_oid]
+
+	# DIM-RETURNS: say why the unit is not taking another objective
+	for uid in extra_obj_skipped:
+		if not assignments.has(uid) or assignments[uid].has("coordination_note"):
+			continue
+		var xs = extra_obj_skipped[uid]
+		if str(assignments[uid].get("objective_id", "")) == str(xs.objective_id):
+			continue
+		if xs.has("race_enemy_oc"):
+			assignments[uid]["coordination_note"] = "not racing for %s — the enemy can have ~%d OC there before we arrive in %d turn(s); staying with the army instead" % [
+				xs.objective_id, int(xs.race_enemy_oc), int(xs.turns)]
+		else:
+			assignments[uid]["coordination_note"] = "not taking %s — with the %d other objective(s) this plan takes, it adds only ~%.0f VP (primary cap / flat award); staying with the army instead" % [
+				xs.objective_id, int(xs.extra), float(xs.vp)]
 
 	# OBJ-EXPLAIN-1: every capture assignment that is NOT the unit's top-scored
 	# objective names WHO took that objective (or that it needs no more OC),
@@ -11298,7 +11476,8 @@ static func _get_obj_eval_by_id(evaluations: Array, obj_id: String) -> Dictionar
 
 static func _find_best_remaining_objective(
 	centroid: Vector2, obj_evaluations: Array, enemies: Dictionary,
-	unit: Dictionary, snapshot: Dictionary, player: int, support_counts: Dictionary = {}
+	unit: Dictionary, snapshot: Dictionary, player: int, support_counts: Dictionary = {},
+	allowed_ids: Dictionary = {}
 ) -> Dictionary:
 	# For unassigned units: find the best objective to support or screen near.
 	# COORD-4: support_counts (obj_id -> units already committed there this
@@ -11312,6 +11491,10 @@ static func _find_best_remaining_objective(
 	var stack_penalty = get_param("SUPPORT_STACK_PENALTY", SUPPORT_STACK_PENALTY)
 
 	for eval in obj_evaluations:
+		# DIM-RETURNS / RACE-SKIP: a unit the plan kept from taking another
+		# objective supports only where the army already is or is going.
+		if not allowed_ids.is_empty() and not allowed_ids.has(eval.id):
+			continue
 		var dist = centroid.distance_to(eval.position)
 		var dist_inches = dist / PIXELS_PER_INCH
 
@@ -13992,7 +14175,15 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		# Don't waste shooting on targets we intend to charge into melee with —
 		# the charge will handle them, and shooting could kill models that
 		# would have been better engaged in combat.
-		if _is_charge_target(enemy_id):
+		# SHOOT-FINISH: but not when the target is below half its wounds —
+		# then shooting can finish it, and the charger (11e: targets picked
+		# after the roll) can still take another unit.
+		var tv_max_wounds = float(enemy.get("models", []).size()) * float(enemy.get("meta", {}).get("stats", {}).get("wounds", 1))
+		var tv_badly_hurt = tv_max_wounds > 0.0 and float(kill_thresholds[enemy_id]) <= 0.5 * tv_max_wounds
+		if _is_charge_target(enemy_id) and tv_badly_hurt:
+			print("AIDecisionMaker: [SHOOT-FINISH] %s is a planned charge target but below half its wounds (%.0f of %.0f) — shooting may finish it" % [
+				_dn(enemy, enemy_id), float(kill_thresholds[enemy_id]), tv_max_wounds])
+		elif _is_charge_target(enemy_id):
 			var enemy_name = _dn(enemy, enemy_id)
 			print("AIDecisionMaker: [PHASE-PLAN] Suppressing shooting priority for %s (planned charge target, %.2f -> %.2f)" % [
 				enemy_name, base_value, base_value * get_param("PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET", PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET)])
@@ -14762,8 +14953,16 @@ static func _calculate_marginal_value(
 		useful_damage = maxf(threshold - current_alloc, 0.0)
 		overkill_damage = weapon_damage - useful_damage
 
-	# Base marginal value: useful damage × target value
-	var marginal = useful_damage * target_value
+	# SHOOT-PW: target_value prices the WHOLE unit, so value one wound as its
+	# share of the unit (target_value / remaining wounds). A shot is worth the
+	# fraction of the unit it removes x the unit's value — chip damage on a
+	# healthy 15-wound unit no longer outscores a likely kill on a wounded or
+	# cheap one. Only relative values matter (the allocator takes the best
+	# positive marginal), so the change of scale is safe.
+	var value_per_wound = target_value / maxf(threshold, 1.0)
+
+	# Base marginal value: useful damage × value per wound
+	var marginal = useful_damage * value_per_wound
 
 	# T7-22: Kill threshold crossing bonus.
 	# If this weapon pushes us past a meaningful kill boundary, add a bonus.
@@ -14776,14 +14975,14 @@ static func _calculate_marginal_value(
 
 		if new_model_kills >= 1.0:
 			# Each new model killed adds fractional value
-			marginal += new_model_kills * wpm * target_value * get_param("MICRO_MODEL_KILL_VALUE", MICRO_MODEL_KILL_VALUE)
+			marginal += new_model_kills * wpm * value_per_wound * get_param("MICRO_MODEL_KILL_VALUE", MICRO_MODEL_KILL_VALUE)
 
 		# Full wipe bonus: if we cross the total kill threshold
 		if current_alloc < threshold and new_total >= threshold * 0.6:
 			marginal *= get_param("MICRO_MARGINAL_KILL_BONUS", MICRO_MARGINAL_KILL_BONUS)
 
 	# Overkill: heavily discount damage beyond the threshold
-	marginal += overkill_damage * target_value * get_param("MICRO_OVERKILL_DECAY", MICRO_OVERKILL_DECAY)
+	marginal += overkill_damage * value_per_wound * get_param("MICRO_OVERKILL_DECAY", MICRO_OVERKILL_DECAY)
 
 	# Factor in weapon-target efficiency (anti-tank vs vehicle = bonus)
 	marginal *= efficiency
@@ -15382,6 +15581,16 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 						score = _t_mul(ch_terms, "ch_target_on_objective", score, get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS))
 					break
 
+			# CH-LEAVE: a successful charge pulls the charger off an objective it
+			# alone keeps (a failed 11e charge does not move it, so the cost only
+			# applies on success — the score is already x charge probability).
+			var leave = _charge_leaves_held_objective(uid, unit, target_unit, snapshot, player)
+			if not leave.is_empty():
+				score = _t_mul(ch_terms, "ch_leave_objective", score,
+					1.0 - get_param("CHARGE_LEAVE_OBJ_PENALTY", CHARGE_LEAVE_OBJ_PENALTY))
+				print("AIDecisionMaker: [CH-LEAVE] %s -> %s: charging would leave an objective it alone holds (our OC %d, %d without it, enemy %d)" % [
+					unit_name, target_name, int(leave.friendly), int(leave.friendly) - int(leave.mine), int(leave.enemy)])
+
 			# T7-51: Apply overwatch risk penalty to charge score
 			if ow_risk.score_penalty < 1.0:
 				score = _t_mul(ch_terms, "ch_overwatch_risk", score, ow_risk.score_penalty)
@@ -15606,6 +15815,26 @@ static func _charge_roll_needed(edge_in: float, terrain_pen: float = 0.0) -> flo
 	if GameConstants.edition >= 11:
 		return max(0.0, max(edge_in, move) - ChargeMove11e.WITHIN_TOLERANCE_INCHES)
 	return move
+
+## CH-LEAVE: the objective the charger alone keeps — it has OC in range, the
+## army holds the objective, and without the charger's OC the enemy OC there
+## would match or beat ours — while the charge target is not on that same
+## objective (charging onto it keeps the charger nearby). {} when none.
+static func _charge_leaves_held_objective(charger_id: String, charger: Dictionary,
+		target_unit: Dictionary, snapshot: Dictionary, player: int) -> Dictionary:
+	var units: Dictionary = snapshot.get("units", {})
+	var target_c = _get_unit_centroid(target_unit)
+	for obj_pos in _get_objectives(snapshot):
+		var mine = _unit_oc_at_position(obj_pos, charger_id, charger, units)
+		if mine <= 0:
+			continue
+		if target_c != Vector2.INF and target_c.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			continue
+		var friendly = _get_oc_at_position(obj_pos, units, player, true)
+		var enemy = _get_oc_at_position(obj_pos, units, player, false)
+		if friendly > enemy and friendly - mine <= enemy:
+			return {"pos": obj_pos, "friendly": friendly, "enemy": enemy, "mine": mine}
+	return {}
 
 static func _charge_success_probability(distance_needed: float) -> float:
 	"""Calculate the probability that 2D6 >= distance_needed.
@@ -19272,7 +19501,13 @@ static func _build_primary_awareness(snapshot: Dictionary, player: int) -> Dicti
 
 	for rule in card.get("rules", []):
 		var rounds = rule.get("rounds", [1, 5])
-		if battle_round < int(rounds[0]) or battle_round > int(rounds[1]):
+		# Command-phase rules score at the start of the NEXT round's turn, from
+		# what this round's moves hold — so a "from round 2" per-objective rule
+		# already decides where round-1 units should stand.
+		var active_now = battle_round >= int(rounds[0]) and battle_round <= int(rounds[1])
+		var scores_next = str(rule.get("when", "command")) == "command" \
+				and battle_round + 1 >= int(rounds[0]) and battle_round + 1 <= int(rounds[1])
+		if not active_now and not scores_next:
 			continue
 		awareness.active_rules += 1
 		awareness.vp_rules.append(rule)

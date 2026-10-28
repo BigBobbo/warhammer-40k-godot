@@ -2,6 +2,22 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.0",
+      "date": "2026-10-28",
+      "summary": "The AI keeps its army together, finishes wounded units and stops several wasted moves.",
+      "changes": [
+        "Objectives: the AI now plans for diminishing returns. Each objective it decides to take lowers the value of the next one, and it does not send a unit to take an extra objective that would add almost no primary VP. Objectives the enemy holds still count, because taking one stops the enemy from scoring it.",
+        "Objectives: in round 1 the AI now plans for the round-2 primary scoring, which depends on where its units stand at the end of round 1.",
+        "Objectives: the AI does not send a unit on a long trip to an objective where the enemy can have far more OC before it arrives.",
+        "Objectives: a unit is not kept on an objective that units which are not moving this phase already hold.",
+        "Movement: the AI measures to the objective's control range, not to the marker, so it does not Advance (and lose its shooting and charge) when a normal move already gets there.",
+        "Shooting: the AI values damage by how much of the target unit it removes. It now finishes wounded units instead of chipping at healthy ones.",
+        "Charges: the AI counts the cost of leaving an objective that only the charging unit holds.",
+        "Units with weak guns and weak close-combat weapons (for example Prosecutors) no longer run across the board to attack in melee.",
+        "Reserves: units that bring more OC now arrive first when objectives are in play."
+      ]
+    },
+    {
       "version": "1.55.3",
       "date": "2026-10-28",
       "summary": "The AI plans charges and objectives the 11th edition way.",

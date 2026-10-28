@@ -120,7 +120,8 @@ func test_race_not_lost_when_enemy_too_far():
 func test_distance_cost_scales_with_value():
 	print("\n--- test_distance_cost_scales_with_value ---")
 	var snap = _snapshot()
-	# Ranged weapon + enemy in range => no long advance, so the trip stays 4 turns at M6.
+	# Ranged weapon + enemy in range => no long advance. 20.8" from the marker is
+	# a 17.0" gap to its control range (REACH-CR) => 3 turns at M6.
 	_add_unit(snap, "us", 2, _our_pos(), 6, [{"name": "Rifle", "type": "Ranged", "range": "36"}])
 	_add_unit(snap, "them", 1, _our_pos() + Vector2(1200, 0), 6)
 	var a = _assign(snap, ["us"], ["them"]).get("us", {})
@@ -128,7 +129,7 @@ func test_distance_cost_scales_with_value():
 	var turns := float(a.get("turns_to_reach", 0))
 	var dp := float(terms.get("distance_penalty", 0.0))
 	print("  turns=%d distance_penalty=%.2f objective_priority=%.2f" % [turns, dp, float(terms.get("objective_priority", 0.0))])
-	_assert(turns == 4.0, "4 turns at M6 without advancing (got %d)" % turns)
+	_assert(turns == 3.0, "3 turns at M6 without advancing — gap to control range (got %d)" % turns)
 	_assert(dp < -2.0 * (turns - 1.0), "distance cost (%.1f) exceeds the old flat -2/turn (%.1f)" % [dp, -2.0 * (turns - 1.0)])
 
 func test_long_trip_advances_with_no_targets():
