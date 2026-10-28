@@ -855,12 +855,18 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 		log_phase_message("  FAILED: %s" % str(gate_54_stage.errors))
 		return gate_54_stage
 
-	# Calculate total distance from original position to destination
-	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
-	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
-	var terrain_penalty = _get_movement_terrain_penalty(original_pos, dest_vec, unit_id)
+	# Path-summed distance (T-082), measured exactly as _process_stage_model_move
+	# records it and the drag preview shows it: what this model has already
+	# moved + this segment + this segment's terrain penalty. It used to be
+	# origin -> dest in a straight line with THAT line's terrain penalty, so a
+	# model staged around a tall feature (waypoint, then destination) was
+	# charged for climbing the feature it never crossed, and a re-staged model
+	# was measured differently from what the preview said it had left.
+	var prior_total: float = move_data.get("model_distances", {}).get(model_key, 0.0)
+	var total_distance_for_model = prior_total + Measurement.distance_inches(current_pos, dest_vec)
+	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
 	total_distance_for_model += terrain_penalty
-	log_phase_message("  Distance calculation: %.2f inches (terrain penalty: %.2f\")" % [total_distance_for_model, terrain_penalty])
+	log_phase_message("  Distance calculation: %.2f inches (already moved: %.2f\", terrain penalty: %.2f\")" % [total_distance_for_model, prior_total, terrain_penalty])
 
 	# Account for pivot cost (10e Core Rules Update) — pivot value reduces effective move cap
 	var effective_cap = move_data.move_cap_inches

@@ -1,0 +1,52 @@
+{
+  "id": "ai_move_two_leg_squad",
+  "covers": [
+    "ai.movement.two_leg_dogleg",
+    "ai.movement.two_leg_squad",
+    "movement.stage.path_summed_validation"
+  ],
+  "fixture": "telemon_twc_squad",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "Multi-model TWO-LEG: the TELEMON_MOVE_ISSUE board plus a real 3-model Thunderwolf Cavalry squad (MOUNTED, 60mm, no FLY — so 11e dense terrain over 2\" blocks it) at (1480,760). Heading 120 deg / 14\" its straight line is blocked by generator-15. The planner sweeps EVERY model's base, plans one shared dogleg (7\" at 60 deg, then on), places the squad as a rigid block, and AIPlayer stages all three waypoints (sidestep order) then all three destinations; the engine confirms the move with every model exactly on its planned spot. Also pins the MovementPhase stage validator measuring path-summed distance + per-segment terrain (T-082) — it used to charge the straight origin->dest line's climb over the generator the models went around (14.3\" > 12\"). The planner is called directly toward that heading (the AI's own pick for this squad is an Advance-to-charge whose line is not blocked).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_current_phase()",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_TWC_TEST.models.size()",
+      "equals": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_squad_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var AD = load(\"res://scripts/AIDecisionMaker.gd\")\nvar uid = \"U_TWC_TEST\"\nvar snap = GameState.create_snapshot()\nvar su = snap.units[uid]\nvar enemies = AD._get_enemy_units(snap, 1)\nAD._move_waypoint_log = {}\nAD._move_shape_notes = []\nvar T = AD._get_unit_centroid(su) + Vector2.RIGHT.rotated(deg_to_rad(120)) * 560.0\nvar dests = AD._compute_movement_toward_target(su, uid, T, 12.0, snap, enemies, 0.0, [], AD._get_objectives(snap))\nvar d = {\"type\": \"BEGIN_NORMAL_MOVE\", \"actor_unit_id\": uid, \"_ai_model_destinations\": dests, \"_ai_description\": \"TWC dogleg normal move\"}\nAD._attach_move_waypoints(d)\nvar out = {\"dests\": dests, \"wps\": d.get(\"_ai_model_waypoints\"), \"notes\": AD._move_shape_notes.duplicate()}\nvar r = NetworkIntegration.route_action({\"type\": \"BEGIN_NORMAL_MOVE\", \"actor_unit_id\": uid, \"player\": 1})\nvar ph = PhaseManager.current_phase_instance\nif ph.has_pending_stratagem_window():\n\tvar w = ph.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nvar was = AIPlayer.enabled\nAIPlayer.enabled = true\nAIPlayer._execute_ai_movement(1, d)\nAIPlayer.enabled = was\nvar u = GameState.state.units[uid]\nvar pos = []\nfor m in u.models:\n\tpos.append(m.position)\nout[\"pos\"] = pos\nout[\"moved\"] = u.flags.get(\"moved\")\nvar ok = bool(u.flags.get(\"moved\", false))\nfor mid in dests:\n\tvar m = null\n\tfor mm in u.models:\n\t\tif str(mm.id) == mid:\n\t\t\tm = mm\n\tvar want = Vector2(dests[mid][0], dests[mid][1])\n\tif Vector2(m.position.x, m.position.y).distance_to(want) > 1.0:\n\t\tok = false\nreturn ok and d.get(\"_ai_model_waypoints\", {}).size() == 3",
+      "equals": true,
+      "comment": "plan -> 3 waypoints -> AIPlayer stages via waypoints -> CONFIRM accepted -> every model on its planned destination"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_squad_after_dogleg"
+    }
+  ]
+}

@@ -404,6 +404,7 @@ static var _move_shape_notes: Array = []
 static var _move_waypoint_offset: Vector2 = Vector2.INF
 static var _move_waypoint_cap_px: float = 0.0
 static var _move_waypoint_log: Dictionary = {}  # unit_id -> Array of {model_id, dest: Vector2, wp: Vector2}
+static var _move_penalty_unit_id: String = ""  # unit whose move is being placed (engine terrain-penalty parity)
 
 # Structured decision records — captures full scoring breakdowns for the AI Gameplay Visualizer
 # Each entry is a dictionary with decision_type, unit_id, candidates[], chosen_index, parameters_used, etc.
@@ -2988,6 +2989,7 @@ static func _suggest_in_progress_move(snapshot: Dictionary, available_actions: A
 			var dests: Dictionary = ai.recompute_destinations_for_cap(player, uid, unit, plan, cap)
 			if not dests.is_empty():
 				plan["_ai_model_destinations"] = dests
+				plan["_ai_model_waypoints"] = waypoints_for(uid, dests)
 				roll_note = " (planned for your Advance roll of %d — %.0f\" total)" % [int(move.get("advance_roll", 0)), cap]
 				print("AIDecisionMaker: suggestion re-planned in-progress advance of %s for actual cap %.1f\"" % [uid, cap])
 	if mode == "ADVANCE" and roll_note == "":
@@ -11495,14 +11497,22 @@ static func _compute_movement_toward_target(
 	# placement; afterwards record which models actually need their waypoint
 	# (straight line still blocked, dogleg legal) so decide() can attach them.
 	_move_waypoint_offset = Vector2.INF
+	_move_penalty_unit_id = unit_id
 	var dests := _compute_movement_toward_target_impl(unit, unit_id, target_pos, move_inches,
 		snapshot, enemies, max_weapon_range, threat_data, objectives)
 	var offset := _move_waypoint_offset
 	_move_waypoint_offset = Vector2.INF
 	if offset == Vector2.INF or dests.is_empty():
+		_move_penalty_unit_id = ""
 		return dests
 	var kw: Array = unit.get("meta", {}).get("keywords", [])
 	var entries: Array = _move_waypoint_log.get(unit_id, [])
+	# Squads take the SAME sidestep with every model whose dogleg is legal (not
+	# just the blocked ones): a rigid sidestep keeps the models' spacing, so
+	# staging the waypoints front-of-the-sidestep first never parks one model
+	# on a squadmate (AIPlayer orders them that way). A waypoint must also be
+	# free of other units' models — the engine checks overlap on every stage.
+	var others := _get_deployed_models_excluding_unit(snapshot, unit_id)
 	for m in _get_alive_models_with_positions(unit):
 		var mid := str(m.get("id", ""))
 		if not dests.has(mid):
@@ -11513,13 +11523,68 @@ static func _compute_movement_toward_target(
 		var bm := int(m.get("base_mm", 32))
 		var bt := str(m.get("base_type", "circular"))
 		var bd: Dictionary = m.get("base_dimensions", {})
-		if not _path_blocked_by_solid_terrain_direct(from, to, bm, bt, bd, kw):
-			continue  # straight line is fine for this model
-		if _dogleg_legal(from, from + offset, to, bm, bt, bd, kw, _move_waypoint_cap_px):
-			entries.append({"model_id": mid, "dest": to, "wp": from + offset})
+		var wp := from + offset
+		var straight_ok := not _path_blocked_by_solid_terrain_direct(from, to, bm, bt, bd, kw)
+		var wp_free := not _position_collides_with_deployed(wp, bm, others, 1.0, bt, bd, 1.0) \
+			and not _dest_overlaps_wall(wp, bm, bt, bd, kw) and not _is_position_near_enemy(wp, enemies, unit)
+		if wp_free and _dogleg_legal(from, wp, to, bm, bt, bd, kw, _move_waypoint_cap_px):
+			entries.append({"model_id": mid, "dest": to, "wp": wp})
+		elif not straight_ok:
+			print("AIDecisionMaker: [TWO-LEG] %s.%s has no legal path to its placement (waypoint %s) — engine will reject it" % [
+				_dn(unit, unit_id), mid, "occupied" if not wp_free else "legs blocked"])
+	_move_penalty_unit_id = ""
 	if not entries.is_empty():
 		_move_waypoint_log[unit_id] = entries
 	return dests
+
+static func _unit_members(models: Array, centroid: Vector2) -> Array:
+	"""Each alive model as {id, off (position - centroid), base_mm, base_type,
+	base_dimensions} — lets terrain checks sweep EVERY base of a squad along a
+	centroid path instead of just the lead model's."""
+	var out: Array = []
+	for m in models:
+		var p := _get_model_position(m)
+		if p == Vector2.INF:
+			continue
+		out.append({"id": str(m.get("id", "")), "off": p - centroid, "base_mm": int(m.get("base_mm", 32)),
+			"base_type": str(m.get("base_type", "circular")), "base_dimensions": m.get("base_dimensions", {})})
+	return out
+
+static func _members_solid_blocked(members: Array, from_c: Vector2, to_c: Vector2, kw: Array) -> bool:
+	"""Does any member's base, translated from_c -> to_c, cross solid terrain?"""
+	for mb in members:
+		if _path_blocked_by_solid_terrain_direct(from_c + mb.off, to_c + mb.off, int(mb.base_mm),
+				str(mb.base_type), mb.base_dimensions, kw):
+			return true
+	return false
+
+static func _members_solid_blockers(members: Array, from_c: Vector2, to_c: Vector2, kw: Array) -> Array:
+	"""Names of the solid pieces blocking any member on that translation."""
+	var names: Array = []
+	var tm = _terrain_manager()
+	if tm == null or not tm.has_method("can_move_through_11e"):
+		return names
+	for mb in members:
+		var trav = tm.can_move_through_11e(kw, from_c + mb.off, to_c + mb.off, [], {
+			"position": from_c + mb.off, "base_mm": int(mb.base_mm), "base_type": str(mb.base_type),
+			"base_dimensions": mb.base_dimensions})
+		for b in trav.get("blockers", []):
+			if not (b in names):
+				names.append(b)
+	return names
+
+static func _move_leg_penalty(from: Vector2, to: Vector2, kw: Array) -> float:
+	"""Terrain inches the ENGINE will charge for one staged leg (difficult
+	ground + vertical climb) — MovementPhase._get_movement_terrain_penalty
+	when a Movement phase is live and _move_penalty_unit_id is set, so the AI
+	and the validator agree; otherwise the charge-penalty estimate."""
+	if _move_penalty_unit_id != "":
+		var main = Engine.get_main_loop()
+		var pm = main.root.get_node_or_null("PhaseManager") if main is SceneTree and main.root else null
+		var ph = pm.current_phase_instance if pm != null and "current_phase_instance" in pm else null
+		if ph != null and ph.has_method("_get_movement_terrain_penalty"):
+			return float(ph._get_movement_terrain_penalty(from, to, _move_penalty_unit_id, false))
+	return _estimate_charge_terrain_penalty(from, to, "FLY" in kw, kw)
 
 static func _dogleg_legal(from: Vector2, wp: Vector2, to: Vector2, base_mm: int, base_type: String,
 		base_dimensions: Dictionary, kw: Array, cap_px: float) -> bool:
@@ -11530,12 +11595,19 @@ static func _dogleg_legal(from: Vector2, wp: Vector2, to: Vector2, base_mm: int,
 	if _path_blocked_by_solid_terrain_direct(wp, to, base_mm, base_type, base_dimensions, kw):
 		return false
 	if cap_px > 0.0:
-		var fly := "FLY" in kw
 		var path_px := from.distance_to(wp) + wp.distance_to(to) \
-			+ (_estimate_charge_terrain_penalty(from, wp, fly, kw) + _estimate_charge_terrain_penalty(wp, to, fly, kw)) * PIXELS_PER_INCH
+			+ (_move_leg_penalty(from, wp, kw) + _move_leg_penalty(wp, to, kw)) * PIXELS_PER_INCH
 		if path_px > cap_px:
 			return false
 	return true
+
+static func waypoints_for(unit_id: String, dests: Dictionary) -> Dictionary:
+	"""TWO-LEG waypoints (model_id -> [x, y]) logged for these destinations of
+	unit_id — for callers that re-plan outside decide() (an Advance re-planned
+	to its real roll). Empty when the move needs no dogleg."""
+	var probe := {"actor_unit_id": unit_id, "_ai_model_destinations": dests}
+	_attach_move_waypoints(probe)
+	return probe.get("_ai_model_waypoints", {})
 
 static func _attach_move_waypoints(result: Dictionary) -> void:
 	"""Give a move decision the waypoints its destinations were planned with
@@ -11559,12 +11631,16 @@ static func _attach_move_waypoints(result: Dictionary) -> void:
 	if not wps.is_empty():
 		result["_ai_model_waypoints"] = wps
 
-static func _plan_dogleg(centroid: Vector2, target_pos: Vector2, move_px: float, base_mm: int,
-		base_type: String, base_dimensions: Dictionary, kw: Array, terrain_features: Array) -> Dictionary:
+static func _plan_dogleg(centroid: Vector2, target_pos: Vector2, move_px: float, members: Array,
+		kw: Array, terrain_features: Array, others: Array = [], enemies: Dictionary = {},
+		unit: Dictionary = {}) -> Dictionary:
 	"""Best two-leg path toward target_pos when the straight line is blocked:
 	leg 1 at 15°..90° either side for 1".."M-1", then straight on toward the
-	target with what is left of the move. Returns {wp_offset, final_vector,
-	progress_px} or {} when nothing clears."""
+	target with what is left of the move. Every member (model) of the unit
+	takes the same two legs from its own spot, so each base is swept along
+	both legs and each waypoint must be free of other units' models
+	(`others`), walls and enemy engagement range. Returns {wp_offset,
+	final_vector, progress_px} or {} when nothing clears."""
 	var to_t := target_pos - centroid
 	var dist_t := to_t.length()
 	if dist_t < 1.0:
@@ -11573,20 +11649,43 @@ static func _plan_dogleg(centroid: Vector2, target_pos: Vector2, move_px: float,
 	var best := {}
 	var best_progress := -INF
 	var max_leg1 := int(floor(move_px / PIXELS_PER_INCH)) - 1
+	var legacy := GameConstants.edition < 11
 	for deg in [15, -15, 30, -30, 45, -45, 60, -60, 75, -75, 90, -90]:
 		var d1_dir := dir.rotated(deg_to_rad(deg))
 		for leg1_in in range(1, max_leg1 + 1):
 			var wp := centroid + d1_dir * (leg1_in * PIXELS_PER_INCH)
 			if wp.x < BASE_MARGIN_PX or wp.y < BASE_MARGIN_PX or wp.x > BOARD_WIDTH_PX - BASE_MARGIN_PX or wp.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
 				break
-			if _path_blocked_by_terrain(centroid, wp, kw, terrain_features) \
-					or _path_blocked_by_solid_terrain_direct(centroid, wp, base_mm, base_type, base_dimensions, kw):
+			# 11e: the engine only blocks solid dense features (13.06) — areas are
+			# enterable — so the legacy every-polygon rule (which also forbids a
+			# VEHICLE / MOUNTED unit from entering a ruin AREA) only applies below 11e.
+			if (legacy and _path_blocked_by_terrain(centroid, wp, kw, terrain_features)) \
+					or _members_solid_blocked(members, centroid, wp, kw):
 				break  # longer along this heading is blocked too
 			var left_px := move_px - leg1_in * PIXELS_PER_INCH
 			var wp_to_t := target_pos - wp
 			var fin := wp + wp_to_t.normalized() * minf(left_px, wp_to_t.length())
-			if _path_blocked_by_terrain(wp, fin, kw, terrain_features) \
-					or not _dogleg_legal(centroid, wp, fin, base_mm, base_type, base_dimensions, kw, move_px):
+			if legacy and _path_blocked_by_terrain(wp, fin, kw, terrain_features):
+				continue
+			var ok := true
+			for mb in members:
+				var o: Vector2 = mb.off
+				var bm := int(mb.base_mm)
+				var bt := str(mb.base_type)
+				var bd: Dictionary = mb.base_dimensions
+				if not _dogleg_legal(centroid + o, wp + o, fin + o, bm, bt, bd, kw, move_px):
+					ok = false
+					break
+				if not others.is_empty() and _position_collides_with_deployed(wp + o, bm, others, 1.0, bt, bd, 1.0):
+					ok = false
+					break
+				if _dest_overlaps_wall(wp + o, bm, bt, bd, kw):
+					ok = false
+					break
+				if not enemies.is_empty() and _is_position_near_enemy(wp + o, enemies, unit):
+					ok = false
+					break
+			if not ok:
 				continue
 			var progress := dist_t - fin.distance_to(target_pos)
 			if progress > best_progress:
@@ -11631,23 +11730,20 @@ static func _compute_movement_toward_target_impl(
 	# swept-base rule (13.06 solid dense features) — the legacy polygon check
 	# alone can pass a line the engine rejects, and the per-model placement
 	# below then relocates the model to an arbitrary legal spot.
-	var lead_model: Dictionary = alive_models[0] if alive_models.size() > 0 else {}
+	# Every model's base is swept (a squad's flank model can clip a wall the
+	# centroid line misses).
+	var members := _unit_members(alive_models, centroid)
 	var final_move_vector = _find_unblocked_move_enhanced(
-		centroid, move_vector, actual_move_px, unit_keywords, terrain_features, enemies, unit,
-		int(lead_model.get("base_mm", 0)), str(lead_model.get("base_type", "circular")),
-		lead_model.get("base_dimensions", {})
+		centroid, move_vector, actual_move_px, unit_keywords, terrain_features, enemies, unit, members
 	)
 
 	# TWO-LEG: when the straight line is blocked by solid terrain the base
 	# can't cross, a dogleg around it can beat the best single rotated line.
 	var dogleg_active := false
-	var lead_bm := int(lead_model.get("base_mm", 0))
-	if lead_bm > 0 and not ("FLY" in unit_keywords) \
-			and _path_blocked_by_solid_terrain_direct(centroid, centroid + move_vector, lead_bm,
-				str(lead_model.get("base_type", "circular")), lead_model.get("base_dimensions", {}), unit_keywords):
-		var dl := _plan_dogleg(centroid, target_pos, move_inches * PIXELS_PER_INCH * 0.95, lead_bm,
-			str(lead_model.get("base_type", "circular")), lead_model.get("base_dimensions", {}),
-			unit_keywords, terrain_features)
+	if not members.is_empty() and not ("FLY" in unit_keywords) \
+			and _members_solid_blocked(members, centroid, centroid + move_vector, unit_keywords):
+		var dl := _plan_dogleg(centroid, target_pos, move_inches * PIXELS_PER_INCH * 0.95, members,
+			unit_keywords, terrain_features, _get_deployed_models_excluding_unit(snapshot, unit_id), enemies, unit)
 		var single_progress := centroid.distance_to(target_pos) - (centroid + final_move_vector).distance_to(target_pos) \
 			if final_move_vector != Vector2.ZERO else -INF
 		if not dl.is_empty() and float(dl.progress_px) > single_progress + PIXELS_PER_INCH * 0.5:
@@ -11658,14 +11754,8 @@ static func _compute_movement_toward_target_impl(
 			for i in range(_move_shape_notes.size() - 1, -1, -1):
 				if str(_move_shape_notes[i]).begins_with("Straight line to the target is blocked"):
 					_move_shape_notes.remove_at(i)
-			var dl_blockers := ""
-			var tm_dl = _terrain_manager()
-			if tm_dl and tm_dl.has_method("can_move_through_11e"):
-				var trav_dl = tm_dl.can_move_through_11e(unit_keywords, centroid, centroid + move_vector, [], {
-					"position": centroid, "base_mm": lead_bm, "base_type": str(lead_model.get("base_type", "circular")),
-					"base_dimensions": lead_model.get("base_dimensions", {})})
-				if not trav_dl.get("blockers", []).is_empty():
-					dl_blockers = " (%s)" % ", ".join(PackedStringArray(trav_dl.blockers))
+			var dl_names := _members_solid_blockers(members, centroid, centroid + move_vector, unit_keywords)
+			var dl_blockers := " (%s)" % ", ".join(PackedStringArray(dl_names)) if not dl_names.is_empty() else ""
 			_move_shape_notes.append("Straight line is blocked by solid terrain%s its base can't cross — goes around it: %d\" to the side first, then on toward the target (%.1f\" closer this turn vs %.1f\" on the best single line)" % [
 				dl_blockers, int(dl.leg1_in), float(dl.progress_px) / PIXELS_PER_INCH, maxf(single_progress, 0.0) / PIXELS_PER_INCH])
 			final_move_vector = dl.final_vector
@@ -11805,8 +11895,15 @@ static func _compute_movement_toward_target_impl(
 	# Off by default and gated on the parameter: it is 35% faster where it
 	# applies but it changes which move gets made, and that needs the paired
 	# evaluator before it ships. See the const's note.
-	if get_param("MOVE_RIGID_BLOCK_FIRST", MOVE_RIGID_BLOCK_FIRST) > 0.0:
+	# A TWO-LEG dogleg always tries the rigid block first: when every model
+	# shifts by the same two legs the squad keeps its shape, so staging the
+	# waypoints (sidestep order) then the destinations (leg-2 order) can never
+	# park one model where a squadmate still has to pass. The per-model ladder
+	# below may reshuffle the formation, which can deadlock that staging.
+	if get_param("MOVE_RIGID_BLOCK_FIRST", MOVE_RIGID_BLOCK_FIRST) > 0.0 or dogleg_active:
 		for fraction in fractions_to_try:
+			if dogleg_active and get_param("MOVE_RIGID_BLOCK_FIRST", MOVE_RIGID_BLOCK_FIRST) <= 0.0 and fraction < 0.75:
+				break  # a stub of a dogleg is worse than the per-model ladder
 			var rigid_vector = final_move_vector * fraction
 			var rigid_dests = _try_move_with_collision_check(
 				alive_models, rigid_vector, enemies, unit, deployed_models,
@@ -11991,15 +12088,15 @@ static func _compute_movement_toward_target_impl(
 static func _find_unblocked_move_enhanced(
 	centroid: Vector2, move_vector: Vector2, move_distance_px: float,
 	unit_keywords: Array, terrain_features: Array,
-	enemies: Dictionary, unit: Dictionary,
-	base_mm: int = 0, base_type: String = "circular", base_dimensions: Dictionary = {}
+	enemies: Dictionary, unit: Dictionary, members: Array = []
 ) -> Vector2:
-	# Blocked = legacy polygon rule OR the engine's 11e swept-base rule for
-	# solid dense features (only when the caller passed a base).
+	# Blocked = legacy polygon rule on the centroid line OR the engine's 11e
+	# swept-base rule for solid dense features on ANY member's own line
+	# (members = _unit_members(); empty = legacy check only).
 	var _blocked := func(to: Vector2) -> bool:
 		if _path_blocked_by_terrain(centroid, to, unit_keywords, terrain_features):
 			return true
-		return base_mm > 0 and _path_blocked_by_solid_terrain(centroid, to, base_mm, base_type, base_dimensions, unit_keywords)
+		return _members_solid_blocked(members, centroid, to, unit_keywords)
 	if not _blocked.call(centroid + move_vector):
 		var cover_path = _find_cover_path(centroid, move_vector, move_distance_px, unit_keywords, terrain_features, enemies)
 		if cover_path != Vector2.ZERO:
@@ -12055,12 +12152,9 @@ static func _find_unblocked_move_enhanced(
 		print("AIDecisionMaker: Found unblocked path, forward progress=%.1fpx (%.1fin)" % [
 			best_score, best_score / PIXELS_PER_INCH])
 		var blocker_label := "terrain"
-		var tm_b = _terrain_manager()
-		if base_mm > 0 and tm_b and tm_b.has_method("can_move_through_11e"):
-			var trav_b = tm_b.can_move_through_11e(unit_keywords, centroid, centroid + move_vector, [], {
-				"position": centroid, "base_mm": base_mm, "base_type": base_type, "base_dimensions": base_dimensions})
-			if not trav_b.get("blockers", []).is_empty():
-				blocker_label = "solid terrain (%s) its base can't pass" % ", ".join(PackedStringArray(trav_b.blockers))
+		var b_names := _members_solid_blockers(members, centroid, centroid + move_vector, unit_keywords)
+		if not b_names.is_empty():
+			blocker_label = "solid terrain (%s) its base can't pass" % ", ".join(PackedStringArray(b_names))
 		_move_shape_notes.append("Straight line to the target is blocked by %s — turned %.0f° to get past (%.1f\" of forward progress this turn)" % [
 			blocker_label, absf(rad_to_deg(base_direction.angle_to(best_vector.normalized()))), best_score / PIXELS_PER_INCH])
 		return best_vector
@@ -12729,6 +12823,10 @@ static func _try_move_with_collision_check(
 			var orig_pos = original_positions.get(model_id, model_pos)
 			var model_has_fly = "FLY" in unit_kw
 			var per_model_terrain = _estimate_charge_terrain_penalty(orig_pos, dest, model_has_fly, unit_kw)
+			# A TWO-LEG dogleg goes AROUND what the straight line would climb;
+			# its legs are penalty-checked in _dogleg_legal instead.
+			if _move_waypoint_offset != Vector2.INF and _path_blocked_by_solid_terrain_direct(orig_pos, dest, base_mm, base_type, base_dimensions, unit_kw):
+				per_model_terrain = 0.0
 			var effective_cap_px = move_cap_px - (per_model_terrain * PIXELS_PER_INCH)
 			if effective_cap_px < PIXELS_PER_INCH:
 				effective_cap_px = PIXELS_PER_INCH
@@ -13409,6 +13507,16 @@ static func _resolve_movement_collision(
 		if original_pos != Vector2.INF and move_cap_px > 0.0:
 			if original_pos.distance_to(candidate) > move_cap_px:
 				return "cap"
+			# The engine charges terrain (difficult ground / climbing) on top of
+			# the distance — a relocated model must fit both, like the initial
+			# placement's per-model effective cap. (A dogleg's own legs are
+			# penalty-checked in _dogleg_legal via the solid-terrain predicate.)
+			var via_dogleg := _move_waypoint_offset != Vector2.INF \
+				and _path_blocked_by_solid_terrain_direct(original_pos, candidate, base_mm, base_type, base_dimensions, rc_unit_kw)
+			if not via_dogleg:
+				var pen_px := _move_leg_penalty(original_pos, candidate, rc_unit_kw) * PIXELS_PER_INCH
+				if pen_px > 0.0 and original_pos.distance_to(candidate) + pen_px > move_cap_px:
+					return "cap"
 		if _position_collides_with_deployed(candidate, base_mm, _near.call(candidate), 1.0, base_type, base_dimensions, radius_factor):
 			return "collide"
 		if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):

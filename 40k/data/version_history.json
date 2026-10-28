@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.55.4",
+      "date": "2026-10-28",
+      "summary": "Squads (not just single big models) now go around tall walls and gantries, and moving a model in two steps is measured the way the move preview shows it.",
+      "changes": [
+        "AI squads of big-based models (cavalry, bikes, Killa Kans…) check every model's path against tall solid terrain and take the same two-leg route around it together, instead of one model clipping the wall and the move failing.",
+        "AI squads no longer have a model parked across terrain that costs more inches than it has left, which used to make the whole move get rejected.",
+        "Moving a model in two steps (for example around a wall) is now checked by the path it actually took, matching the distance shown while dragging — it used to be charged for climbing over the wall it went around."
+      ]
+    },
+    {
       "version": "1.55.3",
       "date": "2026-10-28",
       "summary": "AI moves head for their objective instead of drifting toward far-off charges, and the suggestion card explains why a move bends.",

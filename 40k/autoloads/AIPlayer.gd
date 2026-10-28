@@ -1635,6 +1635,8 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 			# Fall through to use original destinations — staging will clamp or fail per-model
 		else:
 			decision["_ai_model_destinations"] = new_destinations
+			# TWO-LEG: the re-plan may dogleg differently — carry ITS waypoints
+			decision["_ai_model_waypoints"] = AIDecisionMaker.waypoints_for(unit_id, new_destinations)
 			print("AIPlayer: Recomputed %d model destinations for %s" % [new_destinations.size(), unit_id])
 
 	_execute_ai_movement(player, decision)
@@ -1656,6 +1658,7 @@ func recompute_destinations_for_cap(player: int, unit_id: String, unit: Dictiona
 	# "advance toward the enemy" into a ~1" shuffle backward that collided with the
 	# unit's own tightly-packed models, so a Boyz blob barely moved (or, when boxed
 	# in, remained stationary) even though the log said it was advancing.
+	AIDecisionMaker._move_waypoint_log.erase(unit_id)  # only this re-plan's waypoints count
 	var target_pos = _advance_heading_target(unit, decision.get("_ai_model_destinations", {}), move_cap_inches)
 	if target_pos == Vector2.INF:
 		# No usable heading from the original destinations — fall back to the
@@ -2806,44 +2809,95 @@ func _try_stage_and_confirm(player: int, unit_id: String, destinations: Dictiona
 	var failed_count = 0
 	var failure_reasons = []
 
-	for model_id in destinations:
-		var dest = destinations[model_id]
-		# TWO-LEG: a dogleg around solid terrain stages the waypoint first; the
-		# engine then measures the second leg from it and sums both (T-082).
-		if waypoints.has(model_id):
-			_current_phase_actions += 1
-			var wp_result = NetworkIntegration.route_action({
+	# TWO-LEG: a dogleg around solid terrain stages every waypoint first, then
+	# every destination (the engine sums each model's staged legs, T-082). The
+	# planner shifts a dogleg squad as a rigid block, so staging the waypoints
+	# front-of-the-sidestep first and then the destinations front-of-leg-2
+	# first never parks a model where a squadmate still stands. Anything still
+	# blocked gets more sweeps while the others make progress.
+	var at_wp := {}  # model_id -> true once its waypoint is staged
+	var last_errors := {}  # model_id -> last stage error
+	var order: Array = destinations.keys()
+	if not waypoints.is_empty():
+		var wp_vec := {}
+		for mid in order:
+			if waypoints.has(mid):
+				wp_vec[mid] = Vector2(float(waypoints[mid][0]), float(waypoints[mid][1]))
+		if not wp_vec.is_empty():
+			var first: String = wp_vec.keys()[0]
+			var side_dir: Vector2 = (wp_vec[first] - origin_positions.get(first, wp_vec[first])).normalized()
+			var wp_order: Array = wp_vec.keys()
+			wp_order.sort_custom(func(a, b):
+				return origin_positions.get(a, Vector2.ZERO).dot(side_dir) > origin_positions.get(b, Vector2.ZERO).dot(side_dir))
+			for sweep in range(wp_order.size()):
+				var progressed := false
+				for mid in wp_order:
+					if at_wp.has(mid):
+						continue
+					_current_phase_actions += 1
+					var wp_result = NetworkIntegration.route_action({
+						"type": "STAGE_MODEL_MOVE", "actor_unit_id": unit_id, "player": player,
+						"payload": {"model_id": mid, "dest": waypoints[mid], "rotation": 0.0}})
+					if wp_result != null and wp_result.get("success", false):
+						at_wp[mid] = true
+						progressed = true
+						print("AIPlayer: [TWO-LEG] %s staged via waypoint %s" % [mid, str(waypoints[mid])])
+					else:
+						last_errors[mid] = str(wp_result.get("errors", wp_result.get("error", "?"))) if wp_result != null else "null result"
+				if not progressed or at_wp.size() == wp_order.size():
+					break
+			for mid in wp_order:
+				if not at_wp.has(mid):
+					print("AIPlayer: [TWO-LEG] waypoint stage failed for %s (%s) — trying the straight line" % [mid, last_errors.get(mid, "?")])
+			# Destinations: front of leg 2 first, from where each model now stands
+			var leg2_dir := Vector2.ZERO
+			for mid in at_wp:
+				var d = destinations[mid]
+				leg2_dir += Vector2(float(d[0]), float(d[1])) - wp_vec[mid]
+			leg2_dir = leg2_dir.normalized()
+			var now_pos := {}
+			for mid in order:
+				now_pos[mid] = wp_vec[mid] if at_wp.has(mid) else origin_positions.get(mid, Vector2.ZERO)
+			order.sort_custom(func(a, b): return now_pos[a].dot(leg2_dir) > now_pos[b].dot(leg2_dir))
+
+	var pending: Array = order.duplicate()
+	var max_sweeps: int = pending.size() if not at_wp.is_empty() else 1
+	for sweep in range(max_sweeps):
+		if pending.is_empty():
+			break
+		if sweep > 0:
+			print("AIPlayer: [TWO-LEG] sweep %d — %d model(s) waiting for squadmates to clear" % [sweep + 1, pending.size()])
+		var progressed := false
+		for model_id in pending.duplicate():
+			var stage_action = {
 				"type": "STAGE_MODEL_MOVE",
 				"actor_unit_id": unit_id,
 				"player": player,
-				"payload": {"model_id": model_id, "dest": waypoints[model_id], "rotation": 0.0}
-			})
-			if wp_result != null and wp_result.get("success", false):
-				print("AIPlayer: [TWO-LEG] %s staged via waypoint %s" % [model_id, str(waypoints[model_id])])
-			else:
-				print("AIPlayer: [TWO-LEG] waypoint stage failed for %s (%s) — trying the straight line" % [
-					model_id, str(wp_result.get("errors", wp_result.get("error", "?"))) if wp_result != null else "null result"])
-		var stage_action = {
-			"type": "STAGE_MODEL_MOVE",
-			"actor_unit_id": unit_id,
-			"player": player,
-			"payload": {
-				"model_id": model_id,
-				"dest": dest,
-				"rotation": 0.0
+				"payload": {
+					"model_id": model_id,
+					"dest": destinations[model_id],
+					"rotation": 0.0
+				}
 			}
-		}
-
-		_current_phase_actions += 1
-		var stage_result = NetworkIntegration.route_action(stage_action)
-
-		if stage_result != null and stage_result.get("success", false):
-			staged_count += 1
+			_current_phase_actions += 1
+			var stage_result = NetworkIntegration.route_action(stage_action)
+			if stage_result != null and stage_result.get("success", false):
+				staged_count += 1
+				pending.erase(model_id)
+				progressed = true
+			else:
+				var errors = stage_result.get("errors", []) if stage_result != null else []
+				last_errors[model_id] = errors[0] if errors is Array and errors.size() > 0 else str(stage_result.get("error", "unknown")) if stage_result != null else "null result"
+		if not progressed:
+			break
+	for model_id in pending:
+		failed_count += 1
+		var error_msg = str(last_errors.get(model_id, "unknown"))
+		failure_reasons.append(error_msg)
+		if at_wp.has(model_id):
+			staged_count += 1  # it did move — leg 1 only; it ends at its waypoint
+			print("AIPlayer: [TWO-LEG] %s stops at its waypoint (destination still blocked: %s)" % [model_id, error_msg])
 		else:
-			failed_count += 1
-			var errors = stage_result.get("errors", []) if stage_result != null else []
-			var error_msg = errors[0] if errors is Array and errors.size() > 0 else str(stage_result.get("error", "unknown")) if stage_result != null else "null result"
-			failure_reasons.append(error_msg)
 			print("AIPlayer: Failed to stage model %s: %s" % [model_id, error_msg])
 
 	if staged_count == 0:
