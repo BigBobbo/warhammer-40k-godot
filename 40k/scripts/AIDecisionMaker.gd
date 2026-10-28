@@ -2061,6 +2061,16 @@ const THREAT_WIPE_STEEPNESS: float = 4.0        # P(wipe) = 1 / (1 + (wounds / e
 const THREAT_TARGET_SPLIT: float = 1.0          # weight of the other friendly units the enemy could charge instead (0 = assume it always picks us)
 const THREAT_TRADE_CREDIT: float = 0.5          # share of the expected kill-back credited against the loss (never past it)
 const THREAT_EV_MIN_P_DIE: float = 0.02         # below this the outcome terms are skipped (noise)
+# THREAT-EV-HOLD: units already on an objective get the same outcome terms for
+# staying, and PASS 1's forced hold gives way to the scores when the holder
+# would probably be wiped and it has a better-scoring option elsewhere.
+const THREAT_EV_HOLD: float = 1.0
+const THREAT_EV_HOLD_RELEASE_SURVIVAL: float = 0.5   # forced hold released below this survival chance
+# THREAT-EV-CHASE: a melee unit only abandons its assignment to chase an enemy
+# when the trade pays: (survive) x P(our charge next turn) x what our charge is
+# worth, minus what the enemy's charge is expected to cost us first (VP).
+const THREAT_EV_CHASE: float = 1.0
+const THREAT_EV_CHASE_MIN_NET_VP: float = 0.0        # chase declined when the expected trade is below this
 
 # =============================================================================
 # 11e HIDDEN AWARENESS (core rules 13.09) — corpus findings F001/F002/F003
@@ -2405,7 +2415,8 @@ static func _is_melee_seeker(unit: Dictionary) -> bool:
 ## thresholds. Returns {} for "follow the assignment", or:
 ##   {target_id, target_name, distance_inches, advance: bool, reason}
 static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dictionary,
-		enemies: Dictionary, friendly_units: Dictionary, snapshot: Dictionary, player: int) -> Dictionary:
+		enemies: Dictionary, friendly_units: Dictionary, snapshot: Dictionary, player: int,
+		threat_data: Array = []) -> Dictionary:
 	if not _is_melee_seeker(unit) or enemies.is_empty():
 		return {}
 	var nearest = _get_nearest_enemy_for_charge(unit, enemies)
@@ -2513,6 +2524,37 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
 		reason = "closing to charge range (%.1f\" after move)" % maxf(dist_after_normal_move, 0.0)
 	else:
 		reason = "closing the distance (%.1f\" away)" % enemy_dist
+
+	# --- THREAT-EV-CHASE: does the trade pay? ---
+	# The chaser ends this move closer to its target — usually inside the
+	# target's (and others') charge reach — and only gets to charge next turn
+	# if it survives the enemy's. Compare, in VP: what our charge is expected
+	# to win next turn vs what the enemy's charge is expected to cost us first.
+	if not threat_data.is_empty() and centroid != Vector2.INF \
+			and get_param("THREAT_EXPECTED_DAMAGE", THREAT_EXPECTED_DAMAGE) > 0.0 \
+			and get_param("THREAT_EV_CHASE", THREAT_EV_CHASE) > 0.0:
+		var target: Dictionary = nearest.enemy_unit
+		var target_c: Vector2 = nearest.centroid
+		var chase_move_in: float = move_inches + (get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES) if should_advance else 0.0)
+		var to_target: Vector2 = target_c - centroid
+		var travel_px := minf(chase_move_in * PIXELS_PER_INCH, maxf(0.0, to_target.length() - (GameConstants.engagement_range_inches() + 1.0) * PIXELS_PER_INCH))
+		var chase_dest: Vector2 = centroid + (to_target.normalized() * travel_px if to_target.length() > 1.0 else Vector2.ZERO)
+		var risk := _estimate_charge_risk(unit, unit_id, centroid, chase_dest, threat_data, friendly_units, battle_round)
+		var gap_after := _min_gap_inches(unit, chase_dest - centroid, target)
+		var p_our_charge := _charge_success_probability(gap_after - move_inches - GameConstants.engagement_range_inches()) if gap_after != INF else 0.0
+		var our_dmg := _estimate_melee_damage(unit, target)
+		var t_wounds := _estimate_unit_remaining_wounds(target)
+		var our_gain_vp := (1.0 - float(risk.p_die)) * p_our_charge \
+			* _charge_target_appeal(our_dmg, t_wounds, target, battle_round, get_param("THREAT_WIPE_STEEPNESS", THREAT_WIPE_STEEPNESS))
+		var net_vp := our_gain_vp - (float(risk.loss_vp) - float(risk.trade_vp))
+		print("AIDecisionMaker: [CHASE-EV] %s -> %s: survive %.0f%%, our charge next turn %.0f%% (%.1f dmg vs %.0f wounds) = +%.2f VP; their charge first costs %.2f VP (trade back %.2f) -> net %+.2f VP" % [
+			unit_name, enemy_name, (1.0 - float(risk.p_die)) * 100.0, p_our_charge * 100.0, our_dmg, t_wounds,
+			our_gain_vp, float(risk.loss_vp), float(risk.trade_vp), net_vp])
+		if net_vp < get_param("THREAT_EV_CHASE_MIN_NET_VP", THREAT_EV_CHASE_MIN_NET_VP):
+			print("AIDecisionMaker: [CHASE-EV] %s declines to chase %s — bad trade (net %+.2f VP); following its assignment to %s" % [
+				unit_name, enemy_name, net_vp, assigned_obj_id])
+			return {}
+		reason += " — trade %+.1f VP" % net_vp
 	return {
 		"target_id": nearest.enemy_id,
 		"target_name": enemy_name,
@@ -9254,7 +9296,8 @@ static func _assign_units_to_objectives(
 			# hold / score it, so the plan's value is scaled by its survival
 			# chance; losing the unit then costs its own value in VP.
 			var survival_chance := -1.0
-			if threat_ev_on and not threat_data.is_empty() and not already_on_obj:
+			var hold_ev_on: bool = threat_ev_on and get_param("THREAT_EV_HOLD", THREAT_EV_HOLD) > 0.0
+			if threat_ev_on and not threat_data.is_empty() and (not already_on_obj or hold_ev_on):
 				var risk := _estimate_charge_risk(unit, unit_id, centroid, estimated_dest, threat_data, friendly_units, battle_round)
 				var p_die: float = risk.p_die
 				survival_chance = 1.0 - p_die
@@ -9366,6 +9409,19 @@ static func _assign_units_to_objectives(
 			else:
 				should_hold = true
 		# If multiple units on same held_safe objective, let extras move elsewhere
+
+		# THREAT-EV-HOLD: a forced hold gives way to the scores when the holder
+		# would probably be charged and wiped where it stands AND it scores
+		# better elsewhere (its candidate scores already carry the risk terms).
+		if should_hold and get_param("THREAT_EXPECTED_DAMAGE", THREAT_EXPECTED_DAMAGE) > 0.0 \
+				and get_param("THREAT_EV_HOLD", THREAT_EV_HOLD) > 0.0:
+			var hold_survival := float(cand.get("survival_chance", -1.0))
+			var be_score := float(best_elsewhere.get(uid, -INF))
+			if hold_survival >= 0.0 and hold_survival < get_param("THREAT_EV_HOLD_RELEASE_SURVIVAL", THREAT_EV_HOLD_RELEASE_SURVIVAL) \
+					and be_score > float(cand.score):
+				should_hold = false
+				print("AIDecisionMaker: [HOLD-RISK] %s released from holding %s — %.0f%% to survive the enemy's charge there; scores %.1f elsewhere vs %.1f holding" % [
+					uid, oid, hold_survival * 100.0, be_score, float(cand.score)])
 
 		if should_hold:
 			assignments[uid] = cand.duplicate()
@@ -9509,7 +9565,7 @@ static func _assign_units_to_objectives(
 		var a_unit = snapshot.get("units", {}).get(uid, {})
 		if a_unit.is_empty():
 			continue
-		var gate = _melee_chase_gate(a_unit, uid, a, enemies, friendly_units, snapshot, player)
+		var gate = _melee_chase_gate(a_unit, uid, a, enemies, friendly_units, snapshot, player, threat_data)
 		if gate.is_empty():
 			continue
 		var a_oid = a.get("objective_id", "")

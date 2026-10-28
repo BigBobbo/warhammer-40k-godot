@@ -1,0 +1,129 @@
+{
+  "id": "ai_threat_hold_release",
+  "covers": [
+    "ai.movement.threat_ev_hold",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "THREAT-EV-HOLD. Round 1 Custodes mirror, P1 Movement, both seats HUMAN. Prosecutors (45pt, 4 wounds) are the sole holder of obj_home_1 and P2's Allarus Custodians is staged 3\" away. Setup: P1's profile sets THREAT_TARGET_SPLIT=0 (each unit assumes the enemy charges it) so the holder's survival chance is ~1% — the regime the release targets. The forced hold gives way to the scores: the Prosecutors' card shows its hold option carrying 'Likely dead before it scores' / 'Unit at risk' and the AI no longer plans 'hold obj_home_1' for it.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8,
+      "script": ""
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "stage P2 Allarus centroid at Vector2(950, 560)",
+      "script": "var u = GameState.state.units['U_ALLARUS_CUSTODIANS_A_P2']\nvar c = Vector2.ZERO\nfor m in u.models:\n\tc += Vector2(m.position.x, m.position.y)\nc /= u.models.size()\nvar d = Vector2(950, 560) - c\nfor m in u.models:\n\tm.position = {'x': m.position.x + d.x, 'y': m.position.y + d.y}\ntree.current_scene._recreate_unit_visuals()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "comment": "swap Prosecutors onto obj_home_1 (Custodian Guard Zeta moved off); test profile: THREAT_TARGET_SPLIT=0",
+      "script": "var a = GameState.state.units['U_PROSECUTORS_A']\nvar b = GameState.state.units['U_CUSTODIAN_GUARD_F']\nvar ca = Vector2.ZERO\nfor m in a.models:\n\tca += Vector2(m.position.x, m.position.y)\nca /= a.models.size()\nvar cb = Vector2.ZERO\nfor m in b.models:\n\tcb += Vector2(m.position.x, m.position.y)\ncb /= b.models.size()\nvar da = Vector2(700, 470) - ca\nvar db = Vector2(300, 700) - cb\nfor m in a.models:\n\tm.position = {'x': m.position.x + da.x, 'y': m.position.y + da.y}\nfor m in b.models:\n\tm.position = {'x': m.position.x + db.x, 'y': m.position.y + db.y}\nAIDecisionMaker.load_player_profile(1, {'parameters': {'THREAT_TARGET_SPLIT': 0.0}, 'rules': []})\ntree.current_scene._recreate_unit_visuals()\nreturn true"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3,
+      "script": ""
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0,
+      "script": ""
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Prosecutors — hold obj_home_1\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._request_unit(\"U_PROSECUTORS_A\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"MOVEMENT · Prosecutors\") and main._ai_suggestion_panel.full_text.contains(\"Hold obj_home_1\") and main._ai_suggestion_panel.full_text.contains(\"Unit at risk\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "comment": "open every option's details and scroll to the options",
+      "script": "var pnl = tree.current_scene._ai_suggestion_panel\nfor r in range(3):\n\tfor c in range(8):\n\t\tpnl._expanded['opt:%d:%d' % [r, c]] = true\npnl._render(false)\nvar t = pnl._rich.get_parsed_text()\npnl._rich.scroll_to_line(t.substr(0, t.find('All options')).count('\\n'))\nreturn t.contains('Hold obj_home_1')"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "01_hold_release_card"
+    }
+  ]
+}

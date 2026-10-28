@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.55.5",
+      "date": "2026-10-28",
+      "summary": "AI weighs charge danger for units holding objectives and units choosing to attack.",
+      "changes": [
+        "A unit holding an objective now counts the risk of being charged and wiped there, and leaves when it would almost certainly die and has a better option.",
+        "A melee unit only abandons its objective to attack an enemy when the trade pays: what its charge would win next turn against what the enemy's charge would cost it first.",
+        "The AI's plan notes show the trade value for each attack (e.g. \"trade +1.4 VP\")."
+      ]
+    },
+    {
       "version": "1.55.4",
       "date": "2026-10-28",
       "summary": "AI no longer walks units into charges that would wipe them for the sake of an objective.",

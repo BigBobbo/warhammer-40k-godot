@@ -1,0 +1,114 @@
+{
+  "id": "ai_threat_chase_trade",
+  "covers": [
+    "ai.movement.threat_ev_chase",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "THREAT-EV-CHASE. Round 1 Custodes mirror, P1 Movement, both seats HUMAN. P2's Allarus Custodians is staged inside P1's deployment. A melee unit only abandons its objective to attack when the trade pays (our charge next turn vs the Allarus's charge on us first): Custodian Guard (+~1.4 VP) still attack it, but Blade Champions and Prosecutors (wiped first, barely scratch it back) decline and keep their objective moves. The plan notes show the trade value.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8,
+      "script": ""
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "stage P2 Allarus centroid at Vector2(800, 1150)",
+      "script": "var u = GameState.state.units['U_ALLARUS_CUSTODIANS_A_P2']\nvar c = Vector2.ZERO\nfor m in u.models:\n\tc += Vector2(m.position.x, m.position.y)\nc /= u.models.size()\nvar d = Vector2(800, 1150) - c\nfor m in u.models:\n\tm.position = {'x': m.position.x + d.x, 'y': m.position.y + d.y}\ntree.current_scene._recreate_unit_visuals()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3,
+      "script": ""
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0,
+      "script": ""
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Alpha — attack Allarus Custodians\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Blade Champion Beta — attack\") or main._ai_suggestion_panel.full_text.contains(\"Prosecutors — attack\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"trade +\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "comment": "scroll the card to the AI's notes so the attack/trade lines are in frame",
+      "script": "var r = tree.current_scene._ai_suggestion_panel._rich\nvar t = r.get_parsed_text()\nvar line = t.substr(0, t.find('ATTACK Allarus')).count('\\n')\nr.scroll_to_line(maxi(0, line - 8))\nreturn line > 0"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "01_chase_trade_plan"
+    }
+  ]
+}
