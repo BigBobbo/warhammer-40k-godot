@@ -517,11 +517,35 @@ func _collect_result(status: String, note: String) -> Dictionary:
 		"winner": winner,
 		"vp": vp,
 		"vp_diff_p2_minus_p1": p2_total - p1_total,
+		"survivors": _collect_survivors(),
 		"battle_round": GameState.get_battle_round(),
 		"actions_taken": ai._action_log.size() if ai != null else 0,
 		"wall_seconds": (Time.get_ticks_msec() - _start_ticks) / 1000.0,
 		"time_scale": _time_scale,
 	}
+
+## Points / units / models still alive per player at the end — lets an A/B
+## see how well an arm preserved its army, not just the VP margin.
+func _collect_survivors() -> Dictionary:
+	var out := {}
+	for p in [1, 2]:
+		out["player%d" % p] = {"points_alive": 0, "units_alive": 0, "models_alive": 0, "units_destroyed": 0}
+	for uid in GameState.state.get("units", {}):
+		var u: Dictionary = GameState.state.units[uid]
+		var key := "player%d" % int(u.get("owner", 0))
+		if not out.has(key):
+			continue
+		var alive := 0
+		for m in u.get("models", []):
+			if m.get("alive", true):
+				alive += 1
+		if alive > 0:
+			out[key].units_alive += 1
+			out[key].models_alive += alive
+			out[key].points_alive += int(u.get("meta", {}).get("points", 0))
+		else:
+			out[key].units_destroyed += 1
+	return out
 
 func _finish_completed() -> void:
 	_write_and_quit(_collect_result("completed", ""), 0)
