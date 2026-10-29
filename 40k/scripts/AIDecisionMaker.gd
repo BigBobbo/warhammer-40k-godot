@@ -1486,6 +1486,13 @@ const PLAN_EXTRA_OBJECTIVE_MIN_VP: float = 1.0
 # Movement plan (RACE-SKIP): a lost contest race is not assigned when the enemy
 # can bring at least this multiple of our OC there before we arrive.
 const MOVE_RACE_HOPELESS_RATIO: float = 2.0
+# Movement plan (RACE-LATE): 1 = an enemy unit that can only reach the
+# objective on the SAME turn count as our unit (it arrives after we are
+# already there) loses us the race only if it out-OCs what our ARMY can have
+# there by then (race_army_oc); units there BEFORE we arrive are still
+# measured against this unit + our holders. 0 = V4/V5 behaviour (every
+# arrival within turns_to_reach moves measured against this unit alone).
+const PLAN_RACE_LATE_VS_ARMY: float = 1.0
 # Charge (CH-LEAVE): score multiplier lost when a successful charge would pull
 # the charger off an objective it alone keeps.
 const CHARGE_LEAVE_OBJ_PENALTY: float = 0.5
@@ -9023,13 +9030,23 @@ static func _assign_units_to_objectives(
 				# RACE-1b: an enemy unit nearer another objective can still switch
 				# to this one, but it can stand on only one — half its OC.
 				var race_half_oc := 0
+				# RACE-LATE: the part of race_enemy_oc that stands there BEFORE
+				# we arrive (holders + arrivals within turns_to_reach - 1 moves).
+				var race_early_oc := race_enemy_oc
+				var race_early_half_oc := 0
 				for arr in eval.get("enemy_arrivals", []):
 					if int(arr.moves) <= int(turns_to_reach) - (0 if race_same_turn else 1):
 						if arr.get("nearest", true):
 							race_enemy_oc += int(arr.oc)
 						else:
 							race_half_oc += int(arr.oc)
+					if int(arr.moves) <= int(turns_to_reach) - 1:
+						if arr.get("nearest", true):
+							race_early_oc += int(arr.oc)
+						else:
+							race_early_half_oc += int(arr.oc)
 				race_enemy_oc += int(round(race_half_oc * 0.5))
+				race_early_oc += int(round(race_early_half_oc * 0.5))
 				var race_our_oc: int = int(unit_oc) + int(eval.get("friendly_oc", 0))
 				# RACE-ARMY: the OC our army can have there by the same turn
 				# (this unit in full, other units weighted like the enemy's).
@@ -9044,7 +9061,18 @@ static func _assign_units_to_objectives(
 						else:
 							army_half_oc += int(f_arr.oc)
 				race_army_oc += int(round(army_half_oc * 0.5))
-				if race_enemy_oc > 0 and race_enemy_oc >= race_our_oc and score > 0.0:
+				# RACE-LATE: same-turn enemy arrivals reach an objective our unit
+				# already stands on, alongside the rest of our army converging
+				# there — so the full window is compared with the army's OC, and
+				# only the enemy already there before us with this unit's OC.
+				# Without it, P2's round-1 2-turn trips to its own no-man's-land
+				# objective were all "lost" (P1 had moved up), halving their value
+				# for low-OC units and pulling OC 10 squads onto it instead.
+				var race_lost_now: bool = race_enemy_oc >= race_our_oc
+				if get_param("PLAN_RACE_LATE_VS_ARMY", PLAN_RACE_LATE_VS_ARMY) >= 0.5:
+					race_lost_now = race_early_oc >= race_our_oc \
+							or race_enemy_oc >= maxi(race_our_oc, race_army_oc)
+				if race_enemy_oc > 0 and race_lost_now and score > 0.0:
 					race_lost = true
 					score = _t_mul(score_terms, "contest_race", score,
 						get_param("MOVE_RACE_LOSS_FACTOR", MOVE_RACE_LOSS_FACTOR))
