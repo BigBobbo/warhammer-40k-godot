@@ -1731,6 +1731,7 @@ const MOVE_TURNS_AWAY_FRACTION: float = 0.2       # x (objective value) per extr
 const MOVE_RACE_LOSS_FACTOR: float = 0.5          # value kept when the enemy wins the race
 const MOVE_LONG_ADVANCE: float = 1.0              # 1 = advance on long trips when it saves a turn
 const ADVANCE_EXPECTED_EXTRA_INCHES: float = 3.5  # mean D6 Advance roll
+const ADVANCE_SAVE_TURN_MIN_P: float = 0.3        # ADV-PROB: min chance Advancing saves a turn
 const MOVE_STAY_BONUS_LATE: float = 7.0           # already on objective, round >= 4
 const MOVE_STAY_BONUS_SCORING: float = 6.0        # already on objective, round >= 2
 const MOVE_STAY_BONUS_EARLY: float = 5.0          # already on objective, round 1
@@ -9318,8 +9319,8 @@ static func _assign_units_to_objectives(
 					reason = "advancing for extra range"
 			elif long_adv:
 				# RACE-1: a trip that takes several turns either way — Advance when
-				# the expected roll gets there a whole turn sooner and the unit has
-				# nothing to shoot this turn anyway.
+				# the roll has a real chance (ADV-PROB) to get there a whole turn
+				# sooner and the unit has nothing to shoot this turn anyway.
 				action = "advance"
 				reason = "advancing to arrive a turn sooner"
 
@@ -10811,9 +10812,32 @@ static func _should_unit_advance(
 static func _long_trip_advance_saves_turn(dist_inches: float, move_inches: float) -> bool:
 	if move_inches <= 0.0 or dist_inches <= move_inches:
 		return false
-	var turns_normal := ceilf(dist_inches / move_inches)
-	var turns_adv := ceilf(dist_inches / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES)))
-	return turns_adv < turns_normal
+	# ADV-PROB: the mean roll (3.5") is the wrong test — an 11" gap at M6 is 2
+	# turns walking AND 2 turns at the mean Advance, but a 5+ arrives this turn
+	# and scores at the next Command phase. Advance when Advancing on each of
+	# the turns_normal - 1 turns arrives a whole turn sooner with probability
+	# >= ADVANCE_SAVE_TURN_MIN_P. (Set it above 0.5 for the old mean test.)
+	var turns_normal := int(ceilf(dist_inches / move_inches))
+	var t := turns_normal - 1
+	var need := dist_inches - float(t) * move_inches
+	return _prob_sum_d6_at_least(t, need) >= get_param("ADVANCE_SAVE_TURN_MIN_P", ADVANCE_SAVE_TURN_MIN_P)
+
+## P(sum of n D6 >= need), exact (n is a few turns at most).
+static func _prob_sum_d6_at_least(n: int, need: float) -> float:
+	if n <= 0:
+		return 1.0 if need <= 0.0 else 0.0
+	var dist := {0: 1.0}
+	for _i in range(n):
+		var nxt := {}
+		for total in dist:
+			for face in range(1, 7):
+				nxt[total + face] = float(nxt.get(total + face, 0.0)) + float(dist[total]) / 6.0
+		dist = nxt
+	var p := 0.0
+	for total in dist:
+		if float(total) >= need:
+			p += float(dist[total])
+	return p
 
 ## RACE-1: Advancing costs the unit its shooting (and charge) this turn, so on
 ## a long trip only do it when that costs nothing: no enemy within charge reach

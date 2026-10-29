@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.2",
+      "date": "2026-10-29",
+      "summary": "The AI Advances toward far objectives again when the dice can get it there a turn sooner.",
+      "changes": [
+        "Movement: on a long trip to an objective, the AI now Advances when the Advance roll has a fair chance (about 1 in 3 or better) to arrive a whole turn sooner. Before, it walked unless the average roll saved a turn, so in round 1 it often reached no objective in time for the round-2 scoring."
+      ]
+    },
+    {
       "version": "1.56.1",
       "date": "2026-10-28",
       "summary": "More AI fixes: the cheapest unit keeps home, charges count real help and the cost of being hit back.",
