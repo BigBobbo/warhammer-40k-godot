@@ -108,6 +108,9 @@ var _dispositions: String = ""
 # tactical secondary deck built by the normal Command-phase flow. Older
 # fixtures carry legacy Take and Hold scoring and the 10e secondary deck.
 var _bench_11e: bool = false
+# OBJ-CACHE: --bench-no-objective-cache turns the objective-control cache off;
+# --bench-verify-objective-cache recomputes on every hit and counts mismatches.
+var _obj_cache_mode: String = "on"
 
 func _ready() -> void:
 	var args = OS.get_cmdline_args() + OS.get_cmdline_user_args()
@@ -134,6 +137,10 @@ func _ready() -> void:
 			_seat_ai[1] = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-p2-ai="):
 			_seat_ai[2] = a.split("=", true, 1)[1]
+		elif a == "--bench-no-objective-cache":
+			_obj_cache_mode = "off"
+		elif a == "--bench-verify-objective-cache":
+			_obj_cache_mode = "verify"
 		elif a == "--bench-11e":
 			_bench_11e = true
 		elif a.begins_with("--bench-dispositions="):
@@ -307,6 +314,12 @@ func _kick_off() -> void:
 		return
 	GameState.state["meta"]["from_save"] = true
 	GameConstants.edition = 11
+	var mm_cache = get_node_or_null("/root/MissionManager")
+	if mm_cache != null and "control_cache_enabled" in mm_cache:
+		mm_cache.control_cache_enabled = _obj_cache_mode != "off"
+		mm_cache.control_cache_verify = _obj_cache_mode == "verify"
+		mm_cache.invalidate_control_cache()
+		print("[AIBench] OBJ-CACHE mode: %s" % _obj_cache_mode)
 	if _bench_11e and _dispositions == "":
 		var d = PrimaryMissionData11e.DISPOSITIONS
 		var s_ = maxi(_seed, 0)
@@ -590,6 +603,10 @@ func _perf_seconds(ai) -> Dictionary:
 	if mm != null and "perf_check_objectives_usec" in mm:
 		out["check_all_objectives"] = snappedf(float(mm.perf_check_objectives_usec) / 1000000.0, 0.01)
 		out["check_all_objectives_calls"] = mm.perf_check_objectives_calls
+		if "perf_check_objectives_hits" in mm:
+			out["check_all_objectives_cache_hits"] = mm.perf_check_objectives_hits
+			out["objective_cache_mismatches"] = mm.control_cache_mismatches
+			out["objective_cache_mode"] = _obj_cache_mode
 	return out
 
 func _finish_completed() -> void:

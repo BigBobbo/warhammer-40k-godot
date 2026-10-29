@@ -250,6 +250,7 @@ func _setup_objectives_for_deployment(deployment_type: String) -> void:
 
 	# Initialize control state
 	objective_control_state.clear()
+	invalidate_control_cache()  # OBJ-CACHE
 	objective_contested_state.clear()
 	_sticky_objectives.clear()
 	for obj in objectives:
@@ -313,13 +314,75 @@ var _secured_lock_break_enabled: bool = true
 var perf_check_objectives_usec: int = 0
 var perf_check_objectives_calls: int = 0
 
+# OBJ-CACHE: a recompute is a pure function of the game state it reads, and it
+# is idempotent (a second run on the same inputs changes nothing). So when the
+# signature of EVERY input equals the one left by the last recompute, the
+# result is already in objective_control_state and the work is skipped. The
+# signature covers units (positions, alive, status, flags, stats, attachments
+# — everything model_oc and the codex OC rules read), board (objectives and
+# terrain), factions (detachments), removed / burned / burning objectives,
+# secured locks, the current control and contested state, the phase-end flag,
+# edition, round, phase and active player. Dictionary/Array.hash() is native
+# and recursive, so the check costs well under a millisecond against ~0.38 s
+# for a full recompute (benchmark 2026-10-29: ~250 recomputes, ~94 s a game).
+# Set control_cache_verify to recompute on every hit and report any difference
+# as an ERROR (AIBenchmarkRunner --bench-verify-objective-cache).
+var control_cache_enabled: bool = true
+var control_cache_verify: bool = false
+var perf_check_objectives_hits: int = 0
+var control_cache_mismatches: int = 0
+var _control_cache_sig: int = 0
+var _control_cache_valid: bool = false
+
+func _control_signature(phase_end: bool) -> int:
+	var st: Dictionary = GameState.state
+	var meta: Dictionary = st.get("meta", {})
+	return [st.get("units", {}), st.get("board", {}), st.get("factions", {}),
+		removed_objectives, burned_objectives, burn_in_progress, _sticky_objectives,
+		objective_control_state, objective_contested_state, phase_end,
+		GameConstants.edition, meta.get("battle_round", 0), meta.get("phase", 0),
+		meta.get("active_player", 0)].hash()
+
+## Drop the cached signature (e.g. after a load or a reset) so the next
+## check_all_objectives() recomputes from scratch.
+func invalidate_control_cache() -> void:
+	_control_cache_valid = false
+
 func check_all_objectives(phase_end: bool = true) -> void:
 	var _t0 := Time.get_ticks_usec()
+	var sig := _control_signature(phase_end) if control_cache_enabled else 0
+	if control_cache_enabled and _control_cache_valid and sig == _control_cache_sig:
+		perf_check_objectives_hits += 1
+		if control_cache_verify:
+			_verify_control_cache_hit(phase_end)
+		else:
+			refresh_objective_visuals()
+		perf_check_objectives_usec += Time.get_ticks_usec() - _t0
+		perf_check_objectives_calls += 1
+		return
 	_secured_lock_break_enabled = phase_end
 	_check_all_objectives_impl()
 	_secured_lock_break_enabled = true
+	if control_cache_enabled:
+		# The POST-run signature: the impl may update control / locks / flags,
+		# and an immediate second call must see exactly this state to hit.
+		_control_cache_sig = _control_signature(phase_end)
+		_control_cache_valid = true
 	perf_check_objectives_usec += Time.get_ticks_usec() - _t0
 	perf_check_objectives_calls += 1
+
+## Verify mode: recompute anyway and compare with what the cache kept.
+func _verify_control_cache_hit(phase_end: bool) -> void:
+	var before := [objective_control_state.duplicate(true), objective_contested_state.duplicate(true),
+		_sticky_objectives.duplicate(true)]
+	_secured_lock_break_enabled = phase_end
+	_check_all_objectives_impl()
+	_secured_lock_break_enabled = true
+	var after := [objective_control_state, objective_contested_state, _sticky_objectives]
+	if str(before) != str(after):
+		control_cache_mismatches += 1
+		push_error("MissionManager: OBJ-CACHE mismatch — cached %s, recomputed %s" % [str(before), str(after)])
+	_control_cache_sig = _control_signature(phase_end)
 
 ## Mid-phase display refresh — see check_all_objectives(phase_end).
 func refresh_objective_control_display() -> void:
@@ -3446,6 +3509,7 @@ func get_state_for_save() -> Dictionary:
 	}
 
 func load_state(data: Dictionary) -> void:
+	invalidate_control_cache()  # OBJ-CACHE
 	"""Restore state from save data."""
 	current_mission = data.get("current_mission", current_mission)
 	objective_control_state = data.get("objective_control_state", {})
