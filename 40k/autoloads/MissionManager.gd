@@ -334,14 +334,23 @@ var control_cache_mismatches: int = 0
 var _control_cache_sig: int = 0
 var _control_cache_valid: bool = false
 
-func _control_signature(phase_end: bool) -> int:
+func _control_signature_parts(phase_end: bool) -> Dictionary:
 	var st: Dictionary = GameState.state
 	var meta: Dictionary = st.get("meta", {})
-	return [st.get("units", {}), st.get("board", {}), st.get("factions", {}),
-		removed_objectives, burned_objectives, burn_in_progress, _sticky_objectives,
-		objective_control_state, objective_contested_state, phase_end,
-		GameConstants.edition, meta.get("battle_round", 0), meta.get("phase", 0),
-		meta.get("active_player", 0)].hash()
+	return {"units": st.get("units", {}).hash(), "board": st.get("board", {}).hash(),
+		"factions": st.get("factions", {}).hash(),
+		"objectives_state": [removed_objectives, burned_objectives, burn_in_progress, _sticky_objectives,
+			objective_control_state, objective_contested_state].hash(),
+		"phase_end": phase_end, "edition": GameConstants.edition,
+		"turn": [meta.get("battle_round", 0), meta.get("phase", 0), meta.get("active_player", 0)].hash()}
+
+var _control_cache_parts: Dictionary = {}
+
+func _control_signature(phase_end: bool) -> int:
+	_control_cache_parts_now = _control_signature_parts(phase_end)
+	return _control_cache_parts_now.hash()
+
+var _control_cache_parts_now: Dictionary = {}
 
 ## Drop the cached signature (e.g. after a load or a reset) so the next
 ## check_all_objectives() recomputes from scratch.
@@ -360,6 +369,12 @@ func check_all_objectives(phase_end: bool = true) -> void:
 		perf_check_objectives_usec += Time.get_ticks_usec() - _t0
 		perf_check_objectives_calls += 1
 		return
+	if control_cache_enabled and _control_cache_valid:
+		var changed: Array = []
+		for k in _control_cache_parts_now:
+			if _control_cache_parts.get(k) != _control_cache_parts_now[k]:
+				changed.append(k)
+		DebugLogger.info("MissionManager: OBJ-CACHE miss — changed: %s" % str(changed))
 	_secured_lock_break_enabled = phase_end
 	_check_all_objectives_impl()
 	_secured_lock_break_enabled = true
@@ -367,6 +382,7 @@ func check_all_objectives(phase_end: bool = true) -> void:
 		# The POST-run signature: the impl may update control / locks / flags,
 		# and an immediate second call must see exactly this state to hit.
 		_control_cache_sig = _control_signature(phase_end)
+		_control_cache_parts = _control_cache_parts_now.duplicate()
 		_control_cache_valid = true
 	perf_check_objectives_usec += Time.get_ticks_usec() - _t0
 	perf_check_objectives_calls += 1
