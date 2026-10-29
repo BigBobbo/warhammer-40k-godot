@@ -311,6 +311,7 @@ func _kick_off() -> void:
 	await get_tree().process_frame
 
 	# 1) Load the fixture (a post-deployment save = full game from round 1)
+	_ensure_fixture_in_user_saves()
 	var save_mgr = get_node_or_null("/root/SaveLoadManager")
 	if save_mgr == null or not save_mgr.load_game(_fixture):
 		_finish_with_error("fixture load failed: %s" % _fixture)
@@ -680,6 +681,31 @@ static func _sha256_of(path: String) -> String:
 	if path == "" or not FileAccess.file_exists(path):
 		return ""
 	return FileAccess.get_sha256(path)
+
+## A fresh container has no user://saves/ copy of the fixture (the migration
+## from res:// runs from the menu, never in a headless benchmark), so the load
+## failed with "fixture load failed". Copy it (and its .meta) from the repo:
+## res://tests/saves/ (tracked) or res://saves/.
+func _ensure_fixture_in_user_saves() -> void:
+	var dst_dir := "user://saves/"
+	if FileAccess.file_exists(dst_dir + _fixture + ".w40ksave"):
+		return
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dst_dir))
+	for src_dir in ["res://tests/saves/", "res://saves/"]:
+		if not FileAccess.file_exists(src_dir + _fixture + ".w40ksave"):
+			continue
+		for ext in [".w40ksave", ".meta"]:
+			var src: String = src_dir + _fixture + ext
+			if not FileAccess.file_exists(src):
+				continue
+			var data := FileAccess.get_file_as_bytes(src)
+			var f := FileAccess.open(dst_dir + _fixture + ext, FileAccess.WRITE)
+			if f != null:
+				f.store_buffer(data)
+				f.close()
+		print("[AIBench] fixture %s copied from %s to %s" % [_fixture, src_dir, dst_dir])
+		return
+	print("[AIBench] WARNING: fixture %s not found in res://tests/saves/ or res://saves/" % _fixture)
 
 func _fixture_path() -> String:
 	"""Where the loaded fixture actually lives.
