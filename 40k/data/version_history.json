@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.5",
+      "date": "2026-10-29",
+      "summary": "The AI playing second claims its own side's objectives in round 1 again.",
+      "changes": [
+        "Movement: the AI now treats a race for an objective as lost only when the enemy can be there before it arrives, or when the whole enemy army can bring more there than the AI's army. Before, enemy units that could only arrive on the same turn counted against one unit, so the AI playing second often gave up near objectives in round 1 and scored less in round 2."
+      ]
+    },
+    {
       "version": "1.56.4",
       "date": "2026-10-29",
       "summary": "Faster objective control checks.",
