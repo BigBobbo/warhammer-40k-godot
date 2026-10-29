@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.4",
+      "date": "2026-10-29",
+      "summary": "Faster objective control checks.",
+      "changes": [
+        "Performance: the game now works out each model's OC once per objective control check, not once for every objective, and skips a check when nothing on the board has changed. Objective control checks take about 1/5 of the time they did, so phases end faster. Who controls each objective is unchanged."
+      ]
+    },
+    {
       "version": "1.56.3",
       "date": "2026-10-29",
       "summary": "The AI contests the centre again instead of leaving it to the enemy.",

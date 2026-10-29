@@ -405,6 +405,13 @@ func refresh_objective_control_display() -> void:
 	check_all_objectives(false)
 
 func _check_all_objectives_impl() -> void:
+	_oc_memo.clear()
+	_oc_memo_active = true
+	_check_all_objectives_impl_body()
+	_oc_memo_active = false
+	_oc_memo.clear()
+
+func _check_all_objectives_impl_body() -> void:
 	var objectives = GameState.state.board.get("objectives", [])
 
 	# If objectives are missing, reinitialize them
@@ -629,6 +636,18 @@ func is_objective_contested(obj_id: String) -> bool:
 ##   order: set, then add only when > 0).
 ## Vexilla's +1 is baked into meta.stats at army load (ArmyListManager), so it
 ## reaches every model through the base read.
+## OBJ-CACHE: the codex OC rule scripts model_oc consults, loaded once —
+## load() of an already-cached resource still resolved the path on every one
+## of the ~90k model_oc calls a game made.
+var _codex_scripts: Dictionary = {}
+
+func _codex_script(path: String):
+	var scr = _codex_scripts.get(path)
+	if scr == null:
+		scr = load(path)
+		_codex_scripts[path] = scr
+	return scr
+
 func model_oc(unit: Dictionary, model: Dictionary) -> int:
 	var flags = unit.get("flags", {})
 	var oc := int(flags.get("effect_oc_override", 0))
@@ -646,24 +665,24 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 		oc += _custodes_11e_oc_bonus(unit)
 		# WP-M2b Immovable Conquerors (Codex: Space Marines 11e, Gravis Siege Force): "This unit has +1 OC".
 		if GameConstants.edition >= 11:
-			oc += int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").oc_bonus(unit))
+			oc += int(_codex_script("res://scripts/codex/space_marines/SMDetachmentsB.gd").oc_bonus(unit))
 		# Codex: Space Marines (11e) WP-M3b FOR THE EMPEROR! (SMCodexB.gd): +1 OC until the end of the turn.
-		oc += int(load("res://scripts/codex/space_marines/SMCodexB.gd").oc_bonus(unit))
+		oc += int(_codex_script("res://scripts/codex/space_marines/SMCodexB.gd").oc_bonus(unit))
 	# Codex: Space Marines (11e) CURSE OF THE WULFEN: +1 OC (INFANTRY) / +3 OC
 	# (VEHICLE) near a Space Wolves CHARACTER / WOLF PRIEST (SWArmyRules11e.gd,
 	# WP-S2). Outside the "already has OC" gate: the Wulfen datasheets print
 	# OC 0 and the curse is what gives them OC (battle-shocked: no bonus, and
 	# _unit_oc_in_range zeroes a battle-shocked unit anyway).
 	if GameConstants.edition >= 11 and int(flags.get("effect_oc_override", 0)) == 0:
-		oc += int(load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").oc_bonus(unit))
+		oc += int(_codex_script("res://scripts/codex/space_wolves/SWArmyRules11e.gd").oc_bonus(unit))
 	# WP-S4: Space Wolves HUNTING HOUNDS — a Hunting Wolf's printed OC is 0, +1
 	# within 6" of a friendly SPACE WOLVES CHARACTER (SWAbilities11e.model_oc).
 	if GameConstants.edition >= 11:
-		oc = int(load("res://scripts/codex/space_wolves/SWAbilities11e.gd").model_oc(unit, model, oc))
+		oc = int(_codex_script("res://scripts/codex/space_wolves/SWAbilities11e.gd").model_oc(unit, model, oc))
 		# WP-M4b LORD OF THE PYROCLASTS (Adrax Agatone): an enemy unit engaged with his unit has -1 OC.
-		oc = int(load("res://scripts/codex/space_marines/SMAbilitiesB.gd").model_oc(unit, model, oc))
+		oc = int(_codex_script("res://scripts/codex/space_marines/SMAbilitiesB.gd").model_oc(unit, model, oc))
 		# WP-M4c: Terror Troops (-1 OC near Reivers), Honour of the Company (+1), Seeker of the Unfound (OC 10).
-		oc = int(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").model_oc(unit, model, oc))
+		oc = int(_codex_script("res://scripts/codex/space_marines/SMAbilitiesC.gd").model_oc(unit, model, oc))
 	return maxi(oc, 0)
 
 ## Codex: Adeptus Custodes (11e) Moritoi Ancients OC bonus for `unit` (0 at 10e
@@ -671,7 +690,7 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 func _custodes_11e_oc_bonus(unit: Dictionary) -> int:
 	if GameConstants.edition < 11:
 		return 0
-	return int(load("res://scripts/codex/custodes/CustodesDetachments.gd").oc_bonus(unit))
+	return int(_codex_script("res://scripts/codex/custodes/CustodesDetachments.gd").oc_bonus(unit))
 
 ## 01.07 / 19.01: battle-shocked models have OC '-'. Group-aware — an Attached
 ## unit is a single unit, so a battle_shocked flag on ANY component zeroes every
@@ -699,11 +718,36 @@ func _unit_peak_model_oc(unit: Dictionary) -> int:
 ## `host_areas` are the 14.01 hosting areas (empty = open-ground marker).
 ## `verbose` keeps _check_objective_control's per-unit / per-model debug lines;
 ## the other callers (LLM snapshot) pass false so they don't flood the log.
+## OBJ-CACHE: per-recompute memo of each unit's per-model OC. A recompute reads
+## the same state for every objective, so model_oc (0.7 ms a call: stat lines,
+## codex auras that scan other units) was computed once per model PER
+## OBJECTIVE, twice (peak + in-range) — ~765 calls a recompute. Active only
+## inside _check_all_objectives_impl, so other callers keep reading live state.
+var _oc_memo_active: bool = false
+var _oc_memo: Dictionary = {}  # unit_id -> {"peak": int, "per": Array}
+
+func _unit_oc_memo(unit_id: String, unit: Dictionary) -> Dictionary:
+	var m = _oc_memo.get(unit_id)
+	if m == null:
+		var per: Array = []
+		for model in unit.get("models", []):
+			per.append(model_oc(unit, model) if model.get("alive", true) else 0)
+		var best := -1
+		var i := 0
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				best = maxi(best, int(per[i]))
+			i += 1
+		m = {"peak": best if best >= 0 else model_oc(unit, {}), "per": per}
+		_oc_memo[unit_id] = m
+	return m
+
 func _unit_oc_in_range(unit_id: String, unit: Dictionary, objective: Dictionary, host_areas: Array, units: Dictionary, verbose: bool = false) -> int:
 	var owner = unit.get("owner", 0)
+	var memo: Dictionary = _unit_oc_memo(unit_id, unit) if _oc_memo_active else {}
 
 	# Skip if unit has no OC value (no alive model with OC 1+)
-	var oc_value := _unit_peak_model_oc(unit)
+	var oc_value := int(memo.peak) if not memo.is_empty() else _unit_peak_model_oc(unit)
 	if oc_value <= 0:
 		if verbose:
 			print("  Skipping %s - no OC value (OC: %d)" % [unit_id, oc_value])
@@ -749,7 +793,9 @@ func _unit_oc_in_range(unit_id: String, unit: Dictionary, objective: Dictionary,
 	# unit once.
 	var unit_total := 0
 	var models_in_range := 0
+	var model_idx := -1
 	for model in unit.get("models", []):
+		model_idx += 1
 		if not model.get("alive", true):
 			continue
 
@@ -761,7 +807,7 @@ func _unit_oc_in_range(unit_id: String, unit: Dictionary, objective: Dictionary,
 		if model_pos is Dictionary:
 			model_pos = Vector2(model_pos.x, model_pos.y)
 
-		var m_oc := model_oc(unit, model)
+		var m_oc := int(memo.per[model_idx]) if not memo.is_empty() else model_oc(unit, model)
 
 		# A model is within range of an objective if any part of its base
 		# is within the control radius. Use shape-aware distance to correctly
