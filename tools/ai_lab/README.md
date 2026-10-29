@@ -320,6 +320,12 @@ Measured on one legacy game (seed 9101, 310 s, CPU-bound — time scale and
 rendering do not matter): engine `route_action` 137 s, available actions 30 s,
 AI decide 24 s, snapshot 5 s.
 
+After OBJ-CACHE (2026-10-29: per-recompute model OC memo + signature cache in
+MissionManager), the same 11e game on a free CPU: 341 s -> 244 s (-28%),
+objective-control checks 94 s -> 10.6 s; identical result and decisions.
+`--bench-no-objective-cache` / `--bench-verify-objective-cache` switch the
+cache off or recompute on every hit (mismatches in `perf_seconds`).
+
 ## Not built yet
 
 Nothing in the M0–M4 chain. Remaining known gaps are the instrumentation ones
