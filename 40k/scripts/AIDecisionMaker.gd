@@ -8520,6 +8520,21 @@ static func _evaluate_all_objectives(
 				int(ceil((e_c.distance_to(o_pos) - OBJECTIVE_CONTROL_RANGE_PX) / maxf(e_step, 1.0)))
 			best_m = mini(best_m, m)
 		enemy_min_moves[e_uid] = best_m
+	# RACE-ARMY: the same moves-to-nearest-objective table for OUR units, so a
+	# race is judged army against army (see friendly_arrivals below).
+	var friendly_min_moves := {}
+	for f_uid in friendly_units:
+		var f_unit = friendly_units[f_uid]
+		var f_c = _get_unit_centroid(f_unit)
+		if f_c == Vector2.INF:
+			continue
+		var f_step = (float(f_unit.get("meta", {}).get("stats", {}).get("move", 6)) + 2.0) * PIXELS_PER_INCH
+		var f_best := 999
+		for o_pos in objectives:
+			var fm = 0 if f_c.distance_to(o_pos) <= OBJECTIVE_CONTROL_RANGE_PX else \
+				int(ceil((f_c.distance_to(o_pos) - OBJECTIVE_CONTROL_RANGE_PX) / maxf(f_step, 1.0)))
+			f_best = mini(f_best, fm)
+		friendly_min_moves[f_uid] = f_best
 
 	for i in range(objectives.size()):
 		var obj_pos = objectives[i]
@@ -8583,6 +8598,33 @@ static func _evaluate_all_objectives(
 				var e_moves = int(ceil((e_dist - OBJECTIVE_CONTROL_RANGE_PX) / e_step_px))
 				enemy_arrivals.append({"moves": e_moves, "oc": e_oc, "name": _dn(e_unit, e_uid),
 					"nearest": e_moves <= int(enemy_min_moves.get(e_uid, e_moves))})
+
+		# RACE-ARMY: our units' moves to control range, weighted like the enemy's
+		# (full OC toward their nearest objective, half elsewhere). RACE-SKIP
+		# compares the enemy's race OC with THIS, not with the one unit being
+		# placed: in a mirror both armies are equally close to the centre, and
+		# comparing the whole enemy army with one unit made both sides skip it.
+		var friendly_arrivals: Array = []
+		for f_uid in friendly_units:
+			var f_unit = friendly_units[f_uid]
+			if f_unit.get("flags", {}).get("battle_shocked", false):
+				continue
+			var f_status = f_unit.get("status", 0)
+			if f_status == GameStateData.UnitStatus.UNDEPLOYED or f_status == GameStateData.UnitStatus.IN_RESERVES:
+				continue
+			var f_oc = _unit_alive_oc(f_unit, 0)
+			if f_oc <= 0:
+				continue
+			var f_centroid = _get_unit_centroid(f_unit)
+			if f_centroid == Vector2.INF:
+				continue
+			var f_dist = f_centroid.distance_to(obj_pos)
+			if f_dist <= OBJECTIVE_CONTROL_RANGE_PX:
+				continue  # Already counted in friendly_oc
+			var f_step_px = (float(f_unit.get("meta", {}).get("stats", {}).get("move", 6)) + 2.0) * PIXELS_PER_INCH
+			var f_moves = int(ceil((f_dist - OBJECTIVE_CONTROL_RANGE_PX) / maxf(f_step_px, 1.0)))
+			friendly_arrivals.append({"moves": f_moves, "oc": f_oc, "unit_id": f_uid,
+				"nearest": f_moves <= int(friendly_min_moves.get(f_uid, f_moves))})
 
 		# 14.02 CONTEST CAPACITY — the OC we can stand in range with soon, in the
 		# same per-model units as enemy_oc: every alive model's OC of each of our
@@ -8764,7 +8806,8 @@ static func _evaluate_all_objectives(
 			"contest_oc": contest_oc,  # 14.02: OC we can stand in range with within our next two moves
 			"projected_enemy_oc": projected_enemy_oc,  # COORD-5: enemy OC one move away
 			"projected_names": projected_names,
-			"enemy_arrivals": enemy_arrivals  # RACE-1: enemy moves-to-range + OC
+			"enemy_arrivals": enemy_arrivals,  # RACE-1: enemy moves-to-range + OC
+			"friendly_arrivals": friendly_arrivals  # RACE-ARMY: ours, same weighting
 		})
 
 	# Narrate the VP stakes once per evaluation (top objectives by VP), so the
@@ -8970,6 +9013,7 @@ static func _assign_units_to_objectives(
 			# and, if that matches or beats what we would have there, keep only
 			# MOVE_RACE_LOSS_FACTOR of the value: we'd arrive to a fight we lose.
 			var race_enemy_oc := 0
+			var race_army_oc := 0
 			var race_lost := false
 			if turns_to_reach > 1 and not already_on_obj:
 				race_enemy_oc = int(eval.get("enemy_oc", 0))
@@ -8987,6 +9031,19 @@ static func _assign_units_to_objectives(
 							race_half_oc += int(arr.oc)
 				race_enemy_oc += int(round(race_half_oc * 0.5))
 				var race_our_oc: int = int(unit_oc) + int(eval.get("friendly_oc", 0))
+				# RACE-ARMY: the OC our army can have there by the same turn
+				# (this unit in full, other units weighted like the enemy's).
+				race_army_oc = int(eval.get("friendly_oc", 0)) + int(unit_oc)
+				var army_half_oc := 0
+				for f_arr in eval.get("friendly_arrivals", []):
+					if str(f_arr.get("unit_id", "")) == str(unit_id):
+						continue
+					if int(f_arr.moves) <= int(turns_to_reach):
+						if f_arr.get("nearest", true):
+							race_army_oc += int(f_arr.oc)
+						else:
+							army_half_oc += int(f_arr.oc)
+				race_army_oc += int(round(army_half_oc * 0.5))
 				if race_enemy_oc > 0 and race_enemy_oc >= race_our_oc and score > 0.0:
 					race_lost = true
 					score = _t_mul(score_terms, "contest_race", score,
@@ -9347,6 +9404,7 @@ static func _assign_units_to_objectives(
 				"race_enemy_oc": race_enemy_oc,
 				"race_lost": race_lost,
 				"race_our_oc": int(unit_oc) + int(eval.get("friendly_oc", 0)),
+				"race_army_oc": race_army_oc,
 				"vp_value": eval.get("vp_value", 0.0),
 				"score_terms": score_terms
 			})
@@ -9531,6 +9589,9 @@ static func _assign_units_to_objectives(
 		if not c.get("race_lost", false) or int(c.get("turns_to_reach", 1)) < 3:
 			return false
 		var ours = int(c.get("race_our_oc", c.get("unit_oc", 1))) + int(incoming_oc.get(c.objective_id, 0))
+		# RACE-ARMY: hopeless only when the enemy out-races what our ARMY can
+		# bring there, not just this unit and the units already sent.
+		ours = maxi(ours, int(c.get("race_army_oc", 0)))
 		return float(c.get("race_enemy_oc", 0)) >= race_ratio * float(maxi(ours, 1))
 	var reprice_capture := func(c_oid: String) -> Dictionary:
 		var ev = _get_obj_eval_by_id(obj_evaluations, c_oid)
@@ -9995,7 +10056,10 @@ static func _assign_units_to_objectives(
 		var support_allowed := {}
 		if extra_obj_skipped.has(unit_id):
 			for s_eval in obj_evaluations:
-				if s_eval.state in ["held_safe", "held_threatened", "contested", "enemy_weak", "enemy_strong"] \
+				# RACE-ARMY: where the army already is or is going — not an enemy
+				# objective nobody is taking (that sent skipped units on 30"+
+				# walks to the enemy home "in support").
+				if s_eval.state in ["held_safe", "held_threatened", "contested"] \
 						or planned_new_objs.has(s_eval.id):
 					support_allowed[s_eval.id] = true
 		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player, support_counts, support_allowed)

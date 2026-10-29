@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.3",
+      "date": "2026-10-29",
+      "summary": "The AI contests the centre again instead of leaving it to the enemy.",
+      "changes": [
+        "Movement: the AI now judges a race for a far objective army against army. Before, it compared the whole enemy army with one unit, so in an even game both sides gave up the centre and crowded onto side objectives.",
+        "Movement: a unit the AI keeps out of a lost race now supports objectives the army holds, contests or is taking, and no longer walks alone toward an enemy objective that nobody is attacking."
+      ]
+    },
+    {
       "version": "1.56.2",
       "date": "2026-10-29",
       "summary": "The AI Advances toward far objectives again when the dice can get it there a turn sooner.",
