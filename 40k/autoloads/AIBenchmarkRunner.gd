@@ -92,6 +92,9 @@ const BENCH_RECORD_BATCH_CAP := 100000
 # MissionManager.victory_points_scored. This is the intermediate reward
 # signal that the terminal margin alone cannot provide.
 var _vp_events: Array = []
+# AB-SEC: secondary-card events (drawn / scored / discarded) per player, kept in
+# the outcome so a campaign can say WHICH cards a version loses VP on.
+var _secondary_events: Array = []
 # Parsed profile JSON per player, kept for INLINE provenance so a record
 # stays self-describing even if the profile file is later edited or deleted.
 var _profile_inline: Dictionary = {1: {}, 2: {}}
@@ -591,6 +594,7 @@ func _collect_result(status: String, note: String) -> Dictionary:
 		"wall_seconds": (Time.get_ticks_msec() - _start_ticks) / 1000.0,
 		"time_scale": _time_scale,
 		"perf_seconds": _perf_seconds(ai),
+		"secondary_events": _secondary_events,
 	}
 
 func _perf_seconds(ai) -> Dictionary:
@@ -640,6 +644,19 @@ func _connect_vp_events() -> void:
 		print("[AIBench] WARNING: MissionManager.victory_points_scored unavailable; vp_events will be empty")
 		return
 	mm.victory_points_scored.connect(_on_vp_scored)
+	var smm = get_node_or_null("/root/SecondaryMissionManager")
+	if smm != null:
+		if smm.has_signal("mission_drawn"):
+			smm.mission_drawn.connect(func(pl, mid): _on_secondary_event("drawn", pl, str(mid), 0, ""))
+		if smm.has_signal("secondary_vp_scored"):
+			smm.secondary_vp_scored.connect(func(pl, vp, mid): _on_secondary_event("scored", pl, str(mid), int(vp), ""))
+		if smm.has_signal("mission_discarded"):
+			smm.mission_discarded.connect(func(pl, mid, why): _on_secondary_event("discarded", pl, str(mid), 0, str(why)))
+
+func _on_secondary_event(kind: String, player: int, mission_id: String, vp: int, note: String) -> void:
+	_secondary_events.append({"round": GameState.get_battle_round(), "phase": GameState.get_current_phase(),
+		"active": GameState.get_active_player(), "player": player, "kind": kind, "mission": mission_id,
+		"vp": vp, "note": note})
 
 func _on_vp_scored(player: int, points: int, reason: String) -> void:
 	_vp_events.append({
