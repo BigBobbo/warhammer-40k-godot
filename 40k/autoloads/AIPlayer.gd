@@ -807,6 +807,10 @@ var last_suggestion_meta: Dictionary = {}
 # per-player decision entry points route through _dm(); shared helpers and the
 # K-card suggestion stay on the current AIDecisionMaker.
 var _seat_dm: Dictionary = {}  # player -> GDScript
+# AB-PERF: microseconds spent per bucket (snapshot build, decide per player and
+# phase), reported by AIBenchmarkRunner so slow iterations can be explained.
+var _perf_usec: Dictionary = {}
+var _perf_last_type: String = "none"
 
 func set_seat_decision_maker(player: int, script_path: String) -> bool:
 	if script_path == "":
@@ -1807,7 +1811,9 @@ func _execute_reactive_action_deferred(player: int, decision: Dictionary) -> voi
 	print("AIPlayer: Reactive stratagem — Player %d executing: %s (%s)" % [player, decision.get("type", "?"), description])
 
 	_current_phase_actions += 1
+	var _t_route := Time.get_ticks_usec()
 	var result = NetworkIntegration.route_action(decision)
+	_perf_usec["route_action"] = int(_perf_usec.get("route_action", 0)) + Time.get_ticks_usec() - _t_route
 
 	if result == null:
 		push_error("AIPlayer: Reactive action route_action returned null: %s" % decision.get("type", "?"))
@@ -2163,17 +2169,27 @@ func _evaluate_and_act() -> void:
 	_clear_gate_block()
 	DebugLogger.info("AIPlayer._evaluate_and_act - executing for player", {"player": acting_player, "phase": GameState.get_current_phase()})
 	_processing_turn = true
+	var _t_exec := Time.get_ticks_usec()
+	_perf_last_type = "none"
 	_execute_next_action(acting_player)
+	var _exec_us := Time.get_ticks_usec() - _t_exec
+	_perf_usec["action_step_total"] = int(_perf_usec.get("action_step_total", 0)) + _exec_us
+	var _step_key = "step_" + _perf_last_type
+	_perf_usec[_step_key] = int(_perf_usec.get(_step_key, 0)) + _exec_us
 	_processing_turn = false
 	DebugLogger.info("AIPlayer._evaluate_and_act - complete", {})
 
 func _execute_next_action(player: int) -> void:
 	var phase = GameState.get_current_phase()
+	var _t_snap := Time.get_ticks_usec()
 	var snapshot = GameState.create_snapshot(false)
+	_perf_usec["snapshot"] = int(_perf_usec.get("snapshot", 0)) + Time.get_ticks_usec() - _t_snap
 
 	# Get available actions from phase
 	var phase_manager = get_node("/root/PhaseManager")
+	var _t_avail := Time.get_ticks_usec()
 	var available = phase_manager.get_available_actions()
+	_perf_usec["available_actions"] = int(_perf_usec.get("available_actions", 0)) + Time.get_ticks_usec() - _t_avail
 
 	# Filter out units that have permanently failed deployment/disembark
 	if not _failed_deploy_unit_ids.is_empty():
@@ -2232,7 +2248,11 @@ func _execute_next_action(player: int) -> void:
 		_log_ai_thinking(player, "Thinking about %s Phase... (%s)" % [phase_name, action_summary])
 
 	# Ask decision maker what to do
+	var _t_decide := Time.get_ticks_usec()
 	var decision = _dm(player).decide(phase, snapshot, available, player, difficulty)
+	var _decide_key = "decide_p%d_%s" % [player, PHASE_DISPLAY_NAMES.get(phase, str(phase))]
+	_perf_last_type = str(decision.get("type", "empty"))
+	_perf_usec[_decide_key] = int(_perf_usec.get(_decide_key, 0)) + Time.get_ticks_usec() - _t_decide
 
 	if decision.is_empty():
 		push_warning("AIPlayer: No decision made for player %d in phase %d" % [player, phase])
@@ -2370,7 +2390,9 @@ func _execute_next_action(player: int) -> void:
 	_current_phase_actions += 1
 
 	# Submit through standard pipeline
+	var _t_route := Time.get_ticks_usec()
 	var result = NetworkIntegration.route_action(decision)
+	_perf_usec["route_action"] = int(_perf_usec.get("route_action", 0)) + Time.get_ticks_usec() - _t_route
 
 	if result == null:
 		push_error("AIPlayer: route_action returned null for action: %s" % decision.get("type", "?"))
@@ -2594,7 +2616,7 @@ func _execute_next_action(player: int) -> void:
 				_log_ai_event(player, "%s movement failed — remaining stationary" % move_unit_name)
 				# COORD-2: the recorded "heading to objective X" intent is now dead —
 				# clear it so later units don't count this unit's OC as en route.
-				AIDecisionMaker.clear_movement_intent(player, failed_move_unit)
+				_dm(player).clear_movement_intent(player, failed_move_unit)
 				# Use REMAIN_STATIONARY since MovementPhase doesn't have SKIP_UNIT
 				_current_phase_actions += 1
 				NetworkIntegration.route_action({
@@ -2807,7 +2829,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 	print("AIPlayer: All movement attempts failed for %s, remaining stationary" % unit_id)
 	# COORD-2: clear the recorded movement intent — the unit is NOT going where
 	# the plan said, so its OC must not count as "en route" for later units.
-	AIDecisionMaker.clear_movement_intent(player, unit_id)
+	_dm(player).clear_movement_intent(player, unit_id)
 	_current_phase_actions += 1
 	NetworkIntegration.route_action({
 		"type": "REMAIN_STATIONARY",

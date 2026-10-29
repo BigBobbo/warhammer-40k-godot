@@ -170,6 +170,11 @@ func process_action(action: Dictionary) -> Dictionary:
 	return {"success": false, "error": "Not implemented"}
 
 # Execute an action (validate + process + apply)
+## AB-SEAT: the seat's AIDecisionMaker version (old-vs-new benchmarks), else the current one.
+func _ai_dm(player: int):
+	var ai = get_node_or_null("/root/AIPlayer")
+	return ai._dm(player) if ai != null and ai.has_method("_dm") else AIDecisionMaker
+
 func execute_action(action: Dictionary) -> Dictionary:
 	DebugLogger.info(str("[BasePhase] Executing action: ", action.get("type", "UNKNOWN")))
 	DebugLogger.info(str("[BasePhase] For unit: ", action.get("unit_id", "N/A")))
@@ -625,7 +630,7 @@ func _process_window_queue() -> bool:
 			_window_event_closed(window_id, ctx, false)
 			continue
 		if _is_ai_window_decider(player):
-			var decision: Dictionary = AIDecisionMaker.decide_window_stratagem(player, window_id, offers, ctx)
+			var decision: Dictionary = _ai_dm(player).decide_window_stratagem(player, window_id, offers, ctx)
 			# Codex: Adeptus Custodes ka'tah abilities (CustodesKatah.gd) leave the
 			# window open: apply each one the AI picks, then let it decide again
 			# on what is still offered (another readied unit, the stratagems).
@@ -641,7 +646,7 @@ func _process_window_queue() -> bool:
 				_window_sync_diffs.append_array(k_res.get("diffs", []))
 				DebugLogger.info("[StratagemWindow] AI P%d used ka'tah %s on %s in %s" % [player, decision.get("stratagem_id", ""), decision.get("target_unit_id", ""), window_id])
 				offers = _window_offers_for(player, window_id, ctx, katah_only)
-				decision = {"use": false} if offers.is_empty() else AIDecisionMaker.decide_window_stratagem(player, window_id, offers, ctx)
+				decision = {"use": false} if offers.is_empty() else _ai_dm(player).decide_window_stratagem(player, window_id, offers, ctx)
 			if offers.is_empty():
 				emit_signal("stratagem_window_closed", player, window_id, true)
 				_window_event_closed(window_id, ctx, true)

@@ -102,6 +102,12 @@ var _seat_ai: Dictionary = {1: "", 2: ""}
 # cards, so the game falls back to legacy Take and Hold scoring (5 VP/objective)
 # and the AI has no card to plan for. "" = keep what the fixture has.
 var _dispositions: String = ""
+# AB-11E: --bench-11e plays the fixture under the 11e GDM 2026 mission rules:
+# disposition-paired primary cards (from --bench-dispositions, or derived from
+# the seed so a campaign rotates through the 25 pairings) and a fresh 11e
+# tactical secondary deck built by the normal Command-phase flow. Older
+# fixtures carry legacy Take and Hold scoring and the 10e secondary deck.
+var _bench_11e: bool = false
 
 func _ready() -> void:
 	var args = OS.get_cmdline_args() + OS.get_cmdline_user_args()
@@ -128,6 +134,8 @@ func _ready() -> void:
 			_seat_ai[1] = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-p2-ai="):
 			_seat_ai[2] = a.split("=", true, 1)[1]
+		elif a == "--bench-11e":
+			_bench_11e = true
 		elif a.begins_with("--bench-dispositions="):
 			_dispositions = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-difficulty="):
@@ -299,6 +307,19 @@ func _kick_off() -> void:
 		return
 	GameState.state["meta"]["from_save"] = true
 	GameConstants.edition = 11
+	if _bench_11e and _dispositions == "":
+		var d = PrimaryMissionData11e.DISPOSITIONS
+		var s_ = maxi(_seed, 0)
+		_dispositions = "%s,%s" % [d[s_ % d.size()], d[(s_ / d.size()) % d.size()]]
+	if _bench_11e:
+		# Empty the fixture's secondary state: CommandPhase then builds the
+		# edition's (11e) deck and draws for the active player, as in a new game.
+		var smm_11e = get_node_or_null("/root/SecondaryMissionManager")
+		if smm_11e == null:
+			_finish_with_error("--bench-11e: SecondaryMissionManager missing")
+			return
+		smm_11e.initialize_for_game()
+		print("[AIBench] AB-11E secondary decks reset; CommandPhase builds the 11e deck")
 	if _dispositions != "":
 		var mm = get_node_or_null("/root/MissionManager")
 		var parts = _dispositions.split(",")
@@ -538,6 +559,8 @@ func _collect_result(status: String, note: String) -> Dictionary:
 	return {
 		"status": status,
 		"note": note,
+		"rules": "11e" if _bench_11e else ("11e_primary_only" if _dispositions != "" else "legacy_fixture"),
+		"dispositions": _dispositions,
 		"fixture": _fixture,
 		"seed": _seed,
 		"difficulty": _difficulty,
@@ -554,7 +577,16 @@ func _collect_result(status: String, note: String) -> Dictionary:
 		"actions_taken": ai._action_log.size() if ai != null else 0,
 		"wall_seconds": (Time.get_ticks_msec() - _start_ticks) / 1000.0,
 		"time_scale": _time_scale,
+		"perf_seconds": _perf_seconds(ai),
 	}
+
+func _perf_seconds(ai) -> Dictionary:
+	var out := {}
+	if ai == null:
+		return out
+	for k in ai._perf_usec:
+		out[k] = snappedf(float(ai._perf_usec[k]) / 1000000.0, 0.01)
+	return out
 
 func _finish_completed() -> void:
 	_write_and_quit(_collect_result("completed", ""), 0)

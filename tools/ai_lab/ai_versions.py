@@ -70,7 +70,7 @@ def extract(specs: list[str]) -> None:
 def play(seeds, args, tag, arm, p1_ai, p2_ai, stamp, sha, p1_profile="", p2_profile=""):
     import concurrent.futures
     a = Args(fixture=args.fixture, arm="%s_%s" % (tag, arm), p1_profile=p1_profile, p2_profile=p2_profile,
-             p1_plan="", p2_plan="", p1_ai=p1_ai, p2_ai=p2_ai, dispositions=args.dispositions,
+             p1_plan="", p2_plan="", p1_ai=p1_ai, p2_ai=p2_ai, dispositions=args.dispositions, bench_11e=args.rules11e,
              difficulty=args.difficulty, time_scale=args.time_scale, max_seconds=args.max_seconds,
              lanes=args.lanes, seeds="", season=args.season, skip_gate=True)
     ud = run_lanes.userdata_dir()
@@ -152,6 +152,9 @@ def main(argv=None) -> int:
     r.add_argument("--seed-base", type=int, default=9100)
     r.add_argument("--pairs", type=int, default=6)
     r.add_argument("--fixture", default="mirror_custodes_2000_postdeploy")
+    r.add_argument("--rules11e", action="store_true",
+                   help="11e GDM primary cards (rotating by seed) + 11e secondary deck; "
+                        "the fixture alone scores legacy Take and Hold with the 10e deck")
     r.add_argument("--dispositions", default="",
                    help="e.g. take_and_hold,take_and_hold: play the 11e primary cards "
                         "(the fixture save has none, so it scores legacy Take and Hold)")

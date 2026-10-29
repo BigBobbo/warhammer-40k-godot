@@ -138,6 +138,8 @@ def run_one(seed: int, args, stamp: str, ud: str, season: str, sha: str) -> dict
         cmd.append("--bench-p1-ai=%s" % args.p1_ai)
     if getattr(args, "p2_ai", ""):
         cmd.append("--bench-p2-ai=%s" % args.p2_ai)
+    if getattr(args, "bench_11e", False):
+        cmd.append("--bench-11e")
     if getattr(args, "dispositions", ""):
         cmd.append("--bench-dispositions=%s" % args.dispositions)
     # PM-10: a wh40k_ai_plan per seat. The AIBenchmarkRunner flags already
