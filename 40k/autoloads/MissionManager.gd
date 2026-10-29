@@ -309,10 +309,17 @@ func get_objective_ids_by_designation(designation: String) -> Array:
 ## (e.g. to Overwatch) still cost the securing player the objective.
 var _secured_lock_break_enabled: bool = true
 
+# AB-PERF: time and count of objective-control recomputes (benchmark report).
+var perf_check_objectives_usec: int = 0
+var perf_check_objectives_calls: int = 0
+
 func check_all_objectives(phase_end: bool = true) -> void:
+	var _t0 := Time.get_ticks_usec()
 	_secured_lock_break_enabled = phase_end
 	_check_all_objectives_impl()
 	_secured_lock_break_enabled = true
+	perf_check_objectives_usec += Time.get_ticks_usec() - _t0
+	perf_check_objectives_calls += 1
 
 ## Mid-phase display refresh — see check_all_objectives(phase_end).
 func refresh_objective_control_display() -> void:

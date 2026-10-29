@@ -586,6 +586,10 @@ func _perf_seconds(ai) -> Dictionary:
 		return out
 	for k in ai._perf_usec:
 		out[k] = snappedf(float(ai._perf_usec[k]) / 1000000.0, 0.01)
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm != null and "perf_check_objectives_usec" in mm:
+		out["check_all_objectives"] = snappedf(float(mm.perf_check_objectives_usec) / 1000000.0, 0.01)
+		out["check_all_objectives_calls"] = mm.perf_check_objectives_calls
 	return out
 
 func _finish_completed() -> void:

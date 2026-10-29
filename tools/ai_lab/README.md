@@ -297,6 +297,29 @@ stall-rate guardrail depend on machine load — three oversubscribed Ork lanes
 produced three "stalls" that were nothing of the kind. **Do not run more lanes
 than you have cores minus one.**
 
+## Benchmark rules: legacy fixture vs `--bench-11e` (2026-10-29)
+
+The mirror fixtures were saved before the 11e mission system, so on their own
+they play **legacy Take and Hold** (5 VP per objective incl. home, 15/turn cap)
+with the **10e tactical secondary deck**. Board, terrain, deployment
+(Crucible of Battle) and armies are 11e. The AI then has no primary card to
+plan for, so card-driven logic (diminishing returns, primary cap) never runs.
+
+- `--bench-11e` (runner) / `--rules11e` (`ai_versions.py run`): 11e GDM
+  primary cards from the disposition pairing (rotates through the 25 pairings
+  by seed, or fixed with `--bench-dispositions=p1,p2`) and a fresh 11e
+  secondary deck built by the normal Command-phase flow. Use this for any
+  question about how the AI plays the real game.
+- The RESULT/record carries `rules` (`11e`, `11e_primary_only`,
+  `legacy_fixture`) and `dispositions`, so seasons cannot be mixed by accident.
+- `perf_seconds` in the RESULT splits wall time: snapshot build,
+  `get_available_actions`, `route_action` (engine), AI `decide_*` per seat and
+  phase, `step_<ACTION>` per action type, and `check_all_objectives`.
+
+Measured on one legacy game (seed 9101, 310 s, CPU-bound — time scale and
+rendering do not matter): engine `route_action` 137 s, available actions 30 s,
+AI decide 24 s, snapshot 5 s.
+
 ## Not built yet
 
 Nothing in the M0–M4 chain. Remaining known gaps are the instrumentation ones
