@@ -1,0 +1,83 @@
+{
+ "key": "charge_low_odds",
+ "angle": "game",
+ "root_cause": "The charge pick compares a probability-weighted target value (score = chance x target value, inflated by order_round_aggression x1.3, on-objective x1.5, points-trade and kill bonuses) against a 'don't charge' bar that is a near-constant 0.19-0.54 (1.0 x early-round 0.5 x Ork aggression / tempo cuts). Nothing on the don't-charge side counts what the charger loses for the REST of the game: (a) overwatch damage, paid on every declaration made or failed (s7467: Allarus 270 pts into 7.2 expected overwatch dmg = 40% of the unit for a 17% shot at a 55-pt Mek; the overwatch multiplier only cut 6.7 -> 1.6, still 7x the 0.23 bar); (b) on success, being locked beside a single model that survives and fights back (s7469: Stormboyz 'expected 8.9 dmg vs 7 HP' at a T7 2+/4++ Blade Champion - the estimate counts the Kustom Choppa on all 10 models via the _weapon_carrier_count fallback and 'Choppas' vs '9x Choppa' wargear mismatch, real ~2.9 - so ch_can_wipe/halve fired and ch_retaliation was skipped; a wounded character keeps its full OC/attacks, nothing lasts, and in branch A the Custodes heroically intervened and 3-4 units charged the Stormboyz, which then missed round-3 Death Trap actions: B gained +7/+2 trapped_score in r3, A 0). The guardrails where charging was right are the lasting cases: s7431 r3 the Blade Champion was at 1 wound (kill ratio 10 -> the target is gone, objective freed), s7403 Battlewagon at 42% (not long odds).",
+ "fix_summary": "FIX_CHARGE_LOW_ODDS (default 1.0, 0 = base exactly) in _evaluate_best_charge via new _charge_low_odds_stake(): for a charge under 34% (9+ on 2D6) before battle round 5, the candidate's score is zeroed (logged [CHARGE_LOW_ODDS], term ch_low_odds_stake) when the charger's later rounds outweigh what lasts: CH-OW-TOLL expected overwatch >= 25% of the charger's wounds AND its points > chance x target points; CH-NO-LASTING single-model target, expected damage < 2x its wounds, it fights back >= 1 dmg; CH-LOSING-TRADE multi-model target, no confident kill, fight-back points off the charger (all its points if the fight-back would destroy it) > points removed (dmg x target points/wound). Exempt: confident kills (dmg >= 2x wounds), cheap chargers at targets worth > 2x them (deliberate tie-ups), battle round 5, charges at >= 34%.",
+ "param": "FIX_CHARGE_LOW_ODDS",
+ "test_file": "40k/tests/unit/test_ai_fix_charge_low_odds.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: test_ai_fix_charge_low_odds 13/13 (drives _decide_charge; BASE copy 10 passed 3 failed - the three veto checks). All pass: rollout_override 11, e_race_tuning 8, race_army 3, advance_probability 8, objective_race 16, plan_diminishing_returns 4, critic_round2 7, 11e_charge_ev_primary_cap 26, movement_decisions 36, plan_earmarks 35, fix_held_dup 14, fix_lone_trip 8, fix_charge_ev 11, fix_far_trip 11, fix_overcommit 8, fix_keeper_release 22, survival_assessment 23, multi_phase_planning 34, charge_decisions 62.",
+ "decision_checks": [
+  {
+   "job": "20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2",
+   "base_choice": "Stormboyz charge Blade Champion Alpha (28%)",
+   "fix_choice": "Stormboyz charge Custodian Guard Sodality Delta (17%)",
+   "changed": true,
+   "measured": "clear +4.33 [1.37, 7.30] for no charge",
+   "judgement": "Changed but does NOT match intent: both Blade Champions are vetoed (CH-NO-LASTING), the unit falls back to a 17% charge at a multi-model Custodian Guard squad that passes CH-LOSING-TRADE only because the Stormboyz' melee damage is overstated (8.9 est., ~2.9 real: Kustom Choppa counted on all 10 models). Fewer successes (17% vs 28%), so partly toward the alternative, not measured."
+  },
+  {
+   "job": "20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3",
+   "base_choice": "Allarus Custodians charge Mek Beta (17%)",
+   "fix_choice": "no charge (CH-OW-TOLL: 7.2 of 18 wounds, 108 pts > 17% x 55 pts)",
+   "changed": true,
+   "measured": "clear +2.64 [0.40, 4.88] for no charge",
+   "judgement": "Matches the alternative (same unit, no charge)."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7",
+   "base_choice": "Allarus charge Blade Champion Alpha (28%, 1 wound left)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful -5.00 (charging right)",
+   "judgement": "Consistent: confident kill (ratio 10) is exempt."
+  },
+  {
+   "job": "20261030_010357_sweep1_02__s7403_r3_p1_charge_1_6",
+   "base_choice": "Battlewagon charge Custodian Guard Gamma (42%)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful -3.67 (charging right)",
+   "judgement": "Consistent: 42% is above the long-odds band."
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r2_p1_charge_1_3",
+   "base_choice": "Allarus charge Custodian Guard Gamma (17%)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral -5.08 (leans charge)",
+   "judgement": "Consistent: multi-model target, trade not losing."
+  },
+  {
+   "job": "20261030_063348_r2c02_00__s7433_r2_p2_charge_1_5",
+   "base_choice": "Allarus charge Blade Champion Beta (28%)",
+   "fix_choice": "Allarus charge Custodian Guard Sodality Alpha (28%)",
+   "changed": true,
+   "measured": "neutral -3.17 [-9.86, 3.53] (leans charge)",
+   "judgement": "Changed target, still charges at the same odds (BC Beta vetoed: kill ratio 1.43 < 2). Not toward the no-charge alternative; effect of the switch unmeasured. Weakest point of the design."
+  },
+  {
+   "job": "20261030_012809_sweep1_07__s7408_r3_p1_charge_2_9",
+   "base_choice": "Stormboyz charge Zodgrod Wortsnagga (8%)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral -5.08 (leans charge)",
+   "judgement": "Consistent: confident kill (ratio 4.4), overwatch 4.1 < 25% of 22 wounds."
+  },
+  {
+   "job": "20261030_063510_r2c10_00__s7441_r3_p2_charge_2_10",
+   "base_choice": "Logan Grimnar charge Blade Champion Alpha (28%)",
+   "fix_choice": "no charge (BC vetoed CH-NO-LASTING, Custodian Guard fallbacks vetoed CH-LOSING-TRADE: wounded Logan would be destroyed)",
+   "changed": true,
+   "measured": "clear +0.94 [0.12, 1.77] for no charge",
+   "judgement": "Matches the measured-better alternative (listed among guardrails but class clear)."
+  }
+ ],
+ "fires": "[CHARGE_LOW_ODDS] veto lines per one-round replay game (both players, every unit re-evaluation counted): f1 22, f2 45, g1 7, g2 15, g3 12, g4 5, g5 132, g6 12. Most are CH-OW-TOLL on options already far below the bar (score < 1); vetoes of candidates scoring >= 1.0 (likely real decision changes): f1 4, f2 3, g1 5, g2 6, g3 11, g4 5, g5 4, g6 4. Mix: OW-TOLL dominates in Ork games (Lootas/Battlewagon overwatch), NO-LASTING/LOSING-TRADE in Custodes games (Blade Champions, Custodian Guard vs Custodian Guard).",
+ "risks": "Full game: (1) a charge that was vetoed leaves the unit unlocked and alive, so it keeps moving/acting in its next turn - good for action primaries (Death Trap booby traps) and spread secondaries (Engage on All Fronts, Centre Ground); unlike FAR_TRIP/OVERCOMMIT it never holds a unit back in the movement phase, it only removes a long-odds charge declared after movement, and a failed 11e charge does not move the unit anyway, so positions for later secondaries are unchanged. (2) Lost upside: fewer surprise 9+ charges that land; kill secondaries (Assassination on characters, Bring It Down on vehicles: CH-NO-LASTING also vetoes long shots at single-model vehicles/monsters) score less when the AI no longer gambles on non-confident kills; confident kills (dmg >= 2x wounds) are kept. (3) Tie-ups lost: a long-odds charge that would lock a shooter or an objective holder is skipped unless the charger is cheap (< half the target's points). (4) Round 3-4: more units stay out of combat; Custodes mirror replays show many CG-vs-CG and Allarus-vs-Blade-Champion vetoes, so expect fewer mid-game brawls there; it switched g4 to a different 28% target, unmeasured. Round 5 is exempt entirely (late objective-grab charges keep the base behaviour). (5) The kill-confidence test relies on _estimate_melee_damage, which overstates units whose sergeant weapon is counted on every model (Stormboyz Kustom Choppa); that is why f1 falls back to a Custodian Guard charge instead of no charge - a damage-model fix would close it. (6) OW-TOLL uses the AI's overwatch estimate (best single shooter, opponent CP >= 1); where that estimate is high, nearly all long-odds charges of the exposed unit are dropped.",
+ "drop_reason": ""
+}

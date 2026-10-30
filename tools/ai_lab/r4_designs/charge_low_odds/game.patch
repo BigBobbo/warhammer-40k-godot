@@ -1,0 +1,368 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..788c61d 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1626,6 +1626,44 @@ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+ # target without it. 0 = V6 behaviour (every declared charger counts).
+ # Off since the round-1 bundle test (2026-10-30, vs V6, 3 fixtures): with it +0.97 [-1.17, +3.12], without it +1.58 [-0.27, +3.42]. Kept for a later test.
+ const FIX_CHARGE_EV: float = 0.0
++# Charge (FIX_CHARGE_LOW_ODDS): 1 = a long-odds charge (under
++# CHARGE_LOW_ODDS_MAX_PROB) is not declared when what the charger stands to
++# lose for the rest of the game outweighs what the charge can still win.
++# Score already weights the target's value by the roll, but the "don't
++# charge" bar is a near-zero constant (0.2-0.5 after the early-round,
++# aggression and tempo cuts), so nothing on that side counts the charger's
++# own future: rounds 3-5 of objective holding and secondary actions.
++#   CH-OW-TOLL   overwatch is paid on every declaration, made or failed, and
++#                the wounds never come back: when the expected toll is a
++#                quarter or more of the charger and costs more points than the
++#                charge could win at its odds (target points x chance), skip.
++#   CH-NO-LASTING  a charge at a single model (a character, a lone beast or
++#                vehicle) that is not a confident kill (expected damage under
++#                CHARGE_LOW_ODDS_KILL_CONF x its wounds) wins nothing that
++#                lasts: a wounded model keeps its full OC, actions and attacks,
++#                and the charger ends locked beside it, fighting back, through
++#                the enemy turn and out of its own next turn's objective and
++#                card play. Removed models (a multi-model target) and a
++#                confident kill (the target gone for the rest of the game,
++#                objective and kill cards with it) do last and are never
++#                vetoed, nor is a cheap charger thrown at a far dearer target
++#                (a deliberate tie-up).
++#   CH-LOSING-TRADE  the same charge at a multi-model target that is not a
++#                confident kill: the survivors fight back, so it is declared
++#                only when the points it removes (expected damage x the
++#                target's points per wound) at least match the points the
++#                fight-back takes off the charger (all its points when the
++#                fight-back would destroy it). This also stops a unit
++#                whose real target was vetoed from falling back onto a
++#                marginal second one.
++# Nothing is vetoed in battle round 5: no later rounds to protect.
++# Critic cluster charge_low_odds: Stormboyz 28% at a Blade Champion (+4.33
++# VP not charging, 36 seeds), Allarus 17% at a Mek into 7.2 dmg of
++# overwatch (+2.64). 0 = previous behaviour.
++const FIX_CHARGE_LOW_ODDS: float = 1.0
++const CHARGE_LOW_ODDS_MAX_PROB: float = 0.34  # 9+ on 2D6 (27.8%) and longer
++const CHARGE_LOW_ODDS_KILL_CONF: float = 2.0  # damage / wounds for a confident kill
++const CHARGE_LOW_ODDS_OW_SHARE: float = 0.25  # overwatch toll that matters (share of charger wounds)
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -16606,6 +16644,20 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 			if ow_risk.score_penalty < 1.0:
+ 				score = _t_mul(ch_terms, "ch_overwatch_risk", score, ow_risk.score_penalty)
+ 
++			# FIX_CHARGE_LOW_ODDS: a long-odds charge whose cost to the charger's
++			# later rounds outweighs what it can still win is not declared.
++			if get_param("FIX_CHARGE_LOW_ODDS", FIX_CHARGE_LOW_ODDS) > 0.0 and score > 0.0:
++				var lo = _charge_low_odds_stake(unit, target_unit, charge_prob, melee_dmg, ow_risk, snapshot, player)
++				if bool(lo.get("veto", false)):
++					print("AIDecisionMaker: [CHARGE_LOW_ODDS] %s -> %s: not declaring (%.0f%% chance, score %.2f): %s" % [
++						unit_name, target_name, charge_prob * 100.0, score, str(lo.get("reason", ""))])
++					_t_add(ch_terms, "ch_low_odds_stake", -score)
++					score = 0.0
++				elif lo.has("kill_ratio"):
++					print("AIDecisionMaker: [CHARGE_LOW_ODDS-EVAL] %s -> %s: kept (%.0f%% chance, kill ratio %.2f, overwatch %.0f pts vs %.0f pts to win, fight-back %.1f vs %.0f wounds)" % [
++						unit_name, target_name, charge_prob * 100.0, float(lo.kill_ratio), float(lo.get("ow_pts", 0.0)),
++						float(lo.get("win_pts", 0.0)), float(lo.get("back", -1.0)), _calculate_kill_threshold(unit)])
++
+ 			# T7-11: Deadly Demise leverage — doomed vehicles with Deadly Demise
+ 			# should be strongly encouraged to charge into enemies, since they'll
+ 			# deal mortal wounds to nearby units when destroyed
+@@ -16805,6 +16857,69 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 
+ 	return result
+ 
++## FIX_CHARGE_LOW_ODDS: what a long-odds charge costs the charger for the
++## rest of the game against what it can still win. Returns {veto, reason,
++## ...terms}; veto is false (and nothing is computed) for a charge at
++## CHARGE_LOW_ODDS_MAX_PROB or better. See the FIX_CHARGE_LOW_ODDS const.
++static func _charge_low_odds_stake(charger: Dictionary, target: Dictionary, prob: float,
++		melee_dmg: float, ow_risk: Dictionary, snapshot: Dictionary, player: int) -> Dictionary:
++	var out := {"veto": false, "reason": ""}
++	if prob >= get_param("CHARGE_LOW_ODDS_MAX_PROB", CHARGE_LOW_ODDS_MAX_PROB):
++		return out
++	# The last battle round has no later rounds for the charger to lose.
++	var battle_round = int(snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)))
++	if battle_round >= 5:
++		return out
++	var c_hp = _calculate_kill_threshold(charger)
++	var t_hp = _calculate_kill_threshold(target)
++	if c_hp <= 0.0 or t_hp <= 0.0:
++		return out
++	var c_pts = float(charger.get("meta", {}).get("points", 0))
++	var t_pts = float(target.get("meta", {}).get("points", 0))
++	var c_ppw = _get_points_per_wound(charger)
++	var kill_ratio = melee_dmg / t_hp
++	out["kill_ratio"] = kill_ratio
++	# CH-OW-TOLL: paid on the declaration whether the roll makes it or not.
++	var ow_dmg = float(ow_risk.get("expected_damage", 0.0))
++	var ow_pts = minf(ow_dmg, c_hp) * c_ppw
++	var win_pts = prob * t_pts
++	out["ow_pts"] = ow_pts
++	out["win_pts"] = win_pts
++	if ow_dmg >= get_param("CHARGE_LOW_ODDS_OW_SHARE", CHARGE_LOW_ODDS_OW_SHARE) * c_hp and ow_pts > win_pts:
++		out["veto"] = true
++		out["reason"] = "CH-OW-TOLL overwatch %.1f of %.0f wounds (%.0f pts, lost made or failed) > %.0f%% x %.0f pts target" % [
++			ow_dmg, c_hp, ow_pts, prob * 100.0, t_pts]
++		return out
++	# A confident kill lasts (the target is gone for the rest of the game).
++	if kill_ratio >= get_param("CHARGE_LOW_ODDS_KILL_CONF", CHARGE_LOW_ODDS_KILL_CONF):
++		return out
++	# A cheap charger thrown at a far dearer target is a fair gamble (tie-up).
++	if c_pts < 0.5 * t_pts:
++		return out
++	var back = _estimate_melee_damage(target, charger, snapshot)
++	out["back"] = back
++	if back < 1.0:
++		return out
++	if _get_alive_models(target).size() != 1:
++		# CH-LOSING-TRADE: removed models last; so does what the survivors
++		# take off the charger.
++		var removed_pts = minf(melee_dmg, t_hp) * _get_points_per_wound(target)
++		# A charger the fight-back destroys loses all its later rounds (and
++		# hands the enemy its kill): its full points.
++		var lost_pts = c_pts if back >= c_hp else back * c_ppw
++		out["removed_pts"] = removed_pts
++		out["lost_pts"] = lost_pts
++		if lost_pts > removed_pts:
++			out["veto"] = true
++			out["reason"] = "CH-LOSING-TRADE no confident kill (%.1f dmg vs %.0f wounds) removes %.0f pts, the fight-back (%.1f dmg) takes %.0f pts off the charger" % [
++				melee_dmg, t_hp, removed_pts, back, lost_pts]
++		return out
++	# CH-NO-LASTING: a single model that survives and fights back.
++	out["veto"] = true
++	out["reason"] = "CH-NO-LASTING single-model target, no confident kill (%.1f dmg vs %.0f wounds, x%.2f) and it fights back for %.1f — nothing lasting for a locked charger" % [
++		melee_dmg, t_hp, kill_ratio, back]
++	return out
++
+ # The 2D6 result a charge against a target `edge_in` inches away (base to base)
+ # needs, with `terrain_pen` inches of terrain penalty on the approach.
+ #   11e: max(edge_in, move) — Core 11.04 BEFORE MOVING: a charge target must be
+diff --git a/40k/tests/unit/test_ai_fix_charge_low_odds.gd b/40k/tests/unit/test_ai_fix_charge_low_odds.gd
+new file mode 100644
+index 0000000..9084bea
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_charge_low_odds.gd
+@@ -0,0 +1,222 @@
++extends SceneTree
++
++# FIX_CHARGE_LOW_ODDS — a long-odds charge is not declared when what the
++# charger stands to lose for the rest of the game outweighs what it can win.
++#
++# Critic cluster charge_low_odds (value-checked over 36 paired seeds):
++#   s7469 r2 P2  Stormboyz (140 pts) declared a 28% charge at a T7 2+/4++
++#                Blade Champion: "expected 8.9 dmg vs 7 HP", not a confident
++#                kill of a single model — not charging +4.33 VP [1.37, 7.30].
++#   s7467 r2 P1  Allarus Custodians (270 pts) declared a 17% charge at a 4 HP
++#                Mek into 7.2 dmg of expected overwatch — not charging
++#                +2.64 VP [0.40, 4.88].
++# The "don't charge" bar is a near-zero constant, so nothing counted the
++# charger's own later rounds:
++#   CH-OW-TOLL     overwatch is paid on every declaration; a toll of a quarter
++#                  or more of the charger that costs more points than the
++#                  charge can win at its odds -> no charge.
++#   CH-NO-LASTING  a single-model target that is not a confident kill (expected
++#                  damage under 2x its wounds) and fights back -> no charge.
++#   CH-LOSING-TRADE  a multi-model target, no confident kill, whose fight-back
++#                  takes more points off the charger than the charge removes
++#                  -> no charge (guardrail s7441 r3: Logan Grimnar 28% at a
++#                  Blade Champion, not charging +0.94 VP).
++# Kept: a confident kill (guardrail s7431 r3: Allarus 28% at a 1-wound Blade
++# Champion, charging measured better), a multi-model target (removed models
++# last), the last battle round, FIX_CHARGE_LOW_ODDS = 0.
++#
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_charge_low_odds.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++const AIDifficultyConfig = preload("res://scripts/AIDifficultyConfig.gd")
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== FIX_CHARGE_LOW_ODDS: long-odds charges weigh the charger's later rounds ===\n")
++	# Competitive: no score noise.
++	AIDecisionMaker._current_difficulty = AIDifficultyConfig.Difficulty.COMPETITIVE
++	AIDecisionMaker._config_overrides["FIX_CHARGE_LOW_ODDS"] = 1.0
++	AIDecisionMaker._charge_coordination.clear()
++	_test_no_lasting_single_model_skipped()
++	_test_overwatch_toll_skipped()
++	_test_losing_trade_skipped()
++	_test_confident_kill_kept()
++	_test_multi_model_target_kept()
++	_test_short_charge_kept()
++	_test_last_round_kept()
++	_test_param_zero_restores_base()
++	AIDecisionMaker._charge_coordination.clear()
++	AIDecisionMaker._config_overrides.erase("FIX_CHARGE_LOW_ODDS")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++# ---------------------------------------------------------------------------
++# Fixtures (40 px per inch, 32 mm bases)
++# ---------------------------------------------------------------------------
++
++func _snapshot(battle_round: int = 2) -> Dictionary:
++	return {
++		"battle_round": battle_round,
++		"meta": {"battle_round": battle_round},
++		"board": {"objectives": [], "terrain_features": [], "deployment_zones": []},
++		"players": {"1": {"cp": 0}, "2": {"cp": 0}},
++		"units": {},
++	}
++
++func _melee(wname: String, ws: int, s: int, ap: int, d: int, a: int) -> Dictionary:
++	return {"name": wname, "type": "Melee", "weapon_skill": str(ws), "strength": str(s),
++		"ap": ("-%d" % ap) if ap > 0 else "0", "damage": str(d), "attacks": str(a)}
++
++func _ranged(wname: String, bs: int, s: int, ap: int, d: int, a: int) -> Dictionary:
++	return {"name": wname, "type": "Ranged", "range": "36", "ballistic_skill": str(bs), "strength": str(s),
++		"ap": ("-%d" % ap) if ap > 0 else "0", "damage": str(d), "attacks": str(a)}
++
++# `n` models in a row from `pos`, 40 px (1") apart.
++func _add(snap: Dictionary, uid: String, owner: int, pos: Vector2, n: int, weapons: Array,
++		points: int, toughness: int = 4, save_val: int = 3, wounds: int = 1, invuln: int = 0,
++		keywords: Array = ["INFANTRY"]) -> Dictionary:
++	var models := []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32, "base_type": "circular",
++			"base_dimensions": {}, "position": Vector2(pos.x + i * 40, pos.y),
++			"wounds": wounds, "current_wounds": wounds})
++	var stats := {"move": 6, "toughness": toughness, "save": save_val, "wounds": wounds,
++		"leadership": 6, "objective_control": 1}
++	if invuln > 0:
++		stats["invuln"] = invuln
++	var u := {"id": uid, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": uid, "display_name": uid, "keywords": keywords, "weapons": weapons,
++			"points": points, "stats": stats},
++		"models": models, "flags": {}}
++	snap.units[uid] = u
++	return u
++
++func _charge_actions(uid: String, tids: Array) -> Array:
++	var acts := []
++	for tid in tids:
++		acts.append({"type": "DECLARE_CHARGE", "actor_unit_id": uid, "payload": {"target_unit_ids": [tid]}})
++	acts.append({"type": "SKIP_CHARGE", "actor_unit_id": uid})
++	acts.append({"type": "END_CHARGE"})
++	return acts
++
++# The s7469 shape: 10 choppa-armed boyz (140 pts, 1 W each) 8.5" (edge to
++# edge) from a lone T7 2+/4++ champion with 7 wounds (175 pts) that hits hard
++# in melee. 32 mm bases are 1.26" across: centres 8.5 + 1.26 = 9.76" apart.
++func _champion_snapshot(champ_wounds: int = 7, battle_round: int = 2) -> Dictionary:
++	var snap := _snapshot(battle_round)
++	_add(snap, "boyz", 2, Vector2(600, 1200), 10, [_melee("Kustom choppa", 3, 5, 2, 2, 4)], 140, 5, 5, 1)
++	var champ := _add(snap, "champ", 1, Vector2(600, 1200 - 9.76 * 40.0), 1,
++		[_melee("Vaultswords", 2, 6, 2, 1, 10)], 175, 7, 2, 7, 4, ["INFANTRY", "CHARACTER"])
++	champ.models[0].current_wounds = champ_wounds
++	return snap
++
++func _decide(snap: Dictionary, uid: String, tids: Array, player: int) -> Dictionary:
++	AIDecisionMaker._charge_coordination.clear()
++	return AIDecisionMaker._decide_charge(snap, _charge_actions(uid, tids), player)
++
++func _declared(d: Dictionary, tid: String) -> bool:
++	return d.get("type", "") == "DECLARE_CHARGE" and tid in d.get("payload", {}).get("target_unit_ids", [])
++
++# ---------------------------------------------------------------------------
++# Skipped
++# ---------------------------------------------------------------------------
++
++func _test_no_lasting_single_model_skipped() -> void:
++	var snap := _champion_snapshot()
++	var dmg := AIDecisionMaker._estimate_melee_damage(snap.units.boyz, snap.units.champ)
++	var p := AIDecisionMaker._charge_success_probability(AIDecisionMaker._charge_roll_needed(
++		AIDecisionMaker._get_closest_model_distance_inches(snap.units.boyz, snap.units.champ)))
++	_assert(dmg >= 7.0 and dmg < 14.0 and p > 0.2 and p < 0.34,
++		"setup: %.1f dmg vs a 7 W lone champion (not a confident kill) at %.0f%%" % [dmg, p * 100.0])
++	var d := _decide(snap, "boyz", ["champ"], 2)
++	_assert(d.get("type", "") == "SKIP_CHARGE",
++		"CH-NO-LASTING: no long-odds charge at a lone champion it is unlikely to kill (got %s: %s)" % [d.get("type", ""), d.get("_ai_description", "")])
++
++# The s7467 shape: 3 elite models (270 pts, 6 W each) 9.9" from a 4 W Mek,
++# with an enemy gun line in overwatch range and CP to fire it.
++func _overwatch_snapshot() -> Dictionary:
++	var snap := _snapshot(2)
++	_add(snap, "allarus", 1, Vector2(600, 1200), 3, [_melee("Guardian spear", 2, 7, 2, 2, 5)], 270, 7, 2, 6, 4)
++	_add(snap, "mek", 2, Vector2(600, 1200 - 11.16 * 40.0), 1, [_melee("Spanner", 4, 5, 1, 1, 2)], 60, 5, 4, 4, 0,
++		["INFANTRY", "CHARACTER"])
++	_add(snap, "lootas", 2, Vector2(200, 600), 20, [_ranged("Deffgun", 5, 8, 2, 2, 3)], 200, 5, 5, 1)
++	snap.players["2"]["cp"] = 2
++	return snap
++
++func _test_overwatch_toll_skipped() -> void:
++	var snap := _overwatch_snapshot()
++	var ow: Dictionary = AIDecisionMaker._estimate_overwatch_risk(snap.units.allarus, snap, 1)
++	_assert(float(ow.expected_damage) >= 4.5,
++		"setup: overwatch toll %.1f of the charger's 18 wounds" % float(ow.expected_damage))
++	var d := _decide(snap, "allarus", ["mek"], 1)
++	_assert(d.get("type", "") == "SKIP_CHARGE",
++		"CH-OW-TOLL: no 17%% charge at a 60 pt Mek through a quarter of a 270 pt unit in overwatch (got %s: %s)" % [d.get("type", ""), d.get("_ai_description", "")])
++
++func _test_losing_trade_skipped() -> void:
++	# A lone 6 W hero (150 pts) 8.5" from a 5-model elite squad (3 W each,
++	# 250 pts) whose fight-back costs the hero more points than it removes.
++	var snap := _snapshot(2)
++	_add(snap, "hero", 2, Vector2(600, 1200), 1, [_melee("Axe", 2, 8, 3, 2, 8)], 150, 5, 2, 6, 4,
++		["INFANTRY", "CHARACTER"])
++	_add(snap, "guard", 1, Vector2(600, 1200 - 9.76 * 40.0), 5, [_melee("Guardian spear", 3, 5, 2, 1, 5)], 250, 6, 2, 3, 4)
++	var dmg := AIDecisionMaker._estimate_melee_damage(snap.units.hero, snap.units.guard)
++	var back := AIDecisionMaker._estimate_melee_damage(snap.units.guard, snap.units.hero, snap)
++	_assert(dmg * 250.0 / 15.0 < back * 150.0 / 6.0,
++		"setup: removes %.0f pts, the fight-back takes %.0f pts" % [dmg * 250.0 / 15.0, back * 150.0 / 6.0])
++	AIDecisionMaker._config_overrides["FIX_CHARGE_LOW_ODDS"] = 0.0
++	var d0 := _decide(snap, "hero", ["guard"], 2)
++	AIDecisionMaker._config_overrides["FIX_CHARGE_LOW_ODDS"] = 1.0
++	_assert(_declared(d0, "guard"), "setup: the base AI declares this charge (got %s)" % d0.get("type", ""))
++	var d := _decide(snap, "hero", ["guard"], 2)
++	_assert(d.get("type", "") == "SKIP_CHARGE",
++		"CH-LOSING-TRADE: no long-odds charge into a squad that takes more off the charger than it loses (got %s: %s)" % [d.get("type", ""), d.get("_ai_description", "")])
++
++# ---------------------------------------------------------------------------
++# Kept (guardrails)
++# ---------------------------------------------------------------------------
++
++func _test_confident_kill_kept() -> void:
++	# Guardrail s7431 r3: the champion is down to 1 wound — the kill lasts.
++	var snap := _champion_snapshot(1)
++	var d := _decide(snap, "boyz", ["champ"], 2)
++	_assert(_declared(d, "champ"), "a confident kill of a wounded champion is still declared (got %s: %s)" % [d.get("type", ""), d.get("_ai_description", "")])
++
++func _test_multi_model_target_kept() -> void:
++	# Removed models last: a 5-model squad in the same spot is still charged.
++	var snap := _snapshot(2)
++	_add(snap, "boyz", 2, Vector2(600, 1200), 10, [_melee("Kustom choppa", 3, 5, 2, 2, 4)], 140, 5, 5, 1)
++	_add(snap, "guard", 1, Vector2(600, 1200 - 9.76 * 40.0), 5, [_melee("Spear", 3, 5, 1, 1, 2)], 175, 5, 3, 2)
++	var d := _decide(snap, "boyz", ["guard"], 2)
++	_assert(_declared(d, "guard"), "a long-odds charge at a multi-model squad is not vetoed (got %s: %s)" % [d.get("type", ""), d.get("_ai_description", "")])
++
++func _test_short_charge_kept() -> void:
++	# Above the long-odds band (6" away, ~72%): the fix does not apply.
++	var snap := _champion_snapshot()
++	snap.units.champ.models[0].position = Vector2(600, 1200 - 7.26 * 40.0)
++	var d := _decide(snap, "boyz", ["champ"], 2)
++	_assert(_declared(d, "champ"), "a likely charge at the same champion is still declared (got %s: %s)" % [d.get("type", ""), d.get("_ai_description", "")])
++
++func _test_last_round_kept() -> void:
++	# Battle round 5: no later rounds for the charger to lose.
++	var snap := _champion_snapshot(7, 5)
++	var d := _decide(snap, "boyz", ["champ"], 2)
++	_assert(_declared(d, "champ"), "round 5: the long-odds charge at the champion is kept (got %s: %s)" % [d.get("type", ""), d.get("_ai_description", "")])
++
++func _test_param_zero_restores_base() -> void:
++	AIDecisionMaker._config_overrides["FIX_CHARGE_LOW_ODDS"] = 0.0
++	var d1 := _decide(_champion_snapshot(), "boyz", ["champ"], 2)
++	var d2 := _decide(_overwatch_snapshot(), "allarus", ["mek"], 1)
++	AIDecisionMaker._config_overrides["FIX_CHARGE_LOW_ODDS"] = 1.0
++	_assert(_declared(d1, "champ"), "FIX_CHARGE_LOW_ODDS = 0: the champion charge is declared again (got %s)" % d1.get("type", ""))
++	_assert(_declared(d2, "mek"), "FIX_CHARGE_LOW_ODDS = 0: the Mek charge is declared again (got %s)" % d2.get("type", ""))
