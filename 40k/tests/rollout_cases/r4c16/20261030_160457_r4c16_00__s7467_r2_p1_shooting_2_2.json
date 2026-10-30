@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Gretchin (P2)",
+ "created": "2026-10-30 16:07:34",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7467_r2_p1_shooting_2",
+ "note": "[LLM critic, medium conf] Delta shoots Gretchin for the most raw damage, but this kills cheap models and leaves the dangerous Lootas Beta untouched. Fix: Add an enemy threat term to target scoring. Base it on the target's expected damage against your units, divided by its remaining models. Weigh expected points value killed instead of raw damage or kill chance. Reduce the bonus for killing low-value chaff.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7467_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Gretchin (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta shoots at Gretchin \u2014 expected 3.1 dmg vs 7 HP (44% kill)",
+ "verdict": "pending",
+ "version": 1
+}

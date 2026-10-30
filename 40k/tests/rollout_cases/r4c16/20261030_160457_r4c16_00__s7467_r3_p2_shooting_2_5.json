@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Slugga \u2192 enemy Allarus Custodians (P1)",
+ "created": "2026-10-30 16:11:36",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7467_r3_p2_shooting_2",
+ "note": "[LLM critic, medium conf] The AI chose the Slugga, which has 1 attack and 12 in range, for 0.2 expected damage. The Kustom Shoota (18 in, 4 attacks, rapid fire) was never offered as an option. Both listed targets were very hard (T7 or T8, 2+ save, 4+ invulnerable). Fix: Offer every weapon with range to a target, and pick the weapon with the highest expected damage. Weight kill_fraction more for wounded characters. Give a bonus to shots that can finish a weakened unit.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7467_r3_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "desc:Slugga \u2192 enemy Allarus Custodians (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos shoots at Allarus Custodians \u2014 expected 0.2 dmg vs 12 HP (2% kill)",
+ "verdict": "pending",
+ "version": 1
+}
