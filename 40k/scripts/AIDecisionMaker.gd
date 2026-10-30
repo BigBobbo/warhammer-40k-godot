@@ -1568,8 +1568,8 @@ const FAR_TRIP_HELP_MOVES: int = 2
 # 30 OC centre while an equally near enemy-held objective went uncontested
 # (LLM-critic cluster overcommit). With no such objective the top-up stands.
 # 0 = previous behaviour.
-# Off: with FIX_FAR_TRIP off, this fix alone lost -3.55 VP per game [-6.90, -0.20] in the Custodes mirror
-# (round-2 re-test, 10 pairs). Kept for a later test.
+# Off: with FIX_FAR_TRIP off, this fix alone showed no gain in the Custodes mirror of the round-2 re-test
+# (-1.62 VP per game [-6.73, +3.48], 20 pairs; -3.55 after the first 10). Kept for a later test.
 const FIX_OVERCOMMIT: float = 0.0
 # Movement plan (RACE-LATE): 1 = an enemy unit that can only reach the
 # objective on the SAME turn count as our unit (it arrives after we are
