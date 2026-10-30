@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Zodgrod Wortsnagga (8.9\" away, 28% chance)",
+ "created": "2026-10-30 16:10:24",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7460_r2_p1_charge_1",
+ "note": "[LLM critic, medium conf] The Stormboyz take a 28% charge at a 50pt wounded character. They leave center, and they accept 5.4 damage from overwatch whatever the roll. Fix: Cap the aggression bonus so it cannot make a charge with under 30% success and a negative base score positive. Add a term for the expected loss from the enemy counter-attack after a successful charge. Weight overwatch damage by the chance that the charge fails.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7460_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:1345,1333",
+  "decision": "charge",
+  "targets": "U_BOSS_SNIKROT_A_P2,U_ZODGROD_WORTSNAGGA_A_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares a charge at Zodgrod Wortsnagga + Boss Snikrot \u2014 targets picked after the roll: Zodgrod Wortsnagga on 9+ (28%), Boss Snikrot on 11+ (8%), overwatch risk: 5.4 dmg",
+ "verdict": "pending",
+ "version": 1
+}

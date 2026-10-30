@@ -1,0 +1,129 @@
+[
+ {
+  "job": "20261030_160415_r4c09_00__s7460_r1_p1_movement_2_0",
+  "case": "20261030_160415_r4c09_00__s7460_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Lootas Alpha advances 21 in to obj_nml_2, which is already held by Mek Beta. Obj_center scores the same and is not held.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "reconnaissance",
+   "seeds": "7460",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160415_r4c09_00"
+ },
+ {
+  "job": "20261030_160415_r4c09_00__s7460_r2_p1_charge_1_1",
+  "case": "20261030_160415_r4c09_00__s7460_r2_p1_charge_1_1.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 2,
+  "summary": "The Stormboyz take a 28% charge at a 50pt wounded character. They leave center, and they accept 5.4 damage from overwatch whatever the roll.",
+  "better_option": "unlisted: do not charge, keep Stormboyz on the center objective",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "reconnaissance",
+   "seeds": "7460",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160415_r4c09_00"
+ },
+ {
+  "job": "20261030_160415_r4c09_00__s7460_r3_p1_movement_2_2",
+  "case": "20261030_160415_r4c09_00__s7460_r3_p1_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Lootas Alpha moves onto obj_center, which Stormboyz already hold with no enemy near. The unit adds almost no VP there and does not help to hold obj_nml_2.",
+  "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "reconnaissance",
+   "seeds": "7460",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160415_r4c09_00"
+ },
+ {
+  "job": "20261030_160415_r4c09_00__s7460_r3_p1_charge_1_3",
+  "case": "20261030_160415_r4c09_00__s7460_r3_p1_charge_1_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges at 28% odds into a cluster of enemy units. The score is positive only because ch_damage and ch_can_wipe are not discounted by the low charge chance.",
+  "better_option": "unlisted: do not charge, keep Stormboyz on the center objective",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "reconnaissance",
+   "seeds": "7460",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160415_r4c09_00"
+ },
+ {
+  "job": "20261030_160415_r4c09_00__s7460_r3_p2_shooting_2_4",
+  "case": "20261030_160415_r4c09_00__s7460_r3_p2_shooting_2_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_B_P2",
+    "target": "U_GRETCHIN_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot Tankbustas for 0.14 expected damage, when Gretchin gave 0.49 expected damage and a 10% kill chance. The choice is a near tie and the effect is tiny.",
+  "better_option": "Big shoota \u2192 enemy Gretchin (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "reconnaissance",
+   "seeds": "7460",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160415_r4c09_00"
+ }
+]

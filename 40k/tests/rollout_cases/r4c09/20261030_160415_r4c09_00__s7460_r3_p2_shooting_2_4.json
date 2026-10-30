@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Tankbustas (P1)",
+ "created": "2026-10-30 16:21:13",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7460_r3_p2_shooting_2",
+ "note": "[LLM critic, low conf] The AI shot Tankbustas for 0.14 expected damage, when Gretchin gave 0.49 expected damage and a 10% kill chance. The choice is a near tie and the effect is tiny. Fix: For long-range chip shots, rank targets by expected points killed (expected models killed times points per model), or weight kill_fraction more strongly than target_value.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7460_r3_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B_P2",
+  "choice": "desc:Big shoota \u2192 enemy Tankbustas (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta shoots at Tankbustas \u2014 expected 0.1 dmg vs 13 HP (1% kill)",
+ "verdict": "pending",
+ "version": 1
+}
