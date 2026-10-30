@@ -259,7 +259,7 @@ Locks in use:
     draws only the last leg, because MovementPhase keeps one staged entry per model
     (true of any re-staged model). The recorded distance is right.
 
-- [ ] **T04 — Six-phase top-center bar with active highlight**
+- [x] **T04 — Six-phase top-center bar with active highlight**
   - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** T01, T02
   - **Touches:** `40k/scenes/Main.tscn` (add `PhaseBar` PanelContainer), new
     `40k/scripts/PhaseBar.gd`, `40k/autoloads/PhaseManager.gd` (signal hook)
@@ -283,10 +283,55 @@ Locks in use:
       `regions["phase_bar"].diff_pct > 3.0` (highlight actually moved on-screen).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Six pills readable, labels not truncated.
-    - [ ] Active pill is visually the brightest.
-    - [ ] Completed pills are distinguishable from future pills.
-    - [ ] No layout shift in the rest of the HUD when phase advances.
+    - [x] Six pills readable, labels not truncated.
+      *(T04_command_before, _movement, _shooting_after, _p2_command, _p2_movement: all
+      six words read in full in every state, 16 px Rajdhani Bold in 94 px pills. The
+      scenario checks each label is at least as wide as its rendered word.)*
+    - [x] Active pill is visually the brightest.
+      *(A solid chip in the slot colour, with a glow. Rendered CIE L* sampled inside
+      each pill: TEAL 65.8 and MAGENTA 54.5, against 43.2 for a completed pill and 5.6
+      inside a future one. The scenario requires a margin of 8, P2 Movement included.)*
+    - [x] Completed pills are distinguishable from future pills.
+      *(Completed: a solid grey chip with dark text. Future: a hollow outline with faded
+      text. L* 43.2 against 5.6.)*
+    - [x] No layout shift in the rest of the HUD when phase advances.
+      *(The strip, the bar, every pill and arrow, GameLogPanel, HUD_Right and HUD_Bottom
+      keep their Command-phase rects in Movement, Shooting and P2 Movement. Every pill is
+      one size in every state. The old strip drew the active word at 19 px and the rest
+      at 17 px, so its row re-centred on every phase change.)*
+  - **Note (2026-10-30 audit):** no pills existed. `Main._setup_phase_strip()` built the
+    bottom PhaseStrip from six unnamed Labels: the active word gold and larger, completed
+    words barely visible, no modulate states and no player colour. Changed on this pass:
+    (1) New `40k/scripts/PhaseBar.gd` builds six pills named `PhasePill_<Phase key>` and
+    sets each pill's `modulate`: active = `UIConstants.player_slot_color(active player)`,
+    completed = `Color(0.5, 0.5, 0.5, 1.0)`, future = alpha 0.4. Each state also has its
+    own pill style (solid glowing chip, solid grey chip, hollow outline). The bar connects
+    to `PhaseManager.phase_changed` when it enters the tree and disconnects when it leaves.
+    (2) Main hosts the bar inside the PhaseStrip and now only decides whether the strip
+    shows. The strip's margins keep the 21 px pill row above the 6 px PlayerTurnBorder,
+    which paints over the strip's bottom edge. (3) The strip now shows as soon as Main
+    builds it. Main._ready restores a loaded save's phase before the strip exists, so
+    after loading a mid-battle save the strip stayed hidden for a whole phase. Probe:
+    `PhaseStrip.visible` read false after loading audit_baseline_postdeploy on the old
+    Main.gd and true now. The T04 scenario now starts on that load path. Tier A: scenario
+    71/71, reaching Movement and Shooting by real clicks on the End Phase button, its
+    confirm, and Decline on P2's War Cry offer. phase_bar diffs: Command to Movement
+    14.2%, Movement to Shooting 14.6%. Visual suite: 42 passing (baseline 41: the same 41
+    plus T04), with T23, T27 and T39 failing as before and T45 XFAIL. New gated
+    test `tests/test_phase_bar.gd` (35 checks) fails at HEAD. Deviations: (a) Placement:
+    the pills live in the existing bottom PhaseStrip, not a new top-center bar. The strip
+    was moved to the bottom on purpose, and `visual/T_phase_strip_bottom.json` (still
+    passing) pins it there. Pill paths are `/root/Main/PhaseStrip/PhaseBar/PhasePill_<NAME>`,
+    not `/root/Main/PhaseBar/...`. (b) Phase list: the sixth pill is Score
+    (`PhasePill_SCORING`), the game's real sixth phase. Morale is not a phase here: MORALE
+    is a deprecated enum slot that PhaseManager remaps to COMMAND (ISS-034). (c) Touches:
+    Main.tscn is unchanged because the strip is built in code. PhaseManager.gd is
+    unchanged because `phase_changed` already existed. (d) The P2 colour is checked by
+    setup privilege (`set_active_player(2)` plus a transition), since reaching P2's turn by
+    clicks means playing out all of P1's turn. (e) The diff bound is 11%, not the task's
+    3%. A change to one pill alone (the P1-to-P2 recolour) measures 8.3% of the pill rows,
+    about 7% of the 30-row phase_bar region, so 11% also fails a bar where only one pill
+    changed.
 
 - [ ] **T05 — Hover-forecast tooltip for shooting**
   - **Lock:** Shooting  • **Doc:** §7  • **Depends:** T01, T02

@@ -317,6 +317,7 @@ TESTS=(
     "tests/test_ui_constants_slots.gd"
     "tests/tools/pixel_diff_unit_test.gd"
     "tests/test_drag_ruler_budget.gd"
+    "tests/test_phase_bar.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

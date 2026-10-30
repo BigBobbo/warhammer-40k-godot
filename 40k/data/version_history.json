@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.58.0",
+      "date": "2026-10-30",
+      "summary": "The phase strip at the bottom of the screen now shows each phase as a pill: the current phase lit in the active player's colour, finished phases grey, phases still to come faded.",
+      "changes": [
+        "The six battle phases along the bottom of the screen (Command, Movement, Shooting, Charge, Fight, Score) are now pills. The current phase glows in the active player's colour (teal for Player 1, magenta for Player 2), phases already done this turn are solid grey, and phases still to come are faded outlines.",
+        "Every pill keeps its size and place when the phase changes, so nothing else on screen moves.",
+        "After you load a saved game in the middle of a battle round, the phase strip shows straight away. Before, it stayed hidden until the next phase began."
+      ]
+    },
+    {
       "version": "1.57.0",
       "date": "2026-10-30",
       "summary": "Dragging a model now paints a colour-coded tape measure: green within its Move, yellow within an Advance, red beyond.",

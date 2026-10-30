@@ -15,6 +15,8 @@ const HotkeyHelpOverlayScript = preload("res://scripts/HotkeyHelpOverlay.gd")
 const AISuggestionBreakdownPanelScript = preload("res://scripts/AISuggestionBreakdownPanel.gd")
 const AISuggestionTestCasesScript = preload("res://scripts/AISuggestionTestCases.gd")
 const AISuggestionBoardOverlayScript = preload("res://scripts/AISuggestionBoardOverlay.gd")
+# T04: the six named phase pills hosted inside the bottom PhaseStrip.
+const PhaseBarScript = preload("res://scripts/PhaseBar.gd")
 # Controller glyphs for inline button labels (PRP §"inline button labels"): the
 # phase-action button advertises the keyboard [Enter] OR the pad Menu (☰) button
 # depending on the active device, so a Steam Deck player sees which controller
@@ -338,10 +340,9 @@ var _round_indicator_label: Label = null
 var _round_player_label: Label = null
 var _round_indicator_panel: PanelContainer = null
 
-# Phase progress strip
-var _phase_strip_container: HBoxContainer = null
-var _phase_strip_labels: Dictionary = {}
+# Phase progress strip (bottom edge) and the T04 PhaseBar of pills inside it
 var _phase_strip_panel: PanelContainer = null
+var _phase_bar: HBoxContainer = null
 
 # P3-111: Settings menu instance
 var _settings_menu: SettingsMenu = null
@@ -4085,54 +4086,33 @@ func _setup_phase_strip() -> void:
 	strip_style.set_content_margin_all(0)
 	strip_style.content_margin_left = 4
 	strip_style.content_margin_right = 4
+	# T04: keep the pill row inside the band a player can actually see. The
+	# steady PlayerTurnBorder paints over the strip's bottom 6 px, so the row
+	# sits 1 px above it and 2 px under the gold top rule:
+	# 30 px strip = 2 + 21 px pill row + 7.
+	strip_style.content_margin_top = 2
+	strip_style.content_margin_bottom = PlayerTurnBorder.BORDER_THICKNESS + 1
 	_phase_strip_panel.add_theme_stylebox_override("panel", strip_style)
 	add_child(_phase_strip_panel)
 
-	_phase_strip_container = HBoxContainer.new()
-	_phase_strip_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	_phase_strip_container.add_theme_constant_override("separation", 0)
-	_phase_strip_panel.add_child(_phase_strip_container)
+	# T04: six named pills (PhasePill_COMMAND ... PhasePill_SCORING) showing the
+	# active phase in the active player's slot colour, completed phases grey and
+	# future phases faded. The bar listens on PhaseManager.phase_changed itself.
+	_phase_bar = PhaseBarScript.new()
+	_phase_strip_panel.add_child(_phase_bar)
 
-	var phases = [
-		[GameStateData.Phase.COMMAND, "Command"],
-		[GameStateData.Phase.MOVEMENT, "Movement"],
-		[GameStateData.Phase.SHOOTING, "Shooting"],
-		[GameStateData.Phase.CHARGE, "Charge"],
-		[GameStateData.Phase.FIGHT, "Fight"],
-		[GameStateData.Phase.SCORING, "Score"],
-	]
-
-	for i in range(phases.size()):
-		var phase_id = phases[i][0]
-		var phase_name = phases[i][1]
-
-		if i > 0:
-			var arrow = Label.new()
-			arrow.text = "  ▸  "
-			arrow.add_theme_font_size_override("font_size", 16)
-			arrow.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_GOLD, 0.25))
-			arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			_phase_strip_container.add_child(arrow)
-
-		var lbl = Label.new()
-		lbl.text = phase_name
-		lbl.add_theme_font_size_override("font_size", 17)
-		lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.35, 0.5))
-		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.custom_minimum_size = Vector2(60, 0)
-		if FactionPalettes:
-			lbl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-		_phase_strip_container.add_child(lbl)
-		_phase_strip_labels[phase_id] = lbl
-
-	_phase_strip_panel.visible = false
-	print("Main: Phase progress strip created")
+	# Show the strip for the phase the game is ALREADY in. Loading a save
+	# restores its phase before this runs (Main._ready), so leaving the strip
+	# hidden until the next phase_changed hid it for a whole phase after a load.
+	_update_phase_strip()
+	print("Main: Phase progress strip created (T04 PhaseBar, visible=%s)" % str(_phase_strip_panel.visible))
 
 func _update_phase_strip() -> void:
 	if not _phase_strip_panel:
 		return
 
+	# Main only decides whether the strip shows. The PhaseBar inside it lights
+	# its own pills from PhaseManager.phase_changed (T04).
 	var current_game_phase = GameState.get_current_phase()
 	var is_battle_phase = current_game_phase in [
 		GameStateData.Phase.COMMAND, GameStateData.Phase.MOVEMENT,
@@ -4140,30 +4120,6 @@ func _update_phase_strip() -> void:
 		GameStateData.Phase.FIGHT, GameStateData.Phase.SCORING,
 	]
 	_phase_strip_panel.visible = is_battle_phase
-
-	if not is_battle_phase:
-		return
-
-	var battle_phases_order = [
-		GameStateData.Phase.COMMAND, GameStateData.Phase.MOVEMENT,
-		GameStateData.Phase.SHOOTING, GameStateData.Phase.CHARGE,
-		GameStateData.Phase.FIGHT, GameStateData.Phase.SCORING,
-	]
-	var current_idx = battle_phases_order.find(current_game_phase)
-
-	for phase_id in _phase_strip_labels:
-		var lbl: Label = _phase_strip_labels[phase_id]
-		var idx = battle_phases_order.find(phase_id)
-
-		if phase_id == current_game_phase:
-			lbl.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-			lbl.add_theme_font_size_override("font_size", 19)
-		elif idx < current_idx:
-			lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.35, 0.4))
-			lbl.add_theme_font_size_override("font_size", 17)
-		else:
-			lbl.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_PARCHMENT, 0.5))
-			lbl.add_theme_font_size_override("font_size", 17)
 
 # P3-109: Update the round indicator text and player faction display
 func _update_round_indicator() -> void:
