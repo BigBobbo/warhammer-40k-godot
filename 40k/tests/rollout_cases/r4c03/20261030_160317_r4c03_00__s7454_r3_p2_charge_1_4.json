@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Gamma (4.4\" away, 83% chance)",
+ "created": "2026-10-30 16:06:20",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7454_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges Gamma at 83% for a tie-up and a small chance of a second target. Three sets of 3 Custodes with equal stats make this a coin-flip melee that the AI scores as clearly favourable. Fix: Compute ch_damage and ch_retaliation from the actual target and the weapons that will fight. Apply the objective bonus to every target on an objective. Add a penalty when the charged unit leaves the charger facing two enemy units of equal strength next turn. Consider a multi-target charge against Gamma plus Delta.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7454_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "pos:1113,384",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_A,U_CUSTODIAN_GUARD_C",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma declares a charge at Custodian Guard Sodality Gamma + Blade Champion Alpha \u2014 targets picked after the roll: Custodian Guard Sodality Gamma on 5+ (83%), Blade Champion Alpha on 9+ (28%), overwatch risk: 0.2 dmg",
+ "verdict": "pending",
+ "version": 1
+}

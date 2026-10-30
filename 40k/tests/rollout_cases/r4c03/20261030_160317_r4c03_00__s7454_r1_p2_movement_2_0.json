@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (racing for it (enemy can have ~24 OC there before we arrive in 3 turns), needs 1 more OC after this unit \u2014 worth ~6 VP)",
+ "created": "2026-10-30 16:03:44",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7454_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a lone Custodian Guard 33 in across the board to an objective the enemy reaches first. It skipped the nearby unheld home objective. Fix: When the override target has a negative contest_race and takes 3 or more turns, drop the override. Choose the best objective that is reachable in 1 or 2 turns and is not contested. Give an unheld home objective a positive expected_vp, so a free hold beats an objective the enemy reaches first.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7454_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "pos:1220,430",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma advances toward obj_nml_1 (racing for it (enemy can have ~24 OC there before we arrive in 3 turns), needs 1 more OC after this unit)",
+ "verdict": "bad",
+ "version": 1
+}

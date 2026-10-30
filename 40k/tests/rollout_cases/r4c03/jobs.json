@@ -1,0 +1,157 @@
+[
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r1_p2_movement_2_0",
+  "case": "20261030_160317_r4c03_00__s7454_r1_p2_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a lone Custodian Guard 33 in across the board to an objective the enemy reaches first. It skipped the nearby unheld home objective.",
+  "better_option": "Move obj_home_2 (moving to objective)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7454",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160317_r4c03_00"
+ },
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r1_p1_movement_1_1",
+  "case": "20261030_160317_r4c03_00__s7454_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent Beta back to sit on HOME 1 because it was the sole holder. This ignores that no enemy can threaten home this turn and that other units could hold it. It wastes a 3 OC unit while Alpha goes alone to CENTER.",
+  "better_option": "Move obj_center",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7454",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160317_r4c03_00"
+ },
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r2_p2_charge_1_2",
+  "case": "20261030_160317_r4c03_00__s7454_r2_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Delta charges Blade Champion Beta at 28% chance. This leaves the held CENTER objective and puts a 270 pts unit into three enemy units for a counter-charge.",
+  "better_option": "unlisted: do not charge, stay on obj_center",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7454",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160317_r4c03_00"
+ },
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3",
+  "case": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a lone 3-model unit into a stack of enemy units to flip nml_1. It cannot flip it and will probably die. The center, worth 20 VP, was dropped as 'already taken' even though Beta is still 9 in away.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~20 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7454",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160317_r4c03_00"
+ },
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r3_p2_charge_1_4",
+  "case": "20261030_160317_r4c03_00__s7454_r3_p2_charge_1_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "targets": [
+     "U_CUSTODIAN_GUARD_C"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges Gamma at 83% for a tie-up and a small chance of a second target. Three sets of 3 Custodes with equal stats make this a coin-flip melee that the AI scores as clearly favourable.",
+  "better_option": "",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7454",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160317_r4c03_00"
+ },
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r3_p1_shooting_1_5",
+  "case": "20261030_160317_r4c03_00__s7454_r3_p1_shooting_1_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "target": "U_CUSTODIAN_GUARD_C_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Alpha shoots Beta for 0.3 expected damage, tied with Gamma. The tie breaks on a kill_threshold term that favours the higher-HP target, which is backwards.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7454",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160317_r4c03_00"
+ }
+]

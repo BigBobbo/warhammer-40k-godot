@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Beta (P2)",
+ "created": "2026-10-30 16:06:45",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7454_r3_p1_shooting_1",
+ "note": "[LLM critic, medium conf] Alpha shoots Beta for 0.3 expected damage, tied with Gamma. The tie breaks on a kill_threshold term that favours the higher-HP target, which is backwards. Fix: Make kill_threshold reward targets with fewer remaining wounds. Add a bonus for the target that the focus fire plan chose. Break ties toward the plan target, and toward the target already damaged or engaged with allies.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7454_r3_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Beta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha shoots at Custodian Guard Sodality Beta \u2014 expected 0.3 dmg vs 13 HP (2% kill)",
+ "verdict": "pending",
+ "version": 1
+}
