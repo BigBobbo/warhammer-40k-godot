@@ -35,6 +35,7 @@ import concurrent.futures
 import json
 import math
 import os
+import re
 import shutil
 import statistics
 import subprocess
@@ -141,12 +142,33 @@ def value_of(res: dict, me: int) -> dict:
     return {"value": value, "material": material}
 
 
+def decision_key(desc: str) -> str:
+    """The decisive part of an action text: who does what to whom, without the
+    numbers after it ("X shoots at Y \u2014 expected 0.9 dmg ..." -> "X shoots at Y").
+    The old check compared the first 60 characters, which can stop before the
+    target name, so "shoots at Gamma" and "shoots at Alpha" matched."""
+    cut = len(desc)
+    for sep in (" \u2014 ", " (", ";"):
+        i = desc.find(sep)
+        if 0 < i < cut:
+            cut = i
+    return desc[:cut].strip()
+
+
+ACTOR_RE = re.compile(r"^(.*?) (shoots at|moves|advances|holds|stays|declares|arrives|falls back|remains)\b")
+
+
 def drift_check(res: dict, case: dict) -> dict:
-    """Did branch A make the decision the critic reviewed? Looks for the case's
-    suggestion text among the decider's actions in that round and phase."""
-    want = str(case.get("suggestion", ""))[:90]
+    """Did branch A make the decision the critic reviewed? Compares the decisive
+    part of the case's suggestion with the decider's actions in that round and
+    phase. Also reports what A's acting unit did instead ("a_did"): when A
+    already makes the alternative, B equals A and the job measures nothing."""
+    want = decision_key(str(case.get("suggestion", "")))
+    m = ACTOR_RE.match(want)
+    actor = m.group(1) if m else ""
     phase = str(case.get("phase_name", "")).lower()
     seen = []
+    a_did = ""
     for d in res.get("_decisions", []):
         if int(d.get("player", 0)) != int(case.get("player", 0)) or int(d.get("round", 0)) != int(case.get("round", 0)):
             continue
@@ -155,9 +177,11 @@ def drift_check(res: dict, case: dict) -> dict:
         for a in d.get("actions", []):
             desc = str(a.get("description", ""))
             seen.append(desc[:120])
-            if want and desc.startswith(want[:60]):
-                return {"reproduced": True, "matched": desc[:160]}
-    return {"reproduced": False, "first_actions": seen[:4]}
+            if actor and not a_did and desc.startswith(actor + " "):
+                a_did = desc[:160]
+            if want and decision_key(desc) == want:
+                return {"reproduced": True, "matched": desc[:160], "a_did": desc[:160]}
+    return {"reproduced": False, "first_actions": seen[:4], "a_did": a_did}
 
 
 def cmd_run(args) -> int:

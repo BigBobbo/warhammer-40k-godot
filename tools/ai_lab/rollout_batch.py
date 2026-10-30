@@ -89,6 +89,7 @@ def cmd_run(args) -> int:
                    "B": s.get("B", {}).get("value", {}).get("mean"),
                    "mat": s.get("effect_material", {}).get("mean"),
                    "drift": not s.get("drift", {}).get("reproduced", False),
+                   "a_did": str(s.get("drift", {}).get("a_did", ""))[:110],
                    "applied": sum(1 for x in s.get("override_applied", []) if x),
                    "identical": s.get("identical_pairs")}
         print("ROLLOUT_RESULT " + json.dumps(res, separators=(",", ":")), flush=True)
