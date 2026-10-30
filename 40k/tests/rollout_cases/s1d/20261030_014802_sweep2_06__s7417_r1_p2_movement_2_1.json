@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (capturing it (uncontrolled) \u2014 worth ~6 VP)",
+ "created": "2026-10-30 01:49:15",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7417_r1_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI advances Lootas Beta toward obj_center for the objective-majority VP. Advancing is free this turn because no target is visible. But a lone 1 OC Lootas unit cannot hold the center against OC 3 Custodians. Advancing also wastes the Heavy and shooting options for later. Fix: Add a penalty for advancing with a unit that has Heavy weapons and no Assault weapons, unless the advance is needed to reach the objective. Scale the objective_priority term by the chance of holding it against enemy OC within charge range next turn.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7417_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Beta advances toward obj_center (capturing it (uncontrolled))",
+ "verdict": "pending",
+ "version": 1
+}

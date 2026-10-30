@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Beta (4.0\" away, 83% chance)",
+ "created": "2026-10-30 01:56:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7417_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] Kommandos charge Blade Champion Beta, a T7 2+/4++ character. The AI overrates their melee damage, scores a wipe it cannot achieve, and applies no retaliation penalty. Fix: Compute charge damage from real hit, wound and save odds, including the invulnerable save, against the actual target toughness. Apply ch_retaliation to every target, scaled by the target's melee output and the charger's points at risk. Only add can_wipe and can_halve when expected damage reaches those thresholds.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7417_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "pos:1041,1282",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_B,U_BLADE_CHAMPION_C",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos declares a charge at Blade Champion Beta + Blade Champion Gamma \u2014 targets picked after the roll: Blade Champion Beta on 5+ (83%), Blade Champion Gamma on 7+ (58%), overwatch risk: 1.0 dmg",
+ "verdict": "bad",
+ "version": 1
+}

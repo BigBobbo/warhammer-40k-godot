@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Deffgun \u2192 enemy Custodian Guard Sodality Beta (P1)",
+ "created": "2026-10-30 01:55:26",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7418_r3_p2_shooting_2",
+ "note": "[LLM critic, low conf] The AI picked the weakened Custodian Guard Sodality Beta, which is a sensible target. It only compared Deffgun targets and never compared the Kustom mega-blasta. Fix: Score every ranged weapon of the unit against every target. Pick the weapon and target pair with the best expected damage plus kill value. Subtract the hazardous cost explicitly.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7418_r3_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A",
+  "choice": "desc:Deffgun \u2192 enemy Custodian Guard Sodality Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha shoots at Custodian Guard Sodality Beta \u2014 expected 1.8 dmg vs 7 HP (25% kill)",
+ "verdict": "pending",
+ "version": 1
+}

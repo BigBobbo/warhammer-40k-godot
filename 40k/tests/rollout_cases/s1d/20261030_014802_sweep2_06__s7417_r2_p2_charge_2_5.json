@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Gamma (9.0\" away, 28% chance)",
+ "created": "2026-10-30 01:52:51",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7417_r2_p2_charge_2",
+ "note": "[LLM critic, high conf] The AI sent a 100 point shooting unit on a 28% charge at a Blade Champion. The charge deals about 0.7 damage and invites heavy retaliation. It also takes the unit off its objective. Fix: Gate ch_gang_up and ch_character on expected melee damage being meaningful against the target. Gate them on charge probability too. Never charge when expected damage is under 1 and retaliation exceeds it. Scale ch_cant_hurt with target cost. Do not let any bonus make a negative-value charge positive. Keep shooting units (Lootas) out of melee unless they can kill a unit.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7417_r2_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A",
+  "choice": "pos:780,851",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_C",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha declares charge against Blade Champion Gamma (28% chance, 9.0\" away, expected 0.7 melee dmg vs 7 HP, overwatch risk: 0.8 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

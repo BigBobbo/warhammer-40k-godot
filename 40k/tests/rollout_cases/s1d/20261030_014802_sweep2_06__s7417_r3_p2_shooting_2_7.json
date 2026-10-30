@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Slugga \u2192 enemy Custodian Guard Sodality Beta (P1)",
+ "created": "2026-10-30 01:56:41",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7417_r3_p2_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot only the 12 in Slugga (1 attack per model, 0.32 expected damage) and never offered the Kustom Shoota, which has four times the attacks and rapid fire. Fix: Enumerate every eligible ranged weapon for each target and score by expected damage. Exclude [CLOSE-QUARTERS] weapons when the unit is unengaged and a longer-range weapon exists. Add rapid fire bonus attacks when the target is within half range.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7417_r3_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "desc:Slugga \u2192 enemy Custodian Guard Sodality Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos shoots at Custodian Guard Sodality Beta \u2014 expected 0.3 dmg vs 15 HP (2% kill)",
+ "verdict": "bad",
+ "version": 1
+}

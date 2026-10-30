@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (supporting nearby objective \u2014 worth ~7 VP)",
+ "created": "2026-10-30 01:50:49",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7418_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends a 1 OC Mek 14.6 in forward to an objective that is already held. The expected_vp term of 7.0 counts the whole objective's value, not this unit's marginal value. That term gets credit for VP that the Stormboyz already secure. Fix: Compute expected_vp as the marginal change in control probability caused by this unit. If the objective is already held with OC above the enemy's reachable OC, set expected_vp near zero. Give support units a bonus for staying near home, or for moving toward the unit that needs backup, instead.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7418_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_MEK_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Mek Beta moves toward obj_center (supporting nearby objective, obj: 14.6\" away)",
+ "verdict": "pending",
+ "version": 1
+}

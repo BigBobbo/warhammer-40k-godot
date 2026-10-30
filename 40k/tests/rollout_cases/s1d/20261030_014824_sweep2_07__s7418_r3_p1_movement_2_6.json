@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (racing for it (enemy can have ~39 OC there before we arrive in 3 turns) \u2014 worth ~10 VP)",
+ "created": "2026-10-30 01:56:45",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7418_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] Alpha leaves its home area for a 3-turn trek to obj_nml_1. Gamma, a Blade Champion, and the Stormboyz fight are much closer to that objective, and a 3-turn arrival adds little. Fix: Scale expected_vp by the chance the unit arrives and holds the objective before game end. Give no VP credit when turns_to_reach is 3 or more and another friendly unit is nearer to the same objective. Subtract the home-hold value when a unit is a needed OC holder at home.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7418_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:1380,470",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_nml_1 (moving toward charge target Stormboyz, obj: 27.1\" away)",
+ "verdict": "bad",
+ "version": 1
+}
