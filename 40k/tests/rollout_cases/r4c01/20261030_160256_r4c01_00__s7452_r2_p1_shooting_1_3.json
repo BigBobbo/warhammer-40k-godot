@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Balistus Grenade Launcher \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+ "created": "2026-10-30 16:04:12",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7452_r2_p1_shooting_1",
+ "note": "[LLM critic, low conf] The AI split fire. The grenade launcher hit Gamma at 17.6 in and the spears hit Delta, so neither target is close to dying. Fix: Add a bonus for firing all weapons of a unit at one target, and apply it when the target is already wounded. Count rapid fire bonus attacks when the target is within half range. Reduce target_value for targets near the edge of weapon range.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7452_r2_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "desc:Balistus Grenade Launcher \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians shoots at Custodian Guard Sodality Gamma \u2014 expected 1.0 dmg vs 15 HP (6% kill); Custodian Guard Sodality Delta \u2014 expected 1.8 dmg vs 15 HP (12% kill)",
+ "verdict": "pending",
+ "version": 1
+}

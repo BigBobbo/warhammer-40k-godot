@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (flipping it (enemy holds with OC 9) \u2014 quicker to reach than Prosecutor Squad (12.8\" away, there in 2 turns at M8 vs 20.7\" away, there in 3 turns at M7) \u2014 worth ~5 VP)",
+ "created": "2026-10-30 16:04:44",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7452_r2_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI sends Beta toward obj_center, which the enemy holds with OC 9. The unit ends the turn in charge range of several enemy melee units, and the plan scores contest_race -13.2 and threat_delta -10.38. Fix: When a unit cannot reach an objective this turn and the enemy has more OC nearby, require a friendly unit to arrive with it, or penalise the move more heavily. Weight threat_delta higher for a lone unit that ends its move inside enemy charge range.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7452_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_center (moving toward charge target Blade Champion Beta, obj: 12.8\" away)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,181 @@
+[
+ {
+  "job": "20261030_160256_r4c01_00__s7452_r1_p1_movement_1_0",
+  "case": "20261030_160256_r4c01_00__s7452_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI advances toward obj_center. Even a 6 on the advance roll (14 in) falls short of 15.26 in, so the advance gains nothing over a normal move.",
+  "better_option": "Move obj_center as a normal move",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "disruption",
+   "seeds": "7452",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160256_r4c01_00"
+ },
+ {
+  "job": "20261030_160256_r4c01_00__s7452_r1_p1_movement_2_1",
+  "case": "20261030_160256_r4c01_00__s7452_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI holds NML 1 with a unit that is already redundant there. It calls the unit the sole holder, but Custodian Guard Gamma is next to it. The unit could advance toward the center objective.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "disruption",
+   "seeds": "7452",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160256_r4c01_00"
+ },
+ {
+  "job": "20261030_160256_r4c01_00__s7452_r2_p1_movement_2_2",
+  "case": "20261030_160256_r4c01_00__s7452_r2_p1_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent Beta toward obj_nml_2 because the capture plan forbids double-assigning obj_center. The move takes two turns and ends in the enemy threat zone, although the option itself carries threat_delta -7.46 and contest_race -10.13.",
+  "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~9 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "disruption",
+   "seeds": "7452",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160256_r4c01_00"
+ },
+ {
+  "job": "20261030_160256_r4c01_00__s7452_r2_p1_shooting_1_3",
+  "case": "20261030_160256_r4c01_00__s7452_r2_p1_shooting_1_3.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "target": "U_CUSTODIAN_GUARD_A_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI split fire. The grenade launcher hit Gamma at 17.6 in and the spears hit Delta, so neither target is close to dying.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Alpha (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "disruption",
+   "seeds": "7452",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160256_r4c01_00"
+ },
+ {
+  "job": "20261030_160256_r4c01_00__s7452_r2_p1_charge_1_4",
+  "case": "20261030_160256_r4c01_00__s7452_r2_p1_charge_1_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI declares a 17% charge with a 270pt unit into a cluster of enemy melee units. The charge would not kill the 13 HP target. The retaliation penalty looks too small.",
+  "better_option": "unlisted: do not charge; keep Allarus Custodians where they are",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "disruption",
+   "seeds": "7452",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160256_r4c01_00"
+ },
+ {
+  "job": "20261030_160256_r4c01_00__s7452_r2_p2_movement_2_5",
+  "case": "20261030_160256_r4c01_00__s7452_r2_p2_movement_2_5.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Beta toward obj_center, which the enemy holds with OC 9. The unit ends the turn in charge range of several enemy melee units, and the plan scores contest_race -13.2 and threat_delta -10.38.",
+  "better_option": "Move obj_center (as a coordinated push with Allarus Custodians)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "disruption",
+   "seeds": "7452",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160256_r4c01_00"
+ },
+ {
+  "job": "20261030_160256_r4c01_00__s7452_r2_p2_shooting_2_6",
+  "case": "20261030_160256_r4c01_00__s7452_r2_p2_shooting_2_6.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "target": "U_ALLARUS_CUSTODIANS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Delta shoots Alpha at long range for 1.11 damage and an 11% kill chance, when Allarus is close and would take 1.78 damage.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Allarus Custodians (P1)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "disruption",
+   "seeds": "7452",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160256_r4c01_00"
+ }
+]

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Alpha (9.4\" away, 17% chance)",
+ "created": "2026-10-30 16:04:20",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7452_r2_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI declares a 17% charge with a 270pt unit into a cluster of enemy melee units. The charge would not kill the 13 HP target. The retaliation penalty looks too small. Fix: Scale ch_retaliation by the total enemy melee output that can reach the charge end point. Cap ch_damage by expected damage against target HP. Do not let tempo bonuses lower the charge-chance threshold below about 25% for expensive units when the lead is large.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7452_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "pos:656,2104",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_A_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians declares charge against Custodian Guard Sodality Alpha (17% chance, 9.4\" away, expected 10.0 melee dmg vs 13 HP, overwatch risk: 0.2 dmg)",
+ "verdict": "pending",
+ "version": 1
+}

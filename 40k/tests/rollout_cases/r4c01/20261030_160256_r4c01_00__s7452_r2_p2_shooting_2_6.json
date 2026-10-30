@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Alpha (P1)",
+ "created": "2026-10-30 16:05:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7452_r2_p2_shooting_2",
+ "note": "[LLM critic, low conf] Delta shoots Alpha at long range for 1.11 damage and an 11% kill chance, when Allarus is close and would take 1.78 damage. Fix: Cap the already_allocated bonus unless the group's total expected damage gives a real kill chance. Add a threat term for enemies within charge range of the shooter or of a held objective. Scale expected damage for range, since rapid fire applies only within half range.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7452_r2_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D_P2",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Alpha (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta shoots at Custodian Guard Sodality Alpha \u2014 expected 1.1 dmg vs 10 HP (11% kill)",
+ "verdict": "pending",
+ "version": 1
+}

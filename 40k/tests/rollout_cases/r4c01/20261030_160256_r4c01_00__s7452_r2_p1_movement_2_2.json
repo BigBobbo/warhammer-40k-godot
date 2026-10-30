@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (flipping it (enemy holds with OC 6), needs 8 more OC after this unit \u2014 worth ~6 VP)",
+ "created": "2026-10-30 16:04:01",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7452_r2_p1_movement_2",
+ "note": "[LLM critic, low conf] The AI sent Beta toward obj_nml_2 because the capture plan forbids double-assigning obj_center. The move takes two turns and ends in the enemy threat zone, although the option itself carries threat_delta -7.46 and contest_race -10.13. Fix: Make the one-unit-per-objective rule soft. Allow a second unit on an objective when the enemy can bring more OC than the first unit's OC. Also reject a reassignment when it has a large negative contest_race or threat_delta and the unit cannot arrive this turn.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7452_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:773,2013",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_nml_2 (moving toward charge target Custodian Guard Sodality Alpha, obj: 18.4\" away)",
+ "verdict": "pending",
+ "version": 1
+}
