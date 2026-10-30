@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Gamma (8.7\" away, 28% chance)",
+ "created": "2026-10-30 16:10:41",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7470_r2_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI sends Stormboyz at a 7-wound Blade Champion with a 28% chance. The score uses an inflated damage estimate and has no retaliation penalty. Fix: Compute melee damage with the real wound roll and save, including invulnerable saves. Always apply a retaliation term based on the target's melee output. Do not grant ch_can_wipe when the expected damage is below the target's wounds. Add a no-charge baseline option that scores 0 so low-probability, negative-trade charges lose.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7470_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:489,939",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_C",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares charge against Blade Champion Gamma (28% chance, 8.7\" away, expected 8.9 melee dmg vs 7 HP, overwatch risk: 0.3 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 2 turns), needs 2 more OC after this unit \u2014 worth ~7 VP)",
+ "created": "2026-10-30 16:08:57",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7470_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a single 10-model Lootas unit with OC 1 alone on a 2-turn advance to a contested objective. The same unit gave up its firing turn, and its enemy-OC estimate of about 16 shows it cannot win the objective. Fix: Cap expected_vp by the chance of holding the objective. Where the estimated enemy OC far exceeds our OC, scale expected_vp to near zero. Do not let the over-commit override push a ranged unit onto a lone objective it cannot hold.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7470_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C",
+  "choice": "pos:1370,420",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma advances toward obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 2 turns), needs 2 more OC after this unit)",
+ "verdict": "pending",
+ "version": 1
+}
