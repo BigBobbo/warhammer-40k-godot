@@ -1587,6 +1587,25 @@ const SHOOT_UNIT_REMOVAL_VALUE: float = 2.0
 # Movement plan (KEEPER-PICK): score units per 100 points when choosing which
 # holder stays on an objective — the cheaper sufficient unit keeps it.
 const KEEPER_POINTS_WEIGHT: float = 2.0
+# Movement plan (KEEPER-RELEASE): 1 = the sole keeper (OBJ-HOLD-2) of OUR HOME
+# objective does not stay there when holding it pays nothing before the enemy
+# can threaten it: our primary card counts the objective in none of its rules
+# (every hold rule excludes home), no enemy unit can be in range of it by the
+# end of the enemy's next turn (on-board units: Move + charge + pile-in +
+# consolidate; reserves: any from battle round 2 (15.07), in round 1 only a
+# unit a rule lets arrive early), another of our units can stand on it within
+# one move, the keeper is not fragile, and its best objective elsewhere (not a
+# lost race) outscores holding by KEEPER_RELEASE_MIN_GAIN. The keeper goes to
+# that objective — as a capture, or joining (with a Normal move, no Advance) a
+# unit the plan sends there that gets there first — and every other unit keeps
+# its plan. A Custodian Guard unit idled a whole first turn on a home objective
+# the Reconnaissance card does not pay for while the Orks were 30" away
+# (LLM-critic cluster keeper_release; moving it to the objective Gamma takes
+# measured +8.0 VP [3.4, 12.6], 12 rollouts). 0 = previous behaviour.
+const FIX_KEEPER_RELEASE: float = 1.0
+# KEEPER-RELEASE: how many planner score points the keeper's best objective
+# elsewhere must beat holding by (the round-1 stay bonus is 5).
+const KEEPER_RELEASE_MIN_GAIN: float = 5.0
 # Movement plan + reserve arrival (FIX-HELD-DUP): 1 = the AI reads who holds a
 # terrain-hosted objective with the predicate MissionManager scores with (11e
 # 14.01: a model whose base overlaps a hosting area named in source_pieces is
@@ -9048,6 +9067,178 @@ static func _initial_objective_oc_needs(obj_evaluations: Array, friendly_units: 
 		obj_oc_remaining[obj_id] = base_need + projected_extra
 	return obj_oc_remaining
 
+## KEEPER-RELEASE (FIX_KEEPER_RELEASE): may `hold` — the sole keeper's
+## candidate on our home objective `ev` — leave it this phase? {} = it holds.
+## Else {target: its best candidate elsewhere, objective_id, hold, backups:
+## [{unit_id, name}] cheapest first}. All of: the keeper is not fragile (a
+## cheap fragile unit is KEEPER-PICK's natural keeper, and LONE-TRIP's case);
+## a target that is not a lost race, arrives before the game ends and
+## outscores holding by KEEPER_RELEASE_MIN_GAIN; our primary card does not pay
+## for the objective; other units of ours (not attached to the keeper) can
+## stand on it within one move — the plan keeps one of them near it (checked
+## after pass 2); and no enemy unit can be in range of it by the end of the
+## enemy's next turn.
+static func _keeper_release_check(snapshot: Dictionary, hold: Dictionary, ev: Dictionary,
+		candidates: Array, enemies: Dictionary, player: int, battle_round: int) -> Dictionary:
+	if not ev.get("is_home", false):
+		return {}
+	var units: Dictionary = snapshot.get("units", {})
+	var uid := str(hold.unit_id)
+	var unit: Dictionary = units.get(uid, {})
+	if unit.is_empty() or _lone_trip_fragile(unit):
+		return {}
+	# An authored plan's order to hold this objective (PM-3 HOLD_OBJECTIVE
+	# earmark) keeps the keeper, as on the base.
+	if str(hold.get("earmark", "")).begins_with("HOLD_OBJECTIVE"):
+		print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — the plan orders it to hold (%s)" % [ev.get("id", "?"), uid, str(hold.earmark)])
+		return {}
+	var min_gain = get_param("KEEPER_RELEASE_MIN_GAIN", KEEPER_RELEASE_MIN_GAIN)
+	var target: Dictionary = {}
+	for c in candidates:
+		if str(c.unit_id) != uid or c.get("already_on_obj", false) or c.get("action", "") not in ["move", "advance"]:
+			continue
+		if c.get("race_lost", false) or battle_round + int(c.get("turns_to_reach", 1)) - 1 > MAX_BATTLE_ROUNDS_AI:
+			continue
+		if float(c.score) >= float(hold.score) + min_gain and (target.is_empty() or float(c.score) > float(target.score)):
+			target = c
+	if target.is_empty() or _keeper_release_primary_counts(player, ev):
+		return {}
+	var keeper_group: Array = [uid]
+	var k_att = unit.get("attachment_data", {})
+	if k_att is Dictionary:
+		for ch in k_att.get("attached_characters", []):
+			keeper_group.append(str(ch))
+	if unit.get("attached_to", null) != null:
+		keeper_group.append(str(unit.attached_to))
+	var backups: Array = []
+	for f_arr in ev.get("friendly_arrivals", []):
+		var f_uid := str(f_arr.get("unit_id", ""))
+		var f_to = units.get(f_uid, {}).get("attached_to", null)
+		if f_uid in keeper_group or (f_to != null and str(f_to) in keeper_group):
+			continue
+		if int(f_arr.get("moves", 99)) <= 1 and int(f_arr.get("oc", 0)) > 0:
+			backups.append({"unit_id": f_uid, "name": _dn(units.get(f_uid, {}), f_uid),
+				"points": float(units.get(f_uid, {}).get("meta", {}).get("points", 0))})
+	if backups.is_empty():
+		return {}
+	backups.sort_custom(func(a, b): return float(a.points) < float(b.points))
+	# The enemy's next turn: this battle round if we take the first turn of
+	# each round, else the next one.
+	var first := int(snapshot.get("meta", {}).get("first_turn_player", 1))
+	var enemy_round := battle_round if (player == first or (first != 1 and first != 2 and player == 1)) else battle_round + 1
+	var threat := _keeper_release_threat(snapshot, ev, enemies, player, enemy_round)
+	if threat != "":
+		print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — %s" % [ev.id, uid, threat])
+		return {}
+	return {"target": target, "objective_id": str(ev.id), "hold": hold, "backups": backups}
+
+## KEEPER-RELEASE: does our primary card pay for holding `ev` (a rule active
+## this round, or scoring at our next Command phase, counts it)? True when the
+## card is unknown — only a card that leaves the objective out releases a keeper.
+static func _keeper_release_primary_counts(player: int, ev: Dictionary) -> bool:
+	var primary = _get_primary_awareness(player)
+	if primary.is_empty() or int(primary.get("active_rules", 0)) <= 0:
+		return true
+	var is_home: bool = ev.get("is_home", false)
+	var is_enemy_home: bool = ev.get("is_enemy_home", false)
+	var pos: Vector2 = ev.get("position", Vector2.INF)
+	var is_central: bool = pos != Vector2.INF \
+			and pos.distance_to(Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)) <= 4.0 * PIXELS_PER_INCH
+	for rule in primary.get("vp_rules", []):
+		var r_type := str(rule.get("type", ""))
+		if r_type in ["destroyed_min", "destroyed_per_unit", "killed_more_than_opponent_last_turn",
+				"destroyed_started_on_objective", "destroyed_near_central", "destroyed_in_terrain_area", "quarters"]:
+			continue  # kills and table quarters — not who holds an objective
+		if r_type in ["hold_min", "per_objective", "hold_new", "per_new_objective"]:
+			if is_home and rule.get("exclude_home", false) and not rule.get("require_hold_home", false):
+				continue
+			return true
+		if r_type in ["hold_central", "hold_central_plus_nml"]:
+			if is_central or (r_type == "hold_central_plus_nml" and not is_home and not is_enemy_home):
+				return true
+			continue
+		if r_type == "hold_enemy_home":
+			if is_enemy_home:
+				return true
+			continue
+		return true  # hold_more, marker and action mechanics: assume it counts
+	return false
+
+## KEEPER-RELEASE: the enemy unit that can be in range of `ev` by the end of
+## the enemy's next turn (battle round `enemy_round`), or "". On the board: a
+## model within Move + 12" charge + 6" pile-in and consolidate (+6" Advance
+## when it may advance and charge) of the objective's range — of its hosting
+## area on an 11e terrain objective. In reserves: any unit from battle round 2
+## (15.07); in round 1 only one a rule lets arrive early (an enhancement on it
+## or a unit attached to it, or an army ability that names a first Movement
+## phase or a higher battle round for ingress — Drop Pod Assault, High King
+## of Fenris).
+static func _keeper_release_threat(snapshot: Dictionary, ev: Dictionary, enemies: Dictionary,
+		player: int, enemy_round: int) -> String:
+	var obj_pos: Vector2 = ev.get("position", Vector2.INF)
+	if obj_pos == Vector2.INF:
+		return "its position is unknown"
+	var od: Dictionary = _held_dup_objective_at(snapshot, obj_pos)
+	var mm = _mission_manager()
+	if not od.is_empty() and (mm == null or not mm.has_method("model_within_inches_of_objective")):
+		return "its terrain area cannot be measured"
+	for e_uid in enemies:
+		var eu: Dictionary = enemies[e_uid]
+		var e_status = eu.get("status", 0)
+		if e_status == GameStateData.UnitStatus.UNDEPLOYED or e_status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var reach_in := float(eu.get("meta", {}).get("stats", {}).get("move", 6)) + 12.0 + 6.0
+		if eu.get("flags", {}).get("effect_advance_and_charge", false):
+			reach_in += 6.0
+		for model in eu.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var mp := _get_model_position(model)
+			if mp == Vector2.INF:
+				continue
+			var near: bool
+			if od.is_empty():
+				near = mp.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX + reach_in * PIXELS_PER_INCH
+			else:
+				near = mm.model_within_inches_of_objective(model, od, reach_in)
+			if near:
+				return "%s can reach it in one turn" % _dn(eu, e_uid)
+	var units: Dictionary = snapshot.get("units", {})
+	var early_rule := false
+	if enemy_round < 2:
+		for a_uid in units:
+			if int(units[a_uid].get("owner", 0)) == player:
+				continue
+			for ab in units[a_uid].get("meta", {}).get("abilities", []):
+				var txt := str(ab)
+				if ab is Dictionary:
+					txt = "%s %s" % [str(ab.get("name", "")), str(ab.get("description", ""))]
+				txt = txt.to_lower()
+				if "first movement phase" in txt or "battle round were one higher" in txt \
+						or "drop pod assault" in txt or "high king of fenris" in txt:
+					early_rule = true
+	for r_uid in units:
+		var ru: Dictionary = units[r_uid]
+		if int(ru.get("owner", 0)) == player or ru.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES \
+				or _get_alive_models(ru).is_empty():
+			continue
+		var can_arrive := enemy_round >= 2 or early_rule
+		if not can_arrive:
+			var group: Array = [ru]
+			var r_att = ru.get("attachment_data", {})
+			if r_att is Dictionary:
+				for ch in r_att.get("attached_characters", []):
+					group.append(units.get(str(ch), {}))
+			if ru.get("attached_to", null) != null:
+				group.append(units.get(str(ru.attached_to), {}))
+			for gu in group:
+				var g_enh = gu.get("meta", {}).get("enhancements", [])
+				if g_enh is Array and not g_enh.is_empty():
+					can_arrive = true
+		if can_arrive:
+			return "%s can arrive from reserves in the enemy's next turn" % _dn(ru, r_uid)
+	return ""
+
 ## LONE-TRIP: a unit the enemy can wipe out once it stands alone — the fragile
 ## rule _evaluate_position_threat already uses (T3 or less, or 1 wound per
 ## model), or a lone CHARACTER (one model, no bodyguard, not a vehicle/monster).
@@ -9698,6 +9889,9 @@ static func _assign_units_to_objectives(
 				or (sufficient == cur.sufficient and key < float(cur.key)):
 			obj_keeper[cand.objective_id] = {"uid": cand.unit_id, "key": key, "sufficient": sufficient}
 
+	# KEEPER-RELEASE (FIX_KEEPER_RELEASE): keepers that leave after pass 2.
+	var keeper_release_on = get_param("FIX_KEEPER_RELEASE", FIX_KEEPER_RELEASE) >= 0.5
+	var keeper_released := {}  # unit_id -> _keeper_release_check result
 	for cand in candidates:
 		var uid = cand.unit_id
 		var oid = cand.objective_id
@@ -9739,6 +9933,15 @@ static func _assign_units_to_objectives(
 				print("AIDecisionMaker: [AGGRO-FREE] Freeing %s from home objective %s (horde melee unit, round %d)" % [uid, oid, hold_round])
 			else:
 				should_hold = true
+				# KEEPER-RELEASE (FIX_KEEPER_RELEASE): the sole keeper of a home
+				# objective that pays nothing before the enemy can threaten it.
+				# It holds through pass 2 (every other unit plans as before) and
+				# takes its target after it.
+				if keeper_release_on and int(units_on_obj_initial.get(oid, 0)) <= 1:
+					var kr: Dictionary = _keeper_release_check(snapshot, cand, eval_for_obj, candidates,
+						enemies, player, battle_round)
+					if not kr.is_empty():
+						keeper_released[uid] = kr
 		# If multiple units on same held_safe objective, let extras move elsewhere
 
 		if should_hold:
@@ -10169,6 +10372,60 @@ static func _assign_units_to_objectives(
 				continue  # covered — this unit falls through to its next option
 
 		apply_capture_assignment.call(cand)
+
+	# KEEPER-RELEASE (FIX_KEEPER_RELEASE): a released keeper leaves its home
+	# objective for its target now — after the greedy pass, so every other
+	# unit has the plan it had with the keeper holding. If another unit already
+	# takes the target, the keeper joins it there. It stays when the plan sends
+	# every unit that could re-take home in one move elsewhere, or when the
+	# plan's other captures have devalued the target (DIM-RETURNS / FAR-TRIP).
+	for kr_uid in keeper_released:
+		var kr: Dictionary = keeper_released[kr_uid]
+		var kr_t: Dictionary = kr.target
+		var kr_oid := str(kr_t.objective_id)
+		var kr_backup := ""
+		for b in kr.backups:
+			var b_oid := str(assignments.get(b.unit_id, {}).get("objective_id", kr.objective_id))
+			if b_oid == str(kr.objective_id) or not b_oid.begins_with("obj"):
+				kr_backup = str(b.name)  # not sent to another objective this phase
+				break
+		if kr_backup == "":
+			print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — every unit that could re-take it in one move is sent elsewhere" % [
+				kr.objective_id, kr_uid])
+			continue
+		if (int(obj_oc_remaining.get(kr_oid, 0)) > 0 \
+				and (reprice_capture.call(kr_oid) as Dictionary).get("skip", false)) or far_trip.call(kr_t):
+			print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — %s is not worth the trip with the rest of this plan (DIM-RETURNS / FAR-TRIP)" % [
+				kr.objective_id, kr_uid, kr_oid])
+			continue
+		kr["why"] = "our primary does not pay for it, no enemy can reach it before our next turn, and %s can re-take it in one move" % kr_backup
+		var kr_with: Array = []  # the units the plan already sends there
+		var kr_first := false  # one of them is there, or gets there no later than the keeper
+		for a_uid in assignments:
+			if str(a_uid) != str(kr_uid) and str(assignments[a_uid].get("objective_id", "")) == kr_oid \
+					and assignments[a_uid].get("action", "") in ["hold", "move", "advance"]:
+				kr_with.append(_dn(snapshot.get("units", {}).get(a_uid, {}), a_uid))
+				if assignments[a_uid].get("action", "") == "hold" \
+						or int(assignments[a_uid].get("turns_to_reach", 99)) <= int(kr_t.get("turns_to_reach", 1)):
+					kr_first = true
+		for n in incoming_names.get(kr_oid, []):
+			if not n in kr_with:
+				kr_with.append(n)
+				kr_first = true  # already moved toward it this phase
+		# Joining a unit that takes the target first, the keeper gains nothing by
+		# arriving a turn sooner (RACE-1's Advance) and would give up shooting
+		# and charging this turn: it makes a Normal move.
+		if kr_first and str(kr_t.get("action", "")) == "advance":
+			kr_t = kr_t.duplicate()
+			kr_t["action"] = "move"
+		apply_capture_assignment.call(kr_t)
+		assignments[kr_uid]["assign_pass"] = "keeper_release"
+		if not kr_with.is_empty():
+			assignments[kr_uid]["reason"] = "joining %s there" % ", ".join(kr_with)
+		assignments[kr_uid]["coordination_note"] = "leaving %s — %s" % [kr.objective_id, kr.why]
+		print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s leaves it for %s (%s, score %.1f vs %.1f holding) — %s" % [
+			kr.objective_id, kr_uid, kr_oid, str(kr_t.action).to_upper(), float(kr_t.score),
+			float(kr.hold.score), kr.why])
 
 	# =========================================================================
 	# PASS 2.5 (COORD-4): ATTACK-INTENT CONVERSION — melee seekers that would
