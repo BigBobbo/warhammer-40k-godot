@@ -1,0 +1,475 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..717a965 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1626,6 +1626,22 @@ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+ # target without it. 0 = V6 behaviour (every declared charger counts).
+ # Off since the round-1 bundle test (2026-10-30, vs V6, 3 fixtures): with it +0.97 [-1.17, +3.12], without it +1.58 [-0.27, +3.42]. Kept for a later test.
+ const FIX_CHARGE_EV: float = 0.0
++# Charge (FIX_CHARGE_LOW_ODDS): 1 = the charge estimate values what the charge
++# really fights and gains (LLM-critic cluster charge_low_odds: a 28% Stormboyz
++# charge at an attached Blade Champion, +4.33 VP [1.37, 7.30] for not charging;
++# a 17% Allarus charge at a 4-wound Mek, +2.64 [0.40, 4.88], 36 rollouts each):
++#   CLO-ATTACHED: an attached CHARACTER is charged as its Attached unit (19.02):
++#     the attacks land on the bodyguard first, the kill needs the whole unit's
++#     wounds, and every member fights back (the Stormboyz' "likely kill" on a
++#     lone 7-wound Blade Champion was a 22-wound fight with 3 Custodian Guard).
++#   CLO-OVERKILL: damage beyond the alive models' full wounds is not counted
++#     (13.3 damage was scored against a 4-wound Mek).
++#   CLO-CARRIER (melee): a melee weapon the unit's counted wargear never names,
++#     while it names another melee weapon, is one model's option at most (a
++#     Nob's Kustom Choppa scored as 10 models' worth), and plural names
++#     ("Choppas") match their wargear entry ("9x Choppa").
++# 0 = previous behaviour.
++const FIX_CHARGE_LOW_ODDS: float = 1.0
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -16497,6 +16513,11 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 	# suggestion — only the focused unit may win the pick.
+ 	var unit_best := {}  # uid -> {score, target_name, prob}
+ 	var focus_charge: bool = _suggest_focus_unit_id != "" and charger_targets.has(_suggest_focus_unit_id)
++	# CHARGE_LOW_ODDS: corrected charge costs and gains (see FIX_CHARGE_LOW_ODDS).
++	var clo_fix: bool = get_param("FIX_CHARGE_LOW_ODDS", FIX_CHARGE_LOW_ODDS) > 0.0
++	var clo_had_override: bool = _config_overrides.has("FIX_CHARGE_LOW_ODDS")
++	var clo_saved_override = _config_overrides.get("FIX_CHARGE_LOW_ODDS", 1.0)
++	var clo_old_best := {"score": -INF, "uid": "", "target": ""}
+ 
+ 	for uid in charger_targets:
+ 		var unit = snapshot.get("units", {}).get(uid, {})
+@@ -16563,6 +16584,17 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 			# Score the charge target
+ 			var ch_terms := {}
+ 			var target_score = _score_charge_target(unit, target_unit, snapshot, player, ch_terms)
++			# CHARGE_LOW_ODDS: the score the previous estimate gave this pair
++			# (same multiplier chain, old target value and overwatch penalty),
++			# so a changed decision can be logged.
++			var clo_old_score := 0.0
++			if clo_fix:
++				_config_overrides["FIX_CHARGE_LOW_ODDS"] = 0.0
++				var clo_old_value = _score_charge_target(unit, target_unit, snapshot, player, {})
++				_config_overrides["FIX_CHARGE_LOW_ODDS"] = clo_saved_override if clo_had_override else 1.0
++				if not clo_had_override:
++					_config_overrides.erase("FIX_CHARGE_LOW_ODDS")
++				clo_old_score = clo_old_value * float(ow_risk.score_penalty)
+ 
+ 			# T7-37: Compute expected melee damage for description
+ 			var melee_dmg = _estimate_melee_damage(unit, target_unit)
+@@ -16573,12 +16605,16 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 			# (target value parts + this chain) still sum to the score.
+ 			var score = _t_mul(ch_terms, "ch_chance", target_score, charge_prob)
+ 			score = _t_mul(ch_terms, "ch_melee_capable", score, melee_bonus)
++			# CHARGE_LOW_ODDS: the multiplier chain, applied to the old value too
++			var clo_chain: float = charge_prob * melee_bonus
+ 
+ 			# Bonus for short charges (high reliability)
+ 			if charge_distance_needed <= 6.0:
+ 				score = _t_mul(ch_terms, "ch_short_charge", score, get_param("CHARGE_SHORT_6IN_MULT", CHARGE_SHORT_6IN_MULT))
++				clo_chain *= get_param("CHARGE_SHORT_6IN_MULT", CHARGE_SHORT_6IN_MULT)
+ 			if charge_distance_needed <= 3.0:
+ 				score = _t_mul(ch_terms, "ch_short_charge", score, get_param("CHARGE_SHORT_3IN_MULT", CHARGE_SHORT_3IN_MULT))
++				clo_chain *= get_param("CHARGE_SHORT_3IN_MULT", CHARGE_SHORT_3IN_MULT)
+ 
+ 			# Bonus for charging onto objectives
+ 			# T7-43: In late game, extra bonus for charging onto objectives (objective control > kills)
+@@ -16588,8 +16624,10 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 			for obj_pos in objectives:
+ 				if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+ 					score = _t_mul(ch_terms, "ch_target_on_objective", score, get_param("CHARGE_TARGET_ON_OBJ_MULT", CHARGE_TARGET_ON_OBJ_MULT))  # Target is on an objective
++					clo_chain *= get_param("CHARGE_TARGET_ON_OBJ_MULT", CHARGE_TARGET_ON_OBJ_MULT)
+ 					if charge_battle_round >= 4:
+ 						score = _t_mul(ch_terms, "ch_target_on_objective", score, get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS))
++						clo_chain *= get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS)
+ 					break
+ 
+ 			# CH-LEAVE: a successful charge pulls the charger off an objective it
+@@ -16599,10 +16637,12 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 			if not leave.is_empty():
+ 				score = _t_mul(ch_terms, "ch_leave_objective", score,
+ 					1.0 - get_param("CHARGE_LEAVE_OBJ_PENALTY", CHARGE_LEAVE_OBJ_PENALTY))
++				clo_chain *= 1.0 - get_param("CHARGE_LEAVE_OBJ_PENALTY", CHARGE_LEAVE_OBJ_PENALTY)
+ 				print("AIDecisionMaker: [CH-LEAVE] %s -> %s: charging would leave an objective it alone holds (our OC %d, %d without it, enemy %d)" % [
+ 					unit_name, target_name, int(leave.friendly), int(leave.friendly) - int(leave.mine), int(leave.enemy)])
+ 
+ 			# T7-51: Apply overwatch risk penalty to charge score
++			clo_old_score *= clo_chain
+ 			if ow_risk.score_penalty < 1.0:
+ 				score = _t_mul(ch_terms, "ch_overwatch_risk", score, ow_risk.score_penalty)
+ 
+@@ -16613,6 +16653,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 				var dd_val = AIAbilityAnalyzerData.get_deadly_demise_value(unit)
+ 				var dd_bonus = 1.0 + (float(dd_val) / 6.0)  # D3=1.5x, D6=2.0x
+ 				score = _t_mul(ch_terms, "ch_deadly_demise", score, dd_bonus)
++				clo_old_score *= dd_bonus
+ 				print("AIDecisionMaker: [T7-11] %s has Deadly Demise D%d and is doomed — charge bonus x%.2f" % [
+ 					unit_name, dd_val, dd_bonus])
+ 
+@@ -16637,6 +16678,8 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 				"need": charge_distance_needed,
+ 				"prob": charge_prob,
+ 			})
++			if clo_fix and may_pick and clo_old_score > float(clo_old_best.score):
++				clo_old_best = {"score": clo_old_score, "uid": uid, "target": target_id}
+ 
+ 			if score > float(unit_best.get(uid, {}).get("score", -INF)):
+ 				unit_best[uid] = {"score": score, "target_name": target_name, "prob": charge_prob}
+@@ -16708,6 +16751,27 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 
+ 	_last_unit_order = _build_charge_order(snapshot, available_actions, unit_best, charge_threshold)
+ 
++	# CHARGE_LOW_ODDS: log when the corrected estimate changes the decision
++	# (compared with the previous estimate's best single-target charge).
++	if clo_fix:
++		var clo_new_charge: bool = best_score >= charge_threshold
++		var clo_old_charge: bool = float(clo_old_best.score) >= charge_threshold
++		var clo_new_key := ""
++		if clo_new_charge:
++			clo_new_key = "%s|%s" % [str(best_action.get("actor_unit_id", "")), ",".join(best_action.get("payload", {}).get("target_unit_ids", []))]
++		var clo_old_key := "%s|%s" % [clo_old_best.uid, clo_old_best.target] if clo_old_charge else ""
++		var clo_new_targets: Array = best_action.get("payload", {}).get("target_unit_ids", []) if clo_new_charge else []
++		var clo_changed: bool = clo_new_charge != clo_old_charge
++		if clo_new_charge and clo_old_charge:
++			clo_changed = str(best_action.get("actor_unit_id", "")) != str(clo_old_best.uid) \
++				or not (str(clo_old_best.target) in clo_new_targets)
++		if clo_changed:
++			var clo_msg := "AIDecisionMaker: [CHARGE_LOW_ODDS] P%d decision changed: previous estimate %s (%.2f) -> now %s (%.2f), threshold %.2f" % [
++				player, clo_old_key if clo_old_key != "" else "no charge", float(clo_old_best.score),
++				clo_new_key if clo_new_key != "" else "no charge", best_score, charge_threshold]
++			print(clo_msg)
++			_debug_log_info(clo_msg)
++
+ 	# Minimum threshold to declare a charge
+ 	if best_score < charge_threshold:
+ 		print("AIDecisionMaker: No charge worth declaring (best score: %.1f, threshold: %.1f)" % [best_score, charge_threshold])
+@@ -17062,9 +17126,31 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
+ 	`terms` (optional) receives the additive decomposition (sum == score). Instrumentation only."""
+ 	var score = 0.0
+ 
++	# CLO-ATTACHED: the unit the charge really fights — the bodyguard plus its
++	# attached characters when `target` is part of an Attached unit (19.02).
++	var clo: bool = get_param("FIX_CHARGE_LOW_ODDS", FIX_CHARGE_LOW_ODDS) > 0.0
++	var clo_members: Array = _charge_attached_members(target, snapshot) if clo else [target]
++	# Attacks are allocated to the bodyguard's models first.
++	var clo_defender: Dictionary = clo_members[0]
++	var clo_hp := 0.0
++	# CLO-OVERKILL cap: the alive models' FULL wounds — killing a wounded
++	# model still removes the whole model, so a 1-wound-left character is
++	# worth its starting wounds, not 1; damage past that is not dealt.
++	var clo_cap := 0.0
++	for m in clo_members:
++		clo_hp += float(_calculate_kill_threshold(m))
++		var m_w = float(m.get("meta", {}).get("stats", {}).get("wounds", 1))
++		for mm in _get_alive_models(m):
++			clo_cap += maxf(float(mm.get("wounds", m_w)), float(mm.get("current_wounds", m_w)))
++
+ 	# --- Expected melee damage ---
+-	var melee_damage = _estimate_melee_damage(charger, target)
+-	score += _t_add(terms, "ch_damage", melee_damage * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT))  # Weight melee damage highly
++	var melee_damage = _estimate_melee_damage(charger, clo_defender)
++	# CLO-OVERKILL: wounds beyond what the target has are not dealt.
++	var counted_damage = minf(melee_damage, clo_cap) if clo and clo_cap > 0.0 else melee_damage
++	score += _t_add(terms, "ch_damage", counted_damage * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT))  # Weight melee damage highly
++	if clo and (clo_members.size() > 1 or counted_damage < melee_damage):
++		print("AIDecisionMaker: [CHARGE_LOW_ODDS] %s -> %s: fights %d unit(s), %.1f dmg of %.1f counted vs %.0f HP (%.0f full)" % [
++			_dn(charger, ""), _dn(target, ""), clo_members.size(), counted_damage, melee_damage, clo_hp, clo_cap])
+ 
+ 	# --- Target value factors ---
+ 	var target_keywords = target.get("meta", {}).get("keywords", [])
+@@ -17268,14 +17354,23 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
+ 	# charger has Fights First, so it strikes first, but the survivor's melee
+ 	# damage on the charger is a real cost (same units as ch_damage).
+ 	var ret_hp = float(_calculate_kill_threshold(target))
++	if clo:
++		ret_hp = clo_hp  # CLO-ATTACHED: the kill needs the whole Attached unit
+ 	if ret_hp > 0.0 and melee_damage < ret_hp:
+ 		var back = _estimate_melee_damage(target, charger, snapshot)
++		if clo:
++			# CLO-ATTACHED: every member of the Attached unit fights back.
++			back = 0.0
++			for m in clo_members:
++				back += _estimate_melee_damage(m, charger, snapshot)
+ 		if back > 0.0:
+ 			score += _t_add(terms, "ch_retaliation", -back * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT) * get_param("CHARGE_RETALIATION_WEIGHT", CHARGE_RETALIATION_WEIGHT))
+ 
+ 	# --- Bonus for wounded targets (close to dying) ---
+ 	# Use CURRENT wounds, not max — a wounded target is closer to dying.
+ 	var target_remaining_wounds = _calculate_kill_threshold(target)
++	if clo:
++		target_remaining_wounds = clo_hp  # CLO-ATTACHED
+ 	if target_remaining_wounds > 0 and melee_damage / target_remaining_wounds >= 0.5:
+ 		# We can do 50%+ of remaining wounds — good chance of killing
+ 		score += _t_add(terms, "ch_can_halve", get_param("CHARGE_HALF_KILL_BONUS", CHARGE_HALF_KILL_BONUS))
+@@ -17307,6 +17402,30 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
+ 
+ 	return max(0.0, score)
+ 
++## CLO-ATTACHED: the alive units a charge at `target` fights — [bodyguard,
++## attached characters...] when `target` is a member of an Attached unit
++## (19.02), else [target]. The bodyguard comes first (attacks are allocated
++## to its models first).
++static func _charge_attached_members(target: Dictionary, snapshot: Dictionary) -> Array:
++	var units: Dictionary = snapshot.get("units", {})
++	var tid = str(target.get("id", ""))
++	if tid == "" or not units.has(tid):
++		return [target]
++	var body_id = _attached_unit_target_id(tid, snapshot)
++	var body: Dictionary = units.get(body_id, {})
++	var chars: Array = (body.get("attachment_data", {}) as Dictionary).get("attached_characters", []).duplicate()
++	for oid in units:
++		if str(units[oid].get("attached_to", "")) == body_id and not str(oid) in chars:
++			chars.append(str(oid))
++	if body_id == tid and chars.is_empty():
++		return [target]
++	var members := [body]
++	for cid in chars:
++		var cu: Dictionary = units.get(str(cid), {})
++		if str(cid) != body_id and not cu.is_empty() and not _get_alive_models(cu).is_empty():
++			members.append(cu)
++	return members
++
+ # --- T7-51: Overwatch risk assessment for charges ---
+ 
+ static func _estimate_overwatch_risk(charging_unit: Dictionary, snapshot: Dictionary, player: int) -> Dictionary:
+@@ -22091,6 +22210,10 @@ static func _weapon_carrier_count(unit: Dictionary, weapon: Dictionary) -> int:
+ 		var wname_base = wname_l.split(" – ")[0].split(" - ")[0].strip_edges()
+ 		var wg_total := 0
+ 		var wg_counted := false
++		# CLO-CARRIER (melee weapons): "Choppas" (meta.weapons) is the
++		# "9x Choppa" entry.
++		var clo_carrier: bool = wtype == "melee" and get_param("FIX_CHARGE_LOW_ODDS", FIX_CHARGE_LOW_ODDS) > 0.0
++		var wname_sing = wname_base.trim_suffix("s") if clo_carrier else wname_base
+ 		for entry in wargear:
+ 			var e = str(entry).strip_edges()
+ 			var xi = e.find("x ")
+@@ -22098,8 +22221,17 @@ static func _weapon_carrier_count(unit: Dictionary, weapon: Dictionary) -> int:
+ 				continue
+ 			wg_counted = true
+ 			var e_name = e.substr(xi + 2).strip_edges().to_lower()
+-			if e_name == wname_base or e_name == wname_l:
++			if e_name == wname_base or e_name == wname_l \
++					or (clo_carrier and e_name.trim_suffix("s") == wname_sing):
+ 				wg_total += int(e.substr(0, xi).strip_edges())
++		# CLO-CARRIER: the counted wargear never names this weapon, but it does
++		# name another weapon of the same type — the unit's models carry that
++		# one, and this is an option one model may take at most (a Nob's
++		# Kustom Choppa). A unit whose only weapon of the type is unnamed keeps
++		# the whole-unit count (Prosecutors' Gun Stock vs "4x Close combat weapon").
++		if clo_carrier and wtype == "melee" and wg_counted and wg_total == 0 \
++				and _wargear_names_other_weapon(unit, weapon, wargear):
++			return 1
+ 		if wg_counted and wg_total > 0:
+ 			# Scale down when the unit has taken casualties (carriers assumed
+ 			# to die in proportion; ceil keeps the last carrier alive).
+@@ -22110,6 +22242,26 @@ static func _weapon_carrier_count(unit: Dictionary, weapon: Dictionary) -> int:
+ 
+ 	return alive_count
+ 
++## CLO-CARRIER: true when the unit's counted wargear names some other weapon
++## of `weapon`'s type (melee / ranged) from meta.weapons.
++static func _wargear_names_other_weapon(unit: Dictionary, weapon: Dictionary, wargear: Array) -> bool:
++	var names := []
++	for entry in wargear:
++		var e = str(entry).strip_edges()
++		var xi = e.find("x ")
++		if xi > 0 and e.substr(0, xi).strip_edges().is_valid_int():
++			names.append(e.substr(xi + 2).strip_edges().to_lower().trim_suffix("s"))
++	var wtype = str(weapon.get("type", "")).to_lower()
++	for w in unit.get("meta", {}).get("weapons", []):
++		if str(w.get("name", "")) == str(weapon.get("name", "")):
++			continue
++		if str(w.get("type", "")).to_lower() != wtype:
++			continue
++		var b = str(w.get("name", "")).to_lower().split(" – ")[0].split(" - ")[0].strip_edges()
++		if b.trim_suffix("s") in names:
++			return true
++	return false
++
+ static func _get_alive_models_with_positions(unit: Dictionary) -> Array:
+ 	var alive = []
+ 	for model in unit.get("models", []):
+diff --git a/40k/tests/unit/test_ai_fix_charge_low_odds.gd b/40k/tests/unit/test_ai_fix_charge_low_odds.gd
+new file mode 100644
+index 0000000..f682199
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_charge_low_odds.gd
+@@ -0,0 +1,180 @@
++extends SceneTree
++
++# FIX_CHARGE_LOW_ODDS (critic cluster "charge_low_odds", 2026-10-30): the AI
++# declared low-odds charges whose real value was below what they cost.
++#
++#   s7469 r2 P2: Stormboyz declare a 28% charge at Blade Champion Alpha
++#     ("expected 8.9 melee dmg vs 7 HP") — not charging measured +4.33 VP
++#     [1.37, 7.30] over 36 rollouts.
++#   s7467 r2 P1: Allarus Custodians declare a 17% charge at a 4-wound Mek
++#     ("13.3 melee dmg vs 4 HP, overwatch risk 7.2") — not charging measured
++#     +2.64 [0.40, 4.88].
++#
++# Root cause — the charge estimate valued the options wrongly:
++#   CLO-OVERKILL  13.3 damage was counted against a 4-wound target (the cap is
++#                 the alive models' FULL wounds: a wounded model's kill still
++#                 removes the whole model).
++#   CLO-ATTACHED  the Blade Champion is attached to a 3-model Custodian Guard
++#                 unit: the charge fights 22 wounds and all of them hit back,
++#                 but it was scored as a lone 7-wound character "likely kill"
++#                 with no fight-back.
++#   CLO-CARRIER   the Nob's Kustom Choppa (no wargear entry) was counted for
++#                 all 10 Stormboyz: 8.9 expected damage, 2.2 real.
++#
++# The Mek finding's decision is NOT changed by this design (reported only):
++# its charge stays above the bar once its value is corrected; at 11e the
++# overwatch penalty it pays is a separate model error (15.08: no Charge-phase
++# overwatch), left as it is.
++#
++# Guard: a strong charge with low overwatch (Allarus at an attached Blade
++# Champion, s7431 r3, where charging measured -5.00 for not charging) is still
++# declared. FIX_CHARGE_LOW_ODDS = 0 restores the previous decision.
++#
++# Run with: godot --headless --path . -s tests/unit/test_ai_fix_charge_low_odds.gd
++
++const AI_PATH := "res://scripts/AIDecisionMaker.gd"
++const CASES := "res://tests/rollout_cases/"
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++var _ran := false
++var AIDM = null
++
++func _init():
++	root.connect("ready", Callable(self, "_run_tests"))
++	create_timer(0.1).timeout.connect(_run_tests)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _run_tests():
++	if _ran:
++		return
++	_ran = true
++	await process_frame
++	print("\n=== FIX_CHARGE_LOW_ODDS: low-odds charges valued at what they cost ===\n")
++	var prev_edition = GameConstants.edition
++	GameConstants.edition = 11
++	# Loaded at run time so the AI script compiles after the autoloads exist.
++	AIDM = load(AI_PATH)
++	AIDM._config_overrides["FIX_CHARGE_LOW_ODDS"] = 1.0
++	# Competitive, as in the critic games; no score noise at that level.
++	AIDM._current_difficulty = 3
++
++	test_carrier_counts()
++	test_stormboyz_no_charge_at_attached_champion()
++	test_mek_overkill_not_counted()
++	test_strong_charge_still_declared()
++	test_param_zero_restores_old_decision()
++
++	AIDM._config_overrides.erase("FIX_CHARGE_LOW_ODDS")
++	GameConstants.edition = prev_edition
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++# --- fixtures ---------------------------------------------------------------
++
++## The game state stored in a critic case's .w40ksave (base64 gzip JSON).
++func _load_state(save_rel: String) -> Dictionary:
++	var txt = FileAccess.get_file_as_string(CASES + save_rel)
++	var raw = Marshalls.base64_to_raw(txt.strip_edges())
++	var js = raw.decompress_dynamic(-1, FileAccess.COMPRESSION_GZIP).get_string_from_utf8()
++	var found = _find_state(JSON.parse_string(js))
++	return found if found != null else {}
++
++func _find_state(o):
++	if typeof(o) == TYPE_DICTIONARY:
++		if o.has("units") and typeof(o.units) == TYPE_DICTIONARY and not o.units.is_empty():
++			return o
++		for v in o.values():
++			var r = _find_state(v)
++			if r != null:
++				return r
++	return null
++
++## The charge-phase actions for one charger: a DECLARE_CHARGE per enemy within
++## 12" (11.02) and its SKIP_CHARGE.
++func _actions(state: Dictionary, charger_id: String, player: int) -> Array:
++	var units: Dictionary = state.units
++	var c: Dictionary = units[charger_id]
++	var acts := []
++	for tid in units:
++		var t: Dictionary = units[tid]
++		if int(t.get("owner", 0)) == player or AIDM._get_alive_models(t).is_empty():
++			continue
++		if AIDM._get_closest_model_distance_inches(c, t) <= 12.0:
++			acts.append({"type": "DECLARE_CHARGE", "actor_unit_id": charger_id,
++				"payload": {"target_unit_ids": [tid]}})
++	acts.append({"type": "SKIP_CHARGE", "actor_unit_id": charger_id})
++	return acts
++
++func _decide(save_rel: String, charger_id: String, player: int) -> Dictionary:
++	AIDM._charge_coordination = {}
++	var state = _load_state(save_rel)
++	if state.is_empty():
++		return {"type": "LOAD_FAILED"}
++	return AIDM._decide_charge(state, _actions(state, charger_id, player), player)
++
++func _describe(d: Dictionary) -> String:
++	return "%s %s %s" % [d.get("type", ""), str(d.get("payload", {}).get("target_unit_ids", [])),
++		str(d.get("_ai_description", "")).substr(0, 110)]
++
++# --- tests --------------------------------------------------------------------
++
++func test_carrier_counts() -> void:
++	print("\n--- CLO-CARRIER: Stormboyz wargear 9x Choppa + 1x Choppa (Nob) ---")
++	var state = _load_state("r4c18/s7469_r2_p2_charge_1.w40ksave")
++	var boyz: Dictionary = state.units.get("U_STORMBOYZ_A", {})
++	var counts := {}
++	for w in boyz.get("meta", {}).get("weapons", []):
++		counts[str(w.name)] = AIDM._weapon_carrier_count(boyz, w)
++	print("  carriers: %s" % str(counts))
++	_assert(int(counts.get("Kustom Choppa", 0)) == 1, "the Nob's Kustom Choppa (no wargear entry) is one model's weapon (%s)" % str(counts.get("Kustom Choppa")))
++	_assert(int(counts.get("Choppas", 0)) == 10, "Choppas matches 9x + 1x Choppa: all 10 models (%s)" % str(counts.get("Choppas")))
++
++func test_stormboyz_no_charge_at_attached_champion() -> void:
++	print("\n--- s7469 r2 P2: Stormboyz, 28% at Blade Champion Alpha (attached to 3 Custodian Guard) ---")
++	var d = _decide("r4c18/s7469_r2_p2_charge_1.w40ksave", "U_STORMBOYZ_A", 2)
++	print("  decision: %s" % _describe(d))
++	_assert(str(d.get("type", "")) == "SKIP_CHARGE", "the Stormboyz do not charge (%s)" % str(d.get("type", "")))
++
++func test_mek_overkill_not_counted() -> void:
++	print("\n--- s7467 r2 P1: Allarus Custodians (13.3 expected dmg) at a 4-wound Mek ---")
++	var state = _load_state("r4c16/s7467_r2_p1_charge_1.w40ksave")
++	var terms := {}
++	AIDM._charge_coordination = {}
++	AIDM._score_charge_target(state.units["U_ALLARUS_CUSTODIANS_A"], state.units["U_MEK_B"], state, 1, terms)
++	print("  ch_damage term: %.2f" % float(terms.get("ch_damage", 0.0)))
++	_assert(float(terms.get("ch_damage", 99.0)) <= 8.0 + 0.01, "only the Mek's 4 wounds count as damage dealt (ch_damage %.2f, x2 weight)" % float(terms.get("ch_damage", 0.0)))
++	var d = _decide("r4c16/s7467_r2_p1_charge_1.w40ksave", "U_ALLARUS_CUSTODIANS_A", 1)
++	print("  decision (reported, not asserted): %s" % _describe(d))
++
++func test_strong_charge_still_declared() -> void:
++	print("\n--- guard, s7431 r3 P1: Allarus Custodians, 28% at an attached Blade Champion, low overwatch ---")
++	var d = _decide("r2c00/s7431_r3_p1_charge_1.w40ksave", "U_ALLARUS_CUSTODIANS_A", 1)
++	print("  decision: %s" % _describe(d))
++	_assert(str(d.get("type", "")) == "DECLARE_CHARGE", "the Allarus still charge (%s)" % str(d.get("type", "")))
++
++func test_param_zero_restores_old_decision() -> void:
++	print("\n--- FIX_CHARGE_LOW_ODDS = 0: the previous estimate is back ---")
++	AIDM._config_overrides["FIX_CHARGE_LOW_ODDS"] = 0.0
++	var d1 = _decide("r4c18/s7469_r2_p2_charge_1.w40ksave", "U_STORMBOYZ_A", 2)
++	var d2 = _decide("r4c16/s7467_r2_p1_charge_1.w40ksave", "U_ALLARUS_CUSTODIANS_A", 1)
++	AIDM._config_overrides["FIX_CHARGE_LOW_ODDS"] = 1.0
++	print("  Stormboyz: %s" % _describe(d1))
++	print("  Allarus:   %s" % _describe(d2))
++	_assert(str(d1.get("type", "")) == "DECLARE_CHARGE" and "U_BLADE_CHAMPION_A" in d1.get("payload", {}).get("target_unit_ids", []),
++		"off: the Stormboyz charge Blade Champion Alpha (the critic game's choice)")
++	_assert(str(d2.get("type", "")) == "DECLARE_CHARGE" and "U_MEK_B" in d2.get("payload", {}).get("target_unit_ids", []),
++		"off: the Allarus charge Mek Beta (the critic game's choice)")
++	var terms := {}
++	AIDM._config_overrides["FIX_CHARGE_LOW_ODDS"] = 0.0
++	var state = _load_state("r4c16/s7467_r2_p1_charge_1.w40ksave")
++	AIDM._score_charge_target(state.units["U_ALLARUS_CUSTODIANS_A"], state.units["U_MEK_B"], state, 1, terms)
++	AIDM._config_overrides["FIX_CHARGE_LOW_ODDS"] = 1.0
++	_assert(absf(float(terms.get("ch_damage", 0.0)) - 26.67) < 0.05, "off: the full 13.3 damage counts again (ch_damage %.2f)" % float(terms.get("ch_damage", 0.0)))

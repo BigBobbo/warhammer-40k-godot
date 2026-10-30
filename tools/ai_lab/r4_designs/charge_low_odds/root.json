@@ -1,0 +1,75 @@
+{
+ "key": "charge_low_odds",
+ "angle": "root",
+ "root_cause": "The charge target value is built from three wrong estimates. (1) CLO-ATTACHED: an attached CHARACTER (Blade Champion attached to a 3-model Custodian Guard unit) is scored as a lone 7-wound unit: kill threshold 7, 'likely kill' +5 and 'can halve' +3, and no fight-back (ch_retaliation is skipped when expected damage >= 7). Under 19.02 the charge fights the whole Attached unit (22 wounds), the attacks land on the bodyguard first, and all members hit back. (2) CLO-CARRIER: _weapon_carrier_count returns the whole unit for a melee weapon that the counted wargear never names. The Stormboyz Nob's Kustom Choppa (A4 AP-2 D2) was scored as carried by 10 models, giving 8.9 expected damage against T7 2+/4++ when the real figure is 2.2. (3) CLO-OVERKILL: ch_damage counts damage past the target's wounds (13.3 counted against a 4-wound Mek). In s7469 the corrected Stormboyz charge has a negative value before the probability (deals 2.2, takes about 11 back from the bodyguard and champion). In the B branch (no charge) the Orks lost about 210 fewer points and scored Assassination, Centre Ground and Cleanse (2 seeds, +16 VP). For s7467 (Allarus vs Mek, 17%) I found no valuation error that flips the decision. Once overkill is capped the charge still scores above the 0.23 bar. The overwatch penalty it pays (multiplier 0.24 from a 7.2-damage estimate, about 2.1 real because every Lootas weapon is counted on every model) cannot happen at 11e: the engine's ChargePhase fires no Fire Overwatch on a charge (15.08: end of the opponent's Movement phase only). Correcting that would make the charge MORE attractive, so it is left out of this design and listed as a risk / follow-up.",
+ "fix_summary": "FIX_CHARGE_LOW_ODDS (default 1.0; 0 = base behaviour exactly) in _score_charge_target: the charge fights the Attached unit of the target (_charge_attached_members: bodyguard first, then attached characters). Melee damage is computed against the bodyguard. The kill threshold, can-halve and can-wipe use the combined wounds. ch_retaliation sums every member's melee damage on the charger. ch_damage is capped at the alive models' FULL wounds (a wounded model's kill still removes the whole model, so a 1-wound-left champion still counts 7). In _weapon_carrier_count (melee weapons only): plural names match their wargear entry ('Choppas' = '9x Choppa' + '1x Choppa'), and a melee weapon the counted wargear never names, while it names another melee weapon, counts as one carrier (Kustom Choppa, Big Choppa, Beast Snagga 'Close combat weapon'). A unit whose only melee weapon is unnamed (Prosecutors' Gun Stock) keeps the whole-unit count. _evaluate_best_charge also recomputes the previous estimate's score for every pair (same multiplier chain) and prints and logs to DebugLogger '[CHARGE_LOW_ODDS] P<n> decision changed: previous ... -> now ...' when the pick differs.",
+ "param": "FIX_CHARGE_LOW_ODDS",
+ "test_file": "40k/tests/unit/test_ai_fix_charge_low_odds.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: 8 passed, 0 failed. BASE copy (preload res://scripts/ai_versions/BASE/AIDecisionMaker.gd): 5 passed, 3 failed (Kustom Choppa carriers 10, the Stormboyz charge, Mek ch_damage 26.67). All pass on the fix: rollout_override 11, e_race_tuning 8, race_army 3, advance_probability 8, objective_race 16, plan_diminishing_returns 4, critic_round2 7, 11e_charge_ev_primary_cap 26, movement_decisions 36, plan_earmarks 35, fix_held_dup 14, fix_lone_trip 8, fix_charge_ev 11, fix_far_trip 11, fix_overcommit 8, fix_keeper_release 22, survival_assessment 23, multi_phase_planning 34, charge_decisions 62, no_control_human_fight_turn 23, tests/test_t001_t002_ai_charge_fight 11. threat_range_awareness 34/3 failed (the known base failures). test_ai_ability_awareness has 1 FAIL ('fall back' description) that is identical on base. All numbers are from a rerun on the final committed build.",
+ "decision_checks": [
+  {
+   "job": "20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2",
+   "base_choice": "Stormboyz charge Blade Champion Alpha (28%, score 18.26 vs threshold 0.29)",
+   "fix_choice": "no charge: Stormboyz skip (every Ork unit skips this phase); corrected score 0.00 (2.2 dmg vs 22 HP Attached unit, fight-back from bodyguard + champion)",
+   "changed": true,
+   "measured": "clear: E +4.33 [1.37, 7.30] for no charge (36 seeds)",
+   "judgement": "matches the alternative (same unit, no charge)"
+  },
+  {
+   "job": "20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3",
+   "base_choice": "Allarus charge Mek Beta (17%, score 1.60 vs 0.23)",
+   "fix_choice": "Allarus charge Mek Beta (unchanged; ch_damage 26.67 -> 8.00, still above the bar)",
+   "changed": false,
+   "measured": "clear: E +2.64 [0.40, 4.88] for no charge (36 seeds)",
+   "judgement": "not fixed: I found no valuation error that justifies declining it. The only error that pushes this score is the 11e overwatch penalty, and it pushes toward charging."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7",
+   "base_choice": "Allarus charge Blade Champion Alpha (28%, 1 wound left, not attached)",
+   "fix_choice": "same charge (ch_damage capped at its 7 full wounds, not 1)",
+   "changed": false,
+   "measured": "harmful: E -5.00 [-9.22, -0.78] for no charge",
+   "judgement": "consistent (still charges). An earlier cap at current wounds switched the target to an attached champion; the full-wounds cap fixed that."
+  },
+  {
+   "job": "20261030_010357_sweep1_02__s7403_r3_p1_charge_1_6",
+   "base_choice": "Battlewagon Alpha charge Custodian Guard Sodality Gamma (42%)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful: E -3.67 [-5.82, -1.52] for no charge",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r2_p1_charge_1_3",
+   "base_choice": "Allarus charge Custodian Guard Sodality Gamma (17%)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -5.08 [-12.25, 2.08] for no charge",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_063348_r2c02_00__s7433_r2_p2_charge_1_5",
+   "base_choice": "Allarus charge Blade Champion Beta (28%; attached to Custodian Guard Sodality Alpha)",
+   "fix_choice": "Allarus charge Custodian Guard Sodality Alpha (28%) = the same Attached unit, now named by its bodyguard",
+   "changed": true,
+   "measured": "neutral: E -3.17 [-9.86, 3.53] for no charge",
+   "judgement": "consistent: still charges the same Attached unit; not toward the no-charge alternative"
+  },
+  {
+   "job": "20261030_012809_sweep1_07__s7408_r3_p1_charge_2_9",
+   "base_choice": "Stormboyz charge Zodgrod Wortsnagga (8%, attached to Gretchin)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -5.08 [-12.76, 2.59] for no charge",
+   "judgement": "consistent"
+  }
+ ],
+ "fires": "The decision-change line, counted from the DebugLogger copies in the 7 one-seed replays (2 findings + 5 guardrails, horizon 1, both players). A changed decision is often logged again as each other charger skips; distinct changes: 1-6 per game, about 15 in total. Examples: s7469 r2 P2 Stormboyz->Blade Champion Alpha => no charge (the finding). Same game: P2 Battlewagon B->attached Blade Champion Alpha (11.27) => Beast Snagga Boyz->Allarus / Stormboyz->Prosecutors / no charge; P2 Kommandos->attached Blade Champion B (4.68; Big Choppa now 1 carrier) => no charge; P1 Custodian Guard D->Beastboss => multi-target charge; P1 no charge => Custodian Guard C->Stormboyz (0.21 vs 0.19). Other games: re-targets from attached champions to bodyguards or other units (s7431, s7433), Custodian Guard B->Lootas => Allarus multi on Battlewagon+Lootas, and in s7408 r4 P1 Lootas Alpha now charges Stormboyz (0.69 vs 0.52) because the Stormboyz' fight-back fell when the Kustom Choppa became 1 carrier. Most changes are Ork charges at attached Custodes characters that are now declined, and re-targets.",
+ "risks": "1) Broad reach: _weapon_carrier_count feeds every melee estimate (fight-phase targeting, threat and danger maps, melee army archetype). Ork units with unlisted melee options (Stormboyz, Kommandos, Beast Snagga Boyz) now read weaker in melee for both sides, so Custodes may charge or approach them more readily, and Orks may treat them as less of a melee threat to the enemy. 2) Fewer Ork charges at attached Custodes characters in rounds 2-3. If those charges bought tie-up value later (locking a Blade Champion off an objective for rounds 3-5, or Engage on All Fronts / Overwhelming Force reach), the one-round value check cannot see it; the Attached-unit fight-back makes horde chargers decline. 3) The overkill cap lowers the value of multi-wound overkill charges into small units, so an Allarus-type charger may pick bigger targets (fewer cheap character kills that Assassination pays for). 4) The design does NOT fix the s7467-type finding (17% charge at a cheap character). A remaining model error: at 11e the charge overwatch penalty (T7-51) prices a reaction the engine never resolves (ChargePhase 15.08), and its estimate counts every weapon on every model (Lootas 7.2 vs about 2.1). Removing it would make charges more frequent and needs its own measured test. 5) The 'decision changed' line compares single-target picks of the previous estimate, so a multi-target base pick can be logged as a change. 6) Not measured over full games.",
+ "drop_reason": ""
+}
