@@ -134,6 +134,8 @@ def collect(args, run_dir):
     for seed in parse_seeds(args.seeds):
         cfg = {"zone_id": args.zone, "layout_id": args.layout, "mission_id": args.mission,
                "army1": args.army1, "army2": args.army2, "games": 1, "seed_base": seed,
+               "disposition1": args.disposition1, "disposition2": args.disposition2,
+               "layout_variant": args.layout_variant,
                "difficulty": 3,  # Competitive: the AI plays the same tier the K card suggests at
                "time_scale": args.time_scale, "max_seconds_per_game": args.max_seconds}
         stop_previous_run()
@@ -793,6 +795,9 @@ def main():
     g.add_argument("--zone", default="hammer_anvil")
     g.add_argument("--layout", default="take_and_hold_mirror_1")
     g.add_argument("--mission", default="take_and_hold")
+    g.add_argument("--disposition1", default="", help="11e Force Disposition for P1 ('' = take_and_hold)")
+    g.add_argument("--disposition2", default="", help="11e Force Disposition for P2")
+    g.add_argument("--layout-variant", type=int, default=1, help="with both dispositions and --layout '': official layout variant 1-3")
     g.add_argument("--seat", type=int, default=0, choices=[0, 1, 2], help="review only this player's decisions (0 = both)")
     g.add_argument("--phases", default=DEFAULT_PHASES, help="comma list of " + ",".join(PHASES))
     g.add_argument("--per-phase", type=int, default=2, help="max captures per player-phase")
