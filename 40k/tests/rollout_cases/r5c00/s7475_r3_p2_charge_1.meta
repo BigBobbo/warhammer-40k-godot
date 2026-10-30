@@ -1,0 +1,77 @@
+{
+	"created_at": 1793404183.8293,
+	"description": "LLM critic s7475_r3_p2_charge_1",
+	"game_state": {
+		"active_player": 2,
+		"battle_round": 3,
+		"game_id": "2dac9012-58d5-dffb-a707-644179dd3bc0cef8",
+		"is_multiplayer": false,
+		"phase": 9,
+		"player1_difficulty": 3,
+		"player1_type": "AI",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 3,
+		"turn_number": 1
+	},
+	"preview": {
+		"battle_round": 3,
+		"players": {
+			"1": {
+				"alive_models": 11,
+				"alive_units": 5,
+				"cp": 1,
+				"detachment": "Lions of the Emperor",
+				"faction": "Adeptus Custodes",
+				"points": 2000.0,
+				"primary_vp": 40,
+				"secondary_vp": 18,
+				"total_models": 22,
+				"total_units": 9,
+				"unit_names": [
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Custodian Guard Sodality",
+					"Allarus Custodians",
+					"Prosecutor Squad"
+				],
+				"vp": 58
+			},
+			"2": {
+				"alive_models": 10,
+				"alive_units": 7,
+				"cp": 2,
+				"detachment": "Lions of the Emperor",
+				"faction": "Adeptus Custodes",
+				"points": 2000.0,
+				"primary_vp": 19,
+				"secondary_vp": 2,
+				"total_models": 22,
+				"total_units": 9,
+				"unit_names": [
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Custodian Guard Sodality",
+					"Allarus Custodians",
+					"Prosecutor Squad"
+				],
+				"vp": 21
+			}
+		}
+	},
+	"save_info": {
+		"description": "LLM critic s7475_r3_p2_charge_1",
+		"save_type": "ai_test_case",
+		"tags": []
+	},
+	"type": "ai_test_case",
+	"version": "1.3.0"
+}

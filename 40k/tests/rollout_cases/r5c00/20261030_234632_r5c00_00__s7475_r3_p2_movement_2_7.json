@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_center (sole holder \u2014 leaving would drop control \u2014 worth ~11 VP)",
+ "created": "2026-10-30 23:49:30",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7475_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI held obj_center because it was the 'sole holder'. Player 1 actually holds it 14 OC to 3, so holding cannot take or contest it and risks losing Alpha. Fix: Compute hold value from the real holder and the OC margin. If the enemy OC in range is much higher than own OC, set the value of staying to about zero. Add a threat penalty for staying within charge range of several stronger enemy units. Prefer to fall back toward a held home objective or to regroup with friendly units.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7475_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha holds obj_center (sole holder \u2014 leaving would drop control)",
+ "verdict": "bad",
+ "version": 1
+}

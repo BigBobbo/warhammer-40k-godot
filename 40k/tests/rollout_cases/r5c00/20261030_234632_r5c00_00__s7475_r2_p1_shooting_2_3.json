@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P2)",
+ "created": "2026-10-30 23:47:45",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7475_r2_p1_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot the far wounded Delta. That gave 0.89 expected damage and a 9% kill chance. Shooting a near unit would have doubled the damage through Rapid Fire. Fix: Apply the already_allocated and focus-fire bonus only if cumulative expected damage reaches about 60% of the target's remaining wounds. Otherwise rank by expected_damage, which counts Rapid Fire range. Also include threat to held objectives in the target value.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7475_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma shoots at Custodian Guard Sodality Delta \u2014 expected 0.9 dmg vs 10 HP (9% kill)",
+ "verdict": "pending",
+ "version": 1
+}
