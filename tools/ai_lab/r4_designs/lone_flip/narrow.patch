@@ -1,0 +1,179 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..6e272d7 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1614,6 +1614,15 @@ const KEEPER_RELEASE_MIN_GAIN: float = 5.0
+ # spots aim only at objectives that still need OC. 0 = the centre-distance
+ # approximation everywhere, spots near any objective.
+ const FIX_HELD_DUP: float = 1.0
++# Movement plan (LONE-FLIP): 1 = a unit assigned to HOLD an objective the enemy
++# controls or contests (it has models in range there) does not reduce that
++# objective's OC need: its in-range OC is already in friendly_oc, which the need
++# (enemy OC - friendly OC + 1) counts, and staying put adds nothing. Its whole
++# unit OC was subtracted again, so a 5 vs 8 centre looked covered, its 20 VP
++# was dropped as "already taken" and the next unit was sent alone to flip a
++# 14-OC objective (LLM-critic cluster lone_flip; Advancing to the centre
++# instead measured +21.5 VP [16.9, 26.1], 36 rollouts). 0 = previous behaviour.
++const FIX_LONE_FLIP: float = 1.0
+ # Charge (RETALIATION): share of the surviving target's melee damage on the
+ # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+@@ -9891,6 +9900,7 @@ static func _assign_units_to_objectives(
+ 
+ 	# KEEPER-RELEASE (FIX_KEEPER_RELEASE): keepers that leave after pass 2.
+ 	var keeper_release_on = get_param("FIX_KEEPER_RELEASE", FIX_KEEPER_RELEASE) >= 0.5
++	var lone_flip_on = get_param("FIX_LONE_FLIP", FIX_LONE_FLIP) >= 0.5  # LONE-FLIP (below)
+ 	var keeper_released := {}  # unit_id -> _keeper_release_check result
+ 	for cand in candidates:
+ 		var uid = cand.unit_id
+@@ -9964,8 +9974,19 @@ static func _assign_units_to_objectives(
+ 				hold_reason = "holding objective (OC: %d)" % cand.unit_oc
+ 			assignments[uid]["reason"] = hold_reason
+ 			assigned_unit_ids[uid] = true
+-			assignments[uid]["oc_consumed"] = min(cand.unit_oc, max(0, remaining))
+-			obj_oc_remaining[oid] = max(0, remaining - cand.unit_oc)
++			# LONE-FLIP (FIX_LONE_FLIP): on an objective the enemy controls (or
++			# contests), the holder's in-range OC is already in friendly_oc, so
++			# oc_needed already counts it; staying adds nothing, so it consumes
++			# none of the need. It used to subtract its whole unit OC again: a
++			# Custodian Guard unit with 1 model on a 5 vs 8 centre "covered" it,
++			# and the next unit walked alone into a 9 vs 14 flip elsewhere.
++			if lone_flip_on and obj_state in ["enemy_weak", "enemy_strong", "contested"]:
++				assignments[uid]["oc_consumed"] = 0
++				print("AIDecisionMaker: [LONE_FLIP] %s: %s holds but adds no OC (already counted: friendly %d vs enemy %d) — need stays %d" % [
++					oid, uid, int(eval_for_obj.get("friendly_oc", 0)), int(eval_for_obj.get("enemy_oc", 0)), remaining])
++			else:
++				assignments[uid]["oc_consumed"] = min(cand.unit_oc, max(0, remaining))
++				obj_oc_remaining[oid] = max(0, remaining - cand.unit_oc)
+ 			# Decrease count so second unit on same obj can be freed
+ 			units_on_obj[oid] = units_on_obj.get(oid, 1) - 1
+ 			print("AIDecisionMaker: Assigned %s to HOLD %s (OC: %d, remaining need: %d)" % [uid, oid, cand.unit_oc, obj_oc_remaining[oid]])
+diff --git a/40k/tests/unit/test_ai_fix_lone_flip.gd b/40k/tests/unit/test_ai_fix_lone_flip.gd
+new file mode 100644
+index 0000000..2e2b087
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_lone_flip.gd
+@@ -0,0 +1,123 @@
++extends SceneTree
++
++# LONE-FLIP (FIX_LONE_FLIP): a unit assigned to HOLD an objective the enemy
++# controls (it has models in range there) does not reduce that objective's OC
++# need — its in-range OC is already in friendly_oc, which the need counts, and
++# staying put adds nothing. LLM-critic cluster lone_flip (value-checked,
++# 2026-10-30): at s7454 r3 Custodian Guard Beta had 1 model on a 5 vs 8
++# centre; the hold pass subtracted Beta's whole OC 9 from the need, the centre
++# read "already taken", and Gamma walked alone into a 9 vs 14 flip of
++# obj_nml_1 (Advancing to the centre instead measured +21.5 VP, 36 rollouts).
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_lone_flip.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const OBJ_X := Vector2(880, 1200)     # the objective the enemy holds
++const OBJ_SIDE := Vector2(200, 1700)  # a quiet objective on our side, nobody near it
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Holders on enemy-held objectives add no OC (LONE-FLIP) ===\n")
++	AIDecisionMaker._config_overrides["FIX_LONE_FLIP"] = 1.0
++	test_partial_holder_does_not_cover_enemy_held_objective()
++	test_holder_on_our_objective_still_covers_it()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_LONE_FLIP")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot() -> Dictionary:
++	var objs = [{"id": "obj_x", "position": OBJ_X, "zone": "no_mans_land"},
++		{"id": "obj_side", "position": OBJ_SIDE, "zone": "no_mans_land"}]
++	return {"battle_round": 3, "meta": {"battle_round": 3},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
++
++# Durable models (T6, 3 W, OC `oc` each); `offsets` in inches from `pos`.
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, offsets: Array, oc: int) -> void:
++	var models = []
++	for i in range(offsets.size()):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 40,
++			"base_type": "circular", "base_dimensions": {},
++			"position": pos + (offsets[i] as Vector2) * PX, "wounds": 3, "current_wounds": 3})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 150, "stats": {"move": 6, "toughness": 6, "save": 2,
++			"wounds": 3, "leadership": 6, "objective_control": oc}, "keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++
++# holder: 3 OC-3 models, one in range of obj_x (OC 3 there), two trailing out
++# of range. free: a 3-model OC-3 unit 8" from obj_x. Enemy: `enemy_n` OC-2
++# models on obj_x.
++func _board(enemy_n: int) -> Array:
++	var snap = _snapshot()
++	var enemies = {}
++	_add_unit(snap, "holder", 2, OBJ_X, [Vector2(0, 2.0), Vector2(0, 6.5), Vector2(0, 8.0)], 3)
++	_add_unit(snap, "free", 2, OBJ_X + Vector2(8.0 * PX, 0), [Vector2(0, -1.5), Vector2(0, 0), Vector2(0, 1.5)], 3)
++	var offs = []
++	for i in range(enemy_n):
++		offs.append(Vector2((i - (enemy_n - 1) / 2.0) * 1.6, -1.5))
++	_add_unit(snap, "theirs", 1, OBJ_X, offs, 2)
++	enemies["theirs"] = snap.units["theirs"]
++	return [snap, enemies]
++
++func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p2 = {}
++	AIDecisionMaker._secondary_awareness_p2 = {}
++	var friendlies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 2:
++			friendlies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, 3)
++	for e in evals:
++		print("  eval %s: state %s, friendly %d, enemy %d" % [e.id, e.state, int(e.friendly_oc), int(e.enemy_oc)])
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, 3)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	return plan
++
++func _goes_to(plan: Dictionary, uid: String, oid: String) -> bool:
++	var a: Dictionary = plan.get(uid, {})
++	return str(a.get("objective_id", "")) == oid and str(a.get("action", "")) in ["move", "advance"]
++
++func test_partial_holder_does_not_cover_enemy_held_objective() -> void:
++	print("\n--- holder has 1 model (OC 3) on obj_x, the enemy 8 OC: obj_x still needs 6 ---")
++	var b = _board(4)
++	var plan = _plan(b[0], ["holder", "free"], b[1])
++	_assert(str(plan.get("holder", {}).get("action", "")) == "hold" and str(plan.get("holder", {}).get("objective_id", "")) == "obj_x",
++		"the holder still holds obj_x")
++	_assert(_goes_to(plan, "free", "obj_x"), "the free unit is sent to flip obj_x (the holder's OC 9 no longer counts twice)")
++
++func test_holder_on_our_objective_still_covers_it() -> void:
++	print("\n--- holder's OC 3 on obj_x vs the enemy's 2: we control it, the holder's hold covers the need ---")
++	var b = _board(1)
++	var plan = _plan(b[0], ["holder", "free"], b[1])
++	_assert(str(plan.get("holder", {}).get("action", "")) == "hold", "the holder holds obj_x")
++	_assert(not _goes_to(plan, "free", "obj_x"), "the free unit is not stacked on an objective we already control")
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_LONE_FLIP = 0: the holder's whole OC consumes the need (previous behaviour) ---")
++	AIDecisionMaker._config_overrides["FIX_LONE_FLIP"] = 0.0
++	var b = _board(4)
++	var plan = _plan(b[0], ["holder", "free"], b[1])
++	AIDecisionMaker._config_overrides["FIX_LONE_FLIP"] = 1.0
++	_assert(not _goes_to(plan, "free", "obj_x"), "with the fix off obj_x reads covered and the free unit goes elsewhere")
