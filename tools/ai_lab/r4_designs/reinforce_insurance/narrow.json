@@ -1,0 +1,83 @@
+{
+ "key": "reinforce_insurance",
+ "angle": "narrow",
+ "root_cause": "At s7437 r2 (P1 Custodes, Reconnaissance Sweep) pass 2 sends Custodian Guard Beta to reinforce the centre we already hold (OC 6 vs ~7 projected) at its full hold score 48.2, over obj_nml_2 (30.7: contest_race -13.5, distance -5.4 for a 3-turn walk). A/B records (seeds 5001/5002) show where the forced Advance gained: Reconnaissance Sweep 'quarters +3 (best tier)' at the end of R2 in both seeds (and R3 in 5002) - P1 covered only the two top quarters, and Beta Advancing (M8+3.5) ends wholly in the bottom-left quarter, while a Normal move (8\") leaves the squad straddling the halfway line (the walk variant measured -4.0). The planner prices a quarter only as a flat secondary_spread 4.2 (SECONDARY_SPREAD_BONUS*0.7) at the objective's estimated destination, never checks that this turn's move lands the unit wholly inside the quarter, nor that the quarter completes a 3/6 VP tier, and RACE-1's long-trip Advance test rejects Advancing (enemy within charge reach). Finding 2 (s7418 r1 p2, measured on the round-1 AI) no longer reproduces: the base AI now sends Mek Beta to obj_home_2, not obj_nml_2.",
+ "fix_summary": "REINFORCE-INSURANCE (FIX_REINFORCE_INSURANCE=1): one gate in pass 2 of _assign_units_to_objectives, before OVERCOMMIT. When the candidate being assigned is a move/advance reinforcement of an objective in state held_safe/held_threatened, look through the same unit's other move/advance candidates (score order) on objectives that still need OC and are not TOO-LATE; new helper _ri_quarter_tier_move estimates the straight-line move toward that objective (Normal move first, else Advance at M+3.5, stopping at control range) and returns a hit only if every alive model ends wholly inside one table quarter (no base across a halfway line, base edge >6\" from centre) that none of our OTHER units covers, and the resulting quarter count raises the tier VP of our primary card's eot 'quarters' rules (only Reconnaissance Sweep has them). On a hit the unit is assigned there in that mode (assign_pass 'reinforce_insurance', so OBJ-BACKFILL-1 does not switch it back), with a coordination note and a [REINFORCE_INSURANCE] log line. No scoring change; 0 restores base exactly (ri_on gates the only new code path).",
+ "param": "FIX_REINFORCE_INSURANCE",
+ "test_file": "40k/tests/unit/test_ai_fix_reinforce_insurance.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "New test: fix 10 passed 0 failed; BASE copy 6 passed 4 failed (redirect, Advance mode reason, note, walk-mode case). All pass: test_ai_rollout_override 11/0, test_ai_e_race_tuning 8/0, test_ai_race_army 3/0, test_ai_advance_probability 8/0, test_ai_objective_race 16/0, test_ai_plan_diminishing_returns 4/0, test_ai_critic_round2 7/0, test_ai_11e_charge_ev_primary_cap 26/0, test_ai_movement_decisions 36/0, test_ai_plan_earmarks 35/0, test_ai_fix_held_dup 14/0, test_ai_fix_lone_trip 8/0, test_ai_fix_charge_ev 11/0, test_ai_fix_far_trip 11/0, test_ai_fix_overcommit 8/0, test_ai_fix_keeper_release 22/0, test_ai_survival_assessment 23/0, test_ai_multi_phase_planning 34/0. test_ai_threat_range_awareness 34/3 = the known base failures. tests/test_ai_objective_assignment_fixes.gd not run (known 1 base failure).",
+ "decision_checks": [
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4",
+   "base_choice": "Custodian Guard Beta moves toward obj_center (reinforcing, held OC 6 vs ~7)",
+   "fix_choice": "Custodian Guard Beta ADVANCES toward obj_nml_2 (into table quarter 2, 3 quarters -> +3 VP)",
+   "changed": true,
+   "measured": "clear: E +7.75 [1.97,13.53] (12 seeds), +4.36 [0.61,8.12] (36), full game +19.0 [3.3,34.7] (12)",
+   "judgement": "matches the alternative exactly (same unit, obj_nml_2, Advance). Fix replay seeds 5001/5002 value 7/22 (mean 14.5) = forced B branch 7/22; base A 14/3 (mean 8.5)."
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r1_p2_movement_1_0",
+   "base_choice": "Mek Beta moves toward obj_home_2 (reinforcing obj_home_2) - the finding's obj_nml_2 reinforcement no longer reproduces",
+   "fix_choice": "same (Mek Beta moves toward obj_home_2)",
+   "changed": false,
+   "measured": "clear: E +2.67 [0.36,4.97] (36 seeds) on the round-1 AI",
+   "judgement": "not changed. Different mechanism (P2 Orks, Take and Hold card, no quarter rule) and the base AI no longer makes the criticised choice; out of this narrow design's scope."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_014802_sweep2_06__s7417_r1_p2_movement_1_0",
+   "base_choice": "Mek Beta holds obj_home_2",
+   "fix_choice": "Mek Beta holds obj_home_2",
+   "changed": false,
+   "measured": "harmful alt (Mek -> obj_home_2 move): E -5.42",
+   "judgement": "no change, consistent; value identical (8.0)"
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+   "base_choice": "Custodian Guard Beta P2 moves toward obj_center (charge target Gamma)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful alt (Beta -> obj_center advance): E -6.83",
+   "judgement": "no change; value identical (-6.0)"
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r2_p2_movement_2_2",
+   "base_choice": "Mek Beta moves toward obj_center (reinforcing)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful alt (Mek -> obj_home_2): E -3.67",
+   "judgement": "no change, consistent (keeps the reinforcement the measurement favours); value identical (-3.0)"
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4",
+   "base_choice": "Stormboyz advance to attack Blade Champion Gamma",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful alt (hold obj_center): E -8.33",
+   "judgement": "no change; holders' charges are not vetoed; value identical (14.0)"
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r3_p2_movement_2_7",
+   "base_choice": "Burna Boyz Alpha screens at (656,1594)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -0.25",
+   "judgement": "no change; value identical (0.0)"
+  },
+  {
+   "job": "20261030_021506_sweep2_13__s7424_r3_p1_movement_2_6",
+   "base_choice": "Lootas Alpha holds obj_center",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -1.83",
+   "judgement": "no change; value identical (19.0)"
+  }
+ ],
+ "fires": "Counted decisions whose action carries the redirect (both players, to the end of the next battle round): s7437 finding 1 per game (2/2 seeds, P1 R2 Beta only); finding 2 and all 6 guardrail replays 0. It can only fire for a player whose primary card has eot 'quarters' rules (Reconnaissance Sweep) and only when a reinforcement of a held objective competes with a move that completes a 3- or 4-quarter tier this turn.",
+ "risks": "(1) The centre loses the insurance OC: at s7437 Gretchin/Lootas can each contest the 6-OC centre with an Advance and the Allarus may charge off; the measured +4.36 (36 seeds) / +19.0 full-game nets this out at the finding, but elsewhere a lost held objective (hold_min 3 VP/round, Centre Ground secondaries) can outweigh +3 VP/turn. (2) Straight-line estimate: terrain, coherency or blocked paths can stop the unit short of the quarter (and an Advance roll of 1-2 too), so the move gives up the reinforcement and shooting/charging (Advance) without scoring the tier. (3) The quarter is only kept if the unit survives and stays there in rounds 3-5, and other units leaving their quarters this phase are not modelled (covered quarters use current positions). (4) Rounds 3-5: a unit redirected forward is in the quarter but far from the held objective; if the enemy takes it the AI may need several turns to retake. (5) Only Reconnaissance Sweep (1 of 25 bench pairings) triggers it, so the bench signal will be small; Engage on All Fronts (secondary) is deliberately not covered.",
+ "drop_reason": ""
+}
