@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (capturing it (uncontrolled) \u2014 worth ~8 VP)",
+ "created": "2026-10-30 02:15:47",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7423_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI advances Scout Squad Beta toward obj_center, but the advance cannot reach it this turn (max 12 in against 12.4 in). It gives up shooting and ends closer to the Lootas for little gain. Fix: Pick advance mode only if the advance lets the unit take the objective this turn, or reach it a full turn earlier than a normal move. Otherwise use a normal move. Add a penalty for forfeited shooting when enemies are within the unit's weapon range.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7423_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_SCOUT_SQUAD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Scout Squad Beta advances toward obj_center (capturing it (uncontrolled))",
+ "verdict": "pending",
+ "version": 1
+}

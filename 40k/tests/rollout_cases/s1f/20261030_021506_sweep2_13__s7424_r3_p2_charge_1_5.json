@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Lootas Beta (3.0\" away, 97% chance)",
+ "created": "2026-10-30 02:24:26",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7424_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges 3 weak Lootas with a 395 point squad. This leaves NML 2, which is worth 4 primary VP, and exposes the squad to the Beastboss and the Boyz. Fix: Remove the ch_short_charge bonus, or cap it so that it cannot cancel ch_leave_objective. Charge with a unit that holds an objective only if the target is worth more than the VP lost. Add a retaliation term for each enemy melee unit that can reach the end position, and apply it to every charge option.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7424_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_TERMINATOR_ASSAULT_SQUAD_A",
+  "choice": "pos:734,1389",
+  "decision": "charge",
+  "targets": "U_BEASTBOSS_A,U_LOOTAS_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Terminator Assault Squad declares a charge at Lootas Beta + Beastboss \u2014 targets picked after the roll: Lootas Beta on 3+ (97%), Beastboss on 9+ (28%), overwatch risk: 6.1 dmg",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (capturing it (uncontrolled) \u2014 worth ~7 VP)",
+ "created": "2026-10-30 02:27:09",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7425_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] Scout Squad Beta walks back to home objective 1, which P1 already holds, so the move adds no control and no VP. Fix: Set the capture value to zero when the objective is already held by us with surplus OC and no enemy can reach it. Add a bonus for non-home objectives on cards that pay for them. Penalise sending units to an objective that other units already cover.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7425_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_SCOUT_SQUAD_B",
+  "choice": "pos:750,460",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Scout Squad Beta moves toward obj_home_1 (capturing it (uncontrolled), obj: 8.6\" away)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+ "created": "2026-10-30 02:20:16",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7423_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI chose the flat Screen score of 8.0 over Advance obj_center (19.05). The center is held with a thin margin, and 10 Gretchin could add OC 10 there. Fix: Score Screen from the actual enemy threat. Count enemy units that can charge the screened units next turn and the value they would hit. Cap screen_base when a nearby objective is held by a thin OC margin. Add an OC-margin term for holding objectives.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7423_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:506,1161",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (506,1161) \u2014 screening valuable friendlies from enemy threats",
+ "verdict": "pending",
+ "version": 1
+}

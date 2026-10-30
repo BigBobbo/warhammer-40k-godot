@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 12\"))",
+ "created": "2026-10-30 02:14:28",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7423_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI said it would stay with the army, but the Screen point is mid-board, 12 in from the nearest friendly unit and 19 in from the unit. The text contradicts the move, so the plan is muddled. Fix: Score Screen positions by distance to friendly units and to the unit's own position. Reject any screen point more than one move away from the army that is also within an objective's capture area. If the plan will not take the objective, use a real screen point near the army or hold position. If the unit would move toward that objective anyway, label it as an objective move.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7423_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "pos:960,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha screens at (960,960) \u2014 backfield gap (nearest friendly: 12\")",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (flipping it (enemy holds with OC 9), needs 18 more OC after this unit \u2014 worth ~7 VP with the 2 other objective(s) this plan takes \u2014 worth ~7 VP)",
+ "created": "2026-10-30 02:23:02",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7424_r3_p2_movement_2",
+ "note": "[LLM critic, high conf] The AI sends a lone 5-wound Chaplain on Bike into the middle of the enemy group to flip an objective it cannot flip. It needs 18 more OC. Fix: Scale objective_priority and expected_vp by the chance the unit can change control. Set them to near zero when the OC shortfall after this unit is more than the unit's own OC. Add a survival penalty that grows with the number of enemy units in threat range and with the unit's cost.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7424_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CHAPLAIN_ON_BIKE_A",
+  "choice": "pos:1371,606",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Chaplain on Bike moves toward obj_nml_1 (moving toward charge target Lootas Gamma, obj: 15.5\" away)",
+ "verdict": "bad",
+ "version": 1
+}

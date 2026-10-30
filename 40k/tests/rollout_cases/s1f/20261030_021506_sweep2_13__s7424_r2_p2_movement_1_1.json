@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Terminator Assault Squad arrives",
+ "created": "2026-10-30 02:17:46",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7424_r2_p2_movement_1",
+ "note": "[LLM critic, low conf] The AI picked the slow Terminator Assault Squad mainly because of the arrive_points term, which rewards unit cost. It did not weigh speed or OC to reach and hold the free objective. Fix: Cap or remove the points-value bonus in arrival scoring. Raise arrive_objectives for units with a high total OC, and for units fast enough to take a free objective next turn. Pick the unit with the best objective-holding ability first.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7424_r2_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_TERMINATOR_ASSAULT_SQUAD_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_TERMINATOR_ASSAULT_SQUAD_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Terminator Assault Squad arrives from Deep Strike",
+ "verdict": "pending",
+ "version": 1
+}
