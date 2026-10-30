@@ -1602,7 +1602,9 @@ const KEEPER_POINTS_WEIGHT: float = 2.0
 # the Reconnaissance card does not pay for while the Orks were 30" away
 # (LLM-critic cluster keeper_release; moving it to the objective Gamma takes
 # measured +8.0 VP [3.4, 12.6], 12 rollouts). 0 = previous behaviour.
-const FIX_KEEPER_RELEASE: float = 1.0
+# Off: the round-3 bundle test (2026-10-30, V9 = this fix on vs V7D, 3 fixtures, 124 pairs) changed no game —
+# every pair played identically (pooled E = 0.0), so the ship rule (pooled E > 0) was not met. Kept for round 4.
+const FIX_KEEPER_RELEASE: float = 0.0
 # KEEPER-RELEASE: how many planner score points the keeper's best objective
 # elsewhere must beat holding by (the round-1 stay bonus is 5).
 const KEEPER_RELEASE_MIN_GAIN: float = 5.0
