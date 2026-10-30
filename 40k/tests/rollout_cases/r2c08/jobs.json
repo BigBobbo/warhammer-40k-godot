@@ -1,0 +1,182 @@
+[
+ {
+  "job": "20261030_063518_r2c08_00__s7439_r1_p1_movement_1_0",
+  "case": "20261030_063518_r2c08_00__s7439_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_SCOUT_SQUAD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a 5-OC Scout squad about 25 in alone, to an objective where the enemy has OC 9. The squad cannot flip it and is likely to be killed. The squad advances, so it also cannot shoot this turn.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7439",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063518_r2c08_00"
+ },
+ {
+  "job": "20261030_063518_r2c08_00__s7439_r1_p1_movement_2_1",
+  "case": "20261030_063518_r2c08_00__s7439_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends the slow M6 OC1 Logan Grimnar on a 3-turn walk to obj_nml_1. It also lists it as 'reinforcing' with 1 unit already committed. The objective_priority of 16.07 outweighs a -7.23 distance penalty and a turns_to_reach of 3. The 'expected_vp' of 4 is not a real marginal gain when another unit already takes it.",
+  "better_option": "Move obj_home_1 (moving to objective)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7439",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063518_r2c08_00"
+ },
+ {
+  "job": "20261030_063518_r2c08_00__s7439_r2_p2_shooting_1_2",
+  "case": "20261030_063518_r2c08_00__s7439_r2_p2_shooting_1_2.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "target": "U_CHAPLAIN_ON_BIKE_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot at far-away Scout Squad Alpha with an already_allocated bonus of 7.11. The Chaplain on Bike was in rapid fire range and a more valuable threat.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Chaplain on Bike (P1)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7439",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063518_r2c08_00"
+ },
+ {
+  "job": "20261030_063518_r2c08_00__s7439_r2_p1_movement_2_3",
+  "case": "20261030_063518_r2c08_00__s7439_r2_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_SCOUT_SQUAD_A",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a weak 3-model Scout unit with OC 1 into obj_center. The enemy holds it with OC 11 and 4 more OC would still be needed. This cannot flip the objective, and the unit will probably die.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7439",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063518_r2c08_00"
+ },
+ {
+  "job": "20261030_063518_r2c08_00__s7439_r2_p1_charge_1_4",
+  "case": "20261030_063518_r2c08_00__s7439_r2_p1_charge_1_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charged a 17% target with a 395-point unit. Ending the charge with a score of 19.7 comes only from the large ch_damage, ch_points_trade and order_round_aggression terms, which are not scaled by the odds.",
+  "better_option": "unlisted: do not charge. Move the Terminators toward obj_nml_1 or the Custodians so they charge next turn, or hold them as a threat.",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7439",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063518_r2c08_00"
+ },
+ {
+  "job": "20261030_063518_r2c08_00__s7439_r3_p1_movement_2_5",
+  "case": "20261030_063518_r2c08_00__s7439_r3_p1_movement_2_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "targets": [
+     "U_ALLARUS_CUSTODIANS_A"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Logan walks 2 turns to obj_nml_1, which P1 already holds with Terminators there. He has OC 1 and the army needs no help there. A 6 in move leaves him alone in open ground.",
+  "better_option": "unlisted: move toward the wounded Allarus Custodians (U_ALLARUS_CUSTODIANS_A) at 7.6 in to charge or shoot it, staying with the army",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7439",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063518_r2c08_00"
+ },
+ {
+  "job": "20261030_063518_r2c08_00__s7439_r3_p1_shooting_1_6",
+  "case": "20261030_063518_r2c08_00__s7439_r3_p1_shooting_1_6.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "target": "U_ALLARUS_CUSTODIANS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Logan fires 2 shots at a distant, healthy Custodian Guard unit with a 3% kill chance instead of 4 rapid fire shots at the nearly dead Allarus Custodians. The result is almost no damage.",
+  "better_option": "Storm Bolter \u2192 enemy Allarus Custodians (P2)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7439",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063518_r2c08_00"
+ }
+]
