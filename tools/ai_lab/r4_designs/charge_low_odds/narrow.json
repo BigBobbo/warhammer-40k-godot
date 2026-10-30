@@ -1,0 +1,83 @@
+{
+ "key": "charge_low_odds",
+ "angle": "narrow",
+ "root_cause": "Two different mechanisms behind the two findings, one shared enabler. Enabler: in rounds 1-2 the charge bar is cut (STRATEGY_EARLY_CHARGE x0.5, x difficulty, Ork faction aggression /1.8) to ~0.23-0.29, so any positive score clears it; the charge score is target value x charge probability with no cost for what the charger gives up. F2 (s7467 r2 Allarus 17% at Mek, score 1.60 vs bar 0.23): the 270-pt unit trades down (x0.92 on the Mek, x0.70 on the other targets) into 7.2 dmg of Ork overwatch; the overwatch multiplier only charges overwatch on the 17% success share although Fire Overwatch is resolved before the roll. A/B records (2 seeds each): A succeeds both times (rolled 11/14, spending CP on Fury of the Emperor) and the Allarus is locked with Battlewagon Alpha; B keeps it free: it Fires Overwatch at Mek Beta, Heroically Intervenes into the Beastboss, in r3 uses On Gilded Wings and scores Centre Ground +5 / Assassination +5 (B-A per seed +15, -4). F1 (s7469 r2 Stormboyz 28% at Blade Champion Alpha, score 18.26 vs bar 0.29): the 8.9 expected melee damage is ~4x too high. Reproduced headless: _estimate_melee_damage(Stormboyz, Blade Champion) = 8.89 because the Nob's Kustom Choppa (4A D2 AP-2) is counted on all 10 models (_weapon_carrier_count has no loadout/profile data in Orks_2000); the real figure is ~2.2 (choppas). That fake 'likely kill' adds ch_can_wipe/ch_can_halve and skips ch_retaliation. A/B (2 seeds): the charge succeeded both times (9, 12), Custodian Guard + Blade Champion Beta Heroically Intervene, the Stormboyz are ground down; B kept them alive to score Death Trap/Centre Ground in r3 (B-A per seed +28, +4). No narrow rule in the charge decision separates F1 from guardrail s7433 r2 (Allarus 28% at Blade Champion Beta, same score shape, leans charge) without fixing the damage estimate, which changes every Ork estimate (shooting and melee) - out of scope for the narrow angle.",
+ "fix_summary": "CH-LOW-ODDS in _evaluate_best_charge (per target, after the overwatch / Deadly Demise multipliers): when FIX_CHARGE_LOW_ODDS=1, charge chance < CHARGE_LOW_ODDS_MAX_PROB (0.30), battle round <= CHARGE_LOW_ODDS_MAX_ROUND (2, the rounds with the threshold cut) and the charger trades down (_get_trade_efficiency < 1), the target's score must still reach CHARGE_LOW_ODDS_MIN_SCORE (1.0, the un-lowered bar) after subtracting the failed-roll overwatch (1-p) x overwatch dmg x CHARGE_MELEE_DAMAGE_WEIGHT x CHARGE_RETALIATION_WEIGHT; otherwise its score is set to 0 (dropped, also out of multi-target combos) with a [CHARGE_LOW_ODDS] log line. Scores that pass are unchanged. 0 restores the base exactly (the block is skipped).",
+ "param": "FIX_CHARGE_LOW_ODDS",
+ "test_file": "40k/tests/unit/test_ai_fix_charge_low_odds.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "All pass on the fix: test_ai_rollout_override 11/0, test_ai_e_race_tuning 8/0, test_ai_race_army 3/0, test_ai_advance_probability 8/0, test_ai_objective_race 16/0, test_ai_plan_diminishing_returns 4/0, test_ai_critic_round2 7/0, test_ai_11e_charge_ev_primary_cap 26/0, test_ai_movement_decisions 36/0, test_ai_plan_earmarks 35/0, test_ai_fix_held_dup 14/0, test_ai_fix_lone_trip 8/0, test_ai_fix_charge_ev 11/0, test_ai_fix_far_trip 11/0, test_ai_fix_overcommit 8/0, test_ai_fix_keeper_release 22/0, test_ai_survival_assessment 23/0, test_ai_multi_phase_planning 34/0, test_ai_charge_decisions 62/0. New test: 8/0 on fix; on BASE (preload res://scripts/ai_versions/BASE/AIDecisionMaker.gd) 7 passed 1 failed (the round-2 finding-shape check declares the charge).",
+ "decision_checks": [
+  {
+   "job": "20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3",
+   "base_choice": "Allarus Custodians declares charge against Mek Beta (17%, 9.9\", OW risk 7.2)",
+   "fix_choice": "Skipped charge for Allarus Custodians (all 4 targets dropped by CH-LOW-ODDS)",
+   "changed": true,
+   "measured": "clear: E +2.64 [0.40, 4.88] (36 seeds) for no charge",
+   "judgement": "matches the alternative (same unit, no charge). Side effect in the same phase: Custodian Guard Delta's multi-target charge at Lootas Beta (28%) + Zodgrod (8%) under 7.6 dmg OW is also dropped (not measured)."
+  },
+  {
+   "job": "20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2",
+   "base_choice": "Stormboyz declares charge against Blade Champion Alpha (28%, 8.5\")",
+   "fix_choice": "same (Stormboyz trade UP x1.0+ and OW 0.3: rule does not apply)",
+   "changed": false,
+   "measured": "clear: E +4.33 [1.37, 7.30] (36 seeds) for no charge",
+   "judgement": "not fixed. Root cause is the 4x damage overestimate (Kustom Choppa counted on 10 models), not addressed by the narrow rule."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7",
+   "base_choice": "Allarus charges Blade Champion Alpha (28%)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful: E -5.00 (charge right)",
+   "judgement": "consistent (round 3, trade up)"
+  },
+  {
+   "job": "20261030_010357_sweep1_02__s7403_r3_p1_charge_1_6",
+   "base_choice": "Battlewagon charges Custodian Guard Gamma (42%)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful: E -3.67 (charge right)",
+   "judgement": "consistent (42%, round 3)"
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r2_p1_charge_1_3",
+   "base_choice": "Allarus charges Custodian Guard Gamma (17%)",
+   "fix_choice": "same (decision unchanged; in that game a later 8% Guard Delta -> Guard Beta candidate was dropped once, score 1.22 - 0.36 < 1.0)",
+   "changed": false,
+   "measured": "neutral: E -5.08 (leans charge)",
+   "judgement": "consistent (Allarus trades up on Guard x1.47 term)"
+  },
+  {
+   "job": "20261030_063348_r2c02_00__s7433_r2_p2_charge_1_5",
+   "base_choice": "Allarus charges Blade Champion Beta (28%)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -3.17 (leans charge)",
+   "judgement": "consistent (trade up)"
+  },
+  {
+   "job": "20261030_063510_r2c10_00__s7441_r3_p2_charge_2_10",
+   "base_choice": "Logan Grimnar charges Blade Champion Alpha (28%)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "clear: E +0.94 [0.12, 1.77] for no charge",
+   "judgement": "missed small gain (round 3, trade up x3.6 term); not harmful"
+  },
+  {
+   "job": "20261030_012809_sweep1_07__s7408_r3_p1_charge_2_9",
+   "base_choice": "Stormboyz charges Zodgrod Wortsnagga (8%, OW 4.1)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -5.08 (leans charge)",
+   "judgement": "consistent only because of the round gate: without CHARGE_LOW_ODDS_MAX_ROUND the first draft dropped this charge (trade x<1, score 2.28 - OW 3.77), so the round gate was added before the fix replays"
+  }
+ ],
+ "fires": "Counted from game stdout (rollout re-run with --quiet removed), one seed per position, both players, to end of next round: s7467 (F2) 12 lines = 6 distinct unit->target drops in 2 decisions (Allarus x4 targets, Guard Delta x2 targets; re-evaluated per charge step); s7469 (F1) 8 lines = 3 distinct drops in P1's r2 charge phase after the decision (Allarus -> Battlewagon Alpha 28%/Beta 17%, Guard Delta -> Battlewagon Alpha 8%, all under 6-7 dmg Ork overwatch, scores 0.02-1.22); s7431 r2 1 drop (Guard Delta -> Guard Beta 8%, score 1.22); s7431 r3, s7403, s7433, s7441, s7408: 0. So ~0-2 changed charge decisions per game, almost all Custodes elites into Ork shooting-heavy lines in round 2; in the measured set the similar positions lean no-charge (s7438 r2 Allarus 28% at Battlewagon OW 7.2: +4.75; s7437 r2 Guard 8% at Mek OW 7.6: +2.17).",
+ "risks": "(1) Rounds 1-2 only, so late-game objective charges are untouched; but an elite unit held back in r2 stays where it is - in 11e a failed charge would not have moved it anyway, so the only behaviour change is no declaration (no overwatch eaten, no CP on Fury of the Emperor, unit free for Overwatch/Heroic Intervention). (2) Missed upside: a successful long-shot charge that ties up a gunline (Lootas) or scores a kill-based secondary (Assassination, No Prisoners, Bring it Down) in r2 is given up; with p<0.30 and trade<1 that upside is rare but it compounds over rounds 3-5 if the shooting unit stays free. (3) Elite-vs-horde matchups (Custodes vs Orks) fire most; in mirrors it rarely fires (trade ~1). (4) Units with weak overwatch nearby still need score >= 1.0 when trading down, which drops scores in (0.23, 1.0) - tiny-value charges, e.g. the 8% Guard Delta -> Guard Beta. (5) Does nothing for F1 (damage overestimate from Nob weapons counted on every model) - that remains and affects every Ork unit with a sergeant weapon; it needs a loadout/data fix outside this rule.",
+ "drop_reason": ""
+}
