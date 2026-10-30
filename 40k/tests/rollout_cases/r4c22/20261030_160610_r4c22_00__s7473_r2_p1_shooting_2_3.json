@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Custodian Guard Sodality Delta (P2)",
+ "created": "2026-10-30 16:11:15",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7473_r2_p1_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot a Big shoota at Delta for 0.2 expected damage. Both options are nearly worthless. The unit stays an exposed, weak shooter and the score terms inflate a meaningless shot. Fix: Cap the focus-fire bonus (already_allocated) by the actual kill probability. Do not give it weight when the shot adds almost nothing. Compare shooting value against the value of repositioning to an objective, and move a high-OC transport toward a contested objective when its guns do under 0.5 expected damage.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7473_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_B",
+  "choice": "desc:Big shoota \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Beta shoots at Custodian Guard Sodality Delta \u2014 expected 0.2 dmg vs 8 HP (2% kill)",
+ "verdict": "bad",
+ "version": 1
+}

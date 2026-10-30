@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Lootas Gamma (10.6\" away, 8% chance)",
+ "created": "2026-10-30 16:09:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7473_r2_p2_charge_1",
+ "note": "[LLM critic, high conf] The AI declares a charge with an 8% success chance at a target about 10.6 in away. Failure wastes the unit's turn and its position. Fix: Multiply every positive charge benefit (damage, wipe, halve, tie-up, plan-lock) by the charge probability. Add a 'no charge' option with score 0. Reject any charge below roughly 25% success unless the expected value is clearly positive. Add the cost of leaving cover or an objective area, and the overwatch damage taken, as costs that apply whatever the roll.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7473_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "pos:463,1132",
+  "decision": "charge",
+  "targets": "U_BURNA_BOYZ_B,U_LOOTAS_C",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians declares a charge at Lootas Gamma + Burna Boyz Beta \u2014 targets picked after the roll: Lootas Gamma on 11+ (8%), Burna Boyz Beta on 11+ (8%), overwatch risk: 7.2 dmg",
+ "verdict": "bad",
+ "version": 1
+}
