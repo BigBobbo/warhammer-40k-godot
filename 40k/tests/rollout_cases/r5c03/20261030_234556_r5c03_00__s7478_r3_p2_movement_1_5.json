@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_2 (capturing it (uncontrolled) \u2014 quicker to reach than Prosecutor Squad (13.4\" away, there in 2 turns at M8 vs 15.4\" away, there in 2 turns at M7))",
+ "created": "2026-10-30 23:47:43",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7478_r3_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends a 3-model Custodian Guard unit with OC 9 on a 2-turn trip to an uncontested home objective, instead of backing the contested centre fight. Fix: Cap objective_priority for uncontested own-side objectives that a cheap unit can hold, such as the Prosecutor Squad. Add a term for the OC swing on a contested objective, so a move that flips control gets a large bonus. Reduce the threat_delta penalty when the unit would join friendly units already engaged there.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7478_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "pos:1330,1980",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta advances toward obj_home_2 (capturing it (uncontrolled) \u2014 quicker to reach than Prosecutor Squad (13.4\" away, there in 2 turns at M8 vs 15.4\" away, there in 2 turns at M7))",
+ "verdict": "bad",
+ "version": 1
+}

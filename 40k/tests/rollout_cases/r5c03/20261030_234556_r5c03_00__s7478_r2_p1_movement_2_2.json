@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_2 (flipping it (enemy holds with OC 11), needs 10 more OC after this unit \u2014 worth ~19 VP)",
+ "created": "2026-10-30 23:46:37",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7478_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] A lone 1-wound OC2 unit advances 40 in toward the enemy home, where it would need four turns to arrive and could not flip the objective. It skips the free, uncontrolled obj_home_1, which is 5 in away. Fix: Scale expected_vp by the probability of arriving and winning the objective. Zero it when the arrival time is over 2 turns or the needed OC is more than the assigned units can supply. Add a large bonus for a free uncontrolled objective that can be taken this turn. Cap the weight of a far objective for fragile units.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7478_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:1330,1980",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad advances toward obj_home_2 (flipping it (enemy holds with OC 11), needs 10 more OC after this unit)",
+ "verdict": "bad",
+ "version": 1
+}

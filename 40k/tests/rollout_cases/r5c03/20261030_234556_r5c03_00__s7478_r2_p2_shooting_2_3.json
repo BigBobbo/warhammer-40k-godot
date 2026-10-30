@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Alpha (P1)",
+ "created": "2026-10-30 23:47:07",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7478_r2_p2_shooting_2",
+ "note": "[LLM critic, medium conf] Beta fires at a full-health Custodian Guard unit for 1.8 damage. A Blade Champion Beta with 7 wounds is visible and closer, but the AI did not list it as an option. Fix: Build the candidate list from every enemy with LOS and in range. Add a term for target melee threat and for finishing wounded or low-wound units. Do not rely on target_value alone when expected damage is low.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7478_r2_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Alpha (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta shoots at Custodian Guard Sodality Alpha \u2014 expected 1.8 dmg vs 15 HP (12% kill)",
+ "verdict": "pending",
+ "version": 1
+}
