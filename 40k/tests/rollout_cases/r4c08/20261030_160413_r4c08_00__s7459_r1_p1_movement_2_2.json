@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_2 (flipping it (enemy holds with OC 15), needs 6 more OC after this unit \u2014 worth ~13 VP with the 1 other objective(s) this plan takes \u2014 worth ~13 VP)",
+ "created": "2026-10-30 16:07:07",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7459_r1_p1_movement_2",
+ "note": "[LLM critic, high conf] A Lootas unit with a 48 in Deffgun walks 42 in alone to the enemy home objective. It would arrive on turn 5 and would give up its firing and objective roles. Fix: Cap the expected_vp credit by the turns_to_reach and drop it to zero when arrival comes after round 3. Reject assignments to an enemy-held objective when the unit cannot arrive within 2 turns or cannot out-OC the defenders. Do not let the override send a long-range shooter to a distant objective. Send it to the nearest useful objective or to a firing position.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7459_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A",
+  "choice": "pos:1500,1530",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha advances toward obj_home_2 (flipping it (enemy holds with OC 15), needs 6 more OC after this unit \u2014 worth ~13 VP with the 1 other objective(s) this plan takes)",
+ "verdict": "bad",
+ "version": 1
+}

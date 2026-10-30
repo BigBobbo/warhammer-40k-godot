@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Tankbustas arrives",
+ "created": "2026-10-30 16:09:32",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7459_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] Tankbustas arrive on the far left edge, far from every objective P2 holds. They are slow and have no screen, so they add little to the fight for the center. The one in-range target is Gretchin, a poor use of anti-tank rockets. Fix: Score each spot by the turns it takes the unit to reach objectives that are held or contested, using its Move value. Add a term for the number of valuable targets in weapon range, weighted by weapon type (anti-tank weapons vs vehicles and monsters). Penalise spots that are isolated and in range of many enemy shooters.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7459_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "choice": "key:U_TANKBUSTAS_A_P2",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_TANKBUSTAS_A_P2"
+ },
+ "source": "llm_critic",
+ "suggestion": "Tankbustas arrives from Strategic Reserves",
+ "verdict": "pending",
+ "version": 1
+}

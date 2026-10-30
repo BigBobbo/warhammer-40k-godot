@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~10 VP)",
+ "created": "2026-10-30 16:04:45",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7459_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends a lone OC1 character on a 2-turn walk toward obj_center. The 'worth ~10 VP' figure looks inflated. The objective may already be taken by Lootas Beta, which advances there. Fix: Scale expected_vp for a reinforcing move by marginal gain. Give a low value when committed OC already covers the objective, or when the unit is a fragile OC1 character. Add a bonus for keeping a character with the main body.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7459_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_MEK_B_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Mek Beta moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 18.5\" away)",
+ "verdict": "pending",
+ "version": 1
+}

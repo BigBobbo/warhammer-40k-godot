@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Burna Boyz Beta (P1)",
+ "created": "2026-10-30 16:11:27",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7459_r2_p2_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shoots a far, isolated 5-model unit at long range for 0.5 damage. It ignores Stormboyz, which are in rapid fire range and are the real threat to P2 objectives. Fix: Scale the already_allocated bonus by the chance that the combined fire kills the target. Give no bonus when the combined kill chance is low. Add a term for threat to objectives, so fast units near objectives rank higher. Prefer targets within rapid fire range.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7459_r2_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_B_P2",
+  "choice": "desc:Big shoota \u2192 enemy Burna Boyz Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Beta shoots at Burna Boyz Beta \u2014 expected 0.5 dmg vs 5 HP (9% kill)",
+ "verdict": "pending",
+ "version": 1
+}

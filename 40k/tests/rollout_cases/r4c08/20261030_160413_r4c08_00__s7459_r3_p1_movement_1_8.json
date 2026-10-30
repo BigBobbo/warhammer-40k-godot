@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Attack Battlewagon Beta (closing to charge range (0.0\" after move))",
+ "created": "2026-10-30 16:23:50",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7459_r3_p1_movement_1",
+ "note": "[LLM critic, low conf] The AI sends a nearly dead Stormboyz to the center and labels it an attack on Battlewagon Beta. The unit cannot hurt a T11 vehicle, and one OC cannot flip a center the enemy holds with OC 13. Fix: Cut objective_priority and stay_on_objective when the unit's OC cannot change control. Cut the target value when expected damage is below 1 wound. Add a penalty for a depleted unit moving into several enemy shooters' range.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7459_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz advances to attack Battlewagon Beta (6.0\" away \u2014 closing to charge range (0.0\" after move))",
+ "verdict": "pending",
+ "version": 1
+}
