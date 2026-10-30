@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (flipping it (enemy holds with OC 17), needs 6 more OC after this unit \u2014 worth ~6 VP)",
+ "created": "2026-10-30 06:39:56",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7435_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a lone 6-model Warbikers unit 23.6 in to flip an objective the enemy holds with OC 17. The unit cannot win that fight and will probably die. Fix: Reject a flip objective when the unit's OC plus allies that can reach it this turn is below the enemy OC there. When the capture override picks a fallback objective, rank fallbacks by their full score, including threat_delta and contest_race. Prefer a safe objective, a screening role, or support for a friendly objective over a suicide flip.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7435_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_WARBIKERS_A",
+  "choice": "pos:390,1700",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Warbikers Alpha moves toward obj_nml_2 (flipping it (enemy holds with OC 17), needs 6 more OC after this unit, obj: 23.6\" away)",
+ "verdict": "bad",
+ "version": 1
+}

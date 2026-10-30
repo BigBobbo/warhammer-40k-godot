@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+ "created": "2026-10-30 06:35:16",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7435_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Lootas Gamma to screen with a flat score of 8.0 and no checks on threats. The unit has a 48 in Deffgun but no enemy is near, and no screen is needed in round 1. Advance obj_center scored 37.5 but lost, because the override reason only concerned obj_home_2. Fix: Give the screen action a score that depends on real enemy threat: distance and charge reach of enemy melee units to the protected units. When no enemy can reach in the next turn, set screen_base near zero. Do not let the screen assignment hide the objective options that score higher and are close to",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7435_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C",
+  "choice": "pos:512,1406",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma screens at (512,1406) \u2014 screening valuable friendlies from enemy threats",
+ "verdict": "bad",
+ "version": 1
+}
