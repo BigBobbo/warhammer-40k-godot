@@ -62,6 +62,10 @@
 #   - 14.02 per-model Objective Control (every model in range adds its OC;
 #     attached-unit battle-shock zeroes the group; 14.03 secured tie/break)
 #   - 11e charge targets within 12" AND within the roll (11.04 / 15.11)
+#   - T01 UIConstants color slots: typed opaque slot constants, slot_name()
+#     round trips, striped_pattern() diagonal hatch, autoload registration
+#     conflicts, and the design-guidelines doc §9 Constant/Hex table matching
+#     the autoload 1:1
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -303,6 +307,7 @@ TESTS=(
     "tests/test_loadout_resolution.gd"
     "tests/test_transport_audit_2026_07.gd"
     "tests/test_secondary_draw_shuffle_back_terminates.gd"
+    "tests/test_ui_constants_slots.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

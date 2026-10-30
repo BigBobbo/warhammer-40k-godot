@@ -45,7 +45,7 @@ Locks in use:
 
 ## Foundation (sequential — must complete before anything below)
 
-- [ ] **T01 — UIConstants color slot autoload**
+- [x] **T01 — UIConstants color slot autoload**
   - **Lock:** UIConstants  • **Doc:** §9  • **Depends:** —
   - **Touches:** new `40k/autoloads/UIConstants.gd`, `40k/project.godot` (autoload registration)
   - **Change:** Add an autoload exposing the strict slot table from the doc:
@@ -65,9 +65,24 @@ Locks in use:
       `Texture2D` (or equivalent shader handle).
     - Regression: passing-scenario count ≥ `_baseline.json.count`.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Doc §9 table values match `UIConstants.gd` 1:1 (cross-check via diff).
-    - [ ] `striped_pattern` output renders as visible stripes (eyeball one screenshot).
-    - [ ] No autoload conflicts in `project.godot`.
+    - [x] Doc §9 table values match `UIConstants.gd` 1:1 (cross-check via diff).
+      *(T01_after palette card shows live hex = doc hex, "match", on all 7 rows; a
+      `diff` of the two tables is empty.)*
+    - [x] `striped_pattern` output renders as visible stripes (eyeball one screenshot).
+      *(1x and 4x swatches beside solid yellow in T01_after; row read-back: 63
+      transitions, 50% yellow.)*
+    - [x] No autoload conflicts in `project.godot`.
+      *(60 entries, none duplicated, UIConstants once as `*res://…`, no class_name
+      shadows an autoload. Checked by `tests/test_ui_constants_slots.gd`.)*
+  - **Note (2026-10-30 audit):** the autoload, its registration and `striped_pattern`
+    had already shipped. This pass closed the evidence gaps. Deviations from the
+    wording above: (1) doc §9's table named hues only, so "exact hex specified in doc
+    §9 table" could not be checked. The table now has Constant + Hex columns,
+    cross-checked 1:1 by `tests/test_ui_constants_slots.gd` (in the gate) and by the
+    scenario. (2) The scenario's single-line Expression path rejects `Color.YELLOW`
+    (`Expected '('`), so the `striped_pattern(Color.YELLOW)` checks run as
+    `multiline` steps. (3) No action is dispatched, so the hex checks are
+    `execute_script` `equals` steps rather than `expect_action_result`.
 
 - [ ] **T02 — Visual-scenario harness + pixel-diff + baseline snapshot**
   - **Lock:** Infra  • **Doc:** —  • **Depends:** —

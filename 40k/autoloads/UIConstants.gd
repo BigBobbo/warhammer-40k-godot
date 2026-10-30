@@ -9,6 +9,10 @@ extends Node
 #
 # Faction colors stay per-army (read from army data); they are intentionally
 # NOT in this table.
+#
+# The doc's §9 table mirrors every slot's constant name and #RRGGBB hex.
+# Change a slot here and in the doc together: tests/test_ui_constants_slots.gd
+# fails when the two drift apart.
 
 # ---------------------------------------------------------------------------
 # Slot table (canonical hex values, fully opaque)

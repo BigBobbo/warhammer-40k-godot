@@ -1,7 +1,11 @@
 {
   "id": "T01_uiconstants_present",
   "covers": ["design_guidelines.T01", "infra.ui_constants"],
-  "description": "Asserts the UIConstants autoload exposes the seven color slots with their canonical hex values, that slot_name() round-trips, and that striped_pattern() returns a non-null Texture2D. No UI driving — exercises the autoload contract that T03+ visual scripts depend on.",
+  "description": "UIConstants autoload contract, checked in the running game. The seven color slots are typed, fully opaque Colors with their canonical hex, the Constant/Hex table in docs/design_guidelines_2d_topdown.md §9 matches the live autoload 1:1, slot_name() round-trips every slot, and striped_pattern(Color.YELLOW) returns a Texture2D. Color.YELLOW only parses in multiline steps (the single-line Expression path rejects built-in type constants with \"Expected '('\"). Then tests/tools/ui_slot_palette_card.gd renders a palette card on a top CanvasLayer: each slot swatch with its live and doc hex, and a solid faction yellow next to striped_pattern(Color.YELLOW) at 1x and 4x. The scenario captures T01_after and reads that screenshot back, proving the stripes and slot colors reached the rendered frame. The card is removed before the scenario ends.",
+
+  "regions": {
+    "palette_card": [24, 24, 600, 652]
+  },
 
   "steps": [
     { "act": "wait_seconds", "seconds": 0.2 },
@@ -36,6 +40,16 @@
     { "act": "execute_script",
       "script": "UIConstants.FRIENDLY_PLAYER_TEAL.a",
       "equals": 1.0 },
+    { "act": "execute_script",
+      "script": "type_string(typeof(UIConstants.FRIENDLY_PLAYER_TEAL))",
+      "equals": "Color" },
+    { "act": "execute_script", "multiline": true,
+      "script": "var consts: Dictionary = UIConstants.get_script().get_script_constant_map()\nvar ok := 0\nfor n in [\"FRIENDLY_PLAYER_TEAL\", \"ENEMY_PLAYER_MAGENTA\", \"WARNING_ORANGE\", \"CONFIRMED_GREEN\", \"MARGINAL_YELLOW\", \"INVALID_RED\", \"NEUTRAL_UI_PALE_WHITE\"]:\n\tvar c = consts.get(n)\n\tif typeof(c) == TYPE_COLOR and c.a == 1.0 and UIConstants.get(n) == c:\n\t\tok += 1\nreturn ok",
+      "equals": 7 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var doc: Dictionary = load(\"res://tests/tools/ui_slot_doc_table.gd\").parse()\nif not doc[\"errors\"].is_empty():\n\treturn \"doc errors: %s\" % str(doc[\"errors\"])\nvar doc_slots: Dictionary = doc[\"slots\"]\nvar live: Dictionary = UIConstants.all_slots()\nif doc_slots.size() != live.size():\n\treturn \"doc lists %d slots, autoload has %d\" % [doc_slots.size(), live.size()]\nvar bad := []\nfor n in live:\n\tif doc_slots.get(n, \"\") != live[n].to_html(false):\n\t\tbad.append(\"%s doc=#%s live=#%s\" % [n, doc_slots.get(n, \"?\"), live[n].to_html(false)])\nreturn \"OK\" if bad.is_empty() else \", \".join(bad)",
+      "equals": "OK" },
 
     { "act": "execute_script",
       "script": "UIConstants.slot_name(UIConstants.WARNING_ORANGE)",
@@ -46,16 +60,19 @@
     { "act": "execute_script",
       "script": "UIConstants.slot_name(Color(0.1, 0.2, 0.3, 1.0))",
       "equals": "" },
+    { "act": "execute_script", "multiline": true,
+      "script": "var ok := 0\nfor n in UIConstants.all_slots():\n\tvar c: Color = UIConstants.get(n)\n\tif UIConstants.slot_name(c) == n and UIConstants.slot_name(Color.html(c.to_html(false))) == n:\n\t\tok += 1\nreturn ok",
+      "equals": 7 },
 
     { "act": "execute_script",
       "script": "UIConstants.all_slots().size()",
       "equals": 7 },
 
-    { "act": "execute_script",
-      "script": "UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)) != null",
+    { "act": "execute_script", "multiline": true,
+      "script": "var tex = UIConstants.striped_pattern(Color.YELLOW)\nreturn tex != null and tex is Texture2D",
       "equals": true },
-    { "act": "execute_script",
-      "script": "UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_class()",
+    { "act": "execute_script", "multiline": true,
+      "script": "return UIConstants.striped_pattern(Color.YELLOW).get_class()",
       "equals": "ImageTexture" },
 
     { "act": "execute_script",
@@ -65,7 +82,45 @@
       "script": "UIConstants.MOTION_PULSE_LOOP_S",
       "equals": 2.0 },
 
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/tools/ui_slot_palette_card.gd\").build(tree)",
+      "equals": 7 },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script",
+      "script": "T01SlotPaletteCard.get_node(\"SemanticYellowStriped\").texture.is_class(\"Texture2D\")",
+      "equals": true },
     { "act": "screenshot", "label": "T01_after" },
+
+    { "act": "pixel_diff",
+      "before": "T01_before", "after": "T01_after",
+      "region": "palette_card",
+      "expect_min_pct": 50.0 },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/tools/ui_slot_palette_card.gd\").measure(tree, \"user://test_results/scenarios/T01_uiconstants_present_T01_after.png\")[\"SemanticYellowStriped_transitions\"]",
+      "expect_min": 48 },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/tools/ui_slot_palette_card.gd\").measure(tree, \"user://test_results/scenarios/T01_uiconstants_present_T01_after.png\")[\"SemanticYellowStriped_yellow_pct\"]",
+      "expect_min": 40 },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/tools/ui_slot_palette_card.gd\").measure(tree, \"user://test_results/scenarios/T01_uiconstants_present_T01_after.png\")[\"SemanticYellowStriped_yellow_pct\"]",
+      "expect_max": 60 },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/tools/ui_slot_palette_card.gd\").measure(tree, \"user://test_results/scenarios/T01_uiconstants_present_T01_after.png\")[\"SemanticYellowStripedZoom_transitions\"]",
+      "expect_min": 24 },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/tools/ui_slot_palette_card.gd\").measure(tree, \"user://test_results/scenarios/T01_uiconstants_present_T01_after.png\")[\"FactionYellowSolid_transitions\"]",
+      "equals": 0 },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/tools/ui_slot_palette_card.gd\").measure(tree, \"user://test_results/scenarios/T01_uiconstants_present_T01_after.png\")[\"FactionYellowSolid_yellow_pct\"]",
+      "equals": 100 },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/tools/ui_slot_palette_card.gd\").measure(tree, \"user://test_results/scenarios/T01_uiconstants_present_T01_after.png\")[\"slot_swatch_matches\"]",
+      "equals": 7 },
+
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://tests/tools/ui_slot_palette_card.gd\").remove(tree)",
+      "equals": true },
 
     { "act": "expect_baseline_unchanged" }
   ]
