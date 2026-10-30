@@ -33,6 +33,7 @@ func _init():
 	# Competitive: no score noise (the -s harness would otherwise default the
 	# difficulty static, see test_ai_charge_decisions.gd).
 	AIDecisionMaker._current_difficulty = AIDifficultyConfig.Difficulty.COMPETITIVE
+	AIDecisionMaker._config_overrides["FIX_CHARGE_EV"] = 1.0  # the fix may be off by default; the checks switch it on
 	_test_failed_charger_pays_no_gang_up()
 	_test_lone_killer_gets_no_gang_up_from_failed_charger()
 	_test_arrived_charger_still_pays_kill_bonus()
@@ -181,7 +182,7 @@ func _test_param_zero_restores_base() -> void:
 	_record_guard_declared(snap)
 	AIDecisionMaker._config_overrides["FIX_CHARGE_EV"] = 0.0
 	var g := _gang_up(snap.units.pros, snap.units.scouts, snap)
-	AIDecisionMaker._config_overrides.erase("FIX_CHARGE_EV")
+	AIDecisionMaker._config_overrides["FIX_CHARGE_EV"] = 1.0  # the fix may be off by default; the checks switch it on
 	_assert(g == 5.0, "FIX_CHARGE_EV = 0: the failed charger counts again — old kill gang-up bonus (ch_gang_up %.1f, want 5)" % g)
 
 # ---------------------------------------------------------------------------

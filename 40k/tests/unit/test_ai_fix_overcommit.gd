@@ -31,6 +31,7 @@ var _fail_count: int = 0
 
 func _init():
 	print("\n=== Top-ups onto a lost race (OVERCOMMIT) ===\n")
+	AIDecisionMaker._config_overrides["FIX_OVERCOMMIT"] = 1.0  # the fix may be off by default; the checks switch it on
 	test_second_unit_not_stacked_on_lost_race()
 	test_top_up_stands_when_it_wins_the_race()
 	test_top_up_stands_without_a_near_alternative()
@@ -162,6 +163,6 @@ func test_param_zero_restores_base() -> void:
 	var enemies = {}
 	var snap = _board(enemies, 3)
 	var plan = _plan(snap, ["alpha", "beta"], enemies)
-	AIDecisionMaker._config_overrides.erase("FIX_OVERCOMMIT")
+	AIDecisionMaker._config_overrides["FIX_OVERCOMMIT"] = 1.0  # the fix may be off by default; the checks switch it on
 	_assert(_goes_to(plan, "alpha", "obj_x") and _goes_to(plan, "beta", "obj_x"),
 		"with the fix off beta tops up obj_x as before")

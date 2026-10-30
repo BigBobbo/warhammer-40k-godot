@@ -29,6 +29,7 @@ var _fail_count: int = 0
 
 func _init():
 	print("\n=== Durable units on lone, lost trips (FAR-TRIP) ===\n")
+	AIDecisionMaker._config_overrides["FIX_FAR_TRIP"] = 1.0  # the fix may be off by default; the checks switch it on
 	test_durable_squad_not_sent_alone_on_lost_race()
 	test_durable_squad_not_sent_on_leftover_lost_trip()
 	test_lost_race_kept_when_other_units_can_join()
@@ -209,5 +210,5 @@ func test_param_zero_restores_base() -> void:
 	_add_durable(snap, "b", POS_B)
 	_add_enemies(snap, enemies)
 	var plan = _plan(snap, ["a", "b"], enemies)
-	AIDecisionMaker._config_overrides.erase("FIX_FAR_TRIP")
+	AIDecisionMaker._config_overrides["FIX_FAR_TRIP"] = 1.0  # the fix may be off by default; the checks switch it on
 	_assert(_goes_to(plan, "b", "obj_x"), "with the fix off squad b is sent on the lost trip to obj_x as before")

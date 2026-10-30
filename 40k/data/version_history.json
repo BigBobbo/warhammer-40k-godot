@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.6",
+      "date": "2026-10-30",
+      "summary": "The AI reads objective control on terrain correctly and stops wasting moves on objectives it already holds.",
+      "changes": [
+        "Movement: the AI now counts every model on the terrain area that holds an objective when it checks who controls it, as the 11th edition rules do. Before, it looked only near the objective marker, so it sent extra units, and reserve units arriving on the table, to objectives it already held.",
+        "Movement: the AI no longer sends a fragile unit (Toughness 3 or less, 1-wound models or a lone character) alone to a far objective where the enemy has much more OC than the AI can bring."
+      ]
+    },
+    {
       "version": "1.56.5",
       "date": "2026-10-29",
       "summary": "The AI playing second claims its own side's objectives in round 1 again.",
