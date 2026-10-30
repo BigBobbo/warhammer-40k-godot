@@ -1,0 +1,939 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..ee1e234 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1594,14 +1594,17 @@ const KEEPER_POINTS_WEIGHT: float = 2.0
+ # end of the enemy's next turn (on-board units: Move + charge + pile-in +
+ # consolidate; reserves: any from battle round 2 (15.07), in round 1 only a
+ # unit a rule lets arrive early), another of our units can stand on it within
+-# one move, the keeper is not fragile, and its best objective elsewhere (not a
+-# lost race) outscores holding by KEEPER_RELEASE_MIN_GAIN. The keeper goes to
+-# that objective — as a capture, or joining (with a Normal move, no Advance) a
+-# unit the plan sends there that gets there first — and every other unit keeps
+-# its plan. A Custodian Guard unit idled a whole first turn on a home objective
+-# the Reconnaissance card does not pay for while the Orks were 30" away
+-# (LLM-critic cluster keeper_release; moving it to the objective Gamma takes
+-# measured +8.0 VP [3.4, 12.6], 12 rollouts). 0 = previous behaviour.
++# one move — and one still is when the plan is done — the keeper is not
++# fragile, and its best objective elsewhere (not a lost race) outscores
++# holding by KEEPER_RELEASE_MIN_GAIN. The keeper goes to that objective after
++# the whole plan is made, so every other unit keeps exactly its base plan: as
++# a capture, or joining a unit the plan sends there that gets there first —
++# then with a Normal move, recorded at that pace, that must still arrive
++# before the game ends and not be a hopeless race. A Custodian Guard unit
++# idled a whole first turn on a home objective the Reconnaissance card does
++# not pay for while the Orks were 30" away (LLM-critic cluster
++# keeper_release; moving it to the objective Gamma takes measured +8.0 VP
++# [3.4, 12.6], 12 rollouts). 0 = previous behaviour.
+ const FIX_KEEPER_RELEASE: float = 1.0
+ # KEEPER-RELEASE: how many planner score points the keeper's best objective
+ # elsewhere must beat holding by (the round-1 stay bonus is 5).
+@@ -9068,30 +9071,30 @@ static func _initial_objective_oc_needs(obj_evaluations: Array, friendly_units:
+ 	return obj_oc_remaining
+ 
+ ## KEEPER-RELEASE (FIX_KEEPER_RELEASE): may `hold` — the sole keeper's
+-## candidate on our home objective `ev` — leave it this phase? {} = it holds.
+-## Else {target: its best candidate elsewhere, objective_id, hold, backups:
+-## [{unit_id, name}] cheapest first}. All of: the keeper is not fragile (a
+-## cheap fragile unit is KEEPER-PICK's natural keeper, and LONE-TRIP's case);
+-## a target that is not a lost race, arrives before the game ends and
+-## outscores holding by KEEPER_RELEASE_MIN_GAIN; our primary card does not pay
+-## for the objective; other units of ours (not attached to the keeper) can
+-## stand on it within one move — the plan keeps one of them near it (checked
+-## after pass 2); and no enemy unit can be in range of it by the end of the
+-## enemy's next turn.
++## candidate on our home objective `ev` — leave it this phase? {kept: why}
++## = it holds. Else {target: its best candidate elsewhere, objective_id, hold,
++## backups: [{unit_id, name, points, move}] cheapest first}. All of: the keeper
++## is not fragile (a cheap fragile unit is KEEPER-PICK's natural keeper, and
++## LONE-TRIP's case); a target that is not a lost race, arrives before the
++## game ends and outscores holding by KEEPER_RELEASE_MIN_GAIN; our primary
++## card does not pay for the objective; other units of ours (not attached to
++## the keeper) can stand on it within one move — the finished plan must keep
++## one of them near it (checked after pass 3); and no enemy unit can be in
++## range of it by the end of the enemy's next turn.
+ static func _keeper_release_check(snapshot: Dictionary, hold: Dictionary, ev: Dictionary,
+ 		candidates: Array, enemies: Dictionary, player: int, battle_round: int) -> Dictionary:
+ 	if not ev.get("is_home", false):
+-		return {}
++		return {"kept": "not our home objective"}
+ 	var units: Dictionary = snapshot.get("units", {})
+ 	var uid := str(hold.unit_id)
+ 	var unit: Dictionary = units.get(uid, {})
+ 	if unit.is_empty() or _lone_trip_fragile(unit):
+-		return {}
++		return {"kept": "a fragile keeper"}
+ 	# An authored plan's order to hold this objective (PM-3 HOLD_OBJECTIVE
+ 	# earmark) keeps the keeper, as on the base.
+ 	if str(hold.get("earmark", "")).begins_with("HOLD_OBJECTIVE"):
+ 		print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — the plan orders it to hold (%s)" % [ev.get("id", "?"), uid, str(hold.earmark)])
+-		return {}
++		return {"kept": "the plan orders it to hold"}
+ 	var min_gain = get_param("KEEPER_RELEASE_MIN_GAIN", KEEPER_RELEASE_MIN_GAIN)
+ 	var target: Dictionary = {}
+ 	for c in candidates:
+@@ -9101,8 +9104,10 @@ static func _keeper_release_check(snapshot: Dictionary, hold: Dictionary, ev: Di
+ 			continue
+ 		if float(c.score) >= float(hold.score) + min_gain and (target.is_empty() or float(c.score) > float(target.score)):
+ 			target = c
+-	if target.is_empty() or _keeper_release_primary_counts(player, ev):
+-		return {}
++	if target.is_empty():
++		return {"kept": "no objective elsewhere outscores holding by %.1f" % float(min_gain)}
++	if _keeper_release_primary_counts(player, ev):
++		return {"kept": "our primary pays for it"}
+ 	var keeper_group: Array = [uid]
+ 	var k_att = unit.get("attachment_data", {})
+ 	if k_att is Dictionary:
+@@ -9118,9 +9123,10 @@ static func _keeper_release_check(snapshot: Dictionary, hold: Dictionary, ev: Di
+ 			continue
+ 		if int(f_arr.get("moves", 99)) <= 1 and int(f_arr.get("oc", 0)) > 0:
+ 			backups.append({"unit_id": f_uid, "name": _dn(units.get(f_uid, {}), f_uid),
+-				"points": float(units.get(f_uid, {}).get("meta", {}).get("points", 0))})
++				"points": float(units.get(f_uid, {}).get("meta", {}).get("points", 0)),
++				"move": float(units.get(f_uid, {}).get("meta", {}).get("stats", {}).get("move", 6))})
+ 	if backups.is_empty():
+-		return {}
++		return {"kept": "no other unit can stand on it within one move"}
+ 	backups.sort_custom(func(a, b): return float(a.points) < float(b.points))
+ 	# The enemy's next turn: this battle round if we take the first turn of
+ 	# each round, else the next one.
+@@ -9129,9 +9135,109 @@ static func _keeper_release_check(snapshot: Dictionary, hold: Dictionary, ev: Di
+ 	var threat := _keeper_release_threat(snapshot, ev, enemies, player, enemy_round)
+ 	if threat != "":
+ 		print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — %s" % [ev.id, uid, threat])
+-		return {}
++		return {"kept": threat}
+ 	return {"target": target, "objective_id": str(ev.id), "hold": hold, "backups": backups}
+ 
++## KEEPER-RELEASE: candidate `c` — a trip the planner prices as an Advance —
++## re-priced as a Normal move of the same unit to the same objective: the
++## turns a Normal move needs (the REACH-CR gap / M) and every term the
++## candidate loop of _assign_units_to_objectives derives from them — the
++## contest race (RACE-1/1b, RACE-LATE, RACE-ARMY), the distance penalty, the
++## reach horizon and the reachability terms. The other terms do not depend on
++## the pace and are kept. This repeats that loop's arithmetic for one
++## candidate; test_ai_fix_keeper_release pins the two together (with
++## MOVE_LONG_ADVANCE = 0 the loop itself builds the same trip as a Normal
++## move, and the results must match).
++static func _keeper_release_normal_pace(c: Dictionary, ev: Dictionary, battle_round: int) -> Dictionary:
++	var n: Dictionary = c.duplicate(true)
++	n["action"] = "move"
++	n["reason"] = "moving to objective"
++	var move_in := float(c.get("move_inches", 6.0))
++	var dist_in := float(c.get("distance", 0.0)) / PIXELS_PER_INCH
++	var gap_in := maxf(0.0, dist_in - OBJECTIVE_CONTROL_RANGE_PX / PIXELS_PER_INCH)
++	if get_param("PLAN_REACH_CR", 1.0) < 0.5:
++		gap_in = dist_in
++	var turns: float = max(1.0, ceil(gap_in / move_in)) if move_in > 0 else 99.0
++	n["turns_to_reach"] = turns
++	if is_equal_approx(turns, float(c.get("turns_to_reach", turns))):
++		return n  # already priced at a Normal move's pace (a short Advance)
++	var old_terms: Dictionary = c.get("score_terms", {})
++	var score := float(old_terms.get("objective_priority", 0.0))
++	var terms := {"objective_priority": score}
++	if old_terms.has("oc_efficiency"):
++		score += _t_add(terms, "oc_efficiency", float(old_terms.oc_efficiency))
++	# RACE-1 contest race, at the Normal pace (the candidate loop's block).
++	var unit_id := str(c.get("unit_id", ""))
++	var unit_oc := int(c.get("unit_oc", 1))
++	var race_same_turn: bool = get_param("PLAN_RACE_SAME_TURN", 1.0) >= 0.5
++	var race_enemy_oc := 0
++	var race_army_oc := 0
++	var race_lost := false
++	if turns > 1:
++		race_enemy_oc = int(ev.get("enemy_oc", 0))
++		var race_half_oc := 0
++		var race_early_oc := race_enemy_oc
++		var race_early_half_oc := 0
++		for arr in ev.get("enemy_arrivals", []):
++			if int(arr.moves) <= int(turns) - (0 if race_same_turn else 1):
++				if arr.get("nearest", true):
++					race_enemy_oc += int(arr.oc)
++				else:
++					race_half_oc += int(arr.oc)
++			if int(arr.moves) <= int(turns) - 1:
++				if arr.get("nearest", true):
++					race_early_oc += int(arr.oc)
++				else:
++					race_early_half_oc += int(arr.oc)
++		race_enemy_oc += int(round(race_half_oc * 0.5))
++		race_early_oc += int(round(race_early_half_oc * 0.5))
++		var race_our_oc: int = unit_oc + int(ev.get("friendly_oc", 0))
++		race_army_oc = int(ev.get("friendly_oc", 0)) + unit_oc
++		var army_half_oc := 0
++		for f_arr in ev.get("friendly_arrivals", []):
++			if str(f_arr.get("unit_id", "")) == unit_id:
++				continue
++			if int(f_arr.moves) <= int(turns):
++				if f_arr.get("nearest", true):
++					race_army_oc += int(f_arr.oc)
++				else:
++					army_half_oc += int(f_arr.oc)
++		race_army_oc += int(round(army_half_oc * 0.5))
++		var race_lost_now: bool = race_enemy_oc >= race_our_oc
++		if get_param("PLAN_RACE_LATE_VS_ARMY", PLAN_RACE_LATE_VS_ARMY) >= 0.5:
++			race_lost_now = race_early_oc >= race_our_oc \
++					or race_enemy_oc >= maxi(race_our_oc, race_army_oc)
++		if race_enemy_oc > 0 and race_lost_now and score > 0.0:
++			race_lost = true
++			score = _t_mul(terms, "contest_race", score,
++				get_param("MOVE_RACE_LOSS_FACTOR", MOVE_RACE_LOSS_FACTOR))
++	n["race_enemy_oc"] = race_enemy_oc
++	n["race_army_oc"] = race_army_oc
++	n["race_lost"] = race_lost
++	if turns > 1:
++		var per_turn := maxf(get_param("MOVE_TURNS_AWAY_PENALTY", MOVE_TURNS_AWAY_PENALTY),
++			get_param("MOVE_TURNS_AWAY_FRACTION", MOVE_TURNS_AWAY_FRACTION) * maxf(0.0, score))
++		score += _t_add(terms, "distance_penalty", -((turns - 1) * per_turn))
++	if get_param("MOVE_REACH_HORIZON", MOVE_REACH_HORIZON) > 0.0:
++		var arrival_round := battle_round + int(turns) - 1
++		var scoring_chances := maxi(0, MAX_BATTLE_ROUNDS_AI - arrival_round)
++		var total_chances := maxi(1, MAX_BATTLE_ROUNDS_AI - battle_round)
++		var reach_factor := maxf(float(scoring_chances) / float(total_chances),
++			get_param("MOVE_UNREACHABLE_FLOOR", MOVE_UNREACHABLE_FLOOR))
++		score = _t_mul(terms, "reach_horizon", score, reach_factor)
++	if gap_in <= move_in:
++		score += _t_add(terms, "reachability", get_param("MOVE_REACHABLE_BONUS", MOVE_REACHABLE_BONUS))
++	elif gap_in <= move_in + 2.0:
++		score += _t_add(terms, "reachability", get_param("MOVE_ADVANCE_REACHABLE_BONUS", MOVE_ADVANCE_REACHABLE_BONUS))
++	if battle_round == 1 and turns > 1:
++		score += _t_add(terms, "reachability", -(get_param("MOVE_UNREACHABLE_EARLY_PENALTY", MOVE_UNREACHABLE_EARLY_PENALTY)))
++	for k in old_terms:
++		if not k in ["objective_priority", "oc_efficiency", "contest_race", "distance_penalty", "reach_horizon", "reachability"]:
++			score += _t_add(terms, k, float(old_terms[k]))
++	n["score"] = score
++	n["score_terms"] = terms
++	return n
++
+ ## KEEPER-RELEASE: does our primary card pay for holding `ev` (a rule active
+ ## this round, or scoring at our next Command phase, counts it)? True when the
+ ## card is unknown — only a card that leaves the objective out releases a keeper.
+@@ -9166,9 +9272,12 @@ static func _keeper_release_primary_counts(player: int, ev: Dictionary) -> bool:
+ 
+ ## KEEPER-RELEASE: the enemy unit that can be in range of `ev` by the end of
+ ## the enemy's next turn (battle round `enemy_round`), or "". On the board: a
+-## model within Move + 12" charge + 6" pile-in and consolidate (+6" Advance
+-## when it may advance and charge) of the objective's range — of its hosting
+-## area on an 11e terrain objective. In reserves: any unit from battle round 2
++## model within Move + 12" charge + 6" pile-in and consolidate of the
++## objective's range — of its hosting area on an 11e terrain objective. That
++## envelope is already a worst case; the +6" Advance on top counts only an
++## advance-and-charge effect active NOW (flags.effect_advance_and_charge), not
++## one the enemy could still use in its own Command phase (e.g. an unused
++## Waaagh!). In reserves: any unit from battle round 2
+ ## (15.07); in round 1 only one a rule lets arrive early (an enhancement on it
+ ## or a unit attached to it, or an army ability that names a first Movement
+ ## phase or a higher battle round for ingress — Drop Pod Assault, High King
+@@ -9889,7 +9998,7 @@ static func _assign_units_to_objectives(
+ 				or (sufficient == cur.sufficient and key < float(cur.key)):
+ 			obj_keeper[cand.objective_id] = {"uid": cand.unit_id, "key": key, "sufficient": sufficient}
+ 
+-	# KEEPER-RELEASE (FIX_KEEPER_RELEASE): keepers that leave after pass 2.
++	# KEEPER-RELEASE (FIX_KEEPER_RELEASE): keepers that leave after pass 3.
+ 	var keeper_release_on = get_param("FIX_KEEPER_RELEASE", FIX_KEEPER_RELEASE) >= 0.5
+ 	var keeper_released := {}  # unit_id -> _keeper_release_check result
+ 	for cand in candidates:
+@@ -9935,12 +10044,12 @@ static func _assign_units_to_objectives(
+ 				should_hold = true
+ 				# KEEPER-RELEASE (FIX_KEEPER_RELEASE): the sole keeper of a home
+ 				# objective that pays nothing before the enemy can threaten it.
+-				# It holds through pass 2 (every other unit plans as before) and
+-				# takes its target after it.
++				# It holds through every pass (every other unit plans exactly as
++				# on the base) and takes its target after pass 3.
+ 				if keeper_release_on and int(units_on_obj_initial.get(oid, 0)) <= 1:
+ 					var kr: Dictionary = _keeper_release_check(snapshot, cand, eval_for_obj, candidates,
+ 						enemies, player, battle_round)
+-					if not kr.is_empty():
++					if kr.has("target"):
+ 						keeper_released[uid] = kr
+ 		# If multiple units on same held_safe objective, let extras move elsewhere
+ 
+@@ -10373,60 +10482,6 @@ static func _assign_units_to_objectives(
+ 
+ 		apply_capture_assignment.call(cand)
+ 
+-	# KEEPER-RELEASE (FIX_KEEPER_RELEASE): a released keeper leaves its home
+-	# objective for its target now — after the greedy pass, so every other
+-	# unit has the plan it had with the keeper holding. If another unit already
+-	# takes the target, the keeper joins it there. It stays when the plan sends
+-	# every unit that could re-take home in one move elsewhere, or when the
+-	# plan's other captures have devalued the target (DIM-RETURNS / FAR-TRIP).
+-	for kr_uid in keeper_released:
+-		var kr: Dictionary = keeper_released[kr_uid]
+-		var kr_t: Dictionary = kr.target
+-		var kr_oid := str(kr_t.objective_id)
+-		var kr_backup := ""
+-		for b in kr.backups:
+-			var b_oid := str(assignments.get(b.unit_id, {}).get("objective_id", kr.objective_id))
+-			if b_oid == str(kr.objective_id) or not b_oid.begins_with("obj"):
+-				kr_backup = str(b.name)  # not sent to another objective this phase
+-				break
+-		if kr_backup == "":
+-			print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — every unit that could re-take it in one move is sent elsewhere" % [
+-				kr.objective_id, kr_uid])
+-			continue
+-		if (int(obj_oc_remaining.get(kr_oid, 0)) > 0 \
+-				and (reprice_capture.call(kr_oid) as Dictionary).get("skip", false)) or far_trip.call(kr_t):
+-			print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — %s is not worth the trip with the rest of this plan (DIM-RETURNS / FAR-TRIP)" % [
+-				kr.objective_id, kr_uid, kr_oid])
+-			continue
+-		kr["why"] = "our primary does not pay for it, no enemy can reach it before our next turn, and %s can re-take it in one move" % kr_backup
+-		var kr_with: Array = []  # the units the plan already sends there
+-		var kr_first := false  # one of them is there, or gets there no later than the keeper
+-		for a_uid in assignments:
+-			if str(a_uid) != str(kr_uid) and str(assignments[a_uid].get("objective_id", "")) == kr_oid \
+-					and assignments[a_uid].get("action", "") in ["hold", "move", "advance"]:
+-				kr_with.append(_dn(snapshot.get("units", {}).get(a_uid, {}), a_uid))
+-				if assignments[a_uid].get("action", "") == "hold" \
+-						or int(assignments[a_uid].get("turns_to_reach", 99)) <= int(kr_t.get("turns_to_reach", 1)):
+-					kr_first = true
+-		for n in incoming_names.get(kr_oid, []):
+-			if not n in kr_with:
+-				kr_with.append(n)
+-				kr_first = true  # already moved toward it this phase
+-		# Joining a unit that takes the target first, the keeper gains nothing by
+-		# arriving a turn sooner (RACE-1's Advance) and would give up shooting
+-		# and charging this turn: it makes a Normal move.
+-		if kr_first and str(kr_t.get("action", "")) == "advance":
+-			kr_t = kr_t.duplicate()
+-			kr_t["action"] = "move"
+-		apply_capture_assignment.call(kr_t)
+-		assignments[kr_uid]["assign_pass"] = "keeper_release"
+-		if not kr_with.is_empty():
+-			assignments[kr_uid]["reason"] = "joining %s there" % ", ".join(kr_with)
+-		assignments[kr_uid]["coordination_note"] = "leaving %s — %s" % [kr.objective_id, kr.why]
+-		print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s leaves it for %s (%s, score %.1f vs %.1f holding) — %s" % [
+-			kr.objective_id, kr_uid, kr_oid, str(kr_t.action).to_upper(), float(kr_t.score),
+-			float(kr.hold.score), kr.why])
+-
+ 	# =========================================================================
+ 	# PASS 2.5 (COORD-4): ATTACK-INTENT CONVERSION — melee seekers that would
+ 	# abandon their objective for a nearby enemy decide it HERE, at plan time,
+@@ -10795,6 +10850,123 @@ static func _assign_units_to_objectives(
+ 				"distance": 0.0
+ 			}
+ 
++	# KEEPER-RELEASE (FIX_KEEPER_RELEASE): a released keeper leaves its home
++	# objective for its target now — after pass 3, so every other unit keeps
++	# exactly the plan it has with the keeper holding (the plan the value check
++	# measured, where only the keeper's own order was changed). It stays when
++	# the plan no longer has it hold home (pass 2.5 sent it to attack); when no
++	# unit that could re-take home in one move is still near home in the
++	# finished plan (not moving, holding in place, sent to home, or screening
++	# within one move of it); when the walk it makes to join a unit that gets
++	# there first is a trip the planner refuses outright (below); or when the
++	# plan's other captures have devalued the target (DIM-RETURNS / FAR-TRIP).
++	# If another unit already takes the target, the keeper joins it there.
++	var keeper_normal_pace := {}  # unit_id -> the Normal-move candidate it acts on (its record)
++	for kr_uid in keeper_released:
++		var kr: Dictionary = keeper_released[kr_uid]
++		var kr_home := str(kr.objective_id)
++		var kr_cur: Dictionary = assignments.get(kr_uid, {})
++		if str(kr_cur.get("action", "")) != "hold" or str(kr_cur.get("objective_id", "")) != kr_home:
++			print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s is not released — the plan now has it %s %s" % [
++				kr_home, kr_uid, str(kr_cur.get("action", "?")),
++				str(kr_cur.get("attack_target_name", kr_cur.get("objective_id", "?")))])
++			continue
++		var kr_t: Dictionary = kr.target
++		var kr_oid := str(kr_t.objective_id)
++		var kr_home_pos: Vector2 = kr.hold.get("objective_pos", Vector2.INF)
++		var kr_backup := ""
++		for b in kr.backups:
++			var b_a: Dictionary = assignments.get(b.unit_id, {})
++			var b_oid := str(b_a.get("objective_id", ""))
++			var b_act := str(b_a.get("action", ""))
++			# not moving this phase, sent to home, or staying where it is
++			var b_near: bool = b_a.is_empty() or b_oid == kr_home \
++					or (b_act == "hold" and not b_oid.begins_with("obj"))
++			if not b_near and b_act == "screen":
++				# a screen / block position within one move (M + 2", as
++				# friendly_arrivals counts it) of home's control range
++				var b_dest: Vector2 = b_a.get("objective_pos", Vector2.INF)
++				b_near = b_dest != Vector2.INF and kr_home_pos != Vector2.INF \
++						and b_dest.distance_to(kr_home_pos) - OBJECTIVE_CONTROL_RANGE_PX \
++							<= (float(b.get("move", 6.0)) + 2.0) * PIXELS_PER_INCH
++			if b_near:
++				kr_backup = str(b.name)
++				break
++		if kr_backup == "":
++			print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — every unit that could re-take it in one move is sent elsewhere" % [
++				kr_home, kr_uid])
++			continue
++		kr["why"] = "our primary does not pay for it, no enemy can reach it before our next turn, and %s can re-take it in one move" % kr_backup
++		var kr_with: Array = []  # the units the plan already sends there
++		var kr_first := false  # one of them is there, or gets there no later than the keeper
++		for a_uid in assignments:
++			if str(a_uid) != str(kr_uid) and str(assignments[a_uid].get("objective_id", "")) == kr_oid \
++					and assignments[a_uid].get("action", "") in ["hold", "move", "advance"]:
++				kr_with.append(_dn(snapshot.get("units", {}).get(a_uid, {}), a_uid))
++				if assignments[a_uid].get("action", "") == "hold" \
++						or int(assignments[a_uid].get("turns_to_reach", 99)) <= int(kr_t.get("turns_to_reach", 1)):
++					kr_first = true
++		for n in incoming_names.get(kr_oid, []):
++			if not n in kr_with:
++				kr_with.append(n)
++				kr_first = true  # already moved toward it this phase
++		# Joining a unit that gets to the target first, the keeper makes a
++		# Normal move, not RACE-1's Advance: at the finding (s7437 r1) the
++		# Normal move measured +8.0 VP over holding (12 rollouts; +7.3 over 36),
++		# the Advance +1.0 (3 rollouts). The release stays priced on the trip
++		# as the planner builds it (pass 1). The walk is re-priced at a Normal
++		# move's pace (_keeper_release_normal_pace) — that is the candidate it
++		# acts on and is recorded with — and must pass the rules that refuse a
++		# trip outright: it arrives before the game ends (TOO-LATE) and is not
++		# a hopeless race (RACE-SKIP), else the keeper holds. Its contest race
++		# and score at that pace are not gates: at the finding the walk prices
++		# as a lost race (~24 enemy OC within its 4 turns) a little above
++		# holding, below holding + KEEPER_RELEASE_MIN_GAIN, and it measured best.
++		var kr_normal := false  # re-priced as a Normal move (below)
++		var kr_trip: Dictionary = kr_t  # the trip the release is priced on
++		if kr_first and str(kr_t.get("action", "")) == "advance":
++			var kr_n := _keeper_release_normal_pace(kr_t, _get_obj_eval_by_id(obj_evaluations, kr_oid), battle_round)
++			var kr_no := ""
++			if too_late.call(kr_n):
++				kr_no = "it needs %d turns and would arrive after the last battle round" % int(kr_n.turns_to_reach)
++			elif race_hopeless.call(kr_n):
++				kr_no = "the enemy can have ~%d OC there within its %d turns — a hopeless race" % [
++					int(kr_n.race_enemy_oc), int(kr_n.turns_to_reach)]
++			if kr_no != "":
++				print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — joining %s at %s with a Normal move: %s" % [
++					kr_home, kr_uid, ", ".join(kr_with), kr_oid, kr_no])
++				continue
++			kr_t = kr_n
++			kr_normal = true
++		if (int(obj_oc_remaining.get(kr_oid, 0)) > 0 \
++				and (reprice_capture.call(kr_oid) as Dictionary).get("skip", false)) or far_trip.call(kr_t):
++			print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — %s is not worth the trip with the rest of this plan (DIM-RETURNS / FAR-TRIP)" % [
++				kr_home, kr_uid, kr_oid])
++			continue
++		# Pass 2.5 has run: a melee seeker its chase gate would send hunting
++		# from this trip (the gate for a moving unit) keeps home instead, as
++		# the gate for a holding unit kept it on the base.
++		var kr_gate: Dictionary = _melee_chase_gate(snapshot.get("units", {}).get(kr_uid, {}), kr_uid, kr_t,
++			enemies, friendly_units, snapshot, player)
++		if not kr_gate.is_empty():
++			print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — moving, it would go hunting %s instead (melee chase)" % [
++				kr_home, kr_uid, str(kr_gate.get("target_name", "?"))])
++			continue
++		if kr_normal:
++			keeper_normal_pace[kr_uid] = kr_t
++			kr["why"] += "; its trip to %s scores %.1f vs %.1f holding, and it walks there (a Normal move: %d turns, %.1f at that pace%s) to join %s, who get%s there first" % [
++				kr_oid, float(kr_trip.score), float(kr.hold.score), int(kr_t.turns_to_reach), float(kr_t.score),
++				", a race the enemy can win" if kr_t.get("race_lost", false) else "",
++				", ".join(kr_with), "s" if kr_with.size() == 1 else ""]
++		apply_capture_assignment.call(kr_t)
++		assignments[kr_uid]["assign_pass"] = "keeper_release"
++		if not kr_with.is_empty():
++			assignments[kr_uid]["reason"] = "joining %s there" % ", ".join(kr_with)
++		assignments[kr_uid]["coordination_note"] = "leaving %s — %s" % [kr_home, kr.why]
++		print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s leaves it for %s (%s, score %.1f vs %.1f holding) — %s" % [
++			kr_home, kr_uid, kr_oid, str(kr_t.action).to_upper(), float(kr_trip.score),
++			float(kr.hold.score), kr.why])
++
+ 	# COORD-3: stash each unit's candidate list so its decision card can be
+ 	# emitted ONCE, at the moment the unit actually acts (see
+ 	# _finalize_movement_decision). Previously every decide() call re-recorded
+@@ -10806,6 +10978,13 @@ static func _assign_units_to_objectives(
+ 		if not _last_movement_candidates.has(c_uid):
+ 			_last_movement_candidates[c_uid] = []
+ 		_last_movement_candidates[c_uid].append(cand)
++	# KEEPER-RELEASE: a keeper that joins with a Normal move is recorded with
++	# the candidate it acts on (a Normal move's turns, race and score) — first,
++	# so its card is the chosen one — beside the Advance the planner priced for
++	# the same trip.
++	for kn_uid in keeper_normal_pace:
++		if _last_movement_candidates.has(kn_uid):
++			(_last_movement_candidates[kn_uid] as Array).push_front(keeper_normal_pace[kn_uid])
+ 
+ 	# COORD-2: attach redirect notes — narrated when the affected unit acts
+ 	for uid in blocked_best:
+diff --git a/40k/tests/unit/test_ai_fix_keeper_release.gd b/40k/tests/unit/test_ai_fix_keeper_release.gd
+index 40ba44e..8d631d2 100644
+--- a/40k/tests/unit/test_ai_fix_keeper_release.gd
++++ b/40k/tests/unit/test_ai_fix_keeper_release.gd
+@@ -5,13 +5,21 @@ extends SceneTree
+ # the enemy can threaten it — our primary card counts home in none of its rules
+ # (every hold rule excludes home), no enemy unit can be in range of it by the
+ # end of the enemy's next turn (on-board reach, reserves that can arrive), and
+-# another of our units can stand on it within one move. LLM-critic cluster
+-# keeper_release (value-checked, 2026-10-30): going first in round 1, a
+-# Custodian Guard unit idled a whole turn on a home objective the
+-# Reconnaissance card does not pay for while the Orks were 30" away (sending it
+-# forward measured +8.0 VP [3.4, 12.6] over 12 rollouts). Guardrail: a home
+-# objective the card does pay for (Destroyer's Wrath hold_more), or enemy
+-# reserves that arrive in the enemy's next turn, keep the keeper.
++# another of our units can stand on it within one move and still can when the
++# plan is done. LLM-critic cluster keeper_release (value-checked, 2026-10-30):
++# going first in round 1, a Custodian Guard unit idled a whole turn on a home
++# objective the Reconnaissance card does not pay for while the Orks were 30"
++# away (sending it forward measured +8.0 VP [3.4, 12.6] over 12 rollouts).
++# Guardrail: a home objective the card does pay for (Destroyer's Wrath
++# hold_more), or enemy reserves that arrive in the enemy's next turn, keep the
++# keeper.
++#
++# The release is applied after pass 3, so every other unit keeps its base
++# plan. A keeper that joins a unit getting to its target first walks (Normal
++# move) instead of RACE-1's Advance; that walk is the candidate it acts on and
++# is recorded with (a Normal move's turns, race and score, the same numbers the
++# planner's own loop gives a Normal move), and it must not be a trip the
++# planner refuses outright (TOO-LATE, RACE-SKIP).
+ # Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_keeper_release.gd
+ 
+ const GameStateData = preload("res://autoloads/GameState.gd")
+@@ -23,6 +31,7 @@ const HOME := Vector2(510, 340)      # our home objective (player 1 zone)
+ const NML := Vector2(890, 560)       # a no man's land objective ~11" away
+ const FAR_NML := Vector2(1370, 660)  # a no man's land objective ~23" away (an Advance trip)
+ const ENEMY_HOME := Vector2(1250, 2060)
++const NML_2 := Vector2(300, 1200)    # a second no man's land objective (DIM-RETURNS board)
+ 
+ # Reconnaissance Sweep: table quarters, kills, and hold_min that excludes home.
+ const RECON_RULES := [
+@@ -45,6 +54,8 @@ const WRATH_RULES := [
+ 
+ var _pass_count: int = 0
+ var _fail_count: int = 0
++var _last_evals: Array = []     # the objective evaluations of the last _plan
++var _last_kr: Dictionary = {}   # _keeper_release_check on the last plan's keeper (pass 1)
+ 
+ func _init():
+ 	print("\n=== Sole keeper of a home objective that pays nothing (KEEPER-RELEASE) ===\n")
+@@ -52,13 +63,18 @@ func _init():
+ 	test_keeper_goes_forward_when_home_pays_nothing()
+ 	test_other_units_keep_their_plan()
+ 	test_keeper_holds_when_the_backup_is_sent_elsewhere()
++	test_keeper_holds_when_pass_3_moves_the_backup_away()
+ 	test_keeper_advances_on_a_long_trip_alone()
+ 	test_keeper_joining_a_quicker_unit_makes_a_normal_move()
++	test_keeper_holds_when_its_walk_arrives_too_late()
++	test_normal_pace_matches_the_planner()
++	test_keeper_holds_when_dim_returns_skips_the_target()
+ 	test_keeper_holds_when_primary_pays_for_home()
+ 	test_keeper_holds_when_enemy_reserves_arrive_next_turn()
+ 	test_round_one_reserves_do_not_hold_it_back()
+ 	test_keeper_holds_when_reserve_can_arrive_in_round_one()
+ 	test_keeper_holds_when_enemy_can_reach_home()
++	test_melee_keeper_that_would_go_hunting_holds()
+ 	test_keeper_holds_without_a_unit_to_retake_home()
+ 	test_fragile_keeper_holds()
+ 	test_keeper_with_a_plan_order_to_hold_home_holds()
+@@ -75,13 +91,16 @@ func _assert(condition: bool, message: String) -> void:
+ 		_fail_count += 1
+ 		print("FAIL: %s" % message)
+ 
+-func _snapshot(first_turn_player: int = 1, nml_pos: Vector2 = NML) -> Dictionary:
+-	return {"battle_round": 1, "meta": {"battle_round": 1, "first_turn_player": first_turn_player},
+-		"board": {"objectives": [
+-			{"id": "obj_home_1", "position": HOME, "zone": "player1"},
+-			{"id": "obj_nml_1", "position": nml_pos, "zone": "no_mans_land"},
+-			{"id": "obj_home_2", "position": ENEMY_HOME, "zone": "player2"},
+-		], "terrain_features": []}, "units": {}}
++func _snapshot(first_turn_player: int = 1, nml_pos: Vector2 = NML, battle_round: int = 1, extra: Array = []) -> Dictionary:
++	var objs = [
++		{"id": "obj_home_1", "position": HOME, "zone": "player1"},
++		{"id": "obj_nml_1", "position": nml_pos, "zone": "no_mans_land"},
++		{"id": "obj_home_2", "position": ENEMY_HOME, "zone": "player2"},
++	]
++	for e in extra:
++		objs.append(e)
++	return {"battle_round": battle_round, "meta": {"battle_round": battle_round, "first_turn_player": first_turn_player},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
+ 
+ # `n` models (OC `oc` each) whose centroid is at `pos`.
+ func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int,
+@@ -100,18 +119,19 @@ func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2,
+ 
+ # The s7437 shape: a 240 pt Custodian Guard unit on home, a 45 pt squad 10"
+ # away (it can step onto home in one move), the enemy army 40"+ away.
+-func _board(first_turn_player: int = 1, nml_pos: Vector2 = NML) -> Dictionary:
+-	var snap = _snapshot(first_turn_player, nml_pos)
++func _board(first_turn_player: int = 1, nml_pos: Vector2 = NML, battle_round: int = 1, extra: Array = []) -> Dictionary:
++	var snap = _snapshot(first_turn_player, nml_pos, battle_round, extra)
+ 	_add_unit(snap, "keeper", 1, HOME, 3, 7, 5, 3, 8, 240)
+ 	_add_unit(snap, "backup", 1, HOME + Vector2(-300, -250), 4, 3, 1, 2, 7, 45)
+ 	_add_unit(snap, "orks", 2, ENEMY_HOME, 10, 5, 1, 2, 6, 80)
+ 	return snap
+ 
+-func _plan(snap: Dictionary, movable_ids: Array, rules: Array) -> Dictionary:
++func _plan(snap: Dictionary, movable_ids: Array, rules: Array, sec: Dictionary = {}) -> Dictionary:
++	var battle_round := int(snap.get("battle_round", 1))
+ 	AIDecisionMaker._primary_awareness_p1 = {"card_name": "test", "active_rules": rules.size(), "vp_rules": rules.duplicate(true),
+ 		"objective_pressure": 0.0, "enemy_home_bonus": 0.0, "central_bonus": 0.0, "hold_home_required": false,
+ 		"kill_pressure": false, "quarters": false}
+-	AIDecisionMaker._secondary_awareness_p1 = {}
++	AIDecisionMaker._secondary_awareness_p1 = sec
+ 	var friendlies = {}
+ 	var enemies = {}
+ 	var movable = {}
+@@ -126,16 +146,45 @@ func _plan(snap: Dictionary, movable_ids: Array, rules: Array) -> Dictionary:
+ 	var objectives = []
+ 	for o in snap.board.objectives:
+ 		objectives.append(o.position)
+-	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 1, enemies, friendlies, 1)
+-	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 1, 1)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 1, enemies, friendlies, battle_round)
++	_last_evals = evals
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 1, battle_round)
+ 	for uid in plan:
+ 		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
+ 			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
+ 	for c in AIDecisionMaker._last_movement_candidates.get("keeper", []):
+-		print("    keeper candidate %s %s score %.1f" % [c.get("action", ""), c.get("objective_id", ""), float(c.get("score", 0.0))])
++		print("    keeper candidate %s %s score %.3f turns %d" % [c.get("action", ""), c.get("objective_id", ""),
++			float(c.get("score", 0.0)), int(c.get("turns_to_reach", 0))])
++	# Pass 1's verdict for the keeper's hold of obj_home_1 (the guard that kept
++	# it, or a target), asked with the same card and candidates.
++	_last_kr = {}
++	var all_cands: Array = []
++	var hold_cand: Dictionary = {}
++	for uid in AIDecisionMaker._last_movement_candidates:
++		for c in AIDecisionMaker._last_movement_candidates[uid]:
++			all_cands.append(c)
++			if str(uid) == "keeper" and c.get("already_on_obj", false) and str(c.objective_id) == "obj_home_1":
++				hold_cand = c
++	if not hold_cand.is_empty():
++		_last_kr = _call_ai("_keeper_release_check", [snap, hold_cand, _eval("obj_home_1"), all_cands,
++			enemies, 1, battle_round])
+ 	AIDecisionMaker._primary_awareness_p1 = {}
++	AIDecisionMaker._secondary_awareness_p1 = {}
+ 	return plan
+ 
++# The fix's helpers, called by name so this file also runs (and fails) against
++# a copy of the AI without them ({} back there).
++func _call_ai(fn: String, args: Array) -> Dictionary:
++	var ai_script: Object = AIDecisionMaker
++	var out = ai_script.callv(fn, args)
++	return out if out is Dictionary else {}
++
++func _eval(obj_id: String) -> Dictionary:
++	for ev in _last_evals:
++		if str(ev.get("id", "")) == obj_id:
++			return ev
++	return {}
++
+ func _holds_home(plan: Dictionary) -> bool:
+ 	var a: Dictionary = plan.get("keeper", {})
+ 	return str(a.get("objective_id", "")) == "obj_home_1" and str(a.get("action", "")) == "hold"
+@@ -144,6 +193,44 @@ func _goes_forward(plan: Dictionary) -> bool:
+ 	var a: Dictionary = plan.get("keeper", {})
+ 	return str(a.get("objective_id", "")) == "obj_nml_1" and str(a.get("action", "")) in ["move", "advance"]
+ 
++func _kept_by(text: String) -> bool:
++	return str(_last_kr.get("kept", "")).find(text) >= 0
++
++func _terms_sum(c: Dictionary) -> float:
++	var s := 0.0
++	for k in c.get("score_terms", {}):
++		s += float(c.score_terms[k])
++	return s
++
++# The keeper's candidates for `obj_id` in the last plan, in record order.
++func _keeper_cands(obj_id: String) -> Array:
++	var out: Array = []
++	for c in AIDecisionMaker._last_movement_candidates.get("keeper", []):
++		if str(c.get("objective_id", "")) == obj_id:
++			out.append(c)
++	return out
++
++# Same objective, same pace, same numbers (every score term included).
++func _same_candidate(a: Dictionary, b: Dictionary) -> String:
++	if a.is_empty() or b.is_empty():
++		return "missing"
++	if int(a.get("turns_to_reach", 0)) != int(b.get("turns_to_reach", 0)):
++		return "turns %d vs %d" % [int(a.get("turns_to_reach", 0)), int(b.get("turns_to_reach", 0))]
++	if absf(float(a.score) - float(b.score)) > 1e-6:
++		return "score %.4f vs %.4f" % [float(a.score), float(b.score)]
++	for k in ["race_lost", "race_enemy_oc", "race_army_oc"]:
++		if a.get(k) != b.get(k):
++			return "%s %s vs %s" % [k, str(a.get(k)), str(b.get(k))]
++	var ta: Dictionary = a.get("score_terms", {})
++	var tb: Dictionary = b.get("score_terms", {})
++	for k in ta:
++		if absf(float(ta[k]) - float(tb.get(k, 0.0))) > 1e-6:
++			return "term %s %.4f vs %.4f" % [k, float(ta[k]), float(tb.get(k, 0.0))]
++	for k in tb:
++		if not ta.has(k) and absf(float(tb[k])) > 1e-6:
++			return "term %s missing (%.4f)" % [k, float(tb[k])]
++	return ""
++
+ func test_keeper_goes_forward_when_home_pays_nothing() -> void:
+ 	print("\n--- going first, round 1: home pays nothing (Reconnaissance), enemy 40\"+ away ---")
+ 	var plan = _plan(_board(), ["keeper"], RECON_RULES)
+@@ -153,21 +240,42 @@ func test_keeper_goes_forward_when_home_pays_nothing() -> void:
+ 		"its card says why (%s)" % str(plan.get("keeper", {}).get("coordination_note", "")))
+ 
+ func test_other_units_keep_their_plan() -> void:
+-	print("\n--- a second unit (runner) moves this phase: its plan is the same with the fix on and off ---")
+-	var snap_on = _board()
+-	_add_unit(snap_on, "runner", 1, HOME + Vector2(100, 700), 3, 6, 3, 2, 6, 150)
+-	var on_plan = _plan(snap_on, ["keeper", "runner"], RECON_RULES)
+-	AIDecisionMaker._config_overrides["FIX_KEEPER_RELEASE"] = 0.0
+-	var snap_off = _board()
+-	_add_unit(snap_off, "runner", 1, HOME + Vector2(100, 700), 3, 6, 3, 2, 6, 150)
+-	var off_plan = _plan(snap_off, ["keeper", "runner"], RECON_RULES)
++	print("\n--- other units, one of them left to pass 3: every one has the same plan with the fix on and off ---")
++	var on_plan := {}
++	var off_plan := {}
++	for fix in [1.0, 0.0]:
++		AIDecisionMaker._config_overrides["FIX_KEEPER_RELEASE"] = fix
++		var snap = _board()
++		_add_unit(snap, "runner", 1, NML + Vector2(-100, 200), 3, 6, 3, 2, 6, 150)
++		# a cheap slow squad no objective needs (obj_home_2 is TOO-LATE for
++		# it): pass 3 places it — a deep-strike denial screen, as the enemy
++		# has a unit in reserves (it cannot arrive in round 1)
++		_add_unit(snap, "spare", 1, HOME + Vector2(150, -150), 5, 3, 1, 1, 4, 50)
++		_add_unit(snap, "stormboyz", 2, Vector2.ZERO, 10, 5, 1, 1, 12, 140, GameStateData.UnitStatus.IN_RESERVES)
++		var p = _plan(snap, ["keeper", "runner", "spare"], RECON_RULES)
++		if fix > 0.5:
++			on_plan = p
++		else:
++			off_plan = p
+ 	AIDecisionMaker._config_overrides["FIX_KEEPER_RELEASE"] = 1.0
+-	var on_r: Dictionary = on_plan.get("runner", {})
+-	var off_r: Dictionary = off_plan.get("runner", {})
+-	_assert(str(on_r.get("objective_id", "")) == str(off_r.get("objective_id", "")) and str(on_r.get("action", "")) == str(off_r.get("action", "")),
+-		"runner: %s %s with the fix, %s %s without" % [on_r.get("action", ""), on_r.get("objective_id", ""), off_r.get("action", ""), off_r.get("objective_id", "")])
+-	_assert(_goes_forward(on_plan), "the keeper still goes forward (%s %s)" % [on_plan.get("keeper", {}).get("action", ""), on_plan.get("keeper", {}).get("objective_id", "")])
+-	if str(on_r.get("objective_id", "")) == "obj_nml_1":
++	_assert(_goes_forward(on_plan), "the keeper goes forward (%s %s)" % [on_plan.get("keeper", {}).get("action", ""), on_plan.get("keeper", {}).get("objective_id", "")])
++	_assert(_holds_home(off_plan), "without the fix it holds home")
++	var same := true
++	var passes: Array = []
++	for uid in off_plan:
++		if uid == "keeper":
++			continue
++		var a: Dictionary = on_plan.get(uid, {})
++		var b: Dictionary = off_plan[uid]
++		passes.append("%s:%s" % [uid, b.get("assign_pass", "")])
++		for k in ["objective_id", "action", "assign_pass", "objective_pos", "reason"]:
++			if str(a.get(k, "")) != str(b.get(k, "")):
++				same = false
++				print("  differs: %s.%s %s vs %s" % [uid, k, str(a.get(k, "")), str(b.get(k, ""))])
++	_assert(same and on_plan.size() == off_plan.size(), "every other unit's final assignment is the same (%s)" % ", ".join(passes))
++	_assert(str(off_plan.get("spare", {}).get("assign_pass", "")) in ["screen_denial", "screen_protect", "corridor_block", "support", ""],
++		"one of them is placed by pass 3 (%s)" % str(off_plan.get("spare", {}).get("assign_pass", "")))
++	if str(on_plan.get("runner", {}).get("objective_id", "")) == "obj_nml_1":
+ 		_assert(str(on_plan.get("keeper", {}).get("reason", "")).begins_with("joining runner"),
+ 			"it joins the runner the plan already sends there (%s)" % str(on_plan.get("keeper", {}).get("reason", "")))
+ 
+@@ -177,6 +285,20 @@ func test_keeper_holds_when_the_backup_is_sent_elsewhere() -> void:
+ 	_assert(str(plan.get("backup", {}).get("objective_id", "")) == "obj_nml_1", "the backup squad takes obj_nml_1 (%s)" % str(plan.get("backup", {}).get("objective_id", "")))
+ 	_assert(_holds_home(plan), "with nobody left to step back onto home, the keeper holds")
+ 
++func test_keeper_holds_when_pass_3_moves_the_backup_away() -> void:
++	print("\n--- the backup has no objective (TOO-LATE) and pass 3 sends it to screen far from home ---")
++	var snap = _board()
++	_add_unit(snap, "runner", 1, NML + Vector2(-100, 200), 3, 6, 3, 2, 6, 150)
++	snap.units["backup"].meta.stats["move"] = 5
++	var plan = _plan(snap, ["keeper", "runner", "backup"], RECON_RULES)
++	var b: Dictionary = plan.get("backup", {})
++	var b_dest: Vector2 = b.get("objective_pos", Vector2.INF)
++	var b_gap_in := (b_dest.distance_to(HOME) - 151.5) / PX if b_dest != Vector2.INF else -1.0
++	_assert(str(b.get("action", "")) == "screen" and b_gap_in > 7.0,
++		"pass 3 sends the backup to %s at %.1f\" from home's control range (more than its M5 + 2\")" % [str(b.get("objective_id", "")), b_gap_in])
++	_assert(_last_kr.has("target"), "pass 1 had released the keeper (target %s)" % str(_last_kr.get("target", {}).get("objective_id", "-")))
++	_assert(_holds_home(plan), "with the backup screening away from home in the finished plan, the keeper holds")
++
+ func test_keeper_advances_on_a_long_trip_alone() -> void:
+ 	print("\n--- Purge and Secure, obj_nml_1 23\" away and nobody else going: the keeper captures it ---")
+ 	var plan = _plan(_board(1, FAR_NML), ["keeper"], PURGE_RULES)
+@@ -190,15 +312,134 @@ func test_keeper_joining_a_quicker_unit_makes_a_normal_move() -> void:
+ 	var snap = _board(1, FAR_NML)
+ 	_add_unit(snap, "runner", 1, FAR_NML + Vector2(-200, 300), 3, 6, 3, 2, 6, 150)
+ 	var plan = _plan(snap, ["keeper", "runner"], PURGE_RULES)
++	var a: Dictionary = plan.get("keeper", {})
+ 	_assert(str(plan.get("runner", {}).get("objective_id", "")) == "obj_nml_1", "the runner takes obj_nml_1 (%s)" % str(plan.get("runner", {}).get("objective_id", "")))
+ 	_assert(_goes_forward(plan), "the keeper still leaves home for obj_nml_1")
+-	_assert(str(plan.get("keeper", {}).get("action", "")) == "move",
+-		"joining a unit that arrives first, it makes a Normal move — arriving sooner gains nothing (%s)" % str(plan.get("keeper", {}).get("action", "")))
++	_assert(str(a.get("action", "")) == "move",
++		"joining a unit that arrives first, it makes a Normal move (%s)" % str(a.get("action", "")))
++	# The candidate it acts on is the Normal move: its record card is that
++	# move's turns and score, the numbers the planner's own loop gives a Normal
++	# move of this unit to this objective (MOVE_LONG_ADVANCE = 0).
++	var cands := _keeper_cands("obj_nml_1")
++	var walk: Dictionary = cands[0] if not cands.is_empty() else {}
++	var adv: Dictionary = cands[1] if cands.size() > 1 else {}
++	_assert(str(walk.get("action", "")) == "move" and str(adv.get("action", "")) == "advance",
++		"its record lists the Normal move first (the chosen card) and RACE-1's Advance after it (%s, %s)" % [
++		str(walk.get("action", "")), str(adv.get("action", ""))])
++	_assert(int(walk.get("turns_to_reach", 0)) == 3 and int(adv.get("turns_to_reach", 0)) == 2,
++		"the Normal move takes 3 turns, the Advance 2 (%d, %d)" % [int(walk.get("turns_to_reach", 0)), int(adv.get("turns_to_reach", 0))])
++	_assert(int(a.get("turns_to_reach", 0)) == 3 and absf(float(walk.get("score", 0.0)) - float(a.get("score", -1.0))) < 1e-6,
++		"the assignment carries the Normal move's turns and score (%d, %.3f)" % [int(a.get("turns_to_reach", 0)), float(a.get("score", 0.0))])
++	_assert(absf(_terms_sum(walk) - float(walk.get("score", 0.0))) < 0.01,
++		"its score terms add up to its score (%.3f vs %.3f)" % [_terms_sum(walk), float(walk.get("score", 0.0))])
++	AIDecisionMaker._config_overrides["MOVE_LONG_ADVANCE"] = 0.0
++	var snap0 = _board(1, FAR_NML)
++	_add_unit(snap0, "runner", 1, FAR_NML + Vector2(-200, 300), 3, 6, 3, 2, 6, 150)
++	_plan(snap0, ["keeper", "runner"], PURGE_RULES)
++	AIDecisionMaker._config_overrides.erase("MOVE_LONG_ADVANCE")
++	var loop_walk: Dictionary = {}
++	for c in _keeper_cands("obj_nml_1"):
++		if str(c.get("action", "")) == "move" and str(c.get("reason", "")) == "moving to objective":
++			loop_walk = c
++	var diff := _same_candidate(walk, loop_walk) if not loop_walk.is_empty() else "no loop candidate"
++	_assert(diff == "", "the Normal move matches the planner's own Normal-move candidate (score %.3f vs %.3f) %s" % [
++		float(walk.get("score", 0.0)), float(loop_walk.get("score", 0.0)), diff])
++	_assert(str(a.get("coordination_note", "")).find("a Normal move: 3 turns") >= 0,
++		"its card says it walks, at what pace and score (%s)" % str(a.get("coordination_note", "")))
++
++func test_keeper_holds_when_its_walk_arrives_too_late() -> void:
++	print("\n--- round 3: joining with a Normal move, the trip would end after round 5 (TOO-LATE) ---")
++	# obj_nml_1 30.8" from home, 38" from the Orks: 3 turns at the Advance
++	# pace (arrives in round 5), 4 at a Normal move (round 6).
++	var far := HOME + Vector2(1200, 280)
++	var sec := {"active_mission_ids": ["test"], "nml_priority": 8.0}
++	var snap = _board(1, far, 3)
++	_add_unit(snap, "runner", 1, far + Vector2(-200, 200), 3, 6, 3, 2, 6, 150)
++	var plan = _plan(snap, ["keeper", "runner"], RECON_RULES, sec)
++	var adv: Dictionary = {}
++	for c in _keeper_cands("obj_nml_1"):
++		if str(c.get("action", "")) == "advance":
++			adv = c
++	_assert(str(plan.get("runner", {}).get("objective_id", "")) == "obj_nml_1", "the runner takes obj_nml_1 (%s)" % str(plan.get("runner", {}).get("objective_id", "")))
++	_assert(_last_kr.has("target") and str(_last_kr.get("target", {}).get("action", "")) == "advance" \
++			and int(adv.get("turns_to_reach", 0)) == 3,
++		"pass 1 releases the keeper for its 3-turn Advance there (%s, %d turns)" % [
++		str(_last_kr.get("target", {}).get("action", _last_kr.get("kept", ""))), int(adv.get("turns_to_reach", 0))])
++	var walk := _call_ai("_keeper_release_normal_pace", [adv, _eval("obj_nml_1"), 3]) if not adv.is_empty() else {}
++	_assert(int(walk.get("turns_to_reach", 0)) == 4, "walking, it needs 4 turns (%d)" % int(walk.get("turns_to_reach", 0)))
++	_assert(_holds_home(plan), "a walk that ends after the last battle round keeps the keeper home")
++
++func test_normal_pace_matches_the_planner() -> void:
++	print("\n--- _keeper_release_normal_pace == the planner's own Normal-move candidates (races included) ---")
++	# Centre objective, P1 units 27-34" from it (RACE-1 Advances), enemies at
++	# 3-4 moves from it: the race is lost walking and not when advancing.
++	var snap := {"battle_round": 1, "meta": {"battle_round": 1, "first_turn_player": 1},
++		"board": {"objectives": [
++			{"id": "obj_home_1", "position": Vector2(440, 600), "zone": "player1"},
++			{"id": "obj_center", "position": Vector2(880, 1200), "zone": "no_mans_land"},
++			{"id": "obj_home_2", "position": Vector2(1320, 1800), "zone": "player2"},
++		], "terrain_features": []}, "units": {}}
++	_add_unit(snap, "keeper", 1, Vector2(440, 600), 3, 7, 5, 3, 8, 240)
++	_add_unit(snap, "walker_a", 1, Vector2(200, 100), 3, 6, 3, 2, 8, 150)
++	_add_unit(snap, "walker_b", 1, Vector2(1500, 160), 5, 4, 2, 1, 6, 100)
++	_add_unit(snap, "walker_c", 1, Vector2(120, 380), 3, 7, 5, 3, 10, 200)
++	_add_unit(snap, "boyz", 2, Vector2(165, 2154), 10, 5, 1, 2, 6, 80)
++	_add_unit(snap, "nobz", 2, Vector2(1700, 2250), 5, 5, 2, 2, 6, 120)
++	var movable := ["keeper", "walker_a", "walker_b", "walker_c"]
++	_plan(snap, movable, PURGE_RULES)
++	var adv_evals := _last_evals.duplicate(true)
++	var adv_cands := {}
++	for uid in AIDecisionMaker._last_movement_candidates:
++		for c in AIDecisionMaker._last_movement_candidates[uid]:
++			adv_cands["%s|%s" % [uid, c.objective_id]] = c
++	AIDecisionMaker._config_overrides["MOVE_LONG_ADVANCE"] = 0.0
++	_plan(snap, movable, PURGE_RULES)
++	AIDecisionMaker._config_overrides.erase("MOVE_LONG_ADVANCE")
++	var compared := 0
++	var race_flips := 0
++	var bad: Array = []
++	for key in adv_cands:
++		var c: Dictionary = adv_cands[key]
++		if str(c.get("action", "")) != "advance":
++			continue
++		var ev: Dictionary = {}
++		for e in adv_evals:
++			if str(e.id) == str(c.objective_id):
++				ev = e
++		var walk := _call_ai("_keeper_release_normal_pace", [c, ev, 1])
++		var loop_c: Dictionary = {}
++		for lc in AIDecisionMaker._last_movement_candidates.get(str(c.unit_id), []):
++			if str(lc.objective_id) == str(c.objective_id):
++				loop_c = lc
++		var diff := _same_candidate(walk, loop_c) if not loop_c.is_empty() and not walk.is_empty() else "missing"
++		compared += 1
++		if not walk.is_empty() and bool(walk.get("race_lost", false)) and not bool(c.get("race_lost", false)):
++			race_flips += 1
++		print("  %s: advance %d turns %.3f (race lost %s) -> walk %d turns %.3f (race lost %s, enemy %d, army %d) loop %.3f %s" % [
++			key, int(c.turns_to_reach), float(c.score), str(c.get("race_lost", false)), int(walk.get("turns_to_reach", 0)),
++			float(walk.get("score", 0.0)), str(walk.get("race_lost", false)), int(walk.get("race_enemy_oc", 0)), int(walk.get("race_army_oc", 0)),
++			float(loop_c.get("score", 0.0)), diff])
++		if diff != "":
++			bad.append("%s: %s" % [key, diff])
++	_assert(compared >= 4, "compares every Advance candidate of the plan with the loop's Normal move (%d)" % compared)
++	_assert(race_flips >= 1, "at least one of them is a race lost walking and not lost advancing (%d)" % race_flips)
++	_assert(bad.is_empty(), "turns, race and every score term match (%s)" % "; ".join(bad))
++
++func test_keeper_holds_when_dim_returns_skips_the_target() -> void:
++	print("\n--- Reconnaissance (one non-home objective scores): the runner takes obj_nml_2, so obj_nml_1 adds nothing ---")
++	var snap = _board(1, NML, 1, [{"id": "obj_nml_2", "position": NML_2, "zone": "no_mans_land"}])
++	_add_unit(snap, "runner", 1, NML_2 + Vector2(0, -200), 3, 6, 3, 2, 6, 150)
++	var plan = _plan(snap, ["keeper", "runner"], RECON_RULES)
++	_assert(str(plan.get("runner", {}).get("objective_id", "")) == "obj_nml_2", "the runner takes obj_nml_2 (%s)" % str(plan.get("runner", {}).get("objective_id", "")))
++	_assert(_last_kr.has("target") and str(_last_kr.get("target", {}).get("objective_id", "")) == "obj_nml_1",
++		"pass 1 releases the keeper for obj_nml_1 (%s)" % str(_last_kr.get("target", {}).get("objective_id", _last_kr.get("kept", ""))))
++	_assert(_holds_home(plan), "with obj_nml_2 taken, obj_nml_1 adds nothing (DIM-RETURNS): the keeper holds")
+ 
+ func test_keeper_holds_when_primary_pays_for_home() -> void:
+ 	print("\n--- same board, Destroyer's Wrath: hold_more counts home ---")
+ 	var plan = _plan(_board(), ["keeper"], WRATH_RULES)
+ 	_assert(_holds_home(plan), "a home objective the primary pays for keeps its keeper")
++	_assert(_kept_by("our primary pays for it"), "kept by the primary-card guard (%s)" % str(_last_kr.get("kept", "-")))
+ 
+ func test_keeper_holds_when_enemy_reserves_arrive_next_turn() -> void:
+ 	print("\n--- going second (the enemy's next turn is round 2), enemy has a unit in reserves ---")
+@@ -206,6 +447,7 @@ func test_keeper_holds_when_enemy_reserves_arrive_next_turn() -> void:
+ 	_add_unit(snap, "stormboyz", 2, Vector2.ZERO, 10, 5, 1, 1, 12, 140, GameStateData.UnitStatus.IN_RESERVES)
+ 	var plan = _plan(snap, ["keeper"], RECON_RULES)
+ 	_assert(_holds_home(plan), "reserves that can deep strike onto home next turn keep the keeper")
++	_assert(_kept_by("stormboyz can arrive from reserves"), "kept by the reserves guard (%s)" % str(_last_kr.get("kept", "-")))
+ 
+ func test_round_one_reserves_do_not_hold_it_back() -> void:
+ 	print("\n--- going first in round 1, enemy has a unit in reserves (it cannot arrive in round 1) ---")
+@@ -221,6 +463,7 @@ func test_keeper_holds_when_reserve_can_arrive_in_round_one() -> void:
+ 	snap.units["allarus"].meta["enhancements"] = ["Lightning Descent"]
+ 	var plan = _plan(snap, ["keeper"], RECON_RULES)
+ 	_assert(_holds_home(plan), "a reserve unit a rule may bring in round 1 keeps the keeper")
++	_assert(_kept_by("allarus can arrive from reserves"), "kept by the early-ingress guard (%s)" % str(_last_kr.get("kept", "-")))
+ 
+ func test_keeper_holds_when_enemy_can_reach_home() -> void:
+ 	print("\n--- an enemy M12 unit 26\" from home (move + charge + pile-in/consolidate reach it) ---")
+@@ -228,6 +471,21 @@ func test_keeper_holds_when_enemy_can_reach_home() -> void:
+ 	_add_unit(snap, "bikers", 2, HOME + Vector2(0, 26.0 * PX), 3, 6, 3, 2, 12, 140)
+ 	var plan = _plan(snap, ["keeper"], RECON_RULES)
+ 	_assert(_holds_home(plan), "an enemy that can be on home by the end of its next turn keeps the keeper")
++	_assert(_kept_by("bikers can reach it in one turn"), "kept by the on-board reach guard (%s)" % str(_last_kr.get("kept", "-")))
++
++func test_melee_keeper_that_would_go_hunting_holds() -> void:
++	print("\n--- a melee keeper (M10, chase cap 24\") and one slow enemy model 23.9\" away: no threat to home, but in chase range ---")
++	var snap = _board()
++	snap.units.erase("keeper")
++	_add_unit(snap, "keeper", 1, HOME, 3, 7, 5, 3, 10, 240)
++	snap.units["keeper"].meta["weapons"] = [{"name": "claws", "type": "Melee", "range": "Melee",
++		"attacks": "4", "weapon_skill": "2", "strength": "6", "ap": "-2", "damage": "2"}]
++	_add_unit(snap, "grot_tank", 2, HOME + Vector2(0, 23.9 * PX), 1, 6, 6, 1, 2, 40)
++	var plan = _plan(snap, ["keeper"], RECON_RULES)
++	_assert(_last_kr.has("target"), "pass 1 releases it: the enemy (M2) cannot reach home in its next turn (%s)" % str(
++		_last_kr.get("target", {}).get("objective_id", _last_kr.get("kept", ""))))
++	_assert(_holds_home(plan), "its move there would turn into a hunt (pass 2.5's chase gate), so it keeps home as on the base (%s %s)" % [
++		plan.get("keeper", {}).get("action", ""), plan.get("keeper", {}).get("objective_id", "")])
+ 
+ func test_keeper_holds_without_a_unit_to_retake_home() -> void:
+ 	print("\n--- no other unit within one move of home ---")
+@@ -236,6 +494,7 @@ func test_keeper_holds_without_a_unit_to_retake_home() -> void:
+ 	_add_unit(snap, "backup", 1, HOME + Vector2(0, 20.0 * PX), 4, 3, 1, 2, 7, 45)
+ 	var plan = _plan(snap, ["keeper"], RECON_RULES)
+ 	_assert(_holds_home(plan), "with nobody to step back onto home, the keeper holds")
++	_assert(_kept_by("no other unit can stand on it within one move"), "kept by the backup guard (%s)" % str(_last_kr.get("kept", "-")))
+ 
+ func test_fragile_keeper_holds() -> void:
+ 	print("\n--- the keeper is a fragile squad (T3, 1 wound per model) ---")
+@@ -244,6 +503,7 @@ func test_fragile_keeper_holds() -> void:
+ 	_add_unit(snap, "keeper", 1, HOME, 4, 3, 1, 2, 7, 45)
+ 	var plan = _plan(snap, ["keeper"], RECON_RULES)
+ 	_assert(_holds_home(plan), "a fragile keeper (KEEPER-PICK's natural keeper) holds")
++	_assert(_kept_by("a fragile keeper"), "kept by the fragile guard (%s)" % str(_last_kr.get("kept", "-")))
+ 
+ func test_keeper_with_a_plan_order_to_hold_home_holds() -> void:
+ 	print("\n--- an authored plan orders the keeper to hold home (PM-3 HOLD_OBJECTIVE earmark) ---")
+@@ -259,6 +519,7 @@ func test_keeper_with_a_plan_order_to_hold_home_holds() -> void:
+ 	AIDecisionMaker.clear_player_plan(1)
+ 	AIDecisionMaker._config_overrides.erase("PLAN_EARMARK_HOLD_BONUS")
+ 	_assert(_holds_home(plan), "the keeper keeps the plan's order to hold home")
++	_assert(_kept_by("the plan orders it to hold"), "kept by the plan-order guard (%s)" % str(_last_kr.get("kept", "-")))
+ 
+ func test_param_zero_restores_base() -> void:
+ 	print("\n--- FIX_KEEPER_RELEASE = 0 ---")
