@@ -114,6 +114,17 @@ var _bench_11e: bool = false
 # OBJ-CACHE: --bench-no-objective-cache turns the objective-control cache off;
 # --bench-verify-objective-cache recomputes on every hit and counts mismatches.
 var _obj_cache_mode: String = "on"
+# ROLLOUT (tools/ai_lab/rollout.py): counterfactual rollouts from a saved
+# mid-game position. --bench-override=<json> arms one-shot forced decisions in
+# AIDecisionMaker; --bench-stop-round=N ends the game the moment battle round
+# N+1 begins (before it scores anything), so a short horizon is measured at an
+# exact, deterministic point. The result carries VP and material (points lost)
+# at the start and at the end, so the driver can take deltas.
+var _override_path: String = ""
+var _stop_round: int = 0
+var _vp_start: Dictionary = {}
+var _material_start: Dictionary = {}
+var _start_round: int = 0
 
 func _ready() -> void:
 	var args = OS.get_cmdline_args() + OS.get_cmdline_user_args()
@@ -140,6 +151,10 @@ func _ready() -> void:
 			_seat_ai[1] = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-p2-ai="):
 			_seat_ai[2] = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-override="):
+			_override_path = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-stop-round="):
+			_stop_round = int(a.split("=", true, 1)[1])
 		elif a == "--bench-no-objective-cache":
 			_obj_cache_mode = "off"
 		elif a == "--bench-verify-objective-cache":
@@ -411,6 +426,21 @@ func _kick_off() -> void:
 	# clear_all_profiles(), which also clears plans.
 	_load_plan(1, _p1_plan_path)
 	_load_plan(2, _p2_plan_path)
+	if _override_path != "":
+		var of := FileAccess.open(_override_path, FileAccess.READ)
+		var parsed_ov = JSON.parse_string(of.get_as_text()) if of != null else null
+		if not (parsed_ov is Array):
+			_finish_with_error("--bench-override: %s is not a JSON array" % _override_path)
+			return
+		AIDecisionMaker.set_rollout_overrides(parsed_ov)
+	var mm_start = get_node_or_null("/root/MissionManager")
+	_vp_start = mm_start.get_vp_summary() if mm_start != null else {}
+	_material_start = _material_lost()
+	_start_round = GameState.get_battle_round()
+	if _stop_round > 0:
+		var pm_stop = get_node_or_null("/root/PhaseManager")
+		if pm_stop != null and pm_stop.has_signal("battle_round_started"):
+			pm_stop.battle_round_started.connect(_on_round_started_stop)
 
 	# 5) Accelerate the AI's pacing timers
 	Engine.time_scale = maxf(1.0, _time_scale)
@@ -595,6 +625,11 @@ func _collect_result(status: String, note: String) -> Dictionary:
 		"wall_seconds": (Time.get_ticks_msec() - _start_ticks) / 1000.0,
 		"time_scale": _time_scale,
 		"perf_seconds": _perf_seconds(ai),
+		"vp_start": _vp_start,
+		"material_start": _material_start,
+		"material_end": _material_lost(),
+		"start_round": _start_round,
+		"rollout_overrides": AIDecisionMaker.get_rollout_overrides(),
 		"secondary_events": _secondary_events,
 	}
 
@@ -612,6 +647,33 @@ func _perf_seconds(ai) -> Dictionary:
 			out["check_all_objectives_cache_hits"] = mm.perf_check_objectives_hits
 			out["objective_cache_mismatches"] = mm.control_cache_mismatches
 			out["objective_cache_mode"] = _obj_cache_mode
+	return out
+
+func _on_round_started_stop(round_now: int) -> void:
+	if _stop_round > 0 and round_now > _stop_round:
+		_stop_round = 0  # once
+		_write_and_quit(_collect_result("completed", "horizon: stopped at the start of round %d" % round_now), 0)
+
+## Points lost per player: each unit's points x the share of its wounds gone
+## (a destroyed unit loses all its points). Units that never had wounds count 0.
+func _material_lost() -> Dictionary:
+	var out := {"1": 0.0, "2": 0.0}
+	for uid in GameState.state.get("units", {}):
+		var u = GameState.state.units[uid]
+		var owner := str(int(u.get("owner", 0)))
+		if not out.has(owner):
+			continue
+		var pts := float(u.get("meta", {}).get("points", 0))
+		var w_stat := float(u.get("meta", {}).get("stats", {}).get("wounds", 1))
+		var total := 0.0
+		var left := 0.0
+		for m in u.get("models", []):
+			var mw := float(m.get("wounds", w_stat))
+			total += mw
+			if m.get("alive", true):
+				left += clampf(float(m.get("current_wounds", mw)), 0.0, mw)
+		if total > 0.0:
+			out[owner] = float(out[owner]) + pts * (1.0 - left / total)
 	return out
 
 func _finish_completed() -> void:

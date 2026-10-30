@@ -298,6 +298,46 @@ static var _phase_plan_round: int = -1  # Track which round the plan was built f
 # the AI over-commits. Consumed by _assign_units_to_objectives as "incoming OC".
 # {player: {unit_id: {action, objective_id, dest: Vector2, oc, unit_name, description}}}
 static var _movement_intents: Dictionary = {}
+
+# ROLLOUT: one-shot forced decisions for counterfactual rollouts
+# (tools/ai_lab/rollout.py via AIBenchmarkRunner --bench-override=). Each entry
+# fires once, for its player, unit and battle round; everything else is the
+# normal AI. Formats:
+#   {"kind": "move", "round": 2, "player": 1, "unit": "U_X", "objective": "obj_center", "mode": "move"|"advance"|"hold"}
+#   {"kind": "shoot", "round": 2, "player": 1, "unit": "U_X", "target": "U_Y"}
+#   {"kind": "charge", "round": 2, "player": 1, "unit": "U_X", "targets": ["U_Y"]}  (targets [] = skip the charge)
+static var _rollout_overrides: Array = []
+
+static func set_rollout_overrides(list: Array) -> void:
+	_rollout_overrides = list.duplicate(true)
+	print("AIDecisionMaker: [ROLLOUT] %d override(s) armed: %s" % [_rollout_overrides.size(), str(_rollout_overrides)])
+
+static func get_rollout_overrides() -> Array:
+	return _rollout_overrides
+
+static func _take_rollout_override(kind: String, player: int, unit_id: String, battle_round: int) -> Dictionary:
+	for ov in _rollout_overrides:
+		if ov.get("used", false):
+			continue
+		if str(ov.get("kind", "")) != kind or int(ov.get("player", 0)) != player or str(ov.get("unit", "")) != unit_id:
+			continue
+		if ov.has("round") and int(ov.get("round", 0)) != battle_round:
+			continue
+		ov["used"] = true
+		print("AIDecisionMaker: [ROLLOUT] override applied: %s" % str(ov))
+		return ov
+	return {}
+
+static func _objective_pos_by_id(snapshot: Dictionary, objective_id: String) -> Vector2:
+	for od in snapshot.get("board", {}).get("objectives", []):
+		if str(od.get("id", "")) != objective_id:
+			continue
+		var p = od.get("position", null)
+		if p is Vector2:
+			return p
+		if p is Dictionary:
+			return Vector2(float(p.get("x", 0)), float(p.get("y", 0)))
+	return Vector2.INF
 # COORD-3: units whose movement decision card was already recorded/narrated this
 # phase — prevents re-narrating every unit's assignment on every decide() call.
 # {player: {unit_id: true}}
@@ -6879,6 +6919,21 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		var unit_name = _dn(unit, unit_id)
 		var move_types = movable_units[unit_id]
 		var assignment = assignments.get(unit_id, {})
+		# ROLLOUT: a forced objective/mode for this unit (counterfactual rollouts only)
+		var ro_move := _take_rollout_override("move", player, str(unit_id), int(battle_round))
+		if not ro_move.is_empty():
+			var ro_pos := _objective_pos_by_id(snapshot, str(ro_move.get("objective", "")))
+			if ro_pos != Vector2.INF:
+				assignment = assignment.duplicate()
+				assignment["action"] = str(ro_move.get("mode", "move"))
+				assignment["objective_id"] = str(ro_move.get("objective", ""))
+				assignment["objective_pos"] = ro_pos
+				var ro_c = _get_unit_centroid(unit)
+				assignment["distance"] = ro_c.distance_to(ro_pos) if ro_c != Vector2.INF else 0.0
+				assignment["reason"] = "ROLLOUT override"
+				assignments[unit_id] = assignment
+			else:
+				print("AIDecisionMaker: [ROLLOUT] move override for %s names unknown objective %s — AI choice kept" % [unit_id, str(ro_move.get("objective", ""))])
 		var assigned_obj_pos = assignment.get("objective_pos", Vector2.INF)
 		var assigned_obj_id = assignment.get("objective_id", "")
 		var assignment_action = assignment.get("action", "move")  # "hold", "move", "advance", "screen"
@@ -13868,6 +13923,31 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				else:
 					_add_thinking_step("Shooting plan: %d units with ranged weapons, evaluating targets" % shooter_unit_ids.size())
 
+		# ROLLOUT: a forced target for one shooter (counterfactual rollouts only)
+		var ro_round := int(snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)))
+		for ro_sa in action_types["SELECT_SHOOTER"]:
+			var ro_sid := str(ro_sa.get("actor_unit_id", ro_sa.get("unit_id", "")))
+			var ro_shoot := _take_rollout_override("shoot", player, ro_sid, ro_round)
+			if ro_shoot.is_empty():
+				continue
+			var ro_tid := str(ro_shoot.get("target", ""))
+			var ro_shooter = snapshot.get("units", {}).get(ro_sid, {})
+			var ro_target = snapshot.get("units", {}).get(ro_tid, {})
+			var ro_weapons := []
+			for ro_w in ro_shooter.get("meta", {}).get("weapons", []):
+				if str(ro_w.get("type", "")).to_lower() == "ranged":
+					ro_weapons.append(ro_w)
+			var ro_assign: Array = []
+			if not ro_target.is_empty() and not ro_weapons.is_empty():
+				var ro_single := {}
+				ro_single[ro_tid] = ro_target
+				ro_assign = _sanitize_shoot_assignments(ro_sid,
+					_build_unit_assignments_fallback(ro_shooter, ro_weapons, ro_single, snapshot, ro_sid), snapshot)
+			if ro_assign.is_empty():
+				print("AIDecisionMaker: [ROLLOUT] shoot override %s -> %s has no valid weapon assignment — AI choice kept" % [ro_sid, ro_tid])
+			else:
+				_focus_fire_plan[ro_sid] = ro_assign
+
 		# Pick the first available shooter that has a plan
 		# T-108: Skip battle-shocked units — they cannot shoot per 10e core rules.
 		var selected_unit_id = ""
@@ -15598,6 +15678,20 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 
 	# --- Step 4: Evaluate and declare charges ---
 	if action_types.has("DECLARE_CHARGE"):
+		# ROLLOUT: a forced charge (or skip) for one unit (counterfactual rollouts only)
+		var ro_c_round := int(snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)))
+		for ro_dc in action_types["DECLARE_CHARGE"]:
+			var ro_cid := str(ro_dc.get("actor_unit_id", ""))
+			var ro_charge := _take_rollout_override("charge", player, ro_cid, ro_c_round)
+			if ro_charge.is_empty():
+				continue
+			var ro_targets: Array = ro_charge.get("targets", [])
+			if ro_targets.is_empty():
+				return {"type": "SKIP_CHARGE", "actor_unit_id": ro_cid,
+					"_ai_description": "ROLLOUT override: %s does not charge" % ro_cid}
+			return {"type": "DECLARE_CHARGE", "actor_unit_id": ro_cid,
+				"payload": {"target_unit_ids": ro_targets},
+				"_ai_description": "ROLLOUT override: %s charges %s" % [ro_cid, str(ro_targets)]}
 		var best_charge = _evaluate_best_charge(snapshot, available_actions, player)
 		if not best_charge.is_empty():
 			return best_charge
