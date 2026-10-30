@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (reinforcing obj_home_1 (1 unit already committed))",
+ "created": "2026-10-30 16:03:35",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7456_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] Beta heads to reinforce a home objective that is already held with no enemy near. The center objective stays empty in round 1. Fix: Scale the objective_priority bonus for an already-held objective by the enemy threat (enemy units within charge or shooting reach next turn). Give a near-zero bonus when no enemy is within about 24 in. Add a value for contesting the central objective, because it denies the opponent's score and gains board control.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7456_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:300,390",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_home_1 (reinforcing obj_home_1 (1 unit already committed), obj: 11.1\" away)",
+ "verdict": "bad",
+ "version": 1
+}
