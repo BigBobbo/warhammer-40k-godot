@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (block Battlewagon Alpha approaching obj_center (22\" away))",
+ "created": "2026-10-30 16:06:12",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7462_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI used Lootas, the army's long-range guns, as a screen to block a Battlewagon. The Battlewagon has Big shoota 36 in range and 10 in move, so the screen is thin and would likely be shot or ignored. Fix: Do not assign shooter-type units, such as those with 36 in or longer ranged weapons and weak melee, to corridor_block or screen duty. Give those roles to cheap melee or Gretchin units. Let shooters take firing-position and objective moves. Also compare the assignment score to the best option score, and drop the assignment when the gap is large.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7462_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C",
+  "choice": "pos:1016,1574",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma screens at (1016,1574) \u2014 block Battlewagon Alpha approaching obj_center (22\" away)",
+ "verdict": "pending",
+ "version": 1
+}

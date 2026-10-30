@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Burna Boyz Alpha (P2)",
+ "created": "2026-10-30 16:07:21",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7462_r1_p1_shooting_1",
+ "note": "[LLM critic, low conf] The AI sends the Big shoota at Burna Boyz Alpha, a low-value 5-model unit, with only 0.47 expected damage and a 9% kill chance. The pick is driven by the already_allocated term, not by a real kill chance. Fix: Scale the already_allocated bonus by the chance that the whole group kills the target. Drop it when that joint kill chance is low. Add a weight for the target's threat, such as its Deffguns and Mega-blastas, and reduce target value for cover.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7462_r1_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A",
+  "choice": "desc:Big shoota \u2192 enemy Burna Boyz Alpha (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha shoots at Burna Boyz Alpha \u2014 expected 0.5 dmg vs 5 HP (9% kill)",
+ "verdict": "pending",
+ "version": 1
+}
