@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Custodian Guard Sodality Delta arrives",
+ "created": "2026-10-30 16:04:15",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7456_r2_p1_movement_1",
+ "note": "[LLM critic, low conf] The AI deep strikes Custodian Guard Sodality Delta near the board centre but not onto the CENTER objective. The unit takes no objective on arrival and stays about 6.9 in away. The choice between the two reserve units is only a small difference in score. Fix: Add a score term for a spot that is in range of an uncontrolled or enemy-held objective with the unit's OC. Reduce that score if the spot lies within charge range of enemy melee units.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7456_r2_p1_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_CUSTODIAN_GUARD_D",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_CUSTODIAN_GUARD_D"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta arrives from Deep Strike",
+ "verdict": "pending",
+ "version": 1
+}
