@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Twin bolt rifle \u2192 enemy Custodian Guard Sodality Delta (P2)",
+ "created": "2026-10-30 06:41:56",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7440_r3_p1_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot the far Custodian Guard Delta for 0.5 expected damage. It skipped the closer Allarus Custodians, which give 1.3 expected damage and threaten the home area. Fix: Scale target_value by hit probability and expected damage, or set it to zero when the target is beyond 24 in of the nearest model. Add a bonus for shooting units that are close to the home objective or that other friendly units are already shooting.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7440_r3_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_OUTRIDER_SQUAD_A",
+  "choice": "desc:Twin bolt rifle \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Outrider Squad shoots at Custodian Guard Sodality Delta \u2014 expected 0.5 dmg vs 14 HP (4% kill)",
+ "verdict": "bad",
+ "version": 1
+}

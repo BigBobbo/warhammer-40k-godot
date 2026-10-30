@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~17 OC there before we arrive in 2 turns) \u2014 worth ~3 VP with the 1 other objective(s) this plan takes \u2014 worth ~5 VP)",
+ "created": "2026-10-30 06:37:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7440_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] A 5-model Scout squad with OC1 advances alone toward obj_center. It will not arrive until turn 2. Strong enemy Custodians can take the objective before it arrives. Fix: When the enemy can bring much more OC than the unit's OC to an objective before it arrives, cap or zero expected_vp and objective_priority for that objective. Add a penalty for an advance by a Heavy-weapon unit. Prefer objectives where friendly units are already committed.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7440_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_SCOUT_SQUAD_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Scout Squad Alpha advances toward obj_center (racing for it (enemy can have ~17 OC there before we arrive in 2 turns) \u2014 worth ~3 VP with the 1 other objective(s) this plan takes)",
+ "verdict": "pending",
+ "version": 1
+}

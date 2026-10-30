@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Grey Hunters arrives",
+ "created": "2026-10-30 06:39:10",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7440_r2_p1_movement_1",
+ "note": "[LLM critic, medium conf] Grey Hunters arrive alone deep in enemy territory, and the AI scores them for an objective they cannot reach or take this turn. Fix: Scale arrive_objectives by whether the unit can reach the objective's range this turn, or next turn after enemy responses. Subtract a threat term for enemy melee units that can charge the spot. Add a bonus for spots near friendly units. Allow the AI to hold units in reserve when every legal spot is exposed.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7440_r2_p1_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_GREY_HUNTERS_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_GREY_HUNTERS_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Grey Hunters arrives from Strategic Reserves",
+ "verdict": "bad",
+ "version": 1
+}

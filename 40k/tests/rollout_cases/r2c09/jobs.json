@@ -1,0 +1,155 @@
+[
+ {
+  "job": "20261030_063554_r2c09_00__s7440_r1_p2_movement_1_0",
+  "case": "20261030_063554_r2c09_00__s7440_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta advances toward obj_nml_1, which is 22.9 in away. It cannot arrive before turn 3. It is far from Alpha and Gamma, and it is isolated. Obj_center is the nearer objective, and Beta could take it with support.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7440",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063554_r2c09_00"
+ },
+ {
+  "job": "20261030_063554_r2c09_00__s7440_r1_p1_movement_1_1",
+  "case": "20261030_063554_r2c09_00__s7440_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_SCOUT_SQUAD_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "A 5-model Scout squad with OC1 advances alone toward obj_center. It will not arrive until turn 2. Strong enemy Custodians can take the objective before it arrives.",
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~5 VP)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7440",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063554_r2c09_00"
+ },
+ {
+  "job": "20261030_063554_r2c09_00__s7440_r2_p1_movement_1_2",
+  "case": "20261030_063554_r2c09_00__s7440_r2_p1_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GREY_HUNTERS_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Grey Hunters arrive alone deep in enemy territory, and the AI scores them for an objective they cannot reach or take this turn.",
+  "better_option": "unlisted: Grey Hunters arrive on the left edge close to the home side and move toward obj_nml_1, or stay in reserve",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7440",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063554_r2c09_00"
+ },
+ {
+  "job": "20261030_063554_r2c09_00__s7440_r2_p1_shooting_1_3",
+  "case": "20261030_063554_r2c09_00__s7440_r2_p1_shooting_1_3.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "target": "U_BLADE_CHAMPION_C"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Logan fires a storm bolter at Custodian Guard Delta at 20.3 in for about 0.2 damage and a 1% kill chance. The AI only considered two long-range targets and never listed the close Blade Champion Gamma.",
+  "better_option": "Storm Bolter \u2192 enemy Blade Champion Gamma (P2)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7440",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063554_r2c09_00"
+ },
+ {
+  "job": "20261030_063554_r2c09_00__s7440_r3_p2_shooting_1_4",
+  "case": "20261030_063554_r2c09_00__s7440_r3_p2_shooting_1_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "target": "U_WULFEN_WITH_STORM_SHIELDS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot the Ancient (0.89 expected damage, 18% kill chance) instead of the Wulfen (1.33 expected damage). The 18% kill figure looks too high for that damage against 5 wounds.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Wulfen with Storm Shields (P1)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7440",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063554_r2c09_00"
+ },
+ {
+  "job": "20261030_063554_r2c09_00__s7440_r3_p1_shooting_2_5",
+  "case": "20261030_063554_r2c09_00__s7440_r3_p1_shooting_2_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_OUTRIDER_SQUAD_A",
+    "target": "U_ALLARUS_CUSTODIANS_A"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI shot the far Custodian Guard Delta for 0.5 expected damage. It skipped the closer Allarus Custodians, which give 1.3 expected damage and threaten the home area.",
+  "better_option": "Twin bolt rifle \u2192 enemy Allarus Custodians (P2)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7440",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063554_r2c09_00"
+ }
+]
