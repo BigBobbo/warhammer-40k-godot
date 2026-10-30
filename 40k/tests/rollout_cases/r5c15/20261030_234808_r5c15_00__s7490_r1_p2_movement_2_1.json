@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (racing for it (enemy can have ~18 OC there before we arrive in 2 turns) \u2014 worth ~7 VP with the 1 other objective(s) this plan takes \u2014 worth ~7 VP)",
+ "created": "2026-10-30 23:48:39",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7490_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] Gamma goes toward obj_center, which it cannot reach for two turns. The score of 15.3 includes a -13.87 contest_race term, and Gamma moves normally instead of advancing. Fix: When a unit has Assault weapons and no target is in range, compare normal move and advance. Pick the advance if it reaches the objective a turn sooner.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7490_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_center (racing for it (enemy can have ~18 OC there before we arrive in 2 turns) \u2014 worth ~7 VP with the 1 other objective(s) this plan takes, obj: 17.2\" away)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,182 @@
+[
+ {
+  "job": "20261030_234808_r5c15_00__s7490_r1_p2_movement_1_0",
+  "case": "20261030_234808_r5c15_00__s7490_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Beta leaves home obj_home_2 to stack a second unit on obj_nml_2, which Alpha already takes. The objective_priority term gives the full value to a duplicate assignment.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7490",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234808_r5c15_00"
+ },
+ {
+  "job": "20261030_234808_r5c15_00__s7490_r1_p2_movement_2_1",
+  "case": "20261030_234808_r5c15_00__s7490_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gamma goes toward obj_center, which it cannot reach for two turns. The score of 15.3 includes a -13.87 contest_race term, and Gamma moves normally instead of advancing.",
+  "better_option": "Move obj_center, but as an advance move so it arrives a turn sooner.",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7490",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234808_r5c15_00"
+ },
+ {
+  "job": "20261030_234808_r5c15_00__s7490_r1_p1_movement_1_2",
+  "case": "20261030_234808_r5c15_00__s7490_r1_p1_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_home_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent a lone 5-model Burna Boyz unit to advance on obj_center, where it will be outnumbered and cannot hold it. It also gives up its role near home.",
+  "better_option": "Hold obj_home_1 (on objective, OC needed)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7490",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234808_r5c15_00"
+ },
+ {
+  "job": "20261030_234808_r5c15_00__s7490_r1_p1_movement_2_3",
+  "case": "20261030_234808_r5c15_00__s7490_r1_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI kept a 10-model Lootas squad on a home objective that already has 14 OC on it from other units. The squad also has no line of sight to any enemy.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7490",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234808_r5c15_00"
+ },
+ {
+  "job": "20261030_234808_r5c15_00__s7490_r2_p1_charge_1_4",
+  "case": "20261030_234808_r5c15_00__s7490_r2_p1_charge_1_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Ten Beast Snagga Boyz (80pts) charge a 175pt Blade Champion with T7, 2+ save and 4+ invulnerable. They deal only about 3 of its 7 wounds, and the return blows can kill many of them.",
+  "better_option": "unlisted: do not charge with Beast Snagga Boyz and keep them as a screen or an objective holder",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7490",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234808_r5c15_00"
+ },
+ {
+  "job": "20261030_234808_r5c15_00__s7490_r3_p2_movement_2_5",
+  "case": "20261030_234808_r5c15_00__s7490_r3_p2_movement_2_5.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI moves the wounded Gamma unit to obj_center, which already has strong Custodian support and is held by us. The move is reasonable but adds little. Its threat_delta of -16.71 is ignored in the score, which is only 0.31 ahead of the obj_nml_2 option.",
+  "better_option": "Move obj_center (reinforcing it (we hold with OC 2, enemy can bring ~30), needs 6 more OC after this unit \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7490",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234808_r5c15_00"
+ },
+ {
+  "job": "20261030_234808_r5c15_00__s7490_r3_p1_shooting_2_6",
+  "case": "20261030_234808_r5c15_00__s7490_r3_p1_shooting_2_6.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_B",
+    "target": "U_CUSTODIAN_GUARD_B"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot a single Big shoota at the Allarus Custodians for 0.1 expected damage. The shot does almost nothing, and the target choice follows the already_allocated bonus, not the real kill chance.",
+  "better_option": "Big shoota \u2192 enemy Custodian Guard Sodality Beta (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7490",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234808_r5c15_00"
+ }
+]

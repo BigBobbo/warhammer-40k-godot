@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~7 VP)",
+ "created": "2026-10-30 23:48:31",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7490_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] Beta leaves home obj_home_2 to stack a second unit on obj_nml_2, which Alpha already takes. The objective_priority term gives the full value to a duplicate assignment. Fix: Cut objective_priority and expected_vp sharply for each unit already committed to an objective that one unit can secure. Count only marginal VP: zero for a second unit unless the enemy contests it. Then pair this with a bonus for sending a second unit to a contested objective such as obj_center.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7490_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:773,2013",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed), obj: 19.7\" away)",
+ "verdict": "bad",
+ "version": 1
+}

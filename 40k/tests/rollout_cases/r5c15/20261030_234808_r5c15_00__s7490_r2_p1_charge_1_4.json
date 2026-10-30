@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Alpha (6.9\" away, 58% chance)",
+ "created": "2026-10-30 23:51:54",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7490_r2_p1_charge_1",
+ "note": "[LLM critic, low conf] Ten Beast Snagga Boyz (80pts) charge a 175pt Blade Champion with T7, 2+ save and 4+ invulnerable. They deal only about 3 of its 7 wounds, and the return blows can kill many of them. Fix: Compute ch_damage from the real expected wounds against the target's toughness, save and invulnerable save, and cap it at the target's remaining wounds. Add a kill-probability term. Require expected damage to be at least equal to expected losses, or require a real objective or screening benefit, before a charge scores positive. Do not reward charges that deal under half of the target's w",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7490_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:693,1014",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_A,U_CUSTODIAN_GUARD_D",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz declares a charge at Blade Champion Alpha + Custodian Guard Sodality Delta \u2014 targets picked after the roll: Blade Champion Alpha on 7+ (58%), Custodian Guard Sodality Delta on 9+ (28%), overwatch risk: 0.8 dmg",
+ "verdict": "pending",
+ "version": 1
+}
