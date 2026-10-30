@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Gamma (6.5\" away, 58% chance)",
+ "created": "2026-10-30 23:54:33",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7487_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges 10 Kommandos into 2 Custodian Guard at 58%. It uses an expected damage of 8.9 that is far too high for T7, 2+ save, 4+ invulnerable targets. Fix: Compute melee damage per weapon profile with the real hit, wound and save odds against the target's toughness, save and invulnerable save. Weigh the full Custodian retaliation against 1-wound models. Remove any double counting between melee_damage and ch_damage. Require a clear kill chance or a clear objective gain before a cheap horde charges an elite unit.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7487_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "pos:835,1458",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_C",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos declares charge against Custodian Guard Sodality Gamma (58% chance, 6.5\" away, expected 8.9 melee dmg vs 9 HP, overwatch risk: 0.7 dmg)",
+ "verdict": "pending",
+ "version": 1
+}
