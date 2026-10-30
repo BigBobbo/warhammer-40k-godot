@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.7",
+      "date": "2026-10-30",
+      "summary": "The AI shares its units between objectives better: fewer wasted reinforcements, and no lone units sent to flip strongly held objectives.",
+      "changes": [
+        "Movement: the AI no longer sends a unit to reinforce an objective it holds when the enemy can stand there next turn with far more OC than the AI would have, even with that unit. It now measures enemy reach from each unit's nearest model, as objective control does, and sends the unit where it scores more.",
+        "Movement: with the Reconnaissance Sweep primary mission, the AI now counts the VP a unit adds by ending its move wholly within an uncovered table quarter.",
+        "Movement: a unit whose ranged weapons all have [ASSAULT] now Advances on long trips, because Advancing costs it no shooting.",
+        "Movement: a unit that stays on an objective the enemy controls no longer makes the AI think that objective is already taken. Before, one squad standing near an enemy-held centre made the AI send its next unit alone to flip another objective the enemy held with far more OC."
+      ]
+    },
+    {
       "version": "1.56.6",
       "date": "2026-10-30",
       "summary": "The AI reads objective control on terrain correctly and stops wasting moves on objectives it already holds.",
