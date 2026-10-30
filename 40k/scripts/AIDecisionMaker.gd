@@ -1548,8 +1548,9 @@ const FIX_LONE_TRIP: float = 1.0
 # backfill — on 4-turn trips to an enemy-held home objective (LLM-critic
 # cluster far_trip). Uncontested trips, races the unit wins, and races other
 # units can join are kept. 0 = previous behaviour.
-# Round-2 fix: on for the round-2 bundle test (candidate); off in the round-1 release (1.56.6).
-const FIX_FAR_TRIP: float = 1.0
+# Off: the round-2 bundle test (2026-10-30, V8 = FIX_FAR_TRIP + FIX_OVERCOMMIT on vs the round-1 release) lost
+# -6.26 VP per game [-9.71, -2.81] in the Custodes mirror (42 pairs) while it won +7.8 in the Orks mirror. Kept for a later test.
+const FIX_FAR_TRIP: float = 0.0
 # FAR-TRIP: the window, in moves, of "near the objective" — our units that can
 # join the unit there, and (on a longer trip) the enemy force it is judged
 # against. On a 4-5 turn trip nearly every unit of both armies "can arrive in
@@ -1567,8 +1568,9 @@ const FAR_TRIP_HELP_MOVES: int = 2
 # 30 OC centre while an equally near enemy-held objective went uncontested
 # (LLM-critic cluster overcommit). With no such objective the top-up stands.
 # 0 = previous behaviour.
-# Round-2 fix: on for the round-2 bundle test (candidate); off in the round-1 release (1.56.6).
-const FIX_OVERCOMMIT: float = 1.0
+# Off: with FIX_FAR_TRIP off, this fix alone lost -3.55 VP per game [-6.90, -0.20] in the Custodes mirror
+# (round-2 re-test, 10 pairs). Kept for a later test.
+const FIX_OVERCOMMIT: float = 0.0
 # Movement plan (RACE-LATE): 1 = an enemy unit that can only reach the
 # objective on the SAME turn count as our unit (it arrives after we are
 # already there) loses us the race only if it out-OCs what our ARMY can have
