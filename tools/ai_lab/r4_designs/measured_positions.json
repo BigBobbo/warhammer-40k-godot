@@ -8683,14 +8683,14 @@
    }
   ],
   "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
-  "E": 3.417,
+  "E": 3.639,
   "ci": [
-   0.82,
-   6.01
+   1.82,
+   5.46
   ],
-  "n": 12,
+  "n": 36,
   "class": "clear",
-  "applied": 12,
+  "applied": 36,
   "identical": 0,
   "chosen_option": "Screen (block Blade Champion Gamma approaching obj_nml_2 (16\" away))",
   "suggestion": "Gretchin screens at (553,1472) \u2014 block Blade Champion Gamma approaching obj_nml_2 (16\" away)",
@@ -9269,5 +9269,176 @@
   "suggestion": "Lootas Alpha advances toward obj_nml_2 (flipping it (enemy holds with OC 8))",
   "round": 3,
   "player": 1
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r1_p1_movement_1_0",
+  "kind": "move",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c22/20261030_160610_r4c22_00__s7473_r1_p1_movement_1_0.json",
+  "a_did": "Lootas Gamma advances toward obj_home_2 (flipping it (enemy holds with OC 9) \u2014 quicker to reach than Kommandos",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "E": 0.083,
+  "ci": [
+   -4.34,
+   4.51
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Advance obj_home_2 (flipping it (enemy holds with OC 9) \u2014 quicker to reach than Kommandos (33.6\" away, there in 5 turns at M6 vs 40.0\" away, there in 7 turns at M6) \u2014 worth ~4 VP)",
+  "suggestion": "Lootas Gamma advances toward obj_home_2 (flipping it (enemy holds with OC 9) \u2014 quicker to reach than Kommandos (33.6\" away, there in 5 turns at M6 vs 40.0\" away, there in 7 turns at M6))",
+  "round": 1,
+  "player": 1
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r1_p1_movement_2_1",
+  "kind": "move",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c22/20261030_160610_r4c22_00__s7473_r1_p1_movement_2_1.json",
+  "a_did": "",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "E": -0.083,
+  "ci": [
+   -3.11,
+   2.94
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 20\"))",
+  "suggestion": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 20\")",
+  "round": 1,
+  "player": 1
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r2_p2_charge_1_2",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c22/20261030_160610_r4c22_00__s7473_r2_p2_charge_1_2.json",
+  "a_did": "Allarus Custodians declares a charge at Lootas Gamma + Burna Boyz Beta \u2014 targets picked after the roll: Lootas",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge (targets [])",
+  "E": -2.417,
+  "ci": [
+   -6.82,
+   1.98
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 5,
+  "chosen_option": "Charge Lootas Gamma (10.6\" away, 8% chance)",
+  "suggestion": "Allarus Custodians declares a charge at Lootas Gamma + Burna Boyz Beta \u2014 targets picked after the roll: Lootas Gamma on 11+ (8%), Burna Boyz Beta on 11+ (8%), overwatch risk: 7.2 dmg",
+  "round": 2,
+  "player": 2
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5",
+  "kind": "move",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c22/20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5.json",
+  "a_did": "Beast Snagga Boyz advances to attack Allarus Custodians (9.5\" away \u2014 closing to charge range (3.5\" after move)",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~4 VP)",
+  "E": 11.25,
+  "ci": [
+   5.09,
+   17.41
+  ],
+  "n": 12,
+  "class": "clear",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Attack Allarus Custodians (closing to charge range (3.5\" after move))",
+  "suggestion": "Beast Snagga Boyz advances to attack Allarus Custodians (9.5\" away \u2014 closing to charge range (3.5\" after move))",
+  "round": 3,
+  "player": 1
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r3_p1_shooting_2_7",
+  "kind": "shoot",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c22/20261030_160610_r4c22_00__s7473_r3_p1_shooting_2_7.json",
+  "a_did": "Burna Boyz Beta shoots at Custodian Guard Sodality Beta \u2014 expected 0.8 dmg vs 13 HP (6% kill)",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_B",
+    "target": "U_PROSECUTORS_A"
+   }
+  ],
+  "better_option": "",
+  "E": -1.917,
+  "ci": [
+   -3.75,
+   -0.09
+  ],
+  "n": 12,
+  "class": "harmful",
+  "applied": 12,
+  "identical": 3,
+  "chosen_option": "Big shoota \u2192 enemy Custodian Guard Sodality Beta (P2)",
+  "suggestion": "Burna Boyz Beta shoots at Custodian Guard Sodality Beta \u2014 expected 0.8 dmg vs 13 HP (6% kill)",
+  "round": 3,
+  "player": 1
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r3_p2_charge_2_4",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c22/20261030_160610_r4c22_00__s7473_r3_p2_charge_2_4.json",
+  "a_did": "",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge, keep Custodian Guard Sodality Beta on NML 2",
+  "E": -0.333,
+  "ci": [
+   -0.99,
+   0.32
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 11,
+  "chosen_option": "Charge Battlewagon Beta (8.2\" away, 28% chance)",
+  "suggestion": "Custodian Guard Sodality Beta declares a charge at Battlewagon Beta + Lootas Beta \u2014 targets picked after the roll: Battlewagon Beta on 9+ (28%), Lootas Beta on 10+ (17%), overwatch risk: 6.8 dmg",
+  "round": 3,
+  "player": 2
  }
 ]
