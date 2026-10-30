@@ -1,0 +1,817 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index dee1aee..43361fc 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1619,14 +1619,35 @@ const KEEPER_RELEASE_MIN_GAIN: float = 5.0
+ # spots aim only at objectives that still need OC. 0 = the centre-distance
+ # approximation everywhere, spots near any objective.
+ const FIX_HELD_DUP: float = 1.0
+-# LONE-FLIP (FIX_LONE_FLIP): on an objective we do not control, a unit that
+-# HOLDS (remains stationary) adds no OC to the need ledger — the need there
+-# (enemy OC - friendly OC + 1, COORD-5's projected need too) already nets out
+-# every friendly model in range, this unit's included. Pass 1 subtracted the
+-# holder's whole unit OC again, so one model of a squad standing in range of
+-# an enemy-held centre (5 vs 8 OC) marked it "already taken" and the next unit
+-# was sent to flip a 14-OC objective alone. 0 = the holder's OC is consumed.
+-const FIX_LONE_FLIP: float = 1.0
++# Movement plan (R1-HOME-LAST): 1 = in battle round 1 a durable unit is not
++# spent capturing our own uncontrolled home objective while it has a forward
++# objective worth at least as much VP: the home capture waits until pass 2 has
++# sent every unit forward, then goes to a unit the plan left spare that gets
++# there THIS turn at its Normal pace (or, with none, back to the deferred unit
++# whose forward trip is worth least; with none of those either, the base
++# capture). Only when no enemy can reach home by the end of its next turn and
++# neither the primary nor a secondary card pays for holding home. Evidence:
++# at s7468 r1 P1 a Custodian Guard unit walked home while a second squad
++# reinforced it (Gamma Advancing to the centre measured +6.86 VP [4.45, 9.27],
++# 36 rollouts) — only Gamma's order there matches the measured branch; this
++# plan also changes Beta's order, a plan that is unmeasured. PARKED (0): it
++# fires 0 times in the three bench fixtures (every home is held at
++# deployment), so the bench can neither credit nor blame it; turn it on only
++# once its own plan is value-checked (LLM-critic cluster r1_home_capture).
++# 0 = previous behaviour.
++const FIX_R1_HOME_CAPTURE: float = 0.0
++# Movement plan (R1-SUPPORT-ADVANCE): 1 = in battle round 1 a unit sent in
++# SUPPORT (pass 3) on a trip its capture candidate would Advance (RACE-1 long
++# trip) Advances instead of walking — only into a contest race lost at the
++# walking pace, with no enemy within charge reach (M + 12") unless the engine
++# grants advance-and-charge, no shooting lost (every ranged weapon [ASSAULT]
++# or nothing in range), no charge intent, a durable unit, and not the enemy
++# home or a trip pass 2 skipped. A support squad walked a 3-turn trip to a
++# contested centre at s7451 r1 P2 (Advancing: +5.86 VP [3.09, 8.63], 36
++# rollouts; s7470 r1 P1 +2.42); a keeper joiner of a race we were NOT losing
++# (s7437) measured +8.0 walking vs +1.0 Advancing, hence the lost-race gate.
++# Fire rate per game: see the bench census. 0 = previous behaviour.
++const FIX_R1_SUPPORT_ADVANCE: float = 1.0
+ # Charge (RETALIATION): share of the surviving target's melee damage on the
+ # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+@@ -1639,40 +1660,24 @@ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+ # target without it. 0 = V6 behaviour (every declared charger counts).
+ # Off since the round-1 bundle test (2026-10-30, vs V6, 3 fixtures): with it +0.97 [-1.17, +3.12], without it +1.58 [-0.27, +3.42]. Kept for a later test.
+ const FIX_CHARGE_EV: float = 0.0
+-# Movement plan (FIX_REINFORCE_INSURANCE): 1 = three valuation corrections for
+-# a unit choosing between reinforcing an objective we already hold and a trip
+-# elsewhere. (a) RI-RACE: a one-move reinforcement of a held_threatened
+-# objective gets a race test like RACE-1's multi-turn trips — when the enemy
+-# OC that can stand in range after its next move (reach measured from each
+-# unit's NEAREST model, as control is, not its centroid) is RI_RACE_LOST_RATIO
+-# x what we would have there with this unit, the reinforcement cannot keep it and keeps
+-# MOVE_RACE_LOSS_FACTOR of its objective value. COORD-5's centroid reach
+-# missed 10-model squads whose front rank was in reach. (b) RI-ASSAULT: a unit
+-# whose ranged weapons are all [ASSAULT] gives up no shooting by Advancing on
+-# a long trip (11e). (c) RI-QUARTER: a primary card that pays for table
+-# quarters at the end of OUR turn (Reconnaissance Sweep) is priced in VP — the
+-# tier VP this unit's end-of-move spot (at the pace it travels) adds to the
+-# quarters the rest of the army covers, this turn plus half per later round —
+-# instead of a flat bonus on the walking spot that ignored "wholly within" and
+-# the 6" centre gap. Custodian Guard Beta reinforced a centre held with OC 6
+-# while Gretchin and Lootas could each take it next move, instead of Advancing
+-# into the empty quarter on the way to obj_nml_2 (LLM-critic cluster
+-# reinforce_insurance; the Advance measured +4.36 VP over 36 rollouts, the
+-# gain from the quarter tier). 0 = previous behaviour.
+-const FIX_REINFORCE_INSURANCE: float = 1.0
+-# Part switches under the master (each read at its own branch; 0 removes only
+-# that part, the master at 0 removes all three).
+-const FIX_RI_RACE: float = 1.0
+-const FIX_RI_ASSAULT: float = 1.0
+-const FIX_RI_QUARTER: float = 1.0
+-# RI-QUARTER: share of the quarter VP counted for each later battle round
+-# (the unit usually stays in the quarter it entered, but may move or die).
+-const RI_QUARTER_LATER_ROUND_SHARE: float = 0.5
+-# RI-RACE: a one-move reinforcement is a lost race when the enemy can stand
+-# there with at least this multiple of our OC with it. Not 1.0: the enemy has
+-# one move, our shooting and charges act on its approach first, and LONE-TRIP
+-# pins 18 OC vs 20 as a fight worth joining (test_ai_fix_lone_trip).
+-const RI_RACE_LOST_RATIO: float = 1.5
++# WAAAGH-ADV-CHARGE (FIX_WAAAGH_ADVANCE_CHARGE): 1 = the melee chase gate asks
++# the rules engine (EffectPrimitives.has_effect_advance_and_charge — the 11e
++# ChargePhase test for a charge after an Advance) whether the unit may charge
++# after Advancing THIS turn, instead of matching "advance" + "charge" in
++# ability text. The text test read every Ork unit's Waaagh! army rule (and
++# texts like Stormboyz 'Full Throttle' or Blade Champion 'Martial
++# Inspiration') as a permanent advance-and-charge, so melee units Advanced
++# "to attack" and then could not declare the charge a Normal move would have
++# kept (s7468 r3 P2 Stormboyz: Normal move +6.14 [3.08, 9.19] over 36 seeds).
++# While a Waaagh! is really active the flag is set and the unit still
++# Advances. Exception handled: a unit that will be riled up when it is
++# selected to move (Keep Huntin'!, Intimidating Motivation, Get Back in da
++# Race! held by its Attached unit and unused this round) still Advances —
++# that Advance is legal. Only the chase gate changes: the objective-race
++# Advance tests (AI-GAP-4, RACE-1) keep the text test so round-1/2 racing
++# and secondary-card coverage are untouched.
++# 0 = the text test (base behaviour).
++const FIX_WAAAGH_ADVANCE_CHARGE: float = 1.0
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -2690,6 +2695,24 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
+ 		can_advance_and_charge_flag = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
+ 	var dist_after_normal_move = enemy_dist - move_inches
+ 	var in_charge_range_after_normal = dist_after_normal_move <= charge_range_inches
++	# WAAAGH-ADV-CHARGE: trust the rules engine, not ability text, for "may
++	# charge after Advancing this turn" (a dormant Waaagh! does not allow it).
++	if can_advance_and_charge_flag and get_param("FIX_WAAAGH_ADVANCE_CHARGE", FIX_WAAAGH_ADVANCE_CHARGE) >= 0.5:
++		var engine_adv_charge: bool = EffectPrimitivesData.has_effect_advance_and_charge(unit)
++		var fac = snapshot.get("factions", {}).get(str(player), "")
++		var owner_tag: String = "P%d %s" % [player, str(fac.get("name", "")) if fac is Dictionary else str(fac)]
++		# WAAAGH-ADV-CHARGE: a rile granted at selection (Keep Huntin'! etc.)
++		# makes the Advance legal even though no effect is set yet.
++		var rile_slug: String = "" if engine_adv_charge else _rile_pending_on_selection(unit_id, player)
++		if rile_slug != "":
++			if in_charge_range_after_normal:
++				print("AIDecisionMaker: [WAAAGH_ADVANCE_CHARGE] %s (%s) keeps the Advance - %s will rile it when it is selected to move" % [
++					unit_name, owner_tag, _ork_abilities().display(rile_slug)])
++		elif not engine_adv_charge:
++			can_advance_and_charge_flag = false
++			if in_charge_range_after_normal:
++				print("AIDecisionMaker: [WAAAGH_ADVANCE_CHARGE] %s (%s) Normal-moves toward %s (%.1f\" away, %.1f\" after move) — no active advance-and-charge effect, an Advance would forfeit the charge" % [
++					unit_name, owner_tag, enemy_name, enemy_dist, maxf(dist_after_normal_move, 0.0)])
+ 	var should_advance = false
+ 	if can_advance_and_charge_flag:
+ 		should_advance = true
+@@ -2709,6 +2732,19 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
+ 		"reason": reason,
+ 	}
+ 
++# WAAAGH-ADV-CHARGE: the slug of a once-per-battle-round rile ability the
++# unit's Attached unit holds and has not used this round ("" when none). The
++# ability is offered when the unit is selected to move and rile_up_diffs sets
++# effect_advance_and_charge, so an Advance then keeps the charge (11e only).
++static func _rile_pending_on_selection(unit_id: String, player: int) -> String:
++	if GameConstants.edition < 11:
++		return ""
++	var oa = _ork_abilities()
++	for pair in [["keep_huntin", "BEAST SNAGGA"], ["intimidating_motivation", "ORKS"], ["get_back_in_da_race", "SPEED FREEKS"]]:
++		if oa.group_holder(unit_id, pair[0]) != "" and oa.group_has_keyword(unit_id, pair[1]) and not oa.army_used_this_round(player, pair[0]):
++			return str(pair[0])
++	return ""
++
+ static func _get_nearest_enemy_for_charge(unit: Dictionary, enemies: Dictionary) -> Dictionary:
+ 	"""Find the nearest enemy unit and return {enemy_id, enemy_unit, distance_inches, centroid}.
+ 	Factors in terrain penalties to prefer enemies reachable without climbing through terrain."""
+@@ -9392,6 +9428,85 @@ static func _keeper_release_threat(snapshot: Dictionary, ev: Dictionary, enemies
+ 			return "%s can arrive from reserves in the enemy's next turn" % _dn(ru, r_uid)
+ 	return ""
+ 
++## R1-SUPPORT-ADVANCE: is the contest race for `ev` lost when `unit_id`
++## arrives in `turns` Movement phases? The same sums as RACE-1's contest race
++## (with RACE-LATE / RACE-ARMY), at a pace the caller chooses — RACE-1 costs a
++## long trip at the Advance pace, R1-SUPPORT-ADVANCE asks about the walk.
++static func _r1sa_race_lost_at(ev: Dictionary, unit_id: String, unit_oc: int, turns: int,
++		race_same_turn: bool) -> bool:
++	if turns <= 1:
++		return false
++	var enemy_oc := int(ev.get("enemy_oc", 0))
++	var early_oc := enemy_oc
++	var half_oc := 0
++	var early_half_oc := 0
++	for arr in ev.get("enemy_arrivals", []):
++		if int(arr.moves) <= turns - (0 if race_same_turn else 1):
++			if arr.get("nearest", true):
++				enemy_oc += int(arr.oc)
++			else:
++				half_oc += int(arr.oc)
++		if int(arr.moves) <= turns - 1:
++			if arr.get("nearest", true):
++				early_oc += int(arr.oc)
++			else:
++				early_half_oc += int(arr.oc)
++	enemy_oc += int(round(half_oc * 0.5))
++	early_oc += int(round(early_half_oc * 0.5))
++	var our_oc: int = unit_oc + int(ev.get("friendly_oc", 0))
++	var army_oc: int = int(ev.get("friendly_oc", 0)) + unit_oc
++	var army_half_oc := 0
++	for f_arr in ev.get("friendly_arrivals", []):
++		if str(f_arr.get("unit_id", "")) == str(unit_id):
++			continue
++		if int(f_arr.moves) <= turns:
++			if f_arr.get("nearest", true):
++				army_oc += int(f_arr.oc)
++			else:
++				army_half_oc += int(f_arr.oc)
++	army_oc += int(round(army_half_oc * 0.5))
++	var lost: bool = enemy_oc >= our_oc
++	if get_param("PLAN_RACE_LATE_VS_ARMY", PLAN_RACE_LATE_VS_ARMY) >= 0.5:
++		lost = early_oc >= our_oc or enemy_oc >= maxi(our_oc, army_oc)
++	return enemy_oc > 0 and lost
++
++## R1-SUPPORT-ADVANCE: does an Advance cost `unit` shooting this turn? No when
++## every ranged weapon is [ASSAULT] (11e: Advanced units may shoot them), it
++## has no ranged weapon, or no enemy stands within its longest ranged range.
++static func _r1sa_advance_costs_shooting(unit: Dictionary, centroid: Vector2, enemies: Dictionary) -> bool:
++	var all_assault := true
++	for w in unit.get("meta", {}).get("weapons", []):
++		if str(w.get("type", "")).to_lower() == "ranged" and "assault" not in str(w.get("special_rules", "")).to_lower():
++			all_assault = false
++	if all_assault:
++		return false
++	var reach_px := _get_max_weapon_range(unit) * PIXELS_PER_INCH
++	for e_uid in enemies:
++		var ec = _get_unit_centroid(enemies[e_uid])
++		if ec != Vector2.INF and centroid.distance_to(ec) <= reach_px:
++			return true
++	return false
++
++## R1-SUPPORT-ADVANCE: an enemy within charge reach (M + 12") of `centroid`
++## when the ENGINE does not let `unit` charge after Advancing (its flag or
++## EffectPrimitives — never ability text, which RACE-1 still reads), or "".
++static func _r1sa_charge_lost(unit: Dictionary, centroid: Vector2, enemies: Dictionary) -> String:
++	if unit.get("flags", {}).get("effect_advance_and_charge", false) \
++			or EffectPrimitivesData.has_effect_advance_and_charge(unit):
++		return ""
++	var reach_px := (float(unit.get("meta", {}).get("stats", {}).get("move", 6)) + 12.0) * PIXELS_PER_INCH
++	for e_uid in enemies:
++		var ec = _get_unit_centroid(enemies[e_uid])
++		if ec != Vector2.INF and centroid.distance_to(ec) <= reach_px:
++			return _dn(enemies[e_uid], e_uid)
++	return ""
++
++## R1-HOME-LAST: the battle round of the enemy's next turn after ours in
++## `battle_round` (same round when we go first, the next one when we go second).
++static func _enemy_next_turn_round(snapshot: Dictionary, player: int, battle_round: int) -> int:
++	var first := int(snapshot.get("meta", {}).get("first_turn_player", 1))
++	return battle_round if (player == first or (first != 1 and first != 2 and player == 1)) else battle_round + 1
++
+ ## LONE-TRIP: a unit the enemy can wipe out once it stands alone — the fragile
+ ## rule _evaluate_position_threat already uses (T3 or less, or 1 wound per
+ ## model), or a lone CHARACTER (one model, no bodyguard, not a vehicle/monster).
+@@ -9427,16 +9542,6 @@ static func _assign_units_to_objectives(
+ 	if hd_mm != null:
+ 		for hd_eval in obj_evaluations:
+ 			hd_obj_by_id[hd_eval.id] = _held_dup_objective_at(snapshot, hd_eval.position)
+-	# REINFORCE-INSURANCE (FIX_REINFORCE_INSURANCE): RI-RACE's enemy reach per
+-	# objective (cached) and RI-QUARTER's quarters covered by everyone but the
+-	# unit being placed (cached per unit).
+-	var ri_race_on: bool = _ri_part_on("FIX_RI_RACE", FIX_RI_RACE)
+-	var ri_quarter_on: bool = _ri_part_on("FIX_RI_QUARTER", FIX_RI_QUARTER)
+-	var ri_threat_by_obj := {}
+-	var ri_objs: Array = []  # [marker position, board entry ({} = marker only)]
+-	for ri_eval in obj_evaluations:
+-		ri_objs.append([ri_eval.position, hd_obj_by_id.get(ri_eval.id, {})])
+-	var ri_covered_by_unit := {}
+ 
+ 	# =========================================================================
+ 	# COORD-2: INCOMING OC — account for friendly units that already took their
+@@ -9631,35 +9736,6 @@ static func _assign_units_to_objectives(
+ 					score = _t_mul(score_terms, "contest_race", score,
+ 						get_param("MOVE_RACE_LOSS_FACTOR", MOVE_RACE_LOSS_FACTOR))
+ 
+-			# RI-RACE (FIX_REINFORCE_INSURANCE): a one-move reinforcement of an
+-			# objective we hold races the enemy's next move like RACE-1's trips —
+-			# a reinforcement that still leaves us at or below what the enemy can
+-			# stand there with cannot keep the objective.
+-			if ri_race_on and turns_to_reach <= 1 and not already_on_obj \
+-					and str(eval.get("state", "")) == "held_threatened" and score > 0.0:
+-				if not ri_threat_by_obj.has(obj_id):
+-					ri_threat_by_obj[obj_id] = _ri_enemy_next_move_oc(obj_pos, ri_objs, enemies,
+-							hd_obj_by_id.get(obj_id, {}), hd_mm) + int(eval.get("enemy_oc", 0))
+-				var ri_enemy_oc: int = int(ri_threat_by_obj[obj_id])
+-				var ri_our_oc: int = int(eval.get("friendly_oc", 0)) + int(unit_oc)
+-				var ri_half := 0
+-				for f_arr in eval.get("friendly_arrivals", []):
+-					if str(f_arr.get("unit_id", "")) == str(unit_id) or int(f_arr.moves) > 1:
+-						continue
+-					if f_arr.get("nearest", true):
+-						ri_our_oc += int(f_arr.oc)
+-					else:
+-						ri_half += int(f_arr.oc)
+-				ri_our_oc += int(round(ri_half * 0.5))
+-				if float(ri_enemy_oc) >= float(ri_our_oc) * get_param("RI_RACE_LOST_RATIO", RI_RACE_LOST_RATIO):
+-					race_lost = true
+-					race_enemy_oc = ri_enemy_oc
+-					var ri_before: float = score
+-					score = _t_mul(score_terms, "reinforce_race", score,
+-						get_param("MOVE_RACE_LOSS_FACTOR", MOVE_RACE_LOSS_FACTOR))
+-					print("AIDecisionMaker: [REINFORCE_INSURANCE] RI-RACE %s -> %s: the enemy can stand there with ~%d OC next move vs our %d with it — reinforcing keeps %.1f of %.1f" % [
+-						_dn(unit, unit_id), obj_id, ri_enemy_oc, ri_our_oc, score, ri_before])
+-
+ 			# Distance penalty: further away = less useful. RACE-1: each extra turn
+ 			# costs a share of the objective's value (floored at the flat penalty),
+ 			# so a +20 objective three turns away is no longer down just -4.
+@@ -9827,7 +9903,6 @@ static func _assign_units_to_objectives(
+ 			# --- 11e PRIMARY MISSION (FORCE-DISPOSITION) INFLUENCE ---
+ 			# The player's own primary card decides which objectives actually
+ 			# pay VP: enemy home, the centre, objective count, quarters.
+-			var ri_quarter_pending := false
+ 			var primary_awareness = _get_primary_awareness(player)
+ 			if not primary_awareness.is_empty() and primary_awareness.get("active_rules", 0) > 0:
+ 				var pr_obj_pressure = primary_awareness.get("objective_pressure", 0.0)
+@@ -9841,11 +9916,7 @@ static func _assign_units_to_objectives(
+ 						score += _t_add(score_terms, "primary_awareness", primary_awareness.central_bonus)
+ 				if primary_awareness.get("hold_home_required", false) and eval.get("is_home", false):
+ 					score += _t_add(score_terms, "primary_awareness", 3.0)
+-				if primary_awareness.get("quarters", false) and ri_quarter_on:
+-					# RI-QUARTER (FIX_RI_QUARTER): priced once the action (and so
+-					# the pace) is known, below.
+-					ri_quarter_pending = true
+-				elif primary_awareness.get("quarters", false):
++				if primary_awareness.get("quarters", false):
+ 					var pr_covered = _get_covered_quarters(snapshot.get("units", {}), player)
+ 					var pr_quarter = _get_table_quarter(estimated_dest)
+ 					if not pr_covered[pr_quarter]:
+@@ -9997,34 +10068,6 @@ static func _assign_units_to_objectives(
+ 				action = "advance"
+ 				reason = "advancing to arrive a turn sooner"
+ 
+-			if ri_quarter_pending:
+-				# RI-QUARTER (FIX_RI_QUARTER): the card's VP for the spot this
+-				# move really ends on, at the pace of its action — a holder stays
+-				# where it is, an Advance goes M + the expected roll. The rest of
+-				# the army's quarters leave out the unit and everything that
+-				# moves with it (attached leaders, embarked units).
+-				if not ri_covered_by_unit.has(unit_id):
+-					var ri_others: Dictionary = (snapshot.get("units", {}) as Dictionary).duplicate()
+-					ri_others.erase(unit_id)
+-					for ri_cid in unit.get("attachment_data", {}).get("attached_characters", []):
+-						ri_others.erase(str(ri_cid))
+-					for ri_eid in unit.get("transport_data", {}).get("embarked_units", []):
+-						ri_others.erase(str(ri_eid))
+-					for ri_uid in ri_others.keys():
+-						if str(ri_others[ri_uid].get("embarked_in", "")) == str(unit_id):
+-							ri_others.erase(ri_uid)
+-					ri_covered_by_unit[unit_id] = _get_covered_quarters(ri_others, player)
+-				var ri_offset := Vector2.ZERO
+-				if action != "hold":
+-					var ri_pace_in: float = move_inches + (get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES) if action == "advance" else 0.0)
+-					ri_offset = move_direction * minf(ri_pace_in * PIXELS_PER_INCH, dist_px)
+-				var ri_q_vp: float = _ri_quarter_vp(unit, ri_offset, ri_covered_by_unit[unit_id],
+-						primary_awareness.get("vp_rules", []), battle_round)
+-				if ri_q_vp > 0.0:
+-					score += _t_add(score_terms, "quarter_vp", ri_q_vp)
+-					print("AIDecisionMaker: [REINFORCE_INSURANCE] RI-QUARTER %s -> %s (%s): ends wholly in an uncovered table quarter, +%.1f (card VP)" % [
+-						_dn(unit, unit_id), obj_id, action, ri_q_vp])
+-
+ 			# PM-3: the plan's HOLD_OBJECTIVE / PUSH_CENTER bias, as a named
+ 			# additive term so it shows up in score_breakdown like every other.
+ 			var plan_bias := _plan_objective_earmark_bonus(unit_id, obj_id, player, snapshot)
+@@ -10047,6 +10090,11 @@ static func _assign_units_to_objectives(
+ 				"move_inches": move_inches,
+ 				"race_enemy_oc": race_enemy_oc,
+ 				"race_lost": race_lost,
++				# R1-SUPPORT-ADVANCE: a RACE-1 long trip, and its race at the
++				# WALKING pace (data only — nothing here changes the score).
++				"long_adv": long_adv,
++				"race_lost_walk": long_adv and _r1sa_race_lost_at(eval, unit_id, int(unit_oc),
++					int(max(1.0, ceil(gap_in / move_inches))) if move_inches > 0 else 99, race_same_turn),
+ 				"race_our_oc": int(unit_oc) + int(eval.get("friendly_oc", 0)),
+ 				"race_army_oc": race_army_oc,
+ 				"vp_value": eval.get("vp_value", 0.0),
+@@ -10117,8 +10165,6 @@ static func _assign_units_to_objectives(
+ 	# KEEPER-RELEASE (FIX_KEEPER_RELEASE): keepers that leave after pass 3.
+ 	var keeper_release_on = get_param("FIX_KEEPER_RELEASE", FIX_KEEPER_RELEASE) >= 0.5
+ 	var keeper_released := {}  # unit_id -> _keeper_release_check result
+-	# LONE-FLIP (FIX_LONE_FLIP): read once, reused by pass 2.5.
+-	var lone_flip_on = get_param("FIX_LONE_FLIP", FIX_LONE_FLIP) >= 0.5
+ 	for cand in candidates:
+ 		var uid = cand.unit_id
+ 		var oid = cand.objective_id
+@@ -10191,24 +10237,8 @@ static func _assign_units_to_objectives(
+ 				hold_reason = "holding objective (OC: %d)" % cand.unit_oc
+ 			assignments[uid]["reason"] = hold_reason
+ 			assigned_unit_ids[uid] = true
+-			# LONE-FLIP (FIX_LONE_FLIP): a stationary holder on an objective we do
+-			# not control is already in friendly_oc — it fills none of the need.
+-			# Only when it has OC in range now: a holder with none there (battle-
+-			# shocked, not deployed, outside MissionManager's range) is not in
+-			# friendly_oc, and zeroing it would pin co-holders that add nothing.
+-			var hold_adds_oc: int = cand.unit_oc
+-			if lone_flip_on and remaining > 0 \
+-					and obj_state not in ["held_safe", "held_threatened"] \
+-					and _unit_oc_at_position(cand.objective_pos, uid, snapshot.get("units", {}).get(uid, {}),
+-						snapshot.get("units", {}), hd_obj_by_id.get(oid, {}), hd_mm) > 0:
+-				hold_adds_oc = 0
+-				# pass 2.5 re-opens only the in-range OC if this holder converts to ATTACK
+-				assignments[uid]["lone_flip_hold"] = true
+-				print("AIDecisionMaker: [LONE_FLIP] %s: %s holds but adds no OC (already counted: friendly %d vs enemy %d) — need stays %d (base would set %d; movable holders here: %d)" % [
+-					oid, uid, int(eval_for_obj.get("friendly_oc", 0)), int(eval_for_obj.get("enemy_oc", 0)),
+-					remaining, max(0, remaining - cand.unit_oc), int(units_on_obj_initial.get(oid, 0))])
+-			assignments[uid]["oc_consumed"] = min(hold_adds_oc, max(0, remaining))
+-			obj_oc_remaining[oid] = max(0, remaining - hold_adds_oc)
++			assignments[uid]["oc_consumed"] = min(cand.unit_oc, max(0, remaining))
++			obj_oc_remaining[oid] = max(0, remaining - cand.unit_oc)
+ 			# Decrease count so second unit on same obj can be freed
+ 			units_on_obj[oid] = units_on_obj.get(oid, 1) - 1
+ 			print("AIDecisionMaker: Assigned %s to HOLD %s (OC: %d, remaining need: %d)" % [uid, oid, cand.unit_oc, obj_oc_remaining[oid]])
+@@ -10488,6 +10518,61 @@ static func _assign_units_to_objectives(
+ 		assignments[c_uid]["assign_pass"] = "capture"
+ 		print("AIDecisionMaker: Assigned %s to %s %s (score: %.1f, reason: %s)" % [c_uid, cand.action.to_upper(), c_oid, cand.score, assign_reason])
+ 
++	# R1-HOME-LAST (FIX_R1_HOME_CAPTURE): our uncontrolled home objectives whose
++	# capture waits for the end of pass 2 (round 1, nothing en route, no enemy
++	# can reach it by the end of its next turn, no card pays for holding home).
++	var home_last := {}  # objective_id -> true
++	var home_deferred := {}  # unit_id -> its home candidate (skipped in pass 2)
++	var home_deferred_fwd := {}  # unit_id -> the forward capture it was deferred for
++	if get_param("FIX_R1_HOME_CAPTURE", FIX_R1_HOME_CAPTURE) >= 0.5 and battle_round == 1:
++		var hl_primary = _get_primary_awareness(player)
++		var hl_secondary = _get_secondary_awareness(player)
++		# A card pays for home itself (Defend Stronghold's home hint, Extend
++		# Battle Lines' home + NML) — not one that pays for any objective
++		# (Burden of Trust), which the forward objective scores just as well.
++		var hl_home_hint := false
++		var hl_any_hint := false
++		for hl_h in hl_secondary.get("vp_objective_hints", []):
++			if hl_h is Dictionary:
++				hl_home_hint = hl_home_hint or str(hl_h.get("kind", "")) == "home"
++				hl_any_hint = hl_any_hint or str(hl_h.get("kind", "")) == "any"
++		var hl_card_pays: bool = hl_primary.get("hold_home_required", false) or hl_home_hint \
++				or (float(hl_secondary.get("defend_home", 0.0)) > 0.0 and not hl_any_hint)
++		var hl_enemy_round := _enemy_next_turn_round(snapshot, player, battle_round)
++		for hl_ev in obj_evaluations:
++			if not hl_ev.get("is_home", false) or str(hl_ev.get("state", "")) != "uncontrolled" \
++					or int(obj_oc_remaining.get(hl_ev.id, 0)) <= 0 or int(incoming_oc.get(hl_ev.id, 0)) > 0:
++				continue
++			# (log untagged: no decision changes here)
++			if hl_card_pays:
++				print("AIDecisionMaker: R1-HOME-LAST %s: captured as before — a card pays for holding home" % hl_ev.id)
++				continue
++			# R1-HOME-LAST (graft from narrow): only a home the primary card
++			# counts in none of its rules (MissionManager never decoys a home).
++			if _keeper_release_primary_counts(player, hl_ev):
++				print("AIDecisionMaker: R1-HOME-LAST %s: captured as before — the primary card counts it" % hl_ev.id)
++				continue
++			var hl_threat := _keeper_release_threat(snapshot, hl_ev, enemies, player, hl_enemy_round)
++			if hl_threat != "":
++				print("AIDecisionMaker: R1-HOME-LAST %s: captured as before — %s" % [hl_ev.id, hl_threat])
++				continue
++			home_last[hl_ev.id] = true
++	# R1-HOME-LAST: the unit's best forward capture (not home, worth at least
++	# `home_vp` VP, a trip pass 2 would send it on) or {}.
++	var home_last_forward := func(c: Dictionary, home_vp: float) -> Dictionary:
++		for f in candidates:
++			if f.unit_id != c.unit_id or f.objective_id == c.objective_id or f.action not in ["move", "advance"]:
++				continue
++			var f_ev = _get_obj_eval_by_id(obj_evaluations, f.objective_id)
++			if f_ev.is_empty() or f_ev.get("is_home", false) or float(f_ev.get("vp_value", 0.0)) < home_vp:
++				continue
++			if int(obj_oc_remaining.get(f.objective_id, 0)) <= 0 \
++					or (reprice_capture.call(f.objective_id) as Dictionary).get("skip", false) \
++					or too_late.call(f) or race_hopeless.call(f) or lone_trip.call(f):
++				continue
++			return f
++		return {}
++
+ 	for cand in candidates:
+ 		var uid = cand.unit_id
+ 		var oid = cand.objective_id
+@@ -10500,6 +10585,19 @@ static func _assign_units_to_objectives(
+ 				blocked_best[uid] = {"objective_id": oid, "names": incoming_names.get(oid, [])}
+ 			continue  # Skip objectives that don't need more OC
+ 
++		# R1-HOME-LAST: a durable unit with a forward objective worth as much
++		# goes forward; home is taken after this pass (see below).
++		if home_last.has(oid) and cand.action in ["move", "advance"] \
++				and not _lone_trip_fragile(snapshot.get("units", {}).get(uid, {})) \
++				and not str(cand.get("earmark", "")).begins_with("HOLD_OBJECTIVE"):
++			var hl_fwd: Dictionary = home_last_forward.call(cand, float(_get_obj_eval_by_id(obj_evaluations, oid).get("vp_value", 0.0)))
++			if not hl_fwd.is_empty():
++				home_deferred[uid] = cand
++				home_deferred_fwd[uid] = hl_fwd
++				print("AIDecisionMaker: [R1_HOME_CAPTURE] %s: not sending %s home yet (score %.1f) — no enemy can reach it before our next turn, and it can go forward (best: %s %s, score %.1f)" % [
++					oid, uid, float(cand.score), str(hl_fwd.action).to_upper(), hl_fwd.objective_id, float(hl_fwd.score)])
++				continue
++
+ 		var price: Dictionary = reprice_capture.call(oid)
+ 		if price.get("skip", false):
+ 			if not extra_obj_skipped.has(uid):
+@@ -10584,6 +10682,9 @@ static func _assign_units_to_objectives(
+ 				continue
+ 			if alt.action not in ["move", "advance"]:
+ 				continue
++			# R1-HOME-LAST: not home handed back to a unit deferred from it
++			if home_last.has(oid) and home_deferred.has(alt.unit_id):
++				continue
+ 			if float(alt.score) < float(cand.score) - closer_margin:
+ 				continue
+ 			if mini(int(alt.unit_oc), remaining) < needed_cover:
+@@ -10616,6 +10717,91 @@ static func _assign_units_to_objectives(
+ 
+ 		apply_capture_assignment.call(cand)
+ 
++	# R1-HOME-LAST: a deferred home objective goes to the best unit pass 2 left
++	# spare that gets there THIS turn at its Normal pace; with none, back to
++	# the deferred unit whose forward trip is worth least next to home (its
++	# forward OC need re-opens); with none of those either, the deferral is
++	# undone (the base capture). A deferred unit whose pass-2 assignment ended
++	# up worth less VP than home is not deferred after all.
++	# A home candidate a unit can take over: there this turn, walking.
++	var hl_ok := func(c: Dictionary) -> bool:
++		return c.get("action", "") in ["move", "advance"] and int(_capture_arrival(c).phases) == 1 \
++				and not too_late.call(c) and not race_hopeless.call(c)
++	# Undo `hl_uid`'s deferral: release its pass-2 assignment, give it home.
++	var hl_undo := func(hl_uid: String, why: String) -> void:
++		var hl_home: Dictionary = home_deferred[hl_uid]
++		var hl_was := ""
++		if assignments.has(hl_uid):
++			var hl_old: Dictionary = assignments[hl_uid]
++			hl_was = str(hl_old.get("objective_id", ""))
++			if hl_old.get("assign_pass", "") == "capture":
++				obj_oc_remaining[hl_was] = int(obj_oc_remaining.get(hl_was, 0)) + int(hl_old.get("oc_consumed", 0))
++			assignments.erase(hl_uid)
++			assigned_unit_ids.erase(hl_uid)
++		home_deferred.erase(hl_uid)
++		home_deferred_fwd.erase(hl_uid)
++		if int(obj_oc_remaining.get(hl_home.objective_id, 0)) <= 0:
++			return
++		apply_capture_assignment.call(hl_home)
++		print("AIDecisionMaker: [R1_HOME_CAPTURE] %s: %s takes it after all (%s%s)" % [
++			hl_home.objective_id, hl_uid, why, (", leaving %s" % hl_was) if hl_was != "" else ""])
++	for hl_d in home_deferred.keys():
++		var hl_home_vp := float(_get_obj_eval_by_id(obj_evaluations, home_deferred[hl_d].objective_id).get("vp_value", 0.0))
++		var hl_cur: Dictionary = assignments.get(hl_d, {})
++		var hl_cur_vp := -1.0
++		if hl_cur.get("assign_pass", "") == "capture":
++			hl_cur_vp = float(_get_obj_eval_by_id(obj_evaluations, str(hl_cur.get("objective_id", ""))).get("vp_value", 0.0))
++		if hl_cur_vp < hl_home_vp:
++			hl_undo.call(str(hl_d), "its forward capture fell through — worth %.1f VP vs %.1f at home" % [maxf(hl_cur_vp, 0.0), hl_home_vp])
++	for hl_oid in home_last:
++		if int(obj_oc_remaining.get(hl_oid, 0)) <= 0:
++			continue
++		var hl_any := false
++		for hl_d in home_deferred:
++			if str(home_deferred[hl_d].objective_id) == str(hl_oid):
++				hl_any = true
++		if not hl_any:
++			continue
++		var hl_spare: Dictionary = {}
++		for hl_c in candidates:
++			if hl_c.objective_id == hl_oid and not assigned_unit_ids.has(hl_c.unit_id) \
++					and not home_deferred.has(hl_c.unit_id) and hl_ok.call(hl_c):
++				hl_spare = hl_c
++				break
++		if not hl_spare.is_empty():
++			apply_capture_assignment.call(hl_spare)
++			assignments[hl_spare.unit_id]["coordination_note"] = "takes home after the plan sent the stronger units forward"
++			print("AIDecisionMaker: [R1_HOME_CAPTURE] %s: %s takes it (spare after the forward captures, there this turn, score %.1f)" % [
++				hl_oid, hl_spare.unit_id, float(hl_spare.score)])
++			# R1-HOME-LAST (graft from narrow): a true note on each deferred unit
++			# so OBJ-EXPLAIN-1 records why it is not capturing home.
++			for hl_d in home_deferred:
++				if str(home_deferred[hl_d].objective_id) == str(hl_oid) and assignments.has(hl_d):
++					assignments[hl_d]["coordination_note"] = "not capturing %s in round 1 — no enemy can reach it before our next turn; %s takes it" % [
++						hl_oid, _dn(snapshot.get("units", {}).get(hl_spare.unit_id, {}), hl_spare.unit_id)]
++			continue
++		var hl_back := ""
++		var hl_back_gain := INF
++		for hl_d in home_deferred:
++			if str(home_deferred[hl_d].objective_id) != str(hl_oid) or not hl_ok.call(home_deferred[hl_d]):
++				continue
++			var hl_cur: Dictionary = assignments.get(hl_d, {})
++			if hl_cur.get("assign_pass", "") != "capture":
++				continue
++			var hl_gain := float(hl_cur.get("score", 0.0)) - float(home_deferred[hl_d].score)
++			if hl_gain < hl_back_gain:
++				hl_back_gain = hl_gain
++				hl_back = str(hl_d)
++		if hl_back != "":
++			hl_undo.call(hl_back, "no spare unit gets there this turn — its forward trip was worth least, %+.1f" % hl_back_gain)
++			continue
++		# Nobody qualifies: undo the deferral — the base capture (the first
++		# deferred unit, in pass 2's score order).
++		for hl_d in home_deferred.keys():
++			if str(home_deferred[hl_d].objective_id) == str(hl_oid):
++				hl_undo.call(str(hl_d), "no unit gets there this turn at its Normal pace")
++				break
++
+ 	# =========================================================================
+ 	# PASS 2.5 (COORD-4): ATTACK-INTENT CONVERSION — melee seekers that would
+ 	# abandon their objective for a nearby enemy decide it HERE, at plan time,
+@@ -10643,16 +10829,7 @@ static func _assign_units_to_objectives(
+ 			var h_eval = _get_obj_eval_by_id(obj_evaluations, a_oid)
+ 			var h_threat = maxi(int(h_eval.get("enemy_oc", 0)), int(h_eval.get("projected_enemy_oc", 0)))
+ 			var h_left = int(h_eval.get("friendly_oc", 0)) - int(a.get("unit_oc", 1))
+-			if lone_flip_on and a.get("lone_flip_hold", false):
+-				# LONE-FLIP (FIX_LONE_FLIP): this hold consumed none of the need, which
+-				# pass 2 may already have filled — only the holder's in-range OC leaves.
+-				var lf_base_reopen = maxi(reopened, h_threat - h_left + 1)
+-				reopened = _unit_oc_at_position(a.get("objective_pos", Vector2.INF), uid, a_unit,
+-					snapshot.get("units", {}), hd_obj_by_id.get(a_oid, {}), hd_mm)
+-				print("AIDecisionMaker: [LONE_FLIP] %s: %s leaves a zero-consumption hold — re-open %d (its in-range OC; base would re-open %d)" % [
+-					a_oid, uid, reopened, lf_base_reopen])
+-			else:
+-				reopened = maxi(reopened, h_threat - h_left + 1)
++			reopened = maxi(reopened, h_threat - h_left + 1)
+ 		if reopened > 0 and obj_oc_remaining.has(a_oid):
+ 			obj_oc_remaining[a_oid] = obj_oc_remaining[a_oid] + reopened
+ 			print("AIDecisionMaker: [COORD-4] %s: OC need re-opened to %d (planned unit is attacking instead)" % [
+@@ -10974,6 +11151,48 @@ static func _assign_units_to_objectives(
+ 			if support_allowed.is_empty():
+ 				support_allowed["__far_trip__"] = true
+ 		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player, support_counts, support_allowed)
++		# R1-SUPPORT-ADVANCE (FIX_R1_SUPPORT_ADVANCE): a round-1 support trip
++		# its capture candidate would Advance (RACE-1 long trip) is Advanced —
++		# only into a race lost at the walking pace, at no charge or shooting
++		# cost (the measured case; a joiner of a race we are not losing keeps
++		# its Normal move).
++		if not best_obj.is_empty() and str(best_obj.get("action", "")) == "move" and battle_round == 1 \
++				and get_param("FIX_R1_SUPPORT_ADVANCE", FIX_R1_SUPPORT_ADVANCE) >= 0.5:
++			var sa_oid := str(best_obj.get("objective_id", ""))
++			var sa_ev = _get_obj_eval_by_id(obj_evaluations, sa_oid)
++			var sa_c: Dictionary = {}
++			for sa_x in candidates:
++				if sa_x.unit_id == unit_id and sa_x.objective_id == sa_oid:
++					sa_c = sa_x
++					break
++			var sa_why := ""
++			if sa_c.is_empty() or not sa_c.get("long_adv", false):
++				sa_why = "not a RACE-1 long trip"
++			elif not sa_c.get("race_lost_walk", false):
++				sa_why = "a race we do not lose walking"
++			elif sa_ev.is_empty() or sa_ev.get("is_enemy_home", false):
++				sa_why = "the enemy home"
++			elif _lone_trip_fragile(unit):
++				sa_why = "a fragile unit"
++			elif str((extra_obj_skipped.get(unit_id, {}) as Dictionary).get("objective_id", "")) == sa_oid \
++					or (lone_skipped.get(unit_id, {}) as Dictionary).has(sa_oid) \
++					or (far_skipped.get(unit_id, {}) as Dictionary).has(sa_oid):
++				sa_why = "a trip pass 2 skipped"
++			elif not _get_charge_intent(unit_id, player).is_empty():
++				sa_why = "it has a charge intent"
++			else:
++				var sa_charger := _r1sa_charge_lost(unit, centroid, enemies)
++				if sa_charger != "":
++					sa_why = "%s is within charge reach" % sa_charger
++				elif _r1sa_advance_costs_shooting(unit, centroid, enemies):
++					sa_why = "it would lose shooting"
++			if sa_why == "":
++				best_obj["action"] = "advance"
++				best_obj["reason"] = str(best_obj.get("reason", "")) + " — advancing to arrive a turn sooner"
++				print("AIDecisionMaker: [R1_SUPPORT_ADVANCE] %s: support trip to %s ADVANCES (%d turn(s) at the Advance pace; a race the enemy wins at the walking pace — OC there on arrival matters)" % [
++					unit_id, sa_oid, int(sa_c.turns_to_reach)])
++			elif not sa_c.is_empty() and sa_c.get("long_adv", false):
++				print("AIDecisionMaker: R1-SUPPORT-ADVANCE %s: support trip to %s walks as before — %s" % [unit_id, sa_oid, sa_why])
+ 		if not best_obj.is_empty():
+ 			assignments[unit_id] = best_obj
+ 			assignments[unit_id]["assign_pass"] = "support"
+@@ -11944,141 +12163,6 @@ static func _prob_sum_d6_at_least(n: int, need: float) -> float:
+ 			p += float(dist[total])
+ 	return p
+ 
+-## RI-ASSAULT (FIX_REINFORCE_INSURANCE): true when the unit has ranged
+-## weapons and every one is [ASSAULT] — it can shoot them after Advancing.
+-static func _ri_ranged_all_assault(unit: Dictionary) -> bool:
+-	var any_ranged := false
+-	for w in unit.get("meta", {}).get("weapons", []):
+-		if str(w.get("type", "")).to_lower() != "ranged":
+-			continue
+-		any_ranged = true
+-		var is_assault := false
+-		for tok in str(w.get("special_rules", "")).to_lower().split(","):
+-			if tok.strip_edges() == "assault":
+-				is_assault = true
+-				break
+-		if not is_assault:
+-			return false
+-	return any_ranged
+-
+-## REINFORCE-INSURANCE: a part is on when the master switch
+-## (FIX_REINFORCE_INSURANCE) and its own switch are both on.
+-static func _ri_part_on(part: String, default_value: float) -> bool:
+-	return get_param("FIX_REINFORCE_INSURANCE", FIX_REINFORCE_INSURANCE) >= 0.5 \
+-			and get_param(part, default_value) >= 0.5
+-
+-## RI-RACE (FIX_RI_RACE): the enemy OC that can stand in control range of the
+-## objective at `obj_pos` after one move (M + 2", COORD-5's slack), measured
+-## from each unit's NEAREST alive model (control needs one model in range, so a
+-## 10-model squad's centroid understates its reach by several inches). On an
+-## 11e terrain objective (`hd_obj` = its board entry, `hd_mm` the
+-## MissionManager) the gap is to the hosting area's edge, as control is. Units
+-## already in range are left out (they are in enemy_oc, as COORD-5 skips them);
+-## a unit standing in range of another objective (`objs` = [marker, board
+-## entry] pairs) counts half (RACE-1b: it can hold only one).
+-static func _ri_enemy_next_move_oc(obj_pos: Vector2, objs: Array, enemies: Dictionary,
+-		hd_obj: Dictionary = {}, hd_mm = null) -> int:
+-	var area: bool = hd_mm != null and not hd_obj.is_empty()
+-	var total := 0
+-	var half := 0
+-	for e_uid in enemies:
+-		var e_unit = enemies[e_uid]
+-		if e_unit.get("flags", {}).get("battle_shocked", false):
+-			continue
+-		var e_status = e_unit.get("status", 0)
+-		if e_status == GameStateData.UnitStatus.UNDEPLOYED or e_status == GameStateData.UnitStatus.IN_RESERVES:
+-			continue
+-		var e_oc = _unit_alive_oc(e_unit, 0)
+-		if e_oc <= 0:
+-			continue
+-		if area and _unit_in_objective_range(e_unit, hd_obj, hd_mm):
+-			continue
+-		var gap_px := INF
+-		for model in _get_alive_models(e_unit):
+-			var mp = _get_model_position(model)
+-			if mp == Vector2.INF:
+-				continue
+-			if area:
+-				gap_px = minf(gap_px, float(hd_mm.model_gap_to_objective_range_px(model, hd_obj)))
+-			else:
+-				gap_px = minf(gap_px, mp.distance_to(obj_pos) - OBJECTIVE_CONTROL_RANGE_PX)
+-		if gap_px == INF or gap_px <= 0.0:
+-			continue
+-		var e_move = float(e_unit.get("meta", {}).get("stats", {}).get("move", 6))
+-		if gap_px > (e_move + 2.0) * PIXELS_PER_INCH:
+-			continue
+-		var on_other := false
+-		for o in objs:
+-			var o_pos: Vector2 = o[0]
+-			if o_pos.distance_to(obj_pos) <= 1.0:
+-				continue
+-			var o_entry: Dictionary = o[1]
+-			if hd_mm != null and not o_entry.is_empty():
+-				on_other = _unit_in_objective_range(e_unit, o_entry, hd_mm)
+-			else:
+-				on_other = _unit_has_model_in_control_range(e_unit, o_pos)
+-			if on_other:
+-				break
+-		if on_other:
+-			half += e_oc
+-		else:
+-			total += e_oc
+-	return total + int(round(half * 0.5))
+-
+-## RI-QUARTER (FIX_REINFORCE_INSURANCE): planner points for the table-quarter
+-## VP the unit adds when its models end shifted by `offset` — the best quarters
+-## tier with it minus without it (`covered_others` = the rest of the army),
+-## the same "wholly within one quarter, every base edge > 6\" from the centre"
+-## test _get_covered_quarters mirrors, priced at WEIGHT_VP_PER_POINT for this
+-## turn's end plus RI_QUARTER_LATER_ROUND_SHARE per later round.
+-static func _ri_quarter_vp(unit: Dictionary, offset: Vector2, covered_others: Array,
+-		vp_rules: Array, battle_round: int) -> float:
+-	if unit.get("flags", {}).get("battle_shocked", false):
+-		return 0.0
+-	for kw in unit.get("meta", {}).get("keywords", []):
+-		if str(kw).to_upper() == "AIRCRAFT":
+-			return 0.0
+-	var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
+-	var q := -1
+-	var any_alive := false
+-	for model in _get_alive_models(unit):
+-		var pos = _get_model_position(model)
+-		if pos == Vector2.INF:
+-			return 0.0
+-		pos += offset
+-		any_alive = true
+-		var mq = _get_table_quarter(pos)
+-		if q == -1:
+-			q = mq
+-		elif mq != q:
+-			return 0.0
+-		var base_radius_px = (float(model.get("base_mm", 32)) / 2.0) * (PIXELS_PER_INCH / 25.4)
+-		if pos.distance_to(board_center) - base_radius_px <= 6.0 * PIXELS_PER_INCH:
+-			return 0.0
+-	if not any_alive or q < 0 or covered_others[q]:
+-		return 0.0
+-	var n_without := 0
+-	for c in covered_others:
+-		if c:
+-			n_without += 1
+-	var tier_without := 0.0
+-	var tier_with := 0.0
+-	for rule in vp_rules:
+-		if str(rule.get("type", "")) != "quarters" or str(rule.get("when", "eot")) != "eot":
+-			continue
+-		var need := int(rule.get("min", 3))
+-		var vp := float(rule.get("vp", 0))
+-		if n_without >= need:
+-			tier_without = maxf(tier_without, vp)
+-		if n_without + 1 >= need:
+-			tier_with = maxf(tier_with, vp)
+-	var gain := tier_with - tier_without
+-	if gain <= 0.0:
+-		return 0.0
+-	var later := maxi(0, MAX_BATTLE_ROUNDS_AI - battle_round)
+-	return gain * get_param("WEIGHT_VP_PER_POINT", WEIGHT_VP_PER_POINT) \
+-			* (1.0 + get_param("RI_QUARTER_LATER_ROUND_SHARE", RI_QUARTER_LATER_ROUND_SHARE) * float(later))
+-
+ ## RACE-1: Advancing costs the unit its shooting (and charge) this turn, so on
+ ## a long trip only do it when that costs nothing: no enemy within charge reach
+ ## (M + 12") unless it can Advance and charge, and then Advance-and-shoot
+@@ -12099,28 +12183,6 @@ static func _should_unit_advance_long_trip(unit: Dictionary, has_ranged: bool,
+ 		return true
+ 	if not has_ranged:
+ 		return true
+-	# RI-ASSAULT (FIX_RI_ASSAULT): [ASSAULT] weapons shoot after an Advance
+-	# (11e), so a target in range is no reason to walk. Only that case changes
+-	# the answer (and logs). The charge-reach guard above is skipped for an
+-	# advance-and-charge read from ability text alone, so it is re-checked here
+-	# unless the unit really has the advance-and-charge effect.
+-	if _ri_part_on("FIX_RI_ASSAULT", FIX_RI_ASSAULT) and _ri_ranged_all_assault(unit):
+-		var ri_target_in_range := false
+-		for enemy_id in enemies:
+-			var ri_ec = _get_unit_centroid(enemies[enemy_id])
+-			if ri_ec != Vector2.INF and centroid.distance_to(ri_ec) <= max_weapon_range * PIXELS_PER_INCH:
+-				ri_target_in_range = true
+-				break
+-		if not ri_target_in_range:
+-			return true
+-		if not unit.get("flags", {}).get("effect_advance_and_charge", false):
+-			var ri_charge_px := (float(unit.get("meta", {}).get("stats", {}).get("move", 6)) + 12.0) * PIXELS_PER_INCH
+-			for enemy_id in enemies:
+-				var ri_cc = _get_unit_centroid(enemies[enemy_id])
+-				if ri_cc != Vector2.INF and centroid.distance_to(ri_cc) <= ri_charge_px:
+-					return false
+-		print("AIDecisionMaker: [REINFORCE_INSURANCE] RI-ASSAULT %s: every ranged weapon is [ASSAULT] — a long-trip Advance costs no shooting" % _dn(unit, str(unit.get("id", ""))))
+-		return true
+ 	for enemy_id in enemies:
+ 		var enemy_centroid = _get_unit_centroid(enemies[enemy_id])
+ 		if enemy_centroid == Vector2.INF:
