@@ -50,7 +50,9 @@ import rules_context  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.abspath(os.path.join(HERE, "..", ".."))  # 40k/
-BRIDGE = ("127.0.0.1", 9080)
+# The game's MCP bridge. Several critic games can run side by side: start each
+# game with GODOT_MCP_PORT=<port> and this script with the same CRITIC_BRIDGE_PORT.
+BRIDGE = ("127.0.0.1", int(os.environ.get("CRITIC_BRIDGE_PORT", "9080")))
 USERDATA = os.path.expanduser(
     "~/Library/Application Support/Godot/app_userdata/40k" if sys.platform == "darwin"
     else "~/.local/share/godot/app_userdata/40k")
