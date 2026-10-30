@@ -523,6 +523,24 @@
    ],
    "guardrails": [
     {
+     "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5",
+     "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 2,
+     "player": 2,
+     "ai_chose": "Charge Blade Champion Gamma (8.7\" away, 28% chance)",
+     "ai_did": "Stormboyz declares charge against Blade Champion Gamma (28% chance, 8.7\" away, expected 8.9 melee dmg vs 7 HP,",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_STORMBOYZ_A",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge, keep Stormboyz near the centre objective",
+     "measured": "harmful: E -3.50 [-5.64, -1.36] over 12 seeds (one-round rollouts)"
+    },
+    {
      "job": "20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7",
      "case": "40k/tests/rollout_cases/r2c00/20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7.json",
      "matchup": "custodes_lions vs custodes_lions",
@@ -837,6 +855,25 @@
     }
    ],
    "guardrails": [
+    {
+     "job": "20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1",
+     "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Advance obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 3 turns) \u2014 worth ~5 VP)",
+     "ai_did": "Lootas Gamma advances toward obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 3 turns",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_LOOTAS_C",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+     "measured": "harmful: E -5.50 [-10.10, -0.90] over 12 seeds (one-round rollouts)"
+    },
     {
      "job": "20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7",
      "case": "40k/tests/rollout_cases/r4c21/20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7.json",

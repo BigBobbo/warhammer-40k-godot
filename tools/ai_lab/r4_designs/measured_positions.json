@@ -9643,5 +9643,236 @@
   "suggestion": "Beast Snagga Boyz advances to attack Blade Champion Gamma (7.8\" away \u2014 closing to charge range (1.8\" after move))",
   "round": 3,
   "player": 1
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r1_p1_movement_1_2",
+  "kind": "move",
+  "matchup": "custodes_lions vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r1_p1_movement_1_2.json",
+  "a_did": "Custodian Guard Sodality Beta moves toward obj_center (reinforcing obj_center (1 unit already committed), obj:",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "E": 2.417,
+  "ci": [
+   -0.29,
+   5.12
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~11 VP)",
+  "suggestion": "Custodian Guard Sodality Beta moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 20.9\" away)",
+  "round": 1,
+  "player": 1
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r1_p2_movement_1_0",
+  "kind": "move",
+  "matchup": "custodes_lions vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r1_p2_movement_1_0.json",
+  "a_did": "Mek Beta moves toward obj_nml_1 (reinforcing obj_nml_1 (1 unit already committed), obj: 23.5\" away)",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_MEK_B",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~5 VP)",
+  "E": 0.083,
+  "ci": [
+   -4.22,
+   4.38
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~8 VP)",
+  "suggestion": "Mek Beta moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 20.2\" away)",
+  "round": 1,
+  "player": 2
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1",
+  "kind": "move",
+  "matchup": "custodes_lions vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1.json",
+  "a_did": "Lootas Gamma advances toward obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 3 turns",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "E": -5.5,
+  "ci": [
+   -10.1,
+   -0.9
+  ],
+  "n": 12,
+  "class": "harmful",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Advance obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 3 turns) \u2014 worth ~5 VP)",
+  "suggestion": "Lootas Gamma advances toward obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 3 turns))",
+  "round": 1,
+  "player": 2
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p1_movement_2_7",
+  "kind": "move",
+  "matchup": "custodes_lions vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r2_p1_movement_2_7.json",
+  "a_did": "Custodian Guard Sodality Beta moves toward obj_nml_1 (moving toward charge target Boss Snikrot, obj: 25.9\" awa",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_home_1 (moving to objective)",
+  "E": 0.417,
+  "ci": [
+   -1.46,
+   2.29
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 4,
+  "chosen_option": "Move obj_nml_1 (racing for it (enemy can have ~34 OC there before we arrive in 3 turns) \u2014 worth ~9 VP)",
+  "suggestion": "Custodian Guard Sodality Beta moves toward obj_nml_1 (moving toward charge target Boss Snikrot, obj: 25.9\" away)",
+  "round": 2,
+  "player": 1
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5",
+  "kind": "charge",
+  "matchup": "custodes_lions vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5.json",
+  "a_did": "Stormboyz declares charge against Blade Champion Gamma (28% chance, 8.7\" away, expected 8.9 melee dmg vs 7 HP,",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge, keep Stormboyz near the centre objective",
+  "E": -3.5,
+  "ci": [
+   -5.64,
+   -1.36
+  ],
+  "n": 12,
+  "class": "harmful",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Charge Blade Champion Gamma (8.7\" away, 28% chance)",
+  "suggestion": "Stormboyz declares charge against Blade Champion Gamma (28% chance, 8.7\" away, expected 8.9 melee dmg vs 7 HP, overwatch risk: 0.3 dmg)",
+  "round": 2,
+  "player": 2
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_2_6",
+  "kind": "charge",
+  "matchup": "custodes_lions vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r2_p2_charge_2_6.json",
+  "a_did": "Burna Boyz Alpha declares charge against Blade Champion Gamma (72% chance, 5.5\" away, expected 0.7 melee dmg v",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BURNA_BOYZ_A",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge. Keep Burna Boyz Alpha on the centre objective and use Burna flamers in the next Shooting phase.",
+  "E": 2.167,
+  "ci": [
+   0.05,
+   4.28
+  ],
+  "n": 12,
+  "class": "clear",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Charge Blade Champion Gamma (5.5\" away, 72% chance)",
+  "suggestion": "Burna Boyz Alpha declares charge against Blade Champion Gamma (72% chance, 5.5\" away, expected 0.7 melee dmg vs 7 HP, overwatch risk: 0.3 dmg)",
+  "round": 2,
+  "player": 2
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p2_movement_2_4",
+  "kind": "move",
+  "matchup": "custodes_lions vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r2_p2_movement_2_4.json",
+  "a_did": "Lootas Gamma advances toward obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 2 turns",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "E": 4.5,
+  "ci": [
+   -3.38,
+   12.38
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Advance obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 2 turns), needs 2 more OC after this unit \u2014 worth ~7 VP)",
+  "suggestion": "Lootas Gamma advances toward obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 2 turns), needs 2 more OC after this unit)",
+  "round": 2,
+  "player": 2
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r3_p2_charge_1_8",
+  "kind": "charge",
+  "matchup": "custodes_lions vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r3_p2_charge_1_8.json",
+  "a_did": "Beast Snagga Boyz declares a charge at Custodian Guard Sodality Gamma + Custodian Guard Sodality Beta \u2014 target",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": [
+     "U_CUSTODIAN_GUARD_B"
+    ]
+   }
+  ],
+  "better_option": "Charge Custodian Guard Sodality Beta (2.1\" away, 97% chance)",
+  "E": 0.75,
+  "ci": [
+   -4.79,
+   6.29
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Charge Custodian Guard Sodality Gamma (2.0\" away, 100% chance)",
+  "suggestion": "Beast Snagga Boyz declares a charge at Custodian Guard Sodality Gamma + Custodian Guard Sodality Beta \u2014 targets picked after the roll: Custodian Guard Sodality Gamma on 2+ (100%), Custodian Guard Sodality Beta on 3+ (97%), overwatch risk: 0.3 dmg",
+  "round": 3,
+  "player": 2
  }
 ]
