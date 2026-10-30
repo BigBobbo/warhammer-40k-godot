@@ -1536,6 +1536,37 @@ const MOVE_RACE_HOPELESS_RATIO: float = 2.0
 # 3+ turn trips, so a fragile squad was sent alone into fights the enemy wins
 # by 2-8x (LLM-critic cluster lone_trip). 0 = previous behaviour.
 const FIX_LONE_TRIP: float = 1.0
+# Movement plan (FAR-TRIP): 1 = ANY unit (durable too) is not sent on a trip of
+# 2+ turns to capture an objective it would fight for alone and lose: the other
+# units that could join it (the units the plan sends there, or units within
+# FAR_TRIP_HELP_MOVES moves of it) bring less OC than the unit itself, AND the
+# enemy OC it would face there (LONE-TRIP's threat — the contest race) beats
+# the holders + this unit + that help. It supports where the army is or is
+# going instead. LONE-TRIP covers only fragile units and RACE-SKIP only 3+ turn
+# trips at 2x odds, so a Custodian Guard squad was still sent alone on a 2-turn
+# race the enemy wins 56 to 9, and — as a pass-2 leftover or a COORD-4
+# backfill — on 4-turn trips to an enemy-held home objective (LLM-critic
+# cluster far_trip). Uncontested trips, races the unit wins, and races other
+# units can join are kept. 0 = previous behaviour.
+const FIX_FAR_TRIP: float = 1.0
+# FAR-TRIP: the window, in moves, of "near the objective" — our units that can
+# join the unit there, and (on a longer trip) the enemy force it is judged
+# against. On a 4-5 turn trip nearly every unit of both armies "can arrive in
+# time"; our far units are busy elsewhere while the enemy's units at their own
+# objective are really there, so a long trip is judged on who is near it.
+const FAR_TRIP_HELP_MOVES: int = 2
+# Movement plan (OVERCOMMIT): 1 = a TOP-UP on a multi-turn trip (a unit sent
+# to an objective that another unit of this plan already heads for, or that a
+# unit is already en route to) is not stacked onto a race the plan still loses
+# with it: when the OC the plan puts there (holders, units en route, units
+# sent, this unit) is below the enemy OC that can be there by the time it
+# arrives, the unit takes its best other objective that still needs OC and
+# that it reaches no later. COORD-5 caps the projected need, so a 2-OC
+# remainder sent a second Custodian Guard unit on a 2-turn trip into an 18 vs
+# 30 OC centre while an equally near enemy-held objective went uncontested
+# (LLM-critic cluster overcommit). With no such objective the top-up stands.
+# 0 = previous behaviour.
+const FIX_OVERCOMMIT: float = 1.0
 # Movement plan (RACE-LATE): 1 = an enemy unit that can only reach the
 # objective on the SAME turn count as our unit (it arrives after we are
 # already there) loses us the race only if it out-OCs what our ARMY can have
@@ -9794,9 +9825,11 @@ static func _assign_units_to_objectives(
 	# an 18-OC centre and a 6-model Lootas unit into 48 enemy OC. Durable units
 	# keep these trips (contest_race prices them); home is never skipped.
 	var lone_on = get_param("FIX_LONE_TRIP", FIX_LONE_TRIP) >= 0.5
+	var far_on = get_param("FIX_FAR_TRIP", FIX_FAR_TRIP) >= 0.5  # FAR-TRIP (below)
 	var lone_skipped := {}  # unit_id -> {objective_id: true}: LONE-TRIP skips
+	var far_skipped := {}  # unit_id -> {objective_id: true}: FAR-TRIP skips
 	var lone_turns := {}  # "unit_id|objective_id" -> turns_to_reach
-	if lone_on:
+	if lone_on or far_on:
 		for lt_c in candidates:
 			lone_turns["%s|%s" % [lt_c.unit_id, lt_c.objective_id]] = int(lt_c.turns_to_reach)
 	var lone_trip_oc := func(c: Dictionary) -> Dictionary:
@@ -9836,6 +9869,55 @@ static func _assign_units_to_objectives(
 		var lt: Dictionary = lone_trip_oc.call(c)
 		return int(lt.threat) > int(lt.army) \
 				and float(lt.threat) >= race_ratio * float(maxi(int(lt.ours), 1))
+	# FAR-TRIP (FIX_FAR_TRIP): a trip of 2+ turns — any unit, durable too — is
+	# not assigned when the unit would fight for the objective alone and lose:
+	# the other units that could join it ("help": units the plan sends there,
+	# or units within FAR_TRIP_HELP_MOVES moves of it, RACE-ARMY weighting)
+	# bring less OC than it does, and the enemy OC it faces there (lone_trip_oc's
+	# threat; on a longer trip the enemy force within the same window) beats
+	# the holders + this unit + that help. Not home; a race the army can
+	# contest (help >= the unit's OC) is kept. Returns {skip, threat, near}.
+	var far_trip_oc := func(c: Dictionary) -> Dictionary:
+		if not far_on or c.get("action", "") not in ["move", "advance"] or c.get("already_on_obj", false):
+			return {"skip": false}
+		if int(c.get("turns_to_reach", 1)) < 2:
+			return {"skip": false}
+		var ev = _get_obj_eval_by_id(obj_evaluations, c.objective_id)
+		if ev.is_empty() or ev.get("is_home", false):
+			return {"skip": false}
+		var ft: Dictionary = lone_trip_oc.call(c)
+		var own_oc := int(c.get("unit_oc", 1))
+		var turns := int(c.get("turns_to_reach", 1))
+		var near_moves := mini(turns, FAR_TRIP_HELP_MOVES)
+		var help_full := 0
+		var help_half := 0
+		for f_arr in ev.get("friendly_arrivals", []):
+			if str(f_arr.get("unit_id", "")) != str(c.unit_id) and int(f_arr.moves) <= near_moves:
+				if f_arr.get("nearest", true):
+					help_full += int(f_arr.oc)
+				else:
+					help_half += int(f_arr.oc)
+		var help := maxi(help_full + int(round(help_half * 0.5)),
+			int(ft.ours) - int(ev.get("friendly_oc", 0)) - own_oc)
+		var threat := int(ft.threat)
+		if turns > FAR_TRIP_HELP_MOVES:
+			# A longer trip is judged on who is NEAR the objective, the same
+			# window on both sides: our army's full-window arrivals are units
+			# busy elsewhere, the enemy's units at their own objective are not.
+			var e_full := 0
+			var e_half := 0
+			for e_arr in ev.get("enemy_arrivals", []):
+				if int(e_arr.moves) <= near_moves:
+					if e_arr.get("nearest", true):
+						e_full += int(e_arr.oc)
+					else:
+						e_half += int(e_arr.oc)
+			threat = maxi(int(ev.get("enemy_oc", 0)) + int(ev.get("projected_enemy_oc", 0)),
+				int(ev.get("enemy_oc", 0)) + e_full + int(round(e_half * 0.5)))
+		var near := int(ev.get("friendly_oc", 0)) + own_oc + help
+		return {"skip": help < own_oc and threat > near, "threat": threat, "near": near}
+	var far_trip := func(c: Dictionary) -> bool:
+		return bool((far_trip_oc.call(c) as Dictionary).get("skip", false))
 	var reprice_capture := func(c_oid: String) -> Dictionary:
 		var ev = _get_obj_eval_by_id(obj_evaluations, c_oid)
 		if ev.is_empty() or ev.state in ["held_safe", "held_threatened"] or planned_new_objs.has(c_oid) or planned_new_objs.is_empty():
@@ -9859,6 +9941,52 @@ static func _assign_units_to_objectives(
 			"skip": not denial and not ev.get("is_home", false) and new_vp < extra_obj_min_vp \
 					and float(ev.get("vp_value", 0.0)) >= extra_obj_min_vp,
 		}
+	# OVERCOMMIT (FIX_OVERCOMMIT): is c a top-up the plan still loses with?
+	# {} when it is not; else the OC this plan puts on c's objective with c
+	# (holders, units en route, units sent there, c) vs the race enemy OC,
+	# and who else is going. Only multi-turn trips carry race data.
+	var overcommit_on = get_param("FIX_OVERCOMMIT", FIX_OVERCOMMIT) >= 0.5
+	var overcommit_turns := {}  # unit_id -> turns of the top-up it was not stacked on
+	var overcommit_futile := func(c: Dictionary) -> Dictionary:
+		if not overcommit_on or c.get("action", "") not in ["move", "advance"] \
+				or not c.get("race_lost", false) or int(c.get("turns_to_reach", 1)) < 2:
+			return {}
+		var ev = _get_obj_eval_by_id(obj_evaluations, c.objective_id)
+		var others: Array = (incoming_names.get(c.objective_id, []) as Array).duplicate()
+		var ours := int(ev.get("friendly_oc", 0)) + int(incoming_oc.get(c.objective_id, 0)) + int(c.get("unit_oc", 1))
+		for a_uid in assignments:
+			if str(a_uid) != str(c.unit_id) and str(assignments[a_uid].get("objective_id", "")) == str(c.objective_id) \
+					and assignments[a_uid].get("action", "") in ["move", "advance"]:
+				ours += int(assignments[a_uid].get("unit_oc", 0))
+				others.append(_dn(snapshot.get("units", {}).get(a_uid, {}), a_uid))
+		if others.is_empty() or ours >= int(c.get("race_enemy_oc", 0)):
+			return {}
+		return {"ours": ours, "enemy": int(c.get("race_enemy_oc", 0)), "others": others}
+	# OVERCOMMIT: the unit's best other objective (candidates are score
+	# sorted) that still needs OC, that it reaches no later than c, that passes
+	# pass 2's DIM-RETURNS / TOO-LATE / RACE-SKIP / LONE-TRIP checks, and that
+	# is not a lost top-up itself. {} = none.
+	# FAR-TRIP x OVERCOMMIT: FAR-TRIP is deliberately NOT checked here. Pass 2
+	# runs it before OVERCOMMIT, so a top-up that is itself a lone, lost trip
+	# is skipped there; but the redirect target may be a race the unit loses
+	# alone. At the overcommit finding (s7434 r1) the target obj_nml_2 is a
+	# 2-turn race lost 9 vs 18, and forcing it beat the 18 vs 30 top-up by
+	# +5.7 VP (rollout, 12 seeds; +4.4 over 36). With the check, Beta topped up
+	# the centre again (the base choice).
+	var overcommit_redirect := func(c: Dictionary) -> Dictionary:
+		for alt in candidates:
+			if alt.unit_id != c.unit_id or alt.objective_id == c.objective_id \
+					or alt.action not in ["move", "advance"] \
+					or int(alt.turns_to_reach) > int(c.turns_to_reach) \
+					or int(obj_oc_remaining.get(alt.objective_id, 0)) <= 0:
+				continue
+			if (reprice_capture.call(alt.objective_id) as Dictionary).get("skip", false) \
+					or too_late.call(alt) or race_hopeless.call(alt) or lone_trip.call(alt):
+				continue
+			if not (overcommit_futile.call(alt) as Dictionary).is_empty():
+				continue
+			return alt
+		return {}
 
 	# Shared capture-assignment applier (used by pass 2 and the COORD-4
 	# backfill pass after attack conversions re-open OC needs). Mutates the
@@ -9953,6 +10081,38 @@ static func _assign_units_to_objectives(
 			print("AIDecisionMaker: [LONE-TRIP] %s: not sending %s — a fragile unit; the enemy can have ~%d OC there (our army ~%d) vs the %d OC this plan puts there" % [
 				oid, uid, int(lt_skip.threat), int(lt_skip.army), int(lt_skip.ours)])
 			continue
+		var ft_skip: Dictionary = far_trip_oc.call(cand)
+		if ft_skip.get("skip", false):
+			if not far_skipped.has(uid):
+				far_skipped[uid] = {}
+			far_skipped[uid][oid] = true
+			if not extra_obj_skipped.has(uid):
+				extra_obj_skipped[uid] = {"objective_id": oid, "far_trip": true, "turns": int(cand.get("turns_to_reach", 1)),
+					"threat": int(ft_skip.threat), "ours": int(ft_skip.near)}
+			print("AIDecisionMaker: [FAR-TRIP] %s: not sending %s — %d turn(s) away, the enemy can have ~%d OC there vs the %d OC we can have there, and no other unit can join it in time" % [
+				oid, uid, int(cand.get("turns_to_reach", 1)), int(ft_skip.threat), int(ft_skip.near)])
+			continue
+
+		# OVERCOMMIT (FIX_OVERCOMMIT): a top-up the plan still loses with is not
+		# sent while the unit can take another objective that needs OC as soon.
+		var oc_futile: Dictionary = overcommit_futile.call(cand)
+		if not oc_futile.is_empty():
+			var oc_alt: Dictionary = overcommit_redirect.call(cand)
+			if not oc_alt.is_empty():
+				apply_capture_assignment.call(oc_alt)
+				overcommit_turns[uid] = int(cand.turns_to_reach)
+				assignments[uid]["coordination_note"] = "not stacking on %s — %s already going there, and even with this unit the plan has ~%d OC there vs ~%d enemy OC by the time it arrives; sent to %s instead" % [
+					oid, ", ".join(oc_futile.others), int(oc_futile.ours), int(oc_futile.enemy), oc_alt.objective_id]
+				print("AIDecisionMaker: [OVERCOMMIT] %s: not stacking %s on it (%s already going; %d OC with it vs ~%d enemy OC in %d turn(s)) — %s instead (score %.1f vs %.1f)" % [
+					oid, uid, ", ".join(oc_futile.others), int(oc_futile.ours), int(oc_futile.enemy),
+					int(cand.get("turns_to_reach", 1)), oc_alt.objective_id, float(oc_alt.score), float(cand.score)])
+				# FAR-TRIP x OVERCOMMIT: say when the redirect goes to a race that
+				# FAR-TRIP would skip (see overcommit_redirect).
+				var oc_ft: Dictionary = far_trip_oc.call(oc_alt)
+				if oc_ft.get("skip", false):
+					print("AIDecisionMaker: [OVERCOMMIT] %s: %s goes there alone — a race FAR-TRIP skips (~%d enemy OC vs %d), taken over the lost top-up on %s" % [
+						oc_alt.objective_id, uid, int(oc_ft.threat), int(oc_ft.near), oid])
+				continue
 
 		# OBJ-ASSIGN-1: the greedy order is by score only, and distance enters
 		# the score in whole-turn steps — so the unit the greedy order sends may
@@ -9979,6 +10139,8 @@ static func _assign_units_to_objectives(
 				continue
 			if lone_trip.call(alt):
 				continue  # LONE-TRIP: quicker, but it would stand there alone
+			if far_trip.call(alt):
+				continue  # FAR-TRIP: quicker, but alone on a trip it loses
 			var alt_arrival = _capture_arrival(alt)
 			var quicker: bool = alt_arrival.phases < cand_arrival.phases \
 					or (alt_arrival.phases == cand_arrival.phases
@@ -10066,6 +10228,8 @@ static func _assign_units_to_objectives(
 			continue  # RACE-SKIP / TOO-LATE: a trip that cannot pay off
 		if lone_trip.call(cand):
 			continue  # LONE-TRIP: a fragile unit would stand there alone, outnumbered
+		if far_trip.call(cand):
+			continue  # FAR-TRIP: a long trip the unit would fight alone and lose
 		if assigned_unit_ids.has(cand.unit_id):
 			# OBJ-BACKFILL-1: a unit already sent to a LOWER-scored objective
 			# switches to the re-opened one. Previously only unassigned units
@@ -10076,6 +10240,9 @@ static func _assign_units_to_objectives(
 					or cur.get("objective_id", "") == cand.objective_id \
 					or float(cand.score) <= float(cur.get("score", 0.0)):
 				continue
+			if not (overcommit_futile.call(cand) as Dictionary).is_empty() \
+					or (overcommit_turns.has(cand.unit_id) and int(cand.turns_to_reach) > int(overcommit_turns[cand.unit_id])):
+				continue  # OVERCOMMIT: not onto a lost top-up, nor a trip longer than the one it gave up
 			var old_oid = str(cur.get("objective_id", ""))
 			obj_oc_remaining[old_oid] = obj_oc_remaining.get(old_oid, 0) + int(cur.get("oc_consumed", 0))
 			assignments.erase(cand.unit_id)
@@ -10334,6 +10501,18 @@ static func _assign_units_to_objectives(
 					support_allowed[s_cand.objective_id] = true
 			if support_allowed.is_empty():
 				support_allowed["__lone_trip__"] = true
+		# FAR-TRIP: likewise, "support" is not the same lone, lost trip.
+		if far_skipped.has(unit_id):
+			var ft_base: Array = support_allowed.keys()
+			if ft_base.is_empty():
+				for s_eval in obj_evaluations:
+					ft_base.append(s_eval.id)
+			support_allowed = {}
+			for s_cand in candidates:
+				if s_cand.unit_id == unit_id and s_cand.objective_id in ft_base and not far_trip.call(s_cand):
+					support_allowed[s_cand.objective_id] = true
+			if support_allowed.is_empty():
+				support_allowed["__far_trip__"] = true
 		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player, support_counts, support_allowed)
 		if not best_obj.is_empty():
 			assignments[unit_id] = best_obj
@@ -10392,6 +10571,9 @@ static func _assign_units_to_objectives(
 		elif xs.has("lone_trip"):
 			assignments[uid]["coordination_note"] = "not going alone to %s — the enemy can have ~%d OC there vs the %d OC we would have, and this fragile unit would not survive it; staying with the army instead" % [
 				xs.objective_id, int(xs.threat), int(xs.ours)]
+		elif xs.has("far_trip"):
+			assignments[uid]["coordination_note"] = "not going alone to %s — %d turn(s) away, the enemy can have ~%d OC there vs the %d OC we would have, and no other unit can join it in time; staying with the army instead" % [
+				xs.objective_id, int(xs.turns), int(xs.threat), int(xs.ours)]
 		else:
 			assignments[uid]["coordination_note"] = "not taking %s — with the %d other objective(s) this plan takes, it adds only ~%.0f VP (primary cap / flat award); staying with the army instead" % [
 				xs.objective_id, int(xs.extra), float(xs.vp)]
