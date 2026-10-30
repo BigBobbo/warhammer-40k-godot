@@ -1,0 +1,442 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index 2aceba5..02202eb 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1607,6 +1607,29 @@ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+ # target without it. 0 = V6 behaviour (every declared charger counts).
+ # Off since the round-1 bundle test (2026-10-30, vs V6, 3 fixtures): with it +0.97 [-1.17, +3.12], without it +1.58 [-0.27, +3.42]. Kept for a later test.
+ const FIX_CHARGE_EV: float = 0.0
++# Movement plan (REINFORCE-CAP): 1 = a unit that would arrive THIS turn to
++# reinforce an objective we already hold is priced as insurance, not as the
++# objective's full value. COORD-5 sizes a held objective's need against every
++# enemy unit one move away, and pass 2 filled that need with the best-scoring
++# unit — scored with all of the objective's hold value, although the holders
++# keep it unless the enemy brings most of that OC. When no single enemy unit
++# can contest it alone (the OC there beats the enemy OC in range plus the
++# largest unit one move away) and the chance that enough enemy OC gets there
++# (uniform over 0..its projected OC) is at most REINFORCE_CAP_MAX_SHARE, the
++# hold-value terms count only at that chance, and the unit takes its best other
++# objective that still needs OC when that scores higher, Advancing on a long
++# trip when that costs it nothing ([ASSAULT] weapons count as no cost, see
++# _reinforce_cap_paced). The need stays open for a unit with less to gain
++# elsewhere. A Custodian Guard squad reinforced a centre held with OC 6
++# against ~7 projected OC (a Battlewagon and two characters) instead of
++# Advancing on obj_nml_2 — measured +7.75 VP [1.97, 13.53] over 12 seeds,
++# +4.36 [0.61, 8.12] over 36 (LLM-critic cluster reinforce_cap). Walking there
++# instead measured -4.0 VP over 4 paired seeds: it stopped on the table-quarter
++# line. 0 = previous behaviour.
++const FIX_REINFORCE_CAP: float = 1.0
++# REINFORCE-CAP: the largest chance that the enemy gets enough OC there next
++# move for a reinforcement to count as insurance only (see FIX_REINFORCE_CAP).
++const REINFORCE_CAP_MAX_SHARE: float = 0.5
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -8741,6 +8764,7 @@ static func _evaluate_all_objectives(
+ 		# and to tell the player WHY the AI is massing units on a "free" objective.
+ 		var projected_enemy_oc = 0
+ 		var projected_names: Array = []
++		var projected_max_oc := 0  # REINFORCE-CAP: the largest single unit in projected_enemy_oc
+ 		var enemy_arrivals: Array = []  # RACE-1: [{moves, oc, name}] for enemies outside range
+ 		for e_uid in enemies:
+ 			var e_unit = enemies[e_uid]
+@@ -8765,6 +8789,7 @@ static func _evaluate_all_objectives(
+ 			if e_dist <= (e_move + 2.0) * PIXELS_PER_INCH + OBJECTIVE_CONTROL_RANGE_PX:
+ 				projected_enemy_oc += e_oc
+ 				projected_names.append(_dn(e_unit, e_uid))
++				projected_max_oc = maxi(projected_max_oc, e_oc)
+ 			# RACE-1: how many enemy moves this unit needs to stand in range, so a
+ 			# multi-turn trip can ask "who gets there first" (see the race term).
+ 			var e_step_px = (e_move + 2.0) * PIXELS_PER_INCH
+@@ -8981,6 +9006,7 @@ static func _evaluate_all_objectives(
+ 			"oc_needed": max(0, enemy_oc - friendly_oc + 1),  # OC we need to add to flip control
+ 			"contest_oc": contest_oc,  # 14.02: OC we can stand in range with within our next two moves
+ 			"projected_enemy_oc": projected_enemy_oc,  # COORD-5: enemy OC one move away
++			"projected_max_oc": projected_max_oc,  # REINFORCE-CAP: its largest single unit
+ 			"projected_names": projected_names,
+ 			"enemy_arrivals": enemy_arrivals,  # RACE-1: enemy moves-to-range + OC
+ 			"friendly_arrivals": friendly_arrivals  # RACE-ARMY: ours, same weighting
+@@ -9066,6 +9092,41 @@ static func _lone_trip_fragile(unit: Dictionary) -> bool:
+ 	var led: bool = att_to != null and str(att_to) != ""
+ 	return not leads and not led and _get_alive_models(unit).size() <= 1
+ 
++## REINFORCE-CAP: `alt` at the pace a unit freed from insurance would travel.
++## On a trip of 2+ turns it Advances when that saves a whole turn (ADV-PROB)
++## and costs it nothing — RACE-1's long-trip test, except that [ASSAULT]
++## ranged weapons (11e: they can be shot after Advancing) are not shooting
++## given up; that test counts any ranged weapon with a target in range as a
++## cost. The freed Custodian Guard (Guardian Spear – Ranged is [ASSAULT])
++## walked and stopped on the table-quarter line, while the measured
++## alternative Advanced into the quarter. Returns `alt` itself or a paced copy.
++## The copy keeps the walking trip's race_* fields: a longer race window, so
++## RACE-SKIP / LONE-TRIP judge the paced trip conservatively, and its card
++## quotes that window's enemy OC.
++static func _reinforce_cap_paced(alt: Dictionary, unit: Dictionary, move_types: Array,
++		enemies: Dictionary) -> Dictionary:
++	if unit.is_empty() or alt.get("action", "") != "move" or int(alt.get("turns_to_reach", 1)) < 2 \
++			or not ("BEGIN_ADVANCE" in move_types) or get_param("MOVE_LONG_ADVANCE", MOVE_LONG_ADVANCE) <= 0.0:
++		return alt
++	var move_in := float(alt.get("move_inches", 6.0))
++	var gap_in := maxf(0.0, (float(alt.get("distance", 0.0)) - OBJECTIVE_CONTROL_RANGE_PX) / PIXELS_PER_INCH)
++	if move_in <= 0.0 or not _long_trip_advance_saves_turn(gap_in, move_in):
++		return alt
++	var gives_up_shooting := false  # a ranged weapon without [ASSAULT]
++	for w in unit.get("meta", {}).get("weapons", []):
++		if str(w.get("type", "")).to_lower() == "ranged" \
++				and not ("assault" in str(w.get("special_rules", "")).to_lower()):
++			gives_up_shooting = true
++			break
++	if not _should_unit_advance_long_trip(unit, gives_up_shooting, _get_max_weapon_range(unit),
++			enemies, _get_unit_centroid(unit)):
++		return alt
++	var paced := alt.duplicate()
++	paced["action"] = "advance"
++	paced["reason"] = "advancing to arrive a turn sooner"
++	paced["turns_to_reach"] = maxf(1.0, ceilf(gap_in / (move_in + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES))))
++	return paced
++
+ static func _assign_units_to_objectives(
+ 	snapshot: Dictionary, movable_units: Dictionary, obj_evaluations: Array,
+ 	objectives: Array, enemies: Dictionary, friendly_units: Dictionary,
+@@ -9992,6 +10053,76 @@ static func _assign_units_to_objectives(
+ 				continue
+ 			return alt
+ 		return {}
++	# REINFORCE-CAP (FIX_REINFORCE_CAP): c's price when it is a reinforcement —
++	# a unit arriving THIS turn at an objective we already hold — against a
++	# threat the holders mostly cover: no single enemy unit can contest it
++	# alone (the OC there, with units this plan already sends there this turn,
++	# beats the enemy OC in range plus the largest unit one move away) and the
++	# chance that enough of the projected enemy OC gets there (uniform over
++	# 0..projected) is at most REINFORCE_CAP_MAX_SHARE. The hold-value terms
++	# then count only at that chance. {} = not such a reinforcement, or a plan
++	# earmark sends the unit there; else {score, share, held, threat, largest}.
++	var rc_on = get_param("FIX_REINFORCE_CAP", FIX_REINFORCE_CAP) >= 0.5
++	var rc_max_share = get_param("REINFORCE_CAP_MAX_SHARE", REINFORCE_CAP_MAX_SHARE)
++	var rc_reopened := {}  # objective_id -> true: need re-opened by an attack conversion (pass 2.5)
++	var reinforce_cap_price := func(c: Dictionary) -> Dictionary:
++		if not rc_on or c.get("action", "") not in ["move", "advance"] or c.get("already_on_obj", false) \
++				or int(c.get("turns_to_reach", 1)) > 1 or str(c.get("earmark", "")) != "":
++			return {}
++		var ev = _get_obj_eval_by_id(obj_evaluations, c.objective_id)
++		if ev.is_empty() or ev.get("state", "") not in ["held_safe", "held_threatened"]:
++			return {}
++		var proj := int(ev.get("projected_enemy_oc", 0))
++		if proj <= 0:
++			return {}
++		var held := int(ev.get("friendly_oc", 0))
++		for a_uid in assignments:
++			var a: Dictionary = assignments[a_uid]
++			if str(a_uid) != str(c.unit_id) and str(a.get("objective_id", "")) == str(c.objective_id) \
++					and a.get("action", "") in ["move", "advance"] and int(a.get("turns_to_reach", 99)) <= 1:
++				held += int(a.get("unit_oc", 0))
++		var e_oc := int(ev.get("enemy_oc", 0))
++		var largest := int(ev.get("projected_max_oc", proj))
++		if e_oc + largest >= held:
++			return {}  # one enemy unit can contest it alone: a real threat
++		var share := clampf(float(e_oc + proj - held + 1) / float(proj + 1), 0.0, 1.0)
++		if share > rc_max_share:
++			return {}
++		var hold_value := 0.0
++		var c_terms: Dictionary = c.get("score_terms", {})
++		for t in ["objective_priority", "primary_awareness", "secondary_zone", "secondary_no_mans_land", "secondary_defend_home"]:
++			hold_value += maxf(0.0, float(c_terms.get(t, 0.0)))
++		return {"score": float(c.score) - (1.0 - share) * hold_value, "share": share,
++			"held": held, "threat": e_oc + proj, "largest": largest}
++	# REINFORCE-CAP: the unit's best other objective that still needs OC, that
++	# scores above c's price (a capped reinforcement there counts at its own
++	# price) and that pass 2 would send it to at the pace it would travel
++	# (_reinforce_cap_paced): DIM-RETURNS / TOO-LATE / RACE-SKIP / LONE-TRIP /
++	# FAR-TRIP / OVERCOMMIT. {} = none; else that candidate, paced.
++	var reinforce_cap_redirect := func(c: Dictionary, c_price: float) -> Dictionary:
++		var best: Dictionary = {}
++		var best_score := c_price
++		var c_unit: Dictionary = snapshot.get("units", {}).get(c.unit_id, {})
++		for alt in candidates:
++			if alt.unit_id != c.unit_id or alt.objective_id == c.objective_id \
++					or alt.action not in ["move", "advance"] \
++					or int(obj_oc_remaining.get(alt.objective_id, 0)) <= 0:
++				continue
++			var alt_score := float(alt.score)
++			var alt_price: Dictionary = reinforce_cap_price.call(alt)
++			if not alt_price.is_empty():
++				alt_score = float(alt_price.score)
++			if alt_score <= best_score:
++				continue
++			var paced: Dictionary = _reinforce_cap_paced(alt, c_unit, movable_units.get(c.unit_id, []), enemies)
++			if (reprice_capture.call(paced.objective_id) as Dictionary).get("skip", false) \
++					or too_late.call(paced) or race_hopeless.call(paced) or lone_trip.call(paced) or far_trip.call(paced):
++				continue
++			if not (overcommit_futile.call(paced) as Dictionary).is_empty():
++				continue
++			best = paced
++			best_score = alt_score
++		return best
+ 
+ 	# Shared capture-assignment applier (used by pass 2 and the COORD-4
+ 	# backfill pass after attack conversions re-open OC needs). Mutates the
+@@ -10119,6 +10250,23 @@ static func _assign_units_to_objectives(
+ 						oc_alt.objective_id, uid, int(oc_ft.threat), int(oc_ft.near), oid])
+ 				continue
+ 
++		# REINFORCE-CAP (FIX_REINFORCE_CAP): insurance on an objective we hold,
++		# against a threat the holders mostly cover, does not take a unit that
++		# has a better objective that still needs OC — the need stays open for
++		# a unit with less to gain elsewhere.
++		var rc_price: Dictionary = reinforce_cap_price.call(cand)
++		if not rc_price.is_empty():
++			var rc_alt: Dictionary = reinforce_cap_redirect.call(cand, float(rc_price.score))
++			if not rc_alt.is_empty():
++				apply_capture_assignment.call(rc_alt)
++				assignments[uid]["coordination_note"] = "not reinforcing %s — we hold it with OC %d and no single enemy unit can contest it alone (~%d enemy OC there or one move away, ~%d%% chance enough of it gets there); sent to %s instead" % [
++					oid, int(rc_price.held), int(rc_price.threat), int(round(float(rc_price.share) * 100.0)), rc_alt.objective_id]
++				print("AIDecisionMaker: [REINFORCE-CAP] %s: not sending %s to reinforce it — held with OC %d vs ~%d enemy OC there or one move away (largest unit %d, ~%d%% chance to contest): worth %.1f as insurance, not %.1f — %s instead (score %.1f)" % [
++					oid, uid, int(rc_price.held), int(rc_price.threat), int(rc_price.largest),
++					int(round(float(rc_price.share) * 100.0)), float(rc_price.score), float(cand.score),
++					rc_alt.objective_id, float(rc_alt.score)])
++				continue
++
+ 		# OBJ-ASSIGN-1: the greedy order is by score only, and distance enters
+ 		# the score in whole-turn steps — so the unit the greedy order sends may
+ 		# not be the one that gets there first. Prefer a still-unassigned unit
+@@ -10200,6 +10348,7 @@ static func _assign_units_to_objectives(
+ 			reopened = maxi(reopened, h_threat - h_left + 1)
+ 		if reopened > 0 and obj_oc_remaining.has(a_oid):
+ 			obj_oc_remaining[a_oid] = obj_oc_remaining[a_oid] + reopened
++			rc_reopened[a_oid] = true
+ 			print("AIDecisionMaker: [COORD-4] %s: OC need re-opened to %d (planned unit is attacking instead)" % [
+ 				a_oid, obj_oc_remaining[a_oid]])
+ 		var a_unit_name = _dn(a_unit, uid)
+@@ -10248,6 +10397,10 @@ static func _assign_units_to_objectives(
+ 			if not (overcommit_futile.call(cand) as Dictionary).is_empty() \
+ 					or (overcommit_turns.has(cand.unit_id) and int(cand.turns_to_reach) > int(overcommit_turns[cand.unit_id])):
+ 				continue  # OVERCOMMIT: not onto a lost top-up, nor a trip longer than the one it gave up
++			if not rc_reopened.has(cand.objective_id):
++				var bf_price: Dictionary = reinforce_cap_price.call(cand)
++				if not bf_price.is_empty() and float(bf_price.score) <= float(cur.get("score", 0.0)):
++					continue  # REINFORCE-CAP: a switch to insurance is judged at the insurance price
+ 			var old_oid = str(cur.get("objective_id", ""))
+ 			obj_oc_remaining[old_oid] = obj_oc_remaining.get(old_oid, 0) + int(cur.get("oc_consumed", 0))
+ 			assignments.erase(cand.unit_id)
+diff --git a/40k/tests/unit/test_ai_fix_reinforce_cap.gd b/40k/tests/unit/test_ai_fix_reinforce_cap.gd
+new file mode 100644
+index 0000000..da2ce1c
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_reinforce_cap.gd
+@@ -0,0 +1,216 @@
++extends SceneTree
++
++# REINFORCE-CAP (FIX_REINFORCE_CAP): a unit that would arrive THIS turn to
++# reinforce an objective we already hold is priced as insurance, not as the
++# objective's full value. LLM-critic cluster reinforce_cap (value-checked,
++# 2026-10-30, s7437 r2): Allarus Custodians held the centre with OC 6; a
++# Battlewagon (OC 5) and two characters (OC 1 each) were one move away (~7 OC),
++# so COORD-5 asked for 2 more OC and pass 2 sent Custodian Guard Beta — scored
++# with the centre's full hold value — instead of Advancing on obj_nml_2
++# (+7.75 VP [1.97, 13.53] over 12 seeds, +4.36 over 36). No single enemy unit
++# could contest the centre alone and the enemy needed all ~7 OC there to flip
++# it. The freed unit Advances on a long trip when that costs it nothing —
++# [ASSAULT] ranged weapons count as no cost (Beta walking there instead
++# measured -4.0 VP over 4 seeds: it stopped on the table-quarter line).
++# The reinforcement still happens when one enemy unit can contest the
++# objective alone, when the enemy needs only part of its projected OC, and
++# when the unit has nothing better to do; a unit with less to gain elsewhere
++# still takes the insurance.
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_reinforce_cap.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const OBJ_X := Vector2(880, 1200)     # the objective our locked holder keeps
++const OBJ_SIDE := Vector2(300, 1900)  # an open objective two moves from beta
++const BETA_POS := Vector2(880, 1640)  # 11" below obj_x: reaches it this turn (M8)
++const GAMMA_POS := Vector2(1260, 1440)  # 11" from obj_x, 25" from obj_side
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Reinforcing a held objective against a weak threat (REINFORCE-CAP) ===\n")
++	AIDecisionMaker._config_overrides["FIX_REINFORCE_CAP"] = 1.0  # pin the fix on, whatever the default
++	test_reinforcer_takes_open_objective_when_threat_is_weak()
++	test_one_unit_that_can_contest_alone_is_still_covered()
++	test_threat_needing_part_of_the_projection_is_still_covered()
++	test_reinforces_when_nothing_better_needs_it()
++	test_insurance_left_to_unit_with_less_to_gain()
++	test_freed_unit_advances_when_its_guns_are_assault()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_REINFORCE_CAP")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot(with_side: bool = true) -> Dictionary:
++	var objs = [{"id": "obj_x", "position": OBJ_X, "zone": "no_mans_land"}]
++	if with_side:
++		objs.append({"id": "obj_side", "position": OBJ_SIDE, "zone": "no_mans_land"})
++	return {"battle_round": 2, "meta": {"battle_round": 2},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
++
++# `n` durable models (T6, 3 wounds, OC `oc` each) whose centroid is at `pos`.
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int, oc: int,
++		move: int = 8, keywords: Array = ["INFANTRY"], weapons: Array = []) -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 40,
++			"base_type": "circular", "base_dimensions": {},
++			"position": Vector2(pos.x + (i - (n - 1) / 2.0) * 50.0, pos.y), "wounds": 3, "current_wounds": 3})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 200, "stats": {"move": move, "toughness": 6, "save": 2,
++			"wounds": 3, "leadership": 6, "objective_control": oc}, "keywords": keywords, "weapons": weapons},
++		"models": models, "flags": {}}
++
++# Our side (player 2): a 3-model OC 2 holder on obj_x that is NOT moving this
++# phase (6 OC), and beta, a 3-model OC 3 squad (9 OC) 11" below obj_x.
++# The enemy (player 1), none in control range of obj_x yet:
++#   "weak"   — the s7437 threat: a vehicle (OC 5) 13.6" away and two
++#              characters (OC 1) 9" and 11" away: 7 OC, largest unit 5.
++#   "single" — one 4-model OC 2 squad (8 OC) 9" away: it contests alone.
++#   "heavy"  — three 1-model OC 5 vehicles 9-13.6" away (15 OC, largest 5).
++func _board(enemies: Dictionary, threat: String, with_side: bool = true) -> Dictionary:
++	var snap = _snapshot(with_side)
++	_add_unit(snap, "holder", 2, OBJ_X, 3, 2)
++	_add_unit(snap, "beta", 2, BETA_POS, 3, 3)
++	var placed: Array = []
++	match threat:
++		"weak":
++			placed = [["wagon", Vector2(1200, 760), 1, 5, 10, ["VEHICLE"]],
++				["mek", Vector2(880, 840), 1, 1, 6, ["INFANTRY", "CHARACTER"]],
++				["boss", Vector2(720, 790), 1, 1, 6, ["INFANTRY", "CHARACTER"]]]
++		"single":
++			placed = [["squad", Vector2(880, 840), 4, 2, 6, ["INFANTRY"]]]
++		"heavy":
++			placed = [["wagon_a", Vector2(1200, 760), 1, 5, 10, ["VEHICLE"]],
++				["wagon_b", Vector2(880, 840), 1, 5, 10, ["VEHICLE"]],
++				["wagon_c", Vector2(560, 760), 1, 5, 10, ["VEHICLE"]]]
++	for p in placed:
++		_add_unit(snap, p[0], 1, p[1], p[2], p[3], p[4], p[5])
++		enemies[p[0]] = snap.units[p[0]]
++	return snap
++
++# sec: the player's secondary-mission awareness ({} = no secondary cards).
++func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary, sec: Dictionary = {}) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p2 = {}
++	AIDecisionMaker._secondary_awareness_p2 = sec
++	var friendlies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 2:
++			friendlies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, 2)
++	for ev in evals:
++		print("  %s: %s, ours %d, theirs %d, ~%d enemy OC one move away (largest unit %d)" % [ev.id, ev.state,
++			int(ev.friendly_oc), int(ev.enemy_oc), int(ev.get("projected_enemy_oc", 0)), int(ev.get("projected_max_oc", -1))])
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, 2)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	for uid in movable_ids:
++		for c in AIDecisionMaker._last_movement_candidates.get(uid, []):
++			print("    %s -> %s: %s score %.1f (objective_priority %.1f), %d turn(s)" % [uid, c.objective_id,
++				c.action, float(c.score), float(c.get("score_terms", {}).get("objective_priority", 0.0)), int(c.turns_to_reach)])
++	return plan
++
++func _goes_to(plan: Dictionary, uid: String, oid: String) -> bool:
++	var a: Dictionary = plan.get(uid, {})
++	return str(a.get("objective_id", "")) == oid and str(a.get("action", "")) in ["move", "advance"]
++
++# Sent there by the objective passes (not as a leftover "support" unit).
++func _captures(plan: Dictionary, uid: String, oid: String) -> bool:
++	return _goes_to(plan, uid, oid) and str(plan.get(uid, {}).get("assign_pass", "")) == "capture"
++
++func test_reinforcer_takes_open_objective_when_threat_is_weak() -> void:
++	print("\n--- obj_x held with OC 6; ~7 enemy OC one move away, no unit of it can contest alone ---")
++	var enemies = {}
++	var snap = _board(enemies, "weak")
++	var plan = _plan(snap, ["beta"], enemies)
++	_assert(not _goes_to(plan, "beta", "obj_x"), "beta is not sent to reinforce obj_x (the enemy needs all ~7 OC there to flip it)")
++	_assert(_goes_to(plan, "beta", "obj_side"), "beta takes the open objective obj_side instead")
++	_assert(str(plan.get("beta", {}).get("coordination_note", "")).begins_with("not reinforcing obj_x"),
++		"its card says why (%s)" % str(plan.get("beta", {}).get("coordination_note", "")))
++
++func test_one_unit_that_can_contest_alone_is_still_covered() -> void:
++	print("\n--- one enemy squad with 8 OC one move away: it out-OCs the holder alone ---")
++	var enemies = {}
++	var snap = _board(enemies, "single")
++	var plan = _plan(snap, ["beta"], enemies)
++	_assert(_goes_to(plan, "beta", "obj_x"), "beta still reinforces obj_x against a unit that can take it alone")
++
++func test_threat_needing_part_of_the_projection_is_still_covered() -> void:
++	print("\n--- three OC 5 vehicles one move away (15 OC): any two of them flip it ---")
++	var enemies = {}
++	var snap = _board(enemies, "heavy")
++	var plan = _plan(snap, ["beta"], enemies)
++	_assert(_goes_to(plan, "beta", "obj_x"), "beta still reinforces obj_x when the enemy needs only part of its projected OC")
++
++func test_reinforces_when_nothing_better_needs_it() -> void:
++	print("\n--- weak threat, but obj_x is the only objective ---")
++	var enemies = {}
++	var snap = _board(enemies, "weak", false)
++	var plan = _plan(snap, ["beta"], enemies)
++	_assert(_goes_to(plan, "beta", "obj_x"), "with no other objective that needs OC, beta still provides the insurance")
++
++func test_insurance_left_to_unit_with_less_to_gain() -> void:
++	print("\n--- weak threat; gamma can also reach obj_x this turn but obj_side is three moves away for it ---")
++	var enemies = {}
++	var snap = _board(enemies, "weak")
++	_add_unit(snap, "gamma", 2, GAMMA_POS, 3, 3)
++	var plan = _plan(snap, ["beta", "gamma"], enemies)
++	_assert(_goes_to(plan, "beta", "obj_side"), "beta takes obj_side")
++	_assert(_goes_to(plan, "gamma", "obj_x"), "gamma, with nothing that needs it elsewhere, reinforces obj_x — the need stays covered")
++
++# The freed unit Advances on its 2-turn trip when Advancing saves a turn and
++# costs it nothing: [ASSAULT] ranged weapons can be shot after Advancing
++# (11e), so a target in range is not a reason to walk. At the finding Beta
++# (Guardian Spear – Ranged [ASSAULT], the Mek 20.5" away) walked toward
++# obj_nml_2 and stopped on the table-quarter line; the measured alternative
++# Advanced. Here beta is 11.5" below obj_x, the nearest enemy 20.5" away (out
++# of charge reach, in its 24" weapon range), obj_side two walking moves away.
++func test_freed_unit_advances_when_its_guns_are_assault() -> void:
++	print("\n--- REINFORCE-CAP pace: beta's 24\" gun is [ASSAULT] / is not ---")
++	var beta_pos := Vector2(880, 1660)
++	var assault_gun := {"name": "spear", "type": "Ranged", "range": "24", "attacks": "2",
++		"ballistic_skill": "2", "strength": "4", "ap": "-1", "damage": "2", "special_rules": "assault"}
++	var plain_gun := assault_gun.duplicate()
++	plain_gun["special_rules"] = "rapid fire 1"
++	var actions := {}
++	for gun in [assault_gun, plain_gun]:
++		var enemies = {}
++		var snap = _board(enemies, "weak")
++		_add_unit(snap, "beta", 2, beta_pos, 3, 3, 8, ["INFANTRY"], [gun])
++		var plan = _plan(snap, ["beta"], enemies)
++		_assert(_captures(plan, "beta", "obj_side"),
++			"beta (%s gun) is not sent to reinforce obj_x — it takes obj_side" % gun.special_rules)
++		actions[gun.special_rules] = str(plan.get("beta", {}).get("action", ""))
++	_assert(actions.get("assault", "") == "advance",
++		"with an [ASSAULT] gun it Advances (saves a turn, keeps its shooting): %s" % actions.get("assault", ""))
++	_assert(actions.get("rapid fire 1", "") == "move",
++		"with a gun that cannot fire after Advancing and a target in range it walks: %s" % actions.get("rapid fire 1", ""))
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_REINFORCE_CAP = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_REINFORCE_CAP"] = 0.0
++	var enemies = {}
++	var snap = _board(enemies, "weak")
++	var plan = _plan(snap, ["beta"], enemies)
++	AIDecisionMaker._config_overrides["FIX_REINFORCE_CAP"] = 1.0
++	_assert(_goes_to(plan, "beta", "obj_x"), "with the fix off beta reinforces obj_x as before")
