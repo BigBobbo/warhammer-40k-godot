@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_1 (sole holder \u2014 leaving would drop control \u2014 worth ~6 VP)",
+ "created": "2026-10-30 16:03:42",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7455_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI held a 4-model Prosecutor Squad on a home objective, citing 'sole holder'. Custodian Guard Gamma at about (18, 8.6) is within a normal move of the objective and could hold it. The hold is safe but wastes mobile OC. Fix: Before applying a 'sole holder' hold, check whether another friendly unit can end the move within range of the objective. Also check whether any enemy can threaten it next turn. If another unit can hold it, or no enemy can threaten it, free the unit for a forward objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7455_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:340,390",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad holds obj_home_1 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

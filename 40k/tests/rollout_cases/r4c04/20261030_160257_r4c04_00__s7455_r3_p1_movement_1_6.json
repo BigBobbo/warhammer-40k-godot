@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (flipping it (enemy holds with OC 6) \u2014 worth ~7 VP)",
+ "created": "2026-10-30 16:05:45",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7455_r3_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends one Allarus alone toward the center, where OC 2 cannot beat the enemy OC 6, and it leaves its two partners at HOME 2. Fix: When a unit cannot flip an objective alone, because its OC is below the enemy OC and the flip needs more than one turn, cut the objective_priority and expected_vp bonus. Count the OC of friendly units that will arrive on the same turn. Give a lone unit that is walking into stronger enemies a larger penalty.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7455_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians moves toward obj_center (moving toward charge target Blade Champion Beta, obj: 17.2\" away)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (capturing it (uncontrolled) \u2014 worth ~8 VP)",
+ "created": "2026-10-30 16:03:23",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7455_r1_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI advances the 4-model Prosecutor Squad toward obj_center. The squad cannot reach it this turn. Enemy fast units can reach it first and charge the fragile squad. Fix: Add a contest_race penalty to every objective. Use enemy arrival time compared with own arrival time. Add an exposure penalty when a T3 W1 squad ends within enemy charge range without support.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7455_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad advances toward obj_center (capturing it (uncontrolled))",
+ "verdict": "pending",
+ "version": 1
+}
