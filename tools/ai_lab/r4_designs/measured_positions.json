@@ -8797,14 +8797,14 @@
    }
   ],
   "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
-  "E": 5.583,
+  "E": 6.861,
   "ci": [
-   0.14,
-   11.02
+   4.45,
+   9.27
   ],
-  "n": 12,
+  "n": 36,
   "class": "clear",
-  "applied": 12,
+  "applied": 36,
   "identical": 0,
   "chosen_option": "Move obj_home_1 (capturing it (uncontrolled) \u2014 worth ~2 VP)",
   "suggestion": "Custodian Guard Sodality Gamma moves toward obj_home_1 (capturing it (uncontrolled), obj: 9.4\" away)",
