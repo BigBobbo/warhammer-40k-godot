@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_2 (sole holder \u2014 leaving would drop control \u2014 worth ~2 VP)",
+ "created": "2026-10-30 06:34:26",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7433_r1_p2_movement_1",
+ "note": "[LLM critic, low conf] The AI moved the 9 OC Custodian Guard unit onto its home objective in round 1. No enemy can reach home this turn, so the unit adds no OC and does nothing else. Fix: Apply the sole-holder lock only when an enemy can reach the objective within its move plus charge range on its next turn. Otherwise let the best OC unit go forward. Leave a cheap unit or a fallback holder on home.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7433_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A_P2",
+  "choice": "pos:1420,1970",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha holds obj_home_2 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

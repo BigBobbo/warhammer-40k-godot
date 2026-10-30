@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P2)",
+ "created": "2026-10-30 06:35:21",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7433_r2_p1_shooting_2",
+ "note": "[LLM critic, low conf] The AI chose Delta as the target, giving a 12% kill chance. Its expected damage is the same as Beta, which stands 11.4 in away and may be in rapid fire range. The score difference comes only from target_value. Fix: Weight target_value by kill probability, so spreading chip damage onto a 15-wound unit that cannot be killed scores low. Also verify that rapid fire half-range doubling is included in expected_damage, and prefer targets at 12 in or less.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7433_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta shoots at Custodian Guard Sodality Delta \u2014 expected 1.8 dmg vs 15 HP (12% kill)",
+ "verdict": "pending",
+ "version": 1
+}

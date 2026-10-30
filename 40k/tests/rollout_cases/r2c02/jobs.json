@@ -1,0 +1,155 @@
+[
+ {
+  "job": "20261030_063348_r2c02_00__s7433_r1_p1_movement_1_0",
+  "case": "20261030_063348_r2c02_00__s7433_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Beta advances alone on a long trip to the enemy home objective. This takes 4 turns. It splits the army and leaves the free central objective untaken.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7433",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063348_r2c02_00"
+ },
+ {
+  "job": "20261030_063348_r2c02_00__s7433_r1_p1_movement_2_1",
+  "case": "20261030_063348_r2c02_00__s7433_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The unit advances 44 in toward the enemy home objective alone. This is a 4-turn trip into the enemy deployment, and it leaves the army. The AI chose it with a score of 4.6 over options scoring 20.9.",
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7433",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063348_r2c02_00"
+ },
+ {
+  "job": "20261030_063348_r2c02_00__s7433_r1_p2_movement_1_2",
+  "case": "20261030_063348_r2c02_00__s7433_r1_p2_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI moved the 9 OC Custodian Guard unit onto its home objective in round 1. No enemy can reach home this turn, so the unit adds no OC and does nothing else.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7433",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063348_r2c02_00"
+ },
+ {
+  "job": "20261030_063348_r2c02_00__s7433_r2_p1_shooting_1_3",
+  "case": "20261030_063348_r2c02_00__s7433_r2_p1_shooting_1_3.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "target": "U_PROSECUTORS_A_P2"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "Alpha shoots Custodian Guard Beta for 0.9 expected damage and a 6% kill chance. Prosecutor Squad is a much better target at 1.87 expected damage and a 47% kill chance.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Prosecutor Squad (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7433",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063348_r2c02_00"
+ },
+ {
+  "job": "20261030_063348_r2c02_00__s7433_r2_p1_shooting_2_4",
+  "case": "20261030_063348_r2c02_00__s7433_r2_p1_shooting_2_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "target": "U_PROSECUTORS_A_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI chose Delta as the target, giving a 12% kill chance. Its expected damage is the same as Beta, which stands 11.4 in away and may be in rapid fire range. The score difference comes only from target_value.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Prosecutor Squad (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7433",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063348_r2c02_00"
+ },
+ {
+  "job": "20261030_063348_r2c02_00__s7433_r2_p2_charge_1_5",
+  "case": "20261030_063348_r2c02_00__s7433_r2_p2_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges one Allarus unit into a cluster of five enemy melee units for a 28% shot at a 7 wound character, and it does not count the retaliation.",
+  "better_option": "unlisted: do not charge, hold position or shoot instead",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7433",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063348_r2c02_00"
+ }
+]
