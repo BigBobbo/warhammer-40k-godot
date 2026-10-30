@@ -84,7 +84,7 @@ Locks in use:
     `multiline` steps. (3) No action is dispatched, so the hex checks are
     `execute_script` `equals` steps rather than `expect_action_result`.
 
-- [ ] **T02 — Visual-scenario harness + pixel-diff + baseline snapshot**
+- [x] **T02 — Visual-scenario harness + pixel-diff + baseline snapshot**
   - **Lock:** Infra  • **Doc:** —  • **Depends:** —
   - **Touches:**
     - new `40k/tests/scenarios/visual/_schema.md`
@@ -125,9 +125,58 @@ Locks in use:
     - `test_results/design_guidelines/T02/diff_report.json` is produced and parses
       as JSON.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] `_schema.md` enumerates every required scenario step type with example.
-    - [ ] `_template.json` runs end-to-end as a copy-paste starting point.
-    - [ ] `TESTING_METHODOLOGY.md` gained a "Design-guidelines visual tasks" section.
+    - [x] `_schema.md` enumerates every required scenario step type with example.
+      *(Every required step now has a JSON example: `screenshot` before/after,
+      `expect_state`, `dispatch_action` + `expect_action_result`, `expect_phase`,
+      `expect_node_property`, `expect_baseline_unchanged`. `execute_script`
+      (single-line and `multiline`) and `pixel_diff` keep theirs. Before this
+      pass the required steps were prose only.)*
+    - [x] `_template.json` runs end-to-end as a copy-paste starting point.
+      *(It used to FATAL at fixture load on its `<fixture_name_or_omit>`
+      placeholder, exit 2. It now ships runnable values and keeps the guidance in
+      its description: 14/14 in place, and a verbatim copy run as
+      `visual/T00_template.json` passes and fills `design_guidelines/T00/`.
+      T00_after shows "Unit: Blade Champion", "Move: 6.0"" and the move buttons
+      lit; selected_unit_panel diff 11.0%, game_log 0.0%.)*
+    - [x] `TESTING_METHODOLOGY.md` gained a "Design-guidelines visual tasks" section.
+      *(The "Design-guidelines visual tasks (T01–T45)" section was already there.
+      This pass added diff_report.json, the full-suite-only exit 3 and the CLI.)*
+  - **Note (2026-10-30 audit):** the schema, template, baseline, `pixel_diff.gd`
+    (+ unit test), the run_scenarios.sh post-processing and the methodology
+    section had already shipped. Tier A, all checked on this pass:
+    `_baseline.json` has 41 ids and count 41. The T02 scenario exits 0 (21/21).
+    Identical PNGs give exactly 0.0, and 100% black vs 100% white gives 100.0
+    (in the unit test, in the new CLI, and live in the scenario).
+    `test_results/design_guidelines/T02/diff_report.json` parses. Exit 3 was
+    proved on a shrunken `--visual` suite: 2 scenarios against a temporary
+    baseline of 2 exit 0, renaming one exits 3, and the committed 41 against 2
+    exits 3. visual/ was then restored byte-for-byte. Fixed on this pass:
+    (1) the template could not run (see Tier B). (2) The T02 scenario never
+    showed that pixel_diff can see a difference: it had only `expect_max`
+    bounds, which a diff stuck at 0% passes. It now diffs a frame against
+    itself (== 0.0) and a full-frame black probe against the same probe in
+    white (> 95%; a mutation keeping both black fails it). Its `full_viewport`
+    region was 1280x720 on a 1920x1080 frame. (3) The artifact copy used a
+    `<id>_*.png` glob. That swept in stale labels, old FAIL shots and any
+    scenario whose id starts with this one. After a FATAL exit (no results) it
+    also re-reported the previous run's results JSON and passing diffs as this
+    run's. It now copies exactly what this run wrote (the paths in the results
+    JSON plus failed-step captures, mtime at or after launch), and a run with
+    no results gets a diff_report.json with "error" and all_passed=false.
+    (4) Change 3's "emits JSON to stdout" was missing. Added
+    `tests/tools/pixel_diff_cli.gd`. (5) The pixel_diff unit test ran nowhere.
+    It is now in run_pretrigger_tests.sh. Deviations from the wording above:
+    (a) diff_report.json is built from the scenario's own `pixel_diff` steps
+    (the runner holds the labels and regions) rather than by the shell
+    re-running pixel_diff. The CLI covers ad-hoc diffs. (b) The schema accepts
+    any falsifiable assertion (`execute_script` with a bound, `expect_phase`,
+    `expect_node_property`, ...), not only `expect_state`/`expect_action_result`,
+    because nearly every T## scenario asserts through `execute_script`.
+    (c) Exit 3 fires only on a full-suite `--visual` run. A run of named files
+    skips the baseline check by design. (d) `_baseline.json` was not
+    re-snapshotted, because refreshing it is T45's job. The screenshot-only
+    ban is documented, not enforced by the runner, and no current visual
+    scenario breaks it.
 
 ## Top-10 quick wins (parallelizable after T02 if locks are disjoint)
 

@@ -66,6 +66,9 @@
 #     round trips, striped_pattern() diagonal hatch, autoload registration
 #     conflicts, and the design-guidelines doc §9 Constant/Hex table matching
 #     the autoload 1:1
+#   - T02 visual-harness pixel diff (tests/tools/pixel_diff.gd, the math behind
+#     every scenario `pixel_diff` step): identical PNGs = 0%, black vs white
+#     > 95%, region clipping, size-mismatch / missing-file errors
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -308,6 +311,7 @@ TESTS=(
     "tests/test_transport_audit_2026_07.gd"
     "tests/test_secondary_draw_shuffle_back_terminates.gd"
     "tests/test_ui_constants_slots.gd"
+    "tests/tools/pixel_diff_unit_test.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then
