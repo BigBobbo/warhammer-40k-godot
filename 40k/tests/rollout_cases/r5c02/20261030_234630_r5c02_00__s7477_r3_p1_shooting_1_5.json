@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Beta (P2)",
+ "created": "2026-10-30 23:49:07",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7477_r3_p1_shooting_1",
+ "note": "[LLM critic, medium conf] The AI shoots Beta, a full-health 15 HP unit, with 0.9 expected damage. Alpha (P2) at 13 HP is a slightly better target, and the options score almost the same. Fix: Add the focus-fire bonus only if the pooled expected damage from all shooters at that target reaches a real kill chance (for example 40% or more). Otherwise pick the target with the highest kill_fraction or the most wounded unit.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7477_r3_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Beta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha shoots at Custodian Guard Sodality Beta \u2014 expected 0.9 dmg vs 15 HP (6% kill)",
+ "verdict": "pending",
+ "version": 1
+}

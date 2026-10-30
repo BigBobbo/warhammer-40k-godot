@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_center (holding under threat (enemy OC 3 nearby) \u2014 worth ~10 VP)",
+ "created": "2026-10-30 23:48:16",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7477_r3_p2_movement_1",
+ "note": "[LLM critic, low conf] Delta holds obj_center, which P2 already controls with OC 14 against 3. The plan puts three units on that one objective, so Delta adds almost no control. Fix: Scale hold and objective value by the marginal change in control. If our OC already exceeds enemy OC plus the largest plausible enemy reinforcement, give a surplus unit little hold credit. Send it to an uncontrolled or contested objective instead. Also make a 'hold' assignment consistent with the charge intent the plan lists for the same unit.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7477_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta holds obj_center (holding under threat (enemy OC 3 nearby))",
+ "verdict": "pending",
+ "version": 1
+}

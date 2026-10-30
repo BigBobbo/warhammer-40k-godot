@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 15\"))",
+ "created": "2026-10-30 23:47:05",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7477_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent the Prosecutor Squad to a backfield screen spot. It rejected the top-scored move to obj_nml_1 for a reason that applies only to obj_home_2, so the override reason does not match the choice. Fix: Apply the lone-unit safety override only to the objective that triggered it. Rank other safe, empty objectives by their normal score. Give screen_base a threat-based scaling that falls to 0 when no enemy unit can reach within one turn of the screen position.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7477_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:960,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad screens at (960,320) \u2014 backfield gap (nearest friendly: 15\")",
+ "verdict": "bad",
+ "version": 1
+}
