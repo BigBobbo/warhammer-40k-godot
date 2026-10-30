@@ -1,0 +1,30 @@
+[
+ {
+  "job": "20261030_025049_smk1_00__s7499_r1_p1_movement_1_0",
+  "case": "20261030_025049_smk1_00__s7499_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent the Prosecutor Squad to a screen point at the board centre instead of the top-scored Advance to obj_home_1. The screen option has a flat bonus and no threat or usefulness check.",
+  "better_option": "Advance obj_home_1 (advancing for extra range \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7499",
+   "layout_variant": 2,
+   "max_round": 1,
+   "per_phase": 1
+  },
+  "run_dir": "20261030_025049_smk1_00"
+ }
+]
