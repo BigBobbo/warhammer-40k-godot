@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Beta (9.9\" away, 17% chance)",
+ "created": "2026-10-30 16:10:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7474_r2_p1_charge_1",
+ "note": "[LLM critic, medium conf] Stormboyz declare a 17% charge on Custodian Guard Beta. The score stays positive only because flat bonuses are not scaled by the low chance, and the charge is below the 23% threshold. Fix: Multiply all positive charge bonuses by charge_probability. Reject any charge below charge_threshold. Compute melee damage from real hit, wound and save odds against T7 Sv2+ inv4+. Subtract retaliation from the full Custodian melee output on a success.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7474_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:1132,1332",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares charge against Custodian Guard Sodality Beta (17% chance, 9.9\" away, expected 8.0 melee dmg vs 11 HP, overwatch risk: 1.0 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

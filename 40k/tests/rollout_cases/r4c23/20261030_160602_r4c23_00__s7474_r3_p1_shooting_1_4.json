@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Slugga \u2192 enemy Allarus Custodians #3 (P2)",
+ "created": "2026-10-30 16:11:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7474_r3_p1_shooting_1",
+ "note": "[LLM critic, medium conf] The AI sends one S4 Slugga shot at a T8 2+/4+ Allarus. It scores 0.0 damage and a 1% kill chance, and the target may be at the edge of range. Delta is clearly in range. Fix: Weight target choice by expected damage and kill chance. Require a margin inside weapon range. Discount target_value to near zero when expected damage is under 0.1.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7474_r3_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BOSS_SNIKROT_A",
+  "choice": "desc:Slugga \u2192 enemy Allarus Custodians #3 (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Boss Snikrot shoots at Allarus Custodians #3 \u2014 expected 0.0 dmg vs 6 HP (1% kill)",
+ "verdict": "pending",
+ "version": 1
+}

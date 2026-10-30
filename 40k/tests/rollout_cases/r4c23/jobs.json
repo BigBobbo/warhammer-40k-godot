@@ -1,0 +1,156 @@
+[
+ {
+  "job": "20261030_160602_r4c23_00__s7474_r1_p1_movement_2_0",
+  "case": "20261030_160602_r4c23_00__s7474_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI sends Gretchin on a trip of about 29 in to an empty corner to screen. Gretchin move only 6 in. The screen position has no clear threat to block.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7474",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160602_r4c23_00"
+ },
+ {
+  "job": "20261030_160602_r4c23_00__s7474_r2_p1_charge_1_1",
+  "case": "20261030_160602_r4c23_00__s7474_r2_p1_charge_1_1.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "Stormboyz declare a 17% charge on Custodian Guard Beta. The score stays positive only because flat bonuses are not scaled by the low chance, and the charge is below the 23% threshold.",
+  "better_option": "unlisted: do not charge, keep Stormboyz back as an objective screen",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7474",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160602_r4c23_00"
+ },
+ {
+  "job": "20261030_160602_r4c23_00__s7474_r3_p2_charge_1_2",
+  "case": "20261030_160602_r4c23_00__s7474_r3_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "targets": [
+     "U_KOMMANDOS_A"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Delta charges 10 Kommandos at 72%. The Kommandos have only 12 wounds in total and the damage is mostly overkill. The ch_retaliation term (-8.89) and ch_points_trade (-4.26) nearly cancel the gain, so the score is only 1.07.",
+  "better_option": "Charge Kommandos (5.4\" away, 72% chance)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7474",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160602_r4c23_00"
+ },
+ {
+  "job": "20261030_160602_r4c23_00__s7474_r3_p1_movement_2_3",
+  "case": "20261030_160602_r4c23_00__s7474_r3_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A",
+    "objective": "obj_home_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a slow, shooting-focused Lootas unit 27 inches alone to an enemy-held objective. It leaves its held home objective and loses its shooting this turn.",
+  "better_option": "Hold obj_home_1 (on objective, OC needed \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7474",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160602_r4c23_00"
+ },
+ {
+  "job": "20261030_160602_r4c23_00__s7474_r3_p1_shooting_1_4",
+  "case": "20261030_160602_r4c23_00__s7474_r3_p1_shooting_1_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BOSS_SNIKROT_A",
+    "target": "U_CUSTODIAN_GUARD_D"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends one S4 Slugga shot at a T8 2+/4+ Allarus. It scores 0.0 damage and a 1% kill chance, and the target may be at the edge of range. Delta is clearly in range.",
+  "better_option": "Slugga \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7474",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160602_r4c23_00"
+ },
+ {
+  "job": "20261030_160602_r4c23_00__s7474_r3_p1_charge_1_5",
+  "case": "20261030_160602_r4c23_00__s7474_r3_p1_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_B",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a lone Battlewagon at a 13 HP Custodian unit for about 2.7 melee damage, and it takes about 6.7 in retaliation. The positive score comes from inflated bonus terms.",
+  "better_option": "unlisted: do not charge with Battlewagon Beta",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7474",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160602_r4c23_00"
+ }
+]
