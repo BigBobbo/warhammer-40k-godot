@@ -290,10 +290,13 @@ Locks in use:
     - [x] Active pill is visually the brightest.
       *(A solid chip in the slot colour, with a glow. Rendered CIE L* sampled inside
       each pill: TEAL 65.8 and MAGENTA 54.5, against 43.2 for a completed pill and 5.6
-      inside a future one. The scenario requires a margin of 8, P2 Movement included.)*
+      inside a future one. Five scenario steps assert it with `"equals": "ok"`: in every
+      captured frame the lit pill must be more than 8 above every other pill, P2 Movement
+      included.)*
     - [x] Completed pills are distinguishable from future pills.
       *(Completed: a solid grey chip with dark text. Future: a hollow outline with faded
-      text. L* 43.2 against 5.6.)*
+      text. L* 43.2 against 5.6. The same steps assert completed pills are more than 20
+      from each future pill.)*
     - [x] No layout shift in the rest of the HUD when phase advances.
       *(The strip, the bar, every pill and arrow, GameLogPanel, HUD_Right and HUD_Bottom
       keep their Command-phase rects in Movement, Shooting and P2 Movement. Every pill is
@@ -332,6 +335,15 @@ Locks in use:
     3%. A change to one pill alone (the P1-to-P2 recolour) measures 8.3% of the pill rows,
     about 7% of the 30-row phase_bar region, so 11% also fails a bar where only one pill
     changed.
+  - **Audit fix (2026-10-30):** the five rendered-L* steps (17, 33, 49, 59, 69) had no
+    expectation key, so ScenarioRunner passed them whatever they returned: the L* margins
+    above were measured but never asserted. Each step now returns exactly "ok" and carries
+    `"equals": "ok"`. The values go to the debug log, and a failure returns its verdict
+    with every pill's L*. The margins are strict: the lit pill more than 8 above every
+    other, completed pills more than 20 from future ones. A scratch probe on the same
+    fixture (not committed) passes the real frame and fails both sabotages: lit pill forced
+    hollow gives "active not brightest"; a future pill forced grey gives "completed vs
+    future too close". Scenario 71/71.
 
 - [ ] **T05 — Hover-forecast tooltip for shooting**
   - **Lock:** Shooting  • **Doc:** §7  • **Depends:** T01, T02
