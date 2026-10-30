@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Custodian Guard Sodality Delta arrives",
+ "created": "2026-10-30 01:21:35",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7411_r2_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI deep-struck Custodian Guard Sodality Delta onto the home objective it already holds with OC 20, so the unit adds no control and no VP. Fix: Score arrive_objectives by marginal gain only. Count an objective when the arrival flips it or secures a contested one. Give zero value when the friendly OC already exceeds the enemy OC by a safe margin, as at home here. Prefer legal spots that contest enemy-held objectives, and penalise placing a unit on a saturated objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7411_r2_p1_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_CUSTODIAN_GUARD_D",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_CUSTODIAN_GUARD_D"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta arrives from Deep Strike",
+ "verdict": "bad",
+ "version": 1
+}

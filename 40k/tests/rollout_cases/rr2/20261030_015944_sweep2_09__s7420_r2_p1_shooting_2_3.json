@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Astartes shotgun \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+ "created": "2026-10-30 02:03:15",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7420_r2_p1_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot a 2-model scout squad's shotgun at Gamma for 0.27 expected damage. Gamma is 10.3 in away, outside the 18 in shotgun range check for Delta's closer position, and the target pick is a weak spread of fire. Fix: Cap or scale the already_allocated bonus by the chance that the combined allocated fire can actually kill the target. Give no bonus when the cumulative kill chance stays below about 25 percent. Add a term for threat to nearby friendly units.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7420_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_SCOUT_SQUAD_A",
+  "choice": "desc:Astartes shotgun \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Scout Squad Alpha shoots at Custodian Guard Sodality Gamma \u2014 expected 0.3 dmg vs 15 HP (2% kill); Custodian Guard Sodality Alpha \u2014 expected 1.2 dmg vs 15 HP (8% kill)",
+ "verdict": "pending",
+ "version": 1
+}

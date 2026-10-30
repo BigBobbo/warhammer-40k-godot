@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Allarus Custodians #3 (P1)",
+ "created": "2026-10-30 01:25:56",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7411_r3_p2_shooting_1",
+ "note": "[LLM critic, medium conf] The AI shot a lone 6 wound Allarus at maximum range for 0.9 damage. It passed up the engaged enemy Custodian Guard Gamma, which is in Rapid Fire range and would take 1.78 damage. Fix: Add a term for melee support, so damage on an enemy engaged with a friendly unit counts for more. Penalise shots at maximum range that lose the Rapid Fire bonus. Cap the kill_fraction bonus when the chance to kill is under about 20 percent and the target has a 4+ invulnerable save. Score focus-fire plans on whether the combined damage can kill a target, not on one shooter per target.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7411_r3_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Allarus Custodians #3 (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma shoots at Allarus Custodians #3 \u2014 expected 0.9 dmg vs 6 HP (15% kill)",
+ "verdict": "pending",
+ "version": 1
+}

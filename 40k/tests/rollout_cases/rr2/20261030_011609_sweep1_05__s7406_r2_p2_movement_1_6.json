@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Thunderwolf Cavalry Beta arrives",
+ "created": "2026-10-30 01:20:12",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r2_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent Thunderwolf Cavalry Beta to a spot near an objective P2 already holds. It did not use the unit to threaten the lightly held enemy home objective or the empty obj_nml_1. Fix: Score arrival spots by marginal objective swing: value contesting an enemy-held or empty objective above reinforcing a held one. Add a term for charge reach on weak enemy units that sit on objectives, since the Prosecutor Squad is a 45pt unit that holds P1's home objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7406_r2_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_THUNDERWOLF_CAVALRY_B",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_THUNDERWOLF_CAVALRY_B"
+ },
+ "source": "llm_critic",
+ "suggestion": "Thunderwolf Cavalry Beta arrives from Strategic Reserves",
+ "verdict": "pending",
+ "version": 1
+}

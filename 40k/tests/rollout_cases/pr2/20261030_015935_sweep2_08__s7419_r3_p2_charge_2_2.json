@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Scout Squad Beta (4.7\" away, 83% chance)",
+ "created": "2026-10-30 02:04:39",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7419_r3_p2_charge_2",
+ "note": "[LLM critic, medium conf] The AI charges a 2-wound, 45-point Prosecutor Squad into Scout Squad Beta for 0.4 expected damage. Overwatch could wipe the squad before it fights. Fix: Scale ch_gang_up by the chance that other friendly units can actually charge the same target this phase. Skip any charge whose expected melee damage is under about 1 and whose overwatch risk is at or above the unit's remaining wounds. Add a hard veto when ch_cant_hurt applies and overwatch risk exceeds expected damage dealt.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7419_r3_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:830,1415",
+  "decision": "charge",
+  "targets": "U_SCOUT_SQUAD_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad declares charge against Scout Squad Beta (83% chance, 4.7\" away, expected 0.4 melee dmg vs 6 HP, overwatch risk: 2.6 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

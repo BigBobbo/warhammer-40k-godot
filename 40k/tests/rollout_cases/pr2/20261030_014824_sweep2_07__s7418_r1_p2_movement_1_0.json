@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~3 VP)",
+ "created": "2026-10-30 01:48:51",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7418_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The Mek crosses the whole board to reinforce obj_nml_2, which two OC5 Battlewagons already cover. Its stated reason for skipping obj_center does not match the numbers. Fix: Add a term that cuts the value of reinforcing an objective once the committed OC is already well above the likely enemy OC. Reject goals that take 4 or more turns when a nearer objective or the army's own position gives equal value. Score the override target from the same terms as the others, so the override and the final score agree.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7418_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_MEK_B",
+  "choice": "pos:380,1930",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Mek Beta moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed), obj: 33.0\" away)",
+ "verdict": "bad",
+ "version": 1
+}

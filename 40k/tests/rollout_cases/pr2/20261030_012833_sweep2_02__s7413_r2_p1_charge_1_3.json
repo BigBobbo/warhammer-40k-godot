@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Alpha (10.0\" away, 8% chance)",
+ "created": "2026-10-30 01:31:02",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7413_r2_p1_charge_1",
+ "note": "[LLM critic, high conf] The AI declares an 8% charge on a 15 HP unit near the enemy home objective. The score is positive only because flat bonuses outweigh the 8% chance penalty. Fix: Gate all charge declarations on charge_probability meeting charge_threshold. Multiply ch_damage, ch_can_halve and ch_tie_up_shooter by charge_probability. Also include the cost of leaving the held objective at the full amount if the charge succeeds, since the unit would leave the 19 OC centre.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7413_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "pos:1273,1667",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_A_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta declares charge against Custodian Guard Sodality Alpha (8% chance, 10.0\" away, expected 10.0 melee dmg vs 15 HP, overwatch risk: 0.2 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

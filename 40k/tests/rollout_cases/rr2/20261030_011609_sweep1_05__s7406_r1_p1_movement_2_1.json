@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (capturing it (enemy can bring ~5 OC next move) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 01:16:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r1_p1_movement_2",
+ "note": "[LLM critic, low conf] The AI sent Alpha to obj_center, which Beta already holds. This stacks a second Custodian unit there and leaves obj_nml_1 untaken. Fix: Compute expected_vp as the marginal gain over the current holder. Give the redundant-garrison objective a penalty when a friendly unit already holds it with more OC than the enemy can bring. Break ties toward objectives that are not yet held.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7406_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_center (capturing it (enemy can bring ~5 OC next move), obj: 17.7\" away)",
+ "verdict": "pending",
+ "version": 1
+}

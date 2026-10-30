@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (capturing it (uncontrolled))",
+ "created": "2026-10-30 01:20:38",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7411_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Custodian Guard Sodality Gamma to obj_home_1. Player 1 already holds that objective unopposed, so the move adds no control and wastes the unit's turn. Fix: Scale objective_priority by the marginal control gain. If the objective is already held with a surplus OC and no enemy within threat range, cut the priority to near zero and send the unit to an unheld or contested objective. Also set the 'capturing' label from the live holder, not from a stale value.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7411_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:320,510",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_home_1 (capturing it (uncontrolled), obj: 10.9\" away)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~3 VP)",
+ "created": "2026-10-30 01:44:43",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7408_r3_p2_movement_2",
+ "note": "[LLM critic, low conf] Gretchin move to obj_center, which Player 2 already holds with 14 OC. The extra OC adds no VP, because Meatgrinder pays a flat 4 VP for one non-home objective. Fix: Scale objective_priority and expected_vp by the marginal change in control probability. When friendly OC already exceeds the threatened enemy OC by a wide margin, reduce the reinforcement bonus to near zero. Use that unit as a screen or to deny an enemy objective instead.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7408_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 10.5\" away)",
+ "verdict": "pending",
+ "version": 1
+}
