@@ -1,0 +1,75 @@
+{
+ "key": "screen_vs_objective",
+ "angle": "root",
+ "root_cause": "PASS 3 of _assign_units_to_objectives gives a spare cheap unit to a deep-strike 'backfield gap' screen on pass order alone. PASS 2 skips any capture whose OC need is already met (obj_oc_remaining<=0), so the unit's per-unit value at that capture (its planner score there: no-man's-land / zone secondary terms, a backup holder) is dropped to 0 and never compared with the screen's flat score (SCREEN_SCORE_BASE 8 + gap priority 3 - 0.3/inch). In s7467 r1 P2 the Gretchin's top candidate was Advance obj_nml_2 (20.1, uncontested, no contest_race) and the plan was already capturing it (Battlewagon Alpha + Mek + Kommandos), yet the gap screen (8.4) won with override 'higher-scored objectives are already covered'. A/B records (2 seeds): primary VP identical; B gained on secondaries only (Forward Position +5, Cleanse +3 vs +0), i.e. the extra unit's value is exactly the per-unit term the plan threw away. A backfield gap covers no objective (home-objective denial is a separate, higher-priority entry).",
+ "fix_summary": "Under FIX_SCREEN_VS_OBJECTIVE (default 1): denial entries from the backfield-gap sampler carry backfield_gap=true. Before a unit takes such a gap, its support value at a capture the plan already makes is priced with the existing support ledger: planner score - SUPPORT_STACK_PENALTY x units committed there. Eligible only when that capture is the unit's own top-scored candidate, a move/advance into a planned_new objective (not held), not race_lost (no contest_race), not LONE-TRIP/FAR-TRIP/RACE-SKIP/TOO-LATE, and at most SCREEN_VS_OBJECTIVE_MAX_COMMITTED (2) units already committed (per-unit secondary/backup value is paid once per objective). If support value > screen score, the unit is assigned to that capture (assign_pass support, mode from the candidate, e.g. Advance) and logs [SCREEN_VS_OBJECTIVE]; the gap stays open for the next unit. Home deep-strike denial, screen-protect and corridor-block are untouched. Param 0 restores the base exactly (the new dict key is read only under the gate).",
+ "param": "FIX_SCREEN_VS_OBJECTIVE",
+ "test_file": "40k/tests/unit/test_ai_fix_screen_vs_objective.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "All 18 listed tests pass with the fix (rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 22/0, survival_assessment 23/0, multi_phase_planning 34/0). New test: 7/0 on fix, 5 passed/2 failed on BASE (the two checks that the spare unit supports the uncontested capture). Known-failing tests (threat_range_awareness, objective_assignment_fixes) not re-run.",
+ "decision_checks": [
+  {
+   "job": "20261030_160457_r4c16_00__s7467_r1_p2_movement_2_1",
+   "base_choice": "Gretchin screens at (1600,1520) - backfield gap (nearest friendly: 9\")",
+   "fix_choice": "Gretchin advances toward obj_nml_2 (supporting the capture of obj_nml_2, 2 units already committed)",
+   "changed": true,
+   "measured": "clear: E +3.64 [1.82, 5.46] (36 seeds) for Advance obj_nml_2",
+   "judgement": "matches the alternative: same unit, same objective, same mode (Advance). Side effect in the same turn: Beast Snagga Boyz also leave a gap screen for obj_nml_2 (unmeasured)."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_012809_sweep1_07__s7408_r1_p1_movement_1_1",
+   "base_choice": "Burna Boyz Beta screens at (604,984) - screening valuable friendlies",
+   "fix_choice": "Burna Boyz Beta screens at (960,960) - backfield gap (an earlier unit, Burna Alpha, left its gap for obj_nml_1 via the fix)",
+   "changed": true,
+   "measured": "harmful: E -5.83 [-10.75,-0.92] for Normal move obj_center",
+   "judgement": "still screens; not moved toward the harmful obj_center alternative (obj_center is a lost race, excluded)."
+  },
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r1_p2_movement_2_3",
+   "base_choice": "Burna Boyz Alpha screens at (320,2160) - backfield gap",
+   "fix_choice": "Burna Boyz Alpha screens at (320,1520) - backfield gap (Beast Snagga Boyz took obj_nml_2 via the fix earlier, shifting the gap list)",
+   "changed": false,
+   "measured": "neutral: E -3.25 for Advance obj_center",
+   "judgement": "consistent: still screens; obj_center is contested (contest_race), excluded."
+  },
+  {
+   "job": "20261030_012809_sweep1_07__s7408_r1_p1_movement_2_2",
+   "base_choice": "Burna Boyz Alpha screens at (960,960) - backfield gap",
+   "fix_choice": "Burna Boyz Alpha advances toward obj_nml_1 (supporting the uncontested capture, 1 committed)",
+   "changed": true,
+   "measured": "neutral: E -2.83 [-10.66,5.00] for Advance obj_center",
+   "judgement": "changed, but to obj_nml_1 (uncontested), not the measured obj_center; this exact alternative is unmeasured."
+  },
+  {
+   "job": "20261030_021358_sweep2_12__s7423_r1_p1_movement_2_1",
+   "base_choice": "Gretchin screens at (1600,320) - backfield gap",
+   "fix_choice": "Gretchin screens at (960,960) - backfield gap (other units changed first)",
+   "changed": false,
+   "measured": "neutral: E -2.25 [-5.91,1.41] for Advance obj_nml_1",
+   "judgement": "consistent: the Gretchin's top candidate is obj_center (DIM-RETURNS skipped), so obj_nml_1 support is not eligible; it keeps screening."
+  },
+  {
+   "job": "20261030_160307_r4c05_00__s7456_r1_p2_movement_2_1",
+   "base_choice": "Prosecutor Squad screens at (1320,1815) - deny deep strike near home obj_home_2",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E +3.25 for Advance obj_home_2",
+   "judgement": "unchanged by design (home-objective denial is not a backfield gap)."
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r1_p1_movement_2_1",
+   "base_choice": "Prosecutor Squad screens at (761,742) - deny deep strike near home obj_home_1",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E +2.42 for Advance obj_nml_1",
+   "judgement": "unchanged by design."
+  }
+ ],
+ "fires": "Counted from the decision records of the 7 replays (both players, to the end of round 2): s7467 2 (Gretchin, Beast Snagga Boyz -> obj_nml_2), s7408_1_1 4 (Burna Alpha, Beast Snagga Boyz -> obj_nml_1 in r1 and again r2), s7437 1 (Beast Snagga Boyz -> obj_nml_2), s7408_2_2 4 (Burna Alpha, Gretchin r1; Beast Snagga Boyz, Gretchin r2 -> obj_nml_1), s7423 4 (Lootas Beta, Burna Beta -> obj_nml_1 r1; Gretchin, Burna Beta -> obj_center r2), s7456 0, s7438 1 (Lootas Gamma -> obj_nml_2). ~0-4 per game over 2 rounds, almost all Ork cheap units (Custodes field few screen candidates). A first, wider version (no top-candidate rule, no commit cap) fired up to 6+/game and stacked units 5-deep; narrowed.",
+ "risks": "(1) Only one confirmed finding; the fix also changes unmeasured decisions (Beast Snagga Boyz in s7467, Burna Alpha in s7408_2_2, Lootas in s7423/s7438) because many Ork units qualify. (2) Fewer backfield screens means more open deep-strike lanes in our deployment zone in rounds 2-3 when enemy reserves arrive; a deep striker landing behind the lines can take an unguarded home objective or charge backline shooters (Lootas) - not visible in a 1-round rollout. (3) Units sent as backup to an uncontested no-man's-land capture walk toward the enemy and may be shot off; with the cap of 2 committed the loss per objective is bounded. (4) Rounds 3-5: as objectives become contested the race_lost/LONE-TRIP filters stop it firing, so late-game effect should be small; but units already pulled forward in R1-2 are not back as screens. (5) The 2-committed cap and 'top-scored candidate' rule are thresholds chosen from 6 positions, not tuned; full-game benchmark (Orks especially) needed.",
+ "drop_reason": ""
+}
