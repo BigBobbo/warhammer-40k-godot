@@ -1,0 +1,323 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..70e9c20 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1614,6 +1614,24 @@ const KEEPER_RELEASE_MIN_GAIN: float = 5.0
+ # spots aim only at objectives that still need OC. 0 = the centre-distance
+ # approximation everywhere, spots near any objective.
+ const FIX_HELD_DUP: float = 1.0
++# Movement plan (FIX_SCREEN_VS_OBJECTIVE): 1 = a cheap screen-candidate unit
++# that the plan left over ONLY because its objectives were already covered
++# (no RACE/LONE/FAR/TOO-LATE/DIM-RETURNS guard kept it back) is not parked on
++# a "backfield gap" deep-strike screen in its own deployment zone when it can
++# join a forward (non-home) objective the plan is already taking or holding,
++# without a lost race, for a score at least SCREEN_VS_OBJECTIVE_MIN_GAIN above
++# the screen. The extra OC keeps that objective in rounds 2-5 and the unit
++# stands where position secondaries pay (Forward Position, Cleanse, Engage on
++# All Fronts); a backfield gap away from any home objective pays none of them.
++# Home-objective deep-strike denial, screen-protect and corridor blocks are
++# untouched. Gretchin screened a gap at their own table edge while obj_nml_2
++# was being taken by three units (LLM-critic cluster screen_vs_objective;
++# Advancing them to obj_nml_2 measured +3.64 VP [1.82, 5.46], 36 rollouts —
++# the gain came from secondary cards). 0 = previous behaviour.
++const FIX_SCREEN_VS_OBJECTIVE: float = 1.0
++# SCREEN_VS_OBJECTIVE: how many planner score points the forward objective
++# must beat the backfield-gap screen by (one screen base).
++const SCREEN_VS_OBJECTIVE_MIN_GAIN: float = 8.0
+ # Charge (RETALIATION): share of the surviving target's melee damage on the
+ # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+@@ -10601,6 +10619,47 @@ static func _assign_units_to_objectives(
+ 	for inc_oid in incoming_names:
+ 		support_counts[inc_oid] = support_counts.get(inc_oid, 0) + incoming_names[inc_oid].size()
+ 
++	# SCREEN_VS_OBJECTIVE (FIX_SCREEN_VS_OBJECTIVE): the unit's best capture
++	# candidate onto a forward objective the plan already has units on or
++	# going to — {cand, with} — or {} when it does not qualify (see const).
++	var screen_vs_obj_on = get_param("FIX_SCREEN_VS_OBJECTIVE", FIX_SCREEN_VS_OBJECTIVE) >= 0.5
++	var screen_vs_obj_join := func(svo_uid: String, svo_screen_score: float) -> Dictionary:
++		# Kept back by a guard (a lost race, a lone or far trip, too late, an
++		# objective worth nothing more): that reason still stands.
++		if extra_obj_skipped.has(svo_uid) or lone_skipped.has(svo_uid) or far_skipped.has(svo_uid):
++			return {}
++		var svo_best: Dictionary = {}
++		var svo_with: Array = []
++		for c in candidates:
++			if str(c.unit_id) != svo_uid or c.get("action", "") not in ["move", "advance"] \
++					or c.get("already_on_obj", false) or c.get("race_lost", false):
++				continue
++			if float(c.score) < svo_screen_score + get_param("SCREEN_VS_OBJECTIVE_MIN_GAIN", SCREEN_VS_OBJECTIVE_MIN_GAIN):
++				continue
++			if not svo_best.is_empty() and float(c.score) <= float(svo_best.score):
++				continue
++			var c_eval = _get_obj_eval_by_id(obj_evaluations, c.objective_id)
++			if c_eval.is_empty() or c_eval.get("is_home", false):
++				continue  # forward objectives only — home has its own denial screen
++			if not (planned_new_objs.has(c.objective_id) or c_eval.get("state", "") in ["held_safe", "held_threatened"]):
++				continue  # an objective the plan is taking or keeping
++			if too_late.call(c) or race_hopeless.call(c) or lone_trip.call(c) or far_trip.call(c):
++				continue
++			var c_with: Array = []
++			for a_uid in assignments:
++				if str(a_uid) != svo_uid and str(assignments[a_uid].get("objective_id", "")) == str(c.objective_id) \
++						and assignments[a_uid].get("action", "") in ["hold", "move", "advance"]:
++					c_with.append(_dn(snapshot.get("units", {}).get(a_uid, {}), a_uid))
++			for n in incoming_names.get(c.objective_id, []):
++				if not n in c_with:
++					c_with.append(n)
++			if c_with.is_empty():
++				continue  # joining, never going alone
++			svo_best = c
++			svo_with = c_with
++		if svo_best.is_empty():
++			return {}
++		return {"cand": svo_best, "with": svo_with}
+ 	var denial_idx = 0  # Track which denial position to assign next
+ 	var block_idx = 0   # T7-42: Track which corridor blocking position to assign next
+ 	# F007: screeners are spaced so their denial bubbles touch (2R), derived
+@@ -10620,6 +10679,25 @@ static func _assign_units_to_objectives(
+ 			var dist_to_denial = centroid.distance_to(denial_pos)
+ 			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+ 
++			# SCREEN_VS_OBJECTIVE: a backfield-gap screen does not take a unit
++			# that can join a forward objective the plan is taking (see const).
++			if screen_vs_obj_on and str(denial.get("kind", "")) == "backfield_gap":
++				var svo_screen_score = get_param("SCREEN_SCORE_BASE", SCREEN_SCORE_BASE) + float(denial.priority) \
++						- (dist_to_denial / PIXELS_PER_INCH) * 0.3
++				var svo: Dictionary = screen_vs_obj_join.call(unit_id, svo_screen_score)
++				if not svo.is_empty():
++					var svo_c: Dictionary = svo.cand
++					apply_capture_assignment.call(svo_c)
++					assignments[unit_id]["assign_pass"] = "support"
++					assignments[unit_id]["reason"] = "joining %s there" % ", ".join(svo.with)
++					assignments[unit_id]["coordination_note"] = "not screening the %s — joining %s at %s instead (score %.1f vs %.1f screening): the extra OC keeps it and the unit stands where position secondaries pay" % [
++						denial.reason, ", ".join(svo.with), svo_c.objective_id, float(svo_c.score), svo_screen_score]
++					support_counts[str(svo_c.objective_id)] = support_counts.get(str(svo_c.objective_id), 0) + 1
++					print("AIDecisionMaker: [SCREEN_VS_OBJECTIVE] %s: %s %s joining %s (score %.1f) instead of screening the %s at (%.0f,%.0f) (score %.1f)" % [
++						svo_c.objective_id, unit_id, str(svo_c.action).to_upper(), ", ".join(svo.with), float(svo_c.score),
++						denial.reason, denial_pos.x, denial_pos.y, svo_screen_score])
++					continue
++
+ 			# Check spacing: don't cluster screeners, keep ~18" apart
+ 			var too_close_to_screener = false
+ 			for sp in screener_positions:
+@@ -13078,7 +13156,8 @@ static func _calculate_denial_positions(
+ 			denial_positions.append({
+ 				"position": denial_pos,
+ 				"priority": priority,
+-				"reason": "deny deep strike near home objective %s" % eval.id
++				"reason": "deny deep strike near home objective %s" % eval.id,
++				"kind": "home"
+ 			})
+ 
+ 	# Also identify open backfield gaps — areas far from any friendly unit
+@@ -13120,7 +13199,8 @@ static func _calculate_denial_positions(
+ 					denial_positions.append({
+ 						"position": sample_pos,
+ 						"priority": 3.0,  # Lower priority than objective denial
+-						"reason": "backfield gap (nearest friendly: %.0f\")" % (nearest_friendly_dist / PIXELS_PER_INCH)
++						"reason": "backfield gap (nearest friendly: %.0f\")" % (nearest_friendly_dist / PIXELS_PER_INCH),
++						"kind": "backfield_gap"
+ 					})
+ 
+ 				sample_y += step
+diff --git a/40k/tests/unit/test_ai_fix_screen_vs_objective.gd b/40k/tests/unit/test_ai_fix_screen_vs_objective.gd
+new file mode 100644
+index 0000000..0ffbb8e
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_screen_vs_objective.gd
+@@ -0,0 +1,194 @@
++extends SceneTree
++
++# SCREEN_VS_OBJECTIVE (FIX_SCREEN_VS_OBJECTIVE): a cheap screen-candidate unit
++# the plan left over only because its objectives were already covered (no
++# RACE/LONE/FAR/TOO-LATE/DIM-RETURNS guard kept it back) joins a forward
++# objective the plan is taking instead of screening a "backfield gap" in its
++# own deployment zone. LLM-critic cluster screen_vs_objective (value-checked,
++# 2026-10-30): Gretchin screened a gap at their own table edge while obj_nml_2
++# was being taken by three units; Advancing them to obj_nml_2 measured +3.64 VP
++# [1.82, 5.46] over 36 rollouts (the gain came from secondary cards: Forward
++# Position, Cleanse). Guardrails: a unit kept back by LONE-TRIP or DIM-RETURNS
++# still screens, a home-objective deep-strike screen is untouched, a lost race
++# or an objective nobody else is going to does not pull the unit forward.
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_screen_vs_objective.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const HOME := Vector2(440, 240)       # our home objective (player 1 zone)
++const NML := Vector2(900, 900)        # a no man's land objective
++const ENEMY_HOME := Vector2(1320, 2160)
++const WRATH_RULES := [
++	{"type": "destroyed_min", "min": 1, "vp": 3, "when": "eot"},
++	{"type": "hold_min", "exclude_home": true, "min": 1, "vp": 4, "when": "command", "rounds": [2, 5]},
++	{"type": "hold_more", "vp": 6, "when": "command", "rounds": [2, 5]},
++]
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Backfield-gap screen vs a forward objective the plan is taking (SCREEN_VS_OBJECTIVE) ===\n")
++	AIDecisionMaker._config_overrides["FIX_SCREEN_VS_OBJECTIVE"] = 1.0
++	test_spare_screen_unit_joins_the_forward_objective()
++	test_other_units_keep_their_plan()
++	test_param_zero_restores_base()
++	test_no_join_when_nobody_else_goes_there()
++	test_lost_race_keeps_the_screen()
++	test_home_denial_screen_is_untouched()
++	test_lone_trip_unit_still_screens()
++	AIDecisionMaker._config_overrides.erase("FIX_SCREEN_VS_OBJECTIVE")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot() -> Dictionary:
++	return {"battle_round": 1, "meta": {"battle_round": 1, "first_turn_player": 1},
++		"board": {"objectives": [
++			{"id": "obj_home_1", "position": HOME, "zone": "player1"},
++			{"id": "obj_nml_1", "position": NML, "zone": "no_mans_land"},
++		], "terrain_features": [],
++		"deployment_zones": [
++			{"player": 1, "poly": [{"x": 0, "y": 0}, {"x": 44, "y": 0}, {"x": 44, "y": 12}, {"x": 0, "y": 12}]},
++			{"player": 2, "poly": [{"x": 0, "y": 48}, {"x": 44, "y": 48}, {"x": 44, "y": 60}, {"x": 0, "y": 60}]},
++		]}, "units": {}}
++
++# `n` models (OC `oc` each) whose centroid is at `pos`.
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int,
++		toughness: int, wounds: int, oc: int, move: int, points: int,
++		status: int = GameStateData.UnitStatus.DEPLOYED) -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32,
++			"base_type": "circular", "base_dimensions": {},
++			"position": Vector2(pos.x + (i - (n - 1) / 2.0) * 40.0, pos.y), "wounds": wounds, "current_wounds": wounds})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": status,
++		"meta": {"name": unit_id, "points": points, "stats": {"move": move, "toughness": toughness, "save": 4,
++			"wounds": wounds, "leadership": 6, "objective_control": oc}, "keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++
++# The s7467 shape: a keeper holds home, a fast unit takes obj_nml_1 in one
++# move, a cheap 40 pt chaff squad stands at the far end of our zone with
++# nothing left to do but screen; the enemy is 40"+ away with a unit in reserves.
++func _board() -> Dictionary:
++	var snap = _snapshot()
++	_add_unit(snap, "keeper", 1, HOME, 3, 6, 3, 2, 6, 150)
++	_add_unit(snap, "wagon", 1, NML + Vector2(-400, 0), 1, 10, 16, 5, 10, 160)
++	_add_unit(snap, "grots", 1, Vector2(1500, 300), 8, 2, 1, 1, 6, 40)
++	_add_unit(snap, "boyz", 2, ENEMY_HOME + Vector2(0, 100), 10, 5, 1, 2, 6, 80)
++	_add_unit(snap, "stormboyz", 2, Vector2.ZERO, 5, 5, 1, 1, 12, 70, GameStateData.UnitStatus.IN_RESERVES)
++	return snap
++
++func _plan(snap: Dictionary, movable_ids: Array) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p1 = {"card_name": "test", "active_rules": WRATH_RULES.size(), "vp_rules": WRATH_RULES.duplicate(true),
++		"objective_pressure": 0.0, "enemy_home_bonus": 0.0, "central_bonus": 0.0, "hold_home_required": false,
++		"kill_pressure": false, "quarters": false}
++	AIDecisionMaker._secondary_awareness_p1 = {}
++	var friendlies = {}
++	var enemies = {}
++	var movable = {}
++	for uid in snap.units:
++		var u = snap.units[uid]
++		if int(u.owner) == 1:
++			friendlies[uid] = u
++		elif int(u.status) != GameStateData.UnitStatus.IN_RESERVES:
++			enemies[uid] = u
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 1, enemies, friendlies, 1)
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 1, 1)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	for c in AIDecisionMaker._last_movement_candidates.get("grots", []):
++		print("    grots candidate %s %s score %.1f race_lost=%s" % [c.get("action", ""), c.get("objective_id", ""),
++			float(c.get("score", 0.0)), str(c.get("race_lost", false))])
++	AIDecisionMaker._primary_awareness_p1 = {}
++	return plan
++
++func _screens(plan: Dictionary, uid: String = "grots") -> bool:
++	return str(plan.get(uid, {}).get("action", "")) == "screen"
++
++func _joins_nml(plan: Dictionary) -> bool:
++	var a: Dictionary = plan.get("grots", {})
++	return str(a.get("objective_id", "")) == "obj_nml_1" and str(a.get("action", "")) in ["move", "advance"]
++
++func test_spare_screen_unit_joins_the_forward_objective() -> void:
++	print("\n--- obj_nml_1 already taken by the wagon; the grots would screen a backfield gap ---")
++	var plan = _plan(_board(), ["keeper", "wagon", "grots"])
++	_assert(str(plan.get("wagon", {}).get("objective_id", "")) == "obj_nml_1", "the wagon takes obj_nml_1 (%s)" % str(plan.get("wagon", {}).get("objective_id", "")))
++	_assert(_joins_nml(plan), "the grots join it instead of screening (%s %s)" % [
++		plan.get("grots", {}).get("action", ""), plan.get("grots", {}).get("objective_id", "")])
++	_assert(str(plan.get("grots", {}).get("reason", "")).begins_with("joining wagon"),
++		"the plan says who it joins (%s)" % str(plan.get("grots", {}).get("reason", "")))
++	_assert(str(plan.get("grots", {}).get("coordination_note", "")).begins_with("not screening the backfield gap"),
++		"its card says why (%s)" % str(plan.get("grots", {}).get("coordination_note", "")))
++
++func test_other_units_keep_their_plan() -> void:
++	print("\n--- the keeper and the wagon plan the same with the fix on and off ---")
++	var on_plan = _plan(_board(), ["keeper", "wagon", "grots"])
++	AIDecisionMaker._config_overrides["FIX_SCREEN_VS_OBJECTIVE"] = 0.0
++	var off_plan = _plan(_board(), ["keeper", "wagon", "grots"])
++	AIDecisionMaker._config_overrides["FIX_SCREEN_VS_OBJECTIVE"] = 1.0
++	for uid in ["keeper", "wagon"]:
++		var on_a: Dictionary = on_plan.get(uid, {})
++		var off_a: Dictionary = off_plan.get(uid, {})
++		_assert(str(on_a.get("objective_id", "")) == str(off_a.get("objective_id", "")) and str(on_a.get("action", "")) == str(off_a.get("action", "")),
++			"%s: %s %s with the fix, %s %s without" % [uid, on_a.get("action", ""), on_a.get("objective_id", ""), off_a.get("action", ""), off_a.get("objective_id", "")])
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_SCREEN_VS_OBJECTIVE = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_SCREEN_VS_OBJECTIVE"] = 0.0
++	var plan = _plan(_board(), ["keeper", "wagon", "grots"])
++	AIDecisionMaker._config_overrides["FIX_SCREEN_VS_OBJECTIVE"] = 1.0
++	_assert(_screens(plan), "with the fix off the grots screen as before (%s %s)" % [
++		plan.get("grots", {}).get("action", ""), plan.get("grots", {}).get("objective_id", "")])
++	_assert(str(plan.get("grots", {}).get("reason", "")).begins_with("backfield gap"),
++		"a backfield-gap screen (%s)" % str(plan.get("grots", {}).get("reason", "")))
++
++func test_no_join_when_nobody_else_goes_there() -> void:
++	print("\n--- the wagon does not move this phase: nobody is taking obj_nml_1 ---")
++	var plan = _plan(_board(), ["keeper", "grots"])
++	_assert(not (str(plan.get("grots", {}).get("assign_pass", "")) == "support" and str(plan.get("grots", {}).get("reason", "")).begins_with("joining")),
++		"the fix never sends the unit alone (%s %s [%s])" % [plan.get("grots", {}).get("action", ""),
++		plan.get("grots", {}).get("objective_id", ""), plan.get("grots", {}).get("assign_pass", "")])
++
++func test_lost_race_keeps_the_screen() -> void:
++	print("\n--- an enemy horde 14\" from obj_nml_1 wins the race for it ---")
++	var snap = _board()
++	_add_unit(snap, "horde", 2, NML + Vector2(0, 14.0 * PX), 20, 5, 1, 2, 6, 170)
++	var plan = _plan(snap, ["keeper", "wagon", "grots"])
++	_assert(not _joins_nml(plan) or str(plan.get("grots", {}).get("assign_pass", "")) != "support",
++		"a lost race does not pull the screen forward (%s %s [%s])" % [plan.get("grots", {}).get("action", ""),
++		plan.get("grots", {}).get("objective_id", ""), plan.get("grots", {}).get("assign_pass", "")])
++
++func test_home_denial_screen_is_untouched() -> void:
++	print("\n--- the keeper does not move this phase, so home's deep-strike screen is still open ---")
++	var plan = _plan(_board(), ["wagon", "grots"])
++	var reason := str(plan.get("grots", {}).get("reason", ""))
++	_assert(_screens(plan) and reason.begins_with("deny deep strike near home objective"),
++		"the fix leaves a home deep-strike screen alone (%s %s: %s)" % [
++		plan.get("grots", {}).get("action", ""), plan.get("grots", {}).get("objective_id", ""), reason])
++
++func test_lone_trip_unit_still_screens() -> void:
++	print("\n--- obj_nml_1 needs more OC than the wagon brings vs an enemy that out-numbers it (LONE-TRIP keeps the grots back) ---")
++	var snap = _board()
++	_add_unit(snap, "mob", 2, NML + Vector2(0, 9.0 * PX), 20, 5, 1, 2, 6, 170)
++	var plan = _plan(snap, ["keeper", "wagon", "grots"])
++	_assert(not str(plan.get("grots", {}).get("reason", "")).begins_with("joining"),
++		"a unit a trip guard kept back is not sent forward by the fix (%s %s: %s)" % [plan.get("grots", {}).get("action", ""),
++		plan.get("grots", {}).get("objective_id", ""), str(plan.get("grots", {}).get("reason", ""))])
