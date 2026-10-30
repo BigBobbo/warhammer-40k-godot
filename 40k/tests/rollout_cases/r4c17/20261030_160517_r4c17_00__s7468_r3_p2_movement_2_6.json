@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Attack Prosecutor Squad (closing to charge range (0.0\" after move))",
+ "created": "2026-10-30 16:12:02",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7468_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] Stormboyz move 11 in to the Prosecutor-held objective and a tie in the two top options. The AI wins the tie with the Attack label, and the unit can only reach charge range if it does not advance. Fix: When a unit picks an attack move, make the move a normal move and not an advance when the target is within 12 in, so that it can charge. Cap objective_priority by the marginal VP from the primary table. Break ties in favour of the option that keeps charge eligibility.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7468_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:1419,382",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz advances to attack Prosecutor Squad (12.0\" away \u2014 closing to charge range (0.0\" after move))",
+ "verdict": "pending",
+ "version": 1
+}

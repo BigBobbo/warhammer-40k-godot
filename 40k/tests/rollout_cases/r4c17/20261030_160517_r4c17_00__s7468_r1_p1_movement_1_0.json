@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (capturing it (uncontrolled) \u2014 worth ~2 VP)",
+ "created": "2026-10-30 16:05:43",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7468_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Gamma to hold the uncontested home objective, and Alpha is also sent there. This is safe, but it ties up two strong units on an objective the enemy cannot reach soon. Fix: Subtract value from an objective when another unit is already assigned to it and no enemy can reach it. Assign one unit to a safe home objective and send the rest forward to contested objectives. Soften contest_race when the enemy army is far away.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7468_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:260,630",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_home_1 (capturing it (uncontrolled), obj: 9.4\" away)",
+ "verdict": "pending",
+ "version": 1
+}

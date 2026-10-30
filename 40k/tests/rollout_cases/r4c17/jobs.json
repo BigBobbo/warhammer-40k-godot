@@ -1,0 +1,235 @@
+[
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r1_p1_movement_1_0",
+  "case": "20261030_160517_r4c17_00__s7468_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Gamma to hold the uncontested home objective, and Alpha is also sent there. This is safe, but it ties up two strong units on an objective the enemy cannot reach soon.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r1_p2_movement_1_1",
+  "case": "20261030_160517_r4c17_00__s7468_r1_p2_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends the Beast Snagga Boyz alone on an advance to the centre. The enemy can bring about 11 OC there, so the Boyz cannot take it. They lose their shot and charge, and end up forward and isolated.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~5 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r1_p2_movement_2_2",
+  "case": "20261030_160517_r4c17_00__s7468_r1_p2_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_KOMMANDOS_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent Kommandos to hold a home objective that Lootas Alpha already holds with 15 OC, and it left the 10-model unit idle in the back instead of using the higher-scoring options.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~5 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r2_p2_movement_2_3",
+  "case": "20261030_160517_r4c17_00__s7468_r2_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a fragile Lootas unit forward to obj_center, where it adds only 1 OC and enters the threat range of several Custodian melee units. It left Hold obj_home_2 as the top score.",
+  "better_option": "Hold obj_home_2 (on objective, OC needed \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r2_p2_charge_1_4",
+  "case": "20261030_160517_r4c17_00__s7468_r2_p2_charge_1_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Kommandos, 10 models with 1 wound each and T5, charge a 7-wound Blade Champion at 42%. The AI overrates their melee damage and does not count the retaliation.",
+  "better_option": "unlisted: do not charge with Kommandos. Shoot or move them to a useful objective instead.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r3_p1_charge_1_5",
+  "case": "20261030_160517_r4c17_00__s7468_r3_p1_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": [
+     "U_BURNA_BOYZ_B"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends the Allarus into two nearly dead Lootas units that other Custodians already engage. This adds little damage and wastes the Allarus charge.",
+  "better_option": "Charge Burna Boyz Beta (6.4\" away, 58% chance)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6",
+  "case": "20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_STORMBOYZ_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Stormboyz move 11 in to the Prosecutor-held objective and a tie in the two top options. The AI wins the tie with the Attack label, and the unit can only reach charge range if it does not advance.",
+  "better_option": "Attack Prosecutor Squad (closing to charge range (0.0\" after move))",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r3_p2_shooting_1_7",
+  "case": "20261030_160517_r4c17_00__s7468_r3_p2_shooting_1_7.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BATTLEWAGON_A",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The Battlewagon shoots a big shoota with 0.16 expected damage at Custodian Guard Sodality Beta. The Custodians have T7 and 2+ saves, so this shot is almost worthless. The better move is to keep the Battlewagon on its objective.",
+  "better_option": "unlisted: Battlewagon Alpha holds obj_home_2 and does not move (its shot into T7 2+ targets adds almost nothing).",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r3_p2_charge_1_8",
+  "case": "20261030_160517_r4c17_00__s7468_r3_p2_charge_1_8.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges 10 Kommandos (125 pts, T5, 5+ save, 1 wound each) into Allarus Custodians (T8, 2+ save, 4+ invulnerable, 18 wounds). The Kommandos cannot hurt them and will be killed in the fight phase.",
+  "better_option": "unlisted: do not charge. Keep the Kommandos near obj_home_2 and shoot instead.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00"
+ }
+]

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Allarus Custodians (3.8\" away, 92% chance)",
+ "created": "2026-10-30 16:12:49",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7468_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges 10 Kommandos (125 pts, T5, 5+ save, 1 wound each) into Allarus Custodians (T8, 2+ save, 4+ invulnerable, 18 wounds). The Kommandos cannot hurt them and will be killed in the fight phase. Fix: Compute melee damage with real wound rolls and the target's invulnerable save. Compute retaliation from the target's actual expected kills on the charging unit, scaled by points. Reject a charge when the expected points lost exceed the expected points dealt. Make a high charge chance add value only when the fight itself is favourable.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7468_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "pos:921,1519",
+  "decision": "charge",
+  "targets": "U_ALLARUS_CUSTODIANS_A,U_BLADE_CHAMPION_C,U_CUSTODIAN_GUARD_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos declares a charge at Allarus Custodians + Blade Champion Gamma + Custodian Guard Sodality Beta \u2014 targets picked after the roll: Allarus Custodians on 4+ (92%), Blade Champion Gamma on 8+ (42%), Custodian Guard Sodality Beta on 9+ (28%), overwatch risk: 1.0 dmg",
+ "verdict": "bad",
+ "version": 1
+}

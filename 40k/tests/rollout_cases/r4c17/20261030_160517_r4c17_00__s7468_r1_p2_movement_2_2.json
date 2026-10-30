@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move \u2014 worth ~1 VP)",
+ "created": "2026-10-30 16:06:25",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7468_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Kommandos to hold a home objective that Lootas Alpha already holds with 15 OC, and it left the 10-model unit idle in the back instead of using the higher-scoring options. Fix: Before a unit takes the hold assignment, check whether other units on that objective already give OC above the enemy's reachable OC. If they do, free this unit and score it for other objectives. Add a marginal-OC term for the hold option and drop the override.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7468_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "pos:1500,1770",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos holds obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "verdict": "pending",
+ "version": 1
+}
