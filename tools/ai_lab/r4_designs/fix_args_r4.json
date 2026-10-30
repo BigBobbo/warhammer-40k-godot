@@ -22,7 +22,7 @@
       }
      ],
      "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~7 VP)",
-     "measured": "clear: E +7.75 [1.97, 13.53] over 12 seeds (one-round rollouts); FULL GAME (horizon 0, seeds 5201-5212): +19.0 [3.33, 34.67] n12"
+     "measured": "clear: E +4.36 [0.61, 8.12] over 36 seeds (one-round rollouts)"
     },
     {
      "job": "20261030_014824_sweep2_07__s7418_r1_p2_movement_1_0",
@@ -40,7 +40,7 @@
       }
      ],
      "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~3 VP)",
-     "measured": "clear: E +2.67 [0.36, 4.97] over 36 seeds (one-round rollouts) (measured on the round-1 AI; check whether it still reproduces)"
+     "measured": "clear: E +2.67 [0.36, 4.97] over 36 seeds (one-round rollouts)"
     }
    ],
    "guardrails": [
@@ -211,7 +211,7 @@
       }
      ],
      "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
-     "measured": "clear: E +7.30 [4.98, 9.63] over 36 seeds (one-round rollouts) (V9 already makes this move: keep it)"
+     "measured": "clear: E +7.30 [4.98, 9.63] over 36 seeds (one-round rollouts)"
     }
    ],
    "guardrails": [
@@ -833,7 +833,7 @@
       }
      ],
      "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~4 VP)",
-     "measured": "clear: E +11.25 [5.09, 17.41] over 12 seeds (one-round rollouts)"
+     "measured": "clear: E +10.03 [6.82, 13.23] over 36 seeds (one-round rollouts)"
     }
    ],
    "guardrails": [

@@ -9371,14 +9371,14 @@
    }
   ],
   "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~4 VP)",
-  "E": 11.25,
+  "E": 10.028,
   "ci": [
-   5.09,
-   17.41
+   6.82,
+   13.23
   ],
-  "n": 12,
+  "n": 36,
   "class": "clear",
-  "applied": 12,
+  "applied": 36,
   "identical": 0,
   "chosen_option": "Attack Allarus Custodians (closing to charge range (3.5\" after move))",
   "suggestion": "Beast Snagga Boyz advances to attack Allarus Custodians (9.5\" away \u2014 closing to charge range (3.5\" after move))",
