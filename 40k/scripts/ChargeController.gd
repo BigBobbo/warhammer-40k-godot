@@ -2191,7 +2191,10 @@ func _log_unit_positions(unit_id: String, label: String) -> void:
 	for i in range(models.size()):
 		var model = models[i]
 		var pos = model.get("position", {})
-		if pos.has("x") and pos.has("y"):
+		# A destroyed model keeps "position": null; guard the type before .has().
+		if pos is Dictionary and pos.has("x") and pos.has("y"):
+			print("  Model ", i, " (", model.get("id", ""), "): (", pos.x, ", ", pos.y, ")")
+		elif pos is Vector2:
 			print("  Model ", i, " (", model.get("id", ""), "): (", pos.x, ", ", pos.y, ")")
 		else:
 			print("  Model ", i, " (", model.get("id", ""), "): no position")
