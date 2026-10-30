@@ -1,0 +1,256 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..9345053 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1614,6 +1614,27 @@ const KEEPER_RELEASE_MIN_GAIN: float = 5.0
+ # spots aim only at objectives that still need OC. 0 = the centre-distance
+ # approximation everywhere, spots near any objective.
+ const FIX_HELD_DUP: float = 1.0
++# Movement plan (LONE-FLIP): 1 = a unit is not sent to flip an objective the
++# enemy holds when even the whole OC this plan puts there (our holders, units
++# en route, every unit the plan sends there, this unit) is below the OC the
++# enemy has standing on it NOW — the flip cannot happen even if the enemy never
++# moves — while the unit's own planner score for an objective where our models
++# already stand in a live fight (held under threat, contested, or the enemy
++# ahead by less than this unit's OC; within LONE_FLIP_MAX_TURNS) beats the flip
++# by LONE_FLIP_MIN_GAIN. It reinforces that objective instead (the same Move /
++# Advance the planner chose for it). Pass 1 counts a holder's whole OC though
++# only some of its models are in range, so that objective's need reads 0
++# ("already taken"): a 3-model Custodian Guard unit walked alone into a 14-OC
++# objective while the centre (ours 5 vs their 8 in range) was lost
++# (LLM-critic cluster lone_flip; Advancing to the centre measured +21.5 VP
++# [16.9, 26.1], 36 rollouts). That objective keeps paying every later round
++# (hold / centre primary rules, Centre Ground), so the unit is not held back.
++# 0 = previous behaviour.
++const FIX_LONE_FLIP: float = 1.0
++# LONE-FLIP: planner score points the reinforced objective must beat the flip by.
++const LONE_FLIP_MIN_GAIN: float = 10.0
++# LONE-FLIP: the reinforced objective must be reachable within this many moves.
++const LONE_FLIP_MAX_TURNS: int = 2
+ # Charge (RETALIATION): share of the surviving target's melee damage on the
+ # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+@@ -10196,6 +10217,50 @@ static func _assign_units_to_objectives(
+ 			return alt
+ 		return {}
+ 
++	# LONE-FLIP (FIX_LONE_FLIP): when c is a flip of an enemy-held objective
++	# that the plan loses even against the enemy OC there now — friendly OC,
++	# units en route, every unit the plan sends there (any arrival turn) and c
++	# all together are below enemy_oc — return the unit's best candidate (score
++	# sorted) at an objective where our models already stand in a live fight
++	# (held_threatened / contested / enemy_weak with friendly OC > 0, and our OC
++	# there + c's beats the enemy's), reached within LONE_FLIP_MAX_TURNS, passing TOO-LATE /
++	# RACE-SKIP / LONE-TRIP, that outscores c by LONE_FLIP_MIN_GAIN. {} = keep c.
++	var lone_flip_on = get_param("FIX_LONE_FLIP", FIX_LONE_FLIP) >= 0.5
++	var lone_flip_gain = get_param("LONE_FLIP_MIN_GAIN", LONE_FLIP_MIN_GAIN)
++	var lone_flip_redirect := func(c: Dictionary) -> Dictionary:
++		if not lone_flip_on or c.get("action", "") not in ["move", "advance"] or c.get("already_on_obj", false):
++			return {}
++		var ev = _get_obj_eval_by_id(obj_evaluations, c.objective_id)
++		if ev.is_empty() or ev.get("state", "") not in ["enemy_weak", "enemy_strong"]:
++			return {}
++		var ours := int(ev.get("friendly_oc", 0)) + int(incoming_oc.get(c.objective_id, 0)) + int(c.get("unit_oc", 1))
++		for a_uid in assignments:
++			if str(a_uid) != str(c.unit_id) and str(assignments[a_uid].get("objective_id", "")) == str(c.objective_id) \
++					and assignments[a_uid].get("action", "") in ["move", "advance"]:
++				ours += _unit_alive_oc(snapshot.get("units", {}).get(a_uid, {}))
++		if ours >= int(ev.get("enemy_oc", 0)):
++			return {}
++		for alt in candidates:
++			if alt.unit_id != c.unit_id or alt.objective_id == c.objective_id \
++					or alt.action not in ["move", "advance"] \
++					or int(alt.get("turns_to_reach", 1)) > LONE_FLIP_MAX_TURNS:
++				continue
++			if float(alt.score) < float(c.score) + lone_flip_gain:
++				break  # score sorted: nothing later beats the flip by the margin
++			var alt_ev = _get_obj_eval_by_id(obj_evaluations, alt.objective_id)
++			# Our models already stand there and the fight is live (held under
++			# threat, contested, or the enemy ahead by less than this unit's OC).
++			if alt_ev.is_empty() or alt_ev.get("state", "") not in ["held_threatened", "contested", "enemy_weak"] \
++					or int(alt_ev.get("friendly_oc", 0)) <= 0 \
++					or int(alt_ev.get("friendly_oc", 0)) + int(alt.get("unit_oc", 1)) <= int(alt_ev.get("enemy_oc", 0)):
++				continue
++			if too_late.call(alt) or race_hopeless.call(alt) or lone_trip.call(alt):
++				continue
++			var picked: Dictionary = alt.duplicate()
++			picked["lone_flip_ours"] = ours
++			return picked
++		return {}
++
+ 	# Shared capture-assignment applier (used by pass 2 and the COORD-4
+ 	# backfill pass after attack conversions re-open OC needs). Mutates the
+ 	# captured assignments / assigned_unit_ids / obj_oc_remaining dictionaries.
+@@ -10322,6 +10387,20 @@ static func _assign_units_to_objectives(
+ 						oc_alt.objective_id, uid, int(oc_ft.threat), int(oc_ft.near), oid])
+ 				continue
+ 
++		# LONE-FLIP (FIX_LONE_FLIP): a flip the plan cannot win even against the
++		# enemy OC standing there now is not sent while a live fight where our
++		# models already stand scores far better for this unit — reinforce it.
++		var lf_alt: Dictionary = lone_flip_redirect.call(cand)
++		if not lf_alt.is_empty():
++			apply_capture_assignment.call(lf_alt)
++			var lf_ev = _get_obj_eval_by_id(obj_evaluations, oid)
++			assignments[uid]["coordination_note"] = "not flipping %s alone — the enemy holds it with OC %d and the plan can put only %d OC there; reinforcing %s instead" % [
++				oid, int(lf_ev.get("enemy_oc", 0)), int(lf_alt.get("lone_flip_ours", 0)), lf_alt.objective_id]
++			print("AIDecisionMaker: [LONE_FLIP] %s: not sending %s to flip it (enemy OC %d there now vs %d OC this plan can put there) — %s %s, a live fight where our models already stand (score %.1f vs %.1f)" % [
++				oid, uid, int(lf_ev.get("enemy_oc", 0)), int(lf_alt.get("lone_flip_ours", 0)),
++				str(lf_alt.action).to_upper(), lf_alt.objective_id, float(lf_alt.score), float(cand.score)])
++			continue
++
+ 		# OBJ-ASSIGN-1: the greedy order is by score only, and distance enters
+ 		# the score in whole-turn steps — so the unit the greedy order sends may
+ 		# not be the one that gets there first. Prefer a still-unassigned unit
+diff --git a/40k/tests/unit/test_ai_fix_lone_flip.gd b/40k/tests/unit/test_ai_fix_lone_flip.gd
+new file mode 100644
+index 0000000..f217e62
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_lone_flip.gd
+@@ -0,0 +1,146 @@
++extends SceneTree
++
++# LONE-FLIP (FIX_LONE_FLIP): a unit is not sent to flip an objective the enemy
++# holds when even all the OC the plan puts there (holders, units en route,
++# units sent there, this unit) is below the enemy OC standing on it now, while
++# an objective where our models already stand in a live fight scores far
++# better for it — it reinforces that fight instead. LLM-critic cluster
++# lone_flip (value-checked, 2026-10-30): at s7454 r3 a 3-model Custodian Guard
++# unit (OC 9) walked alone into an objective the enemy held with OC 14, while
++# the centre (ours 5 vs their 8 in range) read "already taken" because pass 1
++# counted the whole holder's OC though only part of it was in range. Moving
++# to the centre measured +21.5 VP [16.9, 26.1] over 36 rollouts.
++# Flips the plan can win, and flips with no better live fight, are kept.
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_lone_flip.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const OBJ_C := Vector2(880, 1200)  # the centre: a live fight our holder stands in
++const OBJ_F := Vector2(1220, 430)  # the objective the enemy holds with OC 14
++const GAMMA_POS := Vector2(1180, 1000)  # gamma: ~9" from the centre, ~14" from obj_flip
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Lone flips of a strongly held objective (LONE-FLIP) ===\n")
++	AIDecisionMaker._config_overrides["FIX_LONE_FLIP"] = 1.0
++	test_lone_flip_redirected_to_live_fight()
++	test_winnable_flip_kept()
++	test_no_live_fight_flip_kept()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_LONE_FLIP")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot() -> Dictionary:
++	var objs = [{"id": "obj_center", "position": OBJ_C, "zone": "no_mans_land"},
++		{"id": "obj_flip", "position": OBJ_F, "zone": "no_mans_land"}]
++	return {"battle_round": 3, "meta": {"battle_round": 3},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
++
++# `n` models (OC `oc` each, T6 3W: durable, so LONE-TRIP never applies) in a
++# row along x, centred on `pos`.
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int, oc: int) -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 40,
++			"base_type": "circular", "base_dimensions": {},
++			"position": Vector2(pos.x + (i - (n - 1) / 2.0) * 50.0, pos.y), "wounds": 3, "current_wounds": 3})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 200, "stats": {"move": 6, "toughness": 6, "save": 2,
++			"wounds": 3, "leadership": 6, "objective_control": oc}, "keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++
++# The s7454 r3 board: gamma (3 x OC3) is ~14" from obj_flip and ~9" from the
++# centre; `flip_models` enemy OC2 models stand on obj_flip. centre "fight":
++# beta (3 x OC3) has one model in range of the centre and two enemy OC2 models
++# are on it; "safe": beta stands wholly on the centre and no enemy is near it.
++func _board(flip_models: int, centre: String) -> Array:
++	var snap = _snapshot()
++	var enemies = {}
++	if centre == "fight":
++		# beta's models sit at +110, +160, +210 px: only the first is within 3".
++		_add_unit(snap, "beta", 2, OBJ_C + Vector2(160, 0), 3, 3)
++		_add_unit(snap, "theirs_c", 1, OBJ_C + Vector2(-60, -30), 2, 2)
++		enemies["theirs_c"] = snap.units["theirs_c"]
++	elif centre == "safe":
++		_add_unit(snap, "beta", 2, OBJ_C, 3, 3)
++	_add_unit(snap, "gamma", 2, GAMMA_POS, 3, 3)
++	_add_unit(snap, "theirs_f", 1, OBJ_F + Vector2(0, -20), flip_models, 2)
++	enemies["theirs_f"] = snap.units["theirs_f"]
++	return [snap, enemies]
++
++func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p2 = {}
++	AIDecisionMaker._secondary_awareness_p2 = {}
++	var friendlies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 2:
++			friendlies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, 3)
++	for ev in evals:
++		print("  eval %s: %s friendly %d enemy %d" % [ev.get("id", ""), ev.get("state", ""), int(ev.get("friendly_oc", 0)), int(ev.get("enemy_oc", 0))])
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, 3)
++	for c in AIDecisionMaker._last_movement_candidates.get("gamma", []):
++		print("  gamma cand %s %s score %.1f turns %d" % [c.get("objective_id", ""), c.get("action", ""), float(c.get("score", 0.0)), int(c.get("turns_to_reach", 0))])
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s) note: %s" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 90),
++			str(plan[uid].get("coordination_note", "")).substr(0, 120)])
++	return plan
++
++func _goes_to(plan: Dictionary, uid: String, oid: String) -> bool:
++	var a: Dictionary = plan.get(uid, {})
++	return str(a.get("objective_id", "")) == oid and str(a.get("action", "")) in ["move", "advance"]
++
++func test_lone_flip_redirected_to_live_fight() -> void:
++	print("\n--- gamma (OC 9) alone vs 14 enemy OC on obj_flip; centre a live fight beta stands in ---")
++	var b = _board(7, "fight")
++	var plan = _plan(b[0], ["beta", "gamma"], b[1])
++	_assert(not _goes_to(plan, "gamma", "obj_flip"), "gamma is not sent alone to flip 14 enemy OC with 9")
++	_assert(_goes_to(plan, "gamma", "obj_center"), "gamma reinforces the centre fight instead")
++	_assert(str(plan.get("gamma", {}).get("coordination_note", "")).begins_with("not flipping obj_flip alone"),
++		"its card says why (%s)" % str(plan.get("gamma", {}).get("coordination_note", "")))
++
++func test_winnable_flip_kept() -> void:
++	print("\n--- obj_flip held with only 8 enemy OC: gamma's 9 OC flips it ---")
++	var b = _board(4, "fight")
++	var plan = _plan(b[0], ["beta", "gamma"], b[1])
++	var g = str(plan.get("gamma", {}).get("objective_id", ""))
++	_assert(not str(plan.get("gamma", {}).get("coordination_note", "")).begins_with("not flipping"),
++		"a flip the unit wins is not redirected (gamma -> %s)" % g)
++
++func test_no_live_fight_flip_kept() -> void:
++	print("\n--- centre held safely by beta (no enemy near): gamma's flip is kept ---")
++	var b = _board(7, "safe")
++	var plan = _plan(b[0], ["beta", "gamma"], b[1])
++	_assert(_goes_to(plan, "gamma", "obj_flip"),
++		"with no live fight where our models stand, the flip is kept (the unit is not held back)")
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_LONE_FLIP = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_LONE_FLIP"] = 0.0
++	var b = _board(7, "fight")
++	var plan = _plan(b[0], ["beta", "gamma"], b[1])
++	AIDecisionMaker._config_overrides["FIX_LONE_FLIP"] = 1.0
++	_assert(not str(plan.get("gamma", {}).get("coordination_note", "")).begins_with("not flipping"),
++		"with the fix off gamma is not redirected")
