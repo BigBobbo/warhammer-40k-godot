@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Terminator Assault Squad (2.0\" away, 97% chance)",
+ "created": "2026-10-30 06:41:57",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7443_r2_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges 80 points of Boyz into 8 Terminators for about 4.5 expected damage against 31 HP. It expects to lose most of the unit in return. Fix: Add an explicit no-charge option scored at 0. Scale ch_damage by the real fraction of target HP removed, with save and invulnerable save applied. Compare that with the expected retaliation in points, and reject charges where expected damage is below about 25% of expected retaliation. Remove ch_short_charge when the target is far stronger.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7443_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:701,1123",
+  "decision": "charge",
+  "targets": "U_TERMINATOR_ASSAULT_SQUAD_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz declares charge against Terminator Assault Squad (97% chance, 2.0\" away, expected 4.5 melee dmg vs 31 HP, overwatch risk: 1.6 dmg)",
+ "verdict": "bad",
+ "version": 1
+}
