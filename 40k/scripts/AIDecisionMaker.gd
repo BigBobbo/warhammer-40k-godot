@@ -1526,6 +1526,16 @@ const PLAN_EXTRA_OBJECTIVE_MIN_VP: float = 1.0
 # Movement plan (RACE-SKIP): a lost contest race is not assigned when the enemy
 # can bring at least this multiple of our OC there before we arrive.
 const MOVE_RACE_HOPELESS_RATIO: float = 2.0
+# Movement plan (LONE-TRIP): 1 = a FRAGILE unit (T3 or less, 1 wound per model,
+# or a lone character) is not sent to capture an objective where the enemy OC it
+# would face — there now plus one enemy move, or the contest race for a longer
+# trip — beats what our whole army can have there in the same moves AND is at
+# least MOVE_RACE_HOPELESS_RATIO x the OC the plan actually has there when the
+# unit arrives (holders, units en route, units sent that arrive no later, this
+# unit). It is left to the support/screen pass instead. RACE-SKIP judges only
+# 3+ turn trips, so a fragile squad was sent alone into fights the enemy wins
+# by 2-8x (LLM-critic cluster lone_trip). 0 = previous behaviour.
+const FIX_LONE_TRIP: float = 1.0
 # Movement plan (RACE-LATE): 1 = an enemy unit that can only reach the
 # objective on the SAME turn count as our unit (it arrives after we are
 # already there) loses us the race only if it out-OCs what our ARMY can have
@@ -1542,9 +1552,25 @@ const SHOOT_UNIT_REMOVAL_VALUE: float = 2.0
 # Movement plan (KEEPER-PICK): score units per 100 points when choosing which
 # holder stays on an objective — the cheaper sufficient unit keeps it.
 const KEEPER_POINTS_WEIGHT: float = 2.0
+# Movement plan + reserve arrival (FIX-HELD-DUP): 1 = the AI reads who holds a
+# terrain-hosted objective with the predicate MissionManager scores with (11e
+# 14.01: a model whose base overlaps a hosting area named in source_pieces is
+# in range, not only one whose centre is within 3.79" of the marker point), so
+# an objective it already holds is not "uncontrolled"; and reserve arrival
+# spots aim only at objectives that still need OC. 0 = the centre-distance
+# approximation everywhere, spots near any objective.
+const FIX_HELD_DUP: float = 1.0
 # Charge (RETALIATION): share of the surviving target's melee damage on the
 # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
 const CHARGE_RETALIATION_WEIGHT: float = 0.5
+# Charge (FIX_CHARGE_EV): 1 = the gang-up bonus for piling onto a target
+# already declared against this phase counts only the help that really
+# arrived. Charges resolve one unit at a time, so an earlier charger has
+# already rolled: a failed charge brings no help (it used to still pay the
+# kill bonus with its full damage). And the kill bonus is paid only when this
+# charger is needed for the kill — not when the chargers already in kill the
+# target without it. 0 = V6 behaviour (every declared charger counts).
+const FIX_CHARGE_EV: float = 1.0
 const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
 const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
 const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
@@ -7723,6 +7749,11 @@ static func _compute_reinforcement_positions(unit: Dictionary, unit_id: String, 
 	if omni_positions.size() > 0:
 		print("AIDecisionMaker: [RESERVES] %d Omni-scrambler models creating 12\" deep strike denial zones" % omni_positions.size())
 
+	# FIX-HELD-DUP: spots are ranked by the nearest objective that still needs
+	# OC — landing beside one we already hold securely adds no control.
+	if get_param("FIX_HELD_DUP", FIX_HELD_DUP) >= 0.5:
+		objectives = _held_dup_landing_objectives(snapshot, objectives, player, enemies, battle_round)
+
 	if reserve_type == "strategic_reserves":
 		candidates = _generate_strategic_reserves_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, battle_round, omni_positions)
 	else:
@@ -7730,6 +7761,30 @@ static func _compute_reinforcement_positions(unit: Dictionary, unit_id: String, 
 		candidates = _generate_deep_strike_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, omni_positions)
 
 	return candidates
+
+## FIX-HELD-DUP: the objectives a reserve arrival should land toward — those
+## the movement plan's own need ledger (_initial_objective_oc_needs) still
+## wants OC at. One we hold with more OC than the enemy has there or can bring
+## in one move needs none (the plan sends no unit there either), so a spot
+## beside it adds nothing. Every objective when none needs OC.
+static func _held_dup_landing_objectives(snapshot: Dictionary, objectives: Array, player: int,
+		enemies: Dictionary, battle_round: int) -> Array:
+	var friendly_units = _get_units_for_player(snapshot, player)
+	var evals = _evaluate_all_objectives(snapshot, objectives, player, enemies, friendly_units, battle_round)
+	var needs = _initial_objective_oc_needs(evals, friendly_units)
+	var landing: Array = []
+	var skipped: Array = []
+	for ev in evals:
+		if int(needs.get(ev.id, 0)) > 0:
+			landing.append(ev.position)
+		else:
+			skipped.append("%s (%s, OC %d)" % [ev.id, ev.state, int(ev.friendly_oc)])
+	if landing.is_empty():
+		print("AIDecisionMaker: [HELD-DUP] no objective needs more OC — reserve spots rank by every objective")
+		return objectives
+	if not skipped.is_empty():
+		print("AIDecisionMaker: [HELD-DUP] reserve spots skip objectives that need no more OC: %s" % ", ".join(skipped))
+	return landing
 
 static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player: int,
 		objectives: Array, enemies: Dictionary, enemy_model_positions: Array,
@@ -8566,9 +8621,16 @@ static func _evaluate_all_objectives(
 	var oc_cache: Array = []
 	var my_holds := 0
 	var their_holds := 0
+	# FIX-HELD-DUP: each marker's board entry, so the level of control (and
+	# "already counted" below) uses the range test objective control scores
+	# with — on an 11e terrain objective a model on the hosting area counts.
+	var hd_mm = _held_dup_mm()
+	var hd_objs: Array = []
 	for i in range(objectives.size()):
-		var pre_f_oc = _get_oc_at_position(objectives[i], friendly_units, player, true)
-		var pre_e_oc = _get_oc_at_position(objectives[i], enemies, player, false)
+		var hd_od: Dictionary = _held_dup_objective_at(snapshot, objectives[i]) if hd_mm != null else {}
+		hd_objs.append(hd_od)
+		var pre_f_oc = _get_oc_at_position(objectives[i], friendly_units, player, true, hd_od, hd_mm)
+		var pre_e_oc = _get_oc_at_position(objectives[i], enemies, player, false, hd_od, hd_mm)
 		oc_cache.append({"f": pre_f_oc, "e": pre_e_oc})
 		if pre_f_oc > 0 and pre_f_oc > pre_e_oc:
 			my_holds += 1
@@ -8661,6 +8723,8 @@ static func _evaluate_all_objectives(
 			var e_dist = e_centroid.distance_to(obj_pos)
 			if e_dist <= OBJECTIVE_CONTROL_RANGE_PX:
 				continue  # Already counted in enemy_oc
+			if not hd_objs[i].is_empty() and _unit_in_objective_range(e_unit, hd_objs[i], hd_mm):
+				continue  # FIX-HELD-DUP: on the hosting area — already in enemy_oc
 			var e_move = float(e_unit.get("meta", {}).get("stats", {}).get("move", 6))
 			if e_dist <= (e_move + 2.0) * PIXELS_PER_INCH + OBJECTIVE_CONTROL_RANGE_PX:
 				projected_enemy_oc += e_oc
@@ -8695,6 +8759,8 @@ static func _evaluate_all_objectives(
 			var f_dist = f_centroid.distance_to(obj_pos)
 			if f_dist <= OBJECTIVE_CONTROL_RANGE_PX:
 				continue  # Already counted in friendly_oc
+			if not hd_objs[i].is_empty() and _unit_in_objective_range(f_unit, hd_objs[i], hd_mm):
+				continue  # FIX-HELD-DUP: on the hosting area — already in friendly_oc
 			var f_step_px = (float(f_unit.get("meta", {}).get("stats", {}).get("move", 6)) + 2.0) * PIXELS_PER_INCH
 			var f_moves = int(ceil((f_dist - OBJECTIVE_CONTROL_RANGE_PX) / maxf(f_step_px, 1.0)))
 			friendly_arrivals.append({"moves": f_moves, "oc": f_oc, "unit_id": f_uid,
@@ -8946,6 +9012,24 @@ static func _initial_objective_oc_needs(obj_evaluations: Array, friendly_units: 
 		obj_oc_remaining[obj_id] = base_need + projected_extra
 	return obj_oc_remaining
 
+## LONE-TRIP: a unit the enemy can wipe out once it stands alone — the fragile
+## rule _evaluate_position_threat already uses (T3 or less, or 1 wound per
+## model), or a lone CHARACTER (one model, no bodyguard, not a vehicle/monster).
+static func _lone_trip_fragile(unit: Dictionary) -> bool:
+	if unit.is_empty():
+		return false
+	var st = unit.get("meta", {}).get("stats", {})
+	if int(st.get("toughness", 4)) <= 3 or int(st.get("wounds", 1)) <= 1:
+		return true
+	var kw = unit.get("meta", {}).get("keywords", [])
+	if not ("CHARACTER" in kw) or ("VEHICLE" in kw) or ("MONSTER" in kw):
+		return false
+	var att = unit.get("attachment_data", {})
+	var leads: bool = att is Dictionary and not att.get("attached_characters", []).is_empty()
+	var att_to = unit.get("attached_to", null)
+	var led: bool = att_to != null and str(att_to) != ""
+	return not leads and not led and _get_alive_models(unit).size() <= 1
+
 static func _assign_units_to_objectives(
 	snapshot: Dictionary, movable_units: Dictionary, obj_evaluations: Array,
 	objectives: Array, enemies: Dictionary, friendly_units: Dictionary,
@@ -8956,6 +9040,13 @@ static func _assign_units_to_objectives(
 
 	var assignments = {}  # unit_id -> assignment dict
 	var obj_oc_remaining = _initial_objective_oc_needs(obj_evaluations, friendly_units)  # objective_id -> how much more OC is still needed there
+	# FIX-HELD-DUP: "in control range" below is the range test the evaluation's
+	# friendly_oc used — a unit on an 11e hosting area is on the objective.
+	var hd_mm = _held_dup_mm()
+	var hd_obj_by_id := {}  # objective_id -> board entry
+	if hd_mm != null:
+		for hd_eval in obj_evaluations:
+			hd_obj_by_id[hd_eval.id] = _held_dup_objective_at(snapshot, hd_eval.position)
 
 	# =========================================================================
 	# COORD-2: INCOMING OC — account for friendly units that already took their
@@ -8987,6 +9078,9 @@ static func _assign_units_to_objectives(
 		if intent_obj_pos != Vector2.INF and intent_centroid != Vector2.INF \
 				and intent_centroid.distance_to(intent_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
 			continue
+		if not (hd_obj_by_id.get(intent_obj, {}) as Dictionary).is_empty() \
+				and _unit_in_objective_range(intent_unit, hd_obj_by_id[intent_obj], hd_mm):
+			continue  # FIX-HELD-DUP: on the hosting area — already in friendly_oc
 		incoming_oc[intent_obj] = incoming_oc.get(intent_obj, 0) + int(intent.get("oc", 1))
 		if not incoming_names.has(intent_obj):
 			incoming_names[intent_obj] = []
@@ -9059,6 +9153,9 @@ static func _assign_units_to_objectives(
 			# just its centroid. A spread squad with models on the marker but a
 			# centroid >3.79" away was treated as off-objective and sent away.
 			var already_on_obj = dist_px <= OBJECTIVE_CONTROL_RANGE_PX or _unit_has_model_in_control_range(unit, obj_pos)
+			# FIX-HELD-DUP: a model on the 11e hosting area holds it too
+			if not already_on_obj and not (hd_obj_by_id.get(obj_id, {}) as Dictionary).is_empty():
+				already_on_obj = _unit_in_objective_range(unit, hd_obj_by_id[obj_id], hd_mm)
 			# RACE-1: a long trip the unit will Advance on is costed (distance,
 			# contest race) at the Advance pace it will actually travel.
 			var long_adv: bool = long_adv_ok and not already_on_obj \
@@ -9688,6 +9785,57 @@ static func _assign_units_to_objectives(
 		# bring there, not just this unit and the units already sent.
 		ours = maxi(ours, int(c.get("race_army_oc", 0)))
 		return float(c.get("race_enemy_oc", 0)) >= race_ratio * float(maxi(ours, 1))
+	# LONE-TRIP (FIX_LONE_TRIP): a FRAGILE unit is not sent to capture an
+	# objective the enemy wins army against army (it can have more OC there by
+	# the time the unit arrives than our whole army can) when the OC this plan
+	# actually has there by then — holders, units en route, units sent that
+	# arrive no later, and this unit — is outnumbered by the hopeless ratio.
+	# RACE-SKIP judges only 3+ turn trips, so a 4-model squad walked alone into
+	# an 18-OC centre and a 6-model Lootas unit into 48 enemy OC. Durable units
+	# keep these trips (contest_race prices them); home is never skipped.
+	var lone_on = get_param("FIX_LONE_TRIP", FIX_LONE_TRIP) >= 0.5
+	var lone_skipped := {}  # unit_id -> {objective_id: true}: LONE-TRIP skips
+	var lone_turns := {}  # "unit_id|objective_id" -> turns_to_reach
+	if lone_on:
+		for lt_c in candidates:
+			lone_turns["%s|%s" % [lt_c.unit_id, lt_c.objective_id]] = int(lt_c.turns_to_reach)
+	var lone_trip_oc := func(c: Dictionary) -> Dictionary:
+		# threat: enemy OC there now + one enemy move, or the race window on a
+		# longer trip; army: what our army can have there in the same moves
+		# (RACE-ARMY weighting); ours: what the plan has there when c arrives.
+		var ev = _get_obj_eval_by_id(obj_evaluations, c.objective_id)
+		var turns := maxi(1, int(c.get("turns_to_reach", 1)))
+		var threat := int(ev.get("enemy_oc", 0)) + int(ev.get("projected_enemy_oc", 0))
+		if turns > 1:
+			threat = maxi(threat, int(c.get("race_enemy_oc", 0)))
+		var base := int(ev.get("friendly_oc", 0)) + int(c.get("unit_oc", 1))
+		var army := base
+		var army_half := 0
+		for f_arr in ev.get("friendly_arrivals", []):
+			if str(f_arr.get("unit_id", "")) != str(c.unit_id) and int(f_arr.moves) <= turns:
+				if f_arr.get("nearest", true):
+					army += int(f_arr.oc)
+				else:
+					army_half += int(f_arr.oc)
+		army += int(round(army_half * 0.5))
+		var ours := base + int(incoming_oc.get(c.objective_id, 0))
+		for a_uid in assignments:
+			if str(a_uid) != str(c.unit_id) and str(assignments[a_uid].get("objective_id", "")) == str(c.objective_id) \
+					and assignments[a_uid].get("action", "") in ["move", "advance"] \
+					and int(lone_turns.get("%s|%s" % [a_uid, c.objective_id], 99)) <= turns:
+				ours += _unit_alive_oc(snapshot.get("units", {}).get(a_uid, {}))
+		return {"threat": threat, "army": army, "ours": ours}
+	var lone_trip := func(c: Dictionary) -> bool:
+		if not lone_on or c.get("action", "") not in ["move", "advance"] or c.get("already_on_obj", false):
+			return false
+		var ev = _get_obj_eval_by_id(obj_evaluations, c.objective_id)
+		if ev.is_empty() or ev.get("is_home", false):
+			return false
+		if not _lone_trip_fragile(snapshot.get("units", {}).get(c.unit_id, {})):
+			return false
+		var lt: Dictionary = lone_trip_oc.call(c)
+		return int(lt.threat) > int(lt.army) \
+				and float(lt.threat) >= race_ratio * float(maxi(int(lt.ours), 1))
 	var reprice_capture := func(c_oid: String) -> Dictionary:
 		var ev = _get_obj_eval_by_id(obj_evaluations, c_oid)
 		if ev.is_empty() or ev.state in ["held_safe", "held_threatened"] or planned_new_objs.has(c_oid) or planned_new_objs.is_empty():
@@ -9794,6 +9942,17 @@ static func _assign_units_to_objectives(
 					oid, uid, int(cand.race_enemy_oc), int(cand.get("turns_to_reach", 1)),
 					int(cand.get("race_our_oc", 0)) + int(incoming_oc.get(oid, 0))])
 			continue
+		if lone_trip.call(cand):
+			var lt_skip: Dictionary = lone_trip_oc.call(cand)
+			if not lone_skipped.has(uid):
+				lone_skipped[uid] = {}
+			lone_skipped[uid][oid] = true
+			if not extra_obj_skipped.has(uid):
+				extra_obj_skipped[uid] = {"objective_id": oid, "lone_trip": true,
+					"threat": int(lt_skip.threat), "ours": int(lt_skip.ours)}
+			print("AIDecisionMaker: [LONE-TRIP] %s: not sending %s — a fragile unit; the enemy can have ~%d OC there (our army ~%d) vs the %d OC this plan puts there" % [
+				oid, uid, int(lt_skip.threat), int(lt_skip.army), int(lt_skip.ours)])
+			continue
 
 		# OBJ-ASSIGN-1: the greedy order is by score only, and distance enters
 		# the score in whole-turn steps — so the unit the greedy order sends may
@@ -9818,6 +9977,8 @@ static func _assign_units_to_objectives(
 				continue
 			if mini(int(alt.unit_oc), remaining) < needed_cover:
 				continue
+			if lone_trip.call(alt):
+				continue  # LONE-TRIP: quicker, but it would stand there alone
 			var alt_arrival = _capture_arrival(alt)
 			var quicker: bool = alt_arrival.phases < cand_arrival.phases \
 					or (alt_arrival.phases == cand_arrival.phases
@@ -9903,6 +10064,8 @@ static func _assign_units_to_objectives(
 			continue  # DIM-RETURNS: another objective would add almost nothing
 		if race_hopeless.call(cand) or too_late.call(cand):
 			continue  # RACE-SKIP / TOO-LATE: a trip that cannot pay off
+		if lone_trip.call(cand):
+			continue  # LONE-TRIP: a fragile unit would stand there alone, outnumbered
 		if assigned_unit_ids.has(cand.unit_id):
 			# OBJ-BACKFILL-1: a unit already sent to a LOWER-scored objective
 			# switches to the re-opened one. Previously only unassigned units
@@ -10157,6 +10320,20 @@ static func _assign_units_to_objectives(
 				if s_eval.state in ["held_safe", "held_threatened", "contested"] \
 						or planned_new_objs.has(s_eval.id):
 					support_allowed[s_eval.id] = true
+		# LONE-TRIP: a unit kept off a lone trip supports only objectives where
+		# the plan's OC, with it, would not still be outnumbered — not the same
+		# fight under another name. Nowhere left: it stays where it is.
+		if lone_skipped.has(unit_id):
+			var lt_base: Array = support_allowed.keys()
+			if lt_base.is_empty():
+				for s_eval in obj_evaluations:
+					lt_base.append(s_eval.id)
+			support_allowed = {}
+			for s_cand in candidates:
+				if s_cand.unit_id == unit_id and s_cand.objective_id in lt_base and not lone_trip.call(s_cand):
+					support_allowed[s_cand.objective_id] = true
+			if support_allowed.is_empty():
+				support_allowed["__lone_trip__"] = true
 		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player, support_counts, support_allowed)
 		if not best_obj.is_empty():
 			assignments[unit_id] = best_obj
@@ -10212,6 +10389,9 @@ static func _assign_units_to_objectives(
 		elif xs.has("race_enemy_oc"):
 			assignments[uid]["coordination_note"] = "not racing for %s — the enemy can have ~%d OC there before we arrive in %d turn(s); staying with the army instead" % [
 				xs.objective_id, int(xs.race_enemy_oc), int(xs.turns)]
+		elif xs.has("lone_trip"):
+			assignments[uid]["coordination_note"] = "not going alone to %s — the enemy can have ~%d OC there vs the %d OC we would have, and this fragile unit would not survive it; staying with the army instead" % [
+				xs.objective_id, int(xs.threat), int(xs.ours)]
 		else:
 			assignments[uid]["coordination_note"] = "not taking %s — with the %d other objective(s) this plan takes, it adds only ~%.0f VP (primary cap / flat award); staying with the army instead" % [
 				xs.objective_id, int(xs.extra), float(xs.vp)]
@@ -11036,15 +11216,18 @@ static func _should_unit_advance_long_trip(unit: Dictionary, has_ranged: bool,
 ## filter: `is_friendly` sums `player`'s units, otherwise everyone else's (the
 ## filter was previously ignored, so callers handing in the whole snapshot —
 ## Against All Odds standoff, Burden of Trust, VIGILANCE ETERNAL — counted both
-## armies as one). Range is the AI's usual centre-distance approximation.
-static func _get_oc_at_position(pos: Vector2, units: Dictionary, player: int, is_friendly: bool) -> int:
+## armies as one). Range is the AI's usual centre-distance approximation, or —
+## FIX-HELD-DUP, when `objective` (the board entry at `pos`) and `mm` are given —
+## MissionManager's own range predicate (11e 14.01 hosting areas).
+static func _get_oc_at_position(pos: Vector2, units: Dictionary, player: int, is_friendly: bool,
+		objective: Dictionary = {}, mm = null) -> int:
 	# Sum up OC values of all models within control range of a position
 	var total_oc = 0
 	for uid in units:
 		var unit = units[uid]
 		if (int(unit.get("owner", 0)) == player) != is_friendly:
 			continue
-		total_oc += _unit_oc_at_position(pos, str(uid), unit, units)
+		total_oc += _unit_oc_at_position(pos, str(uid), unit, units, objective, mm)
 	return total_oc
 
 ## One model's OC (14.02) — MissionManager.model_oc (per-model profile, Da Boss
@@ -11058,8 +11241,10 @@ static func _ai_model_oc(unit: Dictionary, model: Dictionary) -> int:
 
 ## OC this unit adds at `pos` now: its alive models within control range, each
 ## with its own OC (14.02). 0 when battle-shocked (any component of its
-## Attached unit — 19.01) or not on the battlefield.
-static func _unit_oc_at_position(pos: Vector2, unit_id: String, unit: Dictionary, units: Dictionary) -> int:
+## Attached unit — 19.01) or not on the battlefield. FIX-HELD-DUP: with
+## `objective` + `mm`, "within control range" is MissionManager's predicate.
+static func _unit_oc_at_position(pos: Vector2, unit_id: String, unit: Dictionary, units: Dictionary,
+		objective: Dictionary = {}, mm = null) -> int:
 	# Skip battle-shocked units (they have 0 effective OC)
 	if unit.get("flags", {}).get("battle_shocked", false):
 		return 0
@@ -11078,7 +11263,10 @@ static func _unit_oc_at_position(pos: Vector2, unit_id: String, unit: Dictionary
 		var mpos = _get_model_position(model)
 		if mpos == Vector2.INF:
 			continue
-		if mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+		var in_range: bool = mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX
+		if mm != null and not objective.is_empty():
+			in_range = mm.model_in_objective_range(model, objective)  # FIX-HELD-DUP
+		if in_range:
 			total_oc += _ai_model_oc(unit, model)
 	return total_oc
 
@@ -11104,6 +11292,43 @@ static func _unit_has_model_in_control_range(unit: Dictionary, pos: Vector2) -> 
 			continue
 		var mpos = _get_model_position(model)
 		if mpos != Vector2.INF and mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			return true
+	return false
+
+## FIX-HELD-DUP: MissionManager — whose model_in_objective_range is the range
+## test objective control scores with — when the fix is on and the autoload is
+## reachable; null otherwise (callers keep the centre-distance approximation).
+static func _held_dup_mm():
+	if get_param("FIX_HELD_DUP", FIX_HELD_DUP) < 0.5:
+		return null
+	var mm = _mission_manager()
+	if mm == null or not mm.has_method("model_in_objective_range"):
+		return null
+	return mm
+
+## FIX-HELD-DUP: the board objective entry (id, position, source_pieces) whose
+## marker is at `pos` when it names its hosting terrain areas (11e 14.01: the
+## areas in source_pieces ARE the objective — what MissionManager's range test
+## reads), else {} — a marker without them keeps the centre-distance read.
+static func _held_dup_objective_at(snapshot: Dictionary, pos: Vector2) -> Dictionary:
+	for od in snapshot.get("board", {}).get("objectives", []):
+		if not (od is Dictionary) or od.get("position", null) == null:
+			continue
+		var od_pos = od.position
+		var od_vec: Vector2 = od_pos if od_pos is Vector2 else Vector2(float(od_pos.get("x", 0)), float(od_pos.get("y", 0)))
+		if od_vec.distance_to(pos) < 1.0:
+			var pieces = od.get("source_pieces", [])
+			return od if pieces is Array and not pieces.is_empty() else {}
+	return {}
+
+## FIX-HELD-DUP: true when any alive model of `unit` is within range of
+## `objective` by MissionManager's predicate — on an 11e terrain objective a
+## base overlapping the hosting area, however far from the marker point.
+static func _unit_in_objective_range(unit: Dictionary, objective: Dictionary, mm) -> bool:
+	for model in unit.get("models", []):
+		if not model.get("alive", true) or _get_model_position(model) == Vector2.INF:
+			continue
+		if mm.model_in_objective_range(model, objective):
 			return true
 	return false
 
@@ -16158,6 +16383,28 @@ static func _charge_roll_needed(edge_in: float, terrain_pen: float = 0.0) -> flo
 		return max(0.0, max(edge_in, move) - ChargeMove11e.WITHIN_TOLERANCE_INCHES)
 	return move
 
+## FIX_CHARGE_EV (CH-ARRIVED): of the chargers declared against `target`
+## earlier this phase, the ones that really made it — alive, charged this turn
+## and now within engagement range of the target — and their expected melee
+## damage on it. Charges resolve one at a time, so every charge declared
+## before this decision has been rolled; a failed one sets no charged flag.
+static func _charge_coordination_arrived(coord_data: Dictionary, target: Dictionary, snapshot: Dictionary) -> Dictionary:
+	var units: Dictionary = snapshot.get("units", {})
+	var reach_in: float = GameConstants.engagement_range_inches() + 0.1
+	var count := 0
+	var damage := 0.0
+	for cid in coord_data.get("charger_ids", []):
+		var cu: Dictionary = units.get(str(cid), {})
+		if cu.is_empty() or _get_alive_models(cu).is_empty():
+			continue
+		if not cu.get("flags", {}).get("charged_this_turn", false):
+			continue  # the charge failed: this unit will not fight the target
+		if _get_closest_model_distance_inches(cu, target) > reach_in:
+			continue  # charged, but did not end engaged with this target
+		count += 1
+		damage += _estimate_melee_damage(cu, target)
+	return {"count": count, "damage": damage}
+
 ## CH-LEAVE: the objective the charger alone keeps — it has OC in range, the
 ## army holds the objective, and without the charger's OC the enemy OC there
 ## would match or beat ours — while the charge target is not on that same
@@ -16533,6 +16780,17 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		var coord_data = _charge_coordination[coord_target_id]
 		var num_already_charging = coord_data.charger_ids.size()
 		var dmg_already_incoming = coord_data.total_expected_dmg
+		# FIX_CHARGE_EV (CH-ARRIVED): count only the earlier chargers that made
+		# it — a declared charge that failed its roll will not fight the target.
+		var ch_ev_fix: bool = get_param("FIX_CHARGE_EV", FIX_CHARGE_EV) > 0.0
+		if ch_ev_fix:
+			var arrived := _charge_coordination_arrived(coord_data, target, snapshot)
+			if int(arrived.count) != num_already_charging:
+				print("AIDecisionMaker: [CH-ARRIVED] %s: %d of %d charger(s) declared on %s made it (%.1f dmg incoming, %.1f declared)" % [
+					_dn(charger, ""), int(arrived.count), num_already_charging, _dn(target, ""),
+					float(arrived.damage), float(dmg_already_incoming)])
+			num_already_charging = int(arrived.count)
+			dmg_already_incoming = float(arrived.damage)
 		var combined_dmg = dmg_already_incoming + melee_damage
 		var target_total_hp = _calculate_kill_threshold(target)
 
@@ -16541,8 +16799,17 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		var gang_kill_bonus = 7.0 if faction_agg >= 1.5 else 5.0
 		var gang_pile_bonus = 3.0 if faction_agg >= 1.5 else 2.0
 
+		# FIX_CHARGE_EV: no earlier charger made it — there is nobody to gang
+		# up with (this unit killing the target alone is its own ch_can_wipe).
+		if ch_ev_fix and num_already_charging == 0:
+			pass
+		# FIX_CHARGE_EV (CH-NEEDED): the chargers already in kill the target
+		# without this unit — piling on adds nothing to the kill.
+		elif ch_ev_fix and target_total_hp > 0 and dmg_already_incoming >= target_total_hp:
+			print("AIDecisionMaker: [CH-NEEDED] No gang-up bonus for %s on %s — the %d charger(s) already in deal %.1f dmg vs %.0f HP without it" % [
+				_dn(charger, ""), _dn(target, ""), num_already_charging, dmg_already_incoming, target_total_hp])
 		# Big bonus if combined damage can actually kill the target
-		if target_total_hp > 0 and combined_dmg >= target_total_hp:
+		elif target_total_hp > 0 and combined_dmg >= target_total_hp:
 			score += _t_add(terms, "ch_gang_up", gang_kill_bonus)  # Gang up for the kill!
 			print("AIDecisionMaker: [CHARGE-COORD] KILL GANG-UP: %s + %d others can kill %s (%.1f + %.1f = %.1f dmg vs %.0f HP, bonus=+%.1f)" % [
 				_dn(charger, ""), num_already_charging, _dn(target, ""),
