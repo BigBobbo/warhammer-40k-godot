@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_2 (racing for it (enemy can have ~29 OC there before we arrive in 4 turns), needs 2 more OC after this unit \u2014 worth ~3 VP with the 2 other objective(s) this plan takes \u2014 worth ~6 VP)",
+ "created": "2026-10-30 23:47:35",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7480_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The unit was sent on a 4-turn solo advance to a far objective in the enemy half. An override from the capture assignment forced this, even though the unit's own score for obj_nml_1 was far higher. Fix: When an override reassigns a unit, require the new target to arrive within 2 turns or to have a positive contest_race. Otherwise keep the best-scoring objective, or send the unit to back up a fragile holder. Pick the unit for each far objective by shortest travel time, not by who is processed first.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7480_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:388,1860",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha advances toward obj_nml_2 (racing for it (enemy can have ~29 OC there before we arrive in 4 turns), needs 2 more OC after this unit \u2014 worth ~3 VP with the 2 other objective(s) this plan takes)",
+ "verdict": "pending",
+ "version": 1
+}

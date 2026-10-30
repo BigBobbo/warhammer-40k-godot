@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Beta (P1)",
+ "created": "2026-10-30 23:49:00",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7480_r2_p2_shooting_1",
+ "note": "[LLM critic, low conf] The AI sent one weak volley (0.9 expected damage, 6% kill) at Beta. Other shooters already put damage on Delta, so the fire is split across several 15 HP targets and none will die. Fix: Give a large bonus to a target that already has allocated damage from earlier shooters. Make focus-fire plans put the minimum shooters needed to kill one unit on that unit, instead of one shooter on each of several units. Do not let target_value outweigh the kill-probability gain from focusing.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7480_r2_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A_P2",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha shoots at Custodian Guard Sodality Beta \u2014 expected 0.9 dmg vs 15 HP (6% kill)",
+ "verdict": "pending",
+ "version": 1
+}

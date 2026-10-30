@@ -1,0 +1,183 @@
+[
+ {
+  "job": "20261030_234707_r5c05_00__s7480_r1_p1_movement_1_0",
+  "case": "20261030_234707_r5c05_00__s7480_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gamma went back to hold home. It is the only unit on home now, but Alpha is near and could hold home instead. That would free Gamma to move forward. The hold bonus is low in round 1 with no enemy nearby.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7480",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234707_r5c05_00"
+ },
+ {
+  "job": "20261030_234707_r5c05_00__s7480_r1_p1_movement_2_1",
+  "case": "20261030_234707_r5c05_00__s7480_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The unit was sent on a 4-turn solo advance to a far objective in the enemy half. An override from the capture assignment forced this, even though the unit's own score for obj_nml_1 was far higher.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7480",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234707_r5c05_00"
+ },
+ {
+  "job": "20261030_234707_r5c05_00__s7480_r1_p2_movement_2_2",
+  "case": "20261030_234707_r5c05_00__s7480_r1_p2_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a 3-model OC 9 unit to nml_2, calling it uncontrolled and worth about 8 VP. The board shows it is already held, so the move adds little.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7480",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234707_r5c05_00"
+ },
+ {
+  "job": "20261030_234707_r5c05_00__s7480_r2_p1_movement_2_3",
+  "case": "20261030_234707_r5c05_00__s7480_r2_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Beta on a 3-turn trek to enemy home obj_home_2 because center had enough OC. The override ignored that the objective is unreachable in time and that a lone unit would likely be destroyed.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7480",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234707_r5c05_00"
+ },
+ {
+  "job": "20261030_234707_r5c05_00__s7480_r2_p2_shooting_1_4",
+  "case": "20261030_234707_r5c05_00__s7480_r2_p2_shooting_1_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "target": "U_CUSTODIAN_GUARD_D"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent one weak volley (0.9 expected damage, 6% kill) at Beta. Other shooters already put damage on Delta, so the fire is split across several 15 HP targets and none will die.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P1)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7480",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234707_r5c05_00"
+ },
+ {
+  "job": "20261030_234707_r5c05_00__s7480_r3_p1_charge_1_5",
+  "case": "20261030_234707_r5c05_00__s7480_r3_p1_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a wounded Allarus off its home objective into the enemy Allarus squad and Guard. The charge is unlikely to kill the target and will probably cost the unit.",
+  "better_option": "unlisted: do not charge, and hold obj_home_2 with the Allarus",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7480",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234707_r5c05_00"
+ },
+ {
+  "job": "20261030_234707_r5c05_00__s7480_r3_p2_charge_1_6",
+  "case": "20261030_234707_r5c05_00__s7480_r3_p2_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A_P2",
+    "targets": [
+     "U_BLADE_CHAMPION_A"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends 3 Allarus models (18 wounds) at a 2-wound lone model. This wastes most of the unit's melee output. The 97% chance and the ch_short_charge bonus push the score above the higher-value Blade Champion Alpha.",
+  "better_option": "Charge Blade Champion Alpha (4.3\" away, 83% chance)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7480",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234707_r5c05_00"
+ }
+]
