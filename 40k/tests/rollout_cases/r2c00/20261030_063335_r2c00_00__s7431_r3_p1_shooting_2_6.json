@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Balistus Grenade Launcher \u2192 enemy Custodian Guard Sodality Beta (P2)",
+ "created": "2026-10-30 06:36:46",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7431_r3_p1_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shoots at a full-health 15 HP Guard unit for 2.5 expected damage and a 17% kill chance. It ignores a 1-wound Blade Champion that one unsaved wound would kill. Fix: Add a large bonus for targets that can be killed with high probability, scaled by their points value. Add a penalty when a focus-fire target has a low kill chance. Make sure wounded characters with LOS and range always appear as candidates.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7431_r3_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "desc:Balistus Grenade Launcher \u2192 enemy Custodian Guard Sodality Beta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians shoots at Custodian Guard Sodality Beta \u2014 expected 2.5 dmg vs 15 HP (17% kill)",
+ "verdict": "pending",
+ "version": 1
+}
