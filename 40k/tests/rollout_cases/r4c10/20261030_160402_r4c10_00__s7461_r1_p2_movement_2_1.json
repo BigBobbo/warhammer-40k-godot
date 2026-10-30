@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 8\"))",
+ "created": "2026-10-30 16:05:01",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7461_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent the Gretchin to screen a backfield gap. The screen score of 6.6 is far below every objective option, and the override text only rejects the 5-turn race to obj_home_1. Better options exist: Move obj_home_2 or Advance obj_center. Fix: Apply the not-racing override only to the rejected objective. Keep the other objective options in the score. Scale screen_base by the enemy threat range to the screened unit, and make it small when no enemy can reach it next turn.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7461_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A_P2",
+  "choice": "pos:960,1520",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (960,1520) \u2014 backfield gap (nearest friendly: 8\")",
+ "verdict": "pending",
+ "version": 1
+}

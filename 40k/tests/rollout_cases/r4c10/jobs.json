@@ -1,0 +1,234 @@
+[
+ {
+  "job": "20261030_160402_r4c10_00__s7461_r1_p2_movement_1_0",
+  "case": "20261030_160402_r4c10_00__s7461_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A_P2",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI advances a 10-model Lootas unit with OC1 alone toward obj_nml_1. The advance costs no shooting this turn, but the unit then holds the far objective with little OC and no screen.",
+  "better_option": "Move obj_home_2 (moving to objective \u2014 worth ~15 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7461",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160402_r4c10_00"
+ },
+ {
+  "job": "20261030_160402_r4c10_00__s7461_r1_p2_movement_2_1",
+  "case": "20261030_160402_r4c10_00__s7461_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent the Gretchin to screen a backfield gap. The screen score of 6.6 is far below every objective option, and the override text only rejects the 5-turn race to obj_home_1. Better options exist: Move obj_home_2 or Advance obj_center.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~17 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7461",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160402_r4c10_00"
+ },
+ {
+  "job": "20261030_160402_r4c10_00__s7461_r1_p1_movement_1_2",
+  "case": "20261030_160402_r4c10_00__s7461_r1_p1_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a 10-model Lootas unit on an advance to obj_nml_2, which is 18.6 in away, so it cannot shoot this turn. The unit is a 48 in shooter, and the objective is 2 turns away.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7461",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160402_r4c10_00"
+ },
+ {
+  "job": "20261030_160402_r4c10_00__s7461_r1_p1_movement_2_3",
+  "case": "20261030_160402_r4c10_00__s7461_r1_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent an isolated Gretchin unit across the board to a backfield gap. It rejected obj_nml_2, which is only 18.8 in away and already held by the army, and obj_home_1, which is 8.7 in away.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7461",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160402_r4c10_00"
+ },
+ {
+  "job": "20261030_160402_r4c10_00__s7461_r2_p2_movement_2_4",
+  "case": "20261030_160402_r4c10_00__s7461_r2_p2_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_TANKBUSTAS_A_P2",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Tankbustas arrive at a spot 3.9 in from obj_nml_1. That is outside the 3 in control range, so the unit may not take the free objective.",
+  "better_option": "unlisted: place Tankbustas within 3 in of obj_nml_1, for example near (38.5, 24.5), which is still within 6 in of the table edge",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7461",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160402_r4c10_00"
+ },
+ {
+  "job": "20261030_160402_r4c10_00__s7461_r2_p2_shooting_2_5",
+  "case": "20261030_160402_r4c10_00__s7461_r2_p2_shooting_2_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "target": "U_LOOTAS_B"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot Big shoota at Kommandos (21.5 in, no rapid fire). It scored the same 0.39 expected damage as Lootas Beta (16.1 in), which are inside the 18 in rapid fire range.",
+  "better_option": "Big shoota \u2192 enemy Lootas Beta (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7461",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160402_r4c10_00"
+ },
+ {
+  "job": "20261030_160402_r4c10_00__s7461_r3_p2_charge_1_6",
+  "case": "20261030_160402_r4c10_00__s7461_r3_p2_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "targets": [
+     "U_BEASTBOSS_A"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges the Beast Snagga Boyz and Beastboss with its Battlewagon. The scores tie at 2.51, and a ch_retaliation of -4.0 shows the risk. The charge value is thin and it scores no objective gain.",
+  "better_option": "Charge Beastboss (5.1\" away, 72% chance)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7461",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160402_r4c10_00"
+ },
+ {
+  "job": "20261030_160402_r4c10_00__s7461_r3_p1_shooting_2_7",
+  "case": "20261030_160402_r4c10_00__s7461_r3_p1_shooting_2_7.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_A",
+    "target": "U_LOOTAS_C_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot its big shoota at 3 surviving Gretchin because of a kill-chance bonus, although those Gretchin are worth very little.",
+  "better_option": "Big shoota \u2192 enemy Lootas Gamma (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7461",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160402_r4c10_00"
+ },
+ {
+  "job": "20261030_160402_r4c10_00__s7461_r3_p1_charge_1_8",
+  "case": "20261030_160402_r4c10_00__s7461_r3_p1_charge_1_8.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI declares a 17% charge on a lone 4-wound Mek. The score is only +1.1 because ch_damage (+47.41) cancels ch_chance (-42.9), and the failure cost is not counted.",
+  "better_option": "unlisted: do not charge; keep Kommandos on NML 2",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7461",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160402_r4c10_00"
+ }
+]
