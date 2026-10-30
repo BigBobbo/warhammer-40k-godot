@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 13\"))",
+ "created": "2026-10-30 16:07:21",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7472_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent a short-range Burna Boyz unit to a lone backfield screen position, 13 in from friends. Its own override says to stay with the army, but it moves away from the army. Fix: Penalize screen points that are far from the nearest friendly unit. Add a cohesion term that scales with that distance. Make the override text and the chosen position agree. Give short-range flamer units a screen role only near the army or near the objective they protect.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7472_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:960,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta screens at (960,960) \u2014 backfield gap (nearest friendly: 13\")",
+ "verdict": "pending",
+ "version": 1
+}

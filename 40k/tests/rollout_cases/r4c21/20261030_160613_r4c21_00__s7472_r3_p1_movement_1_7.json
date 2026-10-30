@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Attack Blade Champion Gamma (closing to charge range (1.8\" after move))",
+ "created": "2026-10-30 16:13:23",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7472_r3_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI labels the move 'Attack Blade Champion Gamma', but it ends on obj_nml_1 and ties with the 'Hold' option at 43.84. The position is fine. The attack label could pull 3 weak models off the objective into a charge they would lose. Fix: Cut the attack assignment, or its charge intent, when the expected damage of the unit is low compared with the target's wounds and melee output. Prefer the hold label when the unit is on an objective that the army needs. Break score ties toward the hold option.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7472_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:1370,660",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz advances to attack Blade Champion Gamma (7.8\" away \u2014 closing to charge range (1.8\" after move))",
+ "verdict": "pending",
+ "version": 1
+}

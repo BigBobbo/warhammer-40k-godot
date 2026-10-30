@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Lootas Gamma (P1)",
+ "created": "2026-10-30 16:09:09",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7472_r2_p2_shooting_2",
+ "note": "[LLM critic, medium conf] Delta shoots Lootas Gamma at long range for only 0.9 expected damage, while the plan's own priority target Burna Boyz Beta is missing from the option list. Fix: Make the candidate list include every focus-fire priority target in range with line of sight. Weight the score by expected kills, not target_value times a tiny kill_fraction. Add a small penalty for shots fired beyond half range when a similar target is nearer.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7472_r2_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Lootas Gamma (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta shoots at Lootas Gamma \u2014 expected 0.9 dmg vs 9 HP (10% kill)",
+ "verdict": "pending",
+ "version": 1
+}

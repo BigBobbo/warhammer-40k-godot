@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Custodian Guard Sodality Delta (P2)",
+ "created": "2026-10-30 16:11:29",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7472_r2_p1_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot an untouched 270-point unit with a big shoota that does about 0.2 damage. The target ranking does not use damage already put on other units. Fix: Make already_allocated a positive multiplier on kill_fraction for targets that other units have already wounded this phase. Scale target_value by kill probability, not by raw points. When every option has near-zero expected damage, prefer the nearly dead target or the target that gives the best objective denial.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7472_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_B",
+  "choice": "desc:Big shoota \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Beta shoots at Custodian Guard Sodality Delta \u2014 expected 0.2 dmg vs 15 HP (1% kill)",
+ "verdict": "pending",
+ "version": 1
+}

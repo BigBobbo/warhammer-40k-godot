@@ -1,0 +1,209 @@
+[
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r1_p2_movement_1_0",
+  "case": "20261030_160613_r4c21_00__s7472_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent Custodian Guard Sodality Beta alone to obj_nml_1 even though it reports an unwinnable OC race there. A cheaper objective was available.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7472",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160613_r4c21_00"
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r1_p1_movement_1_1",
+  "case": "20261030_160613_r4c21_00__s7472_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent a short-range Burna Boyz unit to a lone backfield screen position, 13 in from friends. Its own override says to stay with the army, but it moves away from the army.",
+  "better_option": "Move obj_home_1 (moving to objective)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7472",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160613_r4c21_00"
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r1_p1_movement_2_2",
+  "case": "20261030_160613_r4c21_00__s7472_r1_p1_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent the Gretchin on a long trip to the far right backfield to screen, and rejected the objective options. The screen is useful against deep strike, but the unit takes about 4 turns to arrive and leaves the main army.",
+  "better_option": "Move obj_home_1 (moving to objective)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7472",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160613_r4c21_00"
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r2_p2_shooting_2_3",
+  "case": "20261030_160613_r4c21_00__s7472_r2_p2_shooting_2_3.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "target": "U_BURNA_BOYZ_B"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Delta shoots Lootas Gamma at long range for only 0.9 expected damage, while the plan's own priority target Burna Boyz Beta is missing from the option list.",
+  "better_option": "unlisted: Guardian Spear \u2013 Ranged \u2192 enemy Burna Boyz Beta",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7472",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160613_r4c21_00"
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r2_p1_movement_2_4",
+  "case": "20261030_160613_r4c21_00__s7472_r2_p1_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a fragile 5-model flamer unit on a 3-turn advance toward an objective that 11 enemy OC hold. The unit arrives late and weakened, and it cannot shoot while it advances.",
+  "better_option": "Move obj_home_1 (moving to objective \u2014 worth ~5 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7472",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160613_r4c21_00"
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r2_p1_shooting_2_5",
+  "case": "20261030_160613_r4c21_00__s7472_r2_p1_shooting_2_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_B",
+    "target": "U_CUSTODIAN_GUARD_B"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot an untouched 270-point unit with a big shoota that does about 0.2 damage. The target ranking does not use damage already put on other units.",
+  "better_option": "Big shoota \u2192 enemy Custodian Guard Sodality Beta (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7472",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160613_r4c21_00"
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r2_p1_charge_1_6",
+  "case": "20261030_160613_r4c21_00__s7472_r2_p1_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": [
+     "U_CUSTODIAN_GUARD_B"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges Blade Champion Gamma, a 6-wound, 2+/4++ character that the Boyz probably cannot kill. It rejects Custodian Guard Beta, which the Boyz probably can wipe and which holds the objective.",
+  "better_option": "Charge Custodian Guard Sodality Beta (5.2\" away, 72% chance)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7472",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160613_r4c21_00"
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7",
+  "case": "20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_nml_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI labels the move 'Attack Blade Champion Gamma', but it ends on obj_nml_1 and ties with the 'Hold' option at 43.84. The position is fine. The attack label could pull 3 weak models off the objective into a charge they would lose.",
+  "better_option": "Hold obj_nml_1 (on objective, OC needed \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7472",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160613_r4c21_00"
+ }
+]
