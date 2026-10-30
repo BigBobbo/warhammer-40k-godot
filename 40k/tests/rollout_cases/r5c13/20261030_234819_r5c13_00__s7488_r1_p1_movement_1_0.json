@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (capturing it (uncontrolled) \u2014 quicker to reach than Prosecutor Squad (18.0\" away, there in 2 turns at M8 vs 23.5\" away, there in 3 turns at M7) \u2014 worth ~10 VP)",
+ "created": "2026-10-30 23:48:45",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7488_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] Alpha moves to obj_center at M8. It ends round 1 about 10 in short. Beta also goes to the centre, so two Guard units stack on one objective while the home objective is left to the Blade Champions. Fix: Cap the OC needed per objective and send surplus units to a different objective or hold position. Scale threat_delta by the expected ranged damage from enemy heavy shooters with 36 in or more range.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7488_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_center (capturing it (uncontrolled) \u2014 quicker to reach than Prosecutor Squad (18.0\" away, there in 2 turns at M8 vs 23.5\" away, there in 3 turns at M7), obj: 18.0\" away)",
+ "verdict": "pending",
+ "version": 1
+}

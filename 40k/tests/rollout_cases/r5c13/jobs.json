@@ -1,0 +1,204 @@
+[
+ {
+  "job": "20261030_234819_r5c13_00__s7488_r1_p1_movement_1_0",
+  "case": "20261030_234819_r5c13_00__s7488_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Alpha moves to obj_center at M8. It ends round 1 about 10 in short. Beta also goes to the centre, so two Guard units stack on one objective while the home objective is left to the Blade Champions.",
+  "better_option": "Move obj_center",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7488",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234819_r5c13_00"
+ },
+ {
+  "job": "20261030_234819_r5c13_00__s7488_r1_p2_movement_2_1",
+  "case": "20261030_234819_r5c13_00__s7488_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_KOMMANDOS_A",
+    "objective": "obj_home_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent the Kommandos to obj_nml_2, which is already held with 21 OC and is 15.3 in away. The objective is worth about 15 VP, but the unit adds nothing there.",
+  "better_option": "Advance obj_home_2 (advancing to arrive a turn sooner \u2014 worth ~13 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7488",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234819_r5c13_00"
+ },
+ {
+  "job": "20261030_234819_r5c13_00__s7488_r2_p1_charge_1_2",
+  "case": "20261030_234819_r5c13_00__s7488_r2_p1_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI declares a 17% charge on the Beastboss and accepts about 7.6 damage of overwatch for a small chance of a kill. The score is only 0.72, so this is a marginal call.",
+  "better_option": "Do not charge (hold position, targets [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7488",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234819_r5c13_00"
+ },
+ {
+  "job": "20261030_234819_r5c13_00__s7488_r2_p2_charge_1_3",
+  "case": "20261030_234819_r5c13_00__s7488_r2_p2_charge_1_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a weak 12 HP Kommandos unit into elite Custodians at 17% success. The chosen score of 4.38 comes mostly from bonus terms, and the 17% chance is penalised too little.",
+  "better_option": "Charge Custodian Guard Sodality Beta (9.5\" away, 17% chance) with targets [] (do not charge); hold Kommandos where they are or stay in cover.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7488",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234819_r5c13_00"
+ },
+ {
+  "job": "20261030_234819_r5c13_00__s7488_r2_p2_charge_2_4",
+  "case": "20261030_234819_r5c13_00__s7488_r2_p2_charge_2_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI declared a 17% charge at a 7-wound Blade Champion with 3.0 expected damage. The score stays positive only because flat bonuses outweigh the 'ch_chance' and 'ch_retaliation' penalties.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7488",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234819_r5c13_00"
+ },
+ {
+  "job": "20261030_234819_r5c13_00__s7488_r3_p1_shooting_1_5",
+  "case": "20261030_234819_r5c13_00__s7488_r3_p1_shooting_1_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "target": "U_LOOTAS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent Alpha's low-damage shots at Beast Snagga Boyz. The choice is driven by an already_allocated bonus of 6.53, not by the shot itself.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Lootas Alpha (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7488",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234819_r5c13_00"
+ },
+ {
+  "job": "20261030_234819_r5c13_00__s7488_r3_p1_charge_1_6",
+  "case": "20261030_234819_r5c13_00__s7488_r3_p1_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a 240 point Guard unit on a 17% charge at a lone 85 point Beastboss. The positive terms (ch_damage, ch_can_wipe, ch_can_halve, ch_character) cancel the strong ch_chance penalty and leave a score of 0.55. That is too close to zero for such a poor roll.",
+  "better_option": "unlisted: do not charge",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7488",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234819_r5c13_00"
+ },
+ {
+  "job": "20261030_234819_r5c13_00__s7488_r3_p2_charge_1_7",
+  "case": "20261030_234819_r5c13_00__s7488_r3_p2_charge_1_7.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges 10 Kommandos at Custodian Guard Sodality Beta on a 17% roll. The terms score the charge as positive (2.72) even though the ch_retaliation term is -10.0.",
+  "better_option": "Charge with no targets (do not charge). Instead hold or screen NML-2 and keep the Kommandos away from the Custodes.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7488",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234819_r5c13_00"
+ }
+]
