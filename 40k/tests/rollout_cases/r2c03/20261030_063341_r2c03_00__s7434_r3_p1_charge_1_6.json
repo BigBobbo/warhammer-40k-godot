@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Delta (3.8\" away, 92% chance)",
+ "created": "2026-10-30 06:36:55",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7434_r3_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges Delta, a fresh 3-model Custodian Guard unit with 13 wounds, with a unit that is slightly weaker. The charge likely trades evenly at best, then leaves Gamma exposed to Blade Champion Alpha and other P2 units. Fix: Scale ch_retaliation by the target's expected damage in melee against the charger. Scale ch_damage by kill chance on the specific target (wounds left vs expected damage). Add a term for the charger's exposure to other enemy units within charge range after it ends the move.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7434_r3_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:1199,529",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_A_P2,U_CUSTODIAN_GUARD_D_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma declares a charge at Custodian Guard Sodality Delta + Blade Champion Alpha \u2014 targets picked after the roll: Custodian Guard Sodality Delta on 4+ (92%), Blade Champion Alpha on 7+ (58%), overwatch risk: 0.3 dmg",
+ "verdict": "pending",
+ "version": 1
+}

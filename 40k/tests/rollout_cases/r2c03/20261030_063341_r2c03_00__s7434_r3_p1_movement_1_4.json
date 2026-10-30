@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (flipping it (enemy holds with OC 8) \u2014 worth ~8 VP)",
+ "created": "2026-10-30 06:36:35",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7434_r3_p1_movement_1",
+ "note": "[LLM critic, high conf] Gamma, the last real unit with OC 3, leaves home 1 for obj_nml_1. It cannot reach the objective this turn and faces far stronger enemies there. The Prosecutors have OC 2 and are the only holders left at home. Fix: Do not let a 'home already taken' override send a unit away when the holder is weak (OC 2 or fewer, low toughness, within enemy threat range). Require that the unit can reach the target objective this turn or next. Require that the unit's OC exceeds the enemy OC there, or that allies join it. Otherwise keep the unit on its held home objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7434_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:1371,606",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_nml_1 (moving toward charge target Blade Champion Alpha, obj: 18.7\" away)",
+ "verdict": "bad",
+ "version": 1
+}

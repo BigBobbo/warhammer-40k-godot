@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (flipping it (enemy holds with OC 17), needs 9 more OC after this unit \u2014 worth ~2 VP with the 2 other objective(s) this plan takes \u2014 worth ~6 VP)",
+ "created": "2026-10-30 06:34:41",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7434_r2_p2_movement_2",
+ "note": "[LLM critic, high conf] The AI sent Beta 31 in across the board to flip an enemy-held home objective. It rejected obj_nml_1, which scored 26.9, because that objective already had enough OC. The move is a 4-turn trip with no chance to win the fight at the end. Fix: Check that a reassigned objective can be reached within 2 turns and that the unit can win the OC contest there. Otherwise keep the unit on its best-scoring option, or send it to the centre or toward the enemy to threaten them. Reject any reassignment whose score is far below the best option, for example by more than 20 points.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7434_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "pos:430,340",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_home_1 (moving toward charge target Custodian Guard Sodality Alpha, obj: 31.2\" away)",
+ "verdict": "bad",
+ "version": 1
+}
