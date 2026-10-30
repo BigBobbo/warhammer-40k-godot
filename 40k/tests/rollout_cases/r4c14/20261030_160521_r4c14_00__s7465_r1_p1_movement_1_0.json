@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 10\"))",
+ "created": "2026-10-30 16:05:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7465_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI chose Screen (score 6.04) over Advance obj_center (35.23) and Advance obj_nml_1 (25.06), using an override that only concerned obj_home_2. Fix: Apply the 'enemy will out-OC us' override only to the objective it names. Do not let a screen assignment overrule a higher-scoring objective move. Count a screen's value only when an enemy threat could reach the screened unit next turn. Otherwise score the screen below objective moves.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7465_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "pos:960,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha screens at (960,320) \u2014 backfield gap (nearest friendly: 10\")",
+ "verdict": "bad",
+ "version": 1
+}

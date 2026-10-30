@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Battlewagon Beta (8.5\" away, 28% chance)",
+ "created": "2026-10-30 16:19:51",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7465_r2_p2_charge_2",
+ "note": "[LLM critic, medium conf] The AI charges with Battlewagon Alpha at 28% odds for 1.8 expected melee damage, and ch_tie_up_shooter and ch_damage outweigh the negative chance term. Fix: Multiply every charge reward, including tie-up and aggression bonuses, by charge probability. Require a minimum expected-damage-to-cost ratio. Add a penalty for a charge that moves the unit off a held objective or far from friendly support. Keep the 0.233 threshold only as a floor, not as permission to stack flat bonuses.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7465_r2_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A_P2",
+  "choice": "pos:576,1433",
+  "decision": "charge",
+  "targets": "U_BATTLEWAGON_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha declares charge against Battlewagon Beta (28% chance, 8.5\" away, expected 1.8 melee dmg vs 11 HP, overwatch risk: 3.7 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Beastboss (6.7\" away, 58% chance)",
+ "created": "2026-10-30 16:24:42",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7465_r3_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges Beastboss at 58% and accepts heavy overwatch. The 10 Stormboyz expect about 4 damage against its 6 wounds, so a kill is unlikely. Beastboss then hits back hard, and the cluster around it can finish the Stormboyz. Fix: Compute melee damage from the actual hit, wound and save odds, including the target's invulnerable save. Give ch_can_wipe only when expected damage is at least the target's wounds. Add a retaliation term for the target's own melee output and for nearby enemy units that can then charge the Stormboyz. Do not credit target_on_objective unless",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7465_r3_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:805,2044",
+  "decision": "charge",
+  "targets": "U_BEASTBOSS_A_P2,U_MEK_B_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares a charge at Beastboss + Mek Beta \u2014 targets picked after the roll: Beastboss on 7+ (58%), Mek Beta on 9+ (28%), overwatch risk: 6.9 dmg",
+ "verdict": "pending",
+ "version": 1
+}
