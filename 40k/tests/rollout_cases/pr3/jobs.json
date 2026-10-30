@@ -1,0 +1,242 @@
+[
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r1_p1_movement_1_1",
+  "case": "20261030_063335_r2c00_00__s7431_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a lone 3-model Custodian Guard unit 44.9 in across the board to the enemy home objective. That option had the lowest score and took 4 turns to reach.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7431",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063335_r2c00_00",
+  "from_batch": "r2c00"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r2_p1_charge_2_4",
+  "case": "20261030_063335_r2c00_00__s7431_r2_p1_charge_2_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI picked an 8% charge for Delta because ch_damage, ch_can_wipe and ch_points_trade outweigh a ch_chance penalty that is too small.",
+  "better_option": "unlisted: do not charge. Keep Custodian Guard Sodality Delta on HOME 2 and use it to shoot or hold.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7431",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063335_r2c00_00",
+  "from_batch": "r2c00"
+ },
+ {
+  "job": "20261030_063348_r2c02_00__s7433_r1_p1_movement_1_0",
+  "case": "20261030_063348_r2c02_00__s7433_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Beta advances alone on a long trip to the enemy home objective. This takes 4 turns. It splits the army and leaves the free central objective untaken.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7433",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063348_r2c02_00",
+  "from_batch": "r2c02"
+ },
+ {
+  "job": "20261030_063341_r2c03_00__s7434_r1_p1_movement_1_0",
+  "case": "20261030_063341_r2c03_00__s7434_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta advances toward obj_center, but Alpha already heads there. Two Custodian Guard units at one objective is more OC than the plan needs, and Beta cannot arrive for two turns.",
+  "better_option": "Advance obj_nml_2",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7434",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063341_r2c03_00",
+  "from_batch": "r2c03"
+ },
+ {
+  "job": "20261030_063438_r2c04_00__s7435_r1_p1_movement_2_0",
+  "case": "20261030_063438_r2c04_00__s7435_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Lootas Gamma to screen with a flat score of 8.0 and no checks on threats. The unit has a 48 in Deffgun but no enemy is near, and no screen is needed in round 1. Advance obj_center scored 37.5 but lost, because the override reason only concerned obj_home_2.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7435",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063438_r2c04_00",
+  "from_batch": "r2c04"
+ },
+ {
+  "job": "20261030_063438_r2c04_00__s7435_r1_p2_movement_1_1",
+  "case": "20261030_063438_r2c04_00__s7435_r1_p2_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta advances alone toward obj_center, which it cannot reach this turn. The move adds no primary VP, and it puts a lone unit in front of the Ork shooting.",
+  "better_option": "Advance obj_home_2 (advancing to arrive a turn sooner \u2014 worth ~2 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7435",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063438_r2c04_00",
+  "from_batch": "r2c04"
+ },
+ {
+  "job": "20261030_063554_r2c09_00__s7440_r3_p2_shooting_1_4",
+  "case": "20261030_063554_r2c09_00__s7440_r3_p2_shooting_1_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "target": "U_WULFEN_WITH_STORM_SHIELDS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot the Ancient (0.89 expected damage, 18% kill chance) instead of the Wulfen (1.33 expected damage). The 18% kill figure looks too high for that damage against 5 wounds.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Wulfen with Storm Shields (P1)",
+  "config": {
+   "army1": "sw11e_gw_import_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7440",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063554_r2c09_00",
+  "from_batch": "r2c09"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r1_p1_movement_2_0",
+  "case": "20261030_063510_r2c10_00__s7441_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Gamma advances alone to the far obj_nml_1. It gets a -18 contest_race penalty and still wins because obj_nml_2 was already taken.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~14 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00",
+  "from_batch": "r2c10"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r3_p2_charge_2_10",
+  "case": "20261030_063510_r2c10_00__s7441_r3_p2_charge_2_10.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a wounded Logan into a cluster of heavy melee units at 28% odds. Success likely kills him, and failure wastes his turn.",
+  "better_option": "unlisted: do not charge. Keep Logan with the Terminator Assault Squad near obj_center.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00",
+  "from_batch": "r2c10"
+ }
+]

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Alpha (8.5\" away, 28% chance)",
+ "created": "2026-10-30 06:40:14",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7441_r3_p2_charge_2",
+ "note": "[LLM critic, high conf] The AI charges a wounded Logan into a cluster of heavy melee units at 28% odds. Success likely kills him, and failure wastes his turn. Fix: Reject any charge below charge_threshold. Multiply the whole charge benefit by the charge probability. Compute retaliation from all enemy units that could reach the charger after the charge, scaled by the charger's remaining wounds. Treat a wounded character charging into a cluster of enemies as strongly negative.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7441_r3_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOGAN_GRIMNAR_A",
+  "choice": "pos:1390,903",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Logan Grimnar declares charge against Blade Champion Alpha (28% chance, 8.5\" away, expected 5.0 melee dmg vs 7 HP, overwatch risk: 0.4 dmg)",
+ "verdict": "bad",
+ "version": 1
+}
