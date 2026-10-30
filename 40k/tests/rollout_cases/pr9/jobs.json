@@ -1,0 +1,29 @@
+[
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5",
+  "case": "20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI moves the 3 Boyz onto obj_center under an 'attack Allarus Custodians' label. The move itself is fine, but the attack goal is not sensible.",
+  "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7473",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160610_r4c22_00",
+  "from_batch": "r4c22"
+ }
+]
