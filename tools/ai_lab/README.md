@@ -326,6 +326,41 @@ objective-control checks 94 s -> 10.6 s; identical result and decisions.
 `--bench-no-objective-cache` / `--bench-verify-objective-cache` switch the
 cache off or recompute on every hit (mismatches in `perf_seconds`).
 
+## Value check: counterfactual rollouts (`rollout.py`, `rollout_batch.py`) — 2026-10-30
+
+What is ONE decision worth? From a saved position (an LLM-critic case), play
+the AI's own choice (branch A) and a proposed alternative (branch B, a one-shot
+forced decision via `AIBenchmarkRunner --bench-override`, AIDecisionMaker
+ROLLOUT hooks for move / shoot / charge) forward to a fixed horizon over paired
+seeds, and compare `value = decider VP gained - opponent VP gained`.
+`--bench-stop-round=N` stops the game the moment round N+1 begins (before it
+scores), so the cut-off is exact.
+
+Measured on 4 critic findings (12 seeds each):
+
+| Case | Effect (B - A), end of next round | sd/seed | Full game | sd/seed |
+|---|---|---|---|---|
+| hold home -> advance to NML (flawed per reviewer) | -13.1 VP [-17.8, -8.4] | 8.3 | -11.4 [-28.6, +5.7] | 30.3 |
+| Prosecutors -> home instead of centre | -0.3 [-1.7, +1.2] | 2.6 | | |
+| shoot Guard Delta instead of Gamma | -2.1 [-4.0, -0.2] | 3.4 | | |
+| do not charge | -0.1 [-2.4, +2.2] | 4.1 | +4.2 [-9.9, +18.3] | 24.9 |
+
+The short horizon gives the same answer with 4-6x less noise per seed
+(15-36x fewer seeds) and 2.7x faster games (~55 s vs ~160 s from round 1-2).
+Two A runs on one seed are identical, and A replays the reviewed decision.
+
+Pipeline (critic -> value -> fix -> bundle):
+1. `40k/tools/llm_critic/sweep.py` — many critic games side by side (own
+   `GODOT_MCP_PORT` each), 11e dispositions + official layouts; the reviewer
+   returns its better option as a machine-readable `alternative`;
+   `critic.py value` writes the rollout jobs.
+2. `rollout_batch.py pack` copies the cases into `40k/tests/rollout_cases/`
+   (tracked, so sibling cloud sessions can run them); `run --shard k/N` per
+   machine; `table` ranks the effects.
+3. Positive findings -> param-gated fixes with failing-first tests.
+4. Bundle test (`ai_versions.py run --rules11e --fixture ...`, 3 matchups),
+   then switch fix groups off with `--cand-profile` to attribute.
+
 ## Not built yet
 
 Nothing in the M0–M4 chain. Remaining known gaps are the instrumentation ones
