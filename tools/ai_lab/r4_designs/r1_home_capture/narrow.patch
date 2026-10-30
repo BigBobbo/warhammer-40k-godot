@@ -1,0 +1,265 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..0e69988 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1614,6 +1614,19 @@ const KEEPER_RELEASE_MIN_GAIN: float = 5.0
+ # spots aim only at objectives that still need OC. 0 = the centre-distance
+ # approximation everywhere, spots near any objective.
+ const FIX_HELD_DUP: float = 1.0
++# Movement plan (R1-HOME-CAPTURE): 1 = in battle round 1 no unit is SENT to
++# capture our own uncontrolled home objective when holding it pays nothing
++# yet: our primary card counts it in none of its rules (KEEPER-RELEASE's
++# check; a Decoy never lands on a home objective, so decoyed_* rules do not
++# count it either) and no enemy unit can be in range of it by the end of the
++# enemy's next turn (KEEPER-RELEASE's threat). The unit takes its next
++# objective instead; a later round's plan re-takes home when it pays or is
++# threatened. Units already on it (keepers) are untouched. A Custodian Guard
++# unit 9" from an unpaid home objective went there (its +9 undefended-home
++# priority beat every 2-turn trip) while the Orks were 30" away; Advancing it
++# to the centre measured +6.86 VP [4.45, 9.27] over 36 rollouts (LLM-critic
++# cluster r1_home_capture). 0 = previous behaviour.
++const FIX_R1_HOME_CAPTURE: float = 1.0
+ # Charge (RETALIATION): share of the surviving target's melee damage on the
+ # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+@@ -9135,7 +9148,9 @@ static func _keeper_release_check(snapshot: Dictionary, hold: Dictionary, ev: Di
+ ## KEEPER-RELEASE: does our primary card pay for holding `ev` (a rule active
+ ## this round, or scoring at our next Command phase, counts it)? True when the
+ ## card is unknown — only a card that leaves the objective out releases a keeper.
+-static func _keeper_release_primary_counts(player: int, ev: Dictionary) -> bool:
++## R1-HOME-CAPTURE passes skip_home_decoy = true: MissionManager never decoys
++## a home objective, so decoyed_* rules do not count it.
++static func _keeper_release_primary_counts(player: int, ev: Dictionary, skip_home_decoy: bool = false) -> bool:
+ 	var primary = _get_primary_awareness(player)
+ 	if primary.is_empty() or int(primary.get("active_rules", 0)) <= 0:
+ 		return true
+@@ -9146,6 +9161,8 @@ static func _keeper_release_primary_counts(player: int, ev: Dictionary) -> bool:
+ 			and pos.distance_to(Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)) <= 4.0 * PIXELS_PER_INCH
+ 	for rule in primary.get("vp_rules", []):
+ 		var r_type := str(rule.get("type", ""))
++		if skip_home_decoy and is_home and r_type.begins_with("decoyed"):
++			continue  # R1-HOME-CAPTURE: a home objective cannot be decoyed
+ 		if r_type in ["destroyed_min", "destroyed_per_unit", "killed_more_than_opponent_last_turn",
+ 				"destroyed_started_on_objective", "destroyed_near_central", "destroyed_in_terrain_area", "quarters"]:
+ 			continue  # kills and table quarters — not who holds an objective
+@@ -10013,6 +10030,27 @@ static func _assign_units_to_objectives(
+ 	var too_late := func(c: Dictionary) -> bool:
+ 		return too_late_on and c.get("action", "") in ["move", "advance"] \
+ 			and battle_round + int(c.get("turns_to_reach", 1)) - 1 > MAX_BATTLE_ROUNDS_AI
++	# R1-HOME-CAPTURE (FIX_R1_HOME_CAPTURE): a round-1 capture of our own
++	# uncontrolled home objective that pays nothing yet and that no enemy can
++	# reach before our next turn is not sent (see the const). Judged once per
++	# objective.
++	var r1_home_on = get_param("FIX_R1_HOME_CAPTURE", FIX_R1_HOME_CAPTURE) >= 0.5 and battle_round == 1
++	var r1_home_cache := {}  # objective_id -> "" (capture it) or the reason it can wait
++	var r1_home_later := func(c: Dictionary) -> bool:
++		if not r1_home_on or c.get("already_on_obj", false) or c.get("action", "") not in ["move", "advance"]:
++			return false
++		var h_oid := str(c.objective_id)
++		if not r1_home_cache.has(h_oid):
++			var h_ev = _get_obj_eval_by_id(obj_evaluations, h_oid)
++			var why := ""
++			if not h_ev.is_empty() and h_ev.get("is_home", false) and h_ev.get("state", "") == "uncontrolled" \
++					and not _keeper_release_primary_counts(player, h_ev, true):
++				var h_first := int(snapshot.get("meta", {}).get("first_turn_player", 1))
++				var h_enemy_round := battle_round if (player == h_first or (h_first != 1 and h_first != 2 and player == 1)) else battle_round + 1
++				if _keeper_release_threat(snapshot, h_ev, enemies, player, h_enemy_round) == "":
++					why = "our primary does not pay for it and no enemy can reach it before our next turn"
++			r1_home_cache[h_oid] = why
++		return str(r1_home_cache[h_oid]) != ""
+ 	# Only long trips (3+ turns): a 2-turn contest is the normal fight for an
+ 	# objective and contest_race already prices it — skipping it too made both
+ 	# armies of a mirror game avoid the centre and stack on side objectives.
+@@ -10264,6 +10302,10 @@ static func _assign_units_to_objectives(
+ 				print("AIDecisionMaker: [DIM-RETURNS] %s: not sending %s — with %d other objective(s) the plan already takes, %s adds only ~%.1f VP (primary cap / flat award)" % [
+ 					oid, uid, int(price.extra), oid, float(price.new_vp)])
+ 			continue
++		if r1_home_later.call(cand):
++			print("AIDecisionMaker: [R1_HOME_CAPTURE] %s: not sending %s — round 1, %s; it takes its next objective" % [
++				oid, uid, str(r1_home_cache.get(oid, ""))])
++			continue
+ 		if too_late.call(cand):
+ 			if not extra_obj_skipped.has(uid):
+ 				extra_obj_skipped[uid] = {"objective_id": oid, "too_late": int(cand.get("turns_to_reach", 1))}
+@@ -10488,6 +10530,8 @@ static func _assign_units_to_objectives(
+ 			continue  # DIM-RETURNS: another objective would add almost nothing
+ 		if race_hopeless.call(cand) or too_late.call(cand):
+ 			continue  # RACE-SKIP / TOO-LATE: a trip that cannot pay off
++		if r1_home_later.call(cand):
++			continue  # R1-HOME-CAPTURE: home pays nothing yet and is safe
+ 		if lone_trip.call(cand):
+ 			continue  # LONE-TRIP: a fragile unit would stand there alone, outnumbered
+ 		if far_trip.call(cand):
+diff --git a/40k/tests/unit/test_ai_fix_r1_home_capture.gd b/40k/tests/unit/test_ai_fix_r1_home_capture.gd
+new file mode 100644
+index 0000000..0f9e10e
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_r1_home_capture.gd
+@@ -0,0 +1,167 @@
++extends SceneTree
++
++# R1-HOME-CAPTURE (FIX_R1_HOME_CAPTURE): in battle round 1 no unit is SENT to
++# capture our own uncontrolled home objective when holding it pays nothing yet
++# (our primary card counts home in none of its rules; a Decoy never lands on a
++# home objective) and no enemy unit can be in range of it by the end of the
++# enemy's next turn. The unit takes its next objective instead. LLM-critic
++# cluster r1_home_capture (value-checked, 2026-10-30): s7468 r1 P1 (Custodes vs
++# Orks, Smoke and Mirrors) a Custodian Guard unit 9" from an empty home
++# objective went there while the Orks were 30" away; Advancing it to the centre
++# measured +6.86 VP [4.45, 9.27] over 36 rollouts. Guardrails: a card that pays
++# for home, an enemy that can reach home, round 2, and a unit already on home
++# keep the base plan.
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_r1_home_capture.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const HOME := Vector2(510, 340)      # our home objective (player 1 zone)
++const NML := Vector2(1200, 700)      # a no man's land objective ~19" from the unit (2 turns)
++const ENEMY_HOME := Vector2(1250, 2060)
++
++# Smoke and Mirrors: Decoys (never on home), hold_min that excludes home.
++const SMOKE_RULES := [
++	{"when": "eot", "type": "decoyed_score", "vp_per": 2, "enemy_territory_bonus": 2},
++	{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4, "rounds": [2, 5]},
++	{"when": "eog", "type": "decoyed_total_eog", "min": 4, "vp": 10},
++]
++# Destroyer's Wrath: hold_more counts every objective, home included.
++const WRATH_RULES := [
++	{"type": "destroyed_min", "min": 1, "vp": 3, "when": "eot"},
++	{"type": "hold_min", "exclude_home": true, "min": 1, "vp": 4, "when": "command", "rounds": [2, 5]},
++	{"type": "hold_more", "vp": 6, "when": "command", "rounds": [2, 5]},
++]
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Round-1 capture of a home objective that pays nothing (R1-HOME-CAPTURE) ===\n")
++	AIDecisionMaker._config_overrides["FIX_R1_HOME_CAPTURE"] = 1.0
++	test_unit_goes_forward_when_home_pays_nothing()
++	test_unit_captures_home_when_primary_pays_for_it()
++	test_unit_captures_home_when_enemy_can_reach_it()
++	test_unit_captures_home_in_round_two()
++	test_keeper_on_home_is_untouched()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_R1_HOME_CAPTURE")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot(battle_round: int = 1) -> Dictionary:
++	return {"battle_round": battle_round, "meta": {"battle_round": battle_round, "first_turn_player": 1},
++		"board": {"objectives": [
++			{"id": "obj_home_1", "position": HOME, "zone": "player1"},
++			{"id": "obj_nml_1", "position": NML, "zone": "no_mans_land"},
++			{"id": "obj_home_2", "position": ENEMY_HOME, "zone": "player2"},
++		], "terrain_features": []}, "units": {}}
++
++# `n` models (OC `oc` each) whose centroid is at `pos`.
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int,
++		toughness: int, wounds: int, oc: int, move: int, points: int,
++		status: int = GameStateData.UnitStatus.DEPLOYED) -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 40,
++			"base_type": "circular", "base_dimensions": {},
++			"position": Vector2(pos.x + (i - (n - 1) / 2.0) * 45.0, pos.y), "wounds": wounds, "current_wounds": wounds})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": status,
++		"meta": {"name": unit_id, "points": points, "stats": {"move": move, "toughness": toughness, "save": 2,
++			"wounds": wounds, "leadership": 6, "objective_control": oc}, "keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++
++# The s7468 shape: a 240 pt Custodian Guard unit (M6) ~9" from an empty home
++# objective and ~19" from a no man's land objective, the enemy army 40"+ away.
++func _board(battle_round: int = 1, enemy_pos: Vector2 = ENEMY_HOME, capper_pos: Vector2 = HOME + Vector2(330, 160)) -> Dictionary:
++	var snap = _snapshot(battle_round)
++	_add_unit(snap, "capper", 1, capper_pos, 3, 7, 3, 2, 6, 240)
++	_add_unit(snap, "orks", 2, enemy_pos, 10, 5, 1, 2, 6, 80)
++	return snap
++
++func _plan(snap: Dictionary, movable_ids: Array, rules: Array) -> Dictionary:
++	var br := int(snap.meta.battle_round)
++	AIDecisionMaker._primary_awareness_p1 = {"card_name": "test", "active_rules": rules.size(), "vp_rules": rules.duplicate(true),
++		"objective_pressure": 0.0, "enemy_home_bonus": 0.0, "central_bonus": 0.0, "hold_home_required": false,
++		"kill_pressure": false, "quarters": false}
++	AIDecisionMaker._secondary_awareness_p1 = {}
++	var friendlies = {}
++	var enemies = {}
++	var movable = {}
++	for uid in snap.units:
++		var u = snap.units[uid]
++		if int(u.owner) == 1:
++			friendlies[uid] = u
++		elif int(u.status) != GameStateData.UnitStatus.IN_RESERVES:
++			enemies[uid] = u
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 1, enemies, friendlies, br)
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 1, br)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	for c in AIDecisionMaker._last_movement_candidates.get("capper", []):
++		print("    capper candidate %s %s score %.1f" % [c.get("action", ""), c.get("objective_id", ""), float(c.get("score", 0.0))])
++	AIDecisionMaker._primary_awareness_p1 = {}
++	return plan
++
++func _target(plan: Dictionary, uid: String = "capper") -> String:
++	var a: Dictionary = plan.get(uid, {})
++	return "%s %s" % [str(a.get("action", "")), str(a.get("objective_id", ""))]
++
++func _goes_home(plan: Dictionary) -> bool:
++	var a: Dictionary = plan.get("capper", {})
++	return str(a.get("objective_id", "")) == "obj_home_1" and str(a.get("action", "")) in ["move", "advance"]
++
++func _goes_forward(plan: Dictionary) -> bool:
++	var a: Dictionary = plan.get("capper", {})
++	return str(a.get("objective_id", "")) == "obj_nml_1" and str(a.get("action", "")) in ["move", "advance"]
++
++func test_unit_goes_forward_when_home_pays_nothing() -> void:
++	print("\n--- round 1, Smoke and Mirrors (home pays nothing), enemy 40\"+ away ---")
++	var plan = _plan(_board(), ["capper"], SMOKE_RULES)
++	_assert(_goes_forward(plan), "the unit goes to obj_nml_1, not the empty home objective (%s)" % _target(plan))
++
++func test_unit_captures_home_when_primary_pays_for_it() -> void:
++	print("\n--- same board, Destroyer's Wrath: hold_more counts home ---")
++	var plan = _plan(_board(), ["capper"], WRATH_RULES)
++	_assert(_goes_home(plan), "a home objective the card pays for is captured (%s)" % _target(plan))
++
++func test_unit_captures_home_when_enemy_can_reach_it() -> void:
++	print("\n--- same board, an enemy unit ~25\" from home (Move 6 + charge + pile-in reaches it) ---")
++	var plan = _plan(_board(1, HOME + Vector2(-100, 1000)), ["capper"], SMOKE_RULES)
++	_assert(_goes_home(plan), "a home objective the enemy can reach next turn is captured (%s)" % _target(plan))
++
++func test_unit_captures_home_in_round_two() -> void:
++	print("\n--- round 2, Smoke and Mirrors ---")
++	var plan = _plan(_board(2), ["capper"], SMOKE_RULES)
++	_assert(_goes_home(plan), "after round 1 the base plan stands (%s)" % _target(plan))
++
++func test_keeper_on_home_is_untouched() -> void:
++	print("\n--- the unit already stands on home (a keeper): not this fix's business ---")
++	AIDecisionMaker._config_overrides["FIX_R1_HOME_CAPTURE"] = 0.0
++	var off_plan = _plan(_board(1, ENEMY_HOME, HOME), ["capper"], SMOKE_RULES)
++	AIDecisionMaker._config_overrides["FIX_R1_HOME_CAPTURE"] = 1.0
++	var on_plan = _plan(_board(1, ENEMY_HOME, HOME), ["capper"], SMOKE_RULES)
++	_assert(_target(on_plan) == _target(off_plan), "keeper: %s with the fix, %s without" % [_target(on_plan), _target(off_plan)])
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_R1_HOME_CAPTURE = 0: the base sends the unit home ---")
++	AIDecisionMaker._config_overrides["FIX_R1_HOME_CAPTURE"] = 0.0
++	var plan = _plan(_board(), ["capper"], SMOKE_RULES)
++	AIDecisionMaker._config_overrides["FIX_R1_HOME_CAPTURE"] = 1.0
++	_assert(_goes_home(plan), "with the fix off the unit captures home (%s)" % _target(plan))
