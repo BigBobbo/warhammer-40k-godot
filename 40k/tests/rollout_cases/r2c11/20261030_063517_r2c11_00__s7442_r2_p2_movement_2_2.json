@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Attack Blade Champion Beta (closing to charge range (6.7\" after move))",
+ "created": "2026-10-30 06:37:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7442_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent its slow Terminators alone into the Custodian blob. It scored the move as an attack, but the unit cannot charge this turn because it advances. The Wolves in support are 15 in or more behind. Fix: Give a melee unit that advances no charge_lane credit for this turn. Scale the threat_delta penalty by the enemy melee points that can reach the destination next turn. Penalise ending in front of the supporting army. Prefer a move that keeps the unit inside the supporting units' charge-back range, and charge when it is close enough.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7442_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_TERMINATOR_ASSAULT_SQUAD_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Terminator Assault Squad advances to attack Blade Champion Beta (11.7\" away \u2014 closing to charge range (6.7\" after move))",
+ "verdict": "bad",
+ "version": 1
+}

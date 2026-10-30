@@ -1,0 +1,107 @@
+[
+ {
+  "job": "20261030_063517_r2c11_00__s7442_r1_p1_movement_1_0",
+  "case": "20261030_063517_r2c11_00__s7442_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Alpha, a 3-model elite unit, advances 38.7 in alone into the enemy deployment zone to flip obj_nml_2, where it would be outnumbered by fast units and take 4 turns to arrive.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7442",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063517_r2c11_00"
+ },
+ {
+  "job": "20261030_063517_r2c11_00__s7442_r1_p2_movement_2_1",
+  "case": "20261030_063517_r2c11_00__s7442_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_THUNDERWOLF_CAVALRY_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI kept the 6-model fast Thunderwolf Cavalry on its home objective. The 'other units freed to move' override means the hold is not needed, and a 12 in mover idles in round 1.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7442",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063517_r2c11_00"
+ },
+ {
+  "job": "20261030_063517_r2c11_00__s7442_r2_p2_movement_2_2",
+  "case": "20261030_063517_r2c11_00__s7442_r2_p2_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent its slow Terminators alone into the Custodian blob. It scored the move as an attack, but the unit cannot charge this turn because it advances. The Wolves in support are 15 in or more behind.",
+  "better_option": "Advance obj_center (advancing for extra range \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7442",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063517_r2c11_00"
+ },
+ {
+  "job": "20261030_063517_r2c11_00__s7442_r3_p2_charge_1_3",
+  "case": "20261030_063517_r2c11_00__s7442_r3_p2_charge_1_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "targets": [
+     "U_CUSTODIAN_GUARD_D"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges Custodian Guard Delta and Blade Champion Alpha together. The score is mostly the ch_short_charge term (40.83), which is huge and looks like a bonus for easy charges that does not measure kill value.",
+  "better_option": "Charge Custodian Guard Sodality Delta (2.0\" away, 97% chance)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7442",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_063517_r2c11_00"
+ }
+]

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_2 (flipping it (enemy holds with OC 4) \u2014 quicker to reach than Custodian Guard Sodality Beta (38.7\" away, there in 5 turns at M8 vs 47.2\" away, there in 6 turns at M8) \u2014 worth ~3 VP)",
+ "created": "2026-10-30 06:35:39",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7442_r1_p1_movement_1",
+ "note": "[LLM critic, high conf] Alpha, a 3-model elite unit, advances 38.7 in alone into the enemy deployment zone to flip obj_nml_2, where it would be outnumbered by fast units and take 4 turns to arrive. Fix: Do not let the capture assignment override the top score when the fallback objective is more than 2 turns away and deep in enemy territory. Add a term for the enemy's local OC and threat near the target, scaled by arrival time. Allow two units to be sent to a contested central objective. Otherwise send the spare unit to support obj_nml_1 or hold home.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7442_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:390,1980",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha advances toward obj_nml_2 (flipping it (enemy holds with OC 4) \u2014 quicker to reach than Custodian Guard Sodality Beta (38.7\" away, there in 5 turns at M8 vs 47.2\" away, there in 6 turns at M8))",
+ "verdict": "bad",
+ "version": 1
+}
