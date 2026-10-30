@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Gamma (7.7\" away, 42% chance)",
+ "created": "2026-10-30 06:39:31",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7438_r2_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges Blade Champion Gamma at 42% with only 3.0 expected melee damage against 7 HP. The retaliation and the charge chance make this a poor trade for a 10-model unit. Fix: Multiply all reward terms (damage, character, points trade, tie-up) by the charge probability. Subtract retaliation, scaled by the probability the charge succeeds. Add a term that penalises leaving an objective the unit helps hold. Count a target's retaliation from every enemy unit that can reach the charger's end position.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7438_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:734,1056",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_C",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz declares charge against Blade Champion Gamma (42% chance, 7.7\" away, expected 3.0 melee dmg vs 7 HP, overwatch risk: 0.3 dmg)",
+ "verdict": "pending",
+ "version": 1
+}

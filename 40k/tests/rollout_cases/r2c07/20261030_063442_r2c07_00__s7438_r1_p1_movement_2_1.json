@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_1 (sole holder \u2014 leaving would drop control)",
+ "created": "2026-10-30 06:35:20",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7438_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI kept the Prosecutor Squad on obj_home_1 as 'sole holder'. This ignores that the Custodian Guard units nearby can hold the home objective instead. Fix: Run the sole-holder check after all units are assigned. Count the OC of other friendly units that will end on or near the objective. Release a unit when that OC is enough, and always keep one battleline unit as the holder instead of a screening unit.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7438_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:700,510",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad holds obj_home_1 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

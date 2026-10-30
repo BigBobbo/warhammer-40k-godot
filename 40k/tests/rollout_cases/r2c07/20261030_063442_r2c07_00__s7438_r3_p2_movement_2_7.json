@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_2 (reinforcing it (we hold with OC 6, enemy can bring ~7), needs 7 more OC after this unit \u2014 backfilling for a unit that went hunting \u2014 worth ~6 VP)",
+ "created": "2026-10-30 06:41:28",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7438_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends a short-range flamer unit across the board to reinforce an objective that we already hold. The unit needs 2 turns to arrive and adds no VP this turn. Fix: Compute expected_vp as the marginal change in VP caused by this unit. Give zero credit for an objective already held and capped. Raise the value of objectives that flip majority, or deny the enemy their VP. Penalise moves that take a short-range unit away from the main army for 2 or more turns.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7438_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "pos:390,1700",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha advances toward obj_nml_2 (reinforcing it (we hold with OC 6, enemy can bring ~7), needs 7 more OC after this unit \u2014 backfilling for a unit that went hunting)",
+ "verdict": "pending",
+ "version": 1
+}
