@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Delta (5.8\" away, 72% chance)",
+ "created": "2026-10-30 01:23:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7412_r2_p2_charge_1",
+ "note": "[LLM critic, low conf] The AI declares a charge on Delta plus Blade Champion Alpha. It scores Delta higher mainly because of a large ch_chance penalty on Blade Champion Alpha, even though targets are chosen after the roll. Fix: Because targets are picked after the roll, score a charge by expected value over the roll: sum over rolls of the best target set that roll allows. Remove the separate per-target ch_chance penalty. Add ch_retaliation from every enemy unit that could hit the charger afterwards.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7412_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "pos:830,1200",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_A,U_CUSTODIAN_GUARD_D",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma declares a charge at Custodian Guard Sodality Delta + Blade Champion Alpha \u2014 targets picked after the roll: Custodian Guard Sodality Delta on 6+ (72%), Blade Champion Alpha on 7+ (58%), overwatch risk: 0.3 dmg",
+ "verdict": "pending",
+ "version": 1
+}

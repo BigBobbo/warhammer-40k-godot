@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (2 units already committed) \u2014 worth ~10 VP)",
+ "created": "2026-10-30 01:22:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] Delta moves 4.7 in to stack on obj_center, which already has 30 OC and no enemy in range. This adds no control and wastes the unit's turn. Fix: Scale expected_vp, objective_priority and stay_on_objective by the marginal control gained. Give zero for an objective where our OC exceeds the enemy's potential OC by a wide margin and no enemy can reach it. Also add a term for the threat from enemy charges, so surplus units screen or take a free second objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7406_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta moves toward obj_center (moving toward charge target Thunderwolf Cavalry Alpha, obj: 4.7\" away)",
+ "verdict": "pending",
+ "version": 1
+}

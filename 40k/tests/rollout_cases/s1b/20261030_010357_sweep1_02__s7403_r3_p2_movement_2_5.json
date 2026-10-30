@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_nml_2 (keeping hold \u2014 the other unit(s) here are freed to move \u2014 worth ~4 VP)",
+ "created": "2026-10-30 01:11:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7403_r3_p2_movement_2",
+ "note": "[LLM critic, low conf] Delta stays on obj_nml_2 as the designated holder. The Allarus units and Blade Champion Alpha at the same objective are the freed units, and they have similar total OC. Fix: Pick the objective holder as the lowest-value unit that still keeps OC above the enemy's reachable OC. Free the strongest unit to reinforce the contested central objective. Add a reinforcement bonus for units that can reach a contested objective by round 4.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7403_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "pos:540,1970",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta holds obj_nml_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "verdict": "pending",
+ "version": 1
+}

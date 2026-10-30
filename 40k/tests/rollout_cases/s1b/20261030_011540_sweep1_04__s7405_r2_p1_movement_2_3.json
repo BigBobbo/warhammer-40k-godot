@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_2 (flipping it (enemy holds with OC 9), needs 10 more OC after this unit \u2014 worth ~1 VP with the 1 other objective(s) this plan takes \u2014 worth ~3 VP)",
+ "created": "2026-10-30 01:17:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7405_r2_p1_movement_2",
+ "note": "[LLM critic, high conf] The AI sent a lone Chaplain 28.5 in forward into three Custodian units to flip an enemy-held objective it cannot win. It rejected obj_nml_1, which is uncontested and scored 28.0 against 13.7. Fix: Do not assign a unit to flip an objective when the committed OC cannot beat the enemy OC. Cap expected_vp by the probability of reaching a winning OC total. Prefer uncontested objectives first. Add a heavy penalty for lone characters that end inside enemy threat range, and scale it by the unit's points.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7405_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CHAPLAIN_ON_BIKE_A",
+  "choice": "pos:390,1740",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Chaplain on Bike advances toward obj_nml_2 (flipping it (enemy holds with OC 9), needs 10 more OC after this unit \u2014 worth ~1 VP with the 1 other objective(s) this plan takes)",
+ "verdict": "bad",
+ "version": 1
+}

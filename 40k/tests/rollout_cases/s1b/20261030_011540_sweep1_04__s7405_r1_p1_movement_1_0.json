@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (reinforcing obj_home_1 (1 unit already committed))",
+ "created": "2026-10-30 01:16:09",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7405_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent an OC0 Wulfen unit to reinforce a home objective that is already held and is 7 in from enemy contact. It rejected the centre option on a primary-VP cap argument, but it ignored that Wulfen add no OC and no forward threat. Fix: When a unit has OC0 or very low OC, do not score objective-holding value for it. Score it for threat range, screening and forward melee positioning. Do not let the cap override pull a melee unit back to a home objective that already has two holders assigned. Reward moving toward the centre to support the main push.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7405_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_WULFEN_WITH_STORM_SHIELDS_A",
+  "choice": "pos:510,340",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Wulfen with Storm Shields moves toward obj_home_1 (reinforcing obj_home_1 (1 unit already committed), obj: 11.9\" away)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~21 OC there before we arrive in 2 turns) \u2014 worth ~10 VP)",
+ "created": "2026-10-30 01:20:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7412_r1_p2_movement_1",
+ "note": "[LLM critic, low conf] The AI sends one 3-model Gamma unit alone to a centre objective that the enemy will reach first. The contest_race penalty (-16.03) is large, but objective_priority (+29.06) and expected_vp (+10.5) still make this option win. Fix: When the enemy can hold an objective with more than twice our OC before we arrive, scale expected_vp and objective_priority by the chance of winning the race. Add a penalty for sending a unit alone, away from friendly units, into the enemy half. Prefer to keep units together on the nearer objectives.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7412_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma advances toward obj_center (racing for it (enemy can have ~21 OC there before we arrive in 2 turns))",
+ "verdict": "pending",
+ "version": 1
+}

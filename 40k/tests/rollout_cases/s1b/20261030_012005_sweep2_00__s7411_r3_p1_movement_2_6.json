@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (flipping it (enemy holds with OC 17), needs 9 more OC after this unit \u2014 worth ~7 VP)",
+ "created": "2026-10-30 01:24:01",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7411_r3_p1_movement_2",
+ "note": "[LLM critic, high conf] The AI sent Beta alone on a 3-turn trip to an objective held by 26 enemy OC, instead of 9.5 in to the contested obj_center. Fix: Count an objective as taken only if the projected friendly OC in range is greater than the enemy OC in range. Add a hard penalty to any capture override that sends a unit alone to an objective where enemy OC is far higher than the arriving OC. Stop an override from going to an option that scores far below the best option.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7411_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:660,1970",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_nml_2 (moving toward charge target Custodian Guard Sodality Alpha, obj: 26.5\" away)",
+ "verdict": "bad",
+ "version": 1
+}

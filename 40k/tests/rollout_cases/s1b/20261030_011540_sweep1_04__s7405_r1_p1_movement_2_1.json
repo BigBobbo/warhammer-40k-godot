@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (reinforcing obj_nml_1 (3 units already committed) \u2014 worth ~3 VP)",
+ "created": "2026-10-30 01:16:23",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7405_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent the Chaplain to obj_nml_1, which already has 3 units committed. It rejected obj_center, which scored higher at 22.73 against 15.94. Fix: Apply the same marginal-VP estimate to the chosen option. Add a penalty when an objective already has enough committed OC. Do not let an override discard the top-scored option unless the replacement scores at least as high.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7405_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CHAPLAIN_ON_BIKE_A",
+  "choice": "pos:1370,660",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Chaplain on Bike moves toward obj_nml_1 (reinforcing obj_nml_1 (3 units already committed), obj: 21.3\" away)",
+ "verdict": "pending",
+ "version": 1
+}

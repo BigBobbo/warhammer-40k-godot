@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (2 units already committed) \u2014 worth ~3 VP)",
+ "created": "2026-10-30 01:25:36",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7411_r3_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI sent a lone 3-model Guard unit 15 in toward a heavily P1-held center. It will not arrive this turn and ends near P1's charge range. The 'support' override picked this option over the top-scored obj_nml_2 option (23.85 against 5.5). Fix: Let a support override send a unit forward only if the units committed to the objective can plausibly win it. Otherwise, hold the unit back as an objective guard or have it stay in range of its allies. Do not let an override cancel strongly negative contest_race and threat_delta terms.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7411_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_center (moving toward charge target Custodian Guard Sodality Gamma, obj: 15.0\" away)",
+ "verdict": "pending",
+ "version": 1
+}

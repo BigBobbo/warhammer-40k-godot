@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Outrider Squad (P2)",
+ "created": "2026-10-30 01:19:24",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r2_p1_shooting_1",
+ "note": "[LLM critic, medium conf] The AI shot the Outrider Squad for 0.89 expected damage and a 7% kill chance. It chose this over Scout Squad Alpha at 5.93 expected damage because two other shooters had already been allocated to the Scouts. Fix: Discount already_allocated by kill variance. Only treat a target as dead when the allocated expected damage is at least 1.5 times its HP. Break ties by expected_damage. Never pick a target below about 1 expected damage when another target gets more than 5.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7406_r2_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Outrider Squad (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta shoots at Outrider Squad \u2014 expected 0.9 dmg vs 12 HP (7% kill)",
+ "verdict": "pending",
+ "version": 1
+}
