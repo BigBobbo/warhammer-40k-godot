@@ -1,0 +1,214 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..2abe018 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1614,6 +1614,15 @@ const KEEPER_RELEASE_MIN_GAIN: float = 5.0
+ # spots aim only at objectives that still need OC. 0 = the centre-distance
+ # approximation everywhere, spots near any objective.
+ const FIX_HELD_DUP: float = 1.0
++# Melee chase (FIX_WAAAGH_ADVANCE_CHARGE): 1 = the "Advance vs normal move"
++# gate no longer reads the Ork "Waaagh!" army rule as advance-and-charge.
++# Its text says an Advance does not stop a charge only while the unit is
++# riled up; the game marks that with flags.effect_advance_and_charge (the
++# gate already reads that flag), and ChargePhase refuses the charge without
++# it. So a chaser that is not riled up Advances only when a Normal move
++# cannot reach charge range, like any other unit. 0 = the text match counts
++# the Waaagh! rule, so every Ork chaser Advances and then cannot charge.
++const FIX_WAAAGH_ADVANCE_CHARGE: float = 1.0
+ # Charge (RETALIATION): share of the surviving target's melee damage on the
+ # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+@@ -2639,8 +2648,16 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
+ 
+ 	# --- Advance vs normal move (port of the former advance decision) ---
+ 	var can_advance_and_charge_flag = unit.get("flags", {}).get("effect_advance_and_charge", false)
++	var waaagh_text_only := false
+ 	if not can_advance_and_charge_flag:
+ 		can_advance_and_charge_flag = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
++		# WAAAGH-ADV-CHARGE (FIX_WAAAGH_ADVANCE_CHARGE): the text match only
++		# found the conditional Waaagh! rule — not riled up, so no charge
++		# after an Advance.
++		if can_advance_and_charge_flag and get_param("FIX_WAAAGH_ADVANCE_CHARGE", FIX_WAAAGH_ADVANCE_CHARGE) >= 0.5 \
++				and _advance_charge_text_is_only_waaagh(unit):
++			can_advance_and_charge_flag = false
++			waaagh_text_only = true
+ 	var dist_after_normal_move = enemy_dist - move_inches
+ 	var in_charge_range_after_normal = dist_after_normal_move <= charge_range_inches
+ 	var should_advance = false
+@@ -2648,6 +2665,9 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
+ 		should_advance = true
+ 	elif not in_charge_range_after_normal:
+ 		should_advance = true
++	if waaagh_text_only and not should_advance:
++		print("AIDecisionMaker: [WAAAGH_ADVANCE_CHARGE] %s makes a Normal move toward %s (%.1f\" away, %.1f\" after the move) — not riled up, an Advance would forfeit the charge" % [
++			unit_name, enemy_name, enemy_dist, maxf(dist_after_normal_move, 0.0)])
+ 
+ 	var reason: String
+ 	if in_charge_range_after_normal:
+@@ -2662,6 +2682,28 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
+ 		"reason": reason,
+ 	}
+ 
++# WAAAGH-ADV-CHARGE (FIX_WAAAGH_ADVANCE_CHARGE): true when every ability
++# whose name/description mentions both "advance" and "charge" is the Ork
++# "Waaagh!" army rule (advance-and-charge only while riled up).
++static func _advance_charge_text_is_only_waaagh(unit: Dictionary) -> bool:
++	var found_waaagh := false
++	for ability in unit.get("meta", {}).get("abilities", []):
++		var a_name := ""
++		var a_desc := ""
++		if ability is String:
++			a_name = ability
++		elif ability is Dictionary:
++			a_name = str(ability.get("name", ""))
++			a_desc = str(ability.get("description", ""))
++		var text = (a_name + " " + a_desc).to_lower()
++		if not (text.contains("advance") and text.contains("charge")):
++			continue
++		if a_name.to_lower().begins_with("waaagh"):
++			found_waaagh = true
++		else:
++			return false
++	return found_waaagh
++
+ static func _get_nearest_enemy_for_charge(unit: Dictionary, enemies: Dictionary) -> Dictionary:
+ 	"""Find the nearest enemy unit and return {enemy_id, enemy_unit, distance_inches, centroid}.
+ 	Factors in terrain penalties to prefer enemies reachable without climbing through terrain."""
+diff --git a/40k/tests/unit/test_ai_fix_waaagh_advance_charge.gd b/40k/tests/unit/test_ai_fix_waaagh_advance_charge.gd
+new file mode 100644
+index 0000000..3c2efbe
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_waaagh_advance_charge.gd
+@@ -0,0 +1,132 @@
++extends SceneTree
++
++# WAAAGH-ADV-CHARGE (critic cluster "waaagh_advance_charge", 2026-10-30):
++# Ork melee units Advanced "to attack" when a Normal move already reached
++# charge range, and then could not charge.
++#
++# Root cause: the melee chase gate ("Advance vs normal move") read any unit
++# whose abilities mention both "advance" and "charge" as able to charge after
++# Advancing. Every Ork unit carries the "Waaagh!" army rule, whose text says
++# an Advance does not stop a charge only WHILE the unit is riled up. The game
++# marks that state with flags.effect_advance_and_charge (the gate already
++# reads it) and ChargePhase refuses a charge after an Advance without it.
++# (s7468 r3 Stormboyz 12" from Prosecutors: Advanced, no charge; a Normal
++# move measured +6.14 VP over 36 seeds.)
++#
++# Guards: a riled-up unit (flag set) and a unit with another advance+charge
++# ability still Advance; a chaser a Normal move cannot bring into charge
++# range still Advances; FIX_WAAAGH_ADVANCE_CHARGE = 0 restores the base.
++#
++# Run with: godot --headless --path . -s tests/unit/test_ai_fix_waaagh_advance_charge.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const PX := 40.0  # pixels per inch
++const OBJ := Vector2(880, 1200)
++const WAAAGH := {"name": "Waaagh!", "type": "Faction", "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge that turn."}
++const OTHER_ADV_CHARGE := {"name": "Swift Onslaught", "type": "Datasheet", "description": "This unit can:\n• Re-roll advance rolls.\n• Re-roll charge rolls."}
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Waaagh! is not advance-and-charge unless riled up (WAAAGH-ADV-CHARGE) ===\n")
++	AIDecisionMaker._config_overrides["FIX_WAAAGH_ADVANCE_CHARGE"] = 1.0
++	test_ork_chaser_in_reach_makes_a_normal_move()
++	test_riled_up_ork_still_advances()
++	test_other_advance_charge_ability_still_advances()
++	test_ork_chaser_out_of_reach_still_advances()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_WAAAGH_ADVANCE_CHARGE")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot() -> Dictionary:
++	return {"battle_round": 3, "meta": {"battle_round": 3, "first_turn_player": 1},
++		"board": {"objectives": [
++			{"id": "obj_center", "position": OBJ, "zone": "no_mans_land"},
++			{"id": "obj_home_1", "position": Vector2(880, 240), "zone": "player1"},
++			{"id": "obj_home_2", "position": Vector2(880, 2160), "zone": "player2"},
++		], "terrain_features": []}, "units": {}}
++
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int,
++		move: int, weapons: Array, abilities: Array, keywords: Array = ["INFANTRY"]) -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32,
++			"base_type": "circular", "base_dimensions": {},
++			"position": Vector2(pos.x + (i - (n - 1) / 2.0) * 40.0, pos.y), "wounds": 2, "current_wounds": 2})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 100, "stats": {"move": move, "toughness": 5, "save": 5,
++			"wounds": 2, "leadership": 7, "objective_control": 2}, "keywords": keywords,
++			"weapons": weapons, "abilities": abilities},
++		"models": models, "flags": {}}
++
++const CHOPPA := {"name": "Choppa", "type": "Melee", "range": "Melee", "attacks": "3", "weapon_skill": "3",
++	"strength": "5", "ap": "-1", "damage": "1", "special_rules": ""}
++const BOLTER := {"name": "Boltgun", "type": "Ranged", "range": "24", "attacks": "2", "ballistic_skill": "3",
++	"strength": "4", "ap": "0", "damage": "1", "special_rules": ""}
++
++# Ork melee unit 4" off obj_center; an enemy squad `enemy_in` inches away
++# toward the enemy side, so the chase gate converts it to ATTACK.
++func _board(enemy_in: float, abilities: Array, flags: Dictionary = {}, move: int = 12) -> Dictionary:
++	var snap = _snapshot()
++	var start = OBJ + Vector2(-500, 0)
++	_add_unit(snap, "boyz", 1, start, 5, move, [CHOPPA], abilities, ["INFANTRY", "ORKS"])
++	snap.units["boyz"]["flags"] = flags.duplicate()
++	_add_unit(snap, "marines", 2, start + Vector2(0, enemy_in * PX), 5, 6, [BOLTER], [])
++	return snap
++
++func _decide(snap: Dictionary) -> Dictionary:
++	AIDecisionMaker.reset_caches()
++	AIDecisionMaker.clear_all_plans()
++	var actions = [
++		{"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "boyz"},
++		{"type": "BEGIN_ADVANCE", "actor_unit_id": "boyz"},
++		{"type": "REMAIN_STATIONARY", "actor_unit_id": "boyz"},
++		{"type": "END_MOVEMENT"},
++	]
++	var d = AIDecisionMaker._decide_movement(snap, actions, 1)
++	print("  -> %s %s (%s)" % [d.get("type", ""), d.get("actor_unit_id", ""), str(d.get("_ai_description", "")).substr(0, 120)])
++	return d
++
++func _is_attack(d: Dictionary) -> bool:
++	return str(d.get("_ai_description", "")).contains("attack marines")
++
++func test_ork_chaser_in_reach_makes_a_normal_move() -> void:
++	print("\n--- Ork (Waaagh!, not riled up) 12\" from the enemy, M12: a Normal move reaches charge range ---")
++	var d = _decide(_board(12.0, [WAAAGH]))
++	_assert(_is_attack(d), "it goes for the enemy (%s)" % str(d.get("_ai_description", "")))
++	_assert(str(d.get("type", "")) == "BEGIN_NORMAL_MOVE", "it makes a Normal move so it can still charge (%s)" % d.get("type", ""))
++
++func test_riled_up_ork_still_advances() -> void:
++	print("\n--- same, but the Waaagh! is active (flags.effect_advance_and_charge) ---")
++	var d = _decide(_board(12.0, [WAAAGH], {"effect_advance_and_charge": true}))
++	_assert(_is_attack(d) and str(d.get("type", "")) == "BEGIN_ADVANCE", "riled up, it Advances — the charge is still allowed (%s)" % d.get("type", ""))
++
++func test_other_advance_charge_ability_still_advances() -> void:
++	print("\n--- a non-Waaagh! ability that names advance and charge: base behaviour kept ---")
++	var d = _decide(_board(12.0, [OTHER_ADV_CHARGE]))
++	_assert(_is_attack(d) and str(d.get("type", "")) == "BEGIN_ADVANCE", "it Advances as before (%s)" % d.get("type", ""))
++
++func test_ork_chaser_out_of_reach_still_advances() -> void:
++	print("\n--- Ork M6, enemy 20\" away: a Normal move leaves it 14\" short of charge range ---")
++	var d = _decide(_board(20.0, [WAAAGH], {}, 6))
++	_assert(_is_attack(d) and str(d.get("type", "")) == "BEGIN_ADVANCE", "it Advances to close the distance (%s)" % d.get("type", ""))
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_WAAAGH_ADVANCE_CHARGE = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_WAAAGH_ADVANCE_CHARGE"] = 0.0
++	var d = _decide(_board(12.0, [WAAAGH]))
++	AIDecisionMaker._config_overrides["FIX_WAAAGH_ADVANCE_CHARGE"] = 1.0
++	_assert(_is_attack(d) and str(d.get("type", "")) == "BEGIN_ADVANCE", "the base reads Waaagh! as advance-and-charge and Advances (%s)" % d.get("type", ""))
