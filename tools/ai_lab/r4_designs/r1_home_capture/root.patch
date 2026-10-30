@@ -1,0 +1,314 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..04b098c 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1614,6 +1614,17 @@ const KEEPER_RELEASE_MIN_GAIN: float = 5.0
+ # spots aim only at objectives that still need OC. 0 = the centre-distance
+ # approximation everywhere, spots near any objective.
+ const FIX_HELD_DUP: float = 1.0
++# Movement plan, support pass (FIX_R1_HOME_CAPTURE): 1 = a spare unit's
++# support score for an objective is valued with the plan it joins. (a) The
++# WEIGHT_HOME_UNDEFENDED bonus is the value of getting SOME OC onto an empty
++# home objective; once units committed this phase already cover its whole OC
++# need it is no longer undefended, so the bonus is not paid a second time to
++# a unit sent there "in support" (it sent a second Custodian Guard squad back
++# home in round 1 while the first one already took it). (b) The support pass
++# keeps the Advance the unit's own capture candidate for that objective chose
++# (RACE-1 long trip / reach-with-Advance) instead of always walking, so the
++# trip is made at the pace its score was costed at. 0 = previous behaviour.
++const FIX_R1_HOME_CAPTURE: float = 1.0
+ # Charge (RETALIATION): share of the surviving target's melee damage on the
+ # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+@@ -8872,8 +8883,10 @@ static func _evaluate_all_objectives(
+ 				priority += get_param("WEIGHT_CONTESTED_OBJ", WEIGHT_CONTESTED_OBJ) * 0.8  # Still important to reinforce
+ 
+ 		# Home objective bonus - defend it if undefended
++		var home_undefended_bonus := 0.0  # R1-HOME: this term's share of priority
+ 		if is_home and friendly_oc == 0:
+-			priority += get_param("WEIGHT_HOME_UNDEFENDED", WEIGHT_HOME_UNDEFENDED)
++			home_undefended_bonus = get_param("WEIGHT_HOME_UNDEFENDED", WEIGHT_HOME_UNDEFENDED)
++			priority += home_undefended_bonus
+ 
+ 		# T7-23: Expanded round-based urgency scoring (was only round 1 + round 4+)
+ 		# Round 1: Rush to objectives — scoring starts in round 2
+@@ -8920,6 +8933,7 @@ static func _evaluate_all_objectives(
+ 			# Apply tempo to offensive objective scoring (contesting, capturing)
+ 			if state in ["uncontrolled", "contested", "enemy_weak"]:
+ 				priority *= tempo_mod
++				home_undefended_bonus *= tempo_mod
+ 			# When behind, reduce the penalty for contesting enemy strongholds
+ 			elif state == "enemy_strong" and tempo_mod > 1.0:
+ 				priority += (tempo_mod - 1.0) * 3.0  # Soften the negative scoring
+@@ -8995,6 +9009,7 @@ static func _evaluate_all_objectives(
+ 			"is_home": is_home,
+ 			"is_enemy_home": is_enemy_home,
+ 			"priority": priority,
++			"home_undefended_bonus": home_undefended_bonus,  # R1-HOME
+ 			"vp_value": vp_value,
+ 			"vp_sources": vp_result.sources,
+ 			"oc_needed": max(0, enemy_oc - friendly_oc + 1),  # OC we need to add to flip control
+@@ -10775,7 +10790,16 @@ static func _assign_units_to_objectives(
+ 					support_allowed[s_cand.objective_id] = true
+ 			if support_allowed.is_empty():
+ 				support_allowed["__far_trip__"] = true
+-		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player, support_counts, support_allowed)
++		# R1-HOME: the support score sees which objectives the plan already
++		# covers, and the mode this unit's own capture candidate chose for each.
++		var rh_need := {}
++		var rh_actions := {}
++		if get_param("FIX_R1_HOME_CAPTURE", FIX_R1_HOME_CAPTURE) >= 0.5:
++			rh_need = obj_oc_remaining
++			for rh_cand in candidates:
++				if rh_cand.unit_id == unit_id and not rh_actions.has(rh_cand.objective_id):
++					rh_actions[rh_cand.objective_id] = str(rh_cand.action)
++		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player, support_counts, support_allowed, rh_need, rh_actions)
+ 		if not best_obj.is_empty():
+ 			assignments[unit_id] = best_obj
+ 			assignments[unit_id]["assign_pass"] = "support"
+@@ -12441,9 +12465,12 @@ static func _get_obj_eval_by_id(evaluations: Array, obj_id: String) -> Dictionar
+ static func _find_best_remaining_objective(
+ 	centroid: Vector2, obj_evaluations: Array, enemies: Dictionary,
+ 	unit: Dictionary, snapshot: Dictionary, player: int, support_counts: Dictionary = {},
+-	allowed_ids: Dictionary = {}
++	allowed_ids: Dictionary = {}, covered_need: Dictionary = {}, cand_actions: Dictionary = {}
+ ) -> Dictionary:
+ 	# For unassigned units: find the best objective to support or screen near.
++	# R1-HOME (FIX_R1_HOME_CAPTURE): covered_need (obj_id -> OC still needed
++	# after this phase's commitments) and cand_actions (obj_id -> the action of
++	# this unit's capture candidate there); both empty = previous behaviour.
+ 	# COORD-4: support_counts (obj_id -> units already committed there this
+ 	# phase) applies diminishing returns so spare units spread across markers
+ 	# instead of every one of them independently picking the same "best" one.
+@@ -12453,6 +12480,8 @@ static func _find_best_remaining_objective(
+ 	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
+ 	var has_ranged = _unit_has_ranged_weapons(unit)
+ 	var stack_penalty = get_param("SUPPORT_STACK_PENALTY", SUPPORT_STACK_PENALTY)
++	var rh_nodrop_score = -INF  # R1-HOME: the pick without correction (a), for the log
++	var rh_nodrop_id := ""
+ 
+ 	for eval in obj_evaluations:
+ 		# DIM-RETURNS / RACE-SKIP: a unit the plan kept from taking another
+@@ -12483,12 +12512,27 @@ static func _find_best_remaining_objective(
+ 		if committed > 0:
+ 			score -= float(committed) * stack_penalty
+ 
++		# R1-HOME: an empty home objective whose whole OC need this phase's
++		# commitments already cover is no longer undefended — its bonus was
++		# for getting that OC there, and is not paid again for a second unit.
++		var rh_drop := 0.0
++		if covered_need.has(eval.id) and int(covered_need[eval.id]) <= 0:
++			rh_drop = float(eval.get("home_undefended_bonus", 0.0))
++			score -= rh_drop
++		if score + rh_drop > rh_nodrop_score:
++			rh_nodrop_score = score + rh_drop
++			rh_nodrop_id = str(eval.id)
++
+ 		if score > best_score:
+ 			best_score = score
+ 			var action = "move"
+ 			var reason = "supporting nearby objective"
+ 			if committed > 0:
+ 				reason = "reinforcing %s (%d unit%s already committed)" % [eval.id, committed, "" if committed == 1 else "s"]
++			# R1-HOME: travel at the pace the capture candidate costed the trip at
++			if str(cand_actions.get(eval.id, "")) == "advance" \
++					and dist > OBJECTIVE_CONTROL_RANGE_PX:
++				action = "advance"
+ 			if dist <= OBJECTIVE_CONTROL_RANGE_PX:
+ 				action = "hold"
+ 				reason = "already at objective"
+@@ -12502,6 +12546,13 @@ static func _find_best_remaining_objective(
+ 				"unit_oc": unit_oc
+ 			}
+ 
++	# R1-HOME: say when either correction changed the support decision
++	if not best.is_empty() and rh_nodrop_id != "" and rh_nodrop_id != str(best.objective_id):
++		print("AIDecisionMaker: [R1_HOME_CAPTURE] %s supports %s instead of home %s — %s is already covered this phase (undefended bonus not paid twice)" % [
++			_dn(unit), best.objective_id, rh_nodrop_id, rh_nodrop_id])
++	if not best.is_empty() and str(best.action) == "advance":
++		print("AIDecisionMaker: [R1_HOME_CAPTURE] %s supports %s with an Advance (the pace its capture candidate costed the trip at)" % [
++			_dn(unit), best.objective_id])
+ 	return best
+ 
+ static func _compute_movement_toward_target(
+diff --git a/40k/tests/unit/test_ai_fix_r1_home_capture.gd b/40k/tests/unit/test_ai_fix_r1_home_capture.gd
+new file mode 100644
+index 0000000..9ce878c
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_r1_home_capture.gd
+@@ -0,0 +1,175 @@
++extends SceneTree
++
++# FIX_R1_HOME_CAPTURE (critic cluster "r1_home_capture", round 4, 2026-10-30):
++# in round 1 a second strong unit was sent back to our own empty home
++# objective that another unit had just taken, and a spare unit sent forward
++# "in support" walked a trip its score had costed at the Advance pace.
++#
++# Root cause (a) — WEIGHT_HOME_UNDEFENDED (+9 priority) values getting SOME OC
++# onto an empty home objective. The objective evaluation reads live positions,
++# so the bonus stays in eval.priority after a unit is committed there this
++# phase; the capture pass skips the covered objective, but the support pass
++# (_find_best_remaining_objective) scores with eval.priority and paid the
++# bonus again. s7468 r1 P1: Gamma took obj_home_1, then Alpha was sent there
++# too ("reinforcing obj_home_1 (1 unit already committed)", support score
++# home 20.3 vs obj_nml_1 11.5 — 9.8 of it the bonus).
++#
++# Root cause (b) — the support pass always returned action "move", while the
++# unit's capture candidate for the same objective chose "advance" (RACE-1
++# long trip) and its turns_to_reach / contest race were costed at that pace.
++# s7451 r1 P2: Gamma walked 6" toward obj_center; Advancing there measured
++# +5.86 VP [3.09, 8.63] over 36 seeds.
++#
++# Run with: godot --headless --path . -s tests/unit/test_ai_fix_r1_home_capture.gd
++
++const AI_PATH := "res://scripts/AIDecisionMaker.gd"
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const HOME := Vector2(400, 400)
++const FAR := Vector2(880, 1200)
++const ENEMY_POS := Vector2(1500, 2300)
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++var _ran := false
++var AIDM = null
++
++func _init():
++	root.connect("ready", Callable(self, "_run_tests"))
++	create_timer(0.1).timeout.connect(_run_tests)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _run_tests():
++	if _ran:
++		return
++	_ran = true
++	await process_frame
++	print("\n=== FIX_R1_HOME_CAPTURE: support pass values the plan it joins ===\n")
++	var prev_edition = GameConstants.edition
++	GameConstants.edition = 11
++	# Loaded at run time so the AI script compiles after the autoloads exist.
++	AIDM = load(AI_PATH)
++	AIDM._config_overrides["FIX_R1_HOME_CAPTURE"] = 1.0
++
++	test_second_unit_not_sent_to_covered_home()
++	test_uncovered_home_still_supported()
++	test_support_keeps_advance_pace()
++	test_param_zero_restores_old_plan()
++
++	AIDM._config_overrides.erase("FIX_R1_HOME_CAPTURE")
++	GameConstants.edition = prev_edition
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++# --- fixtures ---------------------------------------------------------------
++
++func _snapshot() -> Dictionary:
++	var objs = [
++		{"id": "obj_home_1", "position": HOME, "zone": "player1"},
++		{"id": "obj_far", "position": FAR, "zone": "no_mans_land"},
++	]
++	return {"battle_round": 1, "meta": {"battle_round": 1},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
++
++func _add_unit(snap: Dictionary, uid: String, owner: int, center: Vector2, oc: int) -> Dictionary:
++	var models = []
++	var offs = [Vector2(-40, 0), Vector2(0, 0), Vector2(40, 0)]
++	for i in range(offs.size()):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 40,
++			"base_type": "circular", "base_dimensions": {}, "position": center + offs[i],
++			"wounds": 3, "current_wounds": 3})
++	var u = {"id": uid, "owner": owner, "status": 2,  # 2 = UnitStatus.DEPLOYED
++		"meta": {"name": uid, "points": 300, "stats": {"move": 6, "toughness": 6, "save": 2,
++			"wounds": 3, "leadership": 6, "objective_control": oc},
++			"keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++	snap.units[uid] = u
++	return u
++
++## A point `inches` from `a` toward `b`.
++func _toward(a: Vector2, b: Vector2, inches: float) -> Vector2:
++	return a + (b - a).normalized() * inches * PX
++
++## CAPTURER 7" from our empty home, HOLDER 5" from the empty obj_far (both
++## take theirs this turn), SPARE 12" from home and ~11.3" from obj_far — both
++## needs are covered by the others, so SPARE falls through to the support pass.
++func _board_covered() -> Dictionary:
++	AIDM._primary_awareness_p1 = {}
++	AIDM._secondary_awareness_p1 = {}
++	var snap = _snapshot()
++	_add_unit(snap, "CAPTURER", 1, HOME + Vector2(0, -7.0 * PX) + Vector2(0, 0), 3)
++	_add_unit(snap, "HOLDER", 1, FAR + Vector2(5.0 * PX, 0), 3)
++	_add_unit(snap, "SPARE", 1, _toward(HOME, FAR, 12.0), 3)
++	_add_unit(snap, "ENEMY", 2, ENEMY_POS, 2)
++	return snap
++
++func _plan(snap: Dictionary, movable: Dictionary) -> Dictionary:
++	var friendly = AIDM._get_units_for_player(snap, 1)
++	var enemies = AIDM._get_enemy_units(snap, 1)
++	var objectives = AIDM._get_objectives(snap)
++	var evals = AIDM._evaluate_all_objectives(snap, objectives, 1, enemies, friendly, 1)
++	return AIDM._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendly, 1, 1)
++
++func _show(plan: Dictionary, uid: String) -> Dictionary:
++	var a: Dictionary = plan.get(uid, {})
++	print("  %s: %s %s [%s] (%s)" % [uid, a.get("action", ""), a.get("objective_id", ""),
++		a.get("assign_pass", ""), str(a.get("reason", "")).substr(0, 90)])
++	return a
++
++# --- tests --------------------------------------------------------------------
++
++func test_second_unit_not_sent_to_covered_home() -> void:
++	print("\n--- home taken by CAPTURER this phase: where does the spare squad go? ---")
++	var plan = _plan(_board_covered(), {"CAPTURER": MOVABLE, "HOLDER": MOVABLE, "SPARE": MOVABLE})
++	var c = _show(plan, "CAPTURER")
++	_show(plan, "HOLDER")
++	var s = _show(plan, "SPARE")
++	_assert(str(c.get("objective_id", "")) == "obj_home_1", "CAPTURER takes the empty home objective")
++	_assert(str(s.get("assign_pass", "")) == "support", "SPARE is a support-pass unit (both needs covered)")
++	_assert(str(s.get("objective_id", "")) == "obj_far",
++		"SPARE supports the forward objective, not the home CAPTURER already took (%s)" % str(s.get("objective_id", "")))
++
++func test_uncovered_home_still_supported() -> void:
++	print("\n--- guard: CAPTURER already moved elsewhere, home still empty ---")
++	# Only SPARE (and HOLDER, on obj_far) can move; nobody covers home, so the
++	# bonus stands and the capture pass sends SPARE home.
++	var snap = _board_covered()
++	snap.units.erase("CAPTURER")
++	var plan = _plan(snap, {"HOLDER": MOVABLE, "SPARE": MOVABLE})
++	var s = _show(plan, "SPARE")
++	_assert(str(s.get("objective_id", "")) == "obj_home_1",
++		"an uncovered empty home objective is still taken (%s)" % str(s.get("objective_id", "")))
++
++func test_support_keeps_advance_pace() -> void:
++	print("\n--- spare squad 22\" from the objective it supports, no enemy within 50\" ---")
++	AIDM._primary_awareness_p1 = {}
++	AIDM._secondary_awareness_p1 = {}
++	var snap = _snapshot()
++	# Home held (OC 9 on the marker), obj_far held by HOLDER: SPARE is spare,
++	# 22" beyond obj_far (42" from home), the enemy 50" away.
++	_add_unit(snap, "HOME_GUARD", 1, HOME, 3)
++	_add_unit(snap, "HOLDER", 1, FAR + Vector2(0, -40), 3)
++	_add_unit(snap, "SPARE", 1, FAR + Vector2(0, 22.0 * PX), 3)
++	_add_unit(snap, "ENEMY", 2, Vector2(1650, 150), 2)
++	var plan = _plan(snap, {"HOLDER": MOVABLE, "SPARE": MOVABLE})
++	var s = _show(plan, "SPARE")
++	_assert(str(s.get("assign_pass", "")) == "support", "SPARE is a support-pass unit")
++	_assert(str(s.get("objective_id", "")) == "obj_far", "it supports obj_far (%s)" % str(s.get("objective_id", "")))
++	_assert(str(s.get("action", "")) == "advance",
++		"and Advances there, the pace its capture candidate costed the trip at (%s)" % str(s.get("action", "")))
++
++func test_param_zero_restores_old_plan() -> void:
++	print("\n--- FIX_R1_HOME_CAPTURE = 0: the old support pass is back ---")
++	AIDM._config_overrides["FIX_R1_HOME_CAPTURE"] = 0.0
++	var plan = _plan(_board_covered(), {"CAPTURER": MOVABLE, "HOLDER": MOVABLE, "SPARE": MOVABLE})
++	var s = _show(plan, "SPARE")
++	AIDM._config_overrides["FIX_R1_HOME_CAPTURE"] = 1.0
++	_assert(str(s.get("objective_id", "")) == "obj_home_1", "off: SPARE is sent to the covered home objective (old plan)")
++	_assert(str(s.get("action", "")) == "move", "off: and walks (%s)" % str(s.get("action", "")))
