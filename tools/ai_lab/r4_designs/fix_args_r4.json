@@ -328,7 +328,7 @@
   {
    "key": "lone_flip",
    "title": "A lone unit is sent to flip an objective the enemy holds with far more OC, while a winnable objective is dropped as 'already taken'",
-   "hint": "At s7454 r3 (Custodes mirror, P2) Custodian Guard Gamma (3 models) was sent to flip obj_nml_1, which the enemy holds with OC 14 ('needs 6 more OC after this unit'); Advancing to obj_center instead measured +21.50 [16.93, 26.07] over 36 seeds. The critic: the centre (~20 VP) was dropped as 'already taken' although the friendly unit heading there (Beta) was still 9\" away; count a unit as taking an objective only when it is in range now; reject or heavily penalise an objective where enemy OC in range exceeds the unit's OC plus allies that can arrive. Read the decision record first: which pass made this choice (capture, attack conversion, support), why obj_center's need was 0, and how the flip was scored. LESSON: round 2's FIX_FAR_TRIP (skip 2+-turn trips the race says are lost) passed every gate and still lost 6.26 VP per game in the Custodes mirror (units held back scored less on secondary cards), and FIX_OVERCOMMIT gave no gain; both are off. Do not build a broad trip or race veto. Guardrails where the AI's own (flip / supporting) move was RIGHT: s7455 r3 (-15.0), s7431 r3 (-6.83); several flip moves measured neutral (s7458 r1, s7455 r2 / r3, s7457 r3, s7452 r2). Use the param FIX_LONE_FLIP.",
+   "hint": "At s7454 r3 (Custodes mirror, P2) Custodian Guard Gamma (3 models) was sent to flip obj_nml_1, which the enemy holds with OC 14 ('needs 6 more OC after this unit'); Advancing to obj_center instead measured +21.50 [16.93, 26.07] over 36 seeds. The critic: the centre (~20 VP) was dropped as 'already taken' although the friendly unit heading there (Beta) was still 9\" away; count a unit as taking an objective only when it is in range now; reject or heavily penalise an objective where enemy OC in range exceeds the unit's OC plus allies that can arrive. Read the decision record first: which pass made this choice (capture, attack conversion, support), why obj_center's need was 0, and how the flip was scored. LESSON: round 2's FIX_FAR_TRIP (skip 2+-turn trips the race says are lost) passed every gate and still lost 6.26 VP per game in the Custodes mirror (units held back scored less on secondary cards), and FIX_OVERCOMMIT gave no gain; both are off. Do not build a broad trip or race veto. Guardrails where the AI's own (flip / supporting) move was RIGHT: s7455 r3 (-15.0), s7431 r3 (-6.83); several flip moves measured neutral (s7458 r1, s7455 r2 / r3, s7457 r3, s7452 r2). Use the param FIX_LONE_FLIP. UPDATE 18:40: s7455 r2 p1 movement_2_4 (Beta moves toward obj_nml_1 / a charge target to flip an OC 11 hold; alternative Normal move to obj_center) was a guardrail at 12 seeds (+8.0, neutral) and is now CONFIRMED at 36 seeds (+5.92 [1.30, 10.53]): it is a second finding in the same direction as s7454 r3.",
    "findings": [
     {
      "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3",
@@ -347,6 +347,25 @@
      ],
      "better_option": "Move obj_center (moving to objective \u2014 worth ~20 VP)",
      "measured": "clear: E +21.50 [16.93, 26.07] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+     "case": "40k/tests/rollout_cases/pr8/20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 1,
+     "ai_chose": "Move obj_nml_1 (flipping it (enemy holds with OC 11) \u2014 worth ~3 VP)",
+     "ai_did": "Custodian Guard Sodality Beta moves toward obj_nml_1 (moving toward charge target Blade Champion Alpha, obj: 1",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+     "measured": "clear: E +5.92 [1.30, 10.53] over 36 seeds (one-round rollouts)"
     }
    ],
    "guardrails": [
@@ -405,24 +424,6 @@
      "measured": "neutral: E -6.25 [-14.42, 1.92] over 12 seeds (one-round rollouts)"
     },
     {
-     "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
-     "case": "40k/tests/rollout_cases/r4c04/20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4.json",
-     "matchup": "custodes_lions vs custodes_lions",
-     "round": 2,
-     "player": 1,
-     "ai_chose": "Move obj_nml_1 (flipping it (enemy holds with OC 11) \u2014 worth ~3 VP)",
-     "alternative": [
-      {
-       "kind": "move",
-       "unit": "U_CUSTODIAN_GUARD_B",
-       "objective": "obj_center",
-       "mode": "move"
-      }
-     ],
-     "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
-     "measured": "neutral: E +8.00 [-1.73, 17.73] over 12 seeds (one-round rollouts)"
-    },
-    {
      "job": "20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4",
      "case": "40k/tests/rollout_cases/r4c06/20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4.json",
      "matchup": "custodes_lions vs custodes_lions",
@@ -463,7 +464,7 @@
   {
    "key": "charge_low_odds",
    "title": "Declaring a low-odds charge (17-28%) whose expected gain is smaller than what the charge costs",
-   "hint": "Two round-2 charges in the Custodes vs Orks fixture were worse than not charging over 36 seeds: s7469 r2 P2 Stormboyz (140 pts) declare a 28% charge (8.5 in) at Blade Champion Alpha (T7, 2+ save, 4+ invulnerable, on an objective) with 'expected 8.9 melee dmg vs 7 HP' (+4.33 [1.37, 7.30] for no charge), and s7467 r2 P1 Allarus Custodians (270 pts) declare a 17% charge (9.9 in) at a 4-wound Mek (+2.64 [0.40, 4.88]). The critic notes repeat across rounds: expected melee damage overstated against 2+/4++ targets, the failure and overwatch cost understated, bonus terms (order_round_aggression, kill/objective bonuses) lifting a charge above the AI's own odds threshold. In 11e a failed charge does not move the unit (core rules), so the cost of a failed charge is overwatch (Fire Overwatch) and what else the unit gives up, and the cost of a successful one includes the fight back and being locked in combat (and CH-LEAVE when it leaves an objective). Round 1's FIX_CHARGE_EV (gang-up bonus counts only real help) is OFF since the round-1 bundle test; round 3's low-odds charge finding faded with more seeds. IMPORTANT: low odds alone are not the cause. Guardrails where the AI's own charge was right: s7431 r3 Allarus 28% at Blade Champion Alpha (-5.00 [-9.22, -0.78], harmful), s7403 r3 Battlewagon 42% (-3.67 harmful); s7431 r2 Allarus 17% (-5.08 neutral), s7433 r2 Allarus 28% (-3.17 neutral), s7408 r3 Stormboyz (-5.08 neutral) lean the same way. Find what separates the findings from these (damage model, target value, what the charger leaves, what the target does next) before you design. Re-check running (pr8, 24 seeds): s7454 r2 Delta 28% at Blade Champion Beta (+5.42 n12), s7457 r2 Prosecutors 8% (+4.50 n12); their cases are in 40k/tests/rollout_cases/pr8/.",
+   "hint": "Two round-2 charges in the Custodes vs Orks fixture were worse than not charging over 36 seeds: s7469 r2 P2 Stormboyz (140 pts) declare a 28% charge (8.5 in) at Blade Champion Alpha (T7, 2+ save, 4+ invulnerable, on an objective) with 'expected 8.9 melee dmg vs 7 HP' (+4.33 [1.37, 7.30] for no charge), and s7467 r2 P1 Allarus Custodians (270 pts) declare a 17% charge (9.9 in) at a 4-wound Mek (+2.64 [0.40, 4.88]). The critic notes repeat across rounds: expected melee damage overstated against 2+/4++ targets, the failure and overwatch cost understated, bonus terms (order_round_aggression, kill/objective bonuses) lifting a charge above the AI's own odds threshold. In 11e a failed charge does not move the unit (core rules), so the cost of a failed charge is overwatch (Fire Overwatch) and what else the unit gives up, and the cost of a successful one includes the fight back and being locked in combat (and CH-LEAVE when it leaves an objective). Round 1's FIX_CHARGE_EV (gang-up bonus counts only real help) is OFF since the round-1 bundle test; round 3's low-odds charge finding faded with more seeds. IMPORTANT: low odds alone are not the cause. Guardrails where the AI's own charge was right: s7431 r3 Allarus 28% at Blade Champion Alpha (-5.00 [-9.22, -0.78], harmful), s7403 r3 Battlewagon 42% (-3.67 harmful); s7431 r2 Allarus 17% (-5.08 neutral), s7433 r2 Allarus 28% (-3.17 neutral), s7408 r3 Stormboyz (-5.08 neutral) lean the same way. Find what separates the findings from these (damage model, target value, what the charger leaves, what the target does next) before you design. Re-check running (pr8, 24 seeds): s7454 r2 Delta 28% at Blade Champion Beta (+5.42 n12), s7457 r2 Prosecutors 8% (+4.50 n12); their cases are in 40k/tests/rollout_cases/pr8/. UPDATE 18:40: the pr8 re-check CONFIRMED s7457 r2 Prosecutors 8% charge -> no charge (+3.81 [0.20, 7.41], 36 seeds; now a finding) and did NOT confirm s7454 r2 Delta 28% at Blade Champion Beta (+2.44 [-1.43, 6.32], 36 seeds; now a neutral guardrail).",
    "findings": [
     {
      "job": "20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2",
@@ -500,6 +501,24 @@
      ],
      "better_option": "unlisted: do not charge (targets [])",
      "measured": "clear: E +2.64 [0.40, 4.88] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160417_r4c06_00__s7457_r2_p2_charge_1_3",
+     "case": "40k/tests/rollout_cases/pr8/20261030_160417_r4c06_00__s7457_r2_p2_charge_1_3.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 2,
+     "ai_chose": "Charge Prosecutor Squad (10.2\" away, 8% chance)",
+     "ai_did": "Prosecutor Squad declares charge against Prosecutor Squad (8% chance, 10.2\" away, expected 0.7 melee dmg vs 1 ",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_PROSECUTORS_A_P2",
+       "targets": []
+      }
+     ],
+     "better_option": "Charge Blade Champion Alpha (2.0\" away, 97% chance) is not good either, because a 3-model Prosecutor squad would die to the Champion in melee. Better: do not charge.",
+     "measured": "clear: E +3.81 [0.20, 7.41] over 36 seeds (one-round rollouts)"
     }
    ],
    "guardrails": [
@@ -610,6 +629,24 @@
      ],
      "better_option": "unlisted: do not charge. Keep Logan with the Terminator Assault Squad near obj_center.",
      "measured": "clear: E +0.94 [0.12, 1.77] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160317_r4c03_00__s7454_r2_p2_charge_1_2",
+     "case": "40k/tests/rollout_cases/pr8/20261030_160317_r4c03_00__s7454_r2_p2_charge_1_2.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 2,
+     "ai_chose": "Charge Blade Champion Beta (9.0\" away, 28% chance)",
+     "ai_did": "Custodian Guard Sodality Delta declares charge against Blade Champion Beta (28% chance, 9.0\" away, expected 10",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_CUSTODIAN_GUARD_D_P2",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge, stay on obj_center",
+     "measured": "neutral: E +2.44 [-1.43, 6.32] over 36 seeds (one-round rollouts)"
     }
    ]
   },

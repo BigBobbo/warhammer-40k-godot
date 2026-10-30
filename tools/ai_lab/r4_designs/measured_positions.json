@@ -8018,15 +8018,15 @@
    }
   ],
   "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
-  "E": 8.0,
+  "E": 5.917,
   "ci": [
-   -1.73,
-   17.73
+   1.3,
+   10.53
   ],
-  "n": 12,
-  "class": "neutral",
-  "applied": 12,
-  "identical": 0,
+  "n": 36,
+  "class": "clear",
+  "applied": 36,
+  "identical": 1,
   "chosen_option": "Move obj_nml_1 (flipping it (enemy holds with OC 11) \u2014 worth ~3 VP)",
   "suggestion": "Custodian Guard Sodality Beta moves toward obj_nml_1 (moving toward charge target Blade Champion Alpha, obj: 18.0\" away)",
   "round": 2,
@@ -8163,14 +8163,14 @@
    }
   ],
   "better_option": "unlisted: Custodian Guard Sodality Delta arrives within range of obj_center, if a legal spot exists",
-  "E": 4.75,
+  "E": -0.139,
   "ci": [
-   -1.14,
-   10.64
+   -4.63,
+   4.35
   ],
-  "n": 12,
+  "n": 36,
   "class": "neutral",
-  "applied": 12,
+  "applied": 36,
   "identical": 0,
   "chosen_option": "Custodian Guard Sodality Delta arrives",
   "suggestion": "Custodian Guard Sodality Delta arrives from Deep Strike",
@@ -8306,14 +8306,14 @@
    }
   ],
   "better_option": "unlisted: do not charge, stay on obj_center",
-  "E": 5.417,
+  "E": 2.444,
   "ci": [
-   -0.2,
-   11.04
+   -1.43,
+   6.32
   ],
-  "n": 12,
+  "n": 36,
   "class": "neutral",
-  "applied": 12,
+  "applied": 36,
   "identical": 0,
   "chosen_option": "Charge Blade Champion Beta (9.0\" away, 28% chance)",
   "suggestion": "Custodian Guard Sodality Delta declares charge against Blade Champion Beta (28% chance, 9.0\" away, expected 10.0 melee dmg vs 7 HP, overwatch risk: 0.2 dmg)",
@@ -8538,14 +8538,14 @@
    }
   ],
   "better_option": "Charge Blade Champion Alpha (2.0\" away, 97% chance) is not good either, because a 3-model Prosecutor squad would die to the Champion in melee. Better: do not charge.",
-  "E": 4.5,
+  "E": 3.805,
   "ci": [
-   -1.55,
-   10.55
+   0.2,
+   7.41
   ],
-  "n": 12,
-  "class": "neutral",
-  "applied": 12,
+  "n": 36,
+  "class": "clear",
+  "applied": 36,
   "identical": 1,
   "chosen_option": "Charge Prosecutor Squad (10.2\" away, 8% chance)",
   "suggestion": "Prosecutor Squad declares charge against Prosecutor Squad (8% chance, 10.2\" away, expected 0.7 melee dmg vs 1 HP, overwatch risk: 0.3 dmg)",
@@ -9440,5 +9440,208 @@
   "suggestion": "Custodian Guard Sodality Beta declares a charge at Battlewagon Beta + Lootas Beta \u2014 targets picked after the roll: Battlewagon Beta on 9+ (28%), Lootas Beta on 10+ (17%), overwatch risk: 6.8 dmg",
   "round": 3,
   "player": 2
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r1_p1_movement_1_1",
+  "kind": "move",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c21/20261030_160613_r4c21_00__s7472_r1_p1_movement_1_1.json",
+  "a_did": "Burna Boyz Beta screens at (960,960) \u2014 backfield gap (nearest friendly: 13\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_home_1 (moving to objective)",
+  "E": -1.583,
+  "ci": [
+   -4.06,
+   0.89
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 13\"))",
+  "suggestion": "Burna Boyz Beta screens at (960,960) \u2014 backfield gap (nearest friendly: 13\")",
+  "round": 1,
+  "player": 1
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r1_p1_movement_2_2",
+  "kind": "move",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c21/20261030_160613_r4c21_00__s7472_r1_p1_movement_2_2.json",
+  "a_did": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 10\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_home_1 (moving to objective)",
+  "E": -1.167,
+  "ci": [
+   -2.42,
+   0.08
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 10\"))",
+  "suggestion": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 10\")",
+  "round": 1,
+  "player": 1
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r1_p2_movement_1_0",
+  "kind": "move",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c21/20261030_160613_r4c21_00__s7472_r1_p2_movement_1_0.json",
+  "a_did": "Custodian Guard Sodality Beta advances toward obj_nml_1 (racing for it (enemy can have ~33 OC there before we ",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
+  "E": 2.333,
+  "ci": [
+   -0.57,
+   5.23
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Advance obj_nml_1 (racing for it (enemy can have ~33 OC there before we arrive in 2 turns) \u2014 worth ~6 VP)",
+  "suggestion": "Custodian Guard Sodality Beta advances toward obj_nml_1 (racing for it (enemy can have ~33 OC there before we arrive in 2 turns))",
+  "round": 1,
+  "player": 2
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r2_p1_charge_1_6",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c21/20261030_160613_r4c21_00__s7472_r2_p1_charge_1_6.json",
+  "a_did": "Beast Snagga Boyz declares a charge at Blade Champion Gamma + Custodian Guard Sodality Beta \u2014 targets picked a",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": [
+     "U_CUSTODIAN_GUARD_B"
+    ]
+   }
+  ],
+  "better_option": "Charge Custodian Guard Sodality Beta (5.2\" away, 72% chance)",
+  "E": -3.917,
+  "ci": [
+   -8.11,
+   0.28
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 4,
+  "chosen_option": "Charge Blade Champion Gamma (3.8\" away, 92% chance)",
+  "suggestion": "Beast Snagga Boyz declares a charge at Blade Champion Gamma + Custodian Guard Sodality Beta \u2014 targets picked after the roll: Blade Champion Gamma on 4+ (92%), Custodian Guard Sodality Beta on 6+ (72%), overwatch risk: 0.8 dmg",
+  "round": 2,
+  "player": 1
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r2_p1_movement_2_4",
+  "kind": "move",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c21/20261030_160613_r4c21_00__s7472_r2_p1_movement_2_4.json",
+  "a_did": "Burna Boyz Alpha advances toward obj_nml_1 (flipping it (enemy holds with OC 11), needs 6 more OC after this u",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_home_1 (moving to objective \u2014 worth ~5 VP)",
+  "E": -0.667,
+  "ci": [
+   -9.42,
+   8.09
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Advance obj_nml_1 (flipping it (enemy holds with OC 11), needs 6 more OC after this unit \u2014 worth ~5 VP)",
+  "suggestion": "Burna Boyz Alpha advances toward obj_nml_1 (flipping it (enemy holds with OC 11), needs 6 more OC after this unit)",
+  "round": 2,
+  "player": 1
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r2_p2_shooting_2_3",
+  "kind": "shoot",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c21/20261030_160613_r4c21_00__s7472_r2_p2_shooting_2_3.json",
+  "a_did": "Custodian Guard Sodality Delta shoots at Lootas Gamma \u2014 expected 0.9 dmg vs 9 HP (10% kill)",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "target": "U_BURNA_BOYZ_B"
+   }
+  ],
+  "better_option": "unlisted: Guardian Spear \u2013 Ranged \u2192 enemy Burna Boyz Beta",
+  "E": -3.75,
+  "ci": [
+   -8.92,
+   1.42
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Lootas Gamma (P1)",
+  "suggestion": "Custodian Guard Sodality Delta shoots at Lootas Gamma \u2014 expected 0.9 dmg vs 9 HP (10% kill)",
+  "round": 2,
+  "player": 2
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7",
+  "kind": "move",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r4c21/20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7.json",
+  "a_did": "Beast Snagga Boyz advances to attack Blade Champion Gamma (7.8\" away \u2014 closing to charge range (1.8\" after mov",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_nml_1",
+    "mode": "hold"
+   }
+  ],
+  "better_option": "Hold obj_nml_1 (on objective, OC needed \u2014 worth ~8 VP)",
+  "E": 2.0,
+  "ci": [
+   -4.12,
+   8.12
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Attack Blade Champion Gamma (closing to charge range (1.8\" after move))",
+  "suggestion": "Beast Snagga Boyz advances to attack Blade Champion Gamma (7.8\" away \u2014 closing to charge range (1.8\" after move))",
+  "round": 3,
+  "player": 1
  }
 ]
