@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Scout Squad Beta (P2)",
+ "created": "2026-10-30 06:36:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7441_r2_p1_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot the far Scout Squad Beta (10 HP, no rapid fire bonus) and not the 3-wound Chaplain on Bike inside 12 in, where rapid fire doubles the attacks. Fix: Compute the true kill probability from the wounds left. Value a kill on a unit that contests a held objective higher. Scale target_value by points per remaining wound, so wounded high-value characters score above healthy cheap squads. Add a bonus when the target is inside rapid fire range.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7441_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Scout Squad Beta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma shoots at Scout Squad Beta \u2014 expected 3.6 dmg vs 10 HP (36% kill)",
+ "verdict": "pending",
+ "version": 1
+}

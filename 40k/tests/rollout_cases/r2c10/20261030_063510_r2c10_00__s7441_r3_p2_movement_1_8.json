@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (flipping it (enemy holds with OC 2) \u2014 worth ~15 VP)",
+ "created": "2026-10-30 06:39:33",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7441_r3_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Grey Hunters on a normal move toward obj_home_1. A normal move of 7 in leaves them just short of the 3 in control range, so they do not flip it this turn. Fix: When a unit has [ASSAULT] weapons and the objective is within M+1 but beyond M of control range, prefer an advance. Do not credit charge_lane when the target is more than 12 in away after the move.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7441_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GREY_HUNTERS_A",
+  "choice": "pos:470,420",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Grey Hunters moves toward obj_home_1 (moving toward charge target Prosecutor Squad, obj: 10.4\" away)",
+ "verdict": "pending",
+ "version": 1
+}

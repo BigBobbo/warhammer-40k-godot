@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Beta (7.5\" away, 42% chance)",
+ "created": "2026-10-30 06:38:22",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7441_r2_p2_charge_2",
+ "note": "[LLM critic, medium conf] The AI charges 395 points of Terminators at a 7 wound Blade Champion that other units already engage, at 42 percent odds. The charge would leave the center objective it holds. Fix: Cap ch_damage at the target's remaining wounds. Subtract damage already committed by friendly units that have charged the same target. Scale ch_leave_objective by the OC the enemy has near the objective. Do not let the aggression term outweigh holding an objective that the unit would hand over.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7441_r2_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_TERMINATOR_ASSAULT_SQUAD_A",
+  "choice": "pos:490,1652",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Terminator Assault Squad declares charge against Blade Champion Beta (42% chance, 7.5\" away, expected 22.5 melee dmg vs 7 HP, overwatch risk: 0.4 dmg)",
+ "verdict": "bad",
+ "version": 1
+}
