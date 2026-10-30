@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Lootas Gamma (P1)",
+ "created": "2026-10-30 16:16:50",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7463_r2_p2_shooting_2",
+ "note": "[LLM critic, medium conf] The AI sent the big shoota at Lootas Gamma at extreme range for 0.2 expected damage and a 2% kill chance. The target_value of 18.51 outweighed the near-zero damage and kill chance. Fix: Multiply target_value by the real kill chance or expected-damage share. Penalise shots at the edge of weapon range. Add a rule that a weapon with near-zero effect should pick the target with the highest expected damage or kill chance.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7463_r2_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B_P2",
+  "choice": "desc:Big shoota \u2192 enemy Lootas Gamma (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta shoots at Lootas Gamma \u2014 expected 0.2 dmg vs 10 HP (2% kill); Battlewagon Beta \u2014 expected 0.5 dmg vs 7 HP (7% kill)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 21\"))",
+ "created": "2026-10-30 16:05:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7463_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Gretchin to a lone far-flank point at (40.0,8.0) and scored it only 1.06. It rejected Advance obj_center at 21.96 and Hold obj_home_1 at 16.32, so the move is a clear outlier. Fix: Reject any screen point more than about 12 in from the nearest friendly unit. When the override says stay with the army, prefer the nearest held or contested objective over a far screen point. Make the screen term depend on an actual enemy advance lane in round 1.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7463_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:1600,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 21\")",
+ "verdict": "bad",
+ "version": 1
+}

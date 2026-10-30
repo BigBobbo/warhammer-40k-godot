@@ -1,0 +1,182 @@
+[
+ {
+  "job": "20261030_160506_r4c12_00__s7463_r1_p1_movement_1_0",
+  "case": "20261030_160506_r4c12_00__s7463_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent the Burna Boyz to a backfield screen spot with no enemy near it. It rejected the centre advance, which scored 26.7 against 8.5.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "priority_assets",
+   "seeds": "7463",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160506_r4c12_00"
+ },
+ {
+  "job": "20261030_160506_r4c12_00__s7463_r1_p1_movement_2_1",
+  "case": "20261030_160506_r4c12_00__s7463_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Gretchin to a lone far-flank point at (40.0,8.0) and scored it only 1.06. It rejected Advance obj_center at 21.96 and Hold obj_home_1 at 16.32, so the move is a clear outlier.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "priority_assets",
+   "seeds": "7463",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160506_r4c12_00"
+ },
+ {
+  "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_1_2",
+  "case": "20261030_160506_r4c12_00__s7463_r1_p2_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_KOMMANDOS_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Kommandos walk to a home objective that is already held with 20 OC. The AI rejects an Advance to obj_center by 0.11 points even though it values obj_center at about 7 VP.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "priority_assets",
+   "seeds": "7463",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160506_r4c12_00"
+ },
+ {
+  "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_2_3",
+  "case": "20261030_160506_r4c12_00__s7463_r1_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI chose a flat 8.0 'screen' score over objective moves that score 22 to 28. The screen option has no threat, distance or objective terms, so it cannot be compared fairly.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "priority_assets",
+   "seeds": "7463",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160506_r4c12_00"
+ },
+ {
+  "job": "20261030_160506_r4c12_00__s7463_r2_p1_movement_2_4",
+  "case": "20261030_160506_r4c12_00__s7463_r2_p1_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The unit screened a far-corner point and gave up Advance obj_center, which scored 22.56 against 0.88 for the screen. The screen option's score is built from terms that do not compete with the objective terms.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "priority_assets",
+   "seeds": "7463",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160506_r4c12_00"
+ },
+ {
+  "job": "20261030_160506_r4c12_00__s7463_r2_p1_charge_1_5",
+  "case": "20261030_160506_r4c12_00__s7463_r2_p1_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_B",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a 160-point Battlewagon on a 17% charge at a 4 wound Mek. It scores positive only because of large bonus terms. A failed charge leaves the wagon exposed to heavy shooting.",
+  "better_option": "Charge Lootas Alpha (4.5\" away, 8% chance)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "priority_assets",
+   "seeds": "7463",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160506_r4c12_00"
+ },
+ {
+  "job": "20261030_160506_r4c12_00__s7463_r2_p2_shooting_2_6",
+  "case": "20261030_160506_r4c12_00__s7463_r2_p2_shooting_2_6.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_B_P2",
+    "target": "U_GRETCHIN_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent the big shoota at Lootas Gamma at extreme range for 0.2 expected damage and a 2% kill chance. The target_value of 18.51 outweighed the near-zero damage and kill chance.",
+  "better_option": "Big shoota \u2192 enemy Gretchin (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "priority_assets",
+   "seeds": "7463",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160506_r4c12_00"
+ }
+]

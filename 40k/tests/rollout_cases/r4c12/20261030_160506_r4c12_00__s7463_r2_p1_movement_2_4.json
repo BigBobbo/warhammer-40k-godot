@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 10\"))",
+ "created": "2026-10-30 16:10:32",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7463_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] The unit screened a far-corner point and gave up Advance obj_center, which scored 22.56 against 0.88 for the screen. The screen option's score is built from terms that do not compete with the objective terms. Fix: When the override rejects a far objective, fall back to the next best objective option, not a screen. Scale screen_distance by the real move distance. Do not send screens to points farther than one move from the unit's current position unless an enemy threat is there.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7463_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "pos:1600,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha screens at (1600,320) \u2014 backfield gap (nearest friendly: 10\")",
+ "verdict": "bad",
+ "version": 1
+}
