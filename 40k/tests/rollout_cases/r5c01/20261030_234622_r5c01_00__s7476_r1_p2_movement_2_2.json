@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~31 OC there before we arrive in 3 turns), needs 2 more OC after this unit \u2014 worth ~9 VP)",
+ "created": "2026-10-30 23:46:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7476_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a lone Custodian Guard Sodality Beta 30 in towards obj_center, where it expects about 31 enemy OC before it arrives. Taking obj_nml_2 is closer and safer. Fix: If the AI's own estimate says the enemy out-OCs us at arrival, cut that objective's expected_vp sharply. Prefer a nearer objective that friendly units can support. Make contest_race scale with the enemy OC surplus, not a flat amount.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7476_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta advances toward obj_center (racing for it (enemy can have ~31 OC there before we arrive in 3 turns), needs 2 more OC after this unit)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,182 @@
+[
+ {
+  "job": "20261030_234622_r5c01_00__s7476_r1_p1_movement_2_0",
+  "case": "20261030_234622_r5c01_00__s7476_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Gamma holds Home 1 even though Alpha and Beta have already left for other objectives. The hold override says other units here are freed to move, but Gamma is the last unit left. The AI turns down a real move to the center worth about 12 VP.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~12 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7476",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234622_r5c01_00"
+ },
+ {
+  "job": "20261030_234622_r5c01_00__s7476_r1_p2_movement_1_1",
+  "case": "20261030_234622_r5c01_00__s7476_r1_p2_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A_P2",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "A lone 4-model, 4-wound Prosecutor Squad advances to an objective the enemy reaches first, while the AI rejected obj_center for the same reason.",
+  "better_option": "Hold obj_home_2 (on objective, OC needed)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7476",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234622_r5c01_00"
+ },
+ {
+  "job": "20261030_234622_r5c01_00__s7476_r1_p2_movement_2_2",
+  "case": "20261030_234622_r5c01_00__s7476_r1_p2_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent a lone Custodian Guard Sodality Beta 30 in towards obj_center, where it expects about 31 enemy OC before it arrives. Taking obj_nml_2 is closer and safer.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7476",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234622_r5c01_00"
+ },
+ {
+  "job": "20261030_234622_r5c01_00__s7476_r2_p1_shooting_1_3",
+  "case": "20261030_234622_r5c01_00__s7476_r2_p1_shooting_1_3.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "target": "U_PROSECUTORS_A_P2"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI shot at a 15 HP Custodian Guard unit for 0.9 expected damage and a 6% kill chance. It ignored the Prosecutor Squad, which would take about 1.9 expected damage.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Prosecutor Squad (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7476",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234622_r5c01_00"
+ },
+ {
+  "job": "20261030_234622_r5c01_00__s7476_r2_p2_movement_2_4",
+  "case": "20261030_234622_r5c01_00__s7476_r2_p2_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gamma, OC 9, advances alone toward the centre, which holds enemy OC 11. It takes 2 turns to arrive and cannot flip the objective alone. The expected_vp of 14.5 is credited to a flip that this unit cannot make.",
+  "better_option": "Advance obj_center (flipping it (enemy holds with OC 11), needs 12 more OC after this unit \u2014 worth ~14 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7476",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234622_r5c01_00"
+ },
+ {
+  "job": "20261030_234622_r5c01_00__s7476_r2_p2_shooting_1_5",
+  "case": "20261030_234622_r5c01_00__s7476_r2_p2_shooting_1_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "target": "U_ALLARUS_CUSTODIANS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot at enemy Beta for 1.78 expected damage and a 14% kill chance. Allarus is inside half range, but its score shows the same 1.78 damage, so Rapid Fire 2 looks uncounted.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Allarus Custodians (P1)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7476",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234622_r5c01_00"
+ },
+ {
+  "job": "20261030_234622_r5c01_00__s7476_r3_p2_movement_2_6",
+  "case": "20261030_234622_r5c01_00__s7476_r3_p2_movement_2_6.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 2,
+  "summary": "The AI sends Gamma alone toward a center it cannot flip this turn. Gamma has 9 OC against 11, so it ends in charge range of two enemy units.",
+  "better_option": "Move obj_home_2 (moving to objective)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7476",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234622_r5c01_00"
+ }
+]

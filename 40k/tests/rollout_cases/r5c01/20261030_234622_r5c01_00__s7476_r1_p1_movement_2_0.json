@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_1 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "created": "2026-10-30 23:46:43",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7476_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] Gamma holds Home 1 even though Alpha and Beta have already left for other objectives. The hold override says other units here are freed to move, but Gamma is the last unit left. The AI turns down a real move to the center worth about 12 VP. Fix: Only force a hold on an objective when an enemy could reach it next turn, or when no other unit would be left to contest it. In round 1, with all enemies more than 24 in away, let battleline units leave a home objective. Home objectives stay held by default in the 11th edition rules until an enemy unit arrives in range.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7476_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:430,420",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma holds obj_home_1 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "verdict": "bad",
+ "version": 1
+}
