@@ -1,0 +1,75 @@
+{
+ "key": "reinforce_insurance",
+ "angle": "game",
+ "root_cause": "At s7437 r2 (P1 Custodes, Reconnaissance Sweep primary: 3 quarters 3 VP / 4 quarters 6 VP at the END of every turn) P1's other units covered quarters 0 and 1; Beta entering quarter 2 makes the 3-quarter tier (+3 VP this turn, again every turn it stays). The planner's only quarter term was a flat secondary_spread 4.2 (6.0 x 0.7) on the walking end point, which (a) is the same for any uncovered quarter whatever the card pays and (b) is also given to points within 6\" of the centre that never count. Three things then sank Beta's obj_nml_2 candidate (30.7 vs 48.2 for reinforcing the held centre): it was costed as a 3-turn objective race (contest_race -13.5, distance_penalty -5.4) although the quarter pays this turn regardless of the objective; RACE-1 refused the free Advance because its test counts any ranged weapon in range as a shooting cost, ignoring [ASSAULT] (Guardian Spear), and a walk stops on the quarter line; and pass-2 RACE-SKIP vetoed the candidate as a lost objective race. A/B replay (2 seeds): B gained 'quarters +3 (best tier)' at R2 end of turn in both seeds, A in neither (A only reached it at R3 in one seed). Finding 2 (s7418 r1 P2 Mek B) has drifted on the current AI: its top-scored candidate is already Advance obj_center (16.5), but it is assigned to obj_home_2 by a later pass - not a quarter mechanism, so this design does not touch it.",
+ "fix_summary": "QUARTER-VP (FIX_REINFORCE_INSURANCE=1): when the player's cards pay for table quarters (primary 'quarters' eot rules; Engage on All Fronts 3/5), each movement candidate gets quarter_vp = (tier VP with this unit's end-of-move quarter added - tier VP of the quarters our OTHER units cover) x (1 + 0.5 x own turns left after this one) x 3.5 score/VP, replacing the flat secondary_spread bonus. Presence is tested like the scorer: footprint wholly inside one quarter, more than 6\" from the centre. A holder is tested where it stands, so a unit giving the tier keeps that value for staying (durable). A long-trip Normal move that stops short of an uncovered quarter becomes an Advance when the Advance end point reaches it and Advancing costs nothing (RACE-1 test with [ASSAULT] ranged weapons not counted as a shooting cost; no enemy within M+12\"). In pass 2 a candidate that takes an uncovered quarter this turn is not vetoed by RACE-SKIP / TOO-LATE (they judge the objective; the race loss stays priced in contest_race), and a second unit is not sent into a quarter another unit already takes when without its quarter_vp it is below its best other option. Log tag [REINFORCE_INSURANCE]. 0 = base behaviour exactly (the old flat bonus comes back).",
+ "param": "FIX_REINFORCE_INSURANCE",
+ "test_file": "40k/tests/unit/test_ai_fix_reinforce_insurance.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: test_ai_fix_reinforce_insurance 9/0 (BASE copy: 6 passed, 3 failed). All listed tests pass: rollout_override 11, e_race_tuning 8, race_army 3, advance_probability 8, objective_race 16, plan_diminishing_returns 4, critic_round2 7, 11e_charge_ev_primary_cap 26, movement_decisions 36, plan_earmarks 35, fix_held_dup 14, fix_lone_trip 8, fix_charge_ev 11, fix_far_trip 11, fix_overcommit 8, fix_keeper_release 22, survival_assessment 23, multi_phase_planning 34 (all 0 failed). Known base failures unchanged: test_ai_threat_range_awareness 34/3, tests/test_ai_objective_assignment_fixes 6/1.",
+ "decision_checks": [
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4",
+   "base_choice": "Custodian Guard Beta moves toward obj_center (reinforcing it, we hold with OC 6, enemy ~7) - score 48.2; obj_nml_2 walk 30.7 (secondary_spread 4.2, contest_race -13.5)",
+   "fix_choice": "Custodian Guard Beta ADVANCES toward obj_nml_2 (obj_nml_2 candidate 52.8 with quarter_vp +26.2; RACE-SKIP exemption logged)",
+   "changed": true,
+   "measured": "clear: +7.75 [1.97, 13.53] (12 seeds), +4.36 over 36, full game +19.0 [3.33, 34.67]",
+   "judgement": "Matches the alternative exactly (same unit, obj_nml_2, Advance). Seed 5001 with the fix: value 7.0 = branch B's 7.0 (A 14.0); P1 scored 'quarters +3' at R2 end of turn like B."
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r1_p2_movement_1_0",
+   "base_choice": "Mek Beta moves toward obj_home_2 (reinforcing, 1 unit committed) - drifted from the case's obj_nml_2; its top candidate is already Advance obj_center 16.5",
+   "fix_choice": "Mek Beta moves toward obj_home_2 (unchanged; no [REINFORCE_INSURANCE] fire in the game)",
+   "changed": false,
+   "measured": "clear: +2.67 [0.36, 4.97] (36 seeds, measured on the round-1 AI)",
+   "judgement": "Not changed. Different mechanism (obj_center is the centre - never a quarter; the override comes from a later assignment pass), and the case has drifted on this AI."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_014802_sweep2_06__s7417_r1_p2_movement_1_0",
+   "base_choice": "Mek Beta holds obj_home_2",
+   "fix_choice": "Mek Beta holds obj_home_2",
+   "changed": false,
+   "measured": "harmful (-5.42) for Move obj_home_2 vs reinforcing centre",
+   "judgement": "No change (P2 card Consecrate - no quarter card, fix inactive). Consistent."
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+   "base_choice": "Custodian Guard Beta moves toward obj_center (drifted from obj_nml_2)",
+   "fix_choice": "Custodian Guard Beta moves toward obj_center",
+   "changed": false,
+   "measured": "harmful (-6.83) for Advance obj_center",
+   "judgement": "No change (Locate and Deny - no quarter card). Does not move toward the harmful Advance."
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r2_p2_movement_2_2",
+   "base_choice": "Mek Beta moves toward obj_center (reinforcing, 1 unit committed)",
+   "fix_choice": "Mek Beta moves toward obj_center",
+   "changed": false,
+   "measured": "harmful (-3.67) for Move obj_home_2",
+   "judgement": "No change although P2 plays Reconnaissance Sweep: one [REINFORCE_INSURANCE] RACE-SKIP exemption logged for Mek B's obj_nml_1 candidate (+21.0 quarter_vp, score 28.9), but the centre still won. Consistent."
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4",
+   "base_choice": "Stormboyz advance to attack Blade Champion Gamma",
+   "fix_choice": "Stormboyz advance to attack Blade Champion Gamma",
+   "changed": false,
+   "measured": "harmful (-8.33) for Hold obj_center",
+   "judgement": "No change (Recon Sweep active, no fire). The design never vetoes charges/attacks, so the -8.33 guardrail is respected."
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r3_p2_movement_2_7",
+   "base_choice": "Burna Boyz Alpha screens (drifted from Advance obj_nml_2)",
+   "fix_choice": "Burna Boyz Alpha screens",
+   "changed": false,
+   "measured": "neutral (-0.25) for Advance obj_center",
+   "judgement": "No change. Consistent."
+  }
+ ],
+ "fires": "Counted from full game stdout (both players, decision round to end of next round, 1 seed each): s7437 r2 finding - 1 decision (3 lines: Advance pace, RACE-SKIP exemption, quarter claim) for U_CUSTODIAN_GUARD_B at R2 P1; s7418 r2 guardrail - 1 line (RACE-SKIP exemption on a candidate that then lost to the centre, decision unchanged); s7417 r1, s7431 r3, s7418 r1, s7418 r3, s7438 r3 - 0. The quarter_vp score term itself (no log line) is active only for a player whose primary is Reconnaissance Sweep or who holds Engage on All Fronts.",
+ "risks": "1) Rounds 3-5: the term rewards keeping the unit that makes the tier inside its quarter (hold candidate valued where it stands), so a quarter-holder may decline to leave for an objective or a charge-lane move worth less than ~3.5 x tier VP x persistence (persistence falls from 2.5 at R2 to 1.0 at R5, so the pull fades late, when objectives also matter most). It never vetoes charges or the fight phase (s7418 r3 guardrail unchanged). 2) Secondary cards: it only fires for quarter cards; it replaces the flat 6.0 Engage on All Fronts bonus with the 11e tiers (3 quarters 3, 4 quarters 5), so at 0-1 quarters covered a 2nd quarter now gets 0 instead of 6 - EoAF play will spread less eagerly until 2 quarters are already held; cards needing units across the table (Centre Ground, Behind Enemy Lines) are untouched. Units no longer get the old 4.2 for heading into a point within 6\" of the centre. 3) RACE-SKIP / TOO-LATE exemption: a unit can now walk/Advance toward an objective the enemy will out-OC (at s7437: ~32 Ork OC near obj_nml_2), for the quarter; if it dies there the presence lasts one turn only (persistence assumes 0.5 per later turn). LONE-TRIP / FAR-TRIP / DIM-RETURNS still veto. 4) Presence is approximated from the centroid + footprint along a straight line; terrain/pathing may stop the unit short (then it scores like the walk did). 5) The Advance is chosen only when RACE-1's charge test passes (no enemy within M+12\"), so it never gives up a possible charge; [ASSAULT] detection is by special_rules text. 6) Over-claim: two units entering the same quarter are handled only in pass 2 (claim check); OBJ-ASSIGN-1 / backfill passes do not know the claim. 7) Only one finding position changed; the effect is narrow (1 of 25 bench pairings has Recon Sweep, plus EoAF draws), so a full-game bench needs many Recon Sweep games to measure it.",
+ "drop_reason": ""
+}

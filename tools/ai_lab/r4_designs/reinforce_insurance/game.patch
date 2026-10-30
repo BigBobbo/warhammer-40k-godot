@@ -1,0 +1,478 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..8f17bde 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1626,6 +1626,34 @@ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+ # target without it. 0 = V6 behaviour (every declared charger counts).
+ # Off since the round-1 bundle test (2026-10-30, vs V6, 3 fixtures): with it +0.97 [-1.17, +3.12], without it +1.58 [-0.27, +3.42]. Kept for a later test.
+ const FIX_CHARGE_EV: float = 0.0
++# Movement plan (REINFORCE_INSURANCE / QUARTER-VP): 1 = a table quarter is
++# priced at the VP the player's cards pay for it, at the pace the unit would
++# travel. A quarter-presence card (Reconnaissance Sweep primary: 3 quarters
++# 3 VP, 4 quarters 6 VP; Engage on All Fronts secondary) pays at the END of
++# every turn the unit stays there, so a candidate whose end-of-move point gives
++# presence in a quarter no other unit of ours covers gets the tier VP it adds
++# (QUARTER_VP_WEIGHT score points per VP, this turn in full and each later turn
++# at QUARTER_VP_LATER_TURN_SHARE) — in place of the flat 4.2 / 6.0
++# secondary_spread bonus, which also went to points within 6" of the centre
++# (they never count) and to quarters already covered. A long trip whose Normal
++# move stops short of the quarter Advances when that costs nothing ([ASSAULT]
++# ranged weapons count as no cost: 11e lets them shoot after Advancing) and the
++# Advance reaches it. A unit holding the quarter that makes a tier keeps its
++# hold value too, so this does not pull units off objectives for presence
++# another unit gives. In pass 2 a second unit is not sent into a quarter one
++# unit already takes for the bonus alone. Custodian Guard Beta reinforced a
++# centre held with OC 6 instead of Advancing into the bottom-left quarter
++# toward obj_nml_2 — the Advance measured +4.36 VP over 36 seeds (+19.0 over
++# 12 full games), every gain from the 3-quarter tier at end of turn; walking
++# there stopped on the quarter line and measured -4.0 (LLM-critic cluster
++# reinforce_insurance). 0 = previous behaviour.
++const FIX_REINFORCE_INSURANCE: float = 1.0
++# QUARTER-VP: planner score points per VP of quarter presence (the plan's own
++# objective scale: obj_nml_2 at ~7 VP carried ~24 objective_priority).
++const QUARTER_VP_WEIGHT: float = 3.5
++# QUARTER-VP: share of the tier VP counted for each later turn the unit stays
++# (it can move on, die or be Battle-shocked).
++const QUARTER_VP_LATER_TURN_SHARE: float = 0.5
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -9242,6 +9270,71 @@ static func _keeper_release_threat(snapshot: Dictionary, ev: Dictionary, enemies
+ ## LONE-TRIP: a unit the enemy can wipe out once it stands alone — the fragile
+ ## rule _evaluate_position_threat already uses (T3 or less, or 1 wound per
+ ## model), or a lone CHARACTER (one model, no bodyguard, not a vehicle/monster).
++## QUARTER-VP (FIX_REINFORCE_INSURANCE): the quarter-presence tiers the
++## player's cards pay this turn, as groups of [{min, vp}] — a group pays its
++## best tier (exclusive_group). The primary's "quarters" rules (end of turn)
++## form one group; Engage on All Fronts (11e tactical: 3 quarters 3 VP,
++## 4 quarters 5 VP) another. [] = no card pays for quarters.
++static func _quarter_vp_groups(player: int) -> Array:
++	var groups: Array = []
++	var prim: Array = []
++	for rule in _get_primary_awareness(player).get("vp_rules", []):
++		if str(rule.get("type", "")) == "quarters" and str(rule.get("when", "eot")) == "eot":
++			prim.append({"min": int(rule.get("min", 3)), "vp": float(rule.get("vp", 0))})
++	if not prim.is_empty():
++		groups.append(prim)
++	if _get_secondary_awareness(player).get("spread_needed", false):
++		groups.append([{"min": 3, "vp": 3.0}, {"min": 4, "vp": 5.0}])
++	return groups
++
++## QUARTER-VP: VP the groups pay with `n` quarters covered.
++static func _quarter_vp_for(groups: Array, n: int) -> float:
++	var vp := 0.0
++	for g in groups:
++		var best := 0.0
++		for t in g:
++			if n >= int(t.min):
++				best = maxf(best, float(t.vp))
++		vp += best
++	return vp
++
++## QUARTER-VP: the quarter (0-3) a unit whose centroid stands at `pos` gives
++## presence in — every model wholly within one quarter and more than 6" from
++## the centre (SecondaryMissionManager._check_table_quarter_presence), with
++## the unit's footprint `r_px` (centroid to the farthest base edge) kept in
++## shape — or -1.
++static func _quarter_presence_at(pos: Vector2, r_px: float) -> int:
++	var mid := Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
++	if absf(pos.x - mid.x) <= r_px or absf(pos.y - mid.y) <= r_px:
++		return -1  # straddles a quarter line
++	if pos.distance_to(mid) - r_px <= 6.0 * PIXELS_PER_INCH:
++		return -1  # within 6" of the centre
++	if pos.x < r_px or pos.y < r_px or pos.x > BOARD_WIDTH_PX - r_px or pos.y > BOARD_HEIGHT_PX - r_px:
++		return -1
++	return _get_table_quarter(pos)
++
++## QUARTER-VP: centroid to the farthest alive model's base edge, in px.
++static func _quarter_footprint_px(unit: Dictionary, centroid: Vector2) -> float:
++	var r := 0.0
++	for model in _get_alive_models(unit):
++		var mp = _get_model_position(model)
++		if mp == Vector2.INF:
++			continue
++		r = maxf(r, centroid.distance_to(mp) + (float(model.get("base_mm", 32)) / 2.0) * (PIXELS_PER_INCH / 25.4))
++	return r
++
++## QUARTER-VP: Advancing costs this unit nothing this turn — RACE-1's long-trip
++## test (no enemy within charge reach, nothing to shoot), except that [ASSAULT]
++## ranged weapons (11e: they shoot after Advancing) are no shooting given up.
++static func _quarter_advance_free(unit: Dictionary, enemies: Dictionary, centroid: Vector2) -> bool:
++	var gives_up_shooting := false
++	for w in unit.get("meta", {}).get("weapons", []):
++		if str(w.get("type", "")).to_lower() == "ranged" \
++				and not ("assault" in str(w.get("special_rules", "")).to_lower()):
++			gives_up_shooting = true
++			break
++	return _should_unit_advance_long_trip(unit, gives_up_shooting, _get_max_weapon_range(unit), enemies, centroid)
++
+ static func _lone_trip_fragile(unit: Dictionary) -> bool:
+ 	if unit.is_empty():
+ 		return false
+@@ -9322,6 +9415,13 @@ static func _assign_units_to_objectives(
+ 			inc_obj_id, before_need, obj_oc_remaining[inc_obj_id], incoming_oc[inc_obj_id],
+ 			", ".join(incoming_names[inc_obj_id])])
+ 
++	# QUARTER-VP (FIX_REINFORCE_INSURANCE): the quarter tiers our cards pay
++	# this turn, and how many own end-of-turns are left to score them.
++	var qv_groups: Array = _quarter_vp_groups(player) if get_param("FIX_REINFORCE_INSURANCE", FIX_REINFORCE_INSURANCE) >= 0.5 else []
++	var qv_on: bool = not qv_groups.is_empty()
++	var qv_persist: float = 1.0 + get_param("QUARTER_VP_LATER_TURN_SHARE", QUARTER_VP_LATER_TURN_SHARE) \
++			* float(maxi(0, MAX_BATTLE_ROUNDS_AI - battle_round))
++
+ 	# Build all (unit, objective) candidate pairs with scores
+ 	var candidates = []
+ 	for unit_id in movable_units:
+@@ -9361,6 +9461,22 @@ static func _assign_units_to_objectives(
+ 				and "BEGIN_ADVANCE" in move_types \
+ 				and _should_unit_advance_long_trip(unit, has_ranged, max_weapon_range, enemies, centroid)
+ 
++		# QUARTER-VP: the quarters our OTHER units cover, what they pay, this
++		# unit's footprint and whether an Advance costs it nothing this turn.
++		var qv_others: Array = [false, false, false, false]
++		var qv_base_n := 0
++		var qv_r_px := 0.0
++		var qv_adv_free := false
++		if qv_on:
++			var qv_units: Dictionary = snapshot.get("units", {}).duplicate()
++			qv_units.erase(unit_id)
++			qv_others = _get_covered_quarters(qv_units, player)
++			for qv_c in qv_others:
++				qv_base_n += 1 if qv_c else 0
++			qv_r_px = _quarter_footprint_px(unit, centroid)
++			qv_adv_free = "BEGIN_ADVANCE" in move_types and not unit.get("flags", {}).get("battle_shocked", false) \
++					and _quarter_advance_free(unit, enemies, centroid)
++
+ 		var race_same_turn: bool = get_param("PLAN_RACE_SAME_TURN", 1.0) >= 0.5
+ 		for eval in obj_evaluations:
+ 			var obj_pos = eval.position
+@@ -9648,7 +9764,7 @@ static func _assign_units_to_objectives(
+ 						score += _t_add(score_terms, "primary_awareness", primary_awareness.central_bonus)
+ 				if primary_awareness.get("hold_home_required", false) and eval.get("is_home", false):
+ 					score += _t_add(score_terms, "primary_awareness", 3.0)
+-				if primary_awareness.get("quarters", false):
++				if primary_awareness.get("quarters", false) and not qv_on:  # QUARTER-VP prices it below
+ 					var pr_covered = _get_covered_quarters(snapshot.get("units", {}), player)
+ 					var pr_quarter = _get_table_quarter(estimated_dest)
+ 					if not pr_covered[pr_quarter]:
+@@ -9711,7 +9827,7 @@ static func _assign_units_to_objectives(
+ 						score += _t_add(score_terms, "secondary_center", center_bonus * 0.2 * (1.0 - (dest_dist_to_center - 6.0) / 6.0))
+ 
+ 				# Engage on All Fronts: bonus for moving into uncovered table quarters
+-				if sec_awareness.get("spread_needed", false):
++				if sec_awareness.get("spread_needed", false) and not qv_on:  # QUARTER-VP prices it below
+ 					var covered = _get_covered_quarters(snapshot.get("units", {}), player)
+ 					var dest_quarter = _get_table_quarter(estimated_dest)
+ 					if not covered[dest_quarter]:
+@@ -9807,7 +9923,41 @@ static func _assign_units_to_objectives(
+ 			if float(plan_bias.get("bonus", 0.0)) != 0.0:
+ 				score += _t_add(score_terms, "plan_earmark", float(plan_bias["bonus"]))
+ 
++			# QUARTER-VP (FIX_REINFORCE_INSURANCE): the tier VP this candidate's
++			# end-of-move point adds when it gives presence in a quarter no other
++			# unit of ours covers (a holder: where it stands). A long trip whose
++			# Normal move stops short of such a quarter Advances into it when the
++			# Advance costs nothing (see _quarter_advance_free).
++			var qv_q := -1
++			var qv_score := 0.0
++			if qv_on and not unit.get("flags", {}).get("battle_shocked", false):
++				var qv_end: Vector2 = centroid if already_on_obj else estimated_dest
++				qv_q = _quarter_presence_at(qv_end, qv_r_px)
++				if (qv_q < 0 or qv_others[qv_q]) and action == "move" and qv_adv_free \
++						and gap_in > move_inches and dist_px > move_px_cap:
++					var qv_adv_end: Vector2 = centroid + move_direction * minf(
++						(move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES)) * PIXELS_PER_INCH, dist_px)
++					var qv_aq := _quarter_presence_at(qv_adv_end, qv_r_px)
++					if qv_aq >= 0 and not qv_others[qv_aq] \
++							and _quarter_vp_for(qv_groups, qv_base_n + 1) > _quarter_vp_for(qv_groups, qv_base_n):
++						qv_q = qv_aq
++						action = "advance"
++						reason = "advancing into an uncovered table quarter"
++						print("AIDecisionMaker: [REINFORCE_INSURANCE] %s -> %s: a Normal move stops short of table quarter %d, an Advance (no shooting/charge given up) reaches it — advancing" % [
++							unit_id, obj_id, qv_aq])
++				if qv_q >= 0 and not qv_others[qv_q]:
++					var qv_gain := _quarter_vp_for(qv_groups, qv_base_n + 1) - _quarter_vp_for(qv_groups, qv_base_n)
++					if qv_gain > 0.0:
++						qv_score = qv_gain * qv_persist * get_param("QUARTER_VP_WEIGHT", QUARTER_VP_WEIGHT)
++						score += _t_add(score_terms, "quarter_vp", qv_score)
++					else:
++						qv_q = -1
++				else:
++					qv_q = -1
++
+ 			candidates.append({
++				"quarter_q": qv_q,  # QUARTER-VP: the uncovered quarter this candidate takes, -1 none
++				"quarter_score": qv_score,
+ 				"unit_id": unit_id,
+ 				"objective_id": obj_id,
+ 				"objective_pos": obj_pos,
+@@ -9974,6 +10124,15 @@ static func _assign_units_to_objectives(
+ 			# Will be assigned in pass 2
+ 			pass
+ 
++	# QUARTER-VP (FIX_REINFORCE_INSURANCE): quarter -> unit already taking it
++	# (a pass-1 holder that gives the presence counts as taking it).
++	var qv_claimed := {}
++	for qv_c in candidates:
++		if int(qv_c.get("quarter_q", -1)) >= 0 and qv_c.already_on_obj \
++				and str(assignments.get(qv_c.unit_id, {}).get("objective_id", "")) == str(qv_c.objective_id) \
++				and str(assignments.get(qv_c.unit_id, {}).get("action", "")) == "hold":
++			qv_claimed[int(qv_c.quarter_q)] = qv_c.unit_id
++
+ 	# PASS 2: Assign remaining units to objectives that still need OC
+ 	# COORD-2: remember each unit's best candidate that was skipped because
+ 	# earlier movers already have it covered — so the redirect can be narrated.
+@@ -10251,6 +10410,22 @@ static func _assign_units_to_objectives(
+ 		if assigned_unit_ids.has(uid):
+ 			continue
+ 
++		# QUARTER-VP (FIX_REINFORCE_INSURANCE): one unit taking an uncovered
++		# quarter pays its tier; a second unit going there for that bonus does
++		# not. When another unit already takes this quarter and, without its
++		# quarter_vp, this candidate falls below the unit's best option outside
++		# that quarter, it waits for that option further down the list.
++		if int(cand.get("quarter_q", -1)) >= 0 and qv_claimed.has(int(cand.quarter_q)):
++			var qv_plain := float(cand.score) - float(cand.get("quarter_score", 0.0))
++			var qv_other_best := -INF
++			for qv_alt in candidates:
++				if qv_alt.unit_id == uid and int(qv_alt.get("quarter_q", -1)) != int(cand.quarter_q):
++					qv_other_best = maxf(qv_other_best, float(qv_alt.score))
++			if qv_plain < qv_other_best:
++				print("AIDecisionMaker: [REINFORCE_INSURANCE] %s: not sending %s for table quarter %d — %s already takes it (%.1f without the quarter vs %.1f elsewhere)" % [
++					oid, uid, int(cand.quarter_q), str(qv_claimed[int(cand.quarter_q)]), qv_plain, qv_other_best])
++				continue
++
+ 		var remaining = obj_oc_remaining.get(oid, 0)
+ 		if remaining <= 0:
+ 			if incoming_oc.get(oid, 0) > 0 and not blocked_best.has(uid):
+@@ -10264,13 +10439,21 @@ static func _assign_units_to_objectives(
+ 				print("AIDecisionMaker: [DIM-RETURNS] %s: not sending %s — with %d other objective(s) the plan already takes, %s adds only ~%.1f VP (primary cap / flat award)" % [
+ 					oid, uid, int(price.extra), oid, float(price.new_vp)])
+ 			continue
+-		if too_late.call(cand):
++		# QUARTER-VP: a candidate that takes an uncovered quarter THIS turn
++		# scores that quarter whether or not it wins the objective later, so
++		# TOO-LATE / RACE-SKIP (about the objective) do not veto it; the race
++		# loss is already priced in its contest_race term.
++		var qv_takes: bool = float(cand.get("quarter_score", 0.0)) > 0.0
++		if qv_takes and (too_late.call(cand) or race_hopeless.call(cand)):
++			print("AIDecisionMaker: [REINFORCE_INSURANCE] %s: %s goes for it although the objective race is lost / too late — it takes uncovered table quarter %d this turn (+%.1f quarter_vp, score %.1f)" % [
++				oid, uid, int(cand.quarter_q), float(cand.quarter_score), float(cand.score)])
++		if too_late.call(cand) and not qv_takes:
+ 			if not extra_obj_skipped.has(uid):
+ 				extra_obj_skipped[uid] = {"objective_id": oid, "too_late": int(cand.get("turns_to_reach", 1))}
+ 				print("AIDecisionMaker: [TOO-LATE] %s: not sending %s — it needs %d turns and would arrive after the last battle round" % [
+ 					oid, uid, int(cand.get("turns_to_reach", 1))])
+ 			continue
+-		if race_hopeless.call(cand):
++		if race_hopeless.call(cand) and not qv_takes:
+ 			if not extra_obj_skipped.has(uid):
+ 				extra_obj_skipped[uid] = {"objective_id": oid, "race_enemy_oc": int(cand.race_enemy_oc),
+ 					"turns": int(cand.get("turns_to_reach", 1))}
+@@ -10372,6 +10555,10 @@ static func _assign_units_to_objectives(
+ 				continue  # covered — this unit falls through to its next option
+ 
+ 		apply_capture_assignment.call(cand)
++		if int(cand.get("quarter_q", -1)) >= 0 and float(cand.get("quarter_score", 0.0)) > 0.0:
++			qv_claimed[int(cand.quarter_q)] = uid  # QUARTER-VP: this unit takes the quarter
++			print("AIDecisionMaker: [REINFORCE_INSURANCE] %s: %s takes uncovered table quarter %d (+%.1f quarter_vp, %s %s, score %.1f)" % [
++				oid, uid, int(cand.quarter_q), float(cand.quarter_score), str(cand.action).to_upper(), oid, float(cand.score)])
+ 
+ 	# KEEPER-RELEASE (FIX_KEEPER_RELEASE): a released keeper leaves its home
+ 	# objective for its target now — after the greedy pass, so every other
+diff --git a/40k/tests/unit/test_ai_fix_reinforce_insurance.gd b/40k/tests/unit/test_ai_fix_reinforce_insurance.gd
+new file mode 100644
+index 0000000..d0ffe4e
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_reinforce_insurance.gd
+@@ -0,0 +1,190 @@
++extends SceneTree
++
++# REINFORCE_INSURANCE / QUARTER-VP (FIX_REINFORCE_INSURANCE): a table quarter is
++# priced at the VP the player's cards pay for it, at the pace the unit would
++# travel. LLM-critic cluster reinforce_insurance (value-checked, 2026-10-30,
++# s7437 r2): under Reconnaissance Sweep (3 quarters 3 VP, 4 quarters 6 VP at the
++# end of every turn) Custodian Guard Beta reinforced a centre held with OC 6
++# instead of Advancing into the uncovered bottom-left quarter toward obj_nml_2.
++# The Advance measured +4.36 VP over 36 seeds, every gain from the 3-quarter
++# tier; walking there stopped on the quarter line (-4.0). The flat 4.2
++# secondary_spread bonus was the only quarter term, and its Guardian Spear
++# ([ASSAULT]) made RACE-1 refuse the free Advance.
++# Checks: the unit Advances into the uncovered quarter when its gun is
++# [ASSAULT]; nothing changes without a quarter card, when another unit already
++# covers the quarter, or when the Advance would give up shooting; a holder that
++# gives the 3rd quarter gets the quarter's value for staying; 0 = base.
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_reinforce_insurance.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const OBJ_X := Vector2(880, 1200)      # the centre: held by a locked unit
++const OBJ_SIDE := Vector2(390, 1740)   # bottom-left quarter (2), ~21" from beta
++const BETA_POS := Vector2(520, 900)    # top-left quarter (0), 11.7" from obj_x: in reach this turn
++const RECON_RULES := [
++	{"when": "eot", "type": "quarters", "min": 3, "vp": 3, "exclusive_group": "quarters_tier"},
++	{"when": "eot", "type": "quarters", "min": 4, "vp": 6, "exclusive_group": "quarters_tier"},
++]
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Table quarters priced at their card VP (REINFORCE_INSURANCE / QUARTER-VP) ===\n")
++	AIDecisionMaker._config_overrides["FIX_REINFORCE_INSURANCE"] = 1.0  # pin the fix on, whatever the default
++	test_advances_into_uncovered_quarter_instead_of_reinforcing()
++	test_no_quarter_card_no_change()
++	test_quarter_already_covered_no_change()
++	test_no_free_advance_no_change()
++	test_holder_giving_third_quarter_keeps_value()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_REINFORCE_INSURANCE")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++const ASSAULT_GUN := {"name": "spear", "type": "Ranged", "range": "24", "attacks": "2",
++	"ballistic_skill": "2", "strength": "4", "ap": "-1", "damage": "2", "special_rules": "assault, rapid fire 2"}
++
++# `n` models (OC `oc` each) in a row centred on `pos`.
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int, oc: int,
++		move: int = 8, keywords: Array = ["INFANTRY"], weapons: Array = []) -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 40,
++			"base_type": "circular", "base_dimensions": {},
++			"position": Vector2(pos.x + (i - (n - 1) / 2.0) * 50.0, pos.y), "wounds": 3, "current_wounds": 3})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 200, "stats": {"move": move, "toughness": 6, "save": 2,
++			"wounds": 3, "leadership": 6, "objective_control": oc}, "keywords": keywords, "weapons": weapons},
++		"models": models, "flags": {}}
++
++# Player 2: a locked 3-model OC 2 holder on the centre (6 OC); two locked
++# units covering the top quarters (0, 1); beta (3 x OC 3, M8, [ASSAULT] 24"
++# gun) in quarter 0 — 8.4" from the centre, 21" from obj_side (quarter 2).
++# Player 1: ~7 OC one move from the centre (a vehicle OC 5 and two OC 1
++# characters), all more than M+12" from beta and within its 24" range.
++func _board(beta_gun: Dictionary = ASSAULT_GUN) -> Dictionary:
++	var snap = {"battle_round": 2, "meta": {"battle_round": 2},
++		"board": {"objectives": [{"id": "obj_x", "position": OBJ_X, "zone": "no_mans_land"},
++			{"id": "obj_side", "position": OBJ_SIDE, "zone": "no_mans_land"}], "terrain_features": []},
++		"units": {}}
++	_add_unit(snap, "holder", 2, OBJ_X, 3, 2)
++	_add_unit(snap, "q0", 2, Vector2(300, 300), 3, 1)
++	_add_unit(snap, "q1", 2, Vector2(1450, 300), 3, 1)
++	_add_unit(snap, "beta", 2, BETA_POS, 3, 3, 8, ["INFANTRY"], [beta_gun])
++	_add_unit(snap, "wagon", 1, Vector2(1350, 1560), 1, 5, 10, ["VEHICLE"])
++	_add_unit(snap, "mek", 1, Vector2(1160, 1500), 1, 1, 6, ["INFANTRY", "CHARACTER"])
++	_add_unit(snap, "boss", 1, Vector2(1250, 1440), 1, 1, 6, ["INFANTRY", "CHARACTER"])
++	return snap
++
++func _plan(snap: Dictionary, movable_ids: Array, recon: bool = true) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p2 = {"card_name": "Reconnaissance Sweep", "objective_pressure": 0.0,
++		"enemy_home_bonus": 0.0, "central_bonus": 0.0, "hold_home_required": false, "kill_pressure": false,
++		"quarters": true, "active_rules": 2, "vp_rules": RECON_RULES.duplicate(true)} if recon else {}
++	AIDecisionMaker._secondary_awareness_p2 = {}
++	var friendlies = {}
++	var enemies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 2:
++			friendlies[uid] = snap.units[uid]
++		else:
++			enemies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, 2)
++	for ev in evals:
++		print("  %s: %s, ours %d, theirs %d, ~%d enemy OC one move away" % [ev.id, ev.state,
++			int(ev.friendly_oc), int(ev.enemy_oc), int(ev.get("projected_enemy_oc", 0))])
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, 2)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	for uid in movable_ids:
++		for c in AIDecisionMaker._last_movement_candidates.get(uid, []):
++			print("    %s -> %s: %s score %.1f (quarter_vp %.1f, secondary_spread %.1f), %d turn(s)" % [uid, c.objective_id,
++				c.action, float(c.score), float(c.get("score_terms", {}).get("quarter_vp", 0.0)),
++				float(c.get("score_terms", {}).get("secondary_spread", 0.0)), int(c.turns_to_reach)])
++	return plan
++
++func _does(plan: Dictionary, uid: String) -> String:
++	var a: Dictionary = plan.get(uid, {})
++	return "%s %s" % [str(a.get("action", "")), str(a.get("objective_id", ""))]
++
++func _with_fix(value: float, snap: Dictionary, movable_ids: Array, recon: bool = true) -> Dictionary:
++	AIDecisionMaker._config_overrides["FIX_REINFORCE_INSURANCE"] = value
++	var plan = _plan(snap, movable_ids, recon)
++	AIDecisionMaker._config_overrides["FIX_REINFORCE_INSURANCE"] = 1.0
++	return plan
++
++func test_advances_into_uncovered_quarter_instead_of_reinforcing() -> void:
++	print("\n--- Recon Sweep, 2 quarters covered; beta can reinforce the centre or Advance into quarter 2 ---")
++	var plan = _plan(_board(), ["beta"])
++	_assert(_does(plan, "beta") == "advance obj_side",
++		"beta Advances toward obj_side into the uncovered quarter (3rd quarter = 3 VP every turn): %s" % _does(plan, "beta"))
++	var term := 0.0
++	for c in AIDecisionMaker._last_movement_candidates.get("beta", []):
++		if c.objective_id == "obj_side":
++			term = float(c.get("score_terms", {}).get("quarter_vp", 0.0))
++	_assert(term > 20.0, "its obj_side candidate carries the quarter's card value (quarter_vp %.1f)" % term)
++
++func test_no_quarter_card_no_change() -> void:
++	print("\n--- no quarter card: the fix changes nothing ---")
++	var on = _plan(_board(), ["beta"], false)
++	var off = _with_fix(0.0, _board(), ["beta"], false)
++	_assert(_does(on, "beta") == _does(off, "beta"), "same plan with and without the fix (%s / %s)" % [_does(on, "beta"), _does(off, "beta")])
++
++func test_quarter_already_covered_no_change() -> void:
++	print("\n--- quarter 2 already covered by another unit of ours ---")
++	var snap = _board()
++	_add_unit(snap, "q2", 2, Vector2(300, 2150), 3, 1)
++	var on = _plan(snap, ["beta"])
++	_assert(not _does(on, "beta").begins_with("advance"), "beta does not Advance for a quarter we already have: %s" % _does(on, "beta"))
++	var term := 0.0
++	for c in AIDecisionMaker._last_movement_candidates.get("beta", []):
++		term = maxf(term, float(c.get("score_terms", {}).get("quarter_vp", 0.0)))
++	_assert(term == 0.0, "no candidate gets quarter_vp (max %.1f)" % term)
++
++func test_no_free_advance_no_change() -> void:
++	print("\n--- beta's gun cannot fire after Advancing and has targets in range ---")
++	var gun := ASSAULT_GUN.duplicate()
++	gun["special_rules"] = "rapid fire 2"
++	var on = _plan(_board(gun), ["beta"])
++	_assert(not _does(on, "beta").begins_with("advance"),
++		"beta does not give up its shooting to Advance into the quarter: %s" % _does(on, "beta"))
++
++func test_holder_giving_third_quarter_keeps_value() -> void:
++	print("\n--- a unit holding obj_side gives the 3rd quarter: staying is worth the quarter ---")
++	var snap = _board()
++	_add_unit(snap, "keeper", 2, OBJ_SIDE, 3, 1)
++	_plan(snap, ["keeper"])
++	var hold_term := 0.0
++	for c in AIDecisionMaker._last_movement_candidates.get("keeper", []):
++		if c.objective_id == "obj_side" and c.action == "hold":
++			hold_term = float(c.get("score_terms", {}).get("quarter_vp", 0.0))
++	_assert(hold_term > 20.0, "its hold candidate carries the quarter's value (quarter_vp %.1f)" % hold_term)
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_REINFORCE_INSURANCE = 0 ---")
++	var off = _with_fix(0.0, _board(), ["beta"])
++	_assert(not _does(off, "beta").begins_with("advance"), "with the fix off beta does not Advance into the quarter: %s" % _does(off, "beta"))
++	var spread := 0.0
++	var qv := 0.0
++	for c in AIDecisionMaker._last_movement_candidates.get("beta", []):
++		spread = maxf(spread, float(c.get("score_terms", {}).get("secondary_spread", 0.0)))
++		qv = maxf(qv, float(c.get("score_terms", {}).get("quarter_vp", 0.0)))
++	_assert(qv == 0.0 and spread > 0.0, "and the old flat secondary_spread bonus is back (spread %.1f, quarter_vp %.1f)" % [spread, qv])
