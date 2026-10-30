@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_2 (flipping it (enemy holds with OC 8) \u2014 worth ~2 VP)",
+ "created": "2026-10-30 16:06:40",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7458_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a lone one-model unit with OC 3 on a 3-turn trip to flip an objective held with OC 8. It cannot win that fight alone and arrives near game end. Fix: Do not allow a fallback objective when the unit's OC is below the enemy OC there and the trip takes 3 or more turns. Do not fall back to far objectives when closer friendly units already cover them. Prefer supporting or holding a nearby objective instead. Let two units share an objective when the first has only one wounded model.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7458_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:390,1700",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma advances toward obj_nml_2 (flipping it (enemy holds with OC 8))",
+ "verdict": "bad",
+ "version": 1
+}

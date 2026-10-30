@@ -1,0 +1,107 @@
+[
+ {
+  "job": "20261030_160353_r4c07_00__s7458_r1_p2_movement_2_0",
+  "case": "20261030_160353_r4c07_00__s7458_r1_p2_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI kept Gamma at home because it was the sole holder, but no enemy can threaten home in round 1, so the unit's turn is mostly wasted.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~9 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7458",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160353_r4c07_00"
+ },
+ {
+  "job": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1",
+  "case": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Alpha moves alone toward the centre, where two strong enemy units sit. The move ignores a counter-charge. It ends within 12 in of those units, with no support nearby.",
+  "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7458",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160353_r4c07_00"
+ },
+ {
+  "job": "20261030_160353_r4c07_00__s7458_r2_p2_charge_1_2",
+  "case": "20261030_160353_r4c07_00__s7458_r2_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "targets": [
+     "U_CUSTODIAN_GUARD_B"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Delta charges Custodian Guard Sodality Beta on a 28% chance. A failed charge costs almost nothing. A success leaves Delta alone against Beta and Blade Champion Gamma, with no support.",
+  "better_option": "",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7458",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160353_r4c07_00"
+ },
+ {
+  "job": "20261030_160353_r4c07_00__s7458_r3_p1_movement_2_3",
+  "case": "20261030_160353_r4c07_00__s7458_r3_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI sent a lone one-model unit with OC 3 on a 3-turn trip to flip an objective held with OC 8. It cannot win that fight alone and arrives near game end.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7458",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160353_r4c07_00"
+ }
+]
