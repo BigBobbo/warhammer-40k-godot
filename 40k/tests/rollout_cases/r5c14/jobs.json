@@ -1,0 +1,182 @@
+[
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r1_p2_movement_2_0",
+  "case": "20261030_234839_r5c14_00__s7489_r1_p2_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gamma advances toward obj_center because Beta already covers home. The advance blocks Gamma from shooting or charging, and the plan has no support or enemy threat check. The 'home' option scored 17.95 against the 17.56 chosen, so this is a close call.",
+  "better_option": "Advance obj_center is acceptable, but a normal move toward obj_center keeps shooting and charge options open.",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7489",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234839_r5c14_00"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r1_p1_movement_1_1",
+  "case": "20261030_234839_r5c14_00__s7489_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_MEK_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a 1 OC Mek to obj_nml_2 where Battlewagon Beta (OC5) already goes. The Mek adds little control, and the plan has no clear need for a second unit there.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~11 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7489",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234839_r5c14_00"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r1_p1_movement_2_2",
+  "case": "20261030_234839_r5c14_00__s7489_r1_p1_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_B",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Lootas Beta to a far backfield 'screen' spot and rejected obj_nml_2 and obj_center, which scored about 38. The text says 'staying with the army', but the move goes the wrong way.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~11 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7489",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234839_r5c14_00"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r2_p2_movement_2_3",
+  "case": "20261030_234839_r5c14_00__s7489_r2_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI chose a backfield screen with score 0.11. The 29.17 option, moving to obj_nml_1, was legal and clearly better. The screen sends the unit to a useless corner and wastes its turn.",
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7489",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234839_r5c14_00"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r2_p2_charge_1_4",
+  "case": "20261030_234839_r5c14_00__s7489_r2_p2_charge_1_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "Allarus declares a 17% charge on Stormboyz and takes overwatch for about 1.7 expected melee damage. Even a kill would not flip NML 2, because Battlewagon Beta (OC 5) would still hold it.",
+  "better_option": "unlisted: do not charge; hold position and keep Allarus Custodians for shooting and the next move",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7489",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234839_r5c14_00"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r2_p1_shooting_2_5",
+  "case": "20261030_234839_r5c14_00__s7489_r2_p1_shooting_2_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_A",
+    "target": "U_CUSTODIAN_GUARD_D"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot the Big shoota at Gamma. Expected damage is 0.05 for both targets, so the choice barely matters. It picked on a tiny margin that ignores range and objective value.",
+  "better_option": "Big shoota \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7489",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234839_r5c14_00"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r3_p1_movement_2_6",
+  "case": "20261030_234839_r5c14_00__s7489_r3_p1_movement_2_6.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_home_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Lootas Gamma toward obj_center under a 'hold' label, but the unit is 12.68 in away and cannot reach it this turn. Center is already held, and the move may put the Lootas within charge range of Custodians.",
+  "better_option": "Hold obj_home_1 (on objective, OC needed \u2014 worth ~13 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7489",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234839_r5c14_00"
+ }
+]
