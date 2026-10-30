@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (capturing it (enemy can bring ~9 OC next move), needs 2 more OC after this unit \u2014 worth ~10 VP)",
+ "created": "2026-10-30 16:03:57",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7453_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] Prosecutor Squad moves alone to obj_nml_1 and takes it, but a Custodian Guard unit near 31, 11 can reach it next turn and kill the 4 fragile models. The gain is small because the primary award is capped. Fix: Scale the threat penalty by the unit's points value and by how likely it is to die. For a low-durability unit, count the objective VP only if the unit survives the enemy turn. Also reduce expected_vp when the enemy can contest with more OC than the unit has.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7453_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A_P2",
+  "choice": "pos:1450,900",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad moves toward obj_nml_1 (capturing it (enemy can bring ~9 OC next move), needs 2 more OC after this unit, obj: 9.7\" away)",
+ "verdict": "pending",
+ "version": 1
+}

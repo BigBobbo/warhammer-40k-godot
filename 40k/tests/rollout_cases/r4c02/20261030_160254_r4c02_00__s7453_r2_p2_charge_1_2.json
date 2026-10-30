@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Beta (9.6\" away, 17% chance)",
+ "created": "2026-10-30 16:04:11",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7453_r2_p2_charge_1",
+ "note": "[LLM critic, low conf] Delta declares a 17% charge at a lone Blade Champion. A success would pull it off the center and deep into the enemy side, where it could be counter-charged. Fix: Multiply the target value by charge probability once, not also as a flat penalty. Add a penalty for leaving a held objective and for ending the charge far from friends. Require a minimum charge probability, such as 30%, before declaring a charge.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7453_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D_P2",
+  "choice": "pos:586,847",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_B,U_CUSTODIAN_GUARD_D",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta declares a charge at Blade Champion Beta + Custodian Guard Sodality Delta \u2014 targets picked after the roll: Blade Champion Beta on 10+ (17%), Custodian Guard Sodality Delta on 10+ (17%), overwatch risk: 0.2 dmg",
+ "verdict": "pending",
+ "version": 1
+}

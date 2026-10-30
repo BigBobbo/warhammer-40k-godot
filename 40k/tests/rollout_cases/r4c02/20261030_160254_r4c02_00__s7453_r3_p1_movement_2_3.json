@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_nml_2 (holding under threat (enemy OC 0 nearby) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 16:06:07",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7453_r3_p1_movement_2",
+ "note": "[LLM critic, low conf] The AI sends Allarus Custodians to obj_nml_2, which already has 8 OC and no enemy OC nearby. Allarus adds little control there, and it does not help the lost centre. Fix: Score an objective by the marginal OC a unit adds over the OC already holding it. Cut the hold bonus when other friendly units hold the objective safely. Add value for contesting objectives that the enemy holds with a close margin or nearby friendly support.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7453_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "pos:310,1500",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians holds obj_nml_2 (holding under threat (enemy OC 0 nearby))",
+ "verdict": "pending",
+ "version": 1
+}
