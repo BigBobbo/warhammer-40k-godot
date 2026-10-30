@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_1 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "created": "2026-10-30 02:29:54",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7426_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI kept the Ancient on home objective 1, which holds OC 14 and has no threat. The Ancient is slow (M5) and could advance toward the center objective, but it gets only 'stay_on_objective' +5. Fix: When the home objective has no enemy within threat range, pick the lowest-value or slowest unit as the holder only if one is needed. Free all other units with surplus OC to move. Scale stay_on_objective down when OC margin is large and no enemy can reach in 2 turns.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7426_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ANCIENT_IN_TERMINATOR_ARMOUR_A",
+  "choice": "pos:320,510",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Ancient in Terminator Armour holds obj_home_1 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "verdict": "bad",
+ "version": 1
+}

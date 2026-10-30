@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_nml_2 (sole holder \u2014 leaving would drop control \u2014 worth ~5 VP)",
+ "created": "2026-10-30 02:31:00",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7426_r1_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI holds obj_nml_2 and calls the unit the sole holder. Other Orks units seem to be in range, so the stay_on_objective bonus is probably overstated. Fix: Compute the stay bonus from the objective's OC with this unit removed. Give the bonus only if control would actually drop. Also add value for moving a high-OC battleline unit toward an uncontested central objective in round 1.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7426_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:660,1970",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz holds obj_nml_2 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

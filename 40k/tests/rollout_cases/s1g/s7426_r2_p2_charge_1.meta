@@ -1,0 +1,91 @@
+{
+	"created_at": 1793327766.40981,
+	"description": "LLM critic s7426_r2_p2_charge_1",
+	"game_state": {
+		"active_player": 2,
+		"battle_round": 2,
+		"game_id": "30551a09-f81b-ed39-b9d8-65ff476c57d6ff83",
+		"is_multiplayer": false,
+		"phase": 9,
+		"player1_difficulty": 3,
+		"player1_type": "AI",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 2,
+		"turn_number": 1
+	},
+	"preview": {
+		"battle_round": 2,
+		"players": {
+			"1": {
+				"alive_models": 52,
+				"alive_units": 11,
+				"cp": 3,
+				"detachment": "Assault Brethren + Saga of the Beastslayer + Stormlance Task Force",
+				"faction": "Space Wolves",
+				"points": 2000.0,
+				"primary_vp": 4,
+				"secondary_vp": 2,
+				"total_models": 59,
+				"total_units": 12,
+				"unit_names": [
+					"Logan Grimnar",
+					"Ancient in Terminator Armour",
+					"Terminator Assault Squad",
+					"Chaplain on Bike",
+					"Outrider Squad",
+					"Captain on Bike",
+					"Wulfen with Storm Shields",
+					"Grey Hunters",
+					"Scout Squad",
+					"Scout Squad",
+					"Thunderwolf Cavalry",
+					"Thunderwolf Cavalry"
+				],
+				"vp": 6
+			},
+			"2": {
+				"alive_models": 98,
+				"alive_units": 19,
+				"cp": 1,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 3,
+				"secondary_vp": 2,
+				"total_models": 106,
+				"total_units": 20,
+				"unit_names": [
+					"Beastboss",
+					"Boss Snikrot",
+					"Deffkilla Wartrike",
+					"Mek",
+					"Mek",
+					"Zodgrod Wortsnagga",
+					"Beast Snagga Boyz",
+					"Battlewagon",
+					"Battlewagon",
+					"Burna Boyz",
+					"Burna Boyz",
+					"Gretchin",
+					"Kommandos",
+					"Lootas",
+					"Lootas",
+					"Lootas",
+					"Stormboyz",
+					"Tankbustas",
+					"Warbikers",
+					"Warbikers"
+				],
+				"vp": 5
+			}
+		}
+	},
+	"save_info": {
+		"description": "LLM critic s7426_r2_p2_charge_1",
+		"save_type": "ai_test_case",
+		"tags": []
+	},
+	"type": "ai_test_case",
+	"version": "1.3.0"
+}

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Captain on Bike (4.0\" away, 83% chance)",
+ "created": "2026-10-30 02:36:06",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7426_r2_p2_charge_1",
+ "note": "[LLM critic, high conf] The AI sends 10 Lootas, a ranged unit with weak melee, to charge a Captain for 1.5 expected damage. This gives up their shooting and their objective position. Fix: Subtract the unit's expected shooting damage next turn when a charge would leave it engaged and unable to shoot. Gate ch_tie_up_shooter and ch_character on the charger having real melee damage, for example expected kill chance above 30%. Add a penalty for leaving a held objective.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7426_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A",
+  "choice": "pos:686,1669",
+  "decision": "charge",
+  "targets": "U_CAPTAIN_ON_BIKE_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha declares charge against Captain on Bike (83% chance, 4.0\" away, expected 1.5 melee dmg vs 6 HP, overwatch risk: 1.6 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

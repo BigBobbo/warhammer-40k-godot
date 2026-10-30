@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~58 OC there before we arrive in 2 turns), needs 15 more OC after this unit \u2014 quicker to reach than Logan Grimnar (10.9\" away, there in 2 turns at M6 vs 18.7\" away, there in 3 turns at M6) \u2014 worth ~7 VP)",
+ "created": "2026-10-30 02:37:25",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7426_r3_p1_movement_2",
+ "note": "[LLM critic, low conf] The AI advances the scouts 6 in plus a D6 toward obj_center. This gives up their missile launcher and sniper fire. It sends 4 OC into a crowded area, and it counted the threat as -8.63 and the race as -8.88. Fix: Subtract a lost-firepower term when a unit with heavy weapons chooses advance and not a normal move. Scale expected_vp by the chance the unit survives to hold the objective, and by the contest_race result.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7426_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_SCOUT_SQUAD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Scout Squad Beta advances toward obj_center (racing for it (enemy can have ~58 OC there before we arrive in 2 turns), needs 15 more OC after this unit \u2014 quicker to reach than Logan Grimnar (10.9\" away, there in 2 turns at M6 vs 18.7\" away, there in 3 turns at M6))",
+ "verdict": "pending",
+ "version": 1
+}
