@@ -1,0 +1,83 @@
+{
+ "key": "waaagh_advance_charge",
+ "angle": "root",
+ "root_cause": "The AI estimated 'can this unit still charge after it Advances?' with a text match (any ability whose name/description contains both 'advance' and 'charge'), used in three places: the melee chase gate (_melee_chase_gate: with the flag it ALWAYS Advances), _should_unit_advance (AI-GAP-4 'free Advance') and _should_unit_advance_long_trip (RACE-1 skips the 'enemy within M+12\" -> keep charge' check). Every Ork unit carries Waaagh!, whose text describes the riled-up effect (only active for one turn after the once-per-battle War Cry), and Custodes Swift Onslaught ('re-roll advance rolls / re-roll charge rolls') matched too - it does NOT grant advance-and-charge in 11e, contrary to the hint. ChargePhase only allows a charge after an Advance via EffectPrimitivesData.has_effect_advance_and_charge (flag, riled-up Waaagh!, detachment/stratagem/datasheet grants). So Ork melee units whose Normal move already reached charge range Advanced and lost the charge. Verified on s7468 (seeds 5001/5002): A (Advance) -> no charge in round 3; B (Normal move toward obj_nml_1) -> Stormboyz declared the charge on Prosecutor Squad in round 3 at 100% and killed it, then held obj_nml_1 (B mean +5.0 vs A 0.0 over 2 seeds).",
+ "fix_summary": "New const FIX_WAAAGH_ADVANCE_CHARGE (1.0) + helper _unit_can_charge_after_advance(unit): on = flags.effect_advance_and_charge OR EffectPrimitivesData.has_effect_advance_and_charge(unit) (the exact predicate ChargePhase enforces); off = old text match (exact base behaviour). The three call sites (melee chase gate, _should_unit_advance, _should_unit_advance_long_trip) use the helper; no position-specific overrides. A riled-up Ork unit (Waaagh! called) and real advance-and-charge grants (SW doctrines, stratagems) still Advance-and-charge. [WAAAGH_ADVANCE_CHARGE] log line printed where the old estimate would have differed.",
+ "param": "FIX_WAAAGH_ADVANCE_CHARGE",
+ "test_file": "40k/tests/unit/test_ai_fix_waaagh_advance_charge.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "New test 8/0 on fix, 4 passed/4 failed on BASE copy. All listed tests pass: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 22/0, survival_assessment 23/0, multi_phase_planning 34/0; threat_range_awareness 34/3 (known base failures).",
+ "decision_checks": [
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6",
+   "base_choice": "Stormboyz advances to attack Prosecutor Squad (0.0\" after move)",
+   "fix_choice": "Stormboyz moves (Normal) to attack Prosecutor Squad (0.0\" after move)",
+   "changed": true,
+   "measured": "clear +6.14 [3.08, 9.19] (alt: Normal move to obj_nml_1)",
+   "judgement": "matches intent: Normal move, charge kept (in the alt branch the unit also moved toward the Prosecutors/obj_nml_1, charged and killed them, then held obj_nml_1). 1-seed A value base 12 -> fix 16."
+  },
+  {
+   "job": "20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5",
+   "base_choice": "Beast Snagga Boyz advances to attack Allarus Custodians (3.5\" after move)",
+   "fix_choice": "Beast Snagga Boyz moves (Normal) to attack Allarus Custodians (3.5\" after move)",
+   "changed": true,
+   "measured": "clear +11.25 [5.09, 17.41] (alt: Normal move onto obj_center)",
+   "judgement": "partial match: mode matches (Normal move, keeps the charge; unit stays near obj_center which it was on), but it still attacks rather than holding obj_center. 1-seed A value base 5 -> fix 21."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7",
+   "base_choice": "Beast Snagga Boyz advances to attack Blade Champion Gamma (1.8\" after move)",
+   "fix_choice": "Beast Snagga Boyz moves (Normal) to attack Blade Champion Gamma",
+   "changed": true,
+   "measured": "neutral +2.00 [-4.12, 8.12] (alt Hold obj_nml_1)",
+   "judgement": "same root pattern (cluster hint lists it as same direction); not a harmful alternative. 1-seed A base -6 -> fix 5."
+  },
+  {
+   "job": "20261030_063415_r2c05_00__s7436_r3_p1_movement_2_4",
+   "base_choice": "Lootas Beta advances toward obj_nml_1 (flipping it)",
+   "fix_choice": "Lootas Beta moves (Normal) toward obj_center (reinforcing, 4.9\" away)",
+   "changed": true,
+   "measured": "neutral -5.25 [-17.51, 7.01] (alt Hold obj_center)",
+   "judgement": "CHANGED toward the neutral alternative's objective (move, not hold) via plan cascade: Lootas/Burna Boyz/Kommandos no longer get the false 'free Advance' / long-trip exemption, so the plan reassigned. Alternative is neutral (not harmful) but leans negative; 1-seed A base 0 -> fix -3. Flag for the judge."
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r1_p2_movement_1_2",
+   "base_choice": "Lootas Gamma advances toward obj_center (racing)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral -2.75 [-5.65, 0.15]",
+   "judgement": "consistent (no change)"
+  },
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r1_p2_movement_1_2",
+   "base_choice": "Lootas Alpha advances toward obj_center (racing)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral -0.58 [-3.91, 2.75]",
+   "judgement": "consistent (no change): round-1 race advances are untouched"
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r1_p2_movement_2_3",
+   "base_choice": "Beast Snagga Boyz advances toward obj_nml_1 (flipping)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral +0.08 [-4.26, 4.42]",
+   "judgement": "consistent (no change)"
+  },
+  {
+   "job": "20261030_063517_r2c11_00__s7442_r2_p2_movement_2_2",
+   "base_choice": "Terminator Assault Squad advances to attack Blade Champion Beta",
+   "fix_choice": "same (engine predicate grants advance-and-charge to that SW unit)",
+   "changed": false,
+   "measured": "neutral 0.00",
+   "judgement": "consistent: real advance-and-charge grants still Advance"
+  }
+ ],
+ "fires": "Counted from game stdout (patched rollout copy without --quiet) over the 8 one-round replays, both players: f1 17, f2 21, g1 14, g2 18, g3 2, g4 4, g5 2, g6 6 (~2-21 per 1-2 rounds). Two kinds: 'X normal-moves toward ENEMY / cannot charge after an Advance this turn - no free Advance' (chase gate / _should_unit_advance) and 'X keeps its charge - enemy within M+12\", no long-trip Advance' (RACE-1 check now applies to Orks: Lootas, Gretchin, Tankbustas, Burna Boyz, Battlewagons, Mek). Fires in the Space Wolves army too (Thunderwolf Cavalry, Outriders, Chaplain on Bike - text matched 'Combat Doctrines'/'Berserk Charge' while not active). Most fires are planner evaluations; they do not all change the executed move.",
+ "risks": "1) Every Ork (and SW) game: units within M+12\" of an enemy no longer take long-trip Advances and Ork melee units no longer Advance when a Normal move reaches 12\" - slower objective grabs in rounds 2-3 (e.g. s7436 Lootas Beta went to obj_center instead of Advancing to flip obj_nml_1). Over 5 rounds this gives more charges/shooting but may cost secondary cards needing units far across the table (Engage on All Fronts, Behind Enemy Lines). 2) The planner may change other units' assignments (cascade), as in s7436. 3) Round 1: enemies are usually beyond M+12\", so race Advances are unchanged (g3/g4/g5 unchanged). 4) The War Cry turn still Advances+charges (flag set by FactionAbilityManager), but the AI does not plan ahead for the War Cry turn. 5) Ork shooting units no longer Advance for free when not riled up, consistent with all other armies - but Lootas lose a tempo they used to take. Needs a full-game bench (Orks mirror + Custodes vs Orks).",
+ "drop_reason": ""
+}
