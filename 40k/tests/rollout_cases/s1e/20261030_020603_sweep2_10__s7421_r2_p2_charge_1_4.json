@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Gamma (8.7\" away, 28% chance)",
+ "created": "2026-10-30 02:10:14",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7421_r2_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges a 395-point squad at a 195-point Blade Champion with a 28% chance. The large order_round_aggression and ch_damage terms outweigh the real risk, and the unit would leave the held centre. Fix: Score charge damage from the real hit, wound and save maths against the target's invulnerable save. Add a penalty for leaving a held objective and for ending the charge within reach of other enemy melee units. Cap order_round_aggression when the success chance is below 30%.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7421_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_TERMINATOR_ASSAULT_SQUAD_A",
+  "choice": "pos:524,1015",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_C,U_CUSTODIAN_GUARD_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Terminator Assault Squad declares a charge at Blade Champion Gamma + Custodian Guard Sodality Beta \u2014 targets picked after the roll: Blade Champion Gamma on 9+ (28%), Custodian Guard Sodality Beta on 10+ (17%), overwatch risk: 0.4 dmg",
+ "verdict": "pending",
+ "version": 1
+}

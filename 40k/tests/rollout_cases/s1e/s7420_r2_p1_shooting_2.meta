@@ -1,0 +1,80 @@
+{
+	"created_at": 1793325795.70585,
+	"description": "LLM critic s7420_r2_p1_shooting_2",
+	"game_state": {
+		"active_player": 1,
+		"battle_round": 2,
+		"game_id": "8ff33841-f506-6247-9ae1-5afaddb9d17f452d",
+		"is_multiplayer": false,
+		"phase": 8,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": 3,
+		"player2_type": "AI",
+		"turn": 2,
+		"turn_number": 1
+	},
+	"preview": {
+		"battle_round": 2,
+		"players": {
+			"1": {
+				"alive_models": 56,
+				"alive_units": 12,
+				"cp": 1,
+				"detachment": "Assault Brethren + Saga of the Beastslayer + Stormlance Task Force",
+				"faction": "Space Wolves",
+				"points": 2000.0,
+				"primary_vp": 4,
+				"secondary_vp": 2,
+				"total_models": 59,
+				"total_units": 12,
+				"unit_names": [
+					"Logan Grimnar",
+					"Ancient in Terminator Armour",
+					"Terminator Assault Squad",
+					"Chaplain on Bike",
+					"Outrider Squad",
+					"Captain on Bike",
+					"Wulfen with Storm Shields",
+					"Grey Hunters",
+					"Scout Squad",
+					"Scout Squad",
+					"Thunderwolf Cavalry",
+					"Thunderwolf Cavalry"
+				],
+				"vp": 6
+			},
+			"2": {
+				"alive_models": 22,
+				"alive_units": 9,
+				"cp": 3,
+				"detachment": "Lions of the Emperor",
+				"faction": "Adeptus Custodes",
+				"points": 2000.0,
+				"primary_vp": 3,
+				"secondary_vp": 0,
+				"total_models": 22,
+				"total_units": 9,
+				"unit_names": [
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Custodian Guard Sodality",
+					"Allarus Custodians",
+					"Prosecutor Squad"
+				],
+				"vp": 3
+			}
+		}
+	},
+	"save_info": {
+		"description": "LLM critic s7420_r2_p1_shooting_2",
+		"save_type": "ai_test_case",
+		"tags": []
+	},
+	"type": "ai_test_case",
+	"version": "1.3.0"
+}

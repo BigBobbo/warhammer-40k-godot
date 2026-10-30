@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Wulfen with Storm Shields (10.2\" away, 8% chance)",
+ "created": "2026-10-30 02:09:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7422_r2_p1_charge_1",
+ "note": "[LLM critic, low conf] The AI declares an 8% charge at Wulfen. It is a low-risk gamble. The Wulfen retaliation term is -22.5, and Captain on Bike is the easier kill. Fix: Remove the double penalty for low charge odds in ch_chance. Break score ties toward the target with lower retaliation and a possible wipe. Add a small penalty for a charge that is under 10% likely and pulls a unit off a held objective.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7422_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "pos:713,1605",
+  "decision": "charge",
+  "targets": "U_CAPTAIN_ON_BIKE_A,U_WULFEN_WITH_STORM_SHIELDS_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta declares a charge at Wulfen with Storm Shields + Captain on Bike \u2014 targets picked after the roll: Wulfen with Storm Shields on 11+ (8%), Captain on Bike on 11+ (8%), overwatch risk: 0.9 dmg",
+ "verdict": "pending",
+ "version": 1
+}

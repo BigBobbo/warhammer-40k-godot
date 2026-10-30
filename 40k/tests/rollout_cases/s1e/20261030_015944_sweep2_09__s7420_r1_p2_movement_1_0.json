@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (racing for it (enemy can have ~28 OC there before we arrive in 3 turns) \u2014 worth ~3 VP with the 1 other objective(s) this plan takes \u2014 worth ~6 VP)",
+ "created": "2026-10-30 02:00:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7420_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Beta on a 29 in advance to a far, contested expansion. Beta arrives in 3 turns, alone and ahead of the army, with a tied-up army plan elsewhere. Fix: Penalise plans that send single elite units to different far objectives. Prefer moving a second unit with the center group so mutual support and OC stack. Also weigh the enemy's fast-unit reach to the objective at arrival time.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7420_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:1410,700",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta advances toward obj_nml_1 (racing for it (enemy can have ~28 OC there before we arrive in 3 turns) \u2014 worth ~3 VP with the 1 other objective(s) this plan takes)",
+ "verdict": "pending",
+ "version": 1
+}

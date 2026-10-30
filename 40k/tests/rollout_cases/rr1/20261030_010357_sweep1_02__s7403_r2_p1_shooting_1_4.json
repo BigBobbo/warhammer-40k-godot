@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+ "created": "2026-10-30 01:09:06",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7403_r2_p1_shooting_1",
+ "note": "[LLM critic, medium conf] Battlewagon Alpha shoots a T7 2+ Custodian squad that it cannot hurt (0.2 dmg, 1% kill) instead of the weak Prosecutor Squad, which is on the central objective and in rapid fire range (12 in) of its big shoota. Fix: Weight the score by kill probability or expected damage as a fraction of target wounds. Penalise targets where expected damage is below about 5% of remaining wounds and the kill chance is under 5%. Give a bonus for damaging or killing units that contest an objective, especially when rapid fire range applies.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7403_r2_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A",
+  "choice": "desc:Big shoota \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha shoots at Custodian Guard Sodality Gamma \u2014 expected 0.2 dmg vs 15 HP (1% kill)",
+ "verdict": "bad",
+ "version": 1
+}

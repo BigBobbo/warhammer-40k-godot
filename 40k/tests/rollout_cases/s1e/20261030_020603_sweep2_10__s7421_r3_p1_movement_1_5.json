@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_2 (flipping it (enemy holds with OC 2), needs 7 more OC after this unit \u2014 worth ~3 VP)",
+ "created": "2026-10-30 02:10:49",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7421_r3_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent a lone 3-model Allarus unit 20.5 in to flip obj_home_2, which is worth about 3 VP and 3 turns away. The unit would face Thunderwolf Cavalry, Outriders and Logan on its own. Fix: When a unit's top objective is taken, compare the fallback against holding or reinforcing that objective. Penalise fallbacks that are 3 or more turns away, lone, and inside enemy threat zones. Cap bonuses such as oc_efficiency and charge_lane when the reach time is longer than 2 turns. Also consider a unit's value against the 3 VP that the target is worth.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7421_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "pos:830,1900",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians moves toward obj_home_2 (moving toward charge target Thunderwolf Cavalry Beta, obj: 20.5\" away)",
+ "verdict": "bad",
+ "version": 1
+}

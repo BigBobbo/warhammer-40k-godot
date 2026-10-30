@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_2 (flipping it (enemy holds with OC 2), needs 4 more OC after this unit \u2014 worth ~3 VP)",
+ "created": "2026-10-30 02:09:23",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7422_r2_p1_movement_2",
+ "note": "[LLM critic, high conf] The AI sent Gamma 35 in alone toward the enemy home objective, which takes 4 turns. It did this because Alpha had already taken obj_center. Alpha has OC 3 and the enemy holds the centre with OC 5, so Alpha alone cannot flip it. Fix: When an objective is already assigned to another unit, count the assigned OC against the enemy OC in range. Only block a second unit if the assigned OC already beats the enemy total. Also penalise single-unit trips of more than 3 turns to enemy-held home objectives.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7422_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:1460,1970",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_home_2 (moving toward charge target Scout Squad Beta, obj: 35.3\" away)",
+ "verdict": "bad",
+ "version": 1
+}

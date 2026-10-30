@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (2 units already committed) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 01:23:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] The Ancient (M5) walks toward obj_center. That objective is held by 17 enemy OC, and the Ancient cannot get there this turn. It leaves a held objective and its own army. It ignores the better-scored obj_nml_2 option. Fix: Do not let a support assignment override the top-scored option when the target objective has enemy OC far above friendly OC. Cap objective_priority for objectives the unit cannot affect. Check the sum of friendly OC against enemy OC near the objective before sending a unit there.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7406_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ANCIENT_IN_TERMINATOR_ARMOUR_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Ancient in Terminator Armour moves toward obj_center (reinforcing obj_center (2 units already committed), obj: 17.1\" away)",
+ "verdict": "bad",
+ "version": 1
+}

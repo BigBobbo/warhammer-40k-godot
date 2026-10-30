@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_2 (flipping it (enemy holds with OC 2) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 02:07:57",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7422_r1_p1_movement_2",
+ "note": "[LLM critic, high conf] The AI sent a 3-model Custodian Guard unit alone on a 4-turn advance to an enemy-held objective deep in the enemy deployment zone. It rejected closer, safer options that scored far higher. Fix: Cap capture assignments by reach: do not assign a unit to an objective more than 2 turns away or deep in the enemy deployment zone unless it is fast or has support. When the best-scored option differs from the capture assignment, re-score the assignment and drop it if it lies far below the best score. Add a danger term that counts enemy units able to charge the destination.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7422_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:540,1970",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma advances toward obj_nml_2 (flipping it (enemy holds with OC 2))",
+ "verdict": "bad",
+ "version": 1
+}

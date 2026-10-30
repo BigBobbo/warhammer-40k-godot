@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_1 (flipping it (enemy holds with OC 11), needs 9 more OC after this unit \u2014 worth ~5 VP)",
+ "created": "2026-10-30 02:08:26",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7422_r1_p2_movement_2",
+ "note": "[LLM critic, high conf] The AI sent a lone OC1 character on a five-turn advance across the board to an enemy-held home objective, giving a score of -2.85 while better options scored above 18. Fix: Reject any objective that needs more than 2 turns to reach when the unit's OC is under 20% of the OC needed. Also never let an assigned_by override choose an option scored far below the top option. Fall back to the highest-scoring option instead.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7422_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOGAN_GRIMNAR_A",
+  "choice": "pos:300,430",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Logan Grimnar advances toward obj_home_1 (flipping it (enemy holds with OC 11), needs 9 more OC after this unit)",
+ "verdict": "bad",
+ "version": 1
+}

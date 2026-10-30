@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (racing for it (enemy can have ~30 OC there before we arrive in 2 turns), needs 2 more OC after this unit \u2014 worth ~3 VP with the 2 other objective(s) this plan takes \u2014 worth ~6 VP)",
+ "created": "2026-10-30 02:00:30",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7419_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Alpha toward the contested center, where the enemy has about 30 OC. The expected_vp of 5.5 is the same as for the other non-home objectives. The contest_race penalty of -12.75 is large, yet the move still ranks nearly equal to a safer objective. Fix: Scale expected_vp by the estimated chance of winning the objective, using the enemy OC that can reach it versus ours. Give a penalty to lone units that move into the range of many enemy units without support. Cap firing_position so it cannot offset contest_race.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7419_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_center (racing for it (enemy can have ~30 OC there before we arrive in 2 turns), needs 2 more OC after this unit \u2014 worth ~3 VP with the 2 other objective(s) this plan takes, obj: 18.7\" away)",
+ "verdict": "pending",
+ "version": 1
+}
