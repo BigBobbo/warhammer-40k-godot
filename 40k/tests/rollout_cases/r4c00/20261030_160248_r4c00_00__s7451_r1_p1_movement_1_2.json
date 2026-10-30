@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_2 (flipping it (enemy holds with OC 8), needs 10 more OC after this unit \u2014 quicker to reach than Custodian Guard Sodality Alpha (41.6\" away, there in 5 turns at M8 vs 50.6\" away, there in 6 turns at M8) \u2014 worth ~14 VP)",
+ "created": "2026-10-30 16:03:19",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7451_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] Beta advances alone across the whole board toward the enemy home objective, where the enemy holds OC 8. It cannot arrive for four turns and would meet the enemy army first. Fix: Discount expected_vp by the number of turns to arrive and by the enemy OC and unit count near the target. Do not count enemy home as capturable in round 1 when the unit is more than 2 turns away. Remove the double count between expected_vp and primary_awareness. Prefer closer or central objectives that the army can support.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7451_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:1340,2010",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta advances toward obj_home_2 (flipping it (enemy holds with OC 8), needs 10 more OC after this unit \u2014 quicker to reach than Custodian Guard Sodality Alpha (41.6\" away, there in 5 turns at M8 vs 50.6\" away, there in 6 turns at M8))",
+ "verdict": "bad",
+ "version": 1
+}

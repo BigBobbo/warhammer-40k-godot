@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (deny deep strike near home objective obj_home_1)",
+ "created": "2026-10-30 16:03:25",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7451_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI chose to screen near home for deep strike denial. A 4-model OC2 squad could instead take the free NML 1 objective in round 1. Fix: Scale the screen bonus by the number of enemy units in reserve and by whether a deep strike could really land on a vulnerable objective. Give a larger bonus when a nearby uncontested objective can be taken for free. Do not let cheap 1-wound units fill screen roles when the Custodes near home already deny the area.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7451_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:539,599",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad screens at (539,599) \u2014 deny deep strike near home objective obj_home_1",
+ "verdict": "pending",
+ "version": 1
+}
