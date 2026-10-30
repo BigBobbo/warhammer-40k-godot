@@ -17725,6 +17725,34 @@ static func average_dice_notation(s: String) -> float:
 	# Average of one die of size x is (x+1)/2.
 	return float(n) * (float(x) + 1.0) / 2.0 + bonus
 
+## An Advance adds D6" to the unit's Move. Until that die is rolled, the most it
+## can add is the D6's top face.
+const ADVANCE_DIE_MAX_INCHES: float = 6.0
+
+## T03 drag-ruler budget (design doc §5): the two distances a Movement-phase
+## drag is coloured against, from the moving unit's active move as
+## MovementPhase records it (`mode`, `move_cap_inches`, `advance_roll`,
+## `is_reactive_move`). A unit that has not begun moving passes
+## {"mode": "NORMAL", "move_cap_inches": <its Move>}.
+##   move    — the unit's Move for this move. The path is green while within it.
+##   advance — what an Advance adds on top. Yellow up to move + advance, red beyond.
+## ADVANCE: the cap already holds the rolled (and modified) Advance, so
+## move = cap - roll and advance = roll. NORMAL (not a reactive move): nothing
+## has been rolled yet, so advance is the most an Advance could add
+## (ADVANCE_DIE_MAX_INCHES). Every other move (Fall Back, Surge, a reactive
+## move, Remain Stationary) has no Advance on top: advance = 0.
+static func movement_drag_budget(move_data: Dictionary) -> Dictionary:
+	var cap: float = maxf(0.0, float(move_data.get("move_cap_inches", 0.0)))
+	var mode: String = str(move_data.get("mode", ""))
+	var move_in: float = cap
+	var advance_in: float = 0.0
+	if mode == "ADVANCE":
+		advance_in = clampf(float(move_data.get("advance_roll", 0)), 0.0, cap)
+		move_in = cap - advance_in
+	elif mode == "NORMAL" and not bool(move_data.get("is_reactive_move", false)):
+		advance_in = ADVANCE_DIE_MAX_INCHES
+	return {"move": move_in, "advance": advance_in, "total": move_in + advance_in}
+
 ## MA-LOADOUT: force per-model loadout resolution (ranged + melee) on a unit so
 ## UI/read paths can then read model.ranged_loadout / model.melee_loadout.
 ## Idempotent — a no-op once the unit has been resolved.

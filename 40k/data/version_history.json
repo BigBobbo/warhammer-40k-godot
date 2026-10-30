@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.57.0",
+      "date": "2026-10-30",
+      "summary": "Dragging a model now paints a colour-coded tape measure: green within its Move, yellow within an Advance, red beyond.",
+      "changes": [
+        "While you drag a model in the Movement phase, the path from where it started to your cursor is coloured by how far it can go: green within its Move, yellow for the extra an Advance gives (the distance you rolled once you have Advanced, up to 6\" before you roll), red beyond that. A small tick marks each colour change.",
+        "The total distance follows your cursor. Past your Move it also says 'Advance' or 'out of reach', so you can read it without telling the colours apart.",
+        "While dragging, press SHIFT to drop a waypoint: the path bends there, and the model moves around the corner with the whole route measured. ENTER puts the model down where you are pointing. ESC puts it back where it started (ESC used to open the Settings menu with the model still held).",
+        "Distance the model has already moved this phase and terrain costs count too, so the green part ends exactly where the model can still reach."
+      ]
+    },
+    {
       "version": "1.56.1",
       "date": "2026-10-28",
       "summary": "Terrain objectives now count as 'in range' everywhere, and the AI takes the shortest route onto them.",

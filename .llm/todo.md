@@ -180,7 +180,7 @@ Locks in use:
 
 ## Top-10 quick wins (parallelizable after T02 if locks are disjoint)
 
-- [ ] **T03 — Drag-ruler with budget coloring during movement**
+- [x] **T03 — Drag-ruler with budget coloring during movement**
   - **Lock:** Movement  • **Doc:** §5 quick-win #1  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/MovementController.gd`, `40k/scripts/MovementRangeVisual.gd`
   - **Change:** While dragging a model, paint the path from start → cursor as colored
@@ -206,11 +206,58 @@ Locks in use:
       with no drag: `regions["drag_path"].diff_pct > 2.0` (path is drawn).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Green segments visible from origin to Move boundary.
-    - [ ] Yellow segment between Move and Move+Advance boundaries.
-    - [ ] Red segment beyond Move+Advance.
-    - [ ] Inches label updates as cursor moves.
-    - [ ] ESC removes the drag overlay cleanly.
+    - [x] Green segments visible from origin to Move boundary.
+      *(T03_a/b/c: green from the pickup dot to the 6" Move boundary, which sits
+      under the clamped ghost in b and c. Run 0 is CONFIRMED_GREEN 6.0".)*
+    - [x] Yellow segment between Move and Move+Advance boundaries.
+      *(T03_b: yellow from 6" to the 9" cursor. T03_c: yellow from 6" to 12",
+      with a tick where it turns red.)*
+    - [x] Red segment beyond Move+Advance.
+      *(T03_c: red from 12" to 14", ending in a red dot on the cursor.)*
+    - [x] Inches label updates as cursor moves.
+      *(Beside the cursor: 4.0" in green, then 9.0" Advance in yellow, then
+      14.0" out of reach in red. The scenario asserts each text.)*
+    - [x] ESC removes the drag overlay cleanly.
+      *(T03_after_esc looks the same as T03_before: no ghost, ruler, label or
+      reach circle, and no Settings menu. drag_path diff against the static
+      before is 0.52%. At HEAD, ESC opened Settings and left the drag live.)*
+  - **Note (2026-10-30 audit):** what had shipped was `current_drag_segments` and a
+    `compute_drag_segments()` what-if helper: one straight line, the controller's own
+    copy of M, and `T03_ADVANCE_INCHES = 6`. The live drag never called it, and the
+    scenario only tested that helper. A real 14" drag at HEAD left the segments empty
+    and drew the old white line to the clamped ghost. There were no waypoints, ENTER
+    did nothing, and there was no `BEGIN_MODEL_DRAG`. Changed on this pass:
+    (1) Every drag update now runs `_refresh_drag_ruler()`. It splits pickup →
+    waypoints → cursor into budget runs (`_split_path_by_budget`). Each band edge is
+    found with the over-range clamp's own ray search, so terrain is costed the way
+    the drop is validated. `MovementRangeVisual.DragRuler` paints the runs, just
+    under the ghost, with band ticks, waypoint rings and the label. For single-model
+    drags it replaces the old yellow path line and white ruler. (2) The budget comes
+    from the new `RulesEngine.movement_drag_budget(move_data)`, fed the phase's active
+    move. Normal: M plus the D6 maximum. Advance: M plus the rolled value. Fall Back,
+    Surge and reactive moves: no Advance. (3) The drag claims SHIFT, ENTER and ESC in
+    `MovementController._input`, so Main's ESC pause menu and a focused button's
+    ENTER no longer fire underneath it. ENTER stages the path leg by leg, and
+    MovementPhase sums re-staged legs (T-082): 3" + 3" records 6.0", not the 4.24"
+    straight line. (4) New `BEGIN_MODEL_DRAG` phase action: validated, changes no
+    state, and its `model_drag_requested` signal calls `begin_model_drag`. Tier A:
+    scenario 71/71. drag_path diffs: (a) vs (c) 38.7% (bound > 5), before vs (a)
+    18.7% (bound > 2). Visual suite: 41 passing, equal to the baseline. New gated
+    test `tests/test_drag_ruler_budget.gd` (49 checks) fails at HEAD. Deviations:
+    (a) The work also touched MovementPhase.gd, because the Tier A dispatch needs a
+    real phase action, and RulesEngine.gd, which had no movement API. M itself still
+    comes from MovementPhase (`get_unit_movement` / the active move's cap, which carry
+    every codex modifier). RulesEngine combines it with the mode and the roll into
+    M + Advance. (b) Before an Advance is rolled, the yellow band is the D6 maximum
+    (6"). (c) The scenario fixture moved from co_pretrigger to
+    audit_baseline_postdeploy. WARBOSS_B is not the active player's unit, so it
+    cannot be dragged. The Blade Champion has a terrain-free lane. (d) A SHIFT
+    waypoint lands on the ghost (the cursor held to the budget), not the raw cursor,
+    so every corner is a spot the model can stand on. (e) Multi-model group drags
+    keep their reach circles and get no ruler, matching the task's "while dragging a
+    model". (f) Known gap, not new: after a waypoint commit, the staged-path preview
+    draws only the last leg, because MovementPhase keeps one staged entry per model
+    (true of any re-staged model). The recorded distance is right.
 
 - [ ] **T04 — Six-phase top-center bar with active highlight**
   - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** T01, T02

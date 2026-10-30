@@ -69,6 +69,10 @@
 #   - T02 visual-harness pixel diff (tests/tools/pixel_diff.gd, the math behind
 #     every scenario `pixel_diff` step): identical PNGs = 0%, black vs white
 #     > 95%, region clipping, size-mismatch / missing-file errors
+#   - T03 movement drag ruler: RulesEngine.movement_drag_budget (M + Advance per
+#     move mode), the green / yellow / red path split (spent movement, SHIFT
+#     waypoint corners), the BEGIN_MODEL_DRAG action contract and the
+#     MovementRangeVisual.DragRuler label / clear
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -312,6 +316,7 @@ TESTS=(
     "tests/test_secondary_draw_shuffle_back_terminates.gd"
     "tests/test_ui_constants_slots.gd"
     "tests/tools/pixel_diff_unit_test.gd"
+    "tests/test_drag_ruler_budget.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

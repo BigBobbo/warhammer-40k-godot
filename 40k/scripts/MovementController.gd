@@ -32,13 +32,22 @@ var selected_model: Dictionary = {}
 var dragging_model: bool = false
 var drag_start_pos: Vector2
 
-# T03: drag-ruler segments. Computed by compute_drag_segments() so scenarios
-# can assert color_slot per cursor position. Schema:
-#   [{from: Vector2, to: Vector2, color_slot: String, distance_inches: float}]
-# color_slot is one of CONFIRMED_GREEN / MARGINAL_YELLOW / INVALID_RED.
+# T03 drag ruler (design doc §5, "drag-to-move with budget coloring"). While a
+# model is dragged, the path from its pickup point through any SHIFT waypoints to
+# the cursor is split by the movement budget and painted CONFIRMED_GREEN within
+# M, MARGINAL_YELLOW within M + Advance and INVALID_RED beyond, with the
+# cumulative inches at the cursor. The budget is RulesEngine.movement_drag_budget
+# over the phase's active move (drag_budget_for_unit). SHIFT drops a waypoint,
+# ENTER commits, ESC cancels (see _input).
+# current_drag_segments is the live ruler, one entry per coloured run:
+#   {from: Vector2, to: Vector2, color_slot: String, distance_inches: float}
+# Empty while no drag is live. compute_drag_segments() also writes it (what-if).
+const _MovementRangeVisualScript = preload("res://scripts/MovementRangeVisual.gd")
 var current_drag_segments: Array = []
-
-const T03_ADVANCE_INCHES := 6.0  # 40k 10e advance: M + d6, capped here at 6"
+var drag_waypoints: Array = []  # Vector2 board px: the corners dropped with SHIFT this drag
+var drag_cursor_pos: Vector2 = Vector2.ZERO  # the ruler's far end: the cursor, even past a clamped ghost
+var drag_ruler_inches: float = 0.0  # movement spent at the cursor this phase (the label's number)
+var drag_ruler_visual: Node2D = null  # MovementRangeVisual.DragRuler under BoardRoot
 
 # Rotation and pivot state
 var rotating_model: bool = false
@@ -181,57 +190,87 @@ func get_unit_movement(unit: Dictionary) -> float:
 
 	return movement
 
-# T03: compute the colored drag-ruler segments for a model being moved from
-# from_pt to to_pt. Reads the unit's M from get_unit_movement and applies a
-# fixed Advance budget of T03_ADVANCE_INCHES inches. Returns an array of
-# {from, to, color_slot, distance_inches} dicts. Always also stores into
-# current_drag_segments so scenarios can read the latest result.
+# T03: what-if ruler for any unit — the budget-coloured runs of a straight drag
+# from from_pt to to_pt, as if the unit started a fresh move there (nothing spent
+# yet, open ground). Also stored in current_drag_segments.
 func compute_drag_segments(unit_id: String, from_pt: Vector2, to_pt: Vector2) -> Array:
-	current_drag_segments = []
-	var gs = get_node_or_null("/root/GameState")
-	if gs == null:
-		return current_drag_segments
-	var unit = gs.get_unit(unit_id)
-	if typeof(unit) != TYPE_DICTIONARY or unit.is_empty():
-		return current_drag_segments
-	var move_inches: float = get_unit_movement(unit)
-	var advance_inches: float = T03_ADVANCE_INCHES
-	var px_per_inch: float = float(Measurement.PX_PER_INCH)
-	var move_px: float = move_inches * px_per_inch
-	var advance_px: float = (move_inches + advance_inches) * px_per_inch
-	var total_px: float = from_pt.distance_to(to_pt)
-	if total_px <= 0.0:
-		return current_drag_segments
-	var dir: Vector2 = (to_pt - from_pt) / total_px
-
-	var cuts: Array = [0.0]
-	if move_px < total_px:
-		cuts.append(move_px)
-	if advance_px < total_px:
-		cuts.append(advance_px)
-	cuts.append(total_px)
-	for i in range(cuts.size() - 1):
-		var t0: float = cuts[i]
-		var t1: float = cuts[i + 1]
-		if t1 <= t0:
-			continue
-		var seg_from: Vector2 = from_pt + dir * t0
-		var seg_to: Vector2 = from_pt + dir * t1
-		var mid: float = (t0 + t1) * 0.5
-		var color_slot: String
-		if mid <= move_px:
-			color_slot = "CONFIRMED_GREEN"
-		elif mid <= advance_px:
-			color_slot = "MARGINAL_YELLOW"
-		else:
-			color_slot = "INVALID_RED"
-		current_drag_segments.append({
-			"from": seg_from,
-			"to": seg_to,
-			"color_slot": color_slot,
-			"distance_inches": (t1 - t0) / px_per_inch,
-		})
+	var budget := drag_budget_for_unit(unit_id)
+	current_drag_segments = [] if budget.is_empty() else _split_path_by_budget([from_pt, to_pt], 0.0, budget, false)
 	return current_drag_segments
+
+# T03: the M and Advance a drag of unit_id is coloured against —
+# RulesEngine.movement_drag_budget over the phase's active move for the unit
+# ({move, advance, total}, inches). A unit that is not moving yet is costed at
+# its Move from MovementPhase.get_unit_movement, the cap BEGIN_NORMAL_MOVE would
+# give it. {} when the unit does not exist.
+func drag_budget_for_unit(unit_id: String) -> Dictionary:
+	var unit = GameState.get_unit(unit_id)
+	if typeof(unit) != TYPE_DICTIONARY or unit.is_empty():
+		return {}
+	var move_data: Dictionary = {}
+	if current_phase and current_phase.has_method("get_active_move_data"):
+		move_data = current_phase.get_active_move_data(unit_id)
+	if move_data.is_empty() or move_data.get("completed", false):
+		var move_inches: float = get_unit_movement(unit)
+		if current_phase and current_phase.has_method("get_unit_movement"):
+			move_inches = float(current_phase.get_unit_movement(unit))
+		move_data = {"mode": "NORMAL", "move_cap_inches": move_inches}
+	return RulesEngine.movement_drag_budget(move_data)
+
+# T03: split a drag path ([pickup, waypoint..., cursor], board px) into
+# budget-coloured runs. A point's colour is the movement spent to reach it,
+# counting used_before_in (spent earlier this phase: staged legs and a paid
+# pivot): within budget.move → CONFIRMED_GREEN, within move + advance →
+# MARGINAL_YELLOW, beyond → INVALID_RED. With terrain_aware each leg pays its
+# terrain penalty the way the drop is validated, and each band edge is found with
+# the over-range clamp's own ray search, so the green run ends exactly where a
+# clamped ghost stops.
+func _split_path_by_budget(points: Array, used_before_in: float, budget: Dictionary, terrain_aware: bool) -> Array:
+	var runs: Array = []
+	var green_end: float = float(budget.get("move", 0.0)) - used_before_in
+	var yellow_end: float = green_end + float(budget.get("advance", 0.0))
+	var spent: float = 0.0  # movement spent along the path before the current leg
+	for i in range(points.size() - 1):
+		var a: Vector2 = points[i]
+		var b: Vector2 = points[i + 1]
+		if a.distance_to(b) < DRAG_RULER_MIN_RUN_PX:
+			continue
+		var leg_cost := func(p: Vector2) -> float: return _leg_cost_inches(a, p, terrain_aware)
+		var leg_total: float = leg_cost.call(b)
+		var green_to: Vector2 = _leg_band_edge(a, b, green_end - spent, leg_total, leg_cost)
+		var yellow_to: Vector2 = _leg_band_edge(a, b, yellow_end - spent, leg_total, leg_cost)
+		_append_drag_run(runs, a, green_to, "CONFIRMED_GREEN")
+		_append_drag_run(runs, green_to, yellow_to, "MARGINAL_YELLOW")
+		_append_drag_run(runs, yellow_to, b, "INVALID_RED")
+		spent += leg_total
+	return runs
+
+# Where along the leg a → b the movement left (budget_left) runs out: a when none
+# is left, b when the whole leg (leg_total) fits.
+func _leg_band_edge(a: Vector2, b: Vector2, budget_left: float, leg_total: float, leg_cost: Callable) -> Vector2:
+	if budget_left <= 0.0:
+		return a
+	if leg_total <= budget_left + MOVEMENT_CAP_EPSILON:
+		return b
+	return clamp_drag_to_budget(a, b, budget_left, leg_cost)
+
+func _append_drag_run(runs: Array, from_pt: Vector2, to_pt: Vector2, slot: String) -> void:
+	if from_pt.distance_to(to_pt) < DRAG_RULER_MIN_RUN_PX:
+		return
+	runs.append({
+		"from": from_pt,
+		"to": to_pt,
+		"color_slot": slot,
+		"distance_inches": Measurement.px_to_inches(from_pt.distance_to(to_pt)),
+	})
+
+# Movement one straight leg costs: its length, plus (terrain_aware) the terrain
+# penalty the phase charges for it.
+func _leg_cost_inches(from_pos: Vector2, to_pos: Vector2, terrain_aware: bool = true) -> float:
+	var cost: float = Measurement.px_to_inches(from_pos.distance_to(to_pos))
+	if terrain_aware:
+		cost += _get_terrain_penalty_for_move(from_pos, to_pos)
+	return cost
 
 
 func _ready() -> void:
@@ -258,6 +297,9 @@ func _exit_tree() -> void:
 		ruler_visual.queue_free()  
 	if ghost_visual and is_instance_valid(ghost_visual):
 		ghost_visual.queue_free()
+	if drag_ruler_visual and is_instance_valid(drag_ruler_visual):
+		drag_ruler_visual.queue_free()
+		drag_ruler_visual = null
 
 	# T-094: Free the movement-only overlay containers that live under BoardRoot.
 	# These were previously leaked on phase exit, so any rings still present when
@@ -373,6 +415,13 @@ func _create_path_visuals() -> void:
 	# multi-model drag unreadable. See MOVE_GHOST_Z / MOVE_OVERLAY_Z.
 	ghost_visual.z_index = MOVE_GHOST_Z
 	board_root.add_child(ghost_visual)
+
+	# T03: budget-coloured drag ruler — over the tokens it crosses and the move
+	# overlays, under the ghost it leads to (DRAG_RULER_Z).
+	drag_ruler_visual = _MovementRangeVisualScript.DragRuler.new()
+	drag_ruler_visual.name = "DragRulerVisual"
+	drag_ruler_visual.z_index = DRAG_RULER_Z
+	board_root.add_child(drag_ruler_visual)
 
 	# P3-125: Create movement path preview visual (dashed lines with arrowheads)
 	var HumanMovementPathVisualScript = preload("res://scripts/HumanMovementPathVisual.gd")
@@ -935,6 +984,10 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 				if not phase.model_drop_preview.is_connected(_on_model_drop_preview):
 					phase.model_drop_preview.connect(_on_model_drop_preview)
 					print("MovementController: Connected model_drop_preview signal")
+			# T03: BEGIN_MODEL_DRAG — the action's pick-up happens here.
+			if phase.has_signal("model_drag_requested"):
+				if not phase.model_drag_requested.is_connected(_on_model_drag_requested):
+					phase.model_drag_requested.connect(_on_model_drag_requested)
 			if phase.has_signal("unit_move_confirmed"):
 				if not phase.unit_move_confirmed.is_connected(_on_unit_move_confirmed):
 					phase.unit_move_confirmed.connect(_on_unit_move_confirmed)
@@ -2077,6 +2130,10 @@ func _on_model_drop_preview(unit_id: String, model_id: String, path_px: Array, i
 	emit_signal("ui_update_requested")
 
 func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> void:
+	# A drag still live when the move ends (a keyboard-held BEGIN_MODEL_DRAG pick-up
+	# while a button was clicked) must not outlive it.
+	if dragging_model:
+		_end_drag_session()
 	# Return unit to idle animation
 	_trigger_unit_animation(unit_id, "idle")
 
@@ -2218,6 +2275,9 @@ func _show_confirmed_movement_paths(unit_id: String) -> void:
 	confirmed_visual.show_confirmed_paths(confirmed_paths, GameState.get_active_player())
 
 func _on_unit_move_reset(unit_id: String) -> void:
+	# A live drag measures from positions the reset just rolled back — drop it.
+	if dragging_model:
+		_end_drag_session()
 	_clear_path_visual()
 	path_visual.clear_points()  # Clear staged moves visual as well
 
@@ -2263,6 +2323,36 @@ func _on_movement_mode_locked(unit_id: String, mode: String) -> void:
 	_refresh_unit_list()
 	
 	emit_signal("ui_update_requested")
+
+# T03: while a single model is in hand the drag owns SHIFT (drop a waypoint),
+# ENTER (commit) and ESC (cancel). Claimed in _input, which runs before Main's
+# _input (children first) and before the GUI: Main turns ESC into the pause menu
+# and ENTER would press whatever button has focus, so both would otherwise fire
+# underneath the live drag. Outside a drag nothing here runs, so every other use
+# of these keys is unchanged. A focused text field keeps its keys (SHIFT types
+# capitals), and the pad's carry has its own buttons.
+func _input(event: InputEvent) -> void:
+	if not dragging_model or group_dragging:
+		return
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if DebugManager and DebugManager.is_debug_active():
+		return
+	if PadRouter and PadRouter.has_method("is_carrying") and PadRouter.is_carrying():
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused is LineEdit or focused is TextEdit:
+		return
+	match event.keycode:
+		KEY_SHIFT:
+			drop_drag_waypoint()
+		KEY_ENTER, KEY_KP_ENTER:
+			commit_model_drag()
+		KEY_ESCAPE:
+			cancel_model_drag()
+		_:
+			return
+	get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	# In debug mode, let DebugManager handle all input
@@ -2364,16 +2454,8 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 		print("Cannot drag - no active unit or mode")
 		return
 
-	# Sync move_cap_inches from phase's active_moves (authoritative source)
-	# This prevents stale cap values from overriding the advance bonus
-	if current_phase and current_phase.has_method("get_active_move_data"):
-		var move_data = current_phase.get_active_move_data(active_unit_id)
-		if not move_data.is_empty():
-			var phase_cap = move_data.get("move_cap_inches", -1.0)
-			if phase_cap > 0 and abs(phase_cap - move_cap_inches) > 0.01:
-				print("MovementController: Syncing move_cap from active_moves: %.1f -> %.1f" % [move_cap_inches, phase_cap])
-				move_cap_inches = phase_cap
-	
+	_sync_move_cap_from_phase()
+
 	# Get the board transform from Main
 	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
@@ -2409,25 +2491,7 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 			print("Model belongs to different unit: ", model.unit_id, " vs ", active_unit_id)
 			return
 
-	selected_model = model
-	dragging_model = true
-	drag_start_pos = model.position  # Use model's actual position as start
-	current_path = [drag_start_pos]
-	
-	print("Started dragging model ", model.model_id, " from unit ", model.unit_id)
-	
-	# Update display to show this model's specific movement info
-	_update_movement_display()
-	# Update path visual to show only this model's path
-	_update_staged_moves_visual()
-	_show_ghost_visual(model)
-	# Set initial ghost position to the cursor position
-	_update_ghost_position(world_pos)
-	# T-094 (revised): show this model's movement-reach circle anchored at its
-	# pickup position (reflects Advance distance and any remaining staged budget).
-	_show_model_range_overlay(model, drag_start_pos)
-	# ONE coherency ring, on the model now in hand — cleared again on drop.
-	_show_carried_coherency_ring(model)
+	_begin_drag_for_model(model, world_pos)
 	# Pad, virtual cursor ACTIVE: this press came in as a plain left click (that is
 	# what A means with the cursor live), so the drag it just started would end in
 	# the same gesture — a 0" re-stage with nothing in hand. Hand it to the router
@@ -2443,6 +2507,82 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 			and not PadRouter.is_carrying():
 		PadRouter.adopt_cursor_drag_as_carry(str(model.get("unit_id", active_unit_id)), str(model.get("model_id", model.get("id", ""))))
 
+# Sync move_cap_inches from the phase's active_moves (the authoritative source),
+# so a stale cap can never override an Advance bonus.
+func _sync_move_cap_from_phase() -> void:
+	if current_phase and current_phase.has_method("get_active_move_data"):
+		var move_data = current_phase.get_active_move_data(active_unit_id)
+		if not move_data.is_empty():
+			var phase_cap = move_data.get("move_cap_inches", -1.0)
+			if phase_cap > 0 and abs(phase_cap - move_cap_inches) > 0.01:
+				print("MovementController: Syncing move_cap from active_moves: %.1f -> %.1f" % [move_cap_inches, phase_cap])
+				move_cap_inches = phase_cap
+
+# The single-model pick-up shared by a mouse press (_start_model_drag) and the
+# BEGIN_MODEL_DRAG action (begin_model_drag). model is the drag's model dict
+# ({unit_id, model_id, position: Vector2, ...}); ghost_at is where the ghost first
+# appears (the press point, or the model itself).
+func _begin_drag_for_model(model: Dictionary, ghost_at: Vector2) -> void:
+	selected_model = model
+	dragging_model = true
+	drag_start_pos = model.position  # Use model's actual position as start
+	current_path = [drag_start_pos]
+	drag_waypoints.clear()
+	drag_cursor_pos = ghost_at
+
+	print("Started dragging model ", model.model_id, " from unit ", model.unit_id)
+
+	# Update display to show this model's specific movement info
+	_update_movement_display()
+	# Update path visual to show only this model's path
+	_update_staged_moves_visual()
+	_show_ghost_visual(model)
+	# Set initial ghost position to the cursor position
+	_update_ghost_position(ghost_at)
+	# T-094 (revised): show this model's movement-reach circle anchored at its
+	# pickup position (reflects Advance distance and any remaining staged budget).
+	_show_model_range_overlay(model, drag_start_pos)
+	# ONE coherency ring, on the model now in hand — cleared again on drop.
+	_show_carried_coherency_ring(model)
+	_refresh_drag_ruler()
+
+# T03: pick up model_id of the moving unit_id without a mouse press — the UI half
+# of the BEGIN_MODEL_DRAG action (scenarios, the MCP bridge). The same pick-up a
+# press on the model makes: the cursor then steers it, and ENTER drops it, ESC
+# puts it back, SHIFT drops waypoints (a click on the board also drops it there).
+# source_unit_id names the model's own unit for an attached CHARACTER. Returns
+# false (nothing picked up) when another drag is live, unit_id is not the unit
+# being moved, or the model is not a live model of it.
+func begin_model_drag(unit_id: String, model_id: String, source_unit_id: String = "") -> bool:
+	if dragging_model or group_dragging or rotating_model:
+		print("MovementController: BEGIN_MODEL_DRAG ignored — a drag is already live")
+		return false
+	if active_unit_id == "" or active_mode == "" or unit_id != active_unit_id:
+		print("MovementController: BEGIN_MODEL_DRAG ignored — %s is not the unit being moved (active: '%s', mode '%s')" % [unit_id, active_unit_id, active_mode])
+		return false
+	var owner_id: String = source_unit_id if source_unit_id != "" else unit_id
+	if not _is_model_in_active_unit_group(owner_id):
+		return false
+	var model: Dictionary = _pad_find_model(owner_id, model_id)
+	if model.is_empty():
+		print("MovementController: BEGIN_MODEL_DRAG ignored — no live model %s in %s" % [model_id, owner_id])
+		return false
+	_sync_move_cap_from_phase()
+	model["unit_id"] = owner_id
+	model["model_id"] = model_id
+	var staged = _pad_staged_dest(owner_id, model_id)
+	model["position"] = staged if staged is Vector2 else _drag_model_world_position(model)
+	_begin_drag_for_model(model, model.position)
+	return true
+
+func _on_model_drag_requested(unit_id: String, model_id: String, source_unit_id: String) -> void:
+	# Online, only the seat that owns the unit picks its model up — the host must
+	# not grab a model in its own window because a client sent the action.
+	if NetworkManager and NetworkManager.is_networked() \
+			and int(GameState.get_unit(unit_id).get("owner", 0)) != NetworkManager.get_local_player():
+		return
+	begin_model_drag(unit_id, model_id, source_unit_id)
+
 # Over-range drag clamp — the gate and the ray search live on
 # PhaseControllerBase (drag_clamp_active / clamp_drag_to_budget) so the movement,
 # charge and pile-in drags all restrain identically. This wrapper supplies the
@@ -2451,22 +2591,37 @@ func _drag_clamp_active() -> bool:
 	return drag_clamp_active()
 
 func _move_cost_inches(dest: Vector2) -> float:
-	"""Total inches this move spends: raw distance + terrain penalty, costed by
-	the same phase function that validates the drop."""
-	return Measurement.px_to_inches((dest - drag_start_pos).length()) \
-		+ _get_terrain_penalty_for_move(drag_start_pos, dest)
+	"""Total inches this move spends: the legs through any waypoints dropped this
+	drag (T03), then the leg to dest — raw distance + terrain penalty each, costed
+	by the same phase function that validates the drop."""
+	return _drag_waypoint_cost_inches() + _leg_cost_inches(_drag_leg_start(), dest)
+
+# T03: where the current leg starts — the last waypoint dropped, else the pickup.
+func _drag_leg_start() -> Vector2:
+	return drag_waypoints[-1] if not drag_waypoints.is_empty() else drag_start_pos
+
+# T03: movement spent by the legs through the waypoints dropped so far.
+func _drag_waypoint_cost_inches() -> float:
+	var total: float = 0.0
+	var prev: Vector2 = drag_start_pos
+	for wp in drag_waypoints:
+		total += _leg_cost_inches(prev, wp)
+		prev = wp
+	return total
 
 # P0 Steam Deck smoothness (now also the mouse default): clamp a tentative drag
 # position to the model's remaining movement budget, so an over-range carry
 # stops exactly where the model can still legally reach instead of being
 # rejected on drop. Distance + terrain only; an already-affordable move is
 # returned unchanged. Overlap / board-edge legality is left to the caller:
-# shortening distance must not silently force an illegal overlap.
+# shortening distance must not silently force an illegal overlap. With T03
+# waypoints, only the last leg is searched, on what the earlier legs left.
 func _clamp_move_to_budget(world_pos: Vector2) -> Vector2:
+	var leg_start: Vector2 = _drag_leg_start()
 	return clamp_drag_to_budget(
-		drag_start_pos, world_pos,
-		_get_effective_move_cap() - _get_accumulated_distance(),
-		_move_cost_inches)
+		leg_start, world_pos,
+		_get_effective_move_cap() - _get_accumulated_distance() - _drag_waypoint_cost_inches(),
+		func(p: Vector2) -> float: return _leg_cost_inches(leg_start, p))
 
 func _update_model_drag(mouse_pos: Vector2) -> void:
 	if not dragging_model:
@@ -2481,9 +2636,17 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	else:
 		world_pos = get_global_mouse_position()
 
+	_update_model_drag_world(world_pos)
+
+# The drag update in board space: the cursor at world_pos (before grid snap).
+func _update_model_drag_world(world_pos: Vector2) -> void:
 	# Snap to grid if enabled
 	if _should_snap_to_grid():
 		world_pos = _snap_to_grid(world_pos)
+
+	# T03: the ruler runs to the cursor itself — on past a clamped ghost — so the
+	# player can read how far the spot they point at really is, and in which band.
+	drag_cursor_pos = world_pos
 
 	# Clamp an over-range drag to the model's remaining move budget so the ghost
 	# stops on the reach circle instead of running past it (over-range clamped,
@@ -2493,15 +2656,14 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	if _drag_clamp_active():
 		world_pos = _clamp_move_to_budget(world_pos)
 
-	# Update path
-	current_path = [drag_start_pos, world_pos]
+	# Update path: pickup → any waypoints dropped this drag (T03) → ghost
+	current_path = [drag_start_pos]
+	current_path.append_array(drag_waypoints)
+	current_path.append(world_pos)
 
-	# Calculate distance
-	var distance_inches = Measurement.distance_polyline_inches(current_path)
-
-	# Add terrain penalty (elevation changes for non-FLY units)
-	var terrain_penalty = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
-	distance_inches += terrain_penalty
+	# Distance spent, terrain penalty included (elevation changes for non-FLY
+	# units), leg by leg through any waypoints
+	var distance_inches = _move_cost_inches(world_pos)
 
 	# Get the model's already accumulated distance
 	var already_used = _get_accumulated_distance()
@@ -2547,9 +2709,9 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 		if illegal_reason_label:
 			illegal_reason_label.text = ""
 
-	# Update visuals
-	_update_path_visual()
-	_update_ruler_visual()
+	# Update visuals. T03: the budget-coloured ruler (pickup → waypoints → cursor)
+	# is the drag path now; it replaced the plain yellow path line and white ruler.
+	_refresh_drag_ruler()
 	_update_ghost_position(world_pos)
 	_update_ghost_validity(!overlap_detected and !out_of_bounds and total_distance <= effective_cap + MOVEMENT_CAP_EPSILON)
 	# Show total distance used (already accumulated + current drag)
@@ -2564,10 +2726,8 @@ func _compute_move_rejection(world_pos: Vector2) -> String:
 	illegal ("" = legal): over the move cap, off the board, or overlapping a
 	wall/model. Shared by _end_model_drag (mouse + pad drop) and the pad carry's
 	pad_carry_drop_rejection() so a controller drop is judged identically to a
-	mouse drop."""
-	var terrain_penalty = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
-	var distance_inches = Measurement.distance_polyline_inches([drag_start_pos, world_pos]) + terrain_penalty
-	var total_distance = _get_accumulated_distance() + distance_inches
+	mouse drop. With T03 waypoints the distance is the whole path through them."""
+	var total_distance = _get_accumulated_distance() + _move_cost_inches(world_pos)
 	var effective_cap = _get_effective_move_cap()
 	if total_distance > effective_cap + MOVEMENT_CAP_EPSILON:
 		return "Movement exceeds %.1f\" cap (would be %.1f\")" % [effective_cap, total_distance]
@@ -2601,9 +2761,22 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	# Snap to grid if enabled
 	if _should_snap_to_grid():
 		world_pos = _snap_to_grid(world_pos)
-	
-	print("Final position: ", world_pos)
 
+	print("Final position: ", world_pos)
+	_commit_model_drag_at(world_pos)
+
+# T03: ENTER mid-drag — drop the model where the ruler points: the same drop a
+# mouse release at the cursor makes (clamped to the budget, through any
+# waypoints). Returns whether the move was staged.
+func commit_model_drag() -> bool:
+	if not dragging_model:
+		return false
+	print("MovementController: drag committed (ENTER) at ", drag_cursor_pos)
+	return _commit_model_drag_at(drag_cursor_pos)
+
+# The drop shared by a mouse release and ENTER: world_pos is the cursor (board
+# px, already grid-snapped). Ends the drag either way; true when staged.
+func _commit_model_drag_at(world_pos: Vector2) -> bool:
 	# Clamp over-range to the budget (see _update_model_drag) so the drop stages
 	# at the boundary the ghost was previewing rather than being rejected and
 	# snapping back. Same gate as the live preview — the two MUST agree, or the
@@ -2614,32 +2787,59 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	# Distance is recomputed here only for the debug log; the legality decision
 	# lives in _compute_move_rejection so the pad carry can consult the exact
 	# same rules BEFORE it releases a model (see pad_carry_drop_rejection).
-	var terrain_penalty = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
-	var distance_inches = Measurement.distance_polyline_inches([drag_start_pos, world_pos]) + terrain_penalty
+	var terrain_penalty = _get_terrain_penalty_for_move(_drag_leg_start(), world_pos)
+	var distance_inches = _move_cost_inches(world_pos)
 	var total_distance = _get_accumulated_distance() + distance_inches
-	print("Distance moved: ", distance_inches, " inches (terrain penalty: ", terrain_penalty, ")")
+	print("Distance moved: ", distance_inches, " inches (terrain penalty: ", terrain_penalty, ", waypoints: ", drag_waypoints.size(), ")")
 
 	# Single rejection-reason string (empty = legal) so silent reverts don't
 	# leave the player guessing why the model snapped back — and so the pad
 	# carry refuses an illegal drop with the identical rule set.
 	var rejection_reason: String = _compute_move_rejection(world_pos)
 
+	var staged := false
 	if rejection_reason == "":
 		print("Move is valid, sending STAGE_MODEL_MOVE action")
 		print("  From: ", drag_start_pos, " To: ", world_pos)
 		print("  Distance: ", distance_inches, " inches")
 		print("  Total staged: ", total_distance, " inches")
+		staged = _stage_drag_path(world_pos)
+	else:
+		print("Move invalid: %s" % rejection_reason)
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_error"):
+			toast_mgr.show_error(rejection_reason)
 
+	_end_drag_session()
+	# Update visual to show all staged moves
+	_update_staged_moves_visual()
+	return staged
+
+# Stage the drop: one STAGE_MODEL_MOVE per leg — through each T03 waypoint, then
+# to dest (a drag without waypoints is the single action it always was).
+# MovementPhase sums re-staged legs (T-082), so the phase charges the path
+# actually walked and checks each leg's crossing rules on its own segment.
+# Single-player resolves each leg synchronously: if one is refused, the rest are
+# not sent and the model stays on the last leg that staged. True when every leg
+# was sent (and, offline, staged).
+func _stage_drag_path(dest: Vector2) -> bool:
+	var legs: Array = drag_waypoints.duplicate()
+	legs.append(dest)
+	var model_id := str(selected_model.model_id)
+	var source_unit := str(selected_model.get("unit_id", ""))
+	var verify_legs: bool = legs.size() > 1 and not (NetworkManager and NetworkManager.is_networked())
+	for i in range(legs.size()):
+		var leg_dest: Vector2 = legs[i]
 		# Send STAGE_MODEL_MOVE action instead of SET_MODEL_DEST
 		var payload = {
-			"model_id": selected_model.model_id,
-			"dest": [world_pos.x, world_pos.y],
+			"model_id": model_id,
+			"dest": [leg_dest.x, leg_dest.y],
 			"rotation": selected_model.get("rotation", 0.0)  # Preserve rotation
 		}
 		# Include source unit ID when model belongs to an attached character
 		# (model IDs like "m1" can collide between bodyguard and character units)
-		if selected_model.get("unit_id", "") != "" and selected_model.unit_id != active_unit_id:
-			payload["model_source_unit_id"] = selected_model.unit_id
+		if source_unit != "" and source_unit != active_unit_id:
+			payload["model_source_unit_id"] = source_unit
 		var action = {
 			"type": "STAGE_MODEL_MOVE",  # Changed to stage instead of commit
 			"actor_unit_id": active_unit_id,
@@ -2647,24 +2847,116 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 		}
 		print("  Action: ", action)
 		emit_signal("move_action_requested", action)
-	else:
-		print("Move invalid: %s" % rejection_reason)
+		if verify_legs:
+			var staged_at = _pad_staged_dest(source_unit if source_unit != "" else active_unit_id, model_id)
+			if not (staged_at is Vector2 and staged_at.distance_to(leg_dest) < 1.0):
+				var msg := "Leg %d of %d of the path was refused — the model stops at its last waypoint" % [i + 1, legs.size()]
+				if i == 0:
+					msg = "The path's first leg was refused — the model did not move"
+				print("MovementController: ", msg)
+				var toast_mgr = get_node_or_null("/root/ToastManager")
+				if toast_mgr and toast_mgr.has_method("show_error"):
+					toast_mgr.show_error(msg)
+				return false
+	return true
+
+# T03: ESC mid-drag — put the model back down where it was picked up. Nothing is
+# staged and every drag overlay (ghost, ruler, waypoints, reach circle, carried
+# coherency ring) goes. A pivot already made with Q/E stays: it was paid through
+# APPLY_PIVOT_COST, and Undo Model / Reset Unit take it back.
+func cancel_model_drag() -> bool:
+	if not dragging_model:
+		return false
+	print("MovementController: drag cancelled (ESC) — %s stays at %s" % [str(selected_model.get("model_id", "?")), drag_start_pos])
+	_end_drag_session()
+	_update_staged_moves_visual()
+	_update_movement_display()
+	return true
+
+# T03: SHIFT mid-drag — make the spot the model is aiming at (the ghost: the
+# cursor held to the move budget when the clamp is on) a corner of its path. The
+# next leg measures from there, and the drop stages the move leg by leg, so the
+# model goes round whatever the corner avoided. A corner is a stop on the way,
+# so it must be one the model could stand on: on the table, clear of other
+# models and walls, and within the move. Returns whether a waypoint was dropped.
+func drop_drag_waypoint() -> bool:
+	if not dragging_model or selected_model.is_empty():
+		return false
+	var wp: Vector2 = drag_cursor_pos
+	if _drag_clamp_active():
+		wp = _clamp_move_to_budget(wp)
+	if wp.distance_to(_drag_leg_start()) < Measurement.inches_to_px(DRAG_WAYPOINT_MIN_INCHES):
+		print("MovementController: waypoint ignored — too close to the previous corner")
+		return false
+	var refusal: String = _compute_move_rejection(wp)
+	if refusal != "":
+		print("MovementController: waypoint refused at %s — %s" % [wp, refusal])
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr and toast_mgr.has_method("show_error"):
-			toast_mgr.show_error(rejection_reason)
-	
-	# Clear drag state
+			toast_mgr.show_error("Can't put a waypoint there: " + refusal)
+		return false
+	drag_waypoints.append(wp)
+	print("MovementController: waypoint %d dropped at %s" % [drag_waypoints.size(), wp])
+	# Re-run the drag at the same cursor: the ghost now measures from the corner.
+	_update_model_drag_world(drag_cursor_pos)
+	return true
+
+# Tear down a single-model drag (after a drop, a cancel, or the move ending
+# under it): drag state and every overlay the drag drew.
+func _end_drag_session() -> void:
 	dragging_model = false
 	selected_model = {}
 	current_path.clear()
+	drag_waypoints.clear()
 	_clear_ghost_visual()
 	_clear_path_visual()
 	_clear_ruler_visual()
+	_clear_drag_ruler()
 	_clear_move_range_overlay()  # T-094 (revised): remove per-model reach circle
 	_clear_coherency_dots()  # the carried-model coherency ring goes with the ghost
-	
-	# Update visual to show all staged moves
-	_update_staged_moves_visual()
+
+# T03: recompute and repaint the live drag ruler — pickup → dropped waypoints →
+# cursor — for the model in hand, and the cumulative inches at the cursor.
+func _refresh_drag_ruler() -> void:
+	if not dragging_model or selected_model.is_empty():
+		_clear_drag_ruler()
+		return
+	var points: Array = [drag_start_pos]
+	points.append_array(drag_waypoints)
+	points.append(drag_cursor_pos)
+	var used_before: float = _get_accumulated_distance() + (pivot_cost_inches if pivot_cost_paid else 0.0)
+	current_drag_segments = _split_path_by_budget(points, used_before, drag_budget_for_unit(active_unit_id), true)
+	drag_ruler_inches = used_before + _drag_waypoint_cost_inches() + _leg_cost_inches(_drag_leg_start(), drag_cursor_pos)
+	if drag_ruler_visual and is_instance_valid(drag_ruler_visual):
+		var slot: String = "CONFIRMED_GREEN"
+		if not current_drag_segments.is_empty():
+			slot = str(current_drag_segments[-1].color_slot)
+		drag_ruler_visual.show_path(current_drag_segments, drag_waypoints, drag_cursor_pos,
+			_format_drag_ruler_label(drag_ruler_inches, slot, current_drag_segments.is_empty()),
+			slot, Measurement.base_extent_px(selected_model))
+
+func _clear_drag_ruler() -> void:
+	current_drag_segments = []
+	drag_ruler_inches = 0.0
+	if drag_ruler_visual and is_instance_valid(drag_ruler_visual):
+		drag_ruler_visual.clear_path()
+
+# The cumulative-inches label at the cursor. The band is spelled out as well as
+# coloured, so it still reads for a player who can't tell green from red.
+func _format_drag_ruler_label(inches: float, slot: String, no_path: bool) -> String:
+	if no_path:
+		return ""
+	var text := "%.1f\"" % inches
+	match slot:
+		"MARGINAL_YELLOW":
+			text += " Advance"
+		"INVALID_RED":
+			text += " out of reach"
+	return text
+
+# T03: is the drag ruler on screen? (scenarios)
+func is_drag_ruler_showing() -> bool:
+	return drag_ruler_visual != null and is_instance_valid(drag_ruler_visual) and drag_ruler_visual.is_showing()
 
 func _update_hover_preview(mouse_pos: Vector2) -> void:
 	# Show preview when hovering over models
@@ -3249,18 +3541,8 @@ func _snap_to_grid(pos: Vector2) -> Vector2:
 		round(pos.y / snap_px) * snap_px
 	)
 
-func _update_path_visual() -> void:
-	# Use staged_path_visual for current drag
-	staged_path_visual.clear_points()
-	if current_path.size() < 2:
-		return
-	
-	for point in current_path:
-		staged_path_visual.add_point(point)
-	
-	# Color based on validity - yellow for staged, red for invalid
-	staged_path_visual.default_color = Color.YELLOW if path_valid else Color.RED
-
+# The live drag path is drawn by the T03 drag ruler (_refresh_drag_ruler); this
+# line is only ever cleared now.
 func _clear_path_visual() -> void:
 	staged_path_visual.clear_points()
 
@@ -3370,17 +3652,7 @@ func _update_movement_path_preview(move_data: Dictionary, models_with_segments: 
 		cap -= pivot_cost_inches
 	movement_path_preview.update_planning_paths(preview_paths, player, cap)
 
-func _update_ruler_visual() -> void:
-	ruler_visual.clear_points()
-	if current_path.size() < 2:
-		return
-	
-	# Show straight-line ruler
-	ruler_visual.add_point(current_path[0])
-	ruler_visual.add_point(current_path[-1])
-	
-	# Add distance text (would need Label3D in real implementation)
-
+# Superseded by the T03 drag ruler like _clear_path_visual's line; kept cleared.
 func _clear_ruler_visual() -> void:
 	ruler_visual.clear_points()
 
@@ -6397,6 +6669,12 @@ func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 # ghosts and their distance-moved readout must always win.
 const MOVE_OVERLAY_Z: int = 4
 const MOVE_GHOST_Z: int = 70
+# T03 drag ruler: above the board tokens (TokenVisual z 10) it crosses and the
+# move overlays, just under the ghost it leads to — the ghost covers the tape's
+# end, and the ruler's inches label lifts itself above the ghost.
+const DRAG_RULER_Z: int = MOVE_GHOST_Z - 1
+const DRAG_RULER_MIN_RUN_PX: float = 0.5  # shorter runs (0.0125") are dropped
+const DRAG_WAYPOINT_MIN_INCHES: float = 0.25  # a SHIFT corner this close to the last one is ignored
 
 # T-094: Movement range overlay helpers
 const MOVE_RANGE_OVERLAY_COLOR: Color = Color(0.3, 0.85, 0.4, 0.55)

@@ -69,3 +69,132 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, inner_fill_radius_px, fill)
 	if outer_outline_radius_px > inner_fill_radius_px:
 		draw_arc(Vector2.ZERO, outer_outline_radius_px, 0.0, TAU, 64, yellow, 2.0, true)
+
+
+# ---------------------------------------------------------------------------
+# T03 drag ruler (doc §5 quick-win #1, "drag-to-move with budget coloring")
+# ---------------------------------------------------------------------------
+# The path painted while a model is dragged in the Movement phase: one stroke
+# per run MovementController hands over — UIConstants.CONFIRMED_GREEN within M,
+# MARGINAL_YELLOW within M + Advance, INVALID_RED beyond — a tick where the band
+# changes, a dot on the pickup point, a ring on each SHIFT waypoint and the
+# cumulative inches beside the cursor. Lives under BoardRoot (board px), so it
+# pans and zooms with the table. It only draws: MovementController owns the runs
+# (current_drag_segments) and the label text.
+class DragRuler extends Node2D:
+	const STROKE_PX := 6.0
+	const SHADOW_EXTRA_PX := 4.0  # the dark under-stroke is this much wider
+	const TICK_HALF_PX := 12.0
+	const LABEL_FONT_SIZE := 26
+	# Contrast under-stroke, not a semantic colour: it keeps every slot colour
+	# readable on light and dark board art alike.
+	const SHADOW := Color(0.0, 0.0, 0.0, 0.6)
+
+	var segments: Array = []  # [{from, to, color_slot, distance_inches}]
+	var waypoints: Array = []  # Vector2 corners dropped with SHIFT
+	var cursor: Vector2 = Vector2.ZERO
+	var label_text: String = ""
+	var label_slot: String = ""
+	var _label: Label = null
+
+	func _ready() -> void:
+		_label = Label.new()
+		_label.name = "DragRulerLabel"
+		_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_label.add_theme_font_size_override("font_size", LABEL_FONT_SIZE)
+		_label.add_theme_constant_override("outline_size", 8)
+		_label.add_theme_color_override("font_outline_color", SHADOW)
+		# Relative to the ruler (just under the ghost): lifts the number above the
+		# ghost and its own readouts so the model in hand never hides it.
+		_label.z_index = 60
+		_label.visible = false
+		add_child(_label)
+
+	## Paint `segs` (see class comment) and put `text` beside the cursor, clear of
+	## a model base `clearance_px` in radius sitting on it.
+	func show_path(segs: Array, wps: Array, cursor_pos: Vector2, text: String, slot: String, clearance_px: float = 32.0) -> void:
+		segments = segs.duplicate()
+		waypoints = wps.duplicate()
+		cursor = cursor_pos
+		label_text = text
+		label_slot = slot
+		if _label != null:
+			_label.text = text
+			_label.add_theme_color_override("font_color", slot_color(slot))
+			_label.position = cursor_pos + Vector2(clearance_px + 10.0, -LABEL_FONT_SIZE * 0.7)
+			_label.visible = text != ""
+		queue_redraw()
+
+	func clear_path() -> void:
+		segments = []
+		waypoints = []
+		label_text = ""
+		label_slot = ""
+		if _label != null:
+			_label.text = ""
+			_label.visible = false
+		queue_redraw()
+
+	func is_showing() -> bool:
+		return not segments.is_empty()
+
+	func slot_color(slot: String) -> Color:
+		var uic = get_node_or_null("/root/UIConstants")
+		if uic != null:
+			var c = uic.all_slots().get(slot, null)
+			if c is Color:
+				return c
+		match slot:  # fallbacks for a tree without the autoload (headless)
+			"MARGINAL_YELLOW":
+				return Color(0.95, 0.85, 0.15, 1.0)
+			"INVALID_RED":
+				return Color(0.90, 0.20, 0.20, 1.0)
+		return Color(0.20, 0.85, 0.30, 1.0)
+
+	func _draw() -> void:
+		if segments.is_empty():
+			return
+		var colors: Array = []
+		for seg in segments:
+			colors.append(slot_color(str(seg.color_slot)))
+		var shadow_w := STROKE_PX + SHADOW_EXTRA_PX
+		# 1) dark under-stroke, with round joins at every run end
+		for seg in segments:
+			draw_line(seg.from, seg.to, SHADOW, shadow_w, true)
+			draw_circle(seg.from, shadow_w * 0.5, SHADOW)
+			draw_circle(seg.to, shadow_w * 0.5, SHADOW)
+		# 2) the coloured runs
+		for i in range(segments.size()):
+			var seg = segments[i]
+			draw_line(seg.from, seg.to, colors[i], STROKE_PX, true)
+			draw_circle(seg.from, STROKE_PX * 0.5, colors[i])
+			draw_circle(seg.to, STROKE_PX * 0.5, colors[i])
+		# 3) a tick across the path wherever the budget band changes
+		for i in range(1, segments.size()):
+			if str(segments[i].color_slot) == str(segments[i - 1].color_slot):
+				continue
+			var at: Vector2 = segments[i].from
+			var along: Vector2 = (segments[i].to - segments[i].from).normalized()
+			var across := Vector2(-along.y, along.x) * TICK_HALF_PX
+			draw_line(at - across, at + across, SHADOW, 4.0 + SHADOW_EXTRA_PX, true)
+			draw_line(at - across, at + across, colors[i], 4.0, true)
+		# 4) the pickup point, each waypoint, and the cursor end
+		var pale := Color(0.95, 0.95, 0.95, 1.0)
+		var uic = get_node_or_null("/root/UIConstants")
+		if uic != null:
+			pale = uic.NEUTRAL_UI_PALE_WHITE
+		draw_circle(segments[0].from, 7.0, SHADOW)
+		draw_circle(segments[0].from, 5.0, colors[0])
+		for wp in waypoints:
+			draw_circle(wp, 10.0, SHADOW)
+			draw_circle(wp, 8.0, pale)
+			draw_circle(wp, 4.5, _color_at(wp, colors))
+		draw_circle(segments[-1].to, 7.0, SHADOW)
+		draw_circle(segments[-1].to, 5.0, colors[-1])
+
+	# The colour of the run that ends at (or starts from) point p.
+	func _color_at(p: Vector2, colors: Array) -> Color:
+		for i in range(segments.size()):
+			if (segments[i].to as Vector2).distance_to(p) < 0.5:
+				return colors[i]
+		return colors[0]
