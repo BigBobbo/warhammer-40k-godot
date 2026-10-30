@@ -6933,6 +6933,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				assignment["reason"] = "ROLLOUT override"
 				assignments[unit_id] = assignment
 			else:
+				ro_move["noop"] = true
 				print("AIDecisionMaker: [ROLLOUT] move override for %s names unknown objective %s — AI choice kept" % [unit_id, str(ro_move.get("objective", ""))])
 		var assigned_obj_pos = assignment.get("objective_pos", Vector2.INF)
 		var assigned_obj_id = assignment.get("objective_id", "")
@@ -7466,6 +7467,14 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 		var unit = candidate.unit
 		var reserve_type = candidate.reserve_type
 		var unit_name = candidate.name
+		# ROLLOUT: a forced "move" for a unit arriving from reserves = arrive as
+		# close as the placement rules allow to that objective (rollouts only).
+		var ro_arrive := _take_rollout_override("move", player, str(unit_id), int(battle_round))
+		var ro_arrive_pos := Vector2.INF
+		if not ro_arrive.is_empty():
+			ro_arrive_pos = _objective_pos_by_id(snapshot, str(ro_arrive.get("objective", "")))
+			if ro_arrive_pos == Vector2.INF:
+				ro_arrive["noop"] = true
 
 		# P2-80: If unit is in strategic reserves but has Deep Strike, try both placement types
 		# and pick the one with the best tactical result (more candidates = more flexibility)
@@ -7495,6 +7504,9 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 			if positions.is_empty():
 				print("AIDecisionMaker: [RESERVES]   %s (%s) — no valid placement found" % [unit_name, try_type])
 				continue
+			if ro_arrive_pos != Vector2.INF:
+				positions.sort_custom(func(pa, pb): return pa.distance_to(ro_arrive_pos) < pb.distance_to(ro_arrive_pos))
+				print("AIDecisionMaker: [ROLLOUT] %s arrives as close as allowed to %s" % [unit_name, str(ro_arrive.get("objective", ""))])
 
 			# Generate model formation around the chosen centroid
 			var models = unit.get("models", [])
@@ -13944,6 +13956,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				ro_assign = _sanitize_shoot_assignments(ro_sid,
 					_build_unit_assignments_fallback(ro_shooter, ro_weapons, ro_single, snapshot, ro_sid), snapshot)
 			if ro_assign.is_empty():
+				ro_shoot["noop"] = true
 				print("AIDecisionMaker: [ROLLOUT] shoot override %s -> %s has no valid weapon assignment — AI choice kept" % [ro_sid, ro_tid])
 			else:
 				_focus_fire_plan[ro_sid] = ro_assign

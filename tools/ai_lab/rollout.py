@@ -215,7 +215,11 @@ def cmd_run(args) -> int:
                         "material": stats([b_vals[s]["material"] for s in paired])}
         summary["effect_value"] = stats([b_vals[s]["value"] - a_vals[s]["value"] for s in paired])
         summary["effect_material"] = stats([b_vals[s]["material"] - a_vals[s]["material"] for s in paired])
-        summary["override_applied"] = [all(bool(o.get("used", False)) for o in results[("B", s)].get("rollout_overrides", []))
+        # applied = the forced decision was taken; "noop" = the override fired
+        # but was not applicable (e.g. no weapon can target that unit) and the
+        # AI's own choice was kept, so B equals A and the job measures nothing.
+        summary["override_applied"] = [all(bool(o.get("used", False)) and not o.get("noop", False)
+                                           for o in results[("B", s)].get("rollout_overrides", []))
                                        for s in paired]
         summary["identical_pairs"] = sum(1 for s in paired if b_vals[s] == a_vals[s])
         summary["per_seed"] = [{"seed": s, "A": a_vals[s], "B": b_vals[s]} for s in paired]
