@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~34 OC there before we arrive in 2 turns) \u2014 worth ~9 VP)",
+ "created": "2026-10-30 00:55:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7402_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Gamma alone to obj_center. The enemy can have about 34 OC there, and it adds no primary VP because non-home control pays a flat 4 VP and obj_nml_1 already pays it. Fix: If the nearest objective is already taken, choose the highest-scoring remaining option and never override it with a lower-scoring one. Cap expected_vp by the marginal VP from the primary card table. Treat a contested objective with a large enemy OC advantage as a hard negative for a lone unit. Prefer joining a friendly group or staying near home.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7402_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma advances toward obj_center (racing for it (enemy can have ~34 OC there before we arrive in 2 turns))",
+ "verdict": "bad",
+ "version": 1
+}

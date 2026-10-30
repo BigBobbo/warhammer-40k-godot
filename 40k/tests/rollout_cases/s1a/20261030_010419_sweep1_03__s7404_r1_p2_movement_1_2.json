@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~13 VP)",
+ "created": "2026-10-30 01:05:33",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7404_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] Mek Beta, a weak OC1 character, walks 21 in alone toward obj_center. Battlewagon Beta is already sent there. The 'contest_race' term is -17.05, but the option still wins on a large objective_priority bonus. Fix: Cap objective_priority at the marginal VP gain from the unit. Reduce it when the objective already has an assigned unit with enough OC. Reduce it when the enemy can out-OC the unit on arrival. Keep a support character with the main body or with a held objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7404_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_MEK_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Mek Beta moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 21.1\" away)",
+ "verdict": "pending",
+ "version": 1
+}

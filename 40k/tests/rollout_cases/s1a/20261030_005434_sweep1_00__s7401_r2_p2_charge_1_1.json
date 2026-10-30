@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Beta (9.3\" away, 17% chance)",
+ "created": "2026-10-30 00:57:09",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7401_r2_p2_charge_1",
+ "note": "[LLM critic, low conf] The AI charges Delta at a 17% chance into a cluster of enemy units. A failed charge costs little, but a success pulls Delta off CENTER and exposes it to a counter-charge. Fix: Add a retaliation term to every charge option. Base it on the total melee threat of enemy units within 12 in of the charge end point. Add a penalty for leaving a held objective when the unit's OC is needed to keep control. Raise the minimum charge chance, or reduce the aggression bonus, when the success probability is below 20%.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7401_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D_P2",
+  "choice": "pos:445,845",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_A,U_BLADE_CHAMPION_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta declares a charge at Blade Champion Beta + Blade Champion Alpha \u2014 targets picked after the roll: Blade Champion Beta on 10+ (17%), Blade Champion Alpha on 10+ (17%), overwatch risk: 0.2 dmg",
+ "verdict": "pending",
+ "version": 1
+}

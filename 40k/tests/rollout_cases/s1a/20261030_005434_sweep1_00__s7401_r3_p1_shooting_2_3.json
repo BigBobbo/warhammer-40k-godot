@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Balistus Grenade Launcher \u2192 enemy Custodian Guard Sodality Alpha (P2)",
+ "created": "2026-10-30 01:01:02",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7401_r3_p1_shooting_2",
+ "note": "[LLM critic, low conf] The AI shot the grenade launcher at a full-health Custodian Guard unit with a 6% kill chance. The very close Blade Champion Alpha did not appear as an option. Fix: Always list every visible enemy in range as a candidate for every weapon. Add the rapid fire and blast bonuses to the expected damage. Add a term for threat to our units and objectives, and for damage already dealt to a target. Make the kill_threshold term scale with the real kill probability instead of a constant.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7401_r3_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "desc:Balistus Grenade Launcher \u2192 enemy Custodian Guard Sodality Alpha (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians shoots at Custodian Guard Sodality Alpha \u2014 expected 0.8 dmg vs 15 HP (6% kill)",
+ "verdict": "pending",
+ "version": 1
+}

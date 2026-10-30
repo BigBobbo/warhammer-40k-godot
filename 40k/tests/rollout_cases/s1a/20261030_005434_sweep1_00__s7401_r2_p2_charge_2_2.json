@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Beta (10.6\" away, 8% chance)",
+ "created": "2026-10-30 00:57:27",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7401_r2_p2_charge_2",
+ "note": "[LLM critic, medium conf] The AI declares an 8% charge, which is below its own 23% threshold. Big unscaled bonus terms push the score positive. A success would pull the unit off CENTER into a gang of enemy units. Fix: Reject any charge below charge_threshold. Multiply all reward terms by charge probability. Add a penalty for leaving a held objective and for ending the charge within reach of several enemy units.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7401_r2_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A_P2",
+  "choice": "pos:445,845",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians declares charge against Blade Champion Beta (8% chance, 10.6\" away, expected 10.0 melee dmg vs 7 HP, overwatch risk: 0.2 dmg)",
+ "verdict": "bad",
+ "version": 1
+}
