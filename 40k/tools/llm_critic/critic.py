@@ -308,7 +308,13 @@ lanes, who is near whom); write 'no screenshots' if none were attached>",
  "better_option": "<the listed option text you would pick, or 'unlisted: ...', or '' if sound>",
  "logic_flaw": "<which score term(s) or missing consideration caused it, or ''>",
  "proposed_fix": "<a concrete, general heuristic change (not a one-off), or ''>",
- "rules_uncertainty": "<any rules you were unsure about, or ''>"}"""
+ "rules_uncertainty": "<any rules you were unsure about, or ''>",
+ "alternative": <null if sound, else your better option as ONE machine-readable action for the acting unit, \
+using the exact unit ids (roster keys) and objective ids (as in the options), in one of these forms:
+   {"kind": "move", "unit": "<acting unit id>", "objective": "<objective id>", "mode": "move" | "advance" | "hold"}
+   {"kind": "shoot", "unit": "<acting unit id>", "target": "<enemy unit id>"}
+   {"kind": "charge", "unit": "<acting unit id>", "targets": ["<enemy unit id>", ...]}   (targets [] = do not charge)
+ Use null when your better option cannot be written this way.>}"""
 
 
 STE = ("Write every text value in ASD-STE100 Simplified Technical English: "
@@ -672,6 +678,51 @@ def verify(args, run_dir):
                              else f"DRIFTS on reload -> {v['now'][:90]}"), flush=True)
 
 
+def value(args, run_dir):
+    """Value check: turn each flagged review's machine-readable "alternative"
+    into a counterfactual rollout job (tools/ai_lab/rollout.py: the AI's choice
+    vs the alternative from the saved position, paired seeds, short horizon)
+    and, with --value-run, run the jobs here. Jobs go to value_jobs.json so a
+    driver can also shard them across machines."""
+    run_name = os.path.basename(run_dir.rstrip("/"))
+    jobs, seen = [], set()
+    for r in read_jsonl(os.path.join(run_dir, "reviews.jsonl")):
+        if r.get("verdict") not in ("flawed", "questionable"):
+            continue
+        alt = r.get("alternative")
+        if not isinstance(alt, dict) or alt.get("kind") not in ("move", "shoot", "charge"):
+            continue
+        case = user_path(run_name, r["id"] + ".json")
+        if not os.path.exists(case):
+            continue
+        key = (r["id"], json.dumps(alt, sort_keys=True))
+        if key in seen:
+            continue
+        seen.add(key)
+        jobs.append({"id": r["id"], "job": "%s_%d" % (r["id"], len(jobs)), "case": case, "alt": [alt],
+                     "verdict": r.get("verdict"), "severity": r.get("severity"),
+                     "summary": r.get("summary", ""), "better_option": r.get("better_option", "")})
+    jdump(os.path.join(run_dir, "value_jobs.json"), jobs)
+    print(f"{len(jobs)} value job(s) -> {os.path.join(run_dir, 'value_jobs.json')}", flush=True)
+    if not args.value_run:
+        return
+    out_dir = os.path.join(run_dir, "values")
+    os.makedirs(out_dir, exist_ok=True)
+    rollout = os.path.join(PROJECT, "..", "tools", "ai_lab", "rollout.py")
+    for j in jobs:
+        out = os.path.join(out_dir, j["job"] + ".json")
+        if os.path.exists(out):
+            continue
+        subprocess.run([sys.executable, rollout, "run", "--case", j["case"], "--alt", json.dumps(j["alt"]),
+                        "--seeds", str(args.value_seeds), "--horizon", str(args.value_horizon),
+                        "--lanes", str(args.value_lanes), "--tag", run_name + "_" + j["job"], "--out", out])
+    for j in jobs:
+        out = os.path.join(out_dir, j["job"] + ".json")
+        if os.path.exists(out):
+            v = json.load(open(out)).get("effect_value", {})
+            print(f"  {j['job']}: E {v.get('mean')} VP (se {v.get('se')}, 95% {v.get('ci95')}) — {j['better_option'][:70]}")
+
+
 def promote(args, run_dir):
     run_name = os.path.basename(run_dir.rstrip("/"))
     dest = os.path.join(PROJECT, "tests", "ai_cases")
@@ -729,7 +780,7 @@ def promote_from_verdicts(args, run_dir, run_name, dest):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("stage", choices=["all", "collect", "review", "synthesize", "report", "verify", "promote"])
+    ap.add_argument("stage", choices=["all", "collect", "review", "synthesize", "report", "verify", "promote", "value"])
     ap.add_argument("run_dir", nargs="?", help="existing run dir (all stages but collect/all)")
     ap.add_argument("cases", nargs="*", help="promote: case ids")
     g = ap.add_argument_group("collect")
@@ -762,6 +813,11 @@ def main():
     g.add_argument("--verify-timeout", type=float, default=1800)
     g.add_argument("--from-verdicts", help="promote: verdicts JSON copied from REPORT.html (- = stdin)")
     g.add_argument("--verdict", default="bad", choices=["bad", "good"], help="promote: verdict for still-pending cases")
+    g = ap.add_argument_group("value (counterfactual rollouts of each flagged alternative)")
+    g.add_argument("--value-run", action="store_true", help="run the rollout jobs here (else only write value_jobs.json)")
+    g.add_argument("--value-seeds", type=int, default=12)
+    g.add_argument("--value-horizon", type=int, default=1, help="rounds after the decision round; 0 = full game")
+    g.add_argument("--value-lanes", type=int, default=4)
     args = ap.parse_args()
 
     if args.stage in ("all", "collect"):
@@ -788,6 +844,8 @@ def main():
         report(args, run_dir)
     if args.stage == "promote":
         promote(args, run_dir)
+    if args.stage == "value":
+        value(args, run_dir)
 
 
 if __name__ == "__main__":
