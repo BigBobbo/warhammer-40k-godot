@@ -1,0 +1,206 @@
+[
+ {
+  "job": "20261030_160514_r4c15_00__s7466_r1_p2_movement_1_0",
+  "case": "20261030_160514_r4c15_00__s7466_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI advanced a Lootas unit that has no ASSAULT weapons, so the unit cannot shoot this turn. It also does not reach the objective this turn.",
+  "better_option": "unlisted: Move toward obj_center as a normal move, not an advance",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "purge_the_foe",
+   "seeds": "7466",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160514_r4c15_00"
+ },
+ {
+  "job": "20261030_160514_r4c15_00__s7466_r1_p2_movement_2_1",
+  "case": "20261030_160514_r4c15_00__s7466_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A_P2",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a 10-model Lootas unit forward as a corridor screen against Lootas Gamma. This unit has weak melee and exists to shoot. Screening wastes its fire lanes and pulls it out of cover.",
+  "better_option": "Hold obj_home_2 (on objective, OC needed \u2014 worth ~2 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "purge_the_foe",
+   "seeds": "7466",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160514_r4c15_00"
+ },
+ {
+  "job": "20261030_160514_r4c15_00__s7466_r2_p2_shooting_1_2",
+  "case": "20261030_160514_r4c15_00__s7466_r2_p2_shooting_1_2.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A_P2",
+    "target": "U_LOOTAS_C"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent 8 single-shot sluggas at Burna Boyz Beta for 1.2 expected damage and a 25% kill chance. Lootas Gamma is a higher-value target and is already focus-fired by 4 other shooters.",
+  "better_option": "Slugga \u2192 enemy Lootas Gamma (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "purge_the_foe",
+   "seeds": "7466",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160514_r4c15_00"
+ },
+ {
+  "job": "20261030_160514_r4c15_00__s7466_r3_p1_movement_1_3",
+  "case": "20261030_160514_r4c15_00__s7466_r3_p1_movement_1_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_TANKBUSTAS_A",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 2,
+  "summary": "Tankbustas arrive in the crowded enemy corner and cannot take any objective. The score still gives arrive_objectives 14.46, and the unit is likely lost without hitting any vehicle.",
+  "better_option": "unlisted: Tankbustas arrive at the right table edge near obj_home_2 to contest the enemy home, which has only 1 OC, and to shoot the enemy Battlewagons.",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "purge_the_foe",
+   "seeds": "7466",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160514_r4c15_00"
+ },
+ {
+  "job": "20261030_160514_r4c15_00__s7466_r3_p1_movement_2_4",
+  "case": "20261030_160514_r4c15_00__s7466_r3_p1_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI advances the 10-model Beast Snagga Boyz from its home objective to obj_center. This flips an enemy-held objective but gives up the advance's shooting and charge, and the unit arrives next turn at best.",
+  "better_option": "Advance obj_center (flipping it (enemy holds with OC 12), needs 1 more OC after this unit \u2014 backfilling for a unit that went hunting \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "purge_the_foe",
+   "seeds": "7466",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160514_r4c15_00"
+ },
+ {
+  "job": "20261030_160514_r4c15_00__s7466_r3_p2_shooting_1_5",
+  "case": "20261030_160514_r4c15_00__s7466_r3_p2_shooting_1_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "target": "U_LOOTAS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Battlewagon Alpha adds a sixth shooter to Lootas Beta, which has 2 wounds left and about 5.44 expected damage already allocated, so most of this fire is wasted.",
+  "better_option": "Big shoota \u2192 enemy Lootas Alpha (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "purge_the_foe",
+   "seeds": "7466",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160514_r4c15_00"
+ },
+ {
+  "job": "20261030_160514_r4c15_00__s7466_r3_p2_shooting_2_6",
+  "case": "20261030_160514_r4c15_00__s7466_r3_p2_shooting_2_6.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "target": "U_BURNA_BOYZ_B"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot Big shoota at Beast Snagga Boyz at 35.2 in for 0.2 expected damage and a 2% kill chance. The shot is almost worthless. Burna Boyz Beta has 2 models left, so the same damage is worth more there.",
+  "better_option": "Big shoota \u2192 enemy Burna Boyz Beta (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "purge_the_foe",
+   "seeds": "7466",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160514_r4c15_00"
+ },
+ {
+  "job": "20261030_160514_r4c15_00__s7466_r3_p2_charge_1_7",
+  "case": "20261030_160514_r4c15_00__s7466_r3_p2_charge_1_7.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges Lootas Alpha at 42% for only 2.7 expected melee damage. A success moves its main anchor off the center objective and into enemy melee threats. The tie-up of the shooters is worth something.",
+  "better_option": "unlisted: do not charge, keep Battlewagon Alpha on the center objective and keep shooting with it",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "purge_the_foe",
+   "seeds": "7466",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160514_r4c15_00"
+ }
+]

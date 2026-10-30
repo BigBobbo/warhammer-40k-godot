@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Lootas Alpha (7.3\" away, 42% chance)",
+ "created": "2026-10-30 16:29:28",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7466_r3_p2_charge_1",
+ "note": "[LLM critic, low conf] The AI charges Lootas Alpha at 42% for only 2.7 expected melee damage. A success moves its main anchor off the center objective and into enemy melee threats. The tie-up of the shooters is worth something. Fix: Add an objective-hold penalty when a charge moves a unit off an objective it holds, scaled by the OC left behind. Make the retaliation term use the total melee output of enemy units that can reach the charge end point. Cap the combined tie-up bonuses for low-damage charges.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7466_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A_P2",
+  "choice": "pos:452,972",
+  "decision": "charge",
+  "targets": "U_LOOTAS_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha declares charge against Lootas Alpha (42% chance, 7.3\" away, expected 2.7 melee dmg vs 9 HP, overwatch risk: 6.0 dmg)",
+ "verdict": "pending",
+ "version": 1
+}
