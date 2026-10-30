@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Custodian Guard Sodality Beta fights now",
+ "created": "2026-10-30 06:40:07",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7436_r3_p2_fight_2",
+ "note": "[LLM critic, medium conf] The AI picked Beta to fight first. Delta scored higher because of order_half_kill and order_target_on_objective, but the AI did not choose it. The chosen option scored 6.0 against 13.07 for the rejected option. Fix: Check that the fight order picker takes the highest-scoring option. Log any override with its reason. Add a test that fails when the chosen score is below the best score.",
+ "phase_name": "Fight",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7436_r3_p2_fight_2.w40ksave",
+ "signature": {
+  "choice": "key:U_CUSTODIAN_GUARD_B",
+  "decision": "fight_order",
+  "type": "SELECT_FIGHTER",
+  "unit_id": "U_CUSTODIAN_GUARD_B"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta fights \u2014 expected 6.7 melee dmg vs Battlewagon Alpha (10 HP)",
+ "verdict": "pending",
+ "version": 1
+}

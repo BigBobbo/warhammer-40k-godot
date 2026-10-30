@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 18\"))",
+ "created": "2026-10-30 06:34:47",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7436_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a short-range Burna unit alone to an empty corner, 31 in away, for a screen score of 0.82. Better options scored 26 to 39. Fix: Reject a screen position that is more than about 12 in from friendly units or off the enemy approach lane. When a race override rejects one objective, only drop that option. Keep other objective options, and fall back to Hold on the home objective if the unit is on it and OC is needed.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7436_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "pos:1600,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha screens at (1600,320) \u2014 backfield gap (nearest friendly: 18\")",
+ "verdict": "bad",
+ "version": 1
+}

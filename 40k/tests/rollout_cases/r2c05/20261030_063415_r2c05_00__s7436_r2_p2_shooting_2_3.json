@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Balistus Grenade Launcher \u2192 enemy Burna Boyz Alpha (P1)",
+ "created": "2026-10-30 06:37:31",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7436_r2_p2_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot the Balistus Grenade Launcher at Burna Boyz Alpha for 3.7 expected damage, mainly because the '75% kill' term was inflated. Lootas Gamma would take more expected damage (5.83) and is the greater threat. Fix: Compute kill_fraction as a true probability of destroying the unit, using a binomial or Monte Carlo estimate. Weight the kill bonus by the target's threat to the shooter and its points value. Do not use expected damage divided by HP as a kill chance.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7436_r2_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "desc:Balistus Grenade Launcher \u2192 enemy Burna Boyz Alpha (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians shoots at Burna Boyz Alpha \u2014 expected 3.7 dmg vs 5 HP (75% kill); Lootas Gamma \u2014 expected 2.3 dmg vs 10 HP (23% kill)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (flipping it (enemy holds with OC 15), needs 13 more OC after this unit \u2014 worth ~10 VP)",
+ "created": "2026-10-30 06:37:19",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7436_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Beta alone into the Ork-held center objective. It needs 13 more OC and has a -15.79 contest_race and a -17.71 threat_delta. The AI picks it only because the better option was blocked by an assignment rule. Fix: When the assigned objective is full, re-rank the remaining options by score. Reject any fallback objective where contest_race and threat_delta make the move net negative, and prefer a supporting position such as home or a screening position with a ranged firing lane.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7436_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_center (moving toward charge target Stormboyz, obj: 14.7\" away)",
+ "verdict": "pending",
+ "version": 1
+}
