@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 11\"))",
+ "created": "2026-10-30 06:36:26",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7437_r1_p2_movement_2",
+ "note": "[LLM critic, high conf] The AI sent Burna Boyz Alpha to a far backfield corner to screen, when it could advance toward the empty center objective. The screen move wastes the unit's turn. Fix: Make screen_base depend on a real threat. It should be at least the distance to the nearest enemy that could reach the screened unit. Cap or drop it when no enemy is within 1 move plus 12 in of the screened area. Let the best-scoring objective option replace an assigned screen role when the screen score is below the objective score. Do not apply the home-objective race override to other objectives.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7437_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "pos:320,2160",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha screens at (320,2160) \u2014 backfield gap (nearest friendly: 11\")",
+ "verdict": "bad",
+ "version": 1
+}

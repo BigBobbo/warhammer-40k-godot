@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (racing for it (enemy can have ~16 OC there before we arrive in 2 turns) \u2014 worth ~3 VP with the 2 other objective(s) this plan takes \u2014 switched from obj_nml_2 to backfill for a unit that went hunting \u2014 worth ~6 VP)",
+ "created": "2026-10-30 06:35:33",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7437_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Beta to obj_center on a normal move, which takes two turns. The enemy has long-range Lootas and many OC that can contest the center first. The 'racing' reasoning shows the AI knows it will lose the race, yet it still picks the move. Fix: Count enemy OC and ranged threat at the target when it arrives. Reduce the value of a lone Beta at a contested objective. Prefer the objective with the lower enemy OC, or keep Beta with Gamma as a group.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7437_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_center (racing for it (enemy can have ~16 OC there before we arrive in 2 turns) \u2014 worth ~3 VP with the 2 other objective(s) this plan takes \u2014 switched from obj_nml_2 to backfill for a unit that went hunting, obj: 19.0\" away)",
+ "verdict": "pending",
+ "version": 1
+}

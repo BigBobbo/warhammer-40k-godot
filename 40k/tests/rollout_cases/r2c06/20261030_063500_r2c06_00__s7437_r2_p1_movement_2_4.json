@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing it (we hold with OC 6, enemy can bring ~7) \u2014 worth ~7 VP)",
+ "created": "2026-10-30 06:37:17",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7437_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] Beta (OC3) reinforces obj_center, which is already held with OC 6 and has a second unit (Gamma) assigned. The 'enemy can bring ~7' threat is weak because the nearest enemies are over 20 in away. Fix: Scale reinforcement value by the real enemy OC that can reach the objective next turn, counting only enemy units within charge or move range. Cut the value once committed OC exceeds that enemy OC by a margin. Give expected_vp only for the marginal VP gained.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7437_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_center (moving toward charge target Mek Beta, obj: 11.4\" away)",
+ "verdict": "pending",
+ "version": 1
+}

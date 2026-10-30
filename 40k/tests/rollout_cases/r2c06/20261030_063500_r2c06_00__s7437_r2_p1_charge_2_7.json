@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Mek Beta (10.9\" away, 8% chance)",
+ "created": "2026-10-30 06:38:14",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7437_r2_p1_charge_2",
+ "note": "[LLM critic, high conf] The AI charges a 4-wound Mek at 8% odds. The positive terms (ch_damage 40, ch_can_wipe 5, ch_can_halve 3, ch_character 2) use full melee damage and ignore that the charge usually fails. This pushes a 0.47 score over the threshold. Fix: Multiply all payoff terms by charge_probability. Set a hard floor of about 25 to 30% chance before the aggression and tempo bonuses can apply. Add a penalty for leaving a held objective, and a check on whether a unit that cannot reach is better off shooting.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7437_r2_p1_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:1134,1465",
+  "decision": "charge",
+  "targets": "U_MEK_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta declares charge against Mek Beta (8% chance, 10.9\" away, expected 20.0 melee dmg vs 4 HP, overwatch risk: 7.6 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

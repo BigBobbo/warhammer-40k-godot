@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Tankbustas arrives",
+ "created": "2026-10-30 06:39:15",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7437_r2_p2_movement_2",
+ "note": "[LLM critic, low conf] Tankbustas is the only unit with a legal spot, so arriving is correct. The chosen spot is 10.9 in from obj_nml_2, which a 6 in move cannot reach. Fix: For a reserves spot, score the objective term only if the unit can reach objective range with a normal move next turn. Otherwise prefer a legal spot within M + 3 in of the objective that is still out of enemy charge range.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7437_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "choice": "key:U_TANKBUSTAS_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_TANKBUSTAS_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Tankbustas arrives from Strategic Reserves",
+ "verdict": "pending",
+ "version": 1
+}
