@@ -1,0 +1,461 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..70d0673 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1626,6 +1626,35 @@ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+ # target without it. 0 = V6 behaviour (every declared charger counts).
+ # Off since the round-1 bundle test (2026-10-30, vs V6, 3 fixtures): with it +0.97 [-1.17, +3.12], without it +1.58 [-0.27, +3.42]. Kept for a later test.
+ const FIX_CHARGE_EV: float = 0.0
++# Movement plan (FIX_REINFORCE_INSURANCE): 1 = three valuation corrections for
++# a unit choosing between reinforcing an objective we already hold and a trip
++# elsewhere. (a) RI-RACE: a one-move reinforcement of a held_threatened
++# objective gets a race test like RACE-1's multi-turn trips — when the enemy
++# OC that can stand in range after its next move (reach measured from each
++# unit's NEAREST model, as control is, not its centroid) is RI_RACE_LOST_RATIO
++# x what we would have there with this unit, the reinforcement cannot keep it and keeps
++# MOVE_RACE_LOSS_FACTOR of its objective value. COORD-5's centroid reach
++# missed 10-model squads whose front rank was in reach. (b) RI-ASSAULT: a unit
++# whose ranged weapons are all [ASSAULT] gives up no shooting by Advancing on
++# a long trip (11e). (c) RI-QUARTER: a primary card that pays for table
++# quarters at the end of OUR turn (Reconnaissance Sweep) is priced in VP — the
++# tier VP this unit's end-of-move spot (at the pace it travels) adds to the
++# quarters the rest of the army covers, this turn plus half per later round —
++# instead of a flat bonus on the walking spot that ignored "wholly within" and
++# the 6" centre gap. Custodian Guard Beta reinforced a centre held with OC 6
++# while Gretchin and Lootas could each take it next move, instead of Advancing
++# into the empty quarter on the way to obj_nml_2 (LLM-critic cluster
++# reinforce_insurance; the Advance measured +4.36 VP over 36 rollouts, the
++# gain from the quarter tier). 0 = previous behaviour.
++const FIX_REINFORCE_INSURANCE: float = 1.0
++# RI-QUARTER: share of the quarter VP counted for each later battle round
++# (the unit usually stays in the quarter it entered, but may move or die).
++const RI_QUARTER_LATER_ROUND_SHARE: float = 0.5
++# RI-RACE: a one-move reinforcement is a lost race when the enemy can stand
++# there with at least this multiple of our OC with it. Not 1.0: the enemy has
++# one move, our shooting and charges act on its approach first, and LONE-TRIP
++# pins 18 OC vs 20 as a fight worth joining (test_ai_fix_lone_trip).
++const RI_RACE_LOST_RATIO: float = 1.5
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -9274,6 +9303,15 @@ static func _assign_units_to_objectives(
+ 	if hd_mm != null:
+ 		for hd_eval in obj_evaluations:
+ 			hd_obj_by_id[hd_eval.id] = _held_dup_objective_at(snapshot, hd_eval.position)
++	# REINFORCE-INSURANCE (FIX_REINFORCE_INSURANCE): RI-RACE's enemy reach per
++	# objective (cached) and RI-QUARTER's quarters covered by everyone but the
++	# unit being placed (cached per unit).
++	var ri_on: bool = get_param("FIX_REINFORCE_INSURANCE", FIX_REINFORCE_INSURANCE) >= 0.5
++	var ri_threat_by_obj := {}
++	var ri_obj_positions: Array = []
++	for ri_eval in obj_evaluations:
++		ri_obj_positions.append(ri_eval.position)
++	var ri_covered_by_unit := {}
+ 
+ 	# =========================================================================
+ 	# COORD-2: INCOMING OC — account for friendly units that already took their
+@@ -9468,6 +9506,35 @@ static func _assign_units_to_objectives(
+ 					score = _t_mul(score_terms, "contest_race", score,
+ 						get_param("MOVE_RACE_LOSS_FACTOR", MOVE_RACE_LOSS_FACTOR))
+ 
++			# RI-RACE (FIX_REINFORCE_INSURANCE): a one-move reinforcement of an
++			# objective we hold races the enemy's next move like RACE-1's trips —
++			# a reinforcement that still leaves us at or below what the enemy can
++			# stand there with cannot keep the objective.
++			if ri_on and turns_to_reach <= 1 and not already_on_obj \
++					and str(eval.get("state", "")) == "held_threatened" and score > 0.0:
++				if not ri_threat_by_obj.has(obj_id):
++					ri_threat_by_obj[obj_id] = _ri_enemy_next_move_oc(obj_pos, ri_obj_positions, enemies) \
++							+ int(eval.get("enemy_oc", 0))
++				var ri_enemy_oc: int = int(ri_threat_by_obj[obj_id])
++				var ri_our_oc: int = int(eval.get("friendly_oc", 0)) + int(unit_oc)
++				var ri_half := 0
++				for f_arr in eval.get("friendly_arrivals", []):
++					if str(f_arr.get("unit_id", "")) == str(unit_id) or int(f_arr.moves) > 1:
++						continue
++					if f_arr.get("nearest", true):
++						ri_our_oc += int(f_arr.oc)
++					else:
++						ri_half += int(f_arr.oc)
++				ri_our_oc += int(round(ri_half * 0.5))
++				if float(ri_enemy_oc) >= float(ri_our_oc) * get_param("RI_RACE_LOST_RATIO", RI_RACE_LOST_RATIO):
++					race_lost = true
++					race_enemy_oc = ri_enemy_oc
++					var ri_before: float = score
++					score = _t_mul(score_terms, "reinforce_race", score,
++						get_param("MOVE_RACE_LOSS_FACTOR", MOVE_RACE_LOSS_FACTOR))
++					print("AIDecisionMaker: [REINFORCE_INSURANCE] RI-RACE %s -> %s: the enemy can stand there with ~%d OC next move vs our %d with it — reinforcing keeps %.1f of %.1f" % [
++						_dn(unit, unit_id), obj_id, ri_enemy_oc, ri_our_oc, score, ri_before])
++
+ 			# Distance penalty: further away = less useful. RACE-1: each extra turn
+ 			# costs a share of the objective's value (floored at the flat penalty),
+ 			# so a +20 objective three turns away is no longer down just -4.
+@@ -9648,7 +9715,22 @@ static func _assign_units_to_objectives(
+ 						score += _t_add(score_terms, "primary_awareness", primary_awareness.central_bonus)
+ 				if primary_awareness.get("hold_home_required", false) and eval.get("is_home", false):
+ 					score += _t_add(score_terms, "primary_awareness", 3.0)
+-				if primary_awareness.get("quarters", false):
++				if primary_awareness.get("quarters", false) and ri_on:
++					# RI-QUARTER (FIX_REINFORCE_INSURANCE): the card's VP for the
++					# spot this move really ends on, at the pace it travels.
++					if not ri_covered_by_unit.has(unit_id):
++						var ri_others: Dictionary = (snapshot.get("units", {}) as Dictionary).duplicate()
++						ri_others.erase(unit_id)
++						ri_covered_by_unit[unit_id] = _get_covered_quarters(ri_others, player)
++					var ri_pace_in: float = move_inches + (get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES) if long_adv else 0.0)
++					var ri_end: Vector2 = centroid + move_direction * minf(ri_pace_in * PIXELS_PER_INCH, dist_px)
++					var ri_q_vp: float = _ri_quarter_vp(unit, ri_end - centroid, ri_covered_by_unit[unit_id],
++							primary_awareness.get("vp_rules", []), battle_round)
++					if ri_q_vp > 0.0:
++						score += _t_add(score_terms, "quarter_vp", ri_q_vp)
++						print("AIDecisionMaker: [REINFORCE_INSURANCE] RI-QUARTER %s -> %s (%s): ends wholly in an uncovered table quarter, +%.1f (card VP)" % [
++							_dn(unit, unit_id), obj_id, "advance" if long_adv else "move", ri_q_vp])
++				elif primary_awareness.get("quarters", false):
+ 					var pr_covered = _get_covered_quarters(snapshot.get("units", {}), player)
+ 					var pr_quarter = _get_table_quarter(estimated_dest)
+ 					if not pr_covered[pr_quarter]:
+@@ -11622,6 +11704,116 @@ static func _prob_sum_d6_at_least(n: int, need: float) -> float:
+ 			p += float(dist[total])
+ 	return p
+ 
++## RI-ASSAULT (FIX_REINFORCE_INSURANCE): true when the unit has ranged
++## weapons and every one is [ASSAULT] — it can shoot them after Advancing.
++static func _ri_ranged_all_assault(unit: Dictionary) -> bool:
++	var any_ranged := false
++	for w in unit.get("meta", {}).get("weapons", []):
++		if str(w.get("type", "")).to_lower() != "ranged":
++			continue
++		any_ranged = true
++		var is_assault := false
++		for tok in str(w.get("special_rules", "")).to_lower().split(","):
++			if tok.strip_edges() == "assault":
++				is_assault = true
++				break
++		if not is_assault:
++			return false
++	return any_ranged
++
++## RI-RACE (FIX_REINFORCE_INSURANCE): the enemy OC that can stand in control
++## range of `obj_pos` after one move (M + 2", COORD-5's slack), measured from
++## each unit's NEAREST alive model (control needs one model in range, so a
++## 10-model squad's centroid understates its reach by several inches). Units
++## already in range are left out (they are in enemy_oc); a unit standing in
++## range of another objective counts half (RACE-1b: it can hold only one).
++static func _ri_enemy_next_move_oc(obj_pos: Vector2, obj_positions: Array, enemies: Dictionary) -> int:
++	var total := 0
++	var half := 0
++	for e_uid in enemies:
++		var e_unit = enemies[e_uid]
++		if e_unit.get("flags", {}).get("battle_shocked", false):
++			continue
++		var e_status = e_unit.get("status", 0)
++		if e_status == GameStateData.UnitStatus.UNDEPLOYED or e_status == GameStateData.UnitStatus.IN_RESERVES:
++			continue
++		var e_oc = _unit_alive_oc(e_unit, 0)
++		if e_oc <= 0:
++			continue
++		var near_px := INF
++		var on_other := false
++		for model in _get_alive_models(e_unit):
++			var mp = _get_model_position(model)
++			if mp == Vector2.INF:
++				continue
++			near_px = minf(near_px, mp.distance_to(obj_pos))
++			for o_pos in obj_positions:
++				if (o_pos as Vector2).distance_to(obj_pos) > 1.0 and mp.distance_to(o_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
++					on_other = true
++		if near_px == INF or near_px <= OBJECTIVE_CONTROL_RANGE_PX:
++			continue
++		var e_move = float(e_unit.get("meta", {}).get("stats", {}).get("move", 6))
++		if near_px - OBJECTIVE_CONTROL_RANGE_PX <= (e_move + 2.0) * PIXELS_PER_INCH:
++			if on_other:
++				half += e_oc
++			else:
++				total += e_oc
++	return total + int(round(half * 0.5))
++
++## RI-QUARTER (FIX_REINFORCE_INSURANCE): planner points for the table-quarter
++## VP the unit adds when its models end shifted by `offset` — the best quarters
++## tier with it minus without it (`covered_others` = the rest of the army),
++## the same "wholly within one quarter, every base edge > 6\" from the centre"
++## test _get_covered_quarters mirrors, priced at WEIGHT_VP_PER_POINT for this
++## turn's end plus RI_QUARTER_LATER_ROUND_SHARE per later round.
++static func _ri_quarter_vp(unit: Dictionary, offset: Vector2, covered_others: Array,
++		vp_rules: Array, battle_round: int) -> float:
++	if unit.get("flags", {}).get("battle_shocked", false):
++		return 0.0
++	for kw in unit.get("meta", {}).get("keywords", []):
++		if str(kw).to_upper() == "AIRCRAFT":
++			return 0.0
++	var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
++	var q := -1
++	var any_alive := false
++	for model in _get_alive_models(unit):
++		var pos = _get_model_position(model)
++		if pos == Vector2.INF:
++			return 0.0
++		pos += offset
++		any_alive = true
++		var mq = _get_table_quarter(pos)
++		if q == -1:
++			q = mq
++		elif mq != q:
++			return 0.0
++		var base_radius_px = (float(model.get("base_mm", 32)) / 2.0) * (PIXELS_PER_INCH / 25.4)
++		if pos.distance_to(board_center) - base_radius_px <= 6.0 * PIXELS_PER_INCH:
++			return 0.0
++	if not any_alive or q < 0 or covered_others[q]:
++		return 0.0
++	var n_without := 0
++	for c in covered_others:
++		if c:
++			n_without += 1
++	var tier_without := 0.0
++	var tier_with := 0.0
++	for rule in vp_rules:
++		if str(rule.get("type", "")) != "quarters" or str(rule.get("when", "eot")) != "eot":
++			continue
++		var need := int(rule.get("min", 3))
++		var vp := float(rule.get("vp", 0))
++		if n_without >= need:
++			tier_without = maxf(tier_without, vp)
++		if n_without + 1 >= need:
++			tier_with = maxf(tier_with, vp)
++	var gain := tier_with - tier_without
++	if gain <= 0.0:
++		return 0.0
++	var later := maxi(0, MAX_BATTLE_ROUNDS_AI - battle_round)
++	return gain * get_param("WEIGHT_VP_PER_POINT", WEIGHT_VP_PER_POINT) \
++			* (1.0 + get_param("RI_QUARTER_LATER_ROUND_SHARE", RI_QUARTER_LATER_ROUND_SHARE) * float(later))
++
+ ## RACE-1: Advancing costs the unit its shooting (and charge) this turn, so on
+ ## a long trip only do it when that costs nothing: no enemy within charge reach
+ ## (M + 12") unless it can Advance and charge, and then Advance-and-shoot
+@@ -11642,6 +11834,10 @@ static func _should_unit_advance_long_trip(unit: Dictionary, has_ranged: bool,
+ 		return true
+ 	if not has_ranged:
+ 		return true
++	# RI-ASSAULT (FIX_REINFORCE_INSURANCE): [ASSAULT] weapons shoot after an Advance.
++	if get_param("FIX_REINFORCE_INSURANCE", FIX_REINFORCE_INSURANCE) >= 0.5 and _ri_ranged_all_assault(unit):
++		print("AIDecisionMaker: [REINFORCE_INSURANCE] RI-ASSAULT %s: every ranged weapon is [ASSAULT] — a long-trip Advance costs no shooting" % _dn(unit, str(unit.get("id", ""))))
++		return true
+ 	for enemy_id in enemies:
+ 		var enemy_centroid = _get_unit_centroid(enemies[enemy_id])
+ 		if enemy_centroid == Vector2.INF:
+diff --git a/40k/tests/unit/test_ai_fix_reinforce_insurance.gd b/40k/tests/unit/test_ai_fix_reinforce_insurance.gd
+new file mode 100644
+index 0000000..3da148f
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_reinforce_insurance.gd
+@@ -0,0 +1,211 @@
++extends SceneTree
++
++# REINFORCE-INSURANCE (FIX_REINFORCE_INSURANCE): the movement planner valued a
++# reinforcement of an objective we already hold, and the trip it competed
++# with, with three wrong estimates (LLM-critic cluster reinforce_insurance,
++# s7437 r2: Custodian Guard Beta reinforced a centre held with OC 6 instead of
++# Advancing into the empty table quarter on the way to obj_nml_2; the Advance
++# measured +4.36 VP over 36 rollouts, the gain from Reconnaissance Sweep's
++# quarter tier at the end of the turn):
++#   RI-RACE    a one-move reinforcement had no race test. The enemy's reach was
++#              measured from unit centroids, so a 10-model squad whose front
++#              rank was one move away did not count. When the enemy can stand
++#              there with RI_RACE_LOST_RATIO (1.5) x our OC including this
++#              unit, the reinforcement keeps MOVE_RACE_LOSS_FACTOR of its value.
++#   RI-ASSAULT a unit whose ranged weapons are all [ASSAULT] gives up no
++#              shooting by Advancing on a long trip.
++#   RI-QUARTER the quarters card was a flat bonus on the walking spot; it is
++#              now the card's tier VP for the spot the move really ends on.
++# Guards: a reinforcement the enemy cannot match is untouched; a gun that
++# cannot fire after Advancing still walks; FIX_REINFORCE_INSURANCE = 0 is base.
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_reinforce_insurance.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const OBJ_X := Vector2(880, 1200)     # the centre, held by our locked holder
++const OBJ_SIDE := Vector2(390, 1740)  # open objective in the bottom-left quarter
++const BETA_POS := Vector2(525, 913)   # s7437: 11.4" from the centre, 21" from obj_side
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Reinforcing a held objective vs a trip elsewhere (REINFORCE-INSURANCE) ===\n")
++	AIDecisionMaker._config_overrides["FIX_REINFORCE_INSURANCE"] = 1.0  # pin the fix on, whatever the default
++	test_reinforcement_against_a_horde_front_rank_is_a_lost_race()
++	test_reinforcement_the_enemy_cannot_match_is_kept()
++	test_assault_gun_advances_on_long_trip()
++	test_quarter_card_priced_at_the_spot_reached()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_REINFORCE_INSURANCE")
++	AIDecisionMaker._primary_awareness_p1 = {}
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot() -> Dictionary:
++	var objs = [{"id": "obj_x", "position": OBJ_X, "zone": "no_mans_land"},
++		{"id": "obj_side", "position": OBJ_SIDE, "zone": "no_mans_land"}]
++	return {"battle_round": 2, "meta": {"battle_round": 2},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
++
++# Models at `positions` (or `n` in a row centred on `pos`), OC `oc` each.
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int, oc: int,
++		move: int = 8, keywords: Array = ["INFANTRY"], weapons: Array = [], positions: Array = []) -> void:
++	var models = []
++	var pts: Array = positions
++	if pts.is_empty():
++		for i in range(n):
++			pts.append(Vector2(pos.x + (i - (n - 1) / 2.0) * 50.0, pos.y))
++	for i in range(pts.size()):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32,
++			"base_type": "circular", "base_dimensions": {},
++			"position": pts[i], "wounds": 3, "current_wounds": 3})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 200, "stats": {"move": move, "toughness": 6, "save": 2,
++			"wounds": 3, "leadership": 6, "objective_control": oc}, "keywords": keywords, "weapons": weapons},
++		"models": models, "flags": {}}
++
++# Our side (player 1, s7437's seat): a 2-model OC 2 holder on the centre (4 OC,
++# not moving this phase) and beta (3 x OC 3 = 9) 11.4" from it.
++# Enemy (player 2): a vehicle (OC 5) one move from the centre, and — when
++# `horde` — a 15-model OC 1 squad in a column whose centroid is ~19" away
++# (out of COORD-5's centroid reach) but whose front model is 11.1" away.
++func _board(enemies: Dictionary, horde: bool, beta_weapons: Array = []) -> Dictionary:
++	var snap = _snapshot()
++	_add_unit(snap, "holder", 1, OBJ_X, 2, 2)
++	_add_unit(snap, "beta", 1, BETA_POS, 3, 3, 8, ["INFANTRY"], beta_weapons)
++	_add_unit(snap, "wagon", 2, Vector2(1200, 1450), 1, 5, 10, ["VEHICLE"])
++	enemies["wagon"] = snap.units["wagon"]
++	if horde:
++		var col: Array = []
++		for i in range(15):
++			col.append(Vector2(1110 + i * 45.0, 1580 + i * 26.0))
++		_add_unit(snap, "horde", 2, Vector2.ZERO, 15, 1, 6, ["INFANTRY"], [], col)
++		enemies["horde"] = snap.units["horde"]
++	return snap
++
++func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary, primary: Dictionary = {}) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p1 = primary
++	AIDecisionMaker._secondary_awareness_p1 = {}
++	var friendlies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 1:
++			friendlies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 1, enemies, friendlies, 2)
++	for ev in evals:
++		print("  %s: %s, ours %d, theirs %d, ~%d enemy OC one move away (centroid reach)" % [ev.id, ev.state,
++			int(ev.friendly_oc), int(ev.enemy_oc), int(ev.get("projected_enemy_oc", 0))])
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 1, 2)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	for uid in movable_ids:
++		for c in AIDecisionMaker._last_movement_candidates.get(uid, []):
++			print("    %s -> %s: %s score %.1f, %d turn(s), terms %s" % [uid, c.objective_id,
++				c.action, float(c.score), int(c.turns_to_reach), str(c.get("score_terms", {}))])
++	return plan
++
++func _cand(uid: String, oid: String) -> Dictionary:
++	for c in AIDecisionMaker._last_movement_candidates.get(uid, []):
++		if str(c.objective_id) == oid:
++			return c
++	return {}
++
++func _goes_to(plan: Dictionary, uid: String, oid: String) -> bool:
++	var a: Dictionary = plan.get(uid, {})
++	return str(a.get("objective_id", "")) == oid and str(a.get("action", "")) in ["move", "advance"]
++
++func test_reinforcement_against_a_horde_front_rank_is_a_lost_race() -> void:
++	print("\n--- centre held with OC 4; wagon (5) + a horde front rank (10) one move away ---")
++	var enemies = {}
++	var snap = _board(enemies, true)
++	var plan = _plan(snap, ["beta"], enemies)
++	var c: Dictionary = _cand("beta", "obj_x")
++	_assert(c.get("score_terms", {}).has("reinforce_race"),
++		"reinforcing obj_x is costed as a lost race (20 enemy OC vs our 13 with beta): %s" % str(c.get("score_terms", {}).get("reinforce_race", "none")))
++	_assert(not _goes_to(plan, "beta", "obj_x"), "beta is not sent to a reinforcement that cannot keep the centre (%s %s)" % [
++		str(plan.get("beta", {}).get("action", "")), str(plan.get("beta", {}).get("objective_id", ""))])
++
++func test_reinforcement_the_enemy_cannot_match_is_kept() -> void:
++	print("\n--- same, no horde: only the wagon (5) can reach; 4 + 9 OC beats it ---")
++	var enemies = {}
++	var snap = _board(enemies, false)
++	var plan = _plan(snap, ["beta"], enemies)
++	var c: Dictionary = _cand("beta", "obj_x")
++	_assert(not c.get("score_terms", {}).has("reinforce_race"), "no race cost when the reinforcement wins the race")
++	_assert(_goes_to(plan, "beta", "obj_x"), "beta still reinforces obj_x")
++
++# Beta's 24" gun with an enemy 20.4" away (in range, out of M8 + 12" charge reach).
++func test_assault_gun_advances_on_long_trip() -> void:
++	print("\n--- long trip to obj_side: [ASSAULT] gun vs a gun that cannot fire after Advancing ---")
++	var assault_gun := {"name": "spear", "type": "Ranged", "range": "24", "attacks": "2",
++		"ballistic_skill": "2", "strength": "4", "ap": "-1", "damage": "2", "special_rules": "assault, rapid fire 2"}
++	var plain_gun := assault_gun.duplicate()
++	plain_gun["special_rules"] = "rapid fire 2"
++	for gun in [assault_gun, plain_gun]:
++		var enemies = {}
++		var snap = _board(enemies, false, [gun])
++		_add_unit(snap, "mek", 2, Vector2(911, 1626), 1, 1, 6, ["INFANTRY", "CHARACTER"])
++		enemies["mek"] = snap.units["mek"]
++		_plan(snap, ["beta"], enemies)
++		var c: Dictionary = _cand("beta", "obj_side")
++		if str(gun.special_rules).begins_with("assault"):
++			_assert(str(c.get("action", "")) == "advance" and int(c.get("turns_to_reach", 0)) == 2,
++				"[ASSAULT] gun: obj_side is a 2-turn Advance trip (%s, %d turns)" % [str(c.get("action", "")), int(c.get("turns_to_reach", 0))])
++		else:
++			_assert(str(c.get("action", "")) == "move" and int(c.get("turns_to_reach", 0)) == 3,
++				"plain gun with a target in range: it walks, 3 turns (%s, %d turns)" % [str(c.get("action", "")), int(c.get("turns_to_reach", 0))])
++
++# Reconnaissance Sweep (3 quarters -> 3 VP, 4 -> 6 at the end of our turn).
++# Two more of our units cover the top-left and top-right quarters; beta
++# Advancing toward obj_side ends wholly in the bottom-left quarter (the third
++# quarter -> +3 VP).
++func test_quarter_card_priced_at_the_spot_reached() -> void:
++	print("\n--- Reconnaissance Sweep: beta's Advance ends wholly in the third quarter ---")
++	var assault_gun := {"name": "spear", "type": "Ranged", "range": "24", "attacks": "2",
++		"ballistic_skill": "2", "strength": "4", "ap": "-1", "damage": "2", "special_rules": "assault"}
++	var primary := {"card_name": "Reconnaissance Sweep", "active_rules": 2, "quarters": true,
++		"objective_pressure": 0.0, "vp_rules": [
++			{"when": "eot", "type": "quarters", "min": 3, "vp": 3, "exclusive_group": "quarters_tier"},
++			{"when": "eot", "type": "quarters", "min": 4, "vp": 6, "exclusive_group": "quarters_tier"}]}
++	var enemies = {}
++	var snap = _board(enemies, false, [assault_gun])
++	_add_unit(snap, "tl", 1, Vector2(200, 300), 1, 1)
++	_add_unit(snap, "tr", 1, Vector2(1500, 300), 1, 1)
++	_plan(snap, ["beta"], enemies, primary)
++	var side: Dictionary = _cand("beta", "obj_side")
++	var x: Dictionary = _cand("beta", "obj_x")
++	var q: float = float(side.get("score_terms", {}).get("quarter_vp", 0.0))
++	# 3 VP x 1.2 per VP x (1 + 0.5 x 3 later rounds)
++	_assert(absf(q - 9.0) < 0.01, "obj_side (Advance, ends wholly in bottom-left): quarter_vp = 9.0 (%.2f)" % q)
++	_assert(not side.get("score_terms", {}).has("secondary_spread"), "the flat 4.2 bonus is replaced, not added to")
++	_assert(not x.get("score_terms", {}).has("quarter_vp") and not x.get("score_terms", {}).has("secondary_spread"),
++		"obj_x (within 6\" of the centre) earns no quarter value")
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_REINFORCE_INSURANCE = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_REINFORCE_INSURANCE"] = 0.0
++	var enemies = {}
++	var snap = _board(enemies, true)
++	var plan = _plan(snap, ["beta"], enemies)
++	AIDecisionMaker._config_overrides["FIX_REINFORCE_INSURANCE"] = 1.0
++	_assert(not _cand("beta", "obj_x").get("score_terms", {}).has("reinforce_race"), "with the fix off there is no race cost")
++	_assert(_goes_to(plan, "beta", "obj_x"), "with the fix off beta reinforces obj_x as before")
