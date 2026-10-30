@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P1)",
+ "created": "2026-10-30 06:35:45",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7432_r3_p2_shooting_1",
+ "note": "[LLM critic, low conf] The AI picked the full-wounds Delta unit, where the focus fire plan shows a 15% kill chance. Blade Champion Alpha has only 7 wounds and is in line of sight at 7.0 in, but the AI did not list it as an option. Fix: Always include every enemy unit in range and line of sight as a candidate. Weight the focus fire plan by the combined kill probability across all shooters. Prefer targets that three shooters can realistically kill, such as a 7-wound character.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7432_r3_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A_P2",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha shoots at Custodian Guard Sodality Delta \u2014 expected 2.2 dmg vs 15 HP (15% kill)",
+ "verdict": "pending",
+ "version": 1
+}
