@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "created": "2026-10-30 16:07:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7464_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI kept Mek Beta on obj_home_2 as a 'hold' unit. Home 2 has OC 21 and no enemy nearby, so the Mek adds no control there. A lone Mek has low OC and would be weak on a far objective. Fix: Scale stay_on_objective by the marginal OC the unit adds. Set it to near zero when the friendly OC in range exceeds the enemy OC threat by a wide margin. Also free a unit whose hold role is redundant.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7464_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_MEK_B_P2",
+  "choice": "pos:1440,1890",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Mek Beta holds obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "verdict": "pending",
+ "version": 1
+}

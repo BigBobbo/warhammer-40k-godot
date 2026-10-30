@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (5 units already committed) \u2014 worth ~8 VP)",
+ "created": "2026-10-30 16:12:49",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7464_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent the fast Stormboyz 20 in toward an objective we already hold, with five units committed. It dropped the 10 in move to obj_center, which is the closest and highest-scoring option. Fix: Give no reinforcement VP to an objective we already hold with a clear OC lead. Do not let a threat-based override fire when threat_delta already prices the same danger. Prefer a fast unit's contested centre move when it can flip an objective and set up a charge on shooters.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7464_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A_P2",
+  "choice": "pos:660,1970",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz moves toward obj_nml_2 (moving toward charge target Lootas Gamma, obj: 20.1\" away)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Warbikers Alpha arrives",
+ "created": "2026-10-30 16:18:51",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7464_r3_p2_movement_1",
+ "note": "[LLM critic, medium conf] Warbikers Alpha arrives far from every objective that the AI itself named as the main stakes, so the large arrive_objectives bonus looks unjustified. Fix: Scale arrive_objectives by whether the unit can reach and contest the objective next turn, after the 12 in move and the enemy OC there. Pick the arrival spot closest to the highest-stake objective that P2 can still win or keep. Add a tie-break between identical units.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7464_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_WARBIKERS_A_P2",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_WARBIKERS_A_P2"
+ },
+ "source": "llm_critic",
+ "suggestion": "Warbikers Alpha arrives from Strategic Reserves",
+ "verdict": "pending",
+ "version": 1
+}

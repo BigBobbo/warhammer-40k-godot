@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 11\"))",
+ "created": "2026-10-30 16:05:19",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7464_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Gretchin to a far corner as a screen. The Screen option scored 0.45 and beat obj_center at 18.44 and Hold obj_home_1 at 10.59, so a override overrode the scoring. Fix: Only allow a screen assignment when an enemy threat is within charge or move range of the screened units. Reject screen positions farther than about 12 in from the main army. Also make the screen option lose to an on-objective hold or a free objective advance when no threat axis exists.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7464_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:1600,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 11\")",
+ "verdict": "bad",
+ "version": 1
+}

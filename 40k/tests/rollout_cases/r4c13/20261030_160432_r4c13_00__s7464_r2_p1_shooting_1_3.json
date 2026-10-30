@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Beast Snagga Boyz (P2)",
+ "created": "2026-10-30 16:10:19",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7464_r2_p1_shooting_1",
+ "note": "[LLM critic, medium conf] The AI shot a weak Big shoota at Beast Snagga Boyz, 23.3 in away, because of a focus-fire bonus. The shot has a 4% kill chance, so the bonus does not help. Fix: Apply the focus-fire bonus only when the combined expected damage of the planned shooters can reach the kill threshold. Otherwise rank targets by expected damage and by the threat they pose next turn, such as fast units able to charge.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7464_r2_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "desc:Big shoota \u2192 enemy Beast Snagga Boyz (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta shoots at Beast Snagga Boyz \u2014 expected 0.4 dmg vs 11 HP (4% kill)",
+ "verdict": "pending",
+ "version": 1
+}

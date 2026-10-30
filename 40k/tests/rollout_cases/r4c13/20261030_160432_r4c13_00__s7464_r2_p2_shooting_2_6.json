@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Lootas Gamma (P1)",
+ "created": "2026-10-30 16:14:05",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7464_r2_p2_shooting_2",
+ "note": "[LLM critic, medium conf] Burna Boyz Alpha fires big shootas at distant Lootas Gamma for 0.2 expected damage. It ignores the Burna flamers and the close Stormboyz that are in rapid-fire range. Fix: Score every weapon in range for each target, including torrent and rapid-fire bonuses. Weight expected_damage and kill_fraction much more than a flat target_value. Add a penalty for shots with expected damage under about 0.5. Prefer close, threatening targets that this unit can actually hurt.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7464_r2_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A_P2",
+  "choice": "desc:Big shoota \u2192 enemy Lootas Gamma (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha shoots at Lootas Gamma \u2014 expected 0.2 dmg vs 9 HP (3% kill)",
+ "verdict": "bad",
+ "version": 1
+}
