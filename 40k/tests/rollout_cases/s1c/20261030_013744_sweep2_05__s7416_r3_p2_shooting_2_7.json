@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Kommandos (P1)",
+ "created": "2026-10-30 01:45:40",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7416_r3_p2_shooting_2",
+ "note": "[LLM critic, medium conf] The AI chose Kommandos for 1.2 expected damage and a 19% kill chance. The 4.67 already_allocated bonus outweighs weak damage, and nothing in the score rates the target's threat. Fix: Scale the already_allocated bonus by the real kill probability of this shot. Drop it when the kill chance is under about 30%. Add a target-threat term based on the target's expected damage against our units, for example heavy and AP-2 weapons such as Lootas.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7416_r3_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Kommandos (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta shoots at Kommandos \u2014 expected 1.2 dmg vs 6 HP (19% kill)",
+ "verdict": "pending",
+ "version": 1
+}

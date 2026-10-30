@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~8 VP)",
+ "created": "2026-10-30 01:25:03",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7407_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] Mek Beta, a 4-wound OC1 character, heads alone to the center objective, which takes 3 turns. The AI chose it because higher-scored objectives were already covered, not because it scored best. A OC1 unit adds almost nothing there. Fix: When the fallback reinforcement adds little OC and has a negative contest_race, keep the unit near the army or on a held objective instead. Treat low-OC characters as support that follows a larger unit.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7407_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_MEK_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Mek Beta moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 23.2\" away)",
+ "verdict": "pending",
+ "version": 1
+}

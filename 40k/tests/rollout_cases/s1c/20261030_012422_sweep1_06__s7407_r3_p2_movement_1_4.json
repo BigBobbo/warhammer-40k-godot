@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Thunderwolf Cavalry Alpha arrives",
+ "created": "2026-10-30 01:38:07",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7407_r3_p2_movement_1",
+ "note": "[LLM critic, low conf] Thunderwolf Cavalry Alpha arrives at a spot next to a home objective that is already held. It does not arrive within charge or move range of a contested or free objective. Fix: Score each arrival spot by the marginal objective value reachable next turn. Give no value to objectives already held with a safe margin. Add value for unheld or enemy-held objectives that the unit can reach or contest within its move.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7407_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_THUNDERWOLF_CAVALRY_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_THUNDERWOLF_CAVALRY_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Thunderwolf Cavalry Alpha arrives from Strategic Reserves",
+ "verdict": "pending",
+ "version": 1
+}

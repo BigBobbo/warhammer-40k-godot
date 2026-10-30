@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (capturing it (uncontrolled) \u2014 worth ~5 VP)",
+ "created": "2026-10-30 01:39:11",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7416_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Custodian Guard Alpha to obj_nml_1, which is a good target. It uses an advance move, but a normal move of 8 in already reaches the ruin edge. Fix: Pick advance only when a normal move cannot reach the objective's capture range or cannot reach a safe position. Otherwise keep normal move and the charge option.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7416_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:1500,990",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha advances toward obj_nml_1 (capturing it (uncontrolled))",
+ "verdict": "pending",
+ "version": 1
+}

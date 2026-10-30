@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (capturing it (uncontrolled) \u2014 worth ~6 VP)",
+ "created": "2026-10-30 01:40:26",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7416_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI moves a unit that already holds obj_nml_2 onto it, scoring it as 'capturing it (uncontrolled)' and worth about 6 VP. The objective is already held, so the move adds no new control. Fix: Value an objective by the VP lost if the unit leaves, not by the VP gained from a capture. If the unit already holds it, give a small hold bonus only. Do not call the objective uncontrolled when holder is already the acting player.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7416_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:260,1410",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta moves toward obj_nml_2 (capturing it (uncontrolled), obj: 5.7\" away)",
+ "verdict": "pending",
+ "version": 1
+}

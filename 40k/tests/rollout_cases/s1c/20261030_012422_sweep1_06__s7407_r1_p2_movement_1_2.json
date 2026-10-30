@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~37 OC there before we arrive in 2 turns), needs 8 more OC after this unit \u2014 worth ~3 VP with the 1 other objective(s) this plan takes \u2014 worth ~6 VP)",
+ "created": "2026-10-30 01:27:24",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7407_r1_p2_movement_1",
+ "note": "[LLM critic, low conf] The AI advances a small 3-model scout unit toward obj_center. The AI itself expects the enemy to have about 37 OC there. The unit could be shot off the board while it holds nothing. Fix: Cap objective_priority when the race term shows the enemy can bring much more OC. Penalize an advance when no target is visible. Add a threat term for enemy long-range shooters such as Lootas and Battlewagons before a small unit ends its move in the open.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7407_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_SCOUT_SQUAD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Scout Squad Beta advances toward obj_center (racing for it (enemy can have ~37 OC there before we arrive in 2 turns), needs 8 more OC after this unit \u2014 worth ~3 VP with the 1 other objective(s) this plan takes)",
+ "verdict": "pending",
+ "version": 1
+}

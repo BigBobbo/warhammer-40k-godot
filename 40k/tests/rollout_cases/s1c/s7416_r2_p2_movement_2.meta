@@ -1,0 +1,88 @@
+{
+	"created_at": 1793324560.68079,
+	"description": "LLM critic s7416_r2_p2_movement_2",
+	"game_state": {
+		"active_player": 2,
+		"battle_round": 2,
+		"game_id": "4920a7e7-3c0d-58f2-98b6--73776ab42af237f8",
+		"is_multiplayer": false,
+		"phase": 7,
+		"player1_difficulty": 3,
+		"player1_type": "AI",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 2,
+		"turn_number": 1
+	},
+	"preview": {
+		"battle_round": 2,
+		"players": {
+			"1": {
+				"alive_models": 89,
+				"alive_units": 18,
+				"cp": 2,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 10,
+				"secondary_vp": 10,
+				"total_models": 106,
+				"total_units": 20,
+				"unit_names": [
+					"Beastboss",
+					"Boss Snikrot",
+					"Deffkilla Wartrike",
+					"Mek",
+					"Mek",
+					"Zodgrod Wortsnagga",
+					"Beast Snagga Boyz",
+					"Battlewagon",
+					"Battlewagon",
+					"Burna Boyz",
+					"Burna Boyz",
+					"Gretchin",
+					"Kommandos",
+					"Lootas",
+					"Lootas",
+					"Lootas",
+					"Stormboyz",
+					"Tankbustas",
+					"Warbikers",
+					"Warbikers"
+				],
+				"vp": 20
+			},
+			"2": {
+				"alive_models": 19,
+				"alive_units": 9,
+				"cp": 0,
+				"detachment": "Lions of the Emperor",
+				"faction": "Adeptus Custodes",
+				"points": 2000.0,
+				"primary_vp": 7,
+				"secondary_vp": 2,
+				"total_models": 22,
+				"total_units": 9,
+				"unit_names": [
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Blade Champion",
+					"Custodian Guard Sodality",
+					"Custodian Guard Sodality",
+					"Allarus Custodians",
+					"Prosecutor Squad"
+				],
+				"vp": 9
+			}
+		}
+	},
+	"save_info": {
+		"description": "LLM critic s7416_r2_p2_movement_2",
+		"save_type": "ai_test_case",
+		"tags": []
+	},
+	"type": "ai_test_case",
+	"version": "1.3.0"
+}

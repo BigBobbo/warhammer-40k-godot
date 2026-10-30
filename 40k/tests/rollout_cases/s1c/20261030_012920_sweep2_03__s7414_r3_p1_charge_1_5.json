@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Delta (8.5\" away, 28% chance)",
+ "created": "2026-10-30 01:33:40",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7414_r3_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI sends Beta on a 28% charge into a stack of enemy units on obj_nml_2. The score is positive only because ch_damage and ch_points_trade are not scaled by the charge chance. Fix: Multiply all success-only benefit terms (damage, wipe, halve, points trade, objective) by the charge probability. Apply ch_retaliation to every target, based on the enemy units that would be within charge range of the charging unit after the move. Raise the minimum acceptable charge probability when the target is screened by stronger neighbours.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7414_r3_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:386,1790",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_D_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta declares charge against Custodian Guard Sodality Delta (28% chance, 8.5\" away, expected 10.0 melee dmg vs 10 HP, overwatch risk: 0.4 dmg)",
+ "verdict": "pending",
+ "version": 1
+}

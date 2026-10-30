@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (flipping it (enemy holds with OC 9), needs 1 more OC after this unit \u2014 worth ~3 VP)",
+ "created": "2026-10-30 01:31:00",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7414_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends Gamma alone on a 3-turn trip to flip obj_nml_2 against an equal enemy guard unit, and ignores the higher-scoring obj_center option. Fix: Count the arrival turn and the combined OC that actually reaches a contested objective. If a flip needs a second unit that arrives later, reduce the value of the first unit's trip. Let the 'enough OC' override give way to a score for nearby threats and charge support when the trip takes 3 or more turns.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7414_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:429,1914",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_nml_2 (flipping it (enemy holds with OC 9), needs 1 more OC after this unit, obj: 21.4\" away)",
+ "verdict": "pending",
+ "version": 1
+}
