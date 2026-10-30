@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (flipping it (enemy holds with OC 15), needs 7 more OC after this unit \u2014 quicker to reach than Custodian Guard Sodality Beta (13.8\" away, there in 2 turns at M8 vs 16.8\" away, there in 2 turns at M8))",
+ "created": "2026-10-30 16:06:41",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7457_r3_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Alpha at an enemy objective with OC 15, which it cannot flip alone. It ends in the enemy's charge range and the other units are not yet in support. Fix: Before a capture assignment is accepted, add up the OC that can reach the objective this turn and next. Compare it with enemy OC plus enemy charge reach. If the push cannot win, send the unit to a held objective or a staging point out of enemy charge range. Use risk-averse weights when VP leads.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7457_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:390,1740",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_nml_2 (moving toward charge target Allarus Custodians, obj: 13.8\" away)",
+ "verdict": "pending",
+ "version": 1
+}

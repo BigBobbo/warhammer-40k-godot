@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (capturing it (uncontrolled) \u2014 worth ~7 VP)",
+ "created": "2026-10-30 16:04:37",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7457_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends the Prosecutor Squad toward obj_center at a normal move that cannot reach it this turn. The fragile unit moves ahead of the Custodian Guard units that should hold the centre. The choice is reasonable but not ideal. Fix: Give a score bonus to a move mode when it cuts the turns to reach an objective. Rank cheap, fragile units as screeners or flankers for an objective that heavier units are already assigned to.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7457_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad moves toward obj_center (capturing it (uncontrolled), obj: 17.0\" away)",
+ "verdict": "pending",
+ "version": 1
+}

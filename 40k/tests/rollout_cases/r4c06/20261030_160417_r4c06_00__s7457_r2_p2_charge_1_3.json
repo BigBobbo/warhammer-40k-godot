@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Prosecutor Squad (10.2\" away, 8% chance)",
+ "created": "2026-10-30 16:06:17",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7457_r2_p2_charge_1",
+ "note": "[LLM critic, high conf] The AI charges a 1-wound enemy Prosecutor with an 8% chance, 10.2 in away, and the score is positive only because of flat bonuses. The real problem is that ch_chance (-11.81) is swamped by +3, +3, +2 and +1.9 flat terms, so a charge that almost never works looks good. Fix: Multiply every positive charge benefit term by charge_probability. Reject any option below charge_threshold before scoring. Also give a negative score to charges that need long moves through obscuring terrain. Compare against a 'do not charge' option that keeps the unit shooting and holding position.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7457_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A_P2",
+  "choice": "pos:789,1092",
+  "decision": "charge",
+  "targets": "U_PROSECUTORS_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad declares charge against Prosecutor Squad (8% chance, 10.2\" away, expected 0.7 melee dmg vs 1 HP, overwatch risk: 0.3 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

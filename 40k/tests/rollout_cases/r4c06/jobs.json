@@ -1,0 +1,183 @@
+[
+ {
+  "job": "20261030_160417_r4c06_00__s7457_r1_p1_movement_1_0",
+  "case": "20261030_160417_r4c06_00__s7457_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends the Prosecutor Squad toward obj_center at a normal move that cannot reach it this turn. The fragile unit moves ahead of the Custodian Guard units that should hold the centre. The choice is reasonable but not ideal.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7457",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160417_r4c06_00"
+ },
+ {
+  "job": "20261030_160417_r4c06_00__s7457_r1_p2_movement_1_1",
+  "case": "20261030_160417_r4c06_00__s7457_r1_p2_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Alpha advances alone toward obj_center. The AI's own contest_race term is -15.92 and says the enemy can have about 28 OC there first. The unit may arrive piecemeal into a stronger enemy force.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7457",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160417_r4c06_00"
+ },
+ {
+  "job": "20261030_160417_r4c06_00__s7457_r1_p2_movement_2_2",
+  "case": "20261030_160417_r4c06_00__s7457_r1_p2_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta advances alone toward NML 2. The advance gives up shooting, and the unit ends far from the main force. The unit takes two turns to arrive. NML 2 is a safe objective that the enemy cannot reach early, but it adds little extra primary VP.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7457",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160417_r4c06_00"
+ },
+ {
+  "job": "20261030_160417_r4c06_00__s7457_r2_p2_charge_1_3",
+  "case": "20261030_160417_r4c06_00__s7457_r2_p2_charge_1_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_PROSECUTORS_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a 1-wound enemy Prosecutor with an 8% chance, 10.2 in away, and the score is positive only because of flat bonuses. The real problem is that ch_chance (-11.81) is swamped by +3, +3, +2 and +1.9 flat terms, so a charge that almost never works looks good.",
+  "better_option": "Charge Blade Champion Alpha (2.0\" away, 97% chance) is not good either, because a 3-model Prosecutor squad would die to the Champion in melee. Better: do not charge.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7457",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160417_r4c06_00"
+ },
+ {
+  "job": "20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4",
+  "case": "20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Alpha at an enemy objective with OC 15, which it cannot flip alone. It ends in the enemy's charge range and the other units are not yet in support.",
+  "better_option": "Move obj_center (moving to objective)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7457",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160417_r4c06_00"
+ },
+ {
+  "job": "20261030_160417_r4c06_00__s7457_r3_p1_movement_2_5",
+  "case": "20261030_160417_r4c06_00__s7457_r3_p1_movement_2_5.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_center",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI moved the Prosecutor Squad off obj_center to a flat-score screen spot, although holding the centre scored 24.64 and screening scored 8.0.",
+  "better_option": "Hold obj_center (on objective, OC needed)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7457",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160417_r4c06_00"
+ },
+ {
+  "job": "20261030_160417_r4c06_00__s7457_r3_p2_movement_2_6",
+  "case": "20261030_160417_r4c06_00__s7457_r3_p2_movement_2_6.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a 15-wound Custodian Guard unit to reinforce an objective that is already safely held. It skips the enemy-held obj_center, which is closer and worth more.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~9 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7457",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160417_r4c06_00"
+ }
+]
