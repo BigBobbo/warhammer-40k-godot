@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (2 units already committed) \u2014 worth ~3 VP)",
+ "created": "2026-10-30 16:15:24",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7471_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI moves a fragile shooting unit toward the enemy-held center, which ends inside Custodian charge range and loses the Heavy bonus. It gains no objective this turn. Fix: For ranged-only units with long range, add a bonus for shooting without moving (Heavy bonus, targets already in range). Reject any move that ends within enemy charge reach (M plus 12 inches) unless it takes or holds an objective this turn.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7471_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma moves toward obj_center (reinforcing obj_center (2 units already committed), obj: 10.8\" away)",
+ "verdict": "pending",
+ "version": 1
+}

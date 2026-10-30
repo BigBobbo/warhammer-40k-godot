@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Beastboss (10.4\" away, 8% chance)",
+ "created": "2026-10-30 16:09:28",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7471_r2_p2_charge_1",
+ "note": "[LLM critic, high conf] The AI declares an 8% charge on a 6 HP character and leaves the center objective for a likely failed move, because the charge score is positive only through inflated damage and bonus terms. Fix: Multiply the damage, wipe, halve and character terms by charge probability. Add a hard minimum charge probability, about 25 percent unless the target is critical. Subtract a cost for leaving a held objective. Do not apply the aggression bonus to charges below the threshold.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7471_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "pos:566,864",
+  "decision": "charge",
+  "targets": "U_BEASTBOSS_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta declares charge against Beastboss (8% chance, 10.4\" away, expected 13.3 melee dmg vs 6 HP, overwatch risk: 7.6 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

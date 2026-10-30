@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Burna Boyz Beta (11.0\" away, 8% chance)",
+ "created": "2026-10-30 16:09:45",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7471_r2_p2_charge_2",
+ "note": "[LLM critic, medium conf] The AI declares a charge with an 8% success chance. It is below the charge_threshold of 0.23. Large flat bonuses make the score positive anyway, and the charge risks 7.6 dmg of overwatch. Fix: Multiply every charge reward term by charge_probability, or reject any charge below charge_threshold. Count overwatch damage as a certain cost. Add a cost for a failed charge pulling a unit off an objective.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7471_r2_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:710,815",
+  "decision": "charge",
+  "targets": "U_BURNA_BOYZ_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha declares charge against Burna Boyz Beta (8% chance, 11.0\" away, expected 10.0 melee dmg vs 4 HP, overwatch risk: 7.6 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

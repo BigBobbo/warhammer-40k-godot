@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Balistus Grenade Launcher \u2192 enemy Lootas Beta (P1)",
+ "created": "2026-10-30 16:14:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7471_r3_p2_shooting_1",
+ "note": "[LLM critic, medium conf] The AI split the Allarus weapons across two targets. The Balistus Grenade Launcher goes to Lootas Beta (14% kill) and the Guardian Spear goes to Burna Boyz Beta. Neither target is likely to die. Fix: Score the unit's combined weapons against each target and pick the single target with the best total kill chance. Only split weapons when a target is already dead or out of weapon range. Add a bonus for removing a W1 squad that is already close to the shooter and about to attack it.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7471_r3_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "desc:Balistus Grenade Launcher \u2192 enemy Lootas Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians shoots at Lootas Beta \u2014 expected 1.2 dmg vs 9 HP (14% kill); Burna Boyz Beta \u2014 expected 0.6 dmg vs 4 HP (16% kill)",
+ "verdict": "pending",
+ "version": 1
+}

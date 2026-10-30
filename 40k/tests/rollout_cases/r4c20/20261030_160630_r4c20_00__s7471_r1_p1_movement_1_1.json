@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 12\"))",
+ "created": "2026-10-30 16:07:40",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7471_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent a 12 in-range flamer unit alone to an open backfield gap. It rejected the centre objective, which was its top-scored option, because of a contest_race penalty. Fix: Apply the 'not racing' override only to the objective that failed the race check. Keep other scored objective moves in the pool. Scale screen_base by the number of enemy units that can actually reach the area next turn. Give a screen no credit when no enemy can reach that spot.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7471_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:960,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta screens at (960,960) \u2014 backfield gap (nearest friendly: 12\")",
+ "verdict": "bad",
+ "version": 1
+}

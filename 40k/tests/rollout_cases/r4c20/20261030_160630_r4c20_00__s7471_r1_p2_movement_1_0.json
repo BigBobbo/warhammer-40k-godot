@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (deny deep strike near home objective obj_home_2)",
+ "created": "2026-10-30 16:07:03",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7471_r1_p2_movement_1",
+ "note": "[LLM critic, low conf] The AI pulls a 4-model OC2 unit back to screen a home objective that Custodian Guard Gamma already covers, instead of supporting obj_center. The screen value looks flat and inflated. Fix: Scale screen_base and denial_priority by the deep-strike area the screen adds beyond what units already near the objective deny. Cut the bonus when a friendly unit already sits within 9 in of the same zone. Cap the bonus below real objective-taking value.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7471_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:1320,1815",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad screens at (1320,1815) \u2014 deny deep strike near home objective obj_home_2",
+ "verdict": "pending",
+ "version": 1
+}
