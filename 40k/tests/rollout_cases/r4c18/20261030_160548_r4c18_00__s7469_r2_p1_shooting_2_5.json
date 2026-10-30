@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Lootas Beta (P2)",
+ "created": "2026-10-30 16:09:13",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7469_r2_p1_shooting_2",
+ "note": "[LLM critic, low conf] The AI shot at far Lootas Beta for 0.9 expected damage. Closer Stormboyz would take 2.3 expected damage, and they are the nearer threat. Fix: Scale target_value by the share of target models in weapon range. Add a bonus for enemies that can charge or reach a held objective next turn. Raise the weight of expected_damage when the kill chance is low.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7469_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Lootas Beta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma shoots at Lootas Beta \u2014 expected 0.9 dmg vs 10 HP (9% kill)",
+ "verdict": "pending",
+ "version": 1
+}

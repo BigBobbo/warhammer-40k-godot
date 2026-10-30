@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 9\"))",
+ "created": "2026-10-30 16:06:18",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7469_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a short-range Burna unit to screen an empty backfield gap on round 1, although no enemy can reach it soon. The Burna unit leaves the OC it could add at home. Fix: Scale screen_base by the threat. Count enemy units that can reach the screened lane next turn, using their move plus charge range. Give a screen low value when no enemy is in range. Prefer holding or taking objectives in that case.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7469_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:960,1520",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta screens at (960,1520) \u2014 backfield gap (nearest friendly: 9\")",
+ "verdict": "pending",
+ "version": 1
+}

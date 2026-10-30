@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (2 units already committed) \u2014 worth ~8 VP)",
+ "created": "2026-10-30 16:11:48",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7469_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI chose to leave obj_nml_1 for a far objective that needs two turns. It scored Hold at 28.75 but picked Move at 19.0 anyway. The reasoning text says it stays with the army, which contradicts the move. Fix: Do not let an assignment override a higher-scoring Hold when the unit is the only holder or the objective is held. Skip reinforcing an objective that two units already cover. Make the explanation text name the real chosen target.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7469_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians moves toward obj_center (moving toward charge target Mek Beta, obj: 17.3\" away)",
+ "verdict": "bad",
+ "version": 1
+}

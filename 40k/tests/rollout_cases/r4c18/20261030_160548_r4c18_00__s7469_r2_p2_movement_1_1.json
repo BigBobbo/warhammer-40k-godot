@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Stormboyz arrives",
+ "created": "2026-10-30 16:07:19",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7469_r2_p2_movement_1",
+ "note": "[LLM critic, low conf] The AI deep strikes 10 Stormboyz (OC1, 1 wound each) into the enemy zone next to NML 1. They may take that objective, but the Custodians and Prosecutors can charge and kill them. Fix: Subtract a threat term for enemy melee units that can charge the landing spot. Scale it by the arriving unit's toughness and points. Do not give a flat bonus to deep strike. Value the objective only by the extra VP it adds under the card table.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7469_r2_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_STORMBOYZ_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_STORMBOYZ_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz arrives from Deep Strike",
+ "verdict": "pending",
+ "version": 1
+}
