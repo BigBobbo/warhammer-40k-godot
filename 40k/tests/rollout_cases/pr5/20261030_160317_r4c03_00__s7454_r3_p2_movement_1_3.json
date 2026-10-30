@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (flipping it (enemy holds with OC 14), needs 6 more OC after this unit \u2014 worth ~11 VP)",
+ "created": "2026-10-30 16:05:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7454_r3_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent a lone 3-model unit into a stack of enemy units to flip nml_1. It cannot flip it and will probably die. The center, worth 20 VP, was dropped as 'already taken' even though Beta is still 9 in away. Fix: Count a unit as 'taking' an objective only when it is in range now. Reject or heavily penalise an objective where enemy OC in range exceeds the unit's OC plus allies that can arrive, and the threat_delta is large. Send surplus units to objectives where the enemy is contested but beatable, such as center.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7454_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "pos:1220,430",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_nml_1 (moving toward charge target Custodian Guard Sodality Gamma, obj: 11.7\" away)",
+ "verdict": "bad",
+ "version": 1
+}

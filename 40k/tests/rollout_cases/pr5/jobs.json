@@ -1,0 +1,83 @@
+[
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3",
+  "case": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a lone 3-model unit into a stack of enemy units to flip nml_1. It cannot flip it and will probably die. The center, worth 20 VP, was dropped as 'already taken' even though Beta is still 9 in away.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~20 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7454",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160317_r4c03_00",
+  "from_batch": "r4c03"
+ },
+ {
+  "job": "20261030_160254_r4c02_00__s7453_r1_p2_movement_2_0",
+  "case": "20261030_160254_r4c02_00__s7453_r1_p2_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI kept the unit on its home objective in round 1 although no enemy can reach it for at least a turn. Hold is reasonable, but the AI never considers that the home objective is safe and could be held later.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "take_and_hold",
+   "seeds": "7453",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160254_r4c02_00",
+  "from_batch": "r4c02"
+ },
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r1_p1_movement_1_1",
+  "case": "20261030_160317_r4c03_00__s7454_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent Beta back to sit on HOME 1 because it was the sole holder. This ignores that no enemy can threaten home this turn and that other units could hold it. It wastes a 3 OC unit while Alpha goes alone to CENTER.",
+  "better_option": "Move obj_center",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7454",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160317_r4c03_00",
+  "from_batch": "r4c03"
+ }
+]
