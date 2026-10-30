@@ -153,6 +153,312 @@
      "measured": "neutral: E -1.83 [-5.35, 1.69] over 12 seeds (one-round rollouts)"
     }
    ]
+  },
+  {
+   "key": "keeper_reach",
+   "title": "The sole keeper of a safe home objective still stays put where V9's release does not fire (Custodes mirror)",
+   "hint": "V9 (5e70bc2) has KEEPER-RELEASE (FIX_KEEPER_RELEASE=1, _keeper_release_check / _keeper_release_threat / _keeper_release_primary_counts in AIDecisionMaker.gd): the sole keeper of OUR HOME objective leaves only if it is not fragile, its best other candidate beats holding by KEEPER_RELEASE_MIN_GAIN (5), our primary pays nothing for home, no enemy model can be in range by the end of the enemy's next turn (on-board: M + 12\" + 6\" (+6\" if it may advance and charge) to the objective's range/hosting area; reserves that can arrive), and another unit can step back onto home in one move and is not sent elsewhere by pass 2. It made the measured move at s7437 (Custodes vs Orks, +7.30 n36) but it NEVER fires in the Custodes mirror: the round-3 bench had 42/42 identical V9-vs-V7D pairs there (reviewers: the nearest enemy is 23.4\" from the home area vs a 24\" reach for M6). Round 4 found the same mistake exactly there: s7453 (P2, round 1) and s7454 (P1, round 1), Custodian Guard kept as 'sole holder' of home; moving it to obj_center measured +6.17 and +4.83 (36 seeds each). In both, the decider's card is Take and Hold. First find WHICH V9 condition blocks each release (threat reach margin? the card counting home? the backup? the margin?) by replaying with the V9 code and reading the [KEEPER_RELEASE] lines. Then widen only what the evidence supports (for example a realistic reach model instead of the max-roll worst case, or how a hold rule that counts home is valued in round 1), keep s7437 releasing, and respect the guardrails: at s7451 (Custodes mirror, P2, round 1) keeping hold was RIGHT (-4.33), at s7420 leaving was harmful (-2.00), and fragile keepers stay. A separate revision is changing the Advance->Normal-move conversion block after pass 2 (record/pace); do not edit that block. Use the new param FIX_KEEPER_REACH for your change (FIX_KEEPER_RELEASE stays as is).",
+   "findings": [
+    {
+     "job": "20261030_160254_r4c02_00__s7453_r1_p2_movement_2_0",
+     "case": "40k/tests/rollout_cases/r4c02/20261030_160254_r4c02_00__s7453_r1_p2_movement_2_0.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Hold obj_home_2 (sole holder \u2014 leaving would drop control \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B_P2",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+     "measured": "clear: E +6.17 [3.42, 8.91] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160317_r4c03_00__s7454_r1_p1_movement_1_1",
+     "case": "40k/tests/rollout_cases/r4c03/20261030_160317_r4c03_00__s7454_r1_p1_movement_1_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_home_1 (sole holder \u2014 leaving would drop control)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_center",
+     "measured": "clear: E +4.83 [3.08, 6.59] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1",
+     "case": "40k/tests/rollout_cases/r2c06/20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_home_1 (sole holder \u2014 leaving would drop control)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_A",
+       "objective": "obj_nml_1",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+     "measured": "clear: E +7.30 [4.98, 9.63] over 36 seeds (one-round rollouts) (V9 already makes this move: keep it)"
+    }
+   ],
+   "guardrails": [
+    {
+     "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1",
+     "case": "40k/tests/rollout_cases/r4c00/20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Hold obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B_P2",
+       "objective": "obj_nml_2",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~4 VP)",
+     "measured": "harmful: E -4.33 [-7.47, -1.19] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_015944_sweep2_09__s7420_r1_p1_movement_2_1",
+     "case": "40k/tests/rollout_cases/s1e/20261030_015944_sweep2_09__s7420_r1_p1_movement_2_1.json",
+     "matchup": "sw11e_gw_import_2000 vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_home_1 (sole holder \u2014 leaving would drop control \u2014 worth ~8 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_THUNDERWOLF_CAVALRY_B",
+       "objective": "obj_nml_1",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~12 VP)",
+     "measured": "harmful: E -2.00 [-2.68, -1.32] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160257_r4c04_00__s7455_r1_p1_movement_2_2",
+     "case": "40k/tests/rollout_cases/r4c04/20261030_160257_r4c04_00__s7455_r1_p1_movement_2_2.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_home_1 (sole holder \u2014 leaving would drop control \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_PROSECUTORS_A",
+       "objective": "obj_nml_1",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+     "measured": "neutral: E -2.75 [-6.40, 0.90] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160353_r4c07_00__s7458_r1_p2_movement_2_0",
+     "case": "40k/tests/rollout_cases/r4c07/20261030_160353_r4c07_00__s7458_r1_p2_movement_2_0.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Hold obj_home_2 (sole holder \u2014 leaving would drop control \u2014 worth ~5 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_C_P2",
+       "objective": "obj_nml_2",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~9 VP)",
+     "measured": "neutral: E +2.17 [-6.01, 10.34] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063348_r2c02_00__s7433_r1_p2_movement_1_2",
+     "case": "40k/tests/rollout_cases/r2c02/20261030_063348_r2c02_00__s7433_r1_p2_movement_1_2.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Hold obj_home_2 (sole holder \u2014 leaving would drop control \u2014 worth ~2 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_A_P2",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+     "measured": "neutral: E -0.25 [-3.82, 3.32] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160256_r4c01_00__s7452_r1_p1_movement_2_1",
+     "case": "40k/tests/rollout_cases/r4c01/20261030_160256_r4c01_00__s7452_r1_p1_movement_2_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_nml_1 (sole holder \u2014 leaving would drop control \u2014 worth ~10 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_PROSECUTORS_A",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+     "measured": "neutral: E +0.33 [-5.31, 5.97] over 12 seeds (one-round rollouts)"
+    }
+   ]
+  },
+  {
+   "key": "lone_flip",
+   "title": "A lone unit is sent to flip an objective the enemy holds with far more OC, while a winnable objective is dropped as 'already taken'",
+   "hint": "At s7454 r3 (Custodes mirror, P2) Custodian Guard Gamma (3 models) was sent to flip obj_nml_1, which the enemy holds with OC 14 ('needs 6 more OC after this unit'); Advancing to obj_center instead measured +21.50 [16.93, 26.07] over 36 seeds. The critic: the centre (~20 VP) was dropped as 'already taken' although the friendly unit heading there (Beta) was still 9\" away; count a unit as taking an objective only when it is in range now; reject or heavily penalise an objective where enemy OC in range exceeds the unit's OC plus allies that can arrive. Read the decision record first: which pass made this choice (capture, attack conversion, support), why obj_center's need was 0, and how the flip was scored. LESSON: round 2's FIX_FAR_TRIP (skip 2+-turn trips the race says are lost) passed every gate and still lost 6.26 VP per game in the Custodes mirror (units held back scored less on secondary cards), and FIX_OVERCOMMIT gave no gain; both are off. Do not build a broad trip or race veto. Guardrails where the AI's own (flip / supporting) move was RIGHT: s7455 r3 (-15.0), s7431 r3 (-6.83); several flip moves measured neutral (s7458 r1, s7455 r2 / r3, s7457 r3, s7452 r2). Use the param FIX_LONE_FLIP.",
+   "findings": [
+    {
+     "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3",
+     "case": "40k/tests/rollout_cases/r4c03/20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Move obj_nml_1 (flipping it (enemy holds with OC 14), needs 6 more OC after this unit \u2014 worth ~11 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_C_P2",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective \u2014 worth ~20 VP)",
+     "measured": "clear: E +21.50 [16.93, 26.07] over 36 seeds (one-round rollouts)"
+    }
+   ],
+   "guardrails": [
+    {
+     "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+     "case": "40k/tests/rollout_cases/r4c04/20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Move obj_center (supporting nearby objective \u2014 worth ~7 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B_P2",
+       "objective": "obj_nml_2",
+       "mode": "hold"
+      }
+     ],
+     "better_option": "Hold obj_nml_2 (on objective, OC needed \u2014 worth ~3 VP)",
+     "measured": "harmful: E -15.00 [-23.39, -6.61] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+     "case": "40k/tests/rollout_cases/r2c00/20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B_P2",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
+     "measured": "harmful: E -6.83 [-11.05, -2.62] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1",
+     "case": "40k/tests/rollout_cases/r4c07/20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Move obj_center (flipping it (enemy holds with OC 11), needs 3 more OC after this unit \u2014 worth ~1 VP with the 1 other objective(s) this plan takes \u2014 worth ~4 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_A",
+       "objective": "obj_nml_2",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~4 VP)",
+     "measured": "neutral: E -6.25 [-14.42, 1.92] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+     "case": "40k/tests/rollout_cases/r4c04/20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 1,
+     "ai_chose": "Move obj_nml_1 (flipping it (enemy holds with OC 11) \u2014 worth ~3 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+     "measured": "neutral: E +8.00 [-1.73, 17.73] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4",
+     "case": "40k/tests/rollout_cases/r4c06/20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 3,
+     "player": 1,
+     "ai_chose": "Move obj_nml_2 (flipping it (enemy holds with OC 15), needs 7 more OC after this unit \u2014 quicker to reach than Custodian Guard Sodality Beta (13.8\" away, there in 2 turns at M8 vs 16.8\" away, there in 2 turns at M8))",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_A",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective)",
+     "measured": "neutral: E +1.83 [-6.54, 10.21] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160256_r4c01_00__s7452_r2_p1_movement_2_2",
+     "case": "40k/tests/rollout_cases/r4c01/20261030_160256_r4c01_00__s7452_r2_p1_movement_2_2.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 1,
+     "ai_chose": "Move obj_nml_2 (flipping it (enemy holds with OC 6), needs 8 more OC after this unit \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~9 VP)",
+     "measured": "neutral: E +1.08 [-3.89, 6.06] over 12 seeds (one-round rollouts)"
+    }
+   ]
   }
  ]
 }
