@@ -1,0 +1,83 @@
+{
+ "key": "keeper_reach",
+ "angle": "root",
+ "root_cause": "Two separate model errors keep the keeper still. (1) s7453 (Determined Acquisition counts home, so KEEPER-RELEASE returns silently at _keeper_release_primary_counts): the planner's OBJ-HOLD-2 'sole holder - leaving would drop control' treats ANY move of the keeper as a loss of the objective. It never checks where this turn's move ends. obj_home_2 is an 11e terrain-hosted objective; the keeper stands on the far edge of its hosting area. In the alternative branch (B, 2 seeds kept) the keeper's 6\" Normal move toward obj_center ended at (1040,1705), still inside home's area (5.4\" from the marker), and P2 still scored per_objective +3 at its R2 Command phase in both branches. So the measured gain came from holding home AND being 6\" closer to the centre, not from trading home away. The 'Move' mode matters: an Advance would leave the area. (2) s7454 (P1's card does not pay for home, hold EV 0): KEEPER-RELEASE is blocked by its threat test. Log: '[KEEPER_RELEASE] obj_home_1: U_CUSTODIAN_GUARD_B keeps it - Custodian Guard Sodality Beta can reach it in one turn'. The enemy model is 30.7\" from the marker but within M8+12+6 of the hosting area. A charge-needs-a-target reach model (Move+Advance walk-on; a 10\" charge only at one of our units near the objective) released it. But it contradicts a must-pass check in test_ai_fix_keeper_release ('an M12 enemy 26\" from home keeps the keeper', which encodes the max-roll model), so it was reverted and is NOT in this design.",
+ "fix_summary": "FIX_KEEPER_REACH (default 1). In _assign_units_to_objectives, when the sole keeper (units_on_obj_initial<=1, not held_threatened, not released by KEEPER-RELEASE, not fragile, no HOLD_OBJECTIVE earmark) has candidates elsewhere scoring above holding (not race_lost, reachable before game end): _keeper_reach_check tries them best-first. It predicts each Normal move with the executor's own _compute_movement_toward_target (full Move, threat_data) and counts OC still in range of the held objective (_keeper_reach_oc_in_range uses MissionManager.model_in_objective_range on 11e terrain objectives, else the control circle). The first trip that keeps OC >= max(enemy_oc, projected_enemy_oc)+1 is taken after pass 2 as a Normal move. Home's OC stays counted, so no other unit is pulled onto it. DIM-RETURNS / FAR-TRIP veto it, as for KEEPER-RELEASE. The executor's Normal-move branch re-checks the actual destinations (after charge/half-range/firing-position blending); if they would leave the objective, the unit stands still. Logs are tagged [KEEPER_REACH]. 0 = base behaviour (the test checks this). KEEPER-RELEASE's threat model is unchanged.",
+ "param": "FIX_KEEPER_REACH",
+ "test_file": "40k/tests/unit/test_ai_fix_keeper_reach.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: test_ai_fix_keeper_reach 7/0 (BASE copy: 3 passed, 4 failed). All listed tests pass: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 22/0, survival_assessment 23/0, multi_phase_planning 34/0. test_ai_threat_range_awareness 34/3 (the known base failures). The final run was taken before the late fragile-keeper exclusion; keeper_reach, keeper_release and movement_decisions were re-run after it (7/0, 22/0, 36/0).",
+ "decision_checks": [
+  {
+   "job": "20261030_160254_r4c02_00__s7453_r1_p2_movement_2_0",
+   "base_choice": "Custodian Guard Beta holds obj_home_2 (sole holder)",
+   "fix_choice": "Custodian Guard Beta Normal-moves toward obj_nml_1 while staying in range of obj_home_2 (OC 3 kept; home still scored +3 at P2 R2 Command)",
+   "changed": true,
+   "measured": "clear +6.17 [3.42, 8.91] n36 for a Normal move toward obj_center",
+   "judgement": "PARTIAL. Same unit, same mode (Normal move), and like the measured alternative it keeps home while moving. But it goes to a different objective: nml_1 scores 27.2 vs centre 20.8, and the trips are tried best-score first. My own 6-seed check of the fix's choice vs hold (rollout --alt hold, current code): E(hold - fix) = +0.67 [-3.96, 5.30]. So no gain was shown for the nml_1 version; the +6.17 belongs to the centre version."
+  },
+  {
+   "job": "20261030_160317_r4c03_00__s7454_r1_p1_movement_1_1",
+   "base_choice": "Custodian Guard Beta holds obj_home_1 (KEEPER_RELEASE blocked: enemy Guard Beta 'can reach it in one turn')",
+   "fix_choice": "same (holds). KEEPER_REACH checked: the moves toward obj_center and obj_nml_1 keep OC 0, so it holds",
+   "changed": false,
+   "measured": "clear +4.83 [3.08, 6.59] n36 (move to obj_center)",
+   "judgement": "NOT FIXED. The blocker is KEEPER-RELEASE's max-roll threat reach. My reach refinement fixed it in a prototype but broke test_ai_fix_keeper_release's must-pass reach check, so it was reverted."
+  },
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1",
+   "base_choice": "KEEPER_RELEASE: Guard Alpha leaves obj_home_1 for obj_nml_1 (MOVE)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "clear +7.30 n36 (V9 already makes it: keep)",
+   "judgement": "kept, as required"
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1",
+   "base_choice": "Guard Beta moves toward obj_center (base already differs from the recorded hold)",
+   "fix_choice": "same; a separate KEEPER_REACH check on Guard Gamma at obj_home_1 was vetoed by DIM-RETURNS/FAR-TRIP (it stands still)",
+   "changed": false,
+   "measured": "harmful -4.33 (move to obj_nml_2)",
+   "judgement": "consistent: no move toward the harmful alternative"
+  },
+  {
+   "job": "20261030_015944_sweep2_09__s7420_r1_p1_movement_2_1",
+   "base_choice": "Thunderwolf Cavalry Beta moves toward obj_center (decision unit differs from the recorded one)",
+   "fix_choice": "same; KEEPER_REACH checked twice, no move kept OC",
+   "changed": false,
+   "measured": "harmful -2.00 (TWC B to obj_nml_1)",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r1_p1_movement_2_2",
+   "base_choice": "Prosecutor Squad holds obj_home_1",
+   "fix_choice": "same at the decision (its move toward nml_1 keeps OC 0). Before the fragile exclusion it fired in round 2 (move toward obj_center while keeping home). With the exclusion it no longer fires (re-run).",
+   "changed": false,
+   "measured": "neutral -2.75",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_160353_r4c07_00__s7458_r1_p2_movement_2_0",
+   "base_choice": "Guard Gamma holds obj_home_2",
+   "fix_choice": "same (its move keeps OC 0)",
+   "changed": false,
+   "measured": "neutral +2.17",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_063348_r2c02_00__s7433_r1_p2_movement_1_2",
+   "base_choice": "Guard Alpha holds obj_home_2",
+   "fix_choice": "Guard Alpha Normal-moves toward obj_nml_2 while staying in range of obj_home_2 (OC 6 kept)",
+   "changed": true,
+   "measured": "neutral -0.25 [-3.82, 3.32] (move to obj_center)",
+   "judgement": "changed in a neutral position; not toward a harmful alternative; the fix's own value here was not measured"
+  }
+ ],
+ "fires": "In the 8 final replays (one game each, horizon end of round 2, both players): the move fired 3 times. s7453 P2 R1 (decision), s7433 P2 R1 (decision), s7455 R2 (Prosecutors; removed by the later fragile exclusion and confirmed by a re-run). The check ran (log 'keeps OC n of m') about 15 times; most trips keep OC 0, so the keeper holds. The executor safety net ('stands still') never fired. The DIM-RETURNS veto fired once (s7451). About 0-1 fires per game.",
+ "risks": "(a) The objective is chosen by planner score (best first), not by which keeping-move gains the most. At s7453 it picks nml_1 over the measured centre, and a 6-seed check showed no gain (+0.67 for hold, CI spans 0). The design can turn a hold into a neutral move without the measured benefit. (b) The keeper creeps to the edge of the objective's area, closer to the enemy. In rounds 2-5 it is easier to shoot or charge off home than a keeper in the middle. Against fast armies, the next turn's need (projected_enemy_oc) may come too late, and it ends its move with only part of its OC in range (need = enemy OC + 1, e.g. 1 model). (c) The prediction uses _compute_movement_toward_target without the executor's charge-intent, half-range or firing-position blending. The executor re-check covers the final destinations, but then the unit stands still and loses that turn's move entirely. (d) Secondary cards: none affected directly, but a unit on home's edge instead of its centre gives up nothing on cards that need home. (e) s7454 (+4.83) is not fixed; that would need KEEPER-RELEASE's max-roll threat reach replaced, which the existing keeper_release test forbids.",
+ "drop_reason": ""
+}
