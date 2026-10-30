@@ -1,0 +1,233 @@
+{
+ "key": "r1_home_capture",
+ "angle": "game",
+ "param": "FIX_R1_HOME_CAPTURE",
+ "base": "V9R = 5e70bc2 + keeper_release_rev_vs_v9.patch",
+ "apply_conflicts": "git apply -3 of game.patch conflicted at the post-pass-2 block: the 'theirs' side carried the R1 post-block plus the old (V9) KEEPER-RELEASE block that V9R moved after pass 3. Resolved by hand: kept the R1 post-block immediately after the last apply_capture_assignment.call(cand) of pass 2, before '# PASS 2.5 (COORD-4)', and dropped the duplicate V9 KEEPER-RELEASE block (V9R's copy after pass 3 kept, KEEPER count unchanged). The support hunk landed correctly right after the _find_best_remaining_objective(...) call in pass 3 (not in _decide_engaged_unit). Note: 5e70bc2 was not in the shallow clone; fetched with --unshallow first.",
+ "required_changes": [
+  {
+   "change": "Split into FIX_R1_HOME_CAPTURE (part a, [R1_HOME_CAPTURE]) and FIX_R1_SUPPORT_ADVANCE (part b, [R1_SUPPORT_ADVANCE]); tags only on changed decisions; each switch at 0 restores V9R for its part; one test per switch",
+   "applied": true,
+   "how_or_why_not": "New const FIX_R1_SUPPORT_ADVANCE with its own get_param. Non-changing info lines ('captured as before', 'walks as before') are untagged ('R1-HOME-LAST ...', 'R1-SUPPORT-ADVANCE ...'). At 0: part (a) leaves home_last empty, so the OBJ-ASSIGN-1 guard and post-block are no-ops; part (b) block skipped; the only always-on change is two data keys on candidate dicts (long_adv, race_lost_walk) that nothing in V9R reads. Tests test_param_zero_restores_base and test_support_param_zero_restores_base."
+  },
+  {
+   "change": "Gate part (b) to the measured case: (i) long_adv flag (ii) race lost at walking pace, delete 'or not sa_first' (iii) no enemy within M+12 unless engine advance-and-charge (iv) all ranged [ASSAULT] or no enemy in range (v) no charge intent (vi) not fragile, not enemy home, not skipped by extra_obj/lone/far",
+   "applied": true,
+   "how_or_why_not": "long_adv and race_lost_walk stored in candidates.append; race_lost_walk via new _r1sa_race_lost_at() (RACE-1 sums incl. RACE-LATE/RACE-ARMY at ceil(gap/M) turns). sa_first branch deleted. (iii) _r1sa_charge_lost uses flags.effect_advance_and_charge or EffectPrimitivesData.has_effect_advance_and_charge, never ability text. (iv) V10's _ri_ranged_all_assault does not exist on V9R, so a local _r1sa_advance_costs_shooting (special_rules contains 'assault') was written. (v) _get_charge_intent(unit_id, player). (vi) _lone_trip_fragile, ev.is_enemy_home, extra_obj_skipped/lone_skipped/far_skipped for this objective."
+  },
+  {
+   "change": "Close part (a) leaks: OBJ-ASSIGN-1 alt skip; spare/pull-back only units arriving this turn at Normal pace passing too_late/race_hopeless, else undo deferral; store hl_fwd and undo if the later pass-2 assignment is worth less VP than home",
+   "applied": true,
+   "how_or_why_not": "Added `if home_last.has(oid) and home_deferred.has(alt.unit_id): continue` in the OBJ-ASSIGN-1 alt loop. hl_ok lambda (_capture_arrival(c).phases == 1, not too_late, not race_hopeless) filters the spare loop and pull-back; the old second spare loop (any deferred unit) is replaced by: pull-back, then undo the first deferred unit's deferral (base capture). home_deferred_fwd stores hl_fwd; a first loop undoes every deferral whose pass-2 assignment is not a capture or is worth less VP than home. The 'stays open' branch is gone."
+  },
+  {
+   "change": "Merge onto V9R by hand at the two exact points; rerun tests with FIX_KEEPER_RELEASE = 0",
+   "applied": true,
+   "how_or_why_not": "See apply_conflicts. All tests run on V9R base with FIX_KEEPER_RELEASE = 0.0."
+  },
+  {
+   "change": "Park part (a) (FIX_R1_HOME_CAPTURE = 0) and correct report/const comment",
+   "applied": true,
+   "how_or_why_not": "FIX_R1_HOME_CAPTURE = 0.0, FIX_R1_SUPPORT_ADVANCE = 1.0. Const comments say part (a) is inert in the bench (homes held at deployment), only Gamma's order at s7468 matches branch B (Beta changes too, unmeasured), and the part (b) fire rate comes from the bench census."
+  },
+  {
+   "change": "Tests driving _evaluate_all_objectives/_assign_units_to_objectives that fail without each guard",
+   "applied": true,
+   "how_or_why_not": "Added: joiner of a race not lost walks; ability-text 'Advance and charge' w/o engine flag + enemy within M+12 walks; non-[ASSAULT] ranged unit with 'shoot after Advance' text + enemy in range walks; reach-band trip walks; slow (2-turn) spare does not take home; OBJ-ASSIGN-1 does not hand home back; we go second + enemy reserve keeps base; primary counting home keeps base. Run against the unmodified game.patch code (ai_versions GAME): 7 fail there (primary graft, slow spare, support switch x2, ability-text charge, non-assault, reach band). The joiner test, OBJ-ASSIGN-1 hand-back test and reserves test PASS on the design code too, so they are regression nets, not proven binding (joiner: the design's sa_first is true in that board; hand-back: the board does not reach that branch; reserves: already handled by _keeper_release_threat)."
+  }
+ ],
+ "grafts": [
+  {
+   "graft": "narrow: part (a) only on homes the primary counts in none of its rules",
+   "applied": true,
+   "why": "Small and safe; _keeper_release_primary_counts(player, ev) as in V9R (V9R's signature has no skip_home_decoy flag; the home branch never reaches the decoy logic). Test test_primary_counting_home_keeps_base."
+  },
+  {
+   "graft": "narrow review: true coordination_note on each deferred unit",
+   "applied": true,
+   "why": "Small, text only; set when a spare takes home."
+  },
+  {
+   "graft": "root (a): no home_undefended_bonus in _find_best_remaining_objective for a covered home_last objective",
+   "applied": false,
+   "why": "Not small (touches _find_best_remaining_objective), measured analogues neutral (-3.08, +0.25) and part (a) is parked anyway."
+  },
+  {
+   "graft": "factor _enemy_next_turn_round",
+   "applied": true,
+   "why": "Helper added and used by R1-HOME-LAST; KEEPER-RELEASE left untouched to keep V9R code identical."
+  }
+ ],
+ "decision_checks": [
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r1_p1_movement_1_0",
+   "base_choice": "design report: Gamma moves toward obj_home_1 (Alpha also sent there)",
+   "final_choice": "Gamma moves toward obj_home_1 (capturing it (uncontrolled), 9.4\" away)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear +6.86 (alt Gamma Advance obj_center)",
+   "note": "Expected: part (a) parked (FIX_R1_HOME_CAPTURE = 0). With the switch on, the unit test shape flips as designed; the s7468 replay with part (a) on was not run."
+  },
+  {
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0",
+   "base_choice": "Gamma moves (Normal) toward obj_center (reinforcing); V9R replay same",
+   "final_choice": "Gamma ADVANCES toward obj_center (reinforcing — advancing to arrive a turn sooner) via [R1_SUPPORT_ADVANCE]",
+   "changed": true,
+   "matches_alt_intent": true,
+   "measured": "clear +5.86 (alt Gamma Advance obj_center)"
+  },
+  {
+   "job": "20261030_012004_sweep2_01__s7412_r1_p1_movement_2_0",
+   "base_choice": "Beta advances toward obj_center (design report and V9R replay)",
+   "final_choice": "Beta advances toward obj_center (capturing it)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear +2.86 older AI (alt Beta Advance obj_nml_1); V9 already goes forward with an Advance, other objective"
+  },
+  {
+   "job": "20261030_012005_sweep2_00__s7411_r1_p1_movement_2_1",
+   "base_choice": "Gamma advances toward obj_center (design report and V9R replay)",
+   "final_choice": "Gamma advances toward obj_center (racing)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear +2.50 older AI (alt Gamma Advance obj_nml_1); V9 already goes forward with an Advance, other objective"
+  },
+  {
+   "job": "20261030_160624_r4c19_00__s7470_r1_p1_movement_1_2",
+   "base_choice": "V9R replay: Beta moves toward obj_center (reinforcing, Normal move)",
+   "final_choice": "Beta ADVANCES toward obj_center (reinforcing) via [R1_SUPPORT_ADVANCE]",
+   "changed": true,
+   "matches_alt_intent": true,
+   "measured": "neutral +2.42 (alt Beta Advance obj_center)"
+  },
+  {
+   "job": "20261030_011540_sweep1_04__s7405_r1_p1_movement_1_0",
+   "base_choice": "V9R replay: Wulfen with Storm Shields moves toward obj_nml_1 (reinforcing, 3 units committed)",
+   "final_choice": "Wulfen ADVANCE toward obj_nml_1 (reinforcing) via [R1_SUPPORT_ADVANCE]",
+   "changed": true,
+   "matches_alt_intent": false,
+   "measured": "neutral +0.25 for a different alt (Wulfen Move obj_center); the Wulfen support Advance itself is UNMEASURED"
+  },
+  {
+   "job": "20261030_010357_sweep1_02__s7403_r1_p2_movement_1_0",
+   "base_choice": "V9R replay: Prosecutor Squad screens near obj_home_2 (deny deep strike)",
+   "final_choice": "same (unchanged)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear +8.67 for Prosecutors move obj_home_2; the fix does not move a unit away from home here (part (a) parked; Prosecutors still stay by home)"
+  },
+  {
+   "job": "20261030_012005_sweep2_00__s7411_r1_p1_movement_1_0",
+   "base_choice": "Beta moves toward obj_home_1 (reinforcing)",
+   "final_choice": "Beta moves toward obj_home_1 (reinforcing) — unchanged, Beta still goes home",
+   "changed": false,
+   "matches_alt_intent": true,
+   "measured": "neutral -3.08 for sending Beta forward: keeping it home is the intent"
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_010419_sweep1_03__s7404_r1_p1_movement_1_0",
+   "base_choice": "Alpha advances toward obj_nml_2 (racing)",
+   "final_choice": "Alpha advances toward obj_nml_2 (racing)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful -6.58",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r1_p2_movement_2_2",
+   "base_choice": "Kommandos holds obj_home_2",
+   "final_choice": "Kommandos holds obj_home_2",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful -6.58",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1",
+   "base_choice": "Beta moves toward obj_center (capturing it)",
+   "final_choice": "Beta moves toward obj_center (capturing it, 19.7\" away)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful -4.33",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_015944_sweep2_09__s7420_r1_p2_movement_1_0",
+   "base_choice": "Beta advances toward obj_home_1 (flipping it); V9R replay same",
+   "final_choice": "Beta advances toward obj_home_1 (flipping it)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral -4.67",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_020728_sweep2_11__s7422_r1_p1_movement_1_0",
+   "base_choice": "Beta holds obj_home_1 (sole holder)",
+   "final_choice": "Beta holds obj_home_1 (sole holder)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral +0.72",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_010419_sweep1_03__s7404_r1_p1_movement_2_1",
+   "base_choice": "V9R replay: Prosecutor Squad advances toward obj_center (capturing it)",
+   "final_choice": "Prosecutor Squad advances toward obj_center (capturing it)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral 0.0",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1",
+   "base_choice": "Alpha holds obj_home_1 (sole holder; keeper off in V9R)",
+   "final_choice": "Alpha holds obj_home_1 — unchanged",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear +7.3 for Alpha Normal move to obj_nml_1 (keeper joiner). The joiner shape is not reached with FIX_KEEPER_RELEASE = 0; covered by unit test test_support_joiner_of_race_not_lost_walks (race not lost -> Normal move kept)",
+   "moved_toward_harmful": false
+  }
+ ],
+ "extra_checks": [
+  {
+   "check": "1. Firing census on merge target (3 fixtures x both seats x 8 seeds)",
+   "result": "left to the bench. Proxy from 15 single-seed horizon-1 replays (rounds 1-2, both players): [R1_SUPPORT_ADVANCE] fired 5 times (s7451 P2 Gamma, s7412 P2 Alpha, s7403 P1 Battlewagon Beta, s7405 P1 Wulfen, s7470 P1 Beta), at most 1 per replay, all round 1; [R1_HOME_CAPTURE] 0 (parked). Counted from record action descriptions (rollout.py discards stdout); the design version fired in ~9 places in the same set (Kommandos, Mek, Chaplain on Bike, Logan Grimnar, Ancient...), none of which fire now."
+  },
+  {
+   "check": "2. Replays on merge target (findings, guardrails, s7403, s7411 m1, s7405, s7470, s7437)",
+   "result": "Run on V9R + this fix (RI-ASSAULT / waaagh winner NOT merged — not on this branch). s7451 r1 P2 Gamma Advances obj_center (matches +5.86); s7470 Beta Advances obj_center (matches +2.42); s7468 P1 unchanged (part a parked); all 6 guardrails unchanged vs base; s7403 unchanged; s7411 m1 Beta still goes home; s7405 Wulfen support Advance (new, unmeasured); s7437 keeper shape not reached (keeper off)."
+  },
+  {
+   "check": "3. Value-check part (a)'s own plan at s7468 and s7411 m1 (36 paired seeds + 12 full games)",
+   "result": "left to the bench; part (a) parked at 0 meanwhile."
+  },
+  {
+   "check": "4. Bench arms (support on vs off; part (a)-only identity arm)",
+   "result": "left to the bench."
+  },
+  {
+   "check": "5. Bench records: charges/ranged attacks lost by support Advancers",
+   "result": "left to the bench. Gate excludes non-engine advance-and-charge within M+12 and non-[ASSAULT] shooting in range by construction (unit tests)."
+  },
+  {
+   "check": "6. Unit tests on merge target",
+   "result": "New test 23/23 on final, 4 fail on V9R base. Related tests unchanged (list in tests.detail). fix_reinforce_insurance and waaagh_advance_charge tests are not on this branch (V10 parts not merged) — not run."
+  },
+  {
+   "check": "determinism_check.py param-0 identity",
+   "result": "Not run: determinism_check.py compares two full-game seasons (no per-fixture param-0 mode); full games are left to the bench. Param-0 identity argued from code (no-op paths, data-only candidate keys) and the two param-0 unit tests."
+  }
+ ],
+ "fires": "Part (b) [R1_SUPPORT_ADVANCE]: 5 fires over 15 single-seed horizon-1 replays (both players, rounds 1-2), max 1 per replay, round 1 only. Part (a) [R1_HOME_CAPTURE]: 0 (parked at 0.0; with it on it fires 0 times in the bench fixtures per the judge).",
+ "tests": {
+  "test_fails_on_v9r": true,
+  "test_passes": true,
+  "related_ok": true,
+  "detail": "test_ai_fix_r1_home_capture: final 23 passed 0 failed; on V9R (ai_versions BASE) 19 passed 4 failed; on the unmodified design code 16 passed 7 failed. Related: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 52/0, survival_assessment 23/0, multi_phase_planning 34/0, charge_decisions 62/0; known base failures only: threat_range_awareness 34/3, tests/test_ai_objective_assignment_fixes 6/1."
+ },
+ "risks": "(1) Part (b) is the only live part; its measured support is 2 positions (+5.86 clear, +2.42 neutral). New unmeasured fires: s7405 Wulfen (melee, round 1, nobody within M+12), s7403 Battlewagon Beta (a TRANSPORT Advancing; embarked units then cannot disembark this turn after it moves anyway, but a transport Advance is unmeasured), s7412 P2 Alpha. (2) _r1sa_advance_costs_shooting is a local copy of the ASSAULT check, not V10's _ri_ranged_all_assault; merge with V10 should dedupe. (3) RI-ASSAULT in V10 makes more Custodian Guard long trips long_adv, raising the fire rate; not measured here. (4) Part (a) code is reworked but parked; its value at s7468/s7411 is unmeasured. (5) Fire counts are from record action text, not log tags (rollout.py drops stdout). (6) Three of the new guard tests also pass on the design code (not proven binding).",
+ "verdict": "ready",
+ "not_ready_reason": ""
+}
