@@ -1,0 +1,214 @@
+{
+ "key": "charge_target",
+ "angle": "narrow",
+ "param": "FIX_CHARGE_TARGET",
+ "base": "1.56.8 = e12e6e8",
+ "apply_conflicts": "One conflict in AIDecisionMaker.gd constants block: the design's FIX_CHARGE_TARGET / CHARGE_TARGET_OVERKILL_RATIO constants and 1.56.8's FIX_WAAAGH_ADVANCE_CHARGE constant were added at the same spot; kept both (no logic overlap). Code hunks applied cleanly.",
+ "required_changes": [
+  {
+   "change": "Depletion gate on both arms via one shared helper (ct_hp <= 0.5 x starting wounds, dead models included; keep 2x ratio) + unit test (5 CG vs full 6-W BC and full 4-model Prosecutors stay uncapped, declaration = FIX 0)",
+   "applied": true,
+   "how_or_why_not": "New _charge_target_overkill_gate() read by _score_charge_target (CT-OVERKILL) and _evaluate_best_charge (ct_overkill flag); CHARGE_TARGET_DEPLETED_SHARE=0.5. Test: 13.89 vs 6 W (2.3x) and 8.68 vs 4 W (2.2x) uncapped; declaration equals FIX=0."
+  },
+  {
+   "change": "Kill-value exemption: CHARACTER, kill_keywords, marked_targets, kill_big_units_min, kill_near_objectives within OBJECTIVE_CONTROL_RANGE_PX",
+   "applied": true,
+   "how_or_why_not": "In the helper, over every member of the folded Attached unit, from _get_secondary_awareness(player). Tests: CHARACTER, marked target and kill keyword each restore full ch_damage. Real save s7431 r3 P1 keeps [U_BLADE_CHAMPION_A_P2] (unit test + replay)."
+  },
+  {
+   "change": "Attached units: ct_hp and starting wounds over the whole Attached unit (both linkage sides, AI-side _attached_unit_target_id); CT-COMBO never removes a member sharing an Attached unit with another member",
+   "applied": true,
+   "how_or_why_not": "Helper folds host + attachment_data.attached_characters + units with attached_to == host. CT-COMBO keeps a gated target whose _attached_unit_target_id equals another target's. Unit test with a synthetic non-CHARACTER attached member (a real leader is a CHARACTER and exempt anyway). Bench fixtures have no Attached units, so this never fires there."
+  },
+  {
+   "change": "CT-COMBO only for targets the charger cannot engage together (keep a gated target within ER 2\" of another combo target)",
+   "applied": true,
+   "how_or_why_not": "Gated target kept when _get_closest_model_distance_inches to any other scored target <= GameConstants.engagement_range_inches(). Unit test: co-engageable remnant + fresh stays a combo, equal to FIX=0."
+  },
+  {
+   "change": "Decision-level log: compute the pick with the fix off; one '[CHARGE_TARGET] changed: <old> -> <new>' line only when the declaration differs; keep per-evaluation lines",
+   "applied": true,
+   "how_or_why_not": "Base pick tracked in the same loop (uncapped score re-scored with a _ct_suspend flag, base combo on uncapped scores with all targets), compared after the threshold is known. Per-evaluation lines kept but retagged [CHARGE_TARGET_EVAL] so the reach gate counts only changed decisions (the finalizer brief: ONE [CHARGE_TARGET] line per changed decision). Verified: s7480 log prints 'changed: U_ALLARUS_CUSTODIANS_A_P2 [U_ALLARUS_CUSTODIANS_A, U_ALLARUS_CUSTODIANS_A_L2] -> ... [U_BLADE_CHAMPION_A]', the logged base choice."
+  },
+  {
+   "change": "Real-save guard tests (r4 root .w40ksave harness) + post-roll re-pick test",
+   "applied": true,
+   "how_or_why_not": "test_ai_fix_charge_target.gd: s7480 r3 P2 -> [U_BLADE_CHAMPION_A]; s7431 r3 P1 -> [U_BLADE_CHAMPION_A_P2]; s7403 r3 P1 (charger found with fix off: U_BATTLEWAGON_A), s7466 r3 P2, s7465 r2 P2, s7470 r2 P2 _1 and _2, s7480 r3 P1, s7467 r2 P1 equal their FIX=0 declaration in the harness. Note: the single-charger harness gives SKIP_CHARGE at s7466 for both settings (the game charged Lootas Alpha), so that guard is identity-only; the full replay confirms the real charge is kept. Post-roll: only the capped remnant selectable -> still returned."
+  }
+ ],
+ "grafts": {
+  "taken": [],
+  "left": [
+   "unadjusted score into unit_best/best_score/charge bar (adds scope; not needed for the flip)",
+   "continuous min(D, k x HP) credit (changes behaviour beyond the measured positions)",
+   "tighten _score_multi_target_combo spread check / post-roll subset (separate cause)",
+   "CT-FALLBACK + fallback-aware Command Re-roll (later round)",
+   "collapse combo to top target (later round)",
+   "E[min(D,HP)] + P(kill) value (longer term)",
+   "FOCUS-CHARGE geometry engagement (own FIX param)"
+  ]
+ },
+ "decision_checks": [
+  {
+   "job": "20261030_234707_r5c05_00__s7480_r3_p2_charge_1_6",
+   "base_choice": "Allarus Custodians declares a charge at Allarus Custodians + Allarus Custodians #2 \u2014 targets picked after the roll: Allarus Custodians on 3+ (97%), Allarus Cust",
+   "final_choice": "Allarus Custodians declares charge against Blade Champion Alpha (83% chance, 4.3\" away, expected 10.0 melee dmg vs 7 HP, overwatch risk: 0.2 dmg)",
+   "changed": true,
+   "matches_alt_intent": true,
+   "measured": "clear: alt charge Blade Champion Alpha only, E +5.75 [1.46, 10.04] n24"
+  },
+  {
+   "job": "20261030_160521_r4c14_00__s7465_r2_p1_charge_1_4",
+   "base_choice": "Stormboyz declares a charge at Battlewagon Alpha + Beastboss \u2014 targets picked after the roll: Battlewagon Alpha on 10+ (17%), Beastboss on 11+ (8%), overwatch r",
+   "final_choice": "Stormboyz declares a charge at Battlewagon Alpha + Beastboss \u2014 targets picked after the roll: Battlewagon Alpha on 10+ (17%), Beastboss on 11+ (8%), overwatch r",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear (extra, 12 seeds): no charge +6.75 [1.62, 11.88]"
+  },
+  {
+   "job": "20261030_160402_r4c10_00__s7461_r3_p2_charge_1_6",
+   "base_choice": "Battlewagon Alpha declares a charge at Beast Snagga Boyz + Beastboss \u2014 targets picked after the roll: Beast Snagga Boyz on 5+ (83%), Beastboss on 6+ (72%), over",
+   "final_choice": "Battlewagon Alpha declares a charge at Beast Snagga Boyz + Beastboss \u2014 targets picked after the roll: Beast Snagga Boyz on 5+ (83%), Beastboss on 6+ (72%), over",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral (extra): charge Beastboss only +3.75 [-1.77, 9.27] n12"
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160521_r4c14_00__s7465_r2_p2_charge_1_5",
+   "base_choice": "Stormboyz declares charge against Lootas Beta (17% chance, 9.1\" away, expected 7.1 melee dmg vs 7 HP, overwatch risk: 6.9 dmg)",
+   "final_choice": "Stormboyz declares charge against Lootas Beta (17% chance, 9.1\" away, expected 7.1 melee dmg vs 7 HP, overwatch risk: 6.9 dmg)",
+   "changed": false,
+   "measured": "harmful alt (no charge) -5.25 n12",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5",
+   "base_choice": "Stormboyz declares charge against Blade Champion Gamma (28% chance, 8.7\" away, expected 8.9 melee dmg vs 7 HP, overwatch risk: 0.3 dmg)",
+   "final_choice": "Stormboyz declares charge against Blade Champion Gamma (28% chance, 8.7\" away, expected 8.9 melee dmg vs 7 HP, overwatch risk: 0.3 dmg)",
+   "changed": false,
+   "measured": "harmful alt (no charge) -3.50 n12",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160514_r4c15_00__s7466_r3_p2_charge_1_7",
+   "base_choice": "Battlewagon Alpha declares charge against Lootas Alpha (42% chance, 7.3\" away, expected 2.7 melee dmg vs 9 HP, overwatch risk: 6.0 dmg)",
+   "final_choice": "Battlewagon Alpha declares charge against Lootas Alpha (42% chance, 7.3\" away, expected 2.7 melee dmg vs 9 HP, overwatch risk: 6.0 dmg)",
+   "changed": false,
+   "measured": "harmful alt (no charge) -3.92 n12",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_234707_r5c05_00__s7480_r3_p1_charge_1_5",
+   "base_choice": "Allarus Custodians declares charge against Custodian Guard Sodality Gamma (83% chance, 4.5\" away, expected 3.3 melee dmg vs 5 HP, overwatch risk: 0.4 dmg)",
+   "final_choice": "Allarus Custodians declares charge against Custodian Guard Sodality Gamma (83% chance, 4.5\" away, expected 3.3 melee dmg vs 5 HP, overwatch risk: 0.4 dmg)",
+   "changed": false,
+   "measured": "neutral alt (no charge) +3.67 n12",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7",
+   "base_choice": "Allarus Custodians declares charge against Blade Champion Alpha (28% chance, 8.4\" away, expected 10.0 melee dmg vs 1 HP, overwatch risk: 0.4 dmg)",
+   "final_choice": "Allarus Custodians declares charge against Blade Champion Alpha (28% chance, 8.4\" away, expected 10.0 melee dmg vs 1 HP, overwatch risk: 0.4 dmg)",
+   "changed": false,
+   "measured": "harmful alt (no charge) -5.00 n12; section-8 guard, must keep Blade Champion Alpha",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_010357_sweep1_02__s7403_r3_p1_charge_1_6",
+   "base_choice": "Battlewagon Alpha declares charge against Custodian Guard Sodality Gamma (42% chance, 7.5\" away, expected 2.7 melee dmg vs 10 HP, overwatch risk: 0.2 dmg)",
+   "final_choice": "Battlewagon Alpha declares charge against Custodian Guard Sodality Gamma (42% chance, 7.5\" away, expected 2.7 melee dmg vs 10 HP, overwatch risk: 0.2 dmg)",
+   "changed": false,
+   "measured": "harmful guard (section 8)",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_2_6",
+   "base_choice": "Burna Boyz Alpha declares charge against Blade Champion Gamma (72% chance, 5.5\" away, expected 0.7 melee dmg vs 7 HP, overwatch risk: 0.3 dmg)",
+   "final_choice": "Burna Boyz Alpha declares charge against Blade Champion Gamma (72% chance, 5.5\" away, expected 0.7 melee dmg vs 7 HP, overwatch risk: 0.3 dmg)",
+   "changed": false,
+   "measured": "guard (s7470_2)",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3",
+   "base_choice": "Allarus Custodians declares charge against Mek Beta (17% chance, 9.9\" away, expected 13.3 melee dmg vs 4 HP, overwatch risk: 7.2 dmg)",
+   "final_choice": "Allarus Custodians declares charge against Mek Beta (17% chance, 9.9\" away, expected 13.3 melee dmg vs 4 HP, overwatch risk: 7.2 dmg)",
+   "changed": false,
+   "measured": "guard (judge extra_checks)",
+   "moved_toward_harmful": false
+  }
+ ],
+ "extra_checks": [
+  {
+   "check": "s7480 r3 P2 over 24 fresh seeds, next to the pr12h2 horizon-2 result",
+   "result": "left to the bench (not run; horizon-2 re-check runs separately)"
+  },
+  {
+   "check": "real-save decision checks s7431 r3 P1, s7403 r3 P1, s7466 r3 P2, s7465 r2 P2, s7470 r2 P2 _1/_2, s7480 r3 P1, s7467 r2 P1, s7461 r3 P2, s7465 r2 P1",
+   "result": "all replayed (seed 1, horizon 1) with shipped and final code: identical a_did at all 10; only the finding s7480 r3 P2 changes. s7431 r3 unchanged (Blade Champion Alpha), so the park condition on s7431 is not triggered."
+  },
+  {
+   "check": "V2-1 gate with [CHARGE_TARGET] lines, 'changed' declarations, and SKIP_CHARGE after a roll ('cannot complete the charge move') vs base",
+   "result": "changed declarations: cus 0.5/game (1 in M1), asy 0.5/game (1 in M2), ork 0/game; [CHARGE_TARGET_EVAL] lines: cus 8.0, asy 4.5, ork 0 per game. SKIP after roll, candidate seat 5 vs base seat 3 over 6 games (cus 4 vs 3, asy 1 vs 0, ork 0 vs 0). One of them follows a changed declaration directly: cus M1, Custodian Guard Alpha P2 changed from [CG_B, Prosecutors] to [Prosecutors] (the capped 1-of-4-W remnant, dropped from the combo, still won as a single) and then 'cannot complete the charge move in coherency'. That is the judge's CT-COMBO move-failure risk, seen once (1 pair: not evidence, but a flag)."
+  },
+  {
+   "check": "Parameter-0 identity: one full bench game per fixture with FIX_CHARGE_TARGET=0 vs base",
+   "result": "left to the bench (3 full games). Unit tests check FIX=0 restores the base term and declarations (synthetic and 7 real saves)."
+  },
+  {
+   "check": "Unit tests: full-health BC/Prosecutors no-cap, Attached fold, co-engageable combo kept, post-roll re-pick; rerun related tests incl. test_t001_t002_ai_charge_fight, test_custodes_codex_other",
+   "result": "all added and pass (30/30); test_t001_t002_ai_charge_fight 11/0, test_custodes_codex_other 99/0, all 24 listed unit tests pass."
+  },
+  {
+   "check": "Bundle reach pair with the other round-5 winners",
+   "result": "left to the bench"
+  }
+ ],
+ "fix_gate": {
+  "per_fixture": {
+   "cus": 0.5,
+   "asy": 0.5,
+   "ork": 0.0
+  },
+  "pooled_per_game": 0.33,
+  "pass": false,
+  "margins": {
+   "cus": {
+    "seed": 91001,
+    "M1": -24,
+    "M2": -22,
+    "E": -1.0
+   },
+   "asy": {
+    "seed": 91101,
+    "M1": -69,
+    "M2": -69,
+    "E": 0.0
+   },
+   "ork": {
+    "seed": 91201,
+    "M1": -8,
+    "M2": -8,
+    "E": 0.0
+   }
+  },
+  "note": "2 [CHARGE_TARGET] changed lines over 6 games (all lines in the candidate seat; the shipped seat has no such tag). 1 pair per fixture: margins are noise. Ork mirror games were identical in margin and the fix never fired there."
+ },
+ "tests": {
+  "test_fails_on_ship": true,
+  "test_passes": true,
+  "related_ok": true,
+  "detail": "test_ai_fix_charge_target: final 30 passed 0 failed; on the SHIP copy 24 passed 6 failed (remnant cap, decision, combo, cap-back, attached hp, s7480 real save; helper calls stubbed to {} in the copy because SHIP lacks the helper). Related: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, charge_decisions 62/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 52/0, fix_lone_flip 16/0, fix_reinforce_insurance 24/0, fix_waaagh_advance_charge 10/0, fix_r1_home_capture 29/0, survival_assessment 23/0, multi_phase_planning 34/0; known base failures unchanged: threat_range_awareness 34/3, tests/test_ai_objective_assignment_fixes 6/1."
+ },
+ "risks": [
+  "Reach too low for the bench: 0.33 changed declarations per game (cus 0.5, asy 0.5, ork 0) - below the protocol-v2 1.0 gate, in line with the judge's 0.5-2 estimate after the required gates.",
+  "CT-COMBO defect seen in the gate (cus M1): when the dropped remnant still wins as a single declaration, the fix only removes the other target from the declaration (loses the extra option) and that charge then failed its move after the roll. Suggested narrowing if revived: apply CT-COMBO only when the unit's resulting pick is not the dropped target itself (else keep the base combo).",
+  "The finding rests on one clear 24-seed position whose alternative kills a CHARACTER while P2 holds Assassination; part of the +5.75 may be mission/focus value the cap does not model (judge caveat). The 24 fresh-seed and horizon-2 re-checks of s7480 are not part of this run.",
+  "Attached-unit folding and kill-card exemptions are unexercised on the bench (no Attached units; kill cards only via the 11e deck).",
+  "Per-evaluation lines retagged [CHARGE_TARGET_EVAL] (kept, not removed) so the reach count is decision-level."
+ ],
+ "verdict": "not_ready",
+ "not_ready_reason": "V2-1 fix gate FAIL: pooled 0.33 [CHARGE_TARGET] changed declarations per game (< 1.0; cus 0.5, asy 0.5, ork 0). Protocol v2 parks the fix (FIX_CHARGE_TARGET=0). Decision and guard checks are clean (finding flips to the measured alternative; no guard moved; s7431 kept), and the one changed declaration in cus M1 was followed by a failed charge move (CT-COMBO risk)."
+}
