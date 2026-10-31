@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.66.0",
+      "date": "2026-10-31",
+      "summary": "Press F to see the whole battlefield: the camera glides until the full board fits between the top bar, the side panels and the phase strip, with a small even border.",
+      "changes": [
+        "F now shows the whole board. Before, holding F also triggered 'Focus P2 Zone', which jumped the camera onto Player 2's deployment zone, so you never actually saw the full table.",
+        "The camera glides to the new view instead of jumping, so you can follow where you were looking.",
+        "The board is fitted into the space you can actually see. Its top and bottom edges no longer hide under the top bar and the phase strip, and it sits centred between the game log and the right-hand panel with a 32-pixel border.",
+        "Hide the game log first and F uses the extra room.",
+        "'Focus P2 Zone' no longer has a key. You can give it one in Settings > Controls. If you saved your controls before this update, its old F key is removed automatically."
+      ]
+    },
+    {
       "version": "1.65.1",
       "date": "2026-10-31",
       "summary": "Movement trails now show in the player colours from the token rings (teal for player 1, magenta for player 2), and every board marker uses the game's one colour palette.",

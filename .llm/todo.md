@@ -1023,7 +1023,7 @@ Locks in use:
 
 ## §1 Camera
 
-- [ ] **T13 — Fit-board keybind (F)**
+- [x] **T13 — Fit-board keybind (F)**
   - **Lock:** HUD-Top  • **Doc:** §1  • **Depends:** T02
   - **Touches:** `40k/scripts/Main.gd` (input)
   - **Change:** `F` keybind: animate Camera2D so the playable board fills the
@@ -1039,9 +1039,61 @@ Locks in use:
     - `pixel_diff` between pre-F and post-F screenshots: `total_diff_pct > 10.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Whole board visible.
-    - [ ] Margin uniform on all four sides.
-    - [ ] Animation smooth (no jump).
+    - [x] Whole board visible.
+      *(T13_after: the whole board, both deployment edges and their tokens, sits between the
+      top bar and the phase strip and between the game log and the right panel, with the
+      reserve rails in the gutters beside it. The scenario checks that the drawn board rect
+      touches none of those four panels or the two rails. T13_after_log_hidden: the same with
+      the log hidden, re-centred in the wider area.)*
+    - [x] Margin uniform on all four sides.
+      *(32px top and bottom, 265px left and right, measured on the drawn board by the
+      scenario to within 1px. See deviation (e).)*
+    - [x] Animation smooth (no jump).
+      *(T13_before, T13_mid, T13_mid2 and T13_after show the board travelling up-left and
+      growing step by step. The per-frame zoom samples follow a slow-fast-slow curve; no frame
+      covers more than 22% of the change and none moves backwards.)*
+  - **Note (2026-10-31 audit):** fit_view_to_board() and the F binding had shipped, but a real
+    F press never showed the board. focus_p2_zone was also bound to plain F, and Main._process
+    polls it every frame, so holding F snapped the view onto Player 2's deployment zone at 0.8x.
+    Measured: view_zoom 0.8 after a real F tap, while the Camera2D mirror said "fitted". The old
+    scenario called _input directly through t13_synthesize_f_press and read Camera2D, which
+    renders nothing (Main is a CanvasLayer; setting Camera2D alone changed 0.01% of the frame),
+    so it passed. The fit also cut instead of animating, and used the whole window, so the
+    board's top and bottom edges sat under the 100px top bar and the phase strip. Its 32px pad
+    was in world pixels (about 14 on screen). Now focus_p2_zone has no default key, and
+    KeybindingManager.load_bindings clears a saved plain-F binding while fit_view_board is
+    still on F. fit_view_to_board(animate) fits the board into the board view rect: the
+    viewport minus the visible HUD_Bottom (top bar), PhaseStrip, GameLogPanel, HUD_Right and
+    LeftRoster (new scripts/BoardFit.gd). The fit leaves 32 screen px on the tight axis,
+    centres the other, and swaps the extents for a quarter-turned view. F glides there on the
+    existing clamped-delta eased camera glide, in a new anchored mode: the view rect's centre
+    stays still and the zoom is interpolated in log space. The Camera2D mirror follows every
+    frame and ends on the board centre. Scripted calls (fit_view_to_board()) still cut. New
+    is_camera_glide_active(). Evidence: the scenario passes 80/80 with the real F key held
+    through the glide. Zoom samples: 0.300, 0.301, 0.308, 0.316, 0.328, 0.343, 0.355, 0.362,
+    0.367, 0.369; the largest frame is 22% of the change. Camera2D ends 0.0px from the board
+    centre, zoom 0.36917 = (950 - 64) / 2400, margins 32/32 and 265/265. pixel_diff: before ->
+    after 38.5%, before -> mid 18.0%, mid -> mid2 35.9%, mid2 -> after 25.0%. Four scratch
+    sabotage probes fail 17, 5, 8 and 1 steps: focus_p2_zone back on F, an instant cut, the
+    whole-window rect, and the mirror at the viewport centre. New gated test
+    `tests/test_fit_board_camera.gd` (47 checks); six scratch sabotage probes each turn it red.
+    Visual suite: 42 pass (baseline 41); T23, T27 and T39 fail at their known steps and T45 is
+    XFAIL. Of the 13 sp scenarios that reach the fit, the bindings or the glide, 11 pass.
+    movement_embarked_select_pans_to_transport and tut_t1_basics are listed known failures
+    with their listed step counts; the first fails the same two steps on the HEAD code.
+    Deviations: (a) "Viewport" means the board view rect, the part of the window not under
+    the HUD. Fitting the raw window put the board's top and bottom edges under the top bar
+    and phase strip. Tier A's fit zoom is computed from that rect: 0.3692 at 1920x1080, where
+    the raw-window formula gives 0.4383. (b) The 32px margin is in screen pixels. (c) The
+    Camera2D does not render. It is a mirror whose position is the framed world point (the
+    board centre for this fit); what animates on screen is view_offset / view_zoom. (d) The
+    scenario runs in the Shooting phase, not Command: the Command phase's secondary-mission
+    dialog takes the keyboard, so a real F cannot reach Main there. (e) "Uniform" is read as
+    centred, with 32px on the tight axis: a portrait board in a landscape area cannot have the
+    same margin on all four sides. (f) T31_ruler_tool now declines the Movement-phase
+    stratagem modal first. Its ruler is drawn from the board centre, which the new framing
+    puts 35px lower, under that modal. (g) focus_p2_zone gets no new default key: no free
+    letter is left, and players can bind one in Settings > Controls.
 
 - [ ] **T14 — Fit-selection keybind (Shift+F)**
   - **Lock:** HUD-Top  • **Doc:** §1  • **Depends:** T02

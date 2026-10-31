@@ -17,6 +17,8 @@ const AISuggestionTestCasesScript = preload("res://scripts/AISuggestionTestCases
 const AISuggestionBoardOverlayScript = preload("res://scripts/AISuggestionBoardOverlay.gd")
 # T04: the six named phase pills hosted inside the bottom PhaseStrip.
 const PhaseBarScript = preload("res://scripts/PhaseBar.gd")
+# T13: fit-board camera math (free board area, fit zoom, glide samples).
+const _BoardFit = preload("res://scripts/BoardFit.gd")
 # Controller glyphs for inline button labels (PRP §"inline button labels"): the
 # phase-action button advertises the keyboard [Enter] OR the pad Menu (☰) button
 # depending on the active device, so a Steam Deck player sees which controller
@@ -124,6 +126,8 @@ var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
 # T13/T14: track which camera-fit action ran most recently so scenarios can
 # assert the keybind produced the expected behavior. "" = none, "board" = F,
 # "selection" = Shift+F, "decision" = auto-zoom on side panel open.
+# Set when the fit starts, so with F's glide it reads "board" while the camera
+# is still travelling (is_camera_glide_active() says when it has arrived).
 var last_camera_fit_action: String = ""
 
 # Which camera gestures the player has actually used, keyed by screen-space id:
@@ -7054,9 +7058,14 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# T13: fit-to-board camera keybind (rebindable: fit_view_board, default F)
+	# T13: fit-to-board camera keybind (rebindable: fit_view_board, default F).
+	# Glides (animate = true) rather than cutting, so the player keeps track of
+	# where they were looking. F used to be shared with focus_p2_zone, which is
+	# polled every frame in _process and snapped the view onto Player 2's zone
+	# for as long as F was down — so a real F press never showed the board.
+	# focus_p2_zone is unbound by default now (KeybindingManager).
 	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "fit_view_board"):
-		fit_view_to_board()
+		fit_view_to_board(true)
 		get_viewport().set_input_as_handled()
 		return
 
@@ -7678,9 +7687,12 @@ func synthesize_x_cursor_los(pressed: bool) -> bool:
 	return mgr != null and mgr.is_calculating
 
 
-# T13: synthesize the F key press and route through _input. Used by the
-# T13 scenario to verify the keybind wiring without depending on the
-# host input pipeline (which can be flaky in headless+xvfb runs).
+# T13 test seam: synthesize the F key press and route it through _input,
+# bypassing the host input pipeline. It also bypasses Input's held-key state,
+# which is exactly how it hid the focus_p2_zone hijack (that poll reads
+# Input.is_key_pressed in _process), so the T13 scenario now presses the real
+# key with simulate_key instead. Kept as the documented example in
+# tests/scenarios/visual/_schema.md.
 func t13_synthesize_f_press() -> String:
 	var ev := InputEventKey.new()
 	ev.keycode = KEY_F
@@ -7882,24 +7894,71 @@ func _hovered_unit_id_or_empty() -> String:
 	return _token_hover_pending_unit_id
 
 
-# T13: fit the whole board into the viewport with 32px margin per edge. Sets
-# both Camera2D (rendering source of truth) and view_offset/view_zoom (used by
-# the WASD/+ pan-zoom helpers) so subsequent input is consistent.
-func fit_view_to_board() -> void:
-	var board_w: float = float(SettingsService.get_board_width_px())
-	var board_h: float = float(SettingsService.get_board_height_px())
-	var vp_size: Vector2 = get_viewport().get_visible_rect().size
-	const MARGIN_PX := 32.0
-	var zoom_x: float = vp_size.x / (board_w + MARGIN_PX * 2.0)
-	var zoom_y: float = vp_size.y / (board_h + MARGIN_PX * 2.0)
-	var z: float = min(zoom_x, zoom_y)
-	var board_center := Vector2(board_w * 0.5, board_h * 0.5)
-	camera.position = board_center
-	camera.zoom = Vector2(z, z)
-	view_zoom = z
-	view_offset = board_center - vp_size / (2.0 * z)
+# T13: fit the whole board into the part of the window it can be seen in — the
+# viewport minus the HUD drawn over it (get_board_view_rect) — 32 screen pixels
+# in from that area's edges on the tighter axis and centred on the other.
+#
+# What is drawn is view_offset / view_zoom: update_view_transform() writes them
+# into BoardRoot's transform. The Camera2D under BoardRoot does not render
+# anything (Main is a CanvasLayer, which a Camera2D does not move); it is kept
+# as a mirror of the framing for code and scenarios that read camera.position /
+# camera.zoom, and for a fit its position is the board centre — the world point
+# the camera frames, which sits in the middle of the board view rect.
+#
+# animate = false (the default, for scripted callers that need the framing
+# this frame) cuts straight there. animate = true (the F key) glides there with
+# the same clamped-delta, eased camera glide the LB/RB unit switch uses, holding
+# the board view rect's centre still while the board centre travels onto it and
+# the zoom changes at an even rate; the Camera2D mirror follows every frame.
+func fit_view_to_board(animate: bool = false) -> void:
+	var fit: Dictionary = compute_board_fit()
+	var z: float = float(fit["zoom"])
+	var center: Vector2 = fit["center"]
+	var anchor: Vector2 = fit["anchor"]
 	last_camera_fit_action = "board"
+	DebugLogger.info("T13 fit_view_to_board", {
+		"animate": animate,
+		"zoom": z,
+		"view_rect": str(fit["view_rect"]),
+		"from_zoom": view_zoom,
+		"from_offset": str(view_offset),
+	})
+	if animate:
+		if _start_anchored_camera_glide(center, z, anchor):
+			return
+		# Already framed — nothing to glide; just keep the mirror in step.
+		_sync_camera_node_to_view(anchor)
+		return
+	_cam_glide_active = false
+	view_zoom = z
+	view_offset = fit["view_offset"]
 	update_view_transform()
+	_sync_camera_node_to_view(anchor)
+
+
+# T13: the board fit F would produce right now (see BoardFit.fit for the keys:
+# zoom, center, anchor, view_rect, view_offset).
+func compute_board_fit() -> Dictionary:
+	var board_size := Vector2(float(SettingsService.get_board_width_px()), float(SettingsService.get_board_height_px()))
+	return _BoardFit.fit(get_board_view_rect(), board_size, view_rotation, _BoardFit.MARGIN_PX)
+
+
+# T13: the screen area the board can be seen in: the viewport minus the HUD
+# panels laid over it — the top bar (HUD_Bottom, anchored to the top), the
+# phase strip along the bottom, the game log on the left, the right-hand panel,
+# and the left roster strip while it is open. Hidden panels do not count, so
+# hiding the log gives the board that space. The reserve rails are not on the
+# list: ReservesTray lays them out in the gutters beside wherever the board is,
+# and folds them away rather than cover it.
+const BOARD_VIEW_HUD_PANELS := ["HUD_Bottom", "PhaseStrip", "GameLogPanel", "HUD_Right", "LeftRoster"]
+
+func get_board_view_rect() -> Rect2:
+	var panel_rects: Array = []
+	for panel_name in BOARD_VIEW_HUD_PANELS:
+		var panel = get_node_or_null(panel_name)
+		if panel is Control and (panel as Control).is_visible_in_tree():
+			panel_rects.append((panel as Control).get_global_rect())
+	return _BoardFit.free_rect(get_viewport().get_visible_rect(), panel_rects)
 
 func rotate_board_view(angle: float) -> void:
 	view_rotation = fmod(view_rotation + angle, TAU)
@@ -8123,6 +8182,15 @@ var _cam_glide_to_offset: Vector2 = Vector2.ZERO
 var _cam_glide_from_zoom: float = 1.0
 var _cam_glide_to_zoom: float = 1.0
 var _cam_glide_elapsed: float = 0.0
+# T13: an ANCHORED glide (the F fit-board glide) holds one screen point still —
+# the centre of the board view rect — and moves the world point under it in a
+# straight line while the zoom changes at an even rate (BoardFit.glide_sample).
+# The plain glide above lerps view_offset, which is fine at a near-constant zoom
+# (LB/RB unit switching) but swings the frame sideways on a big zoom change.
+var _cam_glide_anchored: bool = false
+var _cam_glide_anchor: Vector2 = Vector2.ZERO
+var _cam_glide_from_focus: Vector2 = Vector2.ZERO
+var _cam_glide_to_focus: Vector2 = Vector2.ZERO
 
 # Glide duration. Long enough to read as a deliberate slow-fast-slow move,
 # short enough to stay responsive when cycling quickly.
@@ -8135,6 +8203,11 @@ const CYCLE_CAMERA_MAX_STEP := 1.0 / 30.0
 
 # Test/coverage seam: true while a unit-switch glide is animating.
 func is_cycle_glide_active() -> bool:
+	return _cam_glide_active
+
+# True while any camera glide (LB/RB unit switch or the F fit-board glide) is
+# still travelling; false once it has settled or the player took the camera.
+func is_camera_glide_active() -> bool:
 	return _cam_glide_active
 
 # Smoothly pan (keeping the current zoom) so world_pos sits at viewport centre.
@@ -8164,8 +8237,30 @@ func _start_cycle_camera_glide(target_offset: Vector2, target_zoom: float) -> vo
 	_cam_glide_to_offset = target_offset
 	_cam_glide_from_zoom = view_zoom
 	_cam_glide_to_zoom = target_zoom
+	_cam_glide_anchored = false
 	_cam_glide_elapsed = 0.0
 	_cam_glide_active = true
+
+# T13: begin (or retarget) an anchored glide that ends with world point
+# `target_focus` on screen point `anchor` at `target_zoom`. Starts from wherever
+# the camera is right now, so a second F press mid-glide carries on smoothly.
+# Returns false (and starts nothing) when the camera is already there.
+func _start_anchored_camera_glide(target_focus: Vector2, target_zoom: float, anchor: Vector2) -> bool:
+	var target_offset: Vector2 = target_focus - anchor / target_zoom
+	if view_offset.is_equal_approx(target_offset) and is_equal_approx(view_zoom, target_zoom):
+		_cam_glide_active = false
+		return false
+	_cam_glide_from_offset = view_offset
+	_cam_glide_to_offset = target_offset
+	_cam_glide_from_zoom = view_zoom
+	_cam_glide_to_zoom = target_zoom
+	_cam_glide_anchor = anchor
+	_cam_glide_from_focus = view_offset + anchor / view_zoom
+	_cam_glide_to_focus = target_focus
+	_cam_glide_anchored = true
+	_cam_glide_elapsed = 0.0
+	_cam_glide_active = true
+	return true
 
 # Advance the unit-switch glide one frame. Called every frame from _process
 # with the frame delta, CLAMPED so a heavy frame can't fast-forward the motion.
@@ -8175,12 +8270,28 @@ func _update_cycle_camera_glide(delta: float) -> void:
 	_cam_glide_elapsed += min(delta, CYCLE_CAMERA_MAX_STEP)
 	var t: float = clampf(_cam_glide_elapsed / CYCLE_CAMERA_PAN_TIME, 0.0, 1.0)
 	var e: float = _ease_in_out_cubic(t)
-	view_offset = _cam_glide_from_offset.lerp(_cam_glide_to_offset, e)
-	view_zoom = lerpf(_cam_glide_from_zoom, _cam_glide_to_zoom, e)
+	if _cam_glide_anchored:
+		var s: Dictionary = _BoardFit.glide_sample(_cam_glide_from_focus, _cam_glide_to_focus,
+				_cam_glide_from_zoom, _cam_glide_to_zoom, _cam_glide_anchor, e)
+		view_zoom = float(s["zoom"])
+		view_offset = s["view_offset"]
+		if t >= 1.0:
+			# Land exactly on the fit, not on the last float sample of it.
+			view_zoom = _cam_glide_to_zoom
+			view_offset = _cam_glide_to_offset
+	else:
+		view_offset = _cam_glide_from_offset.lerp(_cam_glide_to_offset, e)
+		view_zoom = lerpf(_cam_glide_from_zoom, _cam_glide_to_zoom, e)
 	update_view_transform()
+	if _cam_glide_anchored:
+		# The fit animates the Camera2D mirror too, frame by frame.
+		_sync_camera_node_to_view(_cam_glide_anchor)
 	if t >= 1.0:
 		_cam_glide_active = false
-		_sync_camera_node_to_view()
+		if _cam_glide_anchored:
+			DebugLogger.info("T13 fit glide settled", {"zoom": view_zoom, "camera": str(camera.position)})
+		else:
+			_sync_camera_node_to_view()
 
 # Cubic ease-in-out (slow → fast → slow): the standard camera-glide feel.
 func _ease_in_out_cubic(t: float) -> float:
@@ -8192,9 +8303,14 @@ func _ease_in_out_cubic(t: float) -> float:
 # Keep the Camera2D node's position/zoom in step with the view_offset/view_zoom
 # rendering source of truth after a glide settles (the fit path and the direct
 # pans set camera.* themselves; a tweened pan only touches view_*).
-func _sync_camera_node_to_view() -> void:
+# camera.position is the world point the camera frames: by default the one at
+# the viewport centre; pass `anchor` (a screen point) when the framing is
+# centred somewhere else — the board fit centres on the board view rect, which
+# the HUD makes lopsided, so there it is the board centre.
+func _sync_camera_node_to_view(anchor = null) -> void:
 	var vp_size: Vector2 = get_viewport().get_visible_rect().size
-	camera.position = view_offset + vp_size / (2.0 * view_zoom)
+	var screen_point: Vector2 = vp_size / 2.0 if anchor == null else anchor
+	camera.position = view_offset + screen_point / view_zoom
 	camera.zoom = Vector2(view_zoom, view_zoom)
 
 # P2-40: Briefly pan camera to a world position, then return after a delay

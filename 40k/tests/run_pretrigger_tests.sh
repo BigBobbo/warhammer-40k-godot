@@ -109,6 +109,11 @@
 #     summary, OVERLAY_SHADOW backdrops, coherency in/out, engagement
 #     defaults, drag-ruler outline) and the death debris (slot blend, three
 #     randf() per particle as before)
+#   - T13 fit-board camera (F): F bound to Fit View to Board only
+#     (focus_p2_zone unbound; a pre-T13 saved F migrated by load_bindings),
+#     the free board area left by the HUD panels, the fit (whole board, 32px
+#     on the tight axis, centred, quarter-turn swap, tiny-rect fallback) and
+#     the anchored log-zoom glide samples
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -362,6 +367,7 @@ TESTS=(
     "tests/test_threat_overlay.gd"
     "tests/test_los_line_visual.gd"
     "tests/test_visual_color_slots.gd"
+    "tests/test_fit_board_camera.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then
