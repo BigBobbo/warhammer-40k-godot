@@ -6,6 +6,31 @@ The project we are working on is located at /Users/robertocallaghan/Documents/cl
 
 Do not remove debugging logs unless specifically asked to do so.
 
+## Response language: ASD-STE100 Simplified Technical English (minimum 80%)
+
+Write all responses to the user in ASD-STE100 Simplified Technical English.
+At least 80% of each response must obey the STE rules. This applies to chat
+replies, the end-of-task TLDR, commit messages, and PR text.
+
+Main rules:
+
+- Use only approved STE words, with their approved meaning (for example,
+  "start", not "initiate"; "use", not "utilize"; "show", not "indicate").
+  Technical names (code identifiers, file paths, game terms, proper nouns)
+  are permitted.
+- Use one word for one meaning. Use the same term for the same thing.
+- Keep sentences short: procedural sentences 20 words maximum, descriptive
+  sentences 25 words maximum.
+- Write one instruction in each sentence. Use the imperative for instructions.
+- Use the active voice. Do not use the passive voice in procedures.
+- Use simple verb tenses (simple present, simple past, simple future).
+- Do not use "-ing" verb forms as nouns or adjectives where STE prohibits them.
+- Use articles ("the", "a") and do not omit words to make text shorter.
+- Do not make noun clusters of more than three words.
+- Keep paragraphs short: six sentences maximum.
+
+Code, logs, command output, and quoted text are not part of the 80% count.
+
 ## End-of-task TLDR (include in EVERY message back to the user after completing work)
 
 When you finish a piece of work, end your reply with a succinct TLDR
