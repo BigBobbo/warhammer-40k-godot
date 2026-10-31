@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (block Battlewagon Beta approaching obj_center (10\" away))",
+ "created": "2026-10-30 23:52:17",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7483_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Lootas Beta out of its home ruin to screen a Battlewagon it cannot reach this turn. The Screen option scored 6.4, far below the other options, and was chosen only through an override. Fix: Only assign corridor_block screeners that can reach the blocking point within about 1 turn of movement. Never use Loota or other long-range shooting units as screeners. When the override rejects the top option, fall back to the best non-moving option rather than to a low-scoring Screen.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7483_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_B_P2",
+  "choice": "pos:733,1092",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Beta screens at (733,1092) \u2014 block Battlewagon Beta approaching obj_center (10\" away)",
+ "verdict": "bad",
+ "version": 1
+}

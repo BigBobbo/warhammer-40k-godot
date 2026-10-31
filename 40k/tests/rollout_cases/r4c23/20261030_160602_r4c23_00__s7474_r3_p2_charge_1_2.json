@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Kommandos (5.4\" away, 72% chance)",
+ "created": "2026-10-30 16:10:49",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7474_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] Delta charges 10 Kommandos at 72%. The Kommandos have only 12 wounds in total and the damage is mostly overkill. The ch_retaliation term (-8.89) and ch_points_trade (-4.26) nearly cancel the gain, so the score is only 1.07. Fix: Cap ch_damage by the models the attackers can actually kill. Apply the chance penalty in one consistent way for all options. Score a charge that pulls a depleted unit into 10 Kommandos with a clear retaliation estimate.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7474_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "pos:826,268",
+  "decision": "charge",
+  "targets": "U_BEASTBOSS_A,U_KOMMANDOS_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta declares a charge at Kommandos + Beastboss \u2014 targets picked after the roll: Kommandos on 6+ (72%), Beastboss on 9+ (28%), overwatch risk: 6.8 dmg",
+ "verdict": "pending",
+ "version": 1
+}

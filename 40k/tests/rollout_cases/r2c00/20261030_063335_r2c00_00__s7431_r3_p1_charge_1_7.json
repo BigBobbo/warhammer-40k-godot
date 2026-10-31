@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Alpha (8.4\" away, 28% chance)",
+ "created": "2026-10-30 06:36:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7431_r3_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges a 270 point Allarus Custodians at a 1 wound Blade Champion with a 28% chance. The Blade Champion options have no ch_retaliation term, so they outscore the other options by about 11 points. Fix: Apply the retaliation penalty from every enemy unit within 6 inches of the landing spot, whatever the target is. Multiply the whole value bundle by charge probability instead of subtracting a flat ch_chance. Cap overlapping kill bonuses so that one kill is counted once. Reduce the value of a target that has few wounds left, because most of the expected damage is ",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7431_r3_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "pos:863,1133",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_A_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians declares charge against Blade Champion Alpha (28% chance, 8.4\" away, expected 10.0 melee dmg vs 1 HP, overwatch risk: 0.4 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

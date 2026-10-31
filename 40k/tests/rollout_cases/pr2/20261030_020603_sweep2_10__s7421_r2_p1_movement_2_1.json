@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (capturing it (enemy can bring ~17 OC next move), needs 2 more OC after this unit \u2014 worth ~7 VP)",
+ "created": "2026-10-30 02:08:46",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7421_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends Gamma to an objective that P1 already holds, with reasoning that says it needs 2 more OC. Gamma could instead head for the enemy-held center. Fix: Count OC already on an objective and the real enemy reach. Reduce the value of a unit sent to an objective that is already held with a safe margin. Increase the value of taking an enemy-held objective, which also lowers the opponent's Vital Link score. Stop the plan from sending several units to the same objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7421_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:310,1500",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_nml_2 (moving toward charge target Scout Squad Alpha, obj: 9.8\" away)",
+ "verdict": "pending",
+ "version": 1
+}

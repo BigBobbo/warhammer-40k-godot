@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Beastboss (9.9\" away, 17% chance)",
+ "created": "2026-10-30 23:54:03",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7488_r3_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI sends a 240 point Guard unit on a 17% charge at a lone 85 point Beastboss. The positive terms (ch_damage, ch_can_wipe, ch_can_halve, ch_character) cancel the strong ch_chance penalty and leave a score of 0.55. That is too close to zero for such a poor roll. Fix: Multiply all positive payoff terms by the charge probability. Add a retaliation term for the exposed position after the charge. Add a penalty for leaving a held objective. Require a minimum score margin, for example above 3, before a charge below 25% chance is declared.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7488_r3_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:538,1609",
+  "decision": "charge",
+  "targets": "U_BEASTBOSS_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta declares charge against Beastboss (17% chance, 9.9\" away, expected 13.3 melee dmg vs 6 HP, overwatch risk: 7.6 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

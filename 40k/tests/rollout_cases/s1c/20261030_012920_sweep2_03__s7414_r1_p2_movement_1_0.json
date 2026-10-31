@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~20 OC there before we arrive in 2 turns), needs 3 more OC after this unit \u2014 worth ~5 VP with the 1 other objective(s) this plan takes \u2014 worth ~8 VP)",
+ "created": "2026-10-30 01:30:18",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7414_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends a fragile 4-wound Prosecutor Squad alone toward obj_center, where enemy Custodians can arrive first. The unit went there only because obj_nml_2 was already assigned. Fix: When the first objective is taken, re-score all remaining options instead of forcing the next-nearest one. Add a lone-unit penalty for squads that arrive at a contested objective before support. Let a weak unit fall back to a safe action, such as staying near home or screening with the main force.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7414_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad advances toward obj_center (racing for it (enemy can have ~20 OC there before we arrive in 2 turns), needs 3 more OC after this unit \u2014 worth ~5 VP with the 1 other objective(s) this plan takes)",
+ "verdict": "pending",
+ "version": 1
+}

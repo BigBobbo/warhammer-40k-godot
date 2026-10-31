@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Lootas Beta (3.1\" away, 92% chance)",
+ "created": "2026-10-30 02:38:24",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7426_r3_p1_charge_1",
+ "note": "[LLM critic, low conf] The AI charges Lootas Beta (score 3.96) over Zodgrod (3.84). Zodgrod's ch_overwatch_risk of -20.74 looks far too high for a one-shot pistol, and this nearly flips the choice. Fix: Compute overwatch risk from expected damage to the charger, using the target's weapons and the charger's remaining wounds. Do not scale it by target points. Cap its effect relative to ch_can_wipe and ch_can_halve. Remove the overlap between ch_chance and ch_short_charge. Reduce ch_plan_lock_shooter when a friendly unit already engages the same shooter.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7426_r3_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_WULFEN_WITH_STORM_SHIELDS_A",
+  "choice": "pos:993,1591",
+  "decision": "charge",
+  "targets": "U_LOOTAS_B,U_ZODGROD_WORTSNAGGA_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Wulfen with Storm Shields declares a charge at Lootas Beta + Zodgrod Wortsnagga \u2014 targets picked after the roll: Lootas Beta on 4+ (92%), Zodgrod Wortsnagga on 5+ (83%), overwatch risk: 5.8 dmg",
+ "verdict": "pending",
+ "version": 1
+}

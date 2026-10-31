@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P1)",
+ "created": "2026-10-30 01:32:15",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7414_r2_p2_shooting_2",
+ "note": "[LLM critic, low conf] The AI shot the full-health enemy Delta (15 HP) because earlier shooters had already targeted it. The 6% kill chance means the stacking bonus gains almost nothing. Fix: Apply the already_allocated focus-fire bonus only when the summed expected damage reaches a set share of the target's remaining wounds, for example 50%. Otherwise prefer the target with the most expected damage or the lowest wounds remaining. Also check why 7 HP characters in line of sight are missing from the option list.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7414_r2_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D_P2",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta shoots at Custodian Guard Sodality Delta \u2014 expected 0.9 dmg vs 15 HP (6% kill)",
+ "verdict": "pending",
+ "version": 1
+}

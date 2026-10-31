@@ -1,0 +1,4 @@
+RECHECK_SHARD pr10_2
+ROLLOUT_RESULT {"job":"20261030_160400_r4c11_00__s7462_r1_p2_movement_1_0","status":"ok","E":5.625,"se":1.124,"ci":[3.42,7.83],"n":24,"A":-2.875,"B":2.75,"mat":-21.423,"drift":false,"a_did":"Lootas Alpha holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_nml_1)","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_234707_r5c05_00__s7480_r1_p1_movement_1_0","status":"ok","E":2.375,"se":1.161,"ci":[0.1,4.65],"n":24,"A":9.542,"B":11.917,"mat":-50.731,"drift":false,"a_did":"Custodian Guard Sodality Gamma holds obj_home_1 (sole holder — leaving would drop control)","applied":24,"identical":0}
+SHARD_DONE 2/6 jobs=2

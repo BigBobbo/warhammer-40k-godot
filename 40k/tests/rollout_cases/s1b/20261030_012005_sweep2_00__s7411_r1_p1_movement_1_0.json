@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (reinforcing obj_home_1 (1 unit already committed))",
+ "created": "2026-10-30 01:20:26",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7411_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] Beta goes to home objective 1, which Gamma already takes. It scores 32.03 against 30.04 for obj_nml_1 only because objective_priority gives the home objective a bonus. The expected_vp term is 0.0 for home and 4.0 for obj_nml_1. Fix: When an objective already has enough committed OC, scale objective_priority down by the share of OC already assigned. Alternatively, add a penalty for stacking a second unit on an objective that is already covered. Rank an uncontested rear home objective below uncaptured non-home objectives.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7411_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:320,510",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_home_1 (reinforcing obj_home_1 (1 unit already committed), obj: 9.0\" away)",
+ "verdict": "pending",
+ "version": 1
+}

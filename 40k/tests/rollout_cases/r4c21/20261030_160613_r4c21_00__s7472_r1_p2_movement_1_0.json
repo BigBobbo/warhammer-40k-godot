@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (racing for it (enemy can have ~33 OC there before we arrive in 2 turns) \u2014 worth ~6 VP)",
+ "created": "2026-10-30 16:06:44",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7472_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent Custodian Guard Sodality Beta alone to obj_nml_1 even though it reports an unwinnable OC race there. A cheaper objective was available. Fix: When the OC race against an objective is clearly lost and the enemy has much more OC there, make the unit take a safer objective or hold back. Scale threat_delta by the enemy's total ranged output on the target spot. Re-run the capture assignment so units go to the objective with the best reach and safety, not just the next free one.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7472_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:1370,660",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta advances toward obj_nml_1 (racing for it (enemy can have ~33 OC there before we arrive in 2 turns))",
+ "verdict": "pending",
+ "version": 1
+}

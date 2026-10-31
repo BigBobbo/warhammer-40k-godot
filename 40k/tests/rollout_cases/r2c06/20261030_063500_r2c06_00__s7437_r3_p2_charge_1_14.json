@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Allarus Custodians (6.9\" away, 58% chance)",
+ "created": "2026-10-30 06:44:50",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7437_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges one wounded Allarus with Stormboyz. The 8.0 expected melee damage looks too high, and the charge exposes the Stormboyz to a strong counter-attack. Fix: Compute melee_damage with real strength against toughness, AP and invulnerable saves. Add a retaliation term when enemy melee units are within 12 in of the charge destination. Reduce ch_target_on_objective unless the kill would change who controls the objective.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7437_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:783,1189",
+  "decision": "charge",
+  "targets": "U_ALLARUS_CUSTODIANS_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares charge against Allarus Custodians (58% chance, 6.9\" away, expected 8.0 melee dmg vs 6 HP, overwatch risk: 0.4 dmg)",
+ "verdict": "pending",
+ "version": 1
+}

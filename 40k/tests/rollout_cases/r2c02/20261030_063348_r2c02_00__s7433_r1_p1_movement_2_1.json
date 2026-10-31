@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_2 (flipping it (enemy holds with OC 3) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 06:34:13",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7433_r1_p1_movement_2",
+ "note": "[LLM critic, high conf] The unit advances 44 in toward the enemy home objective alone. This is a 4-turn trip into the enemy deployment, and it leaves the army. The AI chose it with a score of 4.6 over options scoring 20.9. Fix: Make the assigned objective respect the final score. Reject an assignment when its score is far below the alternatives. Reject it when turns_to_reach is 4 or more, or when enemy OC near the objective is greater than the unit's OC. Scale objective_priority down by turns_to_reach.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7433_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:1420,1970",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha advances toward obj_home_2 (flipping it (enemy holds with OC 3))",
+ "verdict": "bad",
+ "version": 1
+}

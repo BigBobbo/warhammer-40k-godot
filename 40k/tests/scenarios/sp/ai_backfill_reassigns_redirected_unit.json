@@ -75,8 +75,9 @@
     },
     {
       "act": "execute_script",
-      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"switched from obj_center to backfill\")",
-      "equals": true
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"switched from obj_center to backfill\") or main._ai_suggestion_panel.breakdown_text.contains(\"backfilling for a unit that went hunting\")",
+      "equals": true,
+      "comment": "MERGE (lab AI + main's terrain-aware range): the card says the Witchseekers backfill obj_nml_1 for the Guard that went hunting. With the lab's FIX-HELD-DUP need ledger and main's per-model range, obj_center (OC 8 vs 2) needs no OC, so the Witchseekers are not first redirected there and the backfill is a fresh capture ('backfilling ...') rather than a switch ('switched from obj_center ...'); either wording is the OBJ-BACKFILL-1 outcome"
     },
     {
       "act": "execute_script",

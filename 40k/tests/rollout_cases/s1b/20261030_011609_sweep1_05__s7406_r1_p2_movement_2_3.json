@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_2 (sole holder \u2014 leaving would drop control \u2014 worth ~5 VP)",
+ "created": "2026-10-30 01:17:43",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI kept the Chaplain on obj_home_2 under a 'sole holder' override, but the objective shows oc_p2 6, so other units also hold it. Fix: Compute control with the acting unit removed. Apply the sole-holder override only if friendly OC without the unit is not greater than enemy OC in range, counting other units that stay.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7406_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CHAPLAIN_ON_BIKE_A",
+  "choice": "pos:1380,1970",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Chaplain on Bike holds obj_home_2 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

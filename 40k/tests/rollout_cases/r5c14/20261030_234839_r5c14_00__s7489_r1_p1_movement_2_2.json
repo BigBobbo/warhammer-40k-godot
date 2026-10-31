@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 12\"))",
+ "created": "2026-10-30 23:49:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7489_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Lootas Beta to a far backfield 'screen' spot and rejected obj_nml_2 and obj_center, which scored about 38. The text says 'staying with the army', but the move goes the wrong way. Fix: Apply the home-race override only to the objective it names. Keep nearer uncontested objectives as options. Cap screen_base by the distance moved away from the unit's current position and the army centroid. Score a screen spot only if enemy threat lanes pass through it.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7489_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_B",
+  "choice": "pos:1600,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 12\")",
+ "verdict": "bad",
+ "version": 1
+}

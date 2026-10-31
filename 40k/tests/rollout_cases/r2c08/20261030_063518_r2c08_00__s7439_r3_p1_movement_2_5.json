@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (supporting nearby objective \u2014 worth ~8 VP)",
+ "created": "2026-10-30 06:40:27",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7439_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] Logan walks 2 turns to obj_nml_1, which P1 already holds with Terminators there. He has OC 1 and the army needs no help there. A 6 in move leaves him alone in open ground. Fix: Scale objective_priority and expected_vp by the marginal control Logan adds. Give about zero if the objective is already held with an OC margin of 2 or more. Add charge and shoot options for wounded enemies within 12 in.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7439_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOGAN_GRIMNAR_A",
+  "choice": "pos:1370,420",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Logan Grimnar moves toward obj_nml_1 (moving toward charge target Allarus Custodians, obj: 22.6\" away)",
+ "verdict": "pending",
+ "version": 1
+}

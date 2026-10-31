@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Tankbustas arrives",
+ "created": "2026-10-30 16:23:05",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7466_r3_p1_movement_1",
+ "note": "[LLM critic, low conf] Tankbustas arrive in the crowded enemy corner and cannot take any objective. The score still gives arrive_objectives 14.46, and the unit is likely lost without hitting any vehicle. Fix: Score arrive_objectives only when the unit can plausibly gain or contest control. Compare its OC with the enemy OC in range, and give a bonus for a tie or flip on a low-OC objective. Add a penalty for the enemy threat near the spot. Add a bonus for anti-vehicle weapons with high-value targets in range.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7466_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_TANKBUSTAS_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_TANKBUSTAS_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Tankbustas arrives from Strategic Reserves",
+ "verdict": "pending",
+ "version": 1
+}

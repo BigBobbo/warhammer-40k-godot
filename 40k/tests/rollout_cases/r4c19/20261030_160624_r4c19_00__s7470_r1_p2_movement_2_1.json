@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 3 turns) \u2014 worth ~5 VP)",
+ "created": "2026-10-30 16:07:07",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7470_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a lone 10-model Lootas unit on a 27 in advance to obj_nml_1. It will arrive late, and the Custodians will contest the objective first. The advance also gives up shooting. Fix: Do not override a capture assignment to a contested far objective when the unit's score there is much lower and the enemy arrives sooner. Penalise advancing for ranged units without Assault weapons. Let several units target the same central objective as a group, and keep fire-support units in the group rather than sending them alone.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7470_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C",
+  "choice": "pos:1370,420",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma advances toward obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 3 turns))",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (racing for it (enemy can have ~25 OC there before we arrive in 3 turns), needs 2 more OC after this unit \u2014 quicker to reach than Custodian Guard Sodality Alpha (26.0\" away, there in 3 turns at M8 vs 30.3\" away, there in 4 turns at M8) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 16:03:41",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7451_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] Gamma leaves the table's south side to race alone to the far obj_nml_1. The move scores -11.5 on contest_race and is still chosen over the top-scoring obj_center option. Fix: Do not let the capture override pick an objective that is more than 2 turns away, or that has a strongly negative contest_race, when a nearer objective scores higher. Keep the unit with the main force, or send it to the nearest uncontrolled objective instead. Check that charge intent and move plan agree.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7451_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "pos:1331,496",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_nml_1 (moving toward charge target Custodian Guard Sodality Beta, obj: 26.0\" away)",
+ "verdict": "bad",
+ "version": 1
+}

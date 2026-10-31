@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "created": "2026-10-30 16:03:09",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7451_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] Beta stayed on home 2 even though the objective already has 16 OC. The AI says the other units are freed to move, but that hold assignment keeps a battleline unit idle in round 1. Fix: Compute the OC needed to hold each objective against enemy units that could reach it next turn. Release any extra units above that need. The hold override must not beat a move to an uncontrolled objective when the hold unit is surplus.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7451_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "pos:1340,2010",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta holds obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_1 (sole holder \u2014 leaving would drop control)",
+ "created": "2026-10-30 16:04:00",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7454_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent Beta back to sit on HOME 1 because it was the sole holder. This ignores that no enemy can threaten home this turn and that other units could hold it. It wastes a 3 OC unit while Alpha goes alone to CENTER. Fix: Apply the sole-holder override only if an enemy can reach the objective next turn. Otherwise let other friendly units hold it, such as characters or reserves. Free the Battleline unit to support a contested objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7454_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:340,470",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta holds obj_home_1 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

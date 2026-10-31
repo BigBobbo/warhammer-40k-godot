@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Zodgrod Wortsnagga (10.8\" away, 8% chance)",
+ "created": "2026-10-30 01:51:32",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7408_r3_p1_charge_2",
+ "note": "[LLM critic, medium conf] The AI declares a charge with an 8% success chance. This is far below its own charge_threshold of 0.47. The unit takes overwatch fire and gains almost nothing. Fix: Gate the charge: if charge_probability is below charge_threshold, return no charge. Multiply every benefit term, including the flat bonuses, by charge_probability. Then subtract the full overwatch cost, which is paid at declaration whether or not the charge succeeds.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7408_r3_p1_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:872,1147",
+  "decision": "charge",
+  "targets": "U_ZODGROD_WORTSNAGGA_A_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares charge against Zodgrod Wortsnagga (8% chance, 10.8\" away, expected 22.2 melee dmg vs 5 HP, overwatch risk: 4.1 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

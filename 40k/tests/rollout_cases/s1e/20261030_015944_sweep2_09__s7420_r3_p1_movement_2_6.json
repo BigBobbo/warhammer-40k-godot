@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (flipping it (enemy holds with OC 13), needs 13 more OC after this unit \u2014 worth ~5 VP)",
+ "created": "2026-10-30 02:05:11",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7420_r3_p1_movement_2",
+ "note": "[LLM critic, high conf] The AI sends a nearly dead 1 OC scout alone to flip an objective that has 15 enemy OC on it. The unit cannot flip it. It is out of position and likely to die. Fix: Set expected_vp and objective_priority to near zero when the OC still needed after this unit is more than what the unit can add plus what is nearby. Add a survival penalty that scales with how few wounds the unit has and with the enemy OC and threat at the destination. Do not give lane and zone bonuses to a unit that cannot reach the position this turn.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7420_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_SCOUT_SQUAD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Scout Squad Beta advances toward obj_center (flipping it (enemy holds with OC 13), needs 13 more OC after this unit)",
+ "verdict": "bad",
+ "version": 1
+}

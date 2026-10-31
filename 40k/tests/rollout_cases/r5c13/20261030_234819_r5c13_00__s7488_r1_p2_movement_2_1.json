@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~15 VP)",
+ "created": "2026-10-30 23:49:25",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7488_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent the Kommandos to obj_nml_2, which is already held with 21 OC and is 15.3 in away. The objective is worth about 15 VP, but the unit adds nothing there. Fix: Scale expected_vp for an objective we already hold by the marginal OC the unit adds. Give no credit when the existing OC already exceeds the enemy's realistic OC next turn. Add a bonus for guarding a thinly held home objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7488_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "pos:700,2050",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed), obj: 15.3\" away)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (block Blade Champion Gamma approaching obj_nml_2 (16\" away))",
+ "created": "2026-10-30 16:06:00",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7467_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] Gretchin go to a screen position near obj_nml_2 in a block role, but the plan does not take or hold obj_nml_2, which nobody holds. The screen only has value if it really blocks the Blade Champion. Fix: Only assign a corridor_block when the screen can really deny a lane, for example when it keeps the threat out of charge range of a key unit or objective. Otherwise let the unit go for an uncontested objective. Score the screen against the objective value the unit gives up.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7467_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:553,1472",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (553,1472) \u2014 block Blade Champion Gamma approaching obj_nml_2 (16\" away)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 18\"))",
+ "created": "2026-10-30 16:04:58",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7459_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a 5-model Burna unit alone to a far corner for a 'screen' with a score of 1.2. It rejected a central objective advance worth 43 and ignored the unit's role as a flamer unit. Fix: Make a screen move valid only if it stands near friendly units or covers a real threat lane. Cap screen distance to about 12 in from the army. Otherwise fall back to the highest-scoring objective option. Do not let a rejection of one objective force a screen role.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7459_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B_P2",
+  "choice": "pos:320,2160",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta screens at (320,2160) \u2014 backfield gap (nearest friendly: 18\")",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Stormboyz (2.6\" away, 97% chance)",
+ "created": "2026-10-31 00:04:29",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7481_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] The Battlewagon charges 4 weak Stormboyz for about 2.7 expected damage. It risks 4.8 overwatch damage and retaliation. Easy-charge bonuses make a poor trade look positive. Fix: Remove or cap the short-charge bonus. Count melee damage once. Require expected damage to exceed overwatch risk plus retaliation unless the charge takes or protects an objective. Reduce the score of a target that friendly units already engage and are likely to kill.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7481_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A_P2",
+  "choice": "pos:811,1789",
+  "decision": "charge",
+  "targets": "U_STORMBOYZ_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha declares charge against Stormboyz (97% chance, 2.6\" away, expected 2.7 melee dmg vs 12 HP, overwatch risk: 4.8 dmg)",
+ "verdict": "pending",
+ "version": 1
+}

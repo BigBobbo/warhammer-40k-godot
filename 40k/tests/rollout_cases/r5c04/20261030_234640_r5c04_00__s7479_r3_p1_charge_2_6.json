@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Beta (9.1\" away, 17% chance)",
+ "created": "2026-10-30 23:49:05",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7479_r3_p1_charge_2",
+ "note": "[LLM critic, high conf] The AI declared a 17% charge at a 9.1 in target. The score is positive only because ch_damage of +20.0 outweighs ch_chance of -11.25 and ch_retaliation of -10.0. A failed charge wastes the unit's turn. Fix: Multiply all benefit terms (damage, tie-up, can_halve) by charge probability. Apply the charge_threshold as a hard gate, so a charge below about 30% is rejected unless it is the only way to score or to deny a game-deciding objective. Also add a term for the objective or position given up by a failed charge.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7479_r3_p1_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:597,1667",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_B_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma declares charge against Custodian Guard Sodality Beta (17% chance, 9.1\" away, expected 10.0 melee dmg vs 13 HP, overwatch risk: 0.4 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

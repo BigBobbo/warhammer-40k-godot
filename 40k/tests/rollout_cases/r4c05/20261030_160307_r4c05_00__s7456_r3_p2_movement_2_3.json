@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (flipping it (enemy holds with OC 12), needs 1 more OC after this unit \u2014 worth ~5 VP)",
+ "created": "2026-10-30 16:06:21",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7456_r3_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI sends the 15-wound Guard unit 19 in toward an enemy-held centre it cannot reach this turn. Blade Champion Beta can hold obj_nml_2 alone, so the move is defensible. But the unit arrives alone, in pieces, against a stronger enemy group. Fix: When a unit cannot reach the objective this turn, weigh the enemy units that can charge its end position. Also weigh whether friendly support can reach the same area. Cut the objective_priority value for flips that need more than one turn.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7456_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_center (moving toward charge target Blade Champion Alpha, obj: 19.1\" away)",
+ "verdict": "pending",
+ "version": 1
+}

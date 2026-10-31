@@ -250,6 +250,7 @@ func _setup_objectives_for_deployment(deployment_type: String) -> void:
 
 	# Initialize control state
 	objective_control_state.clear()
+	invalidate_control_cache()  # OBJ-CACHE
 	objective_contested_state.clear()
 	_sticky_objectives.clear()
 	for obj in objectives:
@@ -309,16 +310,108 @@ func get_objective_ids_by_designation(designation: String) -> Array:
 ## (e.g. to Overwatch) still cost the securing player the objective.
 var _secured_lock_break_enabled: bool = true
 
+# AB-PERF: time and count of objective-control recomputes (benchmark report).
+var perf_check_objectives_usec: int = 0
+var perf_check_objectives_calls: int = 0
+
+# OBJ-CACHE: a recompute is a pure function of the game state it reads, and it
+# is idempotent (a second run on the same inputs changes nothing). So when the
+# signature of EVERY input equals the one left by the last recompute, the
+# result is already in objective_control_state and the work is skipped. The
+# signature covers units (positions, alive, status, flags, stats, attachments
+# — everything model_oc and the codex OC rules read), board (objectives and
+# terrain), factions (detachments), removed / burned / burning objectives,
+# secured locks, the current control and contested state, the phase-end flag,
+# edition, round, phase and active player. Dictionary/Array.hash() is native
+# and recursive, so the check costs well under a millisecond against ~0.38 s
+# for a full recompute (benchmark 2026-10-29: ~250 recomputes, ~94 s a game).
+# Set control_cache_verify to recompute on every hit and report any difference
+# as an ERROR (AIBenchmarkRunner --bench-verify-objective-cache).
+var control_cache_enabled: bool = true
+var control_cache_verify: bool = false
+var perf_check_objectives_hits: int = 0
+var control_cache_mismatches: int = 0
+var _control_cache_sig: int = 0
+var _control_cache_valid: bool = false
+
+func _control_signature_parts(phase_end: bool) -> Dictionary:
+	var st: Dictionary = GameState.state
+	var meta: Dictionary = st.get("meta", {})
+	return {"units": st.get("units", {}).hash(), "board": st.get("board", {}).hash(),
+		"factions": st.get("factions", {}).hash(),
+		"objectives_state": [removed_objectives, burned_objectives, burn_in_progress, _sticky_objectives,
+			objective_control_state, objective_contested_state].hash(),
+		"phase_end": phase_end, "edition": GameConstants.edition,
+		"turn": [meta.get("battle_round", 0), meta.get("phase", 0), meta.get("active_player", 0)].hash()}
+
+var _control_cache_parts: Dictionary = {}
+
+func _control_signature(phase_end: bool) -> int:
+	_control_cache_parts_now = _control_signature_parts(phase_end)
+	return _control_cache_parts_now.hash()
+
+var _control_cache_parts_now: Dictionary = {}
+
+## Drop the cached signature (e.g. after a load or a reset) so the next
+## check_all_objectives() recomputes from scratch.
+func invalidate_control_cache() -> void:
+	_control_cache_valid = false
+
 func check_all_objectives(phase_end: bool = true) -> void:
+	var _t0 := Time.get_ticks_usec()
+	var sig := _control_signature(phase_end) if control_cache_enabled else 0
+	if control_cache_enabled and _control_cache_valid and sig == _control_cache_sig:
+		perf_check_objectives_hits += 1
+		if control_cache_verify:
+			_verify_control_cache_hit(phase_end)
+		else:
+			refresh_objective_visuals()
+		perf_check_objectives_usec += Time.get_ticks_usec() - _t0
+		perf_check_objectives_calls += 1
+		return
+	if control_cache_enabled and _control_cache_valid:
+		var changed: Array = []
+		for k in _control_cache_parts_now:
+			if _control_cache_parts.get(k) != _control_cache_parts_now[k]:
+				changed.append(k)
+		DebugLogger.info("MissionManager: OBJ-CACHE miss — changed: %s" % str(changed))
 	_secured_lock_break_enabled = phase_end
 	_check_all_objectives_impl()
 	_secured_lock_break_enabled = true
+	if control_cache_enabled:
+		# The POST-run signature: the impl may update control / locks / flags,
+		# and an immediate second call must see exactly this state to hit.
+		_control_cache_sig = _control_signature(phase_end)
+		_control_cache_parts = _control_cache_parts_now.duplicate()
+		_control_cache_valid = true
+	perf_check_objectives_usec += Time.get_ticks_usec() - _t0
+	perf_check_objectives_calls += 1
+
+## Verify mode: recompute anyway and compare with what the cache kept.
+func _verify_control_cache_hit(phase_end: bool) -> void:
+	var before := [objective_control_state.duplicate(true), objective_contested_state.duplicate(true),
+		_sticky_objectives.duplicate(true)]
+	_secured_lock_break_enabled = phase_end
+	_check_all_objectives_impl()
+	_secured_lock_break_enabled = true
+	var after := [objective_control_state, objective_contested_state, _sticky_objectives]
+	if str(before) != str(after):
+		control_cache_mismatches += 1
+		push_error("MissionManager: OBJ-CACHE mismatch — cached %s, recomputed %s" % [str(before), str(after)])
+	_control_cache_sig = _control_signature(phase_end)
 
 ## Mid-phase display refresh — see check_all_objectives(phase_end).
 func refresh_objective_control_display() -> void:
 	check_all_objectives(false)
 
 func _check_all_objectives_impl() -> void:
+	_oc_memo.clear()
+	_oc_memo_active = true
+	_check_all_objectives_impl_body()
+	_oc_memo_active = false
+	_oc_memo.clear()
+
+func _check_all_objectives_impl_body() -> void:
 	var objectives = GameState.state.board.get("objectives", [])
 
 	# If objectives are missing, reinitialize them
@@ -551,6 +644,18 @@ func is_objective_contested(obj_id: String) -> bool:
 ##   order: set, then add only when > 0).
 ## Vexilla's +1 is baked into meta.stats at army load (ArmyListManager), so it
 ## reaches every model through the base read.
+## OBJ-CACHE: the codex OC rule scripts model_oc consults, loaded once —
+## load() of an already-cached resource still resolved the path on every one
+## of the ~90k model_oc calls a game made.
+var _codex_scripts: Dictionary = {}
+
+func _codex_script(path: String):
+	var scr = _codex_scripts.get(path)
+	if scr == null:
+		scr = load(path)
+		_codex_scripts[path] = scr
+	return scr
+
 func model_oc(unit: Dictionary, model: Dictionary) -> int:
 	var flags = unit.get("flags", {})
 	var oc := int(flags.get("effect_oc_override", 0))
@@ -568,24 +673,24 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 		oc += _custodes_11e_oc_bonus(unit)
 		# WP-M2b Immovable Conquerors (Codex: Space Marines 11e, Gravis Siege Force): "This unit has +1 OC".
 		if GameConstants.edition >= 11:
-			oc += int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").oc_bonus(unit))
+			oc += int(_codex_script("res://scripts/codex/space_marines/SMDetachmentsB.gd").oc_bonus(unit))
 		# Codex: Space Marines (11e) WP-M3b FOR THE EMPEROR! (SMCodexB.gd): +1 OC until the end of the turn.
-		oc += int(load("res://scripts/codex/space_marines/SMCodexB.gd").oc_bonus(unit))
+		oc += int(_codex_script("res://scripts/codex/space_marines/SMCodexB.gd").oc_bonus(unit))
 	# Codex: Space Marines (11e) CURSE OF THE WULFEN: +1 OC (INFANTRY) / +3 OC
 	# (VEHICLE) near a Space Wolves CHARACTER / WOLF PRIEST (SWArmyRules11e.gd,
 	# WP-S2). Outside the "already has OC" gate: the Wulfen datasheets print
 	# OC 0 and the curse is what gives them OC (battle-shocked: no bonus, and
 	# _unit_oc_in_range zeroes a battle-shocked unit anyway).
 	if GameConstants.edition >= 11 and int(flags.get("effect_oc_override", 0)) == 0:
-		oc += int(load("res://scripts/codex/space_wolves/SWArmyRules11e.gd").oc_bonus(unit))
+		oc += int(_codex_script("res://scripts/codex/space_wolves/SWArmyRules11e.gd").oc_bonus(unit))
 	# WP-S4: Space Wolves HUNTING HOUNDS — a Hunting Wolf's printed OC is 0, +1
 	# within 6" of a friendly SPACE WOLVES CHARACTER (SWAbilities11e.model_oc).
 	if GameConstants.edition >= 11:
-		oc = int(load("res://scripts/codex/space_wolves/SWAbilities11e.gd").model_oc(unit, model, oc))
+		oc = int(_codex_script("res://scripts/codex/space_wolves/SWAbilities11e.gd").model_oc(unit, model, oc))
 		# WP-M4b LORD OF THE PYROCLASTS (Adrax Agatone): an enemy unit engaged with his unit has -1 OC.
-		oc = int(load("res://scripts/codex/space_marines/SMAbilitiesB.gd").model_oc(unit, model, oc))
+		oc = int(_codex_script("res://scripts/codex/space_marines/SMAbilitiesB.gd").model_oc(unit, model, oc))
 		# WP-M4c: Terror Troops (-1 OC near Reivers), Honour of the Company (+1), Seeker of the Unfound (OC 10).
-		oc = int(load("res://scripts/codex/space_marines/SMAbilitiesC.gd").model_oc(unit, model, oc))
+		oc = int(_codex_script("res://scripts/codex/space_marines/SMAbilitiesC.gd").model_oc(unit, model, oc))
 	return maxi(oc, 0)
 
 ## Codex: Adeptus Custodes (11e) Moritoi Ancients OC bonus for `unit` (0 at 10e
@@ -593,7 +698,7 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 func _custodes_11e_oc_bonus(unit: Dictionary) -> int:
 	if GameConstants.edition < 11:
 		return 0
-	return int(load("res://scripts/codex/custodes/CustodesDetachments.gd").oc_bonus(unit))
+	return int(_codex_script("res://scripts/codex/custodes/CustodesDetachments.gd").oc_bonus(unit))
 
 ## 01.07 / 19.01: battle-shocked models have OC '-'. Group-aware — an Attached
 ## unit is a single unit, so a battle_shocked flag on ANY component zeroes every
@@ -621,11 +726,36 @@ func _unit_peak_model_oc(unit: Dictionary) -> int:
 ## `host_areas` are the 14.01 hosting areas (empty = open-ground marker).
 ## `verbose` keeps _check_objective_control's per-unit / per-model debug lines;
 ## the other callers (LLM snapshot) pass false so they don't flood the log.
+## OBJ-CACHE: per-recompute memo of each unit's per-model OC. A recompute reads
+## the same state for every objective, so model_oc (0.7 ms a call: stat lines,
+## codex auras that scan other units) was computed once per model PER
+## OBJECTIVE, twice (peak + in-range) — ~765 calls a recompute. Active only
+## inside _check_all_objectives_impl, so other callers keep reading live state.
+var _oc_memo_active: bool = false
+var _oc_memo: Dictionary = {}  # unit_id -> {"peak": int, "per": Array}
+
+func _unit_oc_memo(unit_id: String, unit: Dictionary) -> Dictionary:
+	var m = _oc_memo.get(unit_id)
+	if m == null:
+		var per: Array = []
+		for model in unit.get("models", []):
+			per.append(model_oc(unit, model) if model.get("alive", true) else 0)
+		var best := -1
+		var i := 0
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				best = maxi(best, int(per[i]))
+			i += 1
+		m = {"peak": best if best >= 0 else model_oc(unit, {}), "per": per}
+		_oc_memo[unit_id] = m
+	return m
+
 func _unit_oc_in_range(unit_id: String, unit: Dictionary, objective: Dictionary, host_areas: Array, units: Dictionary, verbose: bool = false) -> int:
 	var owner = unit.get("owner", 0)
+	var memo: Dictionary = _unit_oc_memo(unit_id, unit) if _oc_memo_active else {}
 
 	# Skip if unit has no OC value (no alive model with OC 1+)
-	var oc_value := _unit_peak_model_oc(unit)
+	var oc_value := int(memo.peak) if not memo.is_empty() else _unit_peak_model_oc(unit)
 	if oc_value <= 0:
 		if verbose:
 			print("  Skipping %s - no OC value (OC: %d)" % [unit_id, oc_value])
@@ -671,7 +801,9 @@ func _unit_oc_in_range(unit_id: String, unit: Dictionary, objective: Dictionary,
 	# unit once.
 	var unit_total := 0
 	var models_in_range := 0
+	var model_idx := -1
 	for model in unit.get("models", []):
+		model_idx += 1
 		if not model.get("alive", true):
 			continue
 
@@ -683,7 +815,7 @@ func _unit_oc_in_range(unit_id: String, unit: Dictionary, objective: Dictionary,
 		if model_pos is Dictionary:
 			model_pos = Vector2(model_pos.x, model_pos.y)
 
-		var m_oc := model_oc(unit, model)
+		var m_oc := int(memo.per[model_idx]) if not memo.is_empty() else model_oc(unit, model)
 
 		# A model is within range of an objective if any part of its base
 		# is within the control radius. Use shape-aware distance to correctly
@@ -3446,6 +3578,7 @@ func get_state_for_save() -> Dictionary:
 	}
 
 func load_state(data: Dictionary) -> void:
+	invalidate_control_cache()  # OBJ-CACHE
 	"""Restore state from save data."""
 	current_mission = data.get("current_mission", current_mission)
 	objective_control_state = data.get("objective_control_state", {})

@@ -1,0 +1,105 @@
+[
+ {
+  "job": "20261030_234725_r5c11_00__s7486_r1_p2_movement_2_0",
+  "case": "20261030_234725_r5c11_00__s7486_r1_p2_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_KOMMANDOS_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends the Kommandos 30 in across the board to obj_nml_2, which two units already cover. This wastes the unit for several turns and adds almost no VP.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7486",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234725_r5c11_00"
+ },
+ {
+  "job": "20261030_234725_r5c11_00__s7486_r1_p1_movement_2_1",
+  "case": "20261030_234725_r5c11_00__s7486_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI chose a screen spot far from the army, even though its own reasoning says it wants to stay with the army. The unit's turn is mostly wasted.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7486",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234725_r5c11_00"
+ },
+ {
+  "job": "20261030_234725_r5c11_00__s7486_r2_p2_movement_2_2",
+  "case": "20261030_234725_r5c11_00__s7486_r2_p2_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_WARBIKERS_A_P2",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Warbikers Alpha arrives far forward at 41, 11 and does not hold any objective on arrival. Two other units tie or nearly tie, so the choice looks arbitrary.",
+  "better_option": "unlisted: Warbikers Alpha arrives near obj_nml_2 on the player 2 side, so it holds the objective this turn and is far from the enemy shooters.",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7486",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234725_r5c11_00"
+ },
+ {
+  "job": "20261030_234725_r5c11_00__s7486_r3_p2_shooting_2_3",
+  "case": "20261030_234725_r5c11_00__s7486_r3_p2_shooting_2_3.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_LOOTAS_C_P2",
+    "target": "U_KOMMANDOS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI added a Deffgun shot to Burna Boyz Beta, which already has more expected damage allocated (4.36) than its 4 HP. This is probably overkill.",
+  "better_option": "Deffgun \u2192 enemy Kommandos (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7486",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234725_r5c11_00"
+ }
+]

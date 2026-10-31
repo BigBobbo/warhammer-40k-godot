@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_2 (flipping it (enemy holds with OC 6), needs 7 more OC after this unit \u2014 quicker to reach than Burna Boyz Alpha (35.1\" away, there in 6 turns at M6 vs 41.8\" away, there in 7 turns at M6) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 01:38:33",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7415_r1_p1_movement_2",
+ "note": "[LLM critic, high conf] The AI sent a 10-model Lootas unit alone on a 6-turn trip to the enemy home objective. This wastes its Deffgun fire and leaves it exposed to Custodian charges. The unit also loses its shooting lane. Fix: Cap expected_vp and secondary_kill_proximity by turns_to_reach, and set them to zero if the unit cannot arrive within about 2 turns. Do not let an override send a unit to the option with the lowest raw score. When the override rejects the top objective, pick a fallback that keeps the unit near the army, such as a firing position on the center or home. Add a penalty for ",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7415_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A",
+  "choice": "pos:890,1860",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha advances toward obj_home_2 (flipping it (enemy holds with OC 6), needs 7 more OC after this unit \u2014 quicker to reach than Burna Boyz Alpha (35.1\" away, there in 6 turns at M6 vs 41.8\" away, there in 7 turns at M6))",
+ "verdict": "bad",
+ "version": 1
+}

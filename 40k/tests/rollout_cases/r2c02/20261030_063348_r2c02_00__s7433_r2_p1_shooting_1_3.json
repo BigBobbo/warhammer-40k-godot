@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Beta (P2)",
+ "created": "2026-10-30 06:35:14",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7433_r2_p1_shooting_1",
+ "note": "[LLM critic, medium conf] Alpha shoots Custodian Guard Beta for 0.9 expected damage and a 6% kill chance. Prosecutor Squad is a much better target at 1.87 expected damage and a 47% kill chance. Fix: Cap the target_value contribution by kill probability and expected damage as a share of target HP. Prefer targets where the shot can remove models or a unit. Do not let already_allocated cancel a target that is still short of a kill.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7433_r2_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Beta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha shoots at Custodian Guard Sodality Beta \u2014 expected 0.9 dmg vs 15 HP (6% kill)",
+ "verdict": "bad",
+ "version": 1
+}

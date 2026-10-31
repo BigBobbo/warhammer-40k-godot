@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (flipping it (enemy holds with OC 11), needs 3 more OC after this unit \u2014 worth ~1 VP with the 1 other objective(s) this plan takes \u2014 worth ~4 VP)",
+ "created": "2026-10-30 16:04:28",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7458_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] Alpha moves alone toward the centre, where two strong enemy units sit. The move ignores a counter-charge. It ends within 12 in of those units, with no support nearby. Fix: When a unit goes to an objective held by a stronger enemy force, require friendly support to arrive in the same turn. Otherwise, penalise heavily for the expected counter-charge. Prefer the weakly held enemy objective, such as the Prosecutor Squad's objective, that the unit can win alone.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7458_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_center (moving toward charge target Custodian Guard Sodality Beta, obj: 17.4\" away)",
+ "verdict": "pending",
+ "version": 1
+}

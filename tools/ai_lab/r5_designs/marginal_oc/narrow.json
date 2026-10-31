@@ -1,0 +1,92 @@
+{
+ "key": "marginal_oc",
+ "angle": "narrow",
+ "root_cause": "Two different existing overrides commit a unit's OC where it does not change control. (1) s7475 r3 P1: pass 1 of _assign_units_to_objectives has 'elif obj_state == \"held_threatened\": should_hold = true', which pins EVERY movable unit on a held_threatened objective even when its need is 0. obj_center read friendly 20 vs enemy 9 (projected 7); the units that cannot move this phase (Guard Gamma engaged, Blade Champion) held it with OC 11 alone, so the existing KEEP-OC release (locked_oc_holds) would have freed Guard Beta, but that branch comes AFTER the held_threatened clause and never ran. Guard Beta held at score 47.6 vs 33.0 for the enemy-held obj_nml_1 (enemy_weak, OC 8, contest capacity 20). B branch (2 seeds): +23.0 value. (2) s7478 r3 P2: OBJ-ASSIGN-1 (quicker-arrival swap in pass 2) swapped Guard Beta (OC 9) in for the Prosecutors (OC 8, score 27.8 vs 26.0) on the empty, uncontested obj_home_2 (enemy_oc 0, no projected OC, vp 0.0) because both arrive in 2 phases and Beta has 6.4\" vs 2.3\" spare; the Prosecutors were pushed onto the contested centre. Arriving the same phase on an objective nobody can contest gains nothing, while the swap moves the bigger OC off the fight. (3) s7463 r1 P2 (not addressed): every objective candidate of the Kommandos was skipped (centre covered by two Battlewagons, RACE-SKIP/LONE-TRIP elsewhere) and the fallback 'support/screen' pass sent it to the held_safe obj_nml_2; a different mechanism (fallback pass), no narrow gate found.",
+ "fix_summary": "FIX_MARGINAL_OC (default 1.0, 0 = base exactly). Two one-condition gates on existing overrides, one log tag [MARGINAL_OC]. (a) Pass 1 hold: a held_threatened objective with remaining need 0 no longer forces a hold when locked_oc_holds(oid) (OC of units that cannot move this phase > max(enemy_oc, projected_enemy_oc)); the unit falls through as if released by KEEP-OC (still held if it is the keeper and PLAN_KEEP_OC_ENABLED is 0). (b) OBJ-ASSIGN-1: skip a swap candidate when it arrives in the SAME number of phases (spare-inches-only quicker), has strictly more OC than the unit it displaces, the objective has enemy_oc 0 and projected_enemy_oc 0, and the swapped-in unit has a candidate at another objective still needing OC in state contested/enemy_weak/held_threatened. Whole-turn-quicker swaps are untouched (guardrail s7457).",
+ "param": "FIX_MARGINAL_OC",
+ "test_file": "40k/tests/unit/test_ai_fix_marginal_oc.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: test_ai_fix_marginal_oc 8/0 (BASE copy: 4 passed, 4 failed). All 21 listed tests pass with 0 failures (rollout_override 11, e_race_tuning 8, race_army 3, advance_probability 8, objective_race 16, plan_diminishing_returns 4, critic_round2 7, 11e_charge_ev_primary_cap 26, movement_decisions 36, plan_earmarks 35, fix_held_dup 14, fix_lone_trip 8, fix_charge_ev 11, fix_far_trip 11, fix_overcommit 8, fix_keeper_release 52, fix_lone_flip 16, fix_reinforce_insurance 24, charge_decisions 62, survival_assessment 23, multi_phase_planning 34). Known base failures unchanged: test_ai_threat_range_awareness 34/3, tests/test_ai_objective_assignment_fixes.gd 6/1.",
+ "decision_checks": [
+  {
+   "job": "20261030_234632_r5c00_00__s7475_r3_p1_movement_2_5",
+   "base_choice": "Custodian Guard Sodality Beta holds obj_center (holding under threat (enemy OC 9 nearby))",
+   "fix_choice": "Custodian Guard Sodality Beta moves toward obj_nml_1 (Normal move; plan: MOVE obj_nml_1, flipping it (enemy holds with OC 8))",
+   "changed": true,
+   "measured": "clear: E +8.00 [3.15, 12.85] n24 for Normal move to obj_nml_1",
+   "judgement": "matches the alternative exactly (same unit, objective, mode). Gate (a) fired: locked OC 11 beats enemy threat 9 (next move 7)."
+  },
+  {
+   "job": "20261030_234556_r5c03_00__s7478_r3_p2_movement_1_5",
+   "base_choice": "Custodian Guard Sodality Beta advances toward obj_home_2 (capturing it (uncontrolled) - quicker to reach than Prosecutor Squad)",
+   "fix_choice": "Custodian Guard Sodality Beta moves toward obj_nml_1 (Normal move; plan: flipping it (enemy holds with OC 3)); Prosecutors keep obj_home_2",
+   "changed": true,
+   "measured": "clear: E +5.58 [1.41, 9.76] n24 for Normal move to obj_center; the fix's own choice (Normal move to obj_nml_1) measured here vs base: E +9.13 [1.18, 17.07] n8 (tag marginal_oc_narrow_f3nml1)",
+   "judgement": "partial match: the swap is undone and the unit makes a Normal move to a contested/enemy-held objective where its OC flips control, but its own scores pick obj_nml_1 (19.8) over obj_center (15.4); that choice measured positive (n8)."
+  },
+  {
+   "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_1_2",
+   "base_choice": "Kommandos moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed))",
+   "fix_choice": "Kommandos moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed))",
+   "changed": false,
+   "measured": "clear: E +4.50 [1.34, 7.66] n24 for Advance to obj_center",
+   "judgement": "not addressed: the unit reaches the fallback support/screen pass after every objective candidate was skipped; neither gate applies."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r1_p2_movement_2_2",
+   "base_choice": "Kommandos holds obj_home_2 (keeping hold)",
+   "fix_choice": "Kommandos holds obj_home_2 (keeping hold)",
+   "changed": false,
+   "measured": "harmful alt (Advance centre): E -6.58",
+   "judgement": "unchanged, consistent"
+  },
+  {
+   "job": "20261030_234808_r5c15_00__s7490_r1_p1_movement_2_3",
+   "base_choice": "Lootas Alpha holds obj_home_1 (keeping hold)",
+   "fix_choice": "Lootas Alpha holds obj_home_1 (keeping hold)",
+   "changed": false,
+   "measured": "harmful alt: E -3.83",
+   "judgement": "unchanged, consistent"
+  },
+  {
+   "job": "20261030_234556_r5c03_00__s7478_r2_p1_movement_2_2",
+   "base_choice": "Prosecutor Squad advances toward obj_home_2 (flipping it)",
+   "fix_choice": "Prosecutor Squad advances toward obj_home_2 (flipping it)",
+   "changed": false,
+   "measured": "harmful alt: E -8.17",
+   "judgement": "unchanged, consistent"
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+   "base_choice": "Custodian Guard Sodality Beta moves toward obj_center",
+   "fix_choice": "Custodian Guard Sodality Beta moves toward obj_center",
+   "changed": false,
+   "measured": "harmful alt (hold obj_nml_2): E -15.00",
+   "judgement": "unchanged, consistent"
+  },
+  {
+   "job": "20261030_234640_r5c04_00__s7479_r1_p1_movement_1_0",
+   "base_choice": "Custodian Guard Sodality Gamma advances toward obj_center",
+   "fix_choice": "Custodian Guard Sodality Gamma advances toward obj_center",
+   "changed": false,
+   "measured": "harmful alt: E -3.92",
+   "judgement": "unchanged, consistent (log fired once later in that game, for P2 obj_home_2, not this decision)"
+  },
+  {
+   "job": "20261030_160417_r4c06_00__s7457_r1_p2_movement_2_2",
+   "base_choice": "Custodian Guard Sodality Beta advances toward obj_nml_2 (capturing it, quicker swap 2 vs 3 turns)",
+   "fix_choice": "Custodian Guard Sodality Beta advances toward obj_nml_2 (capturing it)",
+   "changed": false,
+   "measured": "harmful alt: E -5.83",
+   "judgement": "unchanged, consistent (whole-turn-quicker swap is outside gate b)"
+  }
+ ],
+ "fires": "Replays (one game each, both players, to end of next round): s7475 1 fire (gate a, the finding decision); s7478 r3 1 fire (gate b, the finding decision); 6 guardrail replays: 1 fire total (s7479 game, gate a, P2 freeing U_CUSTODIAN_GUARD_C_P2 from obj_home_2: locked OC 5 vs threat 2), 0 in the other 5. Bench (step 9b, mirror_custodes_2000_postdeploy seed 93101, 1 pair): 0 fires in both games, pair played identically (margin -53 both). Extra reach check: mirror_custodes seeds 93201-93202 (2 pairs) and asym_2000_postdeploy seed 93301 (1 pair): 0 fires in all 6 games, every pair identical. Total 0 fires in 8 full bench games.",
+ "bench_fires_per_game": 0,
+ "risks": "Bench reach is 0 in 8 games, so a full-game bench cannot measure it as built; the effect is unproven over 5 rounds. Gate (a): a freed unit leaves a held_threatened objective with only the locked OC beating the CURRENT/projected threat by a small margin (e.g. 11 vs 9); if the locked units are engaged they may die or be pulled away in the fight phase, or the enemy brings more than COORD-5 projects (reserves, Advance+charge), and the objective flips the next turn (rounds 3-5 primary hold). Gate (a) can also free a unit from a HOME objective (seen once: obj_home_2, locked 5 vs 2), which some primary cards pay for. Gate (b): the lower-OC unit keeps an uncontested objective; if the enemy later contests it, less OC is there; and the swapped-out unit may pick a contested objective other than the one the critic named (s7478: obj_nml_1, not obj_center). F1 (s7463, Kommandos) is not fixed.",
+ "drop_reason": ""
+}

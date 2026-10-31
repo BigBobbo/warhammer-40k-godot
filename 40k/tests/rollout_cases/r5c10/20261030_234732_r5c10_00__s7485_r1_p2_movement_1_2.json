@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 21\"))",
+ "created": "2026-10-30 23:49:39",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7485_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends a 5-model Burna unit toward a distant left-side screen point it cannot reach, cutting it off from its army. The unit is unlikely to arrive there and is exposed on the way. Fix: Score screen points on reachability. Penalise distance heavily, and reject or cut screen_base to near zero when the point is more than one move away. Also add a term that penalises ending the move far from friendly units, and prefer moving to the nearest friendly-held objective or the army when a unit is isolated.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7485_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A_P2",
+  "choice": "pos:320,1520",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha screens at (320,1520) \u2014 backfield gap (nearest friendly: 21\")",
+ "verdict": "bad",
+ "version": 1
+}

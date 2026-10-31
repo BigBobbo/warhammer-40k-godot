@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Custodian Guard Sodality Beta (P1)",
+ "created": "2026-10-30 16:12:37",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7468_r3_p2_shooting_1",
+ "note": "[LLM critic, medium conf] The Battlewagon shoots a big shoota with 0.16 expected damage at Custodian Guard Sodality Beta. The Custodians have T7 and 2+ saves, so this shot is almost worthless. The better move is to keep the Battlewagon on its objective. Fix: Give shooting units an option to move to an objective or screen position when the best shot has expected damage below about 0.5. Also cap focus-fire coordination bonuses when the expected damage is tiny.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7468_r3_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A",
+  "choice": "desc:Big shoota \u2192 enemy Custodian Guard Sodality Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha shoots at Custodian Guard Sodality Beta \u2014 expected 0.2 dmg vs 6 HP (3% kill)",
+ "verdict": "bad",
+ "version": 1
+}

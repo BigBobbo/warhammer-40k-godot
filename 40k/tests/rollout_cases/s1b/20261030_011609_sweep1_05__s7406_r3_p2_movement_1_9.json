@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 01:23:42",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r3_p2_movement_1",
+ "note": "[LLM critic, medium conf] Logan walks 18 in alone toward a centre held by 17 enemy OC. The move adds little OC (1) and sends a lone character into Custodian melee units. The score is only 15.4 against 23.0 for obj_nml_2. Fix: Cap objective_priority by the unit's OC share against the enemy OC in range, and apply the threat penalty as a veto when the unit is a lone, low-OC character. If a character has no useful job at the centre, keep it with the army or on a held objective instead of the strongest enemy cluster.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7406_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOGAN_GRIMNAR_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Logan Grimnar moves toward obj_center (moving toward charge target Custodian Guard Sodality Alpha, obj: 18.1\" away)",
+ "verdict": "pending",
+ "version": 1
+}

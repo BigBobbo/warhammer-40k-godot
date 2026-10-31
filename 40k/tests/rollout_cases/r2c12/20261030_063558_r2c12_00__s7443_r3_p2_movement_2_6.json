@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (flipping it (enemy holds with OC 11), needs 8 more OC after this unit \u2014 worth ~4 VP)",
+ "created": "2026-10-30 06:42:56",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7443_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends a 4-model Scout Squad alone into an enemy-held objective where 8 more OC are needed, instead of reinforcing the held centre objective. Fix: When a unit cannot reach the OC needed to flip an objective alone and no friendly unit will join it, set expected_vp to 0 and add a large penalty for isolation near many enemy units. Do not let the capture assignment override a much higher scoring option that supports an objective the army already holds.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7443_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_SCOUT_SQUAD_B",
+  "choice": "pos:1372,540",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Scout Squad Beta advances toward obj_nml_1 (flipping it (enemy holds with OC 11), needs 8 more OC after this unit)",
+ "verdict": "bad",
+ "version": 1
+}

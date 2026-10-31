@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (capturing it (uncontrolled) \u2014 worth ~6 VP)",
+ "created": "2026-10-30 01:20:36",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7412_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] Beta moves 9 in to obj_home_1, which Player 1 already holds. The move adds no control and wastes the unit's turn, while the expansion objectives stay unclaimed. Fix: Give no capture value to an objective that is already held with no enemy threat. Only count the marginal OC needed to keep control. Reduce objective_priority for held home objectives in round 1. Use the freed unit for the nearest unheld non-home objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7412_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:930,500",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_home_1 (capturing it (uncontrolled), obj: 9.0\" away)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 17\"))",
+ "created": "2026-10-30 23:48:50",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7487_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent a fragile Lootas unit toward a screen point beside the enemy Custodians, about 33 inches away. It did not pick the friendly-side option that scored 8.43. Fix: Cap the screen goal distance to what the unit can reach in about 2 turns. Reject goals within enemy charge or threat range of the unit's position. Reject goals farther from the main army than from the enemy. For shooting units, prefer a firing position near friendly units over an advance. Make a screen override fall back to the best scoring option when the screen scores below it.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7487_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C",
+  "choice": "pos:320,1520",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma screens at (320,1520) \u2014 backfield gap (nearest friendly: 17\")",
+ "verdict": "bad",
+ "version": 1
+}

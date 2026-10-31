@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (reinforcing it (we hold with OC 8, enemy can bring ~8) \u2014 switched from obj_center to backfill for a unit that went hunting)",
+ "created": "2026-10-30 16:11:08",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7467_r3_p2_movement_2",
+ "note": "[LLM critic, high conf] The AI sent a ranged Lootas unit on a 26 in advance to an uncontested far objective. This gives up shooting for 3 turns. The pick also scored lower than three other options. Fix: Do not let backfill or override logic choose an option that scores far below the best. Penalise advances for units with no Assault weapons by the lost shooting value. Reject reinforcement moves that take 3 or more turns to arrive when the game has 2 or fewer rounds left. Reinforce only objectives the enemy can actually contest.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7467_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_B",
+  "choice": "pos:1330,660",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Beta advances toward obj_nml_1 (reinforcing it (we hold with OC 8, enemy can bring ~8) \u2014 switched from obj_center to backfill for a unit that went hunting)",
+ "verdict": "bad",
+ "version": 1
+}

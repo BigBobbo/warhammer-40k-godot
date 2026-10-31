@@ -1,0 +1,287 @@
+[
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r1_p1_movement_1_0",
+  "case": "20261030_160432_r4c13_00__s7464_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Burna Boyz Beta to a backfield screen spot instead of moving toward the uncontested center, which three other friendly units are already heading for.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ },
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r1_p1_movement_2_1",
+  "case": "20261030_160432_r4c13_00__s7464_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_home_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Gretchin to a far corner as a screen. The Screen option scored 0.45 and beat obj_center at 18.44 and Hold obj_home_1 at 10.59, so a override overrode the scoring.",
+  "better_option": "Hold obj_home_1 (on objective, OC needed)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ },
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r1_p2_movement_2_2",
+  "case": "20261030_160432_r4c13_00__s7464_r1_p2_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_MEK_B_P2",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI kept Mek Beta on obj_home_2 as a 'hold' unit. Home 2 has OC 21 and no enemy nearby, so the Mek adds no control there. A lone Mek has low OC and would be weak on a far objective.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ },
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r2_p1_shooting_1_3",
+  "case": "20261030_160432_r4c13_00__s7464_r2_p1_shooting_1_3.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_B",
+    "target": "U_STORMBOYZ_A_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot a weak Big shoota at Beast Snagga Boyz, 23.3 in away, because of a focus-fire bonus. The shot has a 4% kill chance, so the bonus does not help.",
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ },
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r2_p1_charge_1_4",
+  "case": "20261030_160432_r4c13_00__s7464_r2_p1_charge_1_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": [
+     "U_GRETCHIN_A_P2"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI picks the 28% charge on Zodgrod, a 50 point character. It ignores that wiping the Gretchin would take obj_nml_2 from the opponent.",
+  "better_option": "Charge Gretchin (9.2\" away, 17% chance)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ },
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r2_p2_movement_2_5",
+  "case": "20261030_160432_r4c13_00__s7464_r2_p2_movement_2_5.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_STORMBOYZ_A_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent the fast Stormboyz 20 in toward an objective we already hold, with five units committed. It dropped the 10 in move to obj_center, which is the closest and highest-scoring option.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~5 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ },
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r2_p2_shooting_2_6",
+  "case": "20261030_160432_r4c13_00__s7464_r2_p2_shooting_2_6.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Burna Boyz Alpha fires big shootas at distant Lootas Gamma for 0.2 expected damage. It ignores the Burna flamers and the close Stormboyz that are in rapid-fire range.",
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ },
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r2_p2_charge_2_7",
+  "case": "20261030_160432_r4c13_00__s7464_r2_p2_charge_2_7.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "targets": [
+     "U_STORMBOYZ_A"
+    ]
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI declined every charge because charge_target_value was 0.0 for all options, even with a 72% roll chance on Burna Boyz Alpha into a 140pt unit that is already engaged.",
+  "better_option": "Burna Boyz Alpha charges Stormboyz",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ },
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r3_p1_shooting_1_8",
+  "case": "20261030_160432_r4c13_00__s7464_r3_p1_shooting_1_8.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_B",
+    "target": "U_STORMBOYZ_A_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI fires the Burna at Stormboyz and the Big shoota at far Lootas Gamma. That gives 0.2 damage and only a 3% kill chance. The same Big shoota on Stormboyz gives about 0.8 damage.",
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ },
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r3_p2_movement_1_9",
+  "case": "20261030_160432_r4c13_00__s7464_r3_p2_movement_1_9.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_WARBIKERS_A_P2",
+    "objective": "obj_nml_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 2,
+  "summary": "Warbikers Alpha arrives far from every objective that the AI itself named as the main stakes, so the large arrive_objectives bonus looks unjustified.",
+  "better_option": "unlisted: arrive in a legal spot near obj_nml_2 or obj_home_2, so the bikes can add OC to the contested objective",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ },
+ {
+  "job": "20261030_160432_r4c13_00__s7464_r3_p2_movement_2_10",
+  "case": "20261030_160432_r4c13_00__s7464_r3_p2_movement_2_10.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_WARBIKERS_A_P2",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Warbikers Alpha arrives far from any objective in the enemy half. The AI's own reasoning says obj_nml_2 is the most valuable objective at about 8 VP, yet the placement does nothing for it.",
+  "better_option": "unlisted: arrive Warbikers Alpha near obj_nml_2 on the home side, within reach of the Stormboyz and the objective",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "reconnaissance",
+   "seeds": "7464",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160432_r4c13_00"
+ }
+]

@@ -143,9 +143,15 @@ func _run_tests():
 	})
 	var a6 = _assign(s6, ["U_FAST", "U_PLOD"])
 	_dump(["U_FAST", "U_PLOD"])
+	# TOO-LATE (9c32f2e): obj_2 is 37" from the M4 squad (5 turns), past the last
+	# battle round, so U_PLOD is no longer sent there; it reinforces obj_1 instead (not as its capturer).
+	# What this case tests is unchanged: U_FAST, not U_PLOD, takes the capture.
+	var plod6: Dictionary = a6.get("U_PLOD", {})
+	var plod_ok: bool = plod6.get("objective_id", "") == "obj_2" \
+		or not ("capturing" in str(plod6.get("reason", "")))
 	_check("unit arriving in fewer turns keeps obj_1",
-		a6.get("U_FAST", {}).get("objective_id", "") == "obj_1" and a6.get("U_PLOD", {}).get("objective_id", "") == "obj_2",
-		"FAST->%s, PLOD->%s" % [a6.get("U_FAST", {}).get("objective_id", ""), a6.get("U_PLOD", {}).get("objective_id", "")])
+		a6.get("U_FAST", {}).get("objective_id", "") == "obj_1" and plod_ok,
+		"FAST->%s, PLOD->%s (%s)" % [a6.get("U_FAST", {}).get("objective_id", ""), plod6.get("objective_id", ""), plod6.get("reason", "")])
 	var arr_fast = AIDecisionMaker._capture_arrival({"distance": 24.0 * PPI, "move_inches": 12.0})
 	var arr_plod = AIDecisionMaker._capture_arrival({"distance": 12.0 * PPI, "move_inches": 4.0})
 	_check("arrival turns: M12 at 24\" = 2, M4 at 12\" = 3", arr_fast.phases == 2 and arr_plod.phases == 3,

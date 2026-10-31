@@ -1,0 +1,44 @@
+{
+ "arm": "AUD",
+ "looks": [
+  {
+   "look": 1,
+   "complete": false,
+   "fixtures": {
+    "cus": {
+     "n": 42,
+     "E": -2.607,
+     "se": 1.683,
+     "ci": [
+      -5.91,
+      0.69
+     ]
+    },
+    "asy": {
+     "n": 42,
+     "E": 1.452,
+     "se": 1.729,
+     "ci": [
+      -1.94,
+      4.84
+     ]
+    },
+    "ork": {
+     "n": 39,
+     "E": 8.731,
+     "se": 2.12,
+     "ci": [
+      4.58,
+      12.89
+     ]
+    }
+   },
+   "pooled_E": 2.525,
+   "pooled_se": 1.071,
+   "z": 2.359,
+   "boundary": 3.71,
+   "fixture_safe": true,
+   "decision": "continue"
+  }
+ ]
+}

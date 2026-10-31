@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 12\"))",
+ "created": "2026-10-30 16:05:02",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7464_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent Burna Boyz Beta to a backfield screen spot instead of moving toward the uncontested center, which three other friendly units are already heading for. Fix: Only let the screen assignment override a scored objective move when a real deep-strike or charge threat is within range of the screen position. Otherwise let the higher-scoring objective move win. Also cap contest_race for objectives with zero enemy OC and no enemy unit within 24 in.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7464_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:960,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta screens at (960,960) \u2014 backfield gap (nearest friendly: 12\")",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,1 @@
+{"look": 2, "fixtures": {"cus": [84, -2.9, 1.3, [-5.45, -0.35]], "asy": [84, 2.89, 1.21, [0.51, 5.26]], "ork": [79, 7.52, 1.37, [4.83, 10.21]]}, "pooled_E": 2.502, "pooled_se": 0.749, "z": 3.342, "boundary": 2.512, "fixture_safe": false, "decision": "continue (no ship at look 2)"}

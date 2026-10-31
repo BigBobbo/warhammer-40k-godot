@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~42 OC there before we arrive in 3 turns) \u2014 worth ~4 VP with the 1 other objective(s) this plan takes \u2014 worth ~10 VP)",
+ "created": "2026-10-30 16:04:49",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7462_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI advances Lootas Beta alone toward obj_center. The advance gives up its shooting, and the unit will not reach the objective for 3 turns. Fix: Apply a penalty to advance moves for units with no ASSAULT weapons, scaled by the unit's ranged output. Skip advance mode when the unit will not arrive within 2 turns. Cut objective value when the primary card pays a flat amount and the plan already has a non-home objective. Cut it further when the contest_race term is strongly negative.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7462_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_B_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Beta advances toward obj_center (racing for it (enemy can have ~42 OC there before we arrive in 3 turns) \u2014 worth ~4 VP with the 1 other objective(s) this plan takes)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 9\"))",
+ "created": "2026-10-30 23:48:15",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7481_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI chose a backfield 'screen' with score 5.06 over advancing to obj_nml_2 or obj_center. It overrode the objective options through the screen_denial assignment, not through the scores. A screen at (24, 8) has no enemy to screen against in round 1. Fix: Give a screen option a value only when an enemy unit can reach the screened area within two turns. Otherwise let the unit use the best objective option. Prefer moving the 20 OC unit toward obj_center or a held expansion objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7481_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:960,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz screens at (960,320) \u2014 backfield gap (nearest friendly: 9\")",
+ "verdict": "pending",
+ "version": 1
+}

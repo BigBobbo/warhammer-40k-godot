@@ -1,0 +1,209 @@
+[
+ {
+  "job": "20261030_160257_r4c04_00__s7455_r1_p2_movement_2_0",
+  "case": "20261030_160257_r4c04_00__s7455_r1_p2_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A_P2",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI advances the 4-model Prosecutor Squad toward obj_center. The squad cannot reach it this turn. Enemy fast units can reach it first and charge the fragile squad.",
+  "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7455",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160257_r4c04_00"
+ },
+ {
+  "job": "20261030_160257_r4c04_00__s7455_r1_p1_movement_1_1",
+  "case": "20261030_160257_r4c04_00__s7455_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Alpha alone to far obj_nml_2 and rejects the nearer obj_center. The sole reason is a dedupe override. The unit then needs 3 turns to arrive and is likely to be contested by several enemy units.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7455",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160257_r4c04_00"
+ },
+ {
+  "job": "20261030_160257_r4c04_00__s7455_r1_p1_movement_2_2",
+  "case": "20261030_160257_r4c04_00__s7455_r1_p1_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI held a 4-model Prosecutor Squad on a home objective, citing 'sole holder'. Custodian Guard Gamma at about (18, 8.6) is within a normal move of the objective and could hold it. The hold is safe but wastes mobile OC.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7455",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160257_r4c04_00"
+ },
+ {
+  "job": "20261030_160257_r4c04_00__s7455_r2_p2_movement_2_3",
+  "case": "20261030_160257_r4c04_00__s7455_r2_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a cheap 4-wound squad alone toward the center. It cannot reach the objective on a normal move and will probably be charged and killed before support arrives.",
+  "better_option": "Move obj_center (advance)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7455",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160257_r4c04_00"
+ },
+ {
+  "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+  "case": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta moves 18 in toward obj_nml_1 to flip an OC 11 enemy hold. Beta has OC 9 and needs two turns to arrive. The move is only sound if Gamma and Champion Gamma join it.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7455",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160257_r4c04_00"
+ },
+ {
+  "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+  "case": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_nml_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta leaves obj_nml_2 to move toward obj_center. The center is already held and Beta is 17.8 in away, so it will need two turns to arrive.",
+  "better_option": "Hold obj_nml_2 (on objective, OC needed \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7455",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160257_r4c04_00"
+ },
+ {
+  "job": "20261030_160257_r4c04_00__s7455_r3_p1_movement_1_6",
+  "case": "20261030_160257_r4c04_00__s7455_r3_p1_movement_1_6.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends one Allarus alone toward the center, where OC 2 cannot beat the enemy OC 6, and it leaves its two partners at HOME 2.",
+  "better_option": "Move obj_home_2 (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7455",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160257_r4c04_00"
+ },
+ {
+  "job": "20261030_160257_r4c04_00__s7455_r3_p1_shooting_1_7",
+  "case": "20261030_160257_r4c04_00__s7455_r3_p1_shooting_1_7.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "target": "U_BLADE_CHAMPION_B_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI fired the Balistus Grenade Launcher at Guard Beta for 0.3 expected damage. This contradicts its own focus-fire plan, and it did not consider closer targets.",
+  "better_option": "unlisted: Balistus Grenade Launcher at Blade Champion Beta, which is within 12 in and has 7 wounds left",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7455",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160257_r4c04_00"
+ }
+]

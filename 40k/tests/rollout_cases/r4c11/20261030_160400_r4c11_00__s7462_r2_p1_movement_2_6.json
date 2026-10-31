@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (reinforcing obj_home_1 (1 unit already committed) \u2014 worth ~10 VP)",
+ "created": "2026-10-30 16:13:48",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7462_r2_p1_movement_2",
+ "note": "[LLM critic, high conf] The AI sends Lootas Gamma 16.5 in back to a home objective that already has 24 OC and no enemy nearby, which wastes its shooting. Fix: Give an objective zero expected_vp and objective_priority when it is held with a large OC margin and no enemy can reach it. Add a firepower-retention term so a ranged unit with line of sight to targets in range holds, instead of moving more than 3 in without a gain.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7462_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C",
+  "choice": "pos:510,340",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma holds for Heavy weapon bonus (+1 to hit, 2.7 extra expected hits, obj obj_home_1)",
+ "verdict": "bad",
+ "version": 1
+}

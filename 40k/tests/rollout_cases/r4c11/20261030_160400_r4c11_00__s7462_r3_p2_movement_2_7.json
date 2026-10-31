@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (2 units already committed) \u2014 worth ~7 VP)",
+ "created": "2026-10-30 16:18:20",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7462_r3_p2_movement_2",
+ "note": "[LLM critic, low conf] The suggestion text says hold for the Heavy bonus, but the chosen option is a 6 in move toward obj_center. That objective is already held with 2 units committed, and the move gives up the Heavy bonus. Fix: Score a hold-and-shoot option for Heavy or long-range units. Reduce the reinforcement bonus when the objective is already held and 2 or more friendly units are committed. Subtract the lost Heavy bonus from any move option.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7462_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha holds for Heavy weapon bonus (+1 to hit, 2.3 extra expected hits, obj obj_center)",
+ "verdict": "pending",
+ "version": 1
+}

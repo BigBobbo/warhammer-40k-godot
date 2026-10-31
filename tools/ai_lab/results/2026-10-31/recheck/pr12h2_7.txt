@@ -1,0 +1,4 @@
+RECHECK_SHARD pr12h2_7
+ROLLOUT_RESULT {"job":"20261030_160506_r4c12_00__s7463_r1_p2_movement_1_2","status":"ok","E":4.875,"se":2.525,"ci":[-0.07,9.82],"n":24,"A":2.625,"B":7.5,"mat":-50.894,"drift":true,"a_did":"Kommandos moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed), obj: 18.4\" away)","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4","status":"ok","E":4.542,"se":4.958,"ci":[-5.18,14.26],"n":24,"A":16.333,"B":20.875,"mat":-69.497,"drift":false,"a_did":"Custodian Guard Sodality Beta moves toward obj_nml_1 (moving toward charge target Blade Champion Alpha, obj: 1","applied":24,"identical":0}
+SHARD_DONE 7/10 jobs=2

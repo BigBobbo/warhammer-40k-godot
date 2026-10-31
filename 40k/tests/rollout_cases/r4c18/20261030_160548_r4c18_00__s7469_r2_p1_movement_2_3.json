@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_1 (sole holder \u2014 leaving would drop control \u2014 worth ~6 VP)",
+ "created": "2026-10-30 16:08:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7469_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI kept Beta at home as the sole holder. The OC data says Beta is not in range, so it holds nothing, and a 9 OC unit idles far from the fight. Fix: Count a unit as sole holder only if its own OC is in range and control would drop to the enemy or to nobody without it. Do not give stay_on_objective to units outside the marker range. Cap the contest_race penalty when no enemy can reach the home objective within one turn.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7469_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:300,430",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta holds obj_home_1 (sole holder \u2014 leaving would drop control)",
+ "verdict": "bad",
+ "version": 1
+}

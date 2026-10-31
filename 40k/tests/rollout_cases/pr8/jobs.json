@@ -1,0 +1,162 @@
+[
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r1_p1_movement_1_0",
+  "case": "20261030_160517_r4c17_00__s7468_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Gamma to hold the uncontested home objective, and Alpha is also sent there. This is safe, but it ties up two strong units on an objective the enemy cannot reach soon.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00",
+  "from_batch": "r4c17"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6",
+  "case": "20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_STORMBOYZ_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Stormboyz move 11 in to the Prosecutor-held objective and a tie in the two top options. The AI wins the tie with the Attack label, and the unit can only reach charge range if it does not advance.",
+  "better_option": "Attack Prosecutor Squad (closing to charge range (0.0\" after move))",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "reconnaissance",
+   "seeds": "7468",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160517_r4c17_00",
+  "from_batch": "r4c17"
+ },
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r2_p2_charge_1_2",
+  "case": "20261030_160317_r4c03_00__s7454_r2_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Delta charges Blade Champion Beta at 28% chance. This leaves the held CENTER objective and puts a 270 pts unit into three enemy units for a counter-charge.",
+  "better_option": "unlisted: do not charge, stay on obj_center",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7454",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160317_r4c03_00",
+  "from_batch": "r4c03"
+ },
+ {
+  "job": "20261030_160417_r4c06_00__s7457_r2_p2_charge_1_3",
+  "case": "20261030_160417_r4c06_00__s7457_r2_p2_charge_1_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_PROSECUTORS_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a 1-wound enemy Prosecutor with an 8% chance, 10.2 in away, and the score is positive only because of flat bonuses. The real problem is that ch_chance (-11.81) is swamped by +3, +3, +2 and +1.9 flat terms, so a charge that almost never works looks good.",
+  "better_option": "Charge Blade Champion Alpha (2.0\" away, 97% chance) is not good either, because a 3-model Prosecutor squad would die to the Champion in melee. Better: do not charge.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7457",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160417_r4c06_00",
+  "from_batch": "r4c06"
+ },
+ {
+  "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+  "case": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta moves 18 in toward obj_nml_1 to flip an OC 11 enemy hold. Beta has OC 9 and needs two turns to arrive. The move is only sound if Gamma and Champion Gamma join it.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7455",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160257_r4c04_00",
+  "from_batch": "r4c04"
+ },
+ {
+  "job": "20261030_160307_r4c05_00__s7456_r2_p1_movement_1_2",
+  "case": "20261030_160307_r4c05_00__s7456_r2_p1_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI deep strikes Custodian Guard Sodality Delta near the board centre but not onto the CENTER objective. The unit takes no objective on arrival and stays about 6.9 in away. The choice between the two reserve units is only a small difference in score.",
+  "better_option": "unlisted: Custodian Guard Sodality Delta arrives within range of obj_center, if a legal spot exists",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7456",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160307_r4c05_00",
+  "from_batch": "r4c05"
+ }
+]

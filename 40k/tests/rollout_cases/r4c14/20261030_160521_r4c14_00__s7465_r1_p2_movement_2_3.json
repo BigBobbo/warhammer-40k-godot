@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 16:08:35",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7465_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] Lootas Beta walks 12.67 in to reinforce nml_2, which is already held with 20 OC. This also gives up the Heavy bonus the suggestion text names. Fix: Give reinforcement of an already-secure objective zero expected_vp unless an enemy threatens it. Score shooting_lane only from real line of sight at the end position. Penalise a move that loses the Heavy bonus for a Heavy-weapon unit.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7465_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_B_P2",
+  "choice": "pos:754,2002",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Beta holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_nml_2)",
+ "verdict": "pending",
+ "version": 1
+}

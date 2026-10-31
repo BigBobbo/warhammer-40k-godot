@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (capturing it (enemy can bring ~48 OC next move), needs 11 more OC after this unit \u2014 worth ~11 VP)",
+ "created": "2026-10-30 01:51:28",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7417_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] A 6-model Lootas unit with 6 OC walks into the Custodian threat zone to chase obj_center. Even with the AI's own estimate that the enemy can bring about 48 OC, the unit cannot flip the objective. Fix: Scale expected_vp by the probability that the objective can be taken and held this turn. Set it to near zero when the unit's OC plus all other available OC cannot beat the enemy OC. Raise the threat penalty for fragile shooters inside enemy charge range. Prefer a safe firing position that keeps the objective in Deffgun range.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7417_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Beta moves toward obj_center (capturing it (enemy can bring ~48 OC next move), needs 11 more OC after this unit, obj: 6.1\" away)",
+ "verdict": "bad",
+ "version": 1
+}

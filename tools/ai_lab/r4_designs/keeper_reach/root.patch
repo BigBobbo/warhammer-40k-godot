@@ -1,0 +1,355 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..052cd5f 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1606,6 +1606,19 @@ const FIX_KEEPER_RELEASE: float = 1.0
+ # KEEPER-RELEASE: how many planner score points the keeper's best objective
+ # elsewhere must beat holding by (the round-1 stay bonus is 5).
+ const KEEPER_RELEASE_MIN_GAIN: float = 5.0
++# Movement plan (KEEPER-REACH): 1 = the sole keeper (OBJ-HOLD-2) of an
++# objective it holds unthreatened is valued by what its move actually costs:
++# when a Normal move toward its best objective elsewhere (scoring above
++# holding) still ends with enough of its OC in range of the objective it
++# holds — a big 11e terrain area, a keeper standing on its far edge — "leaving
++# would drop control" is false, so it makes that move instead of standing
++# still (it keeps the objective and closes on the next one a turn sooner).
++# The executed move is checked again and the keeper stands still when its
++# destinations would leave the objective. A Custodian Guard unit stood a whole
++# first turn on home in the Custodes mirror although a move toward the centre
++# kept it on home's area (LLM-critic cluster keeper_reach: +6.17 VP [3.42,
++# 8.91], 36 rollouts). 0 = previous behaviour.
++const FIX_KEEPER_REACH: float = 1.0
+ # Movement plan + reserve arrival (FIX-HELD-DUP): 1 = the AI reads who holds a
+ # terrain-hosted objective with the predicate MissionManager scores with (11e
+ # 14.01: a model whose base overlaps a hosting area named in source_pieces is
+@@ -7397,6 +7410,21 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
+ 				max_weapon_range_inches, threat_data, objectives
+ 			)
+ 
++			# KEEPER-REACH (FIX_KEEPER_REACH): the keeper moves only while the
++			# move keeps it on the objective it holds — else it stands still.
++			if assignment.has("keeper_reach_home") and not model_destinations.is_empty() \
++					and "REMAIN_STATIONARY" in move_types:
++				var kh_pos: Vector2 = assignment.get("keeper_reach_pos", Vector2.INF)
++				var kh_oc := _keeper_reach_oc_in_range(snapshot, unit, model_destinations, kh_pos) if kh_pos != Vector2.INF else 0
++				if kh_oc < int(assignment.get("keeper_reach_need", 1)):
++					print("AIDecisionMaker: [KEEPER_REACH] %s: %s stands still — the executed move would keep only OC %d in range (need %d)" % [
++						assignment.keeper_reach_home, unit_id, kh_oc, int(assignment.get("keeper_reach_need", 1))])
++					return {
++						"type": "REMAIN_STATIONARY",
++						"actor_unit_id": unit_id,
++						"_ai_description": "%s holds %s (sole holder — leaving would drop control)" % [unit_name, assignment.keeper_reach_home]
++					}
++
+ 			if not model_destinations.is_empty():
+ 				var obj_dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH if target_pos != Vector2.INF else 0.0
+ 				var reason = assignment.get("reason", "moving to objective")
+@@ -9067,6 +9095,80 @@ static func _initial_objective_oc_needs(obj_evaluations: Array, friendly_units:
+ 		obj_oc_remaining[obj_id] = base_need + projected_extra
+ 	return obj_oc_remaining
+ 
++## KEEPER-REACH (FIX_KEEPER_REACH): the OC `unit` keeps in range of the
++## objective at `obj_pos` once its models stand at `dests` (model id ->
++## [x, y], as _compute_movement_toward_target returns them; a model with no
++## entry stays where it is) — MissionManager's range test on an 11e terrain
++## objective, the control-range circle otherwise.
++static func _keeper_reach_oc_in_range(snapshot: Dictionary, unit: Dictionary, dests: Dictionary,
++		obj_pos: Vector2) -> int:
++	var od: Dictionary = _held_dup_objective_at(snapshot, obj_pos)
++	var mm = _held_dup_mm() if not od.is_empty() else null
++	var oc_in := 0
++	for model in unit.get("models", []):
++		if not model.get("alive", true):
++			continue
++		var m: Dictionary = model.duplicate()
++		var d = dests.get(str(model.get("id", "")), null)
++		if d is Array and d.size() >= 2:
++			m["position"] = {"x": float(d[0]), "y": float(d[1])}
++		elif d is Vector2:
++			m["position"] = {"x": d.x, "y": d.y}
++		var mp := _get_model_position(m)
++		if mp == Vector2.INF:
++			continue
++		var in_range: bool
++		if mm != null:
++			in_range = mm.model_in_objective_range(m, od)
++		else:
++			in_range = mp.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX
++		if in_range:
++			oc_in += _ai_model_oc(unit, model)
++	return oc_in
++
++## KEEPER-REACH: the sole keeper `hold` of `ev` (held, not threatened, not
++## fragile — _lone_trip_fragile) — its
++## best candidate elsewhere scoring above holding whose Normal move (the
++## executor's own _compute_movement_toward_target, full Move) still leaves at
++## least `need` OC in range of `ev`: {target, need, oc_in}. {} = no such move.
++static func _keeper_reach_check(snapshot: Dictionary, hold: Dictionary, ev: Dictionary,
++		candidates: Array, enemies: Dictionary, battle_round: int, threat_data: Array,
++		objectives: Array) -> Dictionary:
++	var units: Dictionary = snapshot.get("units", {})
++	var uid := str(hold.unit_id)
++	var unit: Dictionary = units.get(uid, {})
++	var obj_pos: Vector2 = ev.get("position", Vector2.INF)
++	if unit.is_empty() or obj_pos == Vector2.INF or _lone_trip_fragile(unit):
++		return {}  # a fragile keeper stays put, as for KEEPER-RELEASE
++	if str(hold.get("earmark", "")).begins_with("HOLD_OBJECTIVE"):
++		return {}
++	var need := maxi(int(ev.get("enemy_oc", 0)), int(ev.get("projected_enemy_oc", 0))) + 1
++	var trips: Array = []
++	for c in candidates:
++		if str(c.unit_id) != uid or c.get("already_on_obj", false) or c.get("action", "") not in ["move", "advance"]:
++			continue
++		if c.get("race_lost", false) or battle_round + int(c.get("turns_to_reach", 1)) - 1 > MAX_BATTLE_ROUNDS_AI:
++			continue
++		if str(c.objective_id) == str(ev.id) or float(c.score) <= float(hold.score):
++			continue
++		trips.append(c)
++	trips.sort_custom(func(a, b): return float(a.score) > float(b.score))
++	var move_in := float(unit.get("meta", {}).get("stats", {}).get("move", 6))
++	for c in trips:
++		var t_pos: Vector2 = c.get("objective_pos", Vector2.INF)
++		if t_pos == Vector2.INF:
++			continue
++		var dests: Dictionary = _compute_movement_toward_target(unit, uid, t_pos, move_in, snapshot, enemies,
++			0.0, threat_data, objectives)
++		if dests.is_empty():
++			continue
++		var oc_in := _keeper_reach_oc_in_range(snapshot, unit, dests, obj_pos)
++		print("AIDecisionMaker: [KEEPER_REACH] %s: %s moving toward %s keeps OC %d of %d needed in range" % [
++			ev.id, uid, c.objective_id, oc_in, need])
++		if oc_in >= need:
++			return {"target": c, "need": need, "oc_in": oc_in}
++	return {}
++
+ ## KEEPER-RELEASE (FIX_KEEPER_RELEASE): may `hold` — the sole keeper's
+ ## candidate on our home objective `ev` — leave it this phase? {} = it holds.
+ ## Else {target: its best candidate elsewhere, objective_id, hold, backups:
+@@ -9892,6 +9994,9 @@ static func _assign_units_to_objectives(
+ 	# KEEPER-RELEASE (FIX_KEEPER_RELEASE): keepers that leave after pass 2.
+ 	var keeper_release_on = get_param("FIX_KEEPER_RELEASE", FIX_KEEPER_RELEASE) >= 0.5
+ 	var keeper_released := {}  # unit_id -> _keeper_release_check result
++	# KEEPER-REACH (FIX_KEEPER_REACH): keepers that move while staying on it.
++	var keeper_reach_on = get_param("FIX_KEEPER_REACH", FIX_KEEPER_REACH) >= 0.5
++	var keeper_reached := {}  # unit_id -> _keeper_reach_check result
+ 	for cand in candidates:
+ 		var uid = cand.unit_id
+ 		var oid = cand.objective_id
+@@ -9942,6 +10047,18 @@ static func _assign_units_to_objectives(
+ 						enemies, player, battle_round)
+ 					if not kr.is_empty():
+ 						keeper_released[uid] = kr
++				# KEEPER-REACH (FIX_KEEPER_REACH): a sole keeper whose Normal move
++				# toward a better objective keeps it in range of this one does
++				# not drop control by moving — it holds through pass 2 and takes
++				# that move after it.
++				if keeper_reach_on and not keeper_released.has(uid) and int(units_on_obj_initial.get(oid, 0)) <= 1:
++					var kreach: Dictionary = _keeper_reach_check(snapshot, cand, eval_for_obj, candidates,
++						enemies, battle_round, threat_data, objectives)
++					if not kreach.is_empty():
++						kreach["objective_id"] = str(oid)
++						kreach["objective_pos"] = eval_for_obj.get("position", Vector2.INF)
++						kreach["hold"] = cand
++						keeper_reached[uid] = kreach
+ 		# If multiple units on same held_safe objective, let extras move elsewhere
+ 
+ 		if should_hold:
+@@ -10427,6 +10544,33 @@ static func _assign_units_to_objectives(
+ 			kr.objective_id, kr_uid, kr_oid, str(kr_t.action).to_upper(), float(kr_t.score),
+ 			float(kr.hold.score), kr.why])
+ 
++	# KEEPER-REACH (FIX_KEEPER_REACH): the keeper keeps its objective (its OC
++	# stays counted there) and makes the Normal move toward its target. A
++	# target the plan's other captures have devalued (DIM-RETURNS / FAR-TRIP)
++	# keeps it standing still, as for KEEPER-RELEASE.
++	for kh_uid in keeper_reached:
++		var kh: Dictionary = keeper_reached[kh_uid]
++		var kh_t: Dictionary = (kh.target as Dictionary).duplicate()
++		var kh_oid := str(kh_t.objective_id)
++		if (int(obj_oc_remaining.get(kh_oid, 0)) > 0 \
++				and (reprice_capture.call(kh_oid) as Dictionary).get("skip", false)) or far_trip.call(kh_t):
++			print("AIDecisionMaker: [KEEPER_REACH] %s: %s stands still — %s is not worth the trip with the rest of this plan (DIM-RETURNS / FAR-TRIP)" % [
++				kh.objective_id, kh_uid, kh_oid])
++			continue
++		var kh_hold_oc := int(assignments.get(kh_uid, {}).get("oc_consumed", 0))
++		kh_t["action"] = "move"
++		apply_capture_assignment.call(kh_t)
++		assignments[kh_uid]["assign_pass"] = "keeper_reach"
++		assignments[kh_uid]["keeper_reach_home"] = kh.objective_id
++		assignments[kh_uid]["keeper_reach_pos"] = kh.objective_pos
++		assignments[kh_uid]["keeper_reach_need"] = int(kh.need)
++		assignments[kh_uid]["keeper_reach_hold_oc"] = kh_hold_oc
++		assignments[kh_uid]["reason"] = "%s while staying in range of %s" % [str(assignments[kh_uid].get("reason", "moving")), kh.objective_id]
++		assignments[kh_uid]["coordination_note"] = "keeping %s — a Normal move toward %s still leaves OC %d in range of it" % [
++			kh.objective_id, kh_oid, int(kh.oc_in)]
++		print("AIDecisionMaker: [KEEPER_REACH] %s: %s moves toward %s (MOVE, score %.1f vs %.1f holding) and keeps it — OC %d in range after the move (need %d)" % [
++			kh.objective_id, kh_uid, kh_oid, float(kh_t.score), float(kh.hold.score), int(kh.oc_in), int(kh.need)])
++
+ 	# =========================================================================
+ 	# PASS 2.5 (COORD-4): ATTACK-INTENT CONVERSION — melee seekers that would
+ 	# abandon their objective for a nearby enemy decide it HERE, at plan time,
+diff --git a/40k/tests/unit/test_ai_fix_keeper_reach.gd b/40k/tests/unit/test_ai_fix_keeper_reach.gd
+new file mode 100644
+index 0000000..f94b5c8
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_keeper_reach.gd
+@@ -0,0 +1,159 @@
++extends SceneTree
++
++# KEEPER-REACH (FIX_KEEPER_REACH): the sole keeper of an objective is valued by
++# what its move actually costs. When a Normal move toward its best objective
++# elsewhere still ends with OC in range of the objective it holds, "leaving
++# would drop control" is false: it moves and keeps the objective. LLM-critic
++# cluster keeper_reach (value-checked, 2026-10-30, Custodes mirror round 1): a
++# Custodian Guard unit stood on home although a move toward the centre kept it
++# on home's terrain area (+6.17 VP [3.42, 8.91], 36 rollouts). Guardrails: a
++# move that leaves the objective, or a threatened objective, keep it holding.
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_keeper_reach.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const HOME := Vector2(510, 340)      # our home objective (player 1 zone)
++const NML := Vector2(890, 860)       # a no man's land objective ~16" away
++const ENEMY_HOME := Vector2(1250, 2060)
++
++# Determined Acquisition: per_objective counts home.
++const ACQ_RULES := [
++	{"type": "per_new_objective", "vp_per": 2, "when": "eot"},
++	{"type": "per_objective", "exclude_home": false, "vp_per": 3, "when": "command", "rounds": [2, 5]},
++]
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Sole keeper valued by what its move costs (KEEPER-REACH) ===\n")
++	AIDecisionMaker._config_overrides["FIX_KEEPER_REACH"] = 1.0
++	test_keeper_moves_when_the_move_keeps_home()
++	test_keeper_holds_when_the_move_leaves_home()
++	test_keeper_holds_when_the_enemy_is_on_its_way()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_KEEPER_REACH")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot(nml_pos: Vector2 = NML) -> Dictionary:
++	return {"battle_round": 1, "meta": {"battle_round": 1, "first_turn_player": 1},
++		"board": {"objectives": [
++			{"id": "obj_home_1", "position": HOME, "zone": "player1"},
++			{"id": "obj_nml_1", "position": nml_pos, "zone": "no_mans_land"},
++			{"id": "obj_home_2", "position": ENEMY_HOME, "zone": "player2"},
++		], "terrain_features": []}, "units": {}}
++
++# Models (OC `oc` each) at `positions`.
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, positions: Array,
++		toughness: int, wounds: int, oc: int, move: int, points: int) -> void:
++	var models = []
++	for i in range(positions.size()):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 40,
++			"base_type": "circular", "base_dimensions": {},
++			"position": positions[i], "wounds": wounds, "current_wounds": wounds})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": points, "stats": {"move": move, "toughness": toughness, "save": 2,
++			"wounds": wounds, "leadership": 6, "objective_control": oc}, "keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++
++# A line of 3 models along home -> obj_nml_1, centred `back_px` behind home
++# (on the far side from obj_nml_1).
++func _line(back_px: float) -> Array:
++	var dir := (NML - HOME).normalized()
++	var c := HOME - dir * back_px
++	return [c - dir * 45.0, c, c + dir * 45.0]
++
++# A line of 3 models across home -> obj_nml_1, centred on home.
++func _across() -> Array:
++	var perp := (NML - HOME).normalized().orthogonal()
++	return [HOME - perp * 45.0, HOME, HOME + perp * 45.0]
++
++# keeper: a 240 pt Custodian Guard unit (M6); backup: a squad that can step
++# onto home in one move; the enemy far away unless `enemy_pos` says otherwise.
++func _board(keeper_positions: Array, enemy_pos: Vector2 = ENEMY_HOME, enemy_move: int = 6,
++		nml_pos: Vector2 = NML) -> Dictionary:
++	var snap = _snapshot(nml_pos)
++	_add_unit(snap, "keeper", 1, keeper_positions, 7, 5, 3, 6, 240)
++	var b := HOME + Vector2(-300, -250)
++	_add_unit(snap, "backup", 1, [b, b + Vector2(45, 0), b + Vector2(90, 0), b + Vector2(135, 0)], 3, 1, 2, 7, 45)
++	_add_unit(snap, "enemy", 2, [enemy_pos], 7, 5, 2, enemy_move, 80)
++	return snap
++
++func _plan(snap: Dictionary, movable_ids: Array, rules: Array) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p1 = {"card_name": "test", "active_rules": rules.size(), "vp_rules": rules.duplicate(true),
++		"objective_pressure": 0.0, "enemy_home_bonus": 0.0, "central_bonus": 0.0, "hold_home_required": false,
++		"kill_pressure": false, "quarters": false}
++	AIDecisionMaker._secondary_awareness_p1 = {}
++	var friendlies = {}
++	var enemies = {}
++	var movable = {}
++	for uid in snap.units:
++		var u = snap.units[uid]
++		if int(u.owner) == 1:
++			friendlies[uid] = u
++		else:
++			enemies[uid] = u
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 1, enemies, friendlies, 1)
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 1, 1)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	for c in AIDecisionMaker._last_movement_candidates.get("keeper", []):
++		print("    keeper candidate %s %s score %.1f" % [c.get("action", ""), c.get("objective_id", ""), float(c.get("score", 0.0))])
++	AIDecisionMaker._primary_awareness_p1 = {}
++	return plan
++
++func _holds_home(plan: Dictionary) -> bool:
++	var a: Dictionary = plan.get("keeper", {})
++	return str(a.get("objective_id", "")) == "obj_home_1" and str(a.get("action", "")) == "hold"
++
++func _goes_forward(plan: Dictionary) -> bool:
++	var a: Dictionary = plan.get("keeper", {})
++	return str(a.get("objective_id", "")) == "obj_nml_1" and str(a.get("action", "")) in ["move", "advance"]
++
++func test_keeper_moves_when_the_move_keeps_home() -> void:
++	print("\n--- home counts for the card; the keeper stands on home's far side: a 6\" move still ends in range ---")
++	var plan = _plan(_board(_line(130.0)), ["keeper"], ACQ_RULES)
++	_assert(_goes_forward(plan), "the keeper moves toward obj_nml_1 (%s %s)" % [
++		plan.get("keeper", {}).get("action", ""), plan.get("keeper", {}).get("objective_id", "")])
++	_assert(str(plan.get("keeper", {}).get("action", "")) == "move", "with a Normal move (an Advance would leave home)")
++	_assert(str(plan.get("keeper", {}).get("assign_pass", "")) == "keeper_reach", "the plan says why (%s)" % str(plan.get("keeper", {}).get("assign_pass", "")))
++	_assert(str(plan.get("keeper", {}).get("keeper_reach_home", "")) == "obj_home_1", "the executor is told to keep obj_home_1")
++
++func test_keeper_holds_when_the_move_leaves_home() -> void:
++	print("\n--- same, but the keeper stands across home's centre: a 6\" move leaves home ---")
++	var plan = _plan(_board(_across()), ["keeper"], ACQ_RULES)
++	_assert(_holds_home(plan), "the keeper holds (a move would drop home) (%s %s)" % [
++		plan.get("keeper", {}).get("action", ""), plan.get("keeper", {}).get("objective_id", "")])
++
++func test_keeper_holds_when_the_enemy_is_on_its_way() -> void:
++	print("\n--- keeper on home's far side, but an enemy unit stands next to home (it is threatened) ---")
++	var plan = _plan(_board(_line(130.0), HOME + Vector2(0, 8.0 * PX)), ["keeper"], ACQ_RULES)
++	_assert(not (str(plan.get("keeper", {}).get("assign_pass", "")) == "keeper_reach"),
++		"a threatened home is not left to a move that keeps only part of the OC (%s %s)" % [
++		plan.get("keeper", {}).get("action", ""), plan.get("keeper", {}).get("objective_id", "")])
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_KEEPER_REACH = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_KEEPER_REACH"] = 0.0
++	var plan = _plan(_board(_line(130.0)), ["keeper"], ACQ_RULES)
++	AIDecisionMaker._config_overrides["FIX_KEEPER_REACH"] = 1.0
++	_assert(_holds_home(plan), "the keeper on home's far side holds as before")

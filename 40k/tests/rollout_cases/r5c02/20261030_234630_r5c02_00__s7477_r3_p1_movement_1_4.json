@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_center (holding (enemy can bring ~4 OC next move) \u2014 worth ~13 VP)",
+ "created": "2026-10-30 23:48:54",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7477_r3_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends a weakened 2-model unit with OC 6 to obj_center, which the enemy holds with OC 23. The unit cannot flip it and is likely to be charged and destroyed. Fix: For a hold or move option on a contested objective, add the enemy OC already in range and the OC of enemy units that can reach it. If the unit cannot flip control and the expected losses are high, cut the objective value and apply a threat penalty. Prefer regrouping with friendly units on objectives that are already held.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7477_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta holds obj_center (holding (enemy can bring ~4 OC next move))",
+ "verdict": "bad",
+ "version": 1
+}

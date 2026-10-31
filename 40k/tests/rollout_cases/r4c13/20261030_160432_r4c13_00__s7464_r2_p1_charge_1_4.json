@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Zodgrod Wortsnagga (8.7\" away, 28% chance)",
+ "created": "2026-10-30 16:10:46",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7464_r2_p1_charge_1",
+ "note": "[LLM critic, low conf] The AI picks the 28% charge on Zodgrod, a 50 point character. It ignores that wiping the Gretchin would take obj_nml_2 from the opponent. Fix: Apply charge probability once, as a multiplier on expected value. Weight denying an enemy-held objective by the opponent's Reconnaissance VP. Add a post-charge exposure term for lone fast units that end next to many enemy shooters.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7464_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:488,1996",
+  "decision": "charge",
+  "targets": "U_GRETCHIN_A_P2,U_ZODGROD_WORTSNAGGA_A_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares a charge at Zodgrod Wortsnagga + Gretchin \u2014 targets picked after the roll: Zodgrod Wortsnagga on 9+ (28%), Gretchin on 10+ (17%), overwatch risk: 5.4 dmg",
+ "verdict": "pending",
+ "version": 1
+}

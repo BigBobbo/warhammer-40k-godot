@@ -1,0 +1,258 @@
+[
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r1_p1_movement_1_0",
+  "case": "20261030_160521_r4c14_00__s7465_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI chose Screen (score 6.04) over Advance obj_center (35.23) and Advance obj_nml_1 (25.06), using an override that only concerned obj_home_2.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r1_p1_movement_2_1",
+  "case": "20261030_160521_r4c14_00__s7465_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_KOMMANDOS_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Kommandos reinforce obj_center even though 3 units are already committed there. The primary card pays a flat 4 VP for any non-home objective, plus 5 VP for holding more objectives than the opponent.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r1_p2_movement_1_2",
+  "case": "20261030_160521_r4c14_00__s7465_r1_p2_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gretchin march to a far-left backfield corner to screen, and they leave the nearby center objective and the right flank empty.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r1_p2_movement_2_3",
+  "case": "20261030_160521_r4c14_00__s7465_r1_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_B_P2",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Lootas Beta walks 12.67 in to reinforce nml_2, which is already held with 20 OC. This also gives up the Heavy bonus the suggestion text names.",
+  "better_option": "Hold obj_home_2 (on objective, OC needed)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r2_p1_charge_1_4",
+  "case": "20261030_160521_r4c14_00__s7465_r2_p1_charge_1_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Stormboyz declare a 17% charge at a 16 wound Battlewagon. The Stormboyz cannot hurt it much and would be left alone deep in enemy lines.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r2_p2_charge_1_5",
+  "case": "20261030_160521_r4c14_00__s7465_r2_p2_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges Lootas Beta at only 17% success. A large positive plan bonus (ch_can_wipe, ch_can_halve, ch_plan_lock_shooter, order_round_aggression) offsets a big negative ch_chance, so the charge still wins by a narrow score margin.",
+  "better_option": "unlisted: do not charge. Keep Stormboyz back or move them to hold an objective.",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r2_p2_charge_2_6",
+  "case": "20261030_160521_r4c14_00__s7465_r2_p2_charge_2_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges with Battlewagon Alpha at 28% odds for 1.8 expected melee damage, and ch_tie_up_shooter and ch_damage outweigh the negative chance term.",
+  "better_option": "unlisted: do not charge. Keep Battlewagon Alpha on or near obj_nml_2 and obj_home_2.",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r3_p1_shooting_2_7",
+  "case": "20261030_160521_r4c14_00__s7465_r3_p1_shooting_2_7.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_A",
+    "target": "U_STORMBOYZ_A_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI fired a weak big shoota (0.5 expected damage) at Gretchin, the lowest-value target, because of a large already_allocated term. Stormboyz are the closer threat.",
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r3_p1_charge_1_8",
+  "case": "20261030_160521_r4c14_00__s7465_r3_p1_charge_1_8.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": [
+     "U_MEK_B_P2"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges Beastboss at 58% and accepts heavy overwatch. The 10 Stormboyz expect about 4 damage against its 6 wounds, so a kill is unlikely. Beastboss then hits back hard, and the cluster around it can finish the Stormboyz.",
+  "better_option": "Charge Mek Beta (8.4\" away, 28% chance)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r3_p2_shooting_2_9",
+  "case": "20261030_160521_r4c14_00__s7465_r3_p2_shooting_2_9.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent a long-range big shoota volley at Lootas Beta for 0.2 expected damage. The unit's Burna flamers were never listed as an option.",
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00"
+ }
+]

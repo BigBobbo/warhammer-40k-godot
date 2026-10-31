@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (2 units already committed) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 06:44:18",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7443_r3_p1_movement_1",
+ "note": "[LLM critic, medium conf] Lootas Gamma walks 6 in toward obj_center, which needs 2 turns to reach. It gives up the Heavy bonus and takes a normal move, even though the reasoning line says it holds for the Heavy bonus. The centre is a poor fit for a single OC 1 unit against OC 9. Fix: Cap objective_priority by the real chance to flip the objective: if the enemy OC exceeds our reachable OC, scale the term toward zero. Make the shoot-from-position (Heavy) bonus and the move choice consistent in the reasoning text. Prefer positions that keep Lootas in range of targets without entering a charge thr",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7443_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma holds for Heavy weapon bonus (+1 to hit, 3.0 extra expected hits, obj obj_center)",
+ "verdict": "pending",
+ "version": 1
+}

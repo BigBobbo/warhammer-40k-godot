@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_1 (sole holder \u2014 leaving would drop control \u2014 worth ~8 VP)",
+ "created": "2026-10-30 02:00:42",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7420_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI kept a M12 unit idle in its deployment zone because it is the 'sole holder'. Other units already hold home, so the override is false. Fix: Compute control with the candidate unit removed. Apply the sole-holder override only if OC drops to the enemy's level or below. Give stay_on_objective only if the unit is inside objective range now. Prefer sending fast, high-OC units to uncontested no-man's-land objectives in round 1.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7420_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_THUNDERWOLF_CAVALRY_B",
+  "choice": "pos:340,390",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Thunderwolf Cavalry Beta holds obj_home_1 (sole holder \u2014 leaving would drop control)",
+ "verdict": "bad",
+ "version": 1
+}

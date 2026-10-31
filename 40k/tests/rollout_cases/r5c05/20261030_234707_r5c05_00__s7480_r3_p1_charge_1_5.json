@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Gamma (4.5\" away, 83% chance)",
+ "created": "2026-10-30 23:49:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7480_r3_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges a wounded Allarus off its home objective into the enemy Allarus squad and Guard. The charge is unlikely to kill the target and will probably cost the unit. Fix: Scale ch_retaliation by the charger's remaining wounds and by the combined melee threat of all enemy units that can reach the end position. Add a penalty when the charger leaves a held objective, or when it sits on an objective whose OC margin would flip. Cap the damage reward when expected damage is below the target's HP and the charger is below half wounds.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7480_r3_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "pos:1224,1804",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_C_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians declares charge against Custodian Guard Sodality Gamma (83% chance, 4.5\" away, expected 3.3 melee dmg vs 5 HP, overwatch risk: 0.4 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,105 @@
+[
+ {
+  "job": "20261030_160254_r4c02_00__s7453_r1_p2_movement_2_0",
+  "case": "20261030_160254_r4c02_00__s7453_r1_p2_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI kept the unit on its home objective in round 1 although no enemy can reach it for at least a turn. Hold is reasonable, but the AI never considers that the home objective is safe and could be held later.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "take_and_hold",
+   "seeds": "7453",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160254_r4c02_00"
+ },
+ {
+  "job": "20261030_160254_r4c02_00__s7453_r2_p2_movement_2_1",
+  "case": "20261030_160254_r4c02_00__s7453_r2_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A_P2",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Prosecutor Squad moves alone to obj_nml_1 and takes it, but a Custodian Guard unit near 31, 11 can reach it next turn and kill the 4 fragile models. The gain is small because the primary award is capped.",
+  "better_option": "Move obj_nml_1 (capturing it (enemy can bring ~9 OC next move), needs 2 more OC after this unit \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "take_and_hold",
+   "seeds": "7453",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160254_r4c02_00"
+ },
+ {
+  "job": "20261030_160254_r4c02_00__s7453_r2_p2_charge_1_2",
+  "case": "20261030_160254_r4c02_00__s7453_r2_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Delta declares a 17% charge at a lone Blade Champion. A success would pull it off the center and deep into the enemy side, where it could be counter-charged.",
+  "better_option": "unlisted: do not charge, stay on the center objective",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "take_and_hold",
+   "seeds": "7453",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160254_r4c02_00"
+ },
+ {
+  "job": "20261030_160254_r4c02_00__s7453_r3_p1_movement_2_3",
+  "case": "20261030_160254_r4c02_00__s7453_r3_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Allarus Custodians to obj_nml_2, which already has 8 OC and no enemy OC nearby. Allarus adds little control there, and it does not help the lost centre.",
+  "better_option": "Move obj_center (moving to objective)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "take_and_hold",
+   "seeds": "7453",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160254_r4c02_00"
+ }
+]

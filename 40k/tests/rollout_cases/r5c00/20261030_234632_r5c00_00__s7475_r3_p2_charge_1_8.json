@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Beta (5.0\" away, 83% chance)",
+ "created": "2026-10-30 23:49:43",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7475_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI declares a charge at the full-health 15-wound Custodian Guard Sodality Beta. It prefers Beta by a score margin of only 0.4. Alpha cannot kill Beta, so Beta and Gamma will probably wipe Alpha in return. Fix: Add a kill-probability or wounds-removed-to-target-wounds term to charge scoring. Reward targets that the expected melee damage can kill. Penalise charges that cannot kill when the enemy retaliation can destroy the charging unit.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7475_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A_P2",
+  "choice": "pos:911,1174",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_C,U_CUSTODIAN_GUARD_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha declares a charge at Custodian Guard Sodality Beta + Blade Champion Gamma \u2014 targets picked after the roll: Custodian Guard Sodality Beta on 5+ (83%), Blade Champion Gamma on 6+ (72%), overwatch risk: 0.4 dmg",
+ "verdict": "pending",
+ "version": 1
+}

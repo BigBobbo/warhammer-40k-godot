@@ -1,0 +1,92 @@
+{
+ "key": "attack_move",
+ "angle": "narrow",
+ "root_cause": "Not the chase blend itself: the capture pass (pass 2) assigns units greedily by score. At the findings the unit's top-scored objective (obj_center, enemy-held) has its OC need covered on paper by earlier squads (s7475 r2: Gamma+Beta Advancing; s7455 r2: Gamma), so the unit falls through to its next objective: a flip of an 11-OC objective with its own 9 OC ('needs 3 more OC after this unit'), and no other unit joins it, so the plan leaves that objective short and the trip changes no control. The T7-23 charge-intent blend then labels it 'moving toward charge target'. In the A/B rollouts (s7421 r2, 2 seeds) B's gain was all denial: in A the enemy scored Vital Link hold_central +4 and central_operation_markers +4 in its round-2 turn; in B (third unit on the centre) it scored neither; B lost more material. The plan treats an objective whose need is met as needing no more OC, while the enemy reinforces the contested centre.",
+ "fix_summary": "ATTACK-MOVE (FIX_ATTACK_MOVE=1, one block after the COORD-4 backfill, before pass 3, in _assign_units_to_objectives): a capture move/advance whose objective is still short once every capture is placed (obj_oc_remaining > 0; not home, not held by us) is switched to the unit's top-scored candidate when that candidate is a move/advance to an objective that is enemy-held (enemy_weak/enemy_strong/contested), already fully covered (remaining 0) by at least one friend moving or holding there, no slower to reach (turns_to_reach <=), scores higher, and passes TOO-LATE/RACE-SKIP. Uses the existing apply_capture_assignment, so the move mode is the candidate's own (Normal move at both findings, as in the alternatives). No new scoring; the chase gate (waaagh_advance_charge) is untouched. Logs [ATTACK_MOVE] when it changes a plan. 0 = base exactly (block skipped).",
+ "param": "FIX_ATTACK_MOVE",
+ "test_file": "40k/tests/unit/test_ai_fix_attack_move.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "All 21 listed tests + test_ai_fix_attack_move pass (0 failed). test_ai_threat_range_awareness 34/3 and tests/test_ai_objective_assignment_fixes.gd 6/1 = the known base failures, unchanged. New test: 6 checks pass on fix; on BASE (temp copy, preload ai_versions/BASE) 5 passed 1 failed (the redirect check). Test drives the real _assign_units_to_objectives.",
+ "decision_checks": [
+  {
+   "job": "20261030_234632_r5c00_00__s7475_r2_p1_movement_2_2",
+   "base_choice": "Guard Alpha Normal move toward obj_nml_2 (flip 11 OC, 3 OC short; chase label)",
+   "fix_choice": "Guard Alpha Normal move toward obj_center (13.3\" away) \u2014 [ATTACK_MOVE] obj_nml_2 -> obj_center",
+   "changed": true,
+   "measured": "clear +4.00 [1.04, 6.96] n24 (alt: Move obj_center, mode move)",
+   "judgement": "matches the alternative: same unit, same objective, same mode"
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+   "base_choice": "Guard Beta Normal move toward obj_nml_1 (flip 11 OC, 3 OC short)",
+   "fix_choice": "Guard Beta Normal move toward obj_center \u2014 [ATTACK_MOVE] obj_nml_1 -> obj_center",
+   "changed": true,
+   "measured": "clear +5.92 [1.30, 10.53] n36 (alt: Move obj_center, mode move)",
+   "judgement": "matches the alternative: same unit, objective and mode"
+  },
+  {
+   "job": "20261030_020603_sweep2_10__s7421_r2_p1_movement_2_1",
+   "base_choice": "Guard Gamma Normal move toward obj_nml_2 (reinforcing a held objective; Beta then fills it, so not short)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "clear +9.81 [6.57, 13.04] n36 (alt: Advance obj_center)",
+   "judgement": "not reached: the redirect target is an objective we hold and the plan completes it (Beta Advances there), so the narrow trigger does not apply. Missed finding."
+  },
+  {
+   "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3 (extra)",
+   "base_choice": "drifted on base: Guard Gamma moves toward obj_home_2 (capture, not short)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "clear +21.50 n36 on round-4 code (alt Advance obj_center); base no longer reproduces the finding",
+   "judgement": "not evidence either way (drift)"
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+   "base_choice": "Guard Beta moves toward obj_center (support pass)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "harmful -15.00 n12 (alt Hold obj_nml_2)",
+   "judgement": "consistent (base was right; no change)"
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+   "base_choice": "drifted: Guard Beta moves toward obj_center (flip, top-scored)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "harmful -6.83 n12 (alt Advance obj_center; base now already moves there, Normal move)",
+   "judgement": "no change by the fix"
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4",
+   "base_choice": "Stormboyz advance to attack Blade Champion Gamma",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "harmful -8.33 n12 (alt Hold obj_center)",
+   "judgement": "consistent (attack conversion untouched)"
+  },
+  {
+   "job": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1",
+   "base_choice": "Guard Alpha moves toward obj_center (flip 3 OC short, but Beta then Advances there -> filled)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "neutral -6.25 n12 (alt obj_nml_2)",
+   "judgement": "consistent (not short at end of plan -> no fire)"
+  },
+  {
+   "job": "20261030_234622_r5c01_00__s7476_r3_p2_movement_2_6",
+   "base_choice": "Guard Gamma moves toward obj_center (top-scored)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "neutral +4.00 n12 (alt obj_home_2)",
+   "judgement": "consistent"
+  }
+ ],
+ "fires": "Replays (branch A seed 5001, to end of next round, both players' plans): 1 fire at s7475 (U_CUSTODIAN_GUARD_A obj_nml_2->obj_center), 1 at s7455 r2 (U_CUSTODIAN_GUARD_B obj_nml_1->obj_center), 0 in the other 7 replays (s7421, s7454, and all 5 guardrails). Bench (step 9b): ?0 [ATTACK_MOVE] lines in 6 bench games (mirror_custodes_2000_postdeploy, seeds 93101-93103, 3 pairs, fix in candidate seat both seats; every pair played identically to base, E 0.0). A temporary near-miss diagnostic (removed, not in the patch; seed 93104, 1 pair) found 4 plans in 2 games with a capture left short: 3 were 4-turn trips to the enemy home objective (r1-r2) whose top-scored objective was an UNCONTROLLED no-man's-land objective (blocked by the enemy-held gate; one also not yet covered, rem 1), 1 had the short objective as its own top. So the trigger shape occurs ~2x per game in the bench but the enemy-held-centre stack the findings show did not.",
+ "bench_fires_per_game": 0,
+ "risks": "(1) Fewer spread units: a squad that would have walked to a far objective it cannot flip now stacks on the centre; secondaries that need presence across the table (Engage on All Fronts, Behind Enemy Lines, table quarters) lose that body \u2014 the round-2 FAR-TRIP/OVERCOMMIT lesson. Mitigated: only fires when the trip leaves the objective short AND the unit's top score is the covered objective, but the short trip still had secondary/quarter value the value check cannot see. (2) A short flip can still become a real flip later (enemy casualties, round 3-4 reinforcements); stacking gives that up. (3) Three units on one objective concentrate the army against blasts/charges and lose material (A/B: B lost ~470 material over 2 seeds in s7421). (4) Rounds 4-5: the gate is round-agnostic; late-game short flips that tie up/contest scoring may be worth more than late stacking \u2014 not measured. (5) Misses s7421 (redirect to a held objective that gets filled), so the cluster's largest finding is not addressed. (6) Bench reach 0/game: the bench cannot measure it as is; widening the top-state gate to 'uncontrolled' would make it fire there (near-misses above) but that is unmeasured and pulls units off enemy-home trips.",
+ "drop_reason": ""
+}

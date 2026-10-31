@@ -1,0 +1,207 @@
+[
+ {
+  "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0",
+  "case": "20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gamma moves normally toward obj_center, which Alpha already covers, and does not advance. A move toward the center objective is reasonable, but the choice has a contest_race penalty of -13.74 and the option text says it is still 2 turns away.",
+  "better_option": "Advance obj_center",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "reconnaissance",
+   "seeds": "7451",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160248_r4c00_00"
+ },
+ {
+  "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1",
+  "case": "20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Beta stayed on home 2 even though the objective already has 16 OC. The AI says the other units are freed to move, but that hold assignment keeps a battleline unit idle in round 1.",
+  "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "reconnaissance",
+   "seeds": "7451",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160248_r4c00_00"
+ },
+ {
+  "job": "20261030_160248_r4c00_00__s7451_r1_p1_movement_1_2",
+  "case": "20261030_160248_r4c00_00__s7451_r1_p1_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Beta advances alone across the whole board toward the enemy home objective, where the enemy holds OC 8. It cannot arrive for four turns and would meet the enemy army first.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "reconnaissance",
+   "seeds": "7451",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160248_r4c00_00"
+ },
+ {
+  "job": "20261030_160248_r4c00_00__s7451_r1_p1_movement_2_3",
+  "case": "20261030_160248_r4c00_00__s7451_r1_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI chose to screen near home for deep strike denial. A 4-model OC2 squad could instead take the free NML 1 objective in round 1.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "reconnaissance",
+   "seeds": "7451",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160248_r4c00_00"
+ },
+ {
+  "job": "20261030_160248_r4c00_00__s7451_r2_p2_movement_2_4",
+  "case": "20261030_160248_r4c00_00__s7451_r2_p2_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Gamma leaves the table's south side to race alone to the far obj_nml_1. The move scores -11.5 on contest_race and is still chosen over the top-scoring obj_center option.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "reconnaissance",
+   "seeds": "7451",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160248_r4c00_00"
+ },
+ {
+  "job": "20261030_160248_r4c00_00__s7451_r2_p1_shooting_1_5",
+  "case": "20261030_160248_r4c00_00__s7451_r2_p1_shooting_1_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "target": "U_CUSTODIAN_GUARD_A_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent 4 shooters at the full-health Delta (15 HP, 12% kill) rather than the wounded enemy Alpha (11 HP, 16% kill), so the focus plan is unlikely to kill anything.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Alpha (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "reconnaissance",
+   "seeds": "7451",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160248_r4c00_00"
+ },
+ {
+  "job": "20261030_160248_r4c00_00__s7451_r2_p1_charge_1_6",
+  "case": "20261030_160248_r4c00_00__s7451_r2_p1_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges Delta at 28% chance. It treats ch_damage of 20 as certain, and ch_chance of -16.48 is too weak to offset it. The score stays positive despite a 72% fail rate. A failed charge wastes the unit's turn.",
+  "better_option": "unlisted: do not charge. Hold position or move toward objective obj_nml_1 or obj_home_1.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "reconnaissance",
+   "seeds": "7451",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160248_r4c00_00"
+ },
+ {
+  "job": "20261030_160248_r4c00_00__s7451_r3_p2_shooting_1_7",
+  "case": "20261030_160248_r4c00_00__s7451_r3_p2_shooting_1_7.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "target": "U_CUSTODIAN_GUARD_A"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI shot the far, lone Beta unit (14.1 in, out of rapid fire range) instead of the near Alpha unit that contests the centre. Both options show the same 1.78 expected damage.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Alpha (P1)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "reconnaissance",
+   "seeds": "7451",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160248_r4c00_00"
+ }
+]

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (block Stormboyz approaching obj_nml_2 (15\" away))",
+ "created": "2026-10-30 23:55:44",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7485_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends a 5-model Burna Boyz unit on a long move across the board to screen against fast Stormboyz. The screen cannot be reached this turn and cannot stop a flyer. Fix: Cap or zero the block score when the screen point is more than one move away. Cancel it when the threat can fly or move 12 inches or more. Prefer rejoining the main army group and keeping the unit's firing lanes.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7485_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A_P2",
+  "choice": "pos:525,1746",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha screens at (525,1746) \u2014 block Stormboyz approaching obj_nml_2 (15\" away)",
+ "verdict": "pending",
+ "version": 1
+}

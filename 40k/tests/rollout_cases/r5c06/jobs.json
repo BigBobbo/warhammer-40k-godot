@@ -1,0 +1,207 @@
+[
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r1_p1_movement_1_0",
+  "case": "20261030_234723_r5c06_00__s7481_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Lootas Gamma advances alone to uncontested obj_nml_2. An advance gives up most of its 36 in Deffgun and Big shoota shooting for a 2-turn trip. No enemy is within 30 in of it in round 1.",
+  "better_option": "Advance obj_nml_2 (capturing it (uncontrolled) \u2014 worth ~11 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7481",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234723_r5c06_00"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r1_p1_movement_2_1",
+  "case": "20261030_234723_r5c06_00__s7481_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI chose a backfield 'screen' with score 5.06 over advancing to obj_nml_2 or obj_center. It overrode the objective options through the screen_denial assignment, not through the scores. A screen at (24, 8) has no enemy to screen against in round 1.",
+  "better_option": "Move obj_home_1 (moving to objective \u2014 worth ~13 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7481",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234723_r5c06_00"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r1_p2_movement_1_2",
+  "case": "20261030_234723_r5c06_00__s7481_r1_p2_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A_P2",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI advances Lootas Alpha toward obj_nml_1. The unit has no Assault weapon, so it cannot shoot this turn, and it would still probably end outside the objective range.",
+  "better_option": "Advance obj_nml_1 (capturing it (uncontrolled) \u2014 worth ~12 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7481",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234723_r5c06_00"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r1_p2_movement_2_3",
+  "case": "20261030_234723_r5c06_00__s7481_r1_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI refused to send the unit alone to obj_nml_2, then screened at (8,38), which is next to obj_nml_2 and alone in front of the enemy. It rejected the 40.19 move to obj_nml_1.",
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~12 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7481",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234723_r5c06_00"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r2_p1_movement_1_4",
+  "case": "20261030_234723_r5c06_00__s7481_r2_p1_movement_1_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_WARBIKERS_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI deep strikes Stormboyz (OC1) next to a centre objective it already holds with 4 OC. The same unit with an added deep_strike term of 2.0 beats Warbikers (OC2) by 1.5. This looks like a small, mostly flat choice.",
+  "better_option": "Warbikers Alpha arrives",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7481",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234723_r5c06_00"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r2_p1_charge_1_5",
+  "case": "20261030_234723_r5c06_00__s7481_r2_p1_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI declares a 17% charge on Beastboss, below its own 0.29 charge threshold. A failed charge still costs overwatch damage, and a success leaves the Stormboyz exposed.",
+  "better_option": "unlisted: do not charge, keep Stormboyz on or near the centre objective",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7481",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234723_r5c06_00"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r2_p2_charge_1_6",
+  "case": "20261030_234723_r5c06_00__s7481_r2_p2_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI declares a 17% charge on Stormboyz. The overwatch risk (4.8 expected damage against 8 wounds) is much larger than the expected gain, yet the total score stays positive.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7481",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234723_r5c06_00"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r3_p2_charge_1_7",
+  "case": "20261030_234723_r5c06_00__s7481_r3_p2_charge_1_7.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The Battlewagon charges 4 weak Stormboyz for about 2.7 expected damage. It risks 4.8 overwatch damage and retaliation. Easy-charge bonuses make a poor trade look positive.",
+  "better_option": "unlisted: do not charge; keep Battlewagon Alpha shooting or move it to support an objective",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7481",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234723_r5c06_00"
+ }
+]

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_2 (reinforcing obj_home_2 (1 unit already committed) \u2014 worth ~2 VP)",
+ "created": "2026-10-30 16:10:10",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7469_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Lootas Beta back to obj_home_2, which already has 12 OC and no enemy nearby. This wastes the unit's firing lane and a chance to contest the centre. Fix: Set the value of reinforcing an objective to zero when it is already held with a safe OC margin and no enemy unit is within threat range. Do not add defend-home bonuses in that case. Add a penalty for moving out of line of sight of valid targets when a Heavy weapon unit has them.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7469_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_B",
+  "choice": "pos:1460,1970",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Beta holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_home_2)",
+ "verdict": "bad",
+ "version": 1
+}

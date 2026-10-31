@@ -1,0 +1,67 @@
+{
+ "key": "lone_flip",
+ "angle": "narrow",
+ "root_cause": "Hold-pass double count. At s7454 r3 obj_center was enemy_weak (friendly_oc 5 incl. 1 Beta model = OC 3, enemy_oc 8 -> need 4). Beta (already_on_obj) was assigned HOLD and the hold pass subtracted Beta's whole unit OC 9 from the need (remaining 0), although Beta's in-range OC is already in friendly_oc and staying adds nothing. The centre then read 'already taken by Beta', pass 2 skipped it for every unit (Gamma's top score 44.4, Alpha's 58.1) and Gamma got the next objective needing OC: a lone 9 vs 14 flip of obj_nml_1 (score 15.0). A vs B records (2 seeds): with Gamma advancing to the centre P2 scored hold_new +3 at end of round 3 and P1's per_objective primary fell 10 -> 5 in rounds 3/4 (the centre flipped), i.e. the gain is primary on obj_center.",
+ "fix_summary": "One extra condition in the existing hold pass of _assign_units_to_objectives: when FIX_LONE_FLIP is on and the held objective's state is enemy_weak / enemy_strong / contested, the holder's oc_consumed is 0 and obj_oc_remaining is left unchanged (its in-range OC is already in oc_needed). Held objectives (held_safe / held_threatened) and every other pass are untouched. Logs [LONE_FLIP] when it fires. FIX_LONE_FLIP=0 restores base exactly.",
+ "param": "FIX_LONE_FLIP",
+ "test_file": "40k/tests/unit/test_ai_fix_lone_flip.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "All listed tests pass on the fix (rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 22/0, survival_assessment 23/0, multi_phase_planning 34/0, fix_lone_flip 5/0). test_ai_threat_range_awareness 34/3 = the 3 known base failures. New test on BASE: 4 passed 1 failed (the free unit is not sent to obj_x).",
+ "decision_checks": [
+  {
+   "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3",
+   "base_choice": "Gamma MOVE obj_nml_1 (lone flip, enemy OC 14); Alpha ADVANCE obj_home_2; Beta HOLD obj_center (centre need consumed to 0)",
+   "fix_choice": "Gamma MOVE obj_home_2 (capturing, enemy can bring ~6 OC); Alpha MOVE obj_center (flip, 1 turn away); Beta HOLD obj_center (need stays 4)",
+   "changed": true,
+   "measured": "alt (Gamma ADVANCE obj_center) E +21.50 [16.93, 26.07], 36 seeds. Fix outcome replayed (fix in both seats, not a forced branch): seeds 5001/5002 value -6/+1 vs base A -29/-32 (paired +23/+33); 6-seed fix mean -1.2 (5001..5006: -6, 1, 0, 12, -7, -7); my 2-seed alt B mean -16.",
+   "judgement": "Matches the intent (centre gets the reinforcing unit, no lone flip of obj_nml_1) but not the exact alternative: Alpha (1 turn from the centre, higher score) takes the centre and Gamma takes Alpha's home_2 trip. Paired seeds show the fix outcome at least as good as the alternative on this position (2 seeds; not a 36-seed value check)."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+   "base_choice": "Beta moves toward obj_center (support)",
+   "fix_choice": "Beta moves toward obj_center (support)",
+   "changed": false,
+   "measured": "alt hold obj_nml_2 harmful E -15.00",
+   "judgement": "unchanged = consistent (fix fired once on obj_home_2 for Gamma P2, not this decision)"
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+   "base_choice": "Beta moves toward obj_center (base already drifted from the case's nml_2 reinforce)",
+   "fix_choice": "Beta moves toward obj_center",
+   "changed": false,
+   "measured": "alt Beta advance obj_center harmful E -6.83 (vs the case's nml_2 choice)",
+   "judgement": "unchanged vs current base; the current base (5e70bc2) already differs from the case's recorded choice, the fix does not move it further"
+  },
+  {
+   "job": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1",
+   "base_choice": "Alpha moves toward obj_center (flip)",
+   "fix_choice": "Alpha moves toward obj_center",
+   "changed": false,
+   "measured": "neutral E -6.25",
+   "judgement": "unchanged = consistent (no fire in this replay)"
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+   "base_choice": "Beta moves toward obj_nml_1 (flip)",
+   "fix_choice": "Beta moves toward obj_nml_1",
+   "changed": false,
+   "measured": "neutral E +8.00",
+   "judgement": "unchanged = consistent"
+  },
+  {
+   "job": "20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4",
+   "base_choice": "Alpha moves toward obj_nml_2 (flip)",
+   "fix_choice": "Alpha moves toward obj_nml_2",
+   "changed": false,
+   "measured": "neutral E +1.83",
+   "judgement": "unchanged = consistent (no fire)"
+  }
+ ],
+ "fires": "5 [LONE_FLIP] lines across 6 one-round replays (both players, decision round to end of next round): s7454 2 (P2 obj_center at the finding; P1 obj_center 5 vs 14 later), s7431 1 (P2 obj_home_2 3 vs 5), s7455 r2 1 (P1 obj_home_2 4 vs 6), s7455 r3 1 (P2 obj_home_2 3 vs 6), s7457 0, s7458 0. ~0-2 per ~1.5 rounds; only planning passes with a partial holder on an objective the enemy controls. Only the s7454 fire was checked to change the focal decision; the others' downstream changes were not inspected individually.",
+ "risks": "(1) More units drawn to objectives the enemy controls where we already have a partial holder (often our own home under pressure, as in 3 of 5 fires); with several holders/arrivals this could stack OC beyond what is needed and thin coverage of far objectives that secondaries (Engage on All Fronts, Centre Ground variants) reward in rounds 3-5. (2) A holder that is about to die or be pushed off still counts in friendly_oc, so the need may be under-estimated as before; the fix does not address that. (3) At the finding the unit that changes is Alpha (not Gamma) and Gamma now takes a 3-turn trip to home_2; over a full game the mixed reassignment was not measured beyond 6 one-round seeds. (4) Value was not measured with the fix in one seat only over full games; the round-2 lesson applies.",
+ "drop_reason": ""
+}

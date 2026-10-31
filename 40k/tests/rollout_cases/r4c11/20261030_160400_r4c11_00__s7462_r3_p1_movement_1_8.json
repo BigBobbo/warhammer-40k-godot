@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (reinforcing obj_nml_1 (2 units already committed) \u2014 worth ~16 VP)",
+ "created": "2026-10-30 16:22:11",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7462_r3_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Lootas Gamma 27 in to obj_nml_1, which is already held with 13 OC and no enemy nearby. The unit would take 3 turns to arrive and would not shoot meanwhile. Fix: Set the marginal VP of an objective to 0 when it is already held and uncontested with committed OC well above the enemy's nearby OC. Make turns_to_reach a penalty. Cap the number of units sent to one objective. Use the freed units to contest objectives held by the enemy, such as obj_center.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7462_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C",
+  "choice": "pos:1371,606",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma holds for Heavy weapon bonus (+1 to hit, 2.3 extra expected hits, obj obj_nml_1)",
+ "verdict": "bad",
+ "version": 1
+}

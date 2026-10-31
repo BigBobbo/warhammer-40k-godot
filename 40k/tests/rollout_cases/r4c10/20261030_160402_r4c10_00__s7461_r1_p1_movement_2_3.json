@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 27\"))",
+ "created": "2026-10-30 16:07:14",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7461_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent an isolated Gretchin unit across the board to a backfield gap. It rejected obj_nml_2, which is only 18.8 in away and already held by the army, and obj_home_1, which is 8.7 in away. Fix: Make the screen score depend on a real threat the screen blocks, such as a deep-strike or enemy flank lane. Scale the distance penalty with turns to reach. Penalise a destination far from all friendly units. Prefer holding a nearby objective over a speculative screen.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7461_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:1600,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (1600,960) \u2014 backfield gap (nearest friendly: 27\")",
+ "verdict": "bad",
+ "version": 1
+}

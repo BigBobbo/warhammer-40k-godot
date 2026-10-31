@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (reinforcing obj_nml_1 (1 unit already committed) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 06:36:12",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7439_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends the slow M6 OC1 Logan Grimnar on a 3-turn walk to obj_nml_1. It also lists it as 'reinforcing' with 1 unit already committed. The objective_priority of 16.07 outweighs a -7.23 distance penalty and a turns_to_reach of 3. The 'expected_vp' of 4 is not a real marginal gain when another unit already takes it. Fix: When an objective already has a committed unit, set expected_vp for further units to the marginal VP, near zero. Penalise turns_to_reach of 3 or more for M6 units with OC1 more strongly. Prefer to keep a slow leader with the main army or near home.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7439_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOGAN_GRIMNAR_A",
+  "choice": "pos:1370,420",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Logan Grimnar moves toward obj_nml_1 (reinforcing obj_nml_1 (1 unit already committed), obj: 28.3\" away)",
+ "verdict": "pending",
+ "version": 1
+}

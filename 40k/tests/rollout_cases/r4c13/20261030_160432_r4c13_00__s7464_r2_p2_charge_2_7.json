@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Don't charge",
+ "created": "2026-10-30 16:14:27",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7464_r2_p2_charge_2",
+ "note": "[LLM critic, medium conf] The AI declined every charge because charge_target_value was 0.0 for all options, even with a 72% roll chance on Burna Boyz Alpha into a 140pt unit that is already engaged. Fix: Make charge_target_value scale with target points, the target's remaining models, objective proximity, and friendly units already engaged with it. Never score a valid target at exactly 0.0. Reject low-quality chargers, such as Lootas, by their weak melee output instead.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7464_r2_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_MEK_B_P2",
+  "choice": "key:none",
+  "decision": "charge",
+  "type": "SKIP_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Skipped charge for Mek Beta (no good target)",
+ "verdict": "bad",
+ "version": 1
+}

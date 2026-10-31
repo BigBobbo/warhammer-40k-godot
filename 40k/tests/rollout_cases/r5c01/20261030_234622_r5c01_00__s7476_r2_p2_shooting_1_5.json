@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Beta (P1)",
+ "created": "2026-10-30 23:47:54",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7476_r2_p2_shooting_1",
+ "note": "[LLM critic, low conf] The AI shot at enemy Beta for 1.78 expected damage and a 14% kill chance. Allarus is inside half range, but its score shows the same 1.78 damage, so Rapid Fire 2 looks uncounted. Fix: Compute Rapid Fire from the closest model distance to the target, not the unit centroid distance. Add a target_value term for threat and points. Apply the Rapid Fire bonus before comparing options.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7476_r2_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta shoots at Custodian Guard Sodality Beta \u2014 expected 1.8 dmg vs 13 HP (14% kill)",
+ "verdict": "pending",
+ "version": 1
+}

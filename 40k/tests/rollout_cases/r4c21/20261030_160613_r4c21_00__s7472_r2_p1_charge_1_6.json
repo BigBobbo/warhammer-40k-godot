@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Gamma (3.8\" away, 92% chance)",
+ "created": "2026-10-30 16:11:43",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7472_r2_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges Blade Champion Gamma, a 6-wound, 2+/4++ character that the Boyz probably cannot kill. It rejects Custodian Guard Beta, which the Boyz probably can wipe and which holds the objective. Fix: Count the charge probability once. Estimate expected kills for each target. Raise the weight on a likely wipe of a unit on an objective. Subtract the expected return damage from a surviving elite melee character that the charge cannot kill.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7472_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:1477,561",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_C,U_CUSTODIAN_GUARD_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz declares a charge at Blade Champion Gamma + Custodian Guard Sodality Beta \u2014 targets picked after the roll: Blade Champion Gamma on 4+ (92%), Custodian Guard Sodality Beta on 6+ (72%), overwatch risk: 0.8 dmg",
+ "verdict": "pending",
+ "version": 1
+}

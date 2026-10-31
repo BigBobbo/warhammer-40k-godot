@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (flipping it (enemy holds with OC 14) \u2014 worth ~2 VP)",
+ "created": "2026-10-30 06:35:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7434_r3_p2_movement_1",
+ "note": "[LLM critic, high conf] Delta leaves a held objective, obj_nml_1, for a 3-turn trip to obj_home_1. It would arrive alone against 14 OC and fight Gamma and Prosecutors. The hold option scored 20.4 against 7.0, but an override sent Delta away. Fix: Let capture assignment override the best-scoring option only when the unit's own score for the new target is positive. Count OC with and without the moving unit before calling an objective over-covered. Do not send a unit to flip an objective when the combined arrival OC cannot beat the enemy OC within the same turn window.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7434_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D_P2",
+  "choice": "pos:430,340",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta moves toward obj_home_1 (moving toward charge target Custodian Guard Sodality Gamma, obj: 23.5\" away)",
+ "verdict": "bad",
+ "version": 1
+}

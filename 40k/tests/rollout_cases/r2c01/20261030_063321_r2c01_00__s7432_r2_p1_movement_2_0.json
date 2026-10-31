@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (flipping it (enemy holds with OC 9), needs 1 more OC after this unit \u2014 worth ~3 VP)",
+ "created": "2026-10-30 06:34:11",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7432_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Alpha on a three-turn trip to an enemy-held objective because obj_center already had enough OC. Alpha would arrive late and mostly alone. Fix: Do not let the OC-sufficient override redirect a unit to an objective that takes 3 or more turns to reach. Do so only if the unit would arrive together with other units or the contest_race term is positive. Otherwise keep the unit near the held objective as a reserve or screen.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7432_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:660,1970",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_nml_2 (flipping it (enemy holds with OC 9), needs 1 more OC after this unit, obj: 25.3\" away)",
+ "verdict": "pending",
+ "version": 1
+}

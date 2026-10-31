@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_2 (racing for it (enemy can have ~16 OC there before we arrive in 2 turns), needs 3 more OC after this unit \u2014 worth ~4 VP)",
+ "created": "2026-10-30 23:46:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7476_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] A lone 4-model, 4-wound Prosecutor Squad advances to an objective the enemy reaches first, while the AI rejected obj_center for the same reason. Fix: Apply the lone-unit survival veto to every objective choice, not only the central one. If the enemy's expected OC and melee threat at the target is more than about 3 times the unit's OC, and no friendly support will arrive within one turn, reject the move. Prefer keeping the squad with the main army or at home.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7476_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A_P2",
+  "choice": "pos:310,1500",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad advances toward obj_nml_2 (racing for it (enemy can have ~16 OC there before we arrive in 2 turns), needs 3 more OC after this unit)",
+ "verdict": "pending",
+ "version": 1
+}
