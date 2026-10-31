@@ -3875,6 +3875,17 @@ func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dic
 	var offenders = result.get("offenders", [])
 	return {"valid": false, "errors": ["Unit coherency broken: %d model(s) out of coherency — every model must be within 2\" of a mate AND within 9\" of every other model in the unit" % offenders.size()]}
 
+## T09 (BasePhase.has_unit_acted_this_phase): a unit has acted in the Fight
+## phase once it has fought — selected to fight and its attacks resolved, or
+## passed over (units_that_fought, kept by this instance; flags.has_fought,
+## which also reaches a network client). Either player's units, since both
+## fight. has_fought only means this phase here: it is cleared for both
+## players at every turn boundary.
+func has_unit_acted_this_phase(unit_id: String) -> bool:
+	if unit_id in units_that_fought:
+		return true
+	return _t09_unit_flag(unit_id, "has_fought")
+
 func _clear_unit_fight_state(unit_id: String) -> void:
 	# Clear any temporary fight flags
 	pass

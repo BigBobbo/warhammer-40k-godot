@@ -17499,6 +17499,7 @@ func _install_design_guidelines_overlays() -> void:
 	# Direct children of Main (CanvasLayer-anchored HUD elements).
 	add_child(preload("res://scripts/ActivePlayerEdgeTint.gd").new())      # T25
 	add_child(preload("res://scripts/LeftRosterStrip.gd").new())           # T37
+	add_child(preload("res://scripts/UnitExhaustionTracker.gd").new())     # T09
 	add_child(preload("res://scripts/DatasheetModal.gd").new())            # T39
 	# T06's weapon-order panel is not installed here: it is the shooting
 	# phase's resolution dock in the right HUD column (ShootingResolutionDock,

@@ -32,7 +32,10 @@ var _tank_barrel_tex: Texture2D = null
 var _faction_font: Font = null
 
 # T09: per-phase exhaustion flag. When set, the token modulates to a dim
-# grey to signal "has acted this phase". Cleared by PhaseManager.phase_changed.
+# grey to signal "has acted this phase". Derived from the current phase's
+# has_unit_acted_this_phase() by refresh_exhaustion() — on _ready (tokens are
+# rebuilt often) and whenever UnitExhaustionTracker re-syncs the board.
+# Cleared by PhaseManager.phase_changed.
 var is_exhausted_this_phase: bool = false
 const T09_EXHAUSTION_MODULATE := Color(0.6, 0.6, 0.6, 1.0)
 const T09_NORMAL_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
@@ -109,11 +112,42 @@ func _ready() -> void:
 	var slot := _t08_make_ring("SlotRing", T08_SLOT_RING_SCALE, _t08_slot_color())
 	add_child(slot)
 	_t08_update_ring_visibility()
+	# T09: a token rebuilt mid-phase (Main recreates the whole board after
+	# many actions) starts dim when its unit has already acted.
+	refresh_exhaustion()
 
 
 func _t09_on_phase_changed(_new_phase) -> void:
-	if is_exhausted_this_phase:
-		set_exhausted_this_phase(false)
+	# PhaseManager enters the new phase before it announces it, so this asks
+	# the new phase: at a phase start no unit has acted, and the dim clears.
+	refresh_exhaustion()
+
+
+# T09: re-derive is_exhausted_this_phase from the current phase
+# (BasePhase.has_unit_acted_this_phase for this token's unit). Preview and
+# ghost tokens, and tokens with no unit, never dim. A token that has not acted
+# is only written when the answer changes, so a controller's transient tint on
+# it (the fight overlap red while dragging) is left alone. A dimmed token whose
+# modulate something else reset (that same overlap feedback writes white when
+# a consolidation drag of a unit that already fought ends) gets the dim back.
+func refresh_exhaustion() -> void:
+	var acted := _t09_unit_has_acted()
+	if acted != is_exhausted_this_phase:
+		set_exhausted_this_phase(acted)
+	elif acted and modulate != T09_EXHAUSTION_MODULATE:
+		modulate = T09_EXHAUSTION_MODULATE
+
+
+func _t09_unit_has_acted() -> bool:
+	if is_preview or not has_meta("unit_id") or not is_inside_tree():
+		return false
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm == null:
+		return false
+	var phase = pm.get("current_phase_instance")
+	if phase == null or not is_instance_valid(phase) or not phase.has_method("has_unit_acted_this_phase"):
+		return false
+	return bool(phase.has_unit_acted_this_phase(str(get_meta("unit_id"))))
 
 
 func _on_unit_style_changed(_new_style: String) -> void:

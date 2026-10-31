@@ -4012,6 +4012,16 @@ func _remain_stationary_changes(unit_id: String, unit: Dictionary) -> Array:
 		DebugLogger.info(str("[MovementPhase] Propagated remain stationary flags to attached character %s" % char_id))
 	return changes
 
+## T09 (BasePhase.has_unit_acted_this_phase): a unit has acted in the
+## Movement phase once its move is over — a Normal / Advance / Fall Back move
+## ended with End This Unit's Move (CONFIRM_UNIT_MOVE), it Remained Stationary,
+## or it arrived from reserves (ingress); each sets flags.moved. Only the
+## active player's units count: an opponent's flags.moved is left over from
+## its own turn (cleared when that player's next turn starts). A unit still
+## moving (movement_active, not confirmed) has not acted yet.
+func has_unit_acted_this_phase(unit_id: String) -> bool:
+	return _t09_is_active_players(unit_id) and _t09_unit_flag(unit_id, "moved")
+
 ## 09.02 MOVE UNITS: "When the Move Units step ends, the active player must
 ## have selected all of their units to make a move with ... every unit in
 ## their army will have been selected to make a move, even if it is to remain

@@ -6083,6 +6083,16 @@ func _hidden_shot_stamp(unit_id: String) -> Dictionary:
 	var idx := GameState.get_battle_round() * 2 + (0 if get_current_player() == 1 else 1)
 	return {"op": "set", "path": "units.%s.flags.last_shot_idx" % unit_id, "value": idx}
 
+## T09 (BasePhase.has_unit_acted_this_phase): a unit has acted in the
+## Shooting phase once flags.has_shot is set — its attacks resolved, it was
+## skipped, or it started an action / burned an objective instead (each sets
+## the flag; an attached character shares its bodyguard's). Only the active
+## player's units count: Fire Overwatch earlier in the turn sets has_shot on
+## the opponent's units, and _clear_phase_flags only sweeps it at this phase's
+## end.
+func has_unit_acted_this_phase(unit_id: String) -> bool:
+	return _t09_is_active_players(unit_id) and _t09_unit_flag(unit_id, "has_shot")
+
 func _clear_phase_flags() -> void:
 	var units = game_state_snapshot.get("units", {})
 	for unit_id in units:

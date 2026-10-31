@@ -480,6 +480,18 @@ func _validate_end_charge(action: Dictionary) -> Dictionary:
 	# Can always end the phase
 	return {"valid": true, "errors": []}
 
+## T09 (BasePhase.has_unit_acted_this_phase): a unit has acted in the Charge
+## phase once its charge is over — the charge move was made, the roll or the
+## move failed, or it was skipped (units_that_charged / completed_charges, kept
+## by this instance), or it made a charge move (flags.charged_this_turn, which
+## also reaches a network client and covers a Heroic Intervention by the other
+## player). The flag only means this phase here: it is cleared for both
+## players at every turn boundary.
+func has_unit_acted_this_phase(unit_id: String) -> bool:
+	if unit_id in units_that_charged or unit_id in completed_charges:
+		return true
+	return _t09_unit_flag(unit_id, "charged_this_turn")
+
 # Processing Methods
 
 func _process_select_charge_unit(action: Dictionary) -> Dictionary:

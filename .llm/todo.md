@@ -694,7 +694,7 @@ Locks in use:
     (e) T19's scenario now expects `stop_pulse()` to return the ring to `T08_RING_ALPHA`
     (1.0), not 0.7.
 
-- [ ] **T09 — Exhaustion grayscale for acted units**
+- [x] **T09 — Exhaustion grayscale for acted units**
   - **Lock:** TokenLayer + HUD-Left  • **Doc:** §8  • **Depends:** T01, T02, T08
   - **Touches:** `40k/scripts/TokenVisual.gd`, `40k/scripts/ArmyPanel.gd`,
     `40k/phases/MovementPhase.gd` (and shooting/charge equivalents) — emit
@@ -718,10 +718,74 @@ Locks in use:
       `regions["acted_token"].diff_pct > 15.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Acted unit is clearly dimmer than un-acted.
-    - [ ] Roster card mirrors the dim state.
-    - [ ] Phase end resets both.
-    - [ ] Color rings (T08) still distinguishable on dimmed token.
+    - [x] Acted unit is clearly dimmer than un-acted.
+      *(T09_exhausted: the Shield-Captain and the Blade Champion, both ended this phase, are
+      uniformly darker - base, art, rings, name plaque, wound bar - beside the full-brightness
+      Custodian Guard row; their regions diff 80% against the same tokens lit in T09_after.)*
+    - [x] Roster card mirrors the dim state.
+      *(T09_exhausted: in the Roster strip (Roster button / B), "Blade Champion (1)" and
+      "Shield-Captain (1)" are grey on a darker band and every other card is white; both card
+      rows diff 100% against T09_before and T09_after, the Custodian Guard card 0.0%.)*
+    - [x] Phase end resets both.
+      *(T09_after, Shooting phase after End Movement Phase + its confirm prompt: both tokens and
+      both cards are back to full brightness; all 25 tokens (1, 1, 1, 1), no card dim.)*
+    - [x] Color rings (T08) still distinguishable on dimmed token.
+      *(T09_exhausted: the dimmed tokens keep the teal rim and a gold (Shield-Captain) / crimson
+      (Blade Champion) band. Sampled on the frame, the rings read 0.6 x their colours (slot
+      28-32/32, faction 24/32 hits) and the two stay 0.54-0.61 apart in RGB.)*
+  - **Note (2026-10-31 audit):** what had shipped was `TokenVisual.is_exhausted_this_phase`,
+    `set_exhausted_this_phase()` and a reset on `phase_changed`, but nothing ever called the
+    setter. No `unit_acted_in_phase` signal existed, so a confirmed move left the token at
+    ffffffff (probed live at HEAD). Tokens Main rebuilds would have lost the state anyway, the
+    roster strip had no dim state, and T38's Can Act filter read `flags.acted_this_phase`, which
+    nothing set. The scenario called the setter by hand and emitted `phase_changed` itself: no
+    END_UNIT_MOVE, screenshot, pixel_diff or roster check. Changed on this pass: `BasePhase`
+    declares `unit_acted_in_phase(unit_id)` and `has_unit_acted_this_phase(unit_id)` (default
+    false), and `execute_action()` emits the signal once per flip to true, before
+    `action_taken` (not from an instance the action already swapped out). Each phase answers
+    from synced flags. Movement: `flags.moved` of the active player's units (End This Unit's
+    Move, Remain Stationary, ingress; a unit mid-move is not dim). Shooting: `flags.has_shot`
+    of the active player's units. Charge: `units_that_charged` / `completed_charges` or
+    `flags.charged_this_turn`. Fight: `units_that_fought` or `flags.has_fought`, either player.
+    The new `UnitExhaustionTracker` (/root/Main/UnitExhaustionTracker, installed with the
+    design-guidelines overlays) binds to the current phase's signal. It re-syncs every token and
+    roster card on that signal, on `phase_action_taken`, on `GameManager.result_applied` (the
+    network client path) and on `phase_changed`. `TokenVisual.refresh_exhaustion()` also runs
+    in `_ready`, so rebuilt tokens start dim. It puts the dim back when another controller
+    resets the modulate (the fight overlap feedback writes white when a consolidation drag
+    ends). `LeftRosterStrip`: a dim card gets a darker StyleBoxFlat (0.05 grey, against the
+    default 0.1) plus the 0.6 modulate (`is_card_exhausted()`). Can Act lists exactly the cards
+    that are not dim. `refresh()` now detaches old cards before freeing them; a rebuild used to
+    auto-rename the new `UnitCard_<id>`, and the name kept resolving to the dead card. Tier A:
+    scenario 70/70 on audit_baseline_postdeploy. `expect_action_result` success for
+    CONFIRM_UNIT_MOVE. The acted token is (0.6, 0.6, 0.6, 1) within 0.02 and exhausted, the other
+    24 tokens (1, 1, 1, 1) and not. After End Movement Phase every token is (1, 1, 1, 1).
+    pixel_diff acted_token 80.5% (> 15; 80.0% without the 2.6% of the region the Shooting
+    phase's range line covers), the un-acted control token 0.0% (< 1). It also drives a second
+    unit through the real End This Unit's Move button, the roster cards, the rebuild, and the
+    rings on the dimmed frame. New gated test `tests/test_unit_exhaustion.gd` (62 checks: all four
+    phases, the opponent's left-over flags, the attached character, the client path, the
+    rebuild, Can Act, the reset). The scenario and the test each went red under scratch sabotage
+    probes: no emit, no tracker, no owner check, no card dim, the wrong flag in Shooting, a 0.8
+    dim, no `_ready` refresh, no `result_applied`, no rebind on phase change, no `remove_child`.
+    Gate 182/182 (known XFAIL only). Visual suite: 42 pass (baseline 41), failures only T23 /
+    T27 / T39 (known) and T45 (XFAIL). 20 related sp scenarios: 19 pass, and tut_t3_get_movin
+    (a listed known failure) fails at its geometry step 101 (XFAIL). Deviations: (a) There is
+    no END_UNIT_MOVE action. The action behind the End This Unit's Move button is
+    CONFIRM_UNIT_MOVE, which the scenario
+    dispatches (Tier A `expect_action_result`) and also reaches with a real click on that button
+    for a second unit. (b) The roster card is the T37 LeftRoster strip card (the strip in doc §8,
+    HUD-Left lock), not `ArmyPanel.gd`: that is the U modal colour and label editor, and its
+    swatches must keep the true unit colours. The strip is hidden by default, so the scenario
+    opens it with the Roster button. (c) The signal is declared once on `BasePhase` and emitted by
+    its `execute_action()` from each phase's own answer (Movement, Shooting, Charge, Fight), not
+    by hand in each phase file. Every path that ends a unit's step is covered: the button, AI,
+    END_MOVEMENT's remain-stationary sweep. (d) "Grayscale" is the task's 0.6 modulate, a dim,
+    not a desaturation. (e) Known gaps: on a network client a failed or skipped charge does not
+    dim, since `units_that_charged` is host-only (a successful charge does, via
+    `charged_this_turn`). An opponent's reactive move in your Movement phase does not dim either,
+    because its `flags.moved` is left over from its own turn. The client path is verified
+    headless only (`GameManager.apply_result`), not in a two-instance game.
 
 - [ ] **T10 — Held-key threat overlay (Tab)**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02

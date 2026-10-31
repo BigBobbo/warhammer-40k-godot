@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.63.0",
+      "date": "2026-10-31",
+      "summary": "Units that have already acted this phase now go dim, on the battlefield and in the Roster strip, so you can see at a glance who still has something to do.",
+      "changes": [
+        "When a unit finishes its turn in a phase it dims to grey until the phase ends: in the Movement phase once you press End This Unit's Move (or it remains stationary, or arrives from reserves), in the Shooting phase once it has shot or been skipped, in the Charge phase once its charge is done or skipped, and in the Fight phase once it has fought.",
+        "Units that have not acted yet stay at full brightness, so the ones still waiting stand out.",
+        "The unit's card in the Roster strip (the Roster button or B) dims to match.",
+        "Everything returns to full brightness when the next phase starts.",
+        "The two coloured rings on a dimmed model are still easy to tell apart."
+      ]
+    },
+    {
       "version": "1.62.0",
       "date": "2026-10-31",
       "summary": "Every model now shows two rings on its base: its unit's colour inside and a thin teal (Player 1) or magenta (Player 2) ring on the edge, so you can always tell whose model it is - even when both armies are the same faction.",

@@ -9,6 +9,11 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 
 signal phase_completed()
 signal action_taken(action: Dictionary)
+# T09 (design doc §8, exhaustion shading): fires the moment a unit's
+# has_unit_acted_this_phase() answer flips to true — it finished its move,
+# shot, charged or fought. UnitExhaustionTracker dims that unit's board tokens
+# and roster card until the phase ends.
+signal unit_acted_in_phase(unit_id: String)
 
 # ============================================================================
 # STRATAGEM WINDOWS (design .llm/ork_codex_11e_design.md §3.1, §3.2, §6)
@@ -269,6 +274,10 @@ func execute_action(action: Dictionary) -> Dictionary:
 		if not action.has("player"):
 			action["player"] = get_current_player()
 
+		# T09: every unit this action left "acted this phase" is announced
+		# (unit_acted_in_phase) before action_taken, with the state applied.
+		_t09_emit_newly_acted()
+
 		# Record the action
 		DebugLogger.info("[BasePhase] Emitting action_taken signal")
 		emit_signal("action_taken", action)
@@ -298,6 +307,59 @@ func execute_action(action: Dictionary) -> Dictionary:
 func _should_complete_phase() -> bool:
 	# Override in concrete phases for phase-specific completion logic
 	return false
+
+# ============================================================================
+# T09 — "has acted this phase" (design doc §8, exhaustion shading)
+# ============================================================================
+# A unit has acted once its own step in the phase is over: Movement — its move
+# ended (or it remained stationary / arrived from reserves); Shooting — it has
+# shot; Charge — its charge was resolved or skipped; Fight — it has fought.
+# Phases with such a per-unit step override has_unit_acted_this_phase() and
+# answer from the synced unit flags, so the answer also holds on a network
+# client (whose phase never runs execute_action) and after a mid-phase load.
+# Every other phase keeps the default: no unit has acted.
+# execute_action() emits unit_acted_in_phase(unit_id) once per flip to true.
+
+var _t09_acted_units: Dictionary = {}  # unit_id -> true at the last check
+
+func has_unit_acted_this_phase(_unit_id: String) -> bool:
+	return false
+
+## T09 helper: whether unit_id's flags[flag] is set (false for a missing unit
+## or flags that are not a dictionary).
+func _t09_unit_flag(unit_id: String, flag: String) -> bool:
+	var flags = get_unit(unit_id).get("flags", {})
+	if typeof(flags) != TYPE_DICTIONARY:
+		return false
+	return true if flags.get(flag, false) else false
+
+## T09 helper: whether unit_id belongs to the player whose turn it is.
+func _t09_is_active_players(unit_id: String) -> bool:
+	var unit := get_unit(unit_id)
+	return not unit.is_empty() and int(unit.get("owner", 0)) == get_current_player()
+
+## The ids of every unit that has acted this phase, sorted.
+func get_units_acted_this_phase() -> Array:
+	var out: Array = []
+	for unit_id in game_state_snapshot.get("units", {}):
+		if has_unit_acted_this_phase(str(unit_id)):
+			out.append(str(unit_id))
+	out.sort()
+	return out
+
+func _t09_emit_newly_acted() -> void:
+	# An action that ended the phase from inside process_action has already
+	# swapped this instance out (PhaseManager queue_frees it): the new phase
+	# owns the units, so nothing is announced from here.
+	if is_queued_for_deletion():
+		return
+	var now := {}
+	for unit_id in get_units_acted_this_phase():
+		now[unit_id] = true
+		if not _t09_acted_units.has(unit_id):
+			DebugLogger.info("[BasePhase] T09: %s has acted this phase (%s) — unit_acted_in_phase" % [unit_id, str(GameStateData.Phase.find_key(phase_type))])
+			emit_signal("unit_acted_in_phase", unit_id)
+	_t09_acted_units = now
 
 # Utility methods for interacting with game state
 func get_current_player() -> int:

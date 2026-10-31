@@ -343,6 +343,7 @@ TESTS=(
     "tests/test_weapon_order_cancel.gd"
     "tests/test_terrain_cover_overlay.gd"
     "tests/test_two_ring_token.gd"
+    "tests/test_unit_exhaustion.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

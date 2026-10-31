@@ -1,48 +1,435 @@
 {
   "id": "T09_exhaustion_grayscale",
-  "covers": ["design_guidelines.T09", "tokens.exhaustion"],
-  "fixture": "co_pretrigger",
+  "covers": [
+    "design_guidelines.T09",
+    "tokens.exhaustion",
+    "hud.left_roster",
+    "phases.BasePhase.unit_acted_in_phase"
+  ],
+  "fixture": "audit_baseline_postdeploy",
   "transition_to_phase": 7,
-  "description": "Per-phase exhaustion: TokenVisual.set_exhausted_this_phase(true) sets modulate to Color(0.6,0.6,0.6,1). PhaseManager.phase_changed clears the flag and restores Color(1,1,1,1).",
-
+  "disable_ai": true,
+  "rng_seed": 42,
+  "regions": {
+    "acted_token": [
+      650,
+      630,
+      160,
+      160
+    ],
+    "acted_token_ui": [
+      475,
+      580,
+      160,
+      160
+    ],
+    "unacted_token": [
+      850,
+      330,
+      160,
+      160
+    ],
+    "roster_card_acted": [
+      0,
+      105,
+      263,
+      21
+    ],
+    "roster_card_acted_ui": [
+      0,
+      455,
+      263,
+      21
+    ],
+    "roster_card_unacted": [
+      0,
+      255,
+      263,
+      21
+    ]
+  },
+  "description": "T09 (design guidelines §8, exhaustion shading): a unit that has acted this phase goes dim - its board tokens modulate to Color(0.6, 0.6, 0.6, 1) with TokenVisual.is_exhausted_this_phase, its roster card (LeftRoster strip, T37) swaps to a darker stylebox with the same modulate - until the phase ends. The phases decide who has acted (BasePhase.has_unit_acted_this_phase: Movement = flags.moved of the active player's units) and emit BasePhase.unit_acted_in_phase(unit_id) on the flip; UnitExhaustionTracker (/root/Main/UnitExhaustionTracker) re-syncs tokens and cards. Fixture audit_baseline_postdeploy, P1 Movement phase. Player path: the Roster button shows the strip; clicking the Blade Champion starts its Normal Move, a real drag moves it 3\", and END_UNIT_MOVE (CONFIRM_UNIT_MOVE, the action behind End This Unit's Move) succeeds - the tracker receives unit_acted_in_phase(U_BLADE_CHAMPION_A) once. Tier A: the acted token's modulate is (0.6, 0.6, 0.6, 1) within 0.02 per channel and is_exhausted_this_phase; every un-acted token is (1, 1, 1, 1) and not exhausted (24 of 25 tokens; a unit in the middle of its move is not exhausted either). The Shield-Captain is then moved and ended through the real End This Unit's Move button: it dims too, the Custodian Guard row stays lit. The roster mirrors the board (two dim cards, the rest default). Main._recreate_unit_visuals() rebuilds the board: the new tokens start dim. On the dimmed frame the T08 rings read 0.6 x their colours and stay far apart. The phase is ended with the End Movement Phase button + its confirm prompt: in the Shooting phase every token and card is back to (1, 1, 1, 1) / the default look. pixel_diff T09_exhausted -> T09_after: acted_token > 15% (measured 80.5%; the auto-selected shooter (the Telemon) draws a range line over 2.6% of that region in T09_after - 80.0% without those pixels), acted_token_ui > 15% (80.4%), unacted_token < 1% (0.0%, control); T09_before -> T09_exhausted unacted_token < 1% (0.0%); roster cards: acted > 15% both ways (100%), un-acted < 1% (0.0%).",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B", "timeout_s": 3.0 },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).is_exhausted_this_phase",
-      "equals": false },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).modulate.to_html(true)",
-      "equals": "ffffffff" },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).set_exhausted_this_phase(true)" },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).is_exhausted_this_phase",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).modulate.to_html(true)",
-      "equals": "999999ff" },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(1).is_exhausted_this_phase",
-      "equals": false },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(1).modulate.to_html(true)",
-      "equals": "ffffffff" },
-
-    { "act": "execute_script",
-      "script": "PhaseManager.emit_signal(\"phase_changed\", 8)" },
-    { "act": "wait_frames", "frames": 3 },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).is_exhausted_this_phase",
-      "equals": false },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).modulate.to_html(true)",
-      "equals": "ffffffff" },
-
-    { "act": "expect_baseline_unchanged" }
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/RosterToggle",
+      "comment": "Player path: the top bar's Roster button shows the left roster strip (also B)."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/LeftRoster",
+      "property": "visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 2.5\nm.view_offset = Vector2(200, 160) - Vector2(930, 560) / 2.5\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 2.5,
+      "comment": "Board framing (x2.5): Shield-Captain, Blade Champion, the Custodian Guard row."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Start of the Movement phase: no token is dim.\nvar toks = []\nfor tn in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif tn.is_queued_for_deletion():\n\t\tcontinue\n\tif tn.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tn:\n\t\ttoks.append(tn)\n\telse:\n\t\tfor tg in tn.get_children():\n\t\t\tif tg.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tg:\n\t\t\t\ttoks.append(tg)\nvar dim_ids = []\nvar bad = []\nvar n_dim = 0\nvar n_lit = 0\nfor t in toks:\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tvar c = t.modulate\n\tif uid in dim_ids:\n\t\tif absf(c.r - 0.6) <= 0.02 and absf(c.g - 0.6) <= 0.02 and absf(c.b - 0.6) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == true:\n\t\t\tn_dim += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want dim)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\n\telse:\n\t\tif absf(c.r - 1.0) <= 0.02 and absf(c.g - 1.0) <= 0.02 and absf(c.b - 1.0) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == false:\n\t\t\tn_lit += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want lit)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\nif not bad.is_empty():\n\treturn \", \".join(bad)\nif n_dim != 0 or n_lit != 25:\n\treturn \"counted %d dim / %d lit tokens\" % [n_dim, n_lit]\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/UnitExhaustionTracker\").acted_unit_ids.size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Start of the phase: no roster card is dim.\nvar r = tree.root.get_node(\"Main/LeftRoster\")\nif not r.is_visible_in_tree():\n\treturn \"roster strip not shown\"\nvar dim_ids = []\nvar bad = []\nvar n = 0\nfor c in r.get_node(\"Scroll/Cards\").get_children():\n\tvar uid = str(c.get_meta(\"unit_id\", \"\"))\n\tvar m = c.modulate\n\tif uid in dim_ids:\n\t\tvar sb = c.get_theme_stylebox(\"panel\")\n\t\tif not (r.is_card_exhausted(uid) and absf(m.r - 0.6) <= 0.02 and absf(m.g - 0.6) <= 0.02 and absf(m.b - 0.6) <= 0.02 and absf(m.a - 1.0) <= 0.02 and c.has_theme_stylebox_override(\"panel\") and sb is StyleBoxFlat and sb.bg_color.v < 0.1):\n\t\t\tbad.append(uid + \" card not dim\")\n\telse:\n\t\tif r.is_card_exhausted(uid) or not (absf(m.r - 1.0) <= 0.02 and absf(m.g - 1.0) <= 0.02 and absf(m.b - 1.0) <= 0.02 and absf(m.a - 1.0) <= 0.02) or c.has_theme_stylebox_override(\"panel\"):\n\t\t\tbad.append(uid + \" card dim\")\n\tn += 1\nif n != GameState.state.units.size():\n\treturn \"%d cards for %d units\" % [n, GameState.state.units.size()]\nreturn \"ok\" if bad.is_empty() else \", \".join(bad)",
+      "equals": "ok"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T09_before"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_BLADE_CHAMPION_A",
+      "comment": "Player path: clicking the Blade Champion starts its Normal Move."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_BLADE_CHAMPION_A"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 120,
+      "from_y": 100,
+      "to_x": 120,
+      "to_y": 220
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_BLADE_CHAMPION_A\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# A unit in the middle of its move has not acted yet.\n# Mid-move: still lit.\nvar toks = []\nfor tn in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif tn.is_queued_for_deletion():\n\t\tcontinue\n\tif tn.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tn:\n\t\ttoks.append(tn)\n\telse:\n\t\tfor tg in tn.get_children():\n\t\t\tif tg.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tg:\n\t\t\t\ttoks.append(tg)\nvar dim_ids = []\nvar bad = []\nvar n_dim = 0\nvar n_lit = 0\nfor t in toks:\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tvar c = t.modulate\n\tif uid in dim_ids:\n\t\tif absf(c.r - 0.6) <= 0.02 and absf(c.g - 0.6) <= 0.02 and absf(c.b - 0.6) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == true:\n\t\t\tn_dim += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want dim)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\n\telse:\n\t\tif absf(c.r - 1.0) <= 0.02 and absf(c.g - 1.0) <= 0.02 and absf(c.b - 1.0) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == false:\n\t\t\tn_lit += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want lit)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\nif not bad.is_empty():\n\treturn \", \".join(bad)\nif n_dim != 0 or n_lit != 25:\n\treturn \"counted %d dim / %d lit tokens\" % [n_dim, n_lit]\nif PhaseManager.get_current_phase_instance().has_unit_acted_this_phase(\"U_BLADE_CHAMPION_A\"):\n\treturn \"mid-move unit reported as acted\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_UNIT_MOVE",
+        "actor_unit_id": "U_BLADE_CHAMPION_A"
+      },
+      "comment": "END_UNIT_MOVE: the action behind the End This Unit's Move button."
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BLADE_CHAMPION_A.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/UnitExhaustionTracker\").last_acted_unit_id + \"/\" + str(get_node(\"/root/Main/UnitExhaustionTracker\").acted_signal_count)",
+      "equals": "U_BLADE_CHAMPION_A/1",
+      "comment": "The movement phase emitted unit_acted_in_phase(U_BLADE_CHAMPION_A) once."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Tier A: the acted unit's token modulate == (0.6, 0.6, 0.6, 1) (each channel +-0.02) and is_exhausted_this_phase; every un-acted token (1, 1, 1, 1) and not exhausted.\nvar toks = []\nfor tn in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif tn.is_queued_for_deletion():\n\t\tcontinue\n\tif tn.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tn:\n\t\ttoks.append(tn)\n\telse:\n\t\tfor tg in tn.get_children():\n\t\t\tif tg.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tg:\n\t\t\t\ttoks.append(tg)\nvar dim_ids = [\"U_BLADE_CHAMPION_A\"]\nvar bad = []\nvar n_dim = 0\nvar n_lit = 0\nfor t in toks:\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tvar c = t.modulate\n\tif uid in dim_ids:\n\t\tif absf(c.r - 0.6) <= 0.02 and absf(c.g - 0.6) <= 0.02 and absf(c.b - 0.6) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == true:\n\t\t\tn_dim += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want dim)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\n\telse:\n\t\tif absf(c.r - 1.0) <= 0.02 and absf(c.g - 1.0) <= 0.02 and absf(c.b - 1.0) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == false:\n\t\t\tn_lit += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want lit)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\nif not bad.is_empty():\n\treturn \", \".join(bad)\nif n_dim != 1 or n_lit != 24:\n\treturn \"counted %d dim / %d lit tokens\" % [n_dim, n_lit]\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Roster: the Blade Champion's card dims (darker stylebox + 0.6 modulate); every other card keeps the default look.\nvar r = tree.root.get_node(\"Main/LeftRoster\")\nif not r.is_visible_in_tree():\n\treturn \"roster strip not shown\"\nvar dim_ids = [\"U_BLADE_CHAMPION_A\"]\nvar bad = []\nvar n = 0\nfor c in r.get_node(\"Scroll/Cards\").get_children():\n\tvar uid = str(c.get_meta(\"unit_id\", \"\"))\n\tvar m = c.modulate\n\tif uid in dim_ids:\n\t\tvar sb = c.get_theme_stylebox(\"panel\")\n\t\tif not (r.is_card_exhausted(uid) and absf(m.r - 0.6) <= 0.02 and absf(m.g - 0.6) <= 0.02 and absf(m.b - 0.6) <= 0.02 and absf(m.a - 1.0) <= 0.02 and c.has_theme_stylebox_override(\"panel\") and sb is StyleBoxFlat and sb.bg_color.v < 0.1):\n\t\t\tbad.append(uid + \" card not dim\")\n\telse:\n\t\tif r.is_card_exhausted(uid) or not (absf(m.r - 1.0) <= 0.02 and absf(m.g - 1.0) <= 0.02 and absf(m.b - 1.0) <= 0.02 and absf(m.a - 1.0) <= 0.02) or c.has_theme_stylebox_override(\"panel\"):\n\t\t\tbad.append(uid + \" card dim\")\n\tn += 1\nif n != GameState.state.units.size():\n\treturn \"%d cards for %d units\" % [n, GameState.state.units.size()]\nreturn \"ok\" if bad.is_empty() else \", \".join(bad)",
+      "equals": "ok"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_SHIELD_CAPTAIN_A",
+      "comment": "Player path again, through the real button this time: the Shield-Captain."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_SHIELD_CAPTAIN_A"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 50,
+      "from_y": 100,
+      "to_x": 50,
+      "to_y": 200
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller._has_pending_unconfirmed_move(\"U_SHIELD_CAPTAIN_A\")",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_SHIELD_CAPTAIN_A.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(get_node(\"/root/Main/UnitExhaustionTracker\").acted_unit_ids) + \"/\" + str(get_node(\"/root/Main/UnitExhaustionTracker\").acted_signal_count)",
+      "equals": "[\"U_BLADE_CHAMPION_A\", \"U_SHIELD_CAPTAIN_A\"]/2"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Both acted units dim; the Custodian Guard and every other token lit.\nvar toks = []\nfor tn in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif tn.is_queued_for_deletion():\n\t\tcontinue\n\tif tn.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tn:\n\t\ttoks.append(tn)\n\telse:\n\t\tfor tg in tn.get_children():\n\t\t\tif tg.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tg:\n\t\t\t\ttoks.append(tg)\nvar dim_ids = [\"U_BLADE_CHAMPION_A\", \"U_SHIELD_CAPTAIN_A\"]\nvar bad = []\nvar n_dim = 0\nvar n_lit = 0\nfor t in toks:\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tvar c = t.modulate\n\tif uid in dim_ids:\n\t\tif absf(c.r - 0.6) <= 0.02 and absf(c.g - 0.6) <= 0.02 and absf(c.b - 0.6) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == true:\n\t\t\tn_dim += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want dim)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\n\telse:\n\t\tif absf(c.r - 1.0) <= 0.02 and absf(c.g - 1.0) <= 0.02 and absf(c.b - 1.0) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == false:\n\t\t\tn_lit += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want lit)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\nif not bad.is_empty():\n\treturn \", \".join(bad)\nif n_dim != 2 or n_lit != 23:\n\treturn \"counted %d dim / %d lit tokens\" % [n_dim, n_lit]\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Roster mirrors the board: two dim cards.\nvar r = tree.root.get_node(\"Main/LeftRoster\")\nif not r.is_visible_in_tree():\n\treturn \"roster strip not shown\"\nvar dim_ids = [\"U_BLADE_CHAMPION_A\", \"U_SHIELD_CAPTAIN_A\"]\nvar bad = []\nvar n = 0\nfor c in r.get_node(\"Scroll/Cards\").get_children():\n\tvar uid = str(c.get_meta(\"unit_id\", \"\"))\n\tvar m = c.modulate\n\tif uid in dim_ids:\n\t\tvar sb = c.get_theme_stylebox(\"panel\")\n\t\tif not (r.is_card_exhausted(uid) and absf(m.r - 0.6) <= 0.02 and absf(m.g - 0.6) <= 0.02 and absf(m.b - 0.6) <= 0.02 and absf(m.a - 1.0) <= 0.02 and c.has_theme_stylebox_override(\"panel\") and sb is StyleBoxFlat and sb.bg_color.v < 0.1):\n\t\t\tbad.append(uid + \" card not dim\")\n\telse:\n\t\tif r.is_card_exhausted(uid) or not (absf(m.r - 1.0) <= 0.02 and absf(m.g - 1.0) <= 0.02 and absf(m.b - 1.0) <= 0.02 and absf(m.a - 1.0) <= 0.02) or c.has_theme_stylebox_override(\"panel\"):\n\t\t\tbad.append(uid + \" card dim\")\n\tn += 1\nif n != GameState.state.units.size():\n\treturn \"%d cards for %d units\" % [n, GameState.state.units.size()]\nreturn \"ok\" if bad.is_empty() else \", \".join(bad)",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Main rebuilds every token after many actions (_recreate_unit_visuals);\n# remember the Blade Champion token's id to prove it is replaced.\nvar toks = []\nfor tn in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif tn.is_queued_for_deletion():\n\t\tcontinue\n\tif tn.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tn:\n\t\ttoks.append(tn)\n\telse:\n\t\tfor tg in tn.get_children():\n\t\t\tif tg.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tg:\n\t\t\t\ttoks.append(tg)\nfor t in toks:\n\tif str(t.get_meta(\"unit_id\")) == \"U_BLADE_CHAMPION_A\":\n\t\ttree.root.get_node(\"Main\").set_meta(\"t09_bc_token\", t.get_instance_id())\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nreturn tree.root.get_node(\"Main\").has_meta(\"t09_bc_token\")",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The rebuilt tokens start dim (TokenVisual._ready asks the phase).\nvar toks = []\nfor tn in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif tn.is_queued_for_deletion():\n\t\tcontinue\n\tif tn.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tn:\n\t\ttoks.append(tn)\n\telse:\n\t\tfor tg in tn.get_children():\n\t\t\tif tg.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tg:\n\t\t\t\ttoks.append(tg)\nvar old_id = int(tree.root.get_node(\"Main\").get_meta(\"t09_bc_token\"))\nfor t in toks:\n\tif str(t.get_meta(\"unit_id\")) == \"U_BLADE_CHAMPION_A\" and t.get_instance_id() == old_id:\n\t\treturn \"token was not rebuilt\"\nvar dim_ids = [\"U_BLADE_CHAMPION_A\", \"U_SHIELD_CAPTAIN_A\"]\nvar bad = []\nvar n_dim = 0\nvar n_lit = 0\nfor t in toks:\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tvar c = t.modulate\n\tif uid in dim_ids:\n\t\tif absf(c.r - 0.6) <= 0.02 and absf(c.g - 0.6) <= 0.02 and absf(c.b - 0.6) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == true:\n\t\t\tn_dim += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want dim)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\n\telse:\n\t\tif absf(c.r - 1.0) <= 0.02 and absf(c.g - 1.0) <= 0.02 and absf(c.b - 1.0) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == false:\n\t\t\tn_lit += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want lit)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\nif not bad.is_empty():\n\treturn \", \".join(bad)\nif n_dim != 2 or n_lit != 23:\n\treturn \"counted %d dim / %d lit tokens\" % [n_dim, n_lit]\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 2.5\nm.view_offset = Vector2(200, 160) - Vector2(930, 560) / 2.5\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 2.5
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T09_exhausted"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Tier B support, T08 rings on a dimmed token: sample the live frame on each\n# ring's mid-line (32 angles). On the two acted tokens the slot ring must read\n# 0.6 x its slot colour and the faction band 0.6 x the unit colour (the dim\n# multiplies both), and the two dimmed colours stay far apart. On an un-acted\n# Custodian Guard token the rings read their full colours (control).\n# Measured: Blade Champion slot 28/32 faction 24/32 sep 0.61, Shield-Captain\n# 32/32 24/32 0.54, Custodian Guard (lit) 29/32 26/32 0.96. Undimmed, the two\n# acted tokens would score ~0 against the 0.6 colours.\nvar m = tree.root.get_node(\"Main\")\nvar img = tree.root.get_texture().get_image()\nvar zoom = m.view_zoom\nvar toks = []\nfor tn in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif tn.is_queued_for_deletion():\n\t\tcontinue\n\tif tn.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tn:\n\t\ttoks.append(tn)\n\telse:\n\t\tfor tg in tn.get_children():\n\t\t\tif tg.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tg:\n\t\t\t\ttoks.append(tg)\nvar res = []\nvar bad = []\nfor t in toks:\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tvar want_dim = uid == \"U_BLADE_CHAMPION_A\" or uid == \"U_SHIELD_CAPTAIN_A\"\n\tif not want_dim and not (uid == \"U_CUSTODIAN_GUARD_B\" and str(t.get_meta(\"model_id\")) == \"m1\"):\n\t\tcontinue\n\tvar k = 0.6 if want_dim else 1.0\n\tvar g = t.t08_ring_geometry()\n\tvar c0 = t.get_global_transform_with_canvas().origin\n\tvar fcol = t.get_node(\"FactionRing\").modulate\n\tvar scol = t.get_node(\"SlotRing\").modulate\n\tvar fk = Color(fcol.r * k, fcol.g * k, fcol.b * k)\n\tvar sk = Color(scol.r * k, scol.g * k, scol.b * k)\n\tvar hs = 0\n\tvar hf = 0\n\tfor i in range(32):\n\t\tvar a = TAU * float(i) / 32.0\n\t\tvar d = Vector2(cos(a), sin(a))\n\t\tvar ps = c0 + d * float(g[\"slot_mid\"]) * zoom\n\t\tvar pf = c0 + d * float(g[\"faction_mid\"]) * zoom\n\t\tvar cs = img.get_pixel(int(round(ps.x)), int(round(ps.y)))\n\t\tvar cf = img.get_pixel(int(round(pf.x)), int(round(pf.y)))\n\t\tif absf(cs.r - sk.r) < 0.05 and absf(cs.g - sk.g) < 0.05 and absf(cs.b - sk.b) < 0.05:\n\t\t\ths += 1\n\t\tif absf(cf.r - fk.r) < 0.05 and absf(cf.g - fk.g) < 0.05 and absf(cf.b - fk.b) < 0.05:\n\t\t\thf += 1\n\tvar sep = Vector3(sk.r - fk.r, sk.g - fk.g, sk.b - fk.b).length()\n\tres.append(\"%s k%.1f slot %d/32 faction %d/32 sep %.2f\" % [uid, k, hs, hf, sep])\n\tif hs < 24 or hf < 18 or sep < 0.25:\n\t\tbad.append(res[-1])\nif res.size() != 3:\n\treturn \"sampled %d tokens, want 3: %s\" % [res.size(), str(res)]\nreturn \"ok\" if bad.is_empty() else \", \".join(bad)",
+      "equals": "ok",
+      "comment": "Tier B support (T08 rings still distinguishable on the dimmed token)."
+    },
+    {
+      "act": "click_node",
+      "button_text": "[Enter] End Movement Phase",
+      "comment": "Player path: end the phase with the End Phase button..."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_node",
+      "button_text": "End Movement Phase",
+      "comment": "...and confirm in the End Movement Phase? prompt."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\n\tp = PhaseManager.get_current_phase_instance()\nreturn true",
+      "equals": true,
+      "comment": "Declines an end-of-movement stratagem window if one opens (none expected with this fixture)."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Tier A: after the phase advance every token, the acted ones included, is back to (1, 1, 1, 1) and not exhausted.\nvar toks = []\nfor tn in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif tn.is_queued_for_deletion():\n\t\tcontinue\n\tif tn.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tn:\n\t\ttoks.append(tn)\n\telse:\n\t\tfor tg in tn.get_children():\n\t\t\tif tg.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tg:\n\t\t\t\ttoks.append(tg)\nvar dim_ids = []\nvar bad = []\nvar n_dim = 0\nvar n_lit = 0\nfor t in toks:\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tvar c = t.modulate\n\tif uid in dim_ids:\n\t\tif absf(c.r - 0.6) <= 0.02 and absf(c.g - 0.6) <= 0.02 and absf(c.b - 0.6) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == true:\n\t\t\tn_dim += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want dim)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\n\telse:\n\t\tif absf(c.r - 1.0) <= 0.02 and absf(c.g - 1.0) <= 0.02 and absf(c.b - 1.0) <= 0.02 and absf(c.a - 1.0) <= 0.02 and t.is_exhausted_this_phase == false:\n\t\t\tn_lit += 1\n\t\telse:\n\t\t\tbad.append(\"%s %s/%s (want lit)\" % [uid, c.to_html(true), str(t.is_exhausted_this_phase)])\nif not bad.is_empty():\n\treturn \", \".join(bad)\nif n_dim != 0 or n_lit != 25:\n\treturn \"counted %d dim / %d lit tokens\" % [n_dim, n_lit]\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var toks = []\nfor tn in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif tn.is_queued_for_deletion():\n\t\tcontinue\n\tif tn.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tn:\n\t\ttoks.append(tn)\n\telse:\n\t\tfor tg in tn.get_children():\n\t\t\tif tg.has_meta(\"unit_id\") and \"is_exhausted_this_phase\" in tg:\n\t\t\t\ttoks.append(tg)\nfor t in toks:\n\tif str(t.get_meta(\"unit_id\")) == \"U_BLADE_CHAMPION_A\":\n\t\treturn t.modulate.to_html(true)\nreturn \"no token\"",
+      "equals": "ffffffff",
+      "comment": "Tier A: the acted unit's modulate is Color(1, 1, 1, 1) again."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Phase end resets the roster cards too.\nvar r = tree.root.get_node(\"Main/LeftRoster\")\nif not r.is_visible_in_tree():\n\treturn \"roster strip not shown\"\nvar dim_ids = []\nvar bad = []\nvar n = 0\nfor c in r.get_node(\"Scroll/Cards\").get_children():\n\tvar uid = str(c.get_meta(\"unit_id\", \"\"))\n\tvar m = c.modulate\n\tif uid in dim_ids:\n\t\tvar sb = c.get_theme_stylebox(\"panel\")\n\t\tif not (r.is_card_exhausted(uid) and absf(m.r - 0.6) <= 0.02 and absf(m.g - 0.6) <= 0.02 and absf(m.b - 0.6) <= 0.02 and absf(m.a - 1.0) <= 0.02 and c.has_theme_stylebox_override(\"panel\") and sb is StyleBoxFlat and sb.bg_color.v < 0.1):\n\t\t\tbad.append(uid + \" card not dim\")\n\telse:\n\t\tif r.is_card_exhausted(uid) or not (absf(m.r - 1.0) <= 0.02 and absf(m.g - 1.0) <= 0.02 and absf(m.b - 1.0) <= 0.02 and absf(m.a - 1.0) <= 0.02) or c.has_theme_stylebox_override(\"panel\"):\n\t\t\tbad.append(uid + \" card dim\")\n\tn += 1\nif n != GameState.state.units.size():\n\treturn \"%d cards for %d units\" % [n, GameState.state.units.size()]\nreturn \"ok\" if bad.is_empty() else \", \".join(bad)",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/UnitExhaustionTracker\").acted_unit_ids.size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 2.5\nm.view_offset = Vector2(200, 160) - Vector2(930, 560) / 2.5\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 2.5
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T09_after"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T09_exhausted",
+      "after": "T09_after",
+      "region": "acted_token",
+      "expect_min_pct": 15.0,
+      "comment": "Tier A: regions.acted_token (the Blade Champion, END_UNIT_MOVE) diff_pct > 15.0 between the dimmed frame and the next phase."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T09_exhausted",
+      "after": "T09_after",
+      "region": "acted_token_ui",
+      "expect_min_pct": 15.0,
+      "comment": "The Shield-Captain (ended through the button) lights up again too."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T09_exhausted",
+      "after": "T09_after",
+      "region": "unacted_token",
+      "expect_max_pct": 1.0,
+      "comment": "Control: an un-acted Custodian Guard token is the same in both frames, so the diffs above are the dim."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T09_before",
+      "after": "T09_exhausted",
+      "region": "unacted_token",
+      "expect_max_pct": 1.0,
+      "comment": "Control: the un-acted token did not change when other units acted."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T09_before",
+      "after": "T09_exhausted",
+      "region": "roster_card_acted",
+      "expect_min_pct": 15.0,
+      "comment": "The Blade Champion's roster card dims when it acts..."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T09_exhausted",
+      "after": "T09_after",
+      "region": "roster_card_acted",
+      "expect_min_pct": 15.0,
+      "comment": "...and lights up again at the phase end."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T09_exhausted",
+      "after": "T09_after",
+      "region": "roster_card_acted_ui",
+      "expect_min_pct": 15.0
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T09_before",
+      "after": "T09_exhausted",
+      "region": "roster_card_unacted",
+      "expect_max_pct": 1.0,
+      "comment": "Control: the Custodian Guard's card stays as it was."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T09_exhausted",
+      "after": "T09_after",
+      "region": "roster_card_unacted",
+      "expect_max_pct": 1.0
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }
