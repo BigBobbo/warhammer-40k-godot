@@ -406,6 +406,14 @@ slot name for assertions. The Constant and Hex columns are the spec:
 `40k/tests/test_ui_constants_slots.gd` fails if this table and the
 autoload drift apart.
 
+Two neutral chrome colours sit beside the slots but outside the table:
+`OVERLAY_LABEL_BG` (`#1A140D`, the dark chip behind overlay labels) and
+`OVERLAY_SHADOW` (`#000000`, under-strokes and text backdrops). They carry
+no meaning, so `slot_name()` returns "" for them (`chrome_name()` names
+them). Overlay scripts reference a slot or chrome constant and set the
+alpha at draw time with `UIConstants.with_alpha()`, so no overlay script
+writes its own `Color(...)` literal (T12; `40k/tests/test_visual_color_slots.gd`).
+
 **Motion budget:**
 - Resolution dice animations: ≤ 1.5s, SPACE to skip.
 - Token slides on movement: ≤ 0.4s per inch.

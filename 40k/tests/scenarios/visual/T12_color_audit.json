@@ -1,28 +1,305 @@
 {
   "id": "T12_color_audit",
-  "covers": ["design_guidelines.T12", "audit.uiconstants_references"],
-  "description": "T12 audit: visual scripts reference UIConstants slot colors instead of ad-hoc hex. This iteration converts HumanMovementPathVisual's over-cap warning red to UIConstants.INVALID_RED via runtime lookup, and exposes a UIConstants.all_slots() audit hook. Asserts the slot table is complete (7 entries) and individual slots are reachable as Color values.",
-
+  "covers": [
+    "design_guidelines.T12",
+    "audit.uiconstants_references",
+    "autoloads.UIConstants",
+    "scripts.MovementRangeVisual",
+    "scripts.EngagementRangeVisual",
+    "scripts.CoherencyCircleVisual",
+    "scripts.ChargeTrajectoryPreview",
+    "scripts.DeepStrikeExclusionVisual",
+    "scripts.DamageFeedbackVisual",
+    "scripts.ChargeArrowVisual",
+    "scripts.DeploymentZoneVisual",
+    "scripts.AIMovementPathVisual",
+    "scripts.HumanMovementPathVisual",
+    "scripts.InfiltratorExclusionVisual"
+  ],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 10,
+  "description": "T12 (design doc §9): the board-overlay scripts take every colour from the UIConstants slots, or from its two neutral chrome backdrops (OVERLAY_LABEL_BG, OVERLAY_SHADOW, kept out of the slot table), instead of ad-hoc Color(...) literals; alphas are applied at draw time with UIConstants.with_alpha(). Scope: the nine Touches files (MovementRangeVisual with its DragRuler, EngagementRangeVisual, CoherencyCircleVisual, ChargeTrajectoryPreview, DeepStrikeExclusionVisual, DamageFeedbackVisual, ChargeArrowVisual, DeploymentZoneVisual, AIMovementPathVisual) plus the two twins that shared their literals (HumanMovementPathVisual, InfiltratorExclusionVisual). Fixture co_pretrigger (fight phase). Z (player path) shows both deployment zones; every overlay the eleven scripts draw is then put on the board through the public API its production caller uses (MovementRangeVisual.set_from, DragRuler.show_path, CoherencyCircleVisual.setup / set_in_range, ChargeTrajectoryPreview.update_trajectories, HumanMovementPathVisual.update_planning_paths, the Deep Strike / Infiltrator show_exclusion on GameState's enemy zone, ChargeArrowVisual.show_static / set_roll_result, AIMovementPathVisual.show_paths, DamageFeedbackVisual.play_*) and frozen on a fixed frame (process disabled, pulse / march phase 0, seeded RNG), so two builds render the same pixels (run-to-run diff 0.0% on every frame). Three fixture framings (engagement zoom x2 on Custodian Guard B in base contact with Warboss B; reserves zoom x1 on the P2 zone; full board, the load framing at zoom 0.3) are captured without and with the persistent overlays, then two effects frames add the transient ones (charge arrows, AI trails, damage feedback). Tier A: the class walk finds 42 Color constants / script variables, every one a slot or chrome; each semantic constant is in its slot (charge declared WARNING_ORANGE, success CONFIRMED_GREEN, failure INVALID_RED, P1 / P2 trails FRIENDLY_PLAYER_TEAL / ENEMY_PLAYER_MAGENTA, exclusions INVALID_RED, summary text NEUTRAL_UI_PALE_WHITE, ...); the shipped source of the eleven files has 0 `Color(` / named `Color.X` (101 lines before T12); the live damage labels and backdrops the production paths built are the slots; the failed-charge and declared arrowheads on the capture are exactly INVALID_RED / WARNING_ORANGE (pre-T12 #FF3333 / #FF9900). Each of those steps fails on the pre-T12 build. Pre- vs post-T12 diff of the same frames (pixel_diff_cli on captures from both builds, recorded in .llm/todo.md): engagement 0.38%, reserves 1.01%, full board 0.13%, all under the 2% bound; effects frames 3.52% (engagement, 1.86% of it the hit-flash disc frozen at its peak: #FF260D -> INVALID_RED, the nearest slot) and 1.21% (reserves). In-run bounds: each overlay frame differs from its overlay-free twin (> 5% / 5% / 1%) and each effects frame from its overlay frame (> 3% / 0.25%).",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.3 },
-
-    { "act": "execute_script",
-      "script": "UIConstants.all_slots().size()",
-      "equals": 7 },
-    { "act": "execute_script",
-      "script": "UIConstants.all_slots().has(\"INVALID_RED\")",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "UIConstants.all_slots().has(\"CONFIRMED_GREEN\")",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "UIConstants.all_slots().has(\"MARGINAL_YELLOW\")",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "UIConstants.slot_name(UIConstants.all_slots()[\"INVALID_RED\"])",
-      "equals": "INVALID_RED" },
-
-    { "act": "expect_baseline_unchanged" }
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The hot-seat handoff screen eats input; acknowledge it the way the player's [Enter] does.",
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.root.warp_mouse(Vector2(1700, 1010))\nreturn true",
+      "equals": true,
+      "comment": "Park the real cursor over the empty foot of the right-hand panel so no hover state is in any frame."
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return ToastManager.active_toasts.is_empty()",
+      "equals": true,
+      "timeout_s": 10.0,
+      "poll_s": 0.25,
+      "comment": "Wait out the load toasts so they are in no frame."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 2.0\nm.view_offset = Vector2(380, 200) - Vector2(930, 575) / 2.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 2.0,
+      "comment": "Engagement zoom (x2): Custodian Guard B in base contact with Warboss B, persistent engagement rings on both."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T12_engagement_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 1.0\nm.view_offset = Vector2(640, 1930) - Vector2(930, 575)\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 1.0,
+      "comment": "Reserves zoom (x1): the P2 deployment zone and the Ork models along the bottom edge."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T12_reserves_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar vp = tree.root.get_visible_rect().size\nm.view_rotation = 0.0\nm.view_zoom = 0.3\nm.view_offset = Vector2(SettingsService.get_board_width_px(), SettingsService.get_board_height_px()) / 2.0 - vp / (2.0 * 0.3)\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 0.3,
+      "comment": "Full board: Main's load framing (zoom 0.3, board centred), the whole table clear of the HUD."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T12_full_board_before"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Z",
+      "comment": "Player path: Z shows both deployment zones (DeploymentZoneVisual)."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nreturn m.p1_zone.visible and m.p2_zone.visible and m.p1_zone.is_active and m.p2_zone.is_active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar br = m.get_node(\"BoardRoot\")\nvar old = br.get_node_or_null(\"T12Probe\")\nif old != null:\n\tbr.remove_child(old)\n\told.free()\nvar probe = Node2D.new()\nprobe.name = \"T12Probe\"\nbr.add_child(probe)\nvar dfb = br.get_node(\"DamageFeedbackVisual\")\nvar r32 = Measurement.base_radius_px(32)\nvar r40 = Measurement.base_radius_px(40)\n# MovementRangeVisual (BoardRoot node, T28): Kaptin Badrukk's M disc + a 12\" weapon ring\nvar mrv = br.get_node(\"MovementRangeVisual\")\nmrv.set_from(\"U_KAPTIN_BADRUKK_A\", 12.0)\n# MovementRangeVisual.DragRuler (MovementController, T03): green / yellow / red runs, a waypoint, the label\nvar dr = load(\"res://scripts/MovementRangeVisual.gd\").DragRuler.new()\ndr.name = \"DragRuler\"\nprobe.add_child(dr)\ndr.show_path([{\"from\": Vector2(105, 330), \"to\": Vector2(150, 285), \"color_slot\": \"CONFIRMED_GREEN\", \"distance_inches\": 1.6}, {\"from\": Vector2(150, 285), \"to\": Vector2(205, 250), \"color_slot\": \"MARGINAL_YELLOW\", \"distance_inches\": 1.6}, {\"from\": Vector2(205, 250), \"to\": Vector2(250, 225), \"color_slot\": \"INVALID_RED\", \"distance_inches\": 1.3}], [Vector2(150, 285)], Vector2(250, 225), \"13.4\\\"\", \"INVALID_RED\", r40)\n# CoherencyCircleVisual (DeploymentController): in coherency (green) and out of it (red)\nvar CCV = load(\"res://scripts/CoherencyCircleVisual.gd\")\nvar cc_in = CCV.new()\ncc_in.name = \"CoherencyIn\"\ncc_in.position = Vector2(380, 1900)\nprobe.add_child(cc_in)\ncc_in.setup(r32)\ncc_in.set_in_range(true)\nvar cc_out = CCV.new()\ncc_out.name = \"CoherencyOut\"\ncc_out.position = Vector2(200, 1700)\nprobe.add_child(cc_out)\ncc_out.setup(r32)\ncc_out.set_in_range(false)\n# ChargeTrajectoryPreview (ChargeController target selection): easy / average / hard minimum rolls\nvar CTP = load(\"res://scripts/ChargeTrajectoryPreview.gd\")\nvar t_easy = CTP.new()\nprobe.add_child(t_easy)\nt_easy.name = \"TrajectoryEasy\"\nt_easy.update_trajectories([{\"from\": Vector2(320, 410), \"to\": Vector2(360, 330), \"distance_inches\": 1.7}], 1.7, Vector2(300, 440))\nvar t_mid = CTP.new()\nprobe.add_child(t_mid)\nt_mid.name = \"TrajectoryMid\"\nt_mid.update_trajectories([{\"from\": Vector2(760, 1700), \"to\": Vector2(860, 1620), \"distance_inches\": 7.5}], 7.5, Vector2(760, 1740))\nvar t_hard = CTP.new()\nprobe.add_child(t_hard)\nt_hard.name = \"TrajectoryHard\"\nt_hard.update_trajectories([{\"from\": Vector2(1000, 1700), \"to\": Vector2(1100, 1620), \"distance_inches\": 10.2}], 10.2, Vector2(1000, 1740))\n# HumanMovementPathVisual (MovementController drag-to-plan): one path within the move cap, one past it\nvar HMP = load(\"res://scripts/HumanMovementPathVisual.gd\")\nvar hp = HMP.new()\nhp.name = \"HumanPlan\"\nprobe.add_child(hp)\nhp.update_planning_paths([{\"from\": Vector2(140, 420), \"to\": Vector2(215, 350), \"distance\": 2.6}, {\"from\": Vector2(100, 1820), \"to\": Vector2(230, 1770), \"distance\": 3.3}], 1, 3.0)\n# DeepStrikeExclusionVisual (Main, reserves arrival): the bubble around every bottom-half P2 model\nvar DSE = load(\"res://scripts/DeepStrikeExclusionVisual.gd\")\nvar dse = DSE.new()\ndse.name = \"DeepStrike\"\nprobe.add_child(dse)\nvar enemies = []\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) != 2:\n\t\tcontinue\n\tfor md in u.get(\"models\", []):\n\t\tvar p = md.get(\"position\", null)\n\t\tif md.get(\"alive\", true) and typeof(p) == TYPE_DICTIONARY and float(p.get(\"y\", 0.0)) > 1200.0:\n\t\t\tenemies.append({\"x\": float(p.x), \"y\": float(p.y), \"base_mm\": int(md.get(\"base_mm\", 32))})\ndse.show_exclusion(enemies)\n# InfiltratorExclusionVisual (DeploymentController): P1's stand-off line around the enemy (P2) zone\nvar IEV = load(\"res://scripts/InfiltratorExclusionVisual.gd\")\nvar iev = IEV.new()\niev.name = \"Infiltrator\"\nprobe.add_child(iev)\niev.show_exclusion(GameState.get_enemy_deployment_zone(1).get(\"poly\", []))\nvar still = [probe, dfb, mrv, m.p1_zone, m.p2_zone]\nfor n in still:\n\tn.process_mode = Node.PROCESS_MODE_DISABLED\nvar anim = [m.p1_zone, m.p2_zone]\nanim.append_array(probe.get_children())\nfor n in anim:\n\tif \"_pulse_time\" in n:\n\t\tn._pulse_time = 0.0\n\tif \"_march_offset\" in n:\n\t\tn._march_offset = 0.0\n\tn.queue_redraw()\ndfb.queue_redraw()\nreturn probe.get_child_count()",
+      "equals": 9,
+      "comment": "The persistent overlays of the T12 scripts, each through the public API its production caller uses, frozen on a fixed animation frame: drag ruler, two coherency circles, three charge trajectory previews, the planning paths, the deep-strike bubbles and the infiltrator line (9 probe nodes), plus Kaptin Badrukk's movement range on the BoardRoot node."
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return ToastManager.active_toasts.is_empty()",
+      "equals": true,
+      "timeout_s": 10.0,
+      "poll_s": 0.25,
+      "comment": "Wait out the Z toast."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 2.0\nm.view_offset = Vector2(380, 200) - Vector2(930, 575) / 2.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 2.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T12_engagement_after"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 1.0\nm.view_offset = Vector2(640, 1930) - Vector2(930, 575)\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 1.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T12_reserves_after"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar vp = tree.root.get_visible_rect().size\nm.view_rotation = 0.0\nm.view_zoom = 0.3\nm.view_offset = Vector2(SettingsService.get_board_width_px(), SettingsService.get_board_height_px()) / 2.0 - vp / (2.0 * 0.3)\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 0.3
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T12_full_board_after"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T12_engagement_before",
+      "after": "T12_engagement_after",
+      "expect_min_pct": 5.0,
+      "comment": "The engagement frame carries the overlays: a frame where they failed to draw would not move this."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T12_reserves_before",
+      "after": "T12_reserves_after",
+      "expect_min_pct": 5.0
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T12_full_board_before",
+      "after": "T12_full_board_after",
+      "expect_min_pct": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar br = m.get_node(\"BoardRoot\")\nvar probe = br.get_node(\"T12Probe\")\nvar dfb = br.get_node(\"DamageFeedbackVisual\")\nvar mrv = br.get_node(\"MovementRangeVisual\")\nseed(1212)\nvar r40 = Measurement.base_radius_px(40)\n# ChargeArrowVisual (ChargeController declaration): rolled success, rolled failure, declared (no roll yet)\nvar CAV = load(\"res://scripts/ChargeArrowVisual.gd\")\nvar a_ok = CAV.new()\na_ok.name = \"ArrowSuccess\"\nprobe.add_child(a_ok)\na_ok.show_static(Vector2(400, 250), Vector2(503, 100))\na_ok.set_roll_result(9, true)\nvar a_bad = CAV.new()\na_bad.name = \"ArrowFail\"\nprobe.add_child(a_bad)\na_bad.show_static(Vector2(480, 1600), Vector2(640, 1615))\na_bad.set_roll_result(4, false)\nvar a_dec = CAV.new()\na_dec.name = \"ArrowDeclared\"\nprobe.add_child(a_dec)\na_dec.show_static(Vector2(480, 1690), Vector2(640, 1700))\n# AIMovementPathVisual (Main / AIPlayer after an AI move): a P2 trail and a P1 trail\nvar AIP = load(\"res://scripts/AIMovementPathVisual.gd\")\nvar ai2 = AIP.new()\nai2.name = \"AIPathP2\"\nprobe.add_child(ai2)\nai2.show_paths([{\"from\": Vector2(900, 1810), \"to\": Vector2(800, 1770)}, {\"from\": Vector2(1160, 1810), \"to\": Vector2(1070, 1775)}], 2)\nvar ai1 = AIP.new()\nai1.name = \"AIPathP1\"\nprobe.add_child(ai1)\nai1.show_paths([{\"from\": Vector2(560, 20), \"to\": Vector2(650, 60)}], 1)\n# DamageFeedbackVisual (BoardRoot node, T34): hit flash, death ring + debris + skull, damage / kill\n# numbers, the kill notification and the AI result summary\ndfb.play_damage_flash(Vector2(503, 100), r40, 2, 3)\ndfb.play_death_animation(Vector2(440, 100), r40)\ndfb.play_floating_number(Vector2(503, 60), 3, false)\ndfb.play_floating_number(Vector2(440, 60), 2, true)\ndfb.play_kill_notification(Vector2(300, 168), \"Custodian Guard\")\ndfb.play_result_summary(Vector2(250, 30), \"2 hits, 1 wound\")\nvar still = [probe, dfb, mrv, m.p1_zone, m.p2_zone]\nfor n in still:\n\tn.process_mode = Node.PROCESS_MODE_DISABLED\nvar anim = [m.p1_zone, m.p2_zone]\nanim.append_array(probe.get_children())\nfor n in anim:\n\tif \"_pulse_time\" in n:\n\t\tn._pulse_time = 0.0\n\tif \"_march_offset\" in n:\n\t\tn._march_offset = 0.0\n\tn.queue_redraw()\ndfb.queue_redraw()\nfor e in dfb._effects:\n\te.elapsed = 0.12 if e.type == \"damage_flash\" else 0.25\nfor c in dfb.get_children():\n\tif c is Label and c.z_index == 56:\n\t\tvar sc = c.get_theme_color(\"font_color\")\n\t\tsc.a = 1.0\n\t\tc.add_theme_color_override(\"font_color\", sc)\ndfb.queue_redraw()\nreturn probe.get_child_count()",
+      "equals": 14,
+      "comment": "The transient effects, frozen: three charge arrows (success / failure / declared), a P2 and a P1 AI movement trail (14 probe nodes now), and on the BoardRoot DamageFeedbackVisual a hit flash, a death ring with debris and skull, a damage and a kill number, the kill notification and the AI result summary."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var dfb = tree.root.get_node(\"Main/BoardRoot/DamageFeedbackVisual\")\nvar n = 0\nfor c in dfb.get_children():\n\tif c is Label or c is ColorRect:\n\t\tn += 1\nreturn \"%d effects, %d labels/backdrops\" % [dfb._effects.size(), n]",
+      "equals": "3 effects, 7 labels/backdrops",
+      "comment": "Flash + death ring + debris, and the skull, the two numbers, the kill notification and the summary with their two backdrops."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 2.0\nm.view_offset = Vector2(380, 200) - Vector2(930, 575) / 2.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 2.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T12_effects_engagement"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 1.0\nm.view_offset = Vector2(640, 1930) - Vector2(930, 575)\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 1.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T12_effects_reserves"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T12_engagement_after",
+      "after": "T12_effects_engagement",
+      "expect_min_pct": 3.0,
+      "comment": "The effects are painted (frozen, so they are still on screen after the waits)."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T12_reserves_after",
+      "after": "T12_effects_reserves",
+      "expect_min_pct": 0.25
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var dfb = tree.root.get_node(\"Main/BoardRoot/DamageFeedbackVisual\")\nreturn \"%d effects\" % dfb._effects.size()",
+      "equals": "3 effects",
+      "comment": "Still frozen after both captures."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var names = [\"MovementRangeVisual\", \"EngagementRangeVisual\", \"CoherencyCircleVisual\", \"ChargeTrajectoryPreview\", \"DeepStrikeExclusionVisual\", \"DamageFeedbackVisual\", \"ChargeArrowVisual\", \"DeploymentZoneVisual\", \"AIMovementPathVisual\", \"HumanMovementPathVisual\", \"InfiltratorExclusionVisual\"]\nvar classes = []\nfor n in names:\n\tclasses.append([n, load(\"res://scripts/%s.gd\" % n)])\nclasses.append([\"MovementRangeVisual.DragRuler\", load(\"res://scripts/MovementRangeVisual.gd\").DragRuler])\nvar checked = 0\nvar bad = []\nfor pair in classes:\n\tvar s = pair[1]\n\tvar cm = s.get_script_constant_map()\n\tfor k in cm:\n\t\tif typeof(cm[k]) == TYPE_COLOR:\n\t\t\tchecked += 1\n\t\t\tif UIConstants.slot_name(cm[k]) == \"\" and UIConstants.chrome_name(cm[k]) == \"\":\n\t\t\t\tbad.append(\"%s.%s=#%s\" % [pair[0], k, cm[k].to_html()])\n\tvar inst = s.new()\n\tfor prop in inst.get_property_list():\n\t\tif prop.type == TYPE_COLOR and (prop.usage & PROPERTY_USAGE_SCRIPT_VARIABLE):\n\t\t\tchecked += 1\n\t\t\tvar v = inst.get(prop.name)\n\t\t\tif UIConstants.slot_name(v) == \"\" and UIConstants.chrome_name(v) == \"\":\n\t\t\t\tbad.append(\"%s.%s=#%s\" % [pair[0], prop.name, v.to_html()])\n\tinst.free()\nreturn \"%d colours, offenders: [%s]\" % [checked, \", \".join(bad)]",
+      "equals": "42 colours, offenders: []",
+      "comment": "[T12 refactor] Tier A: every Color constant and Color script variable of the eleven scripts (and MovementRangeVisual.DragRuler) is a UIConstants slot or neutral chrome (42 walked). Fails on the pre-T12 build, whose constants are off-slot (see the next step) and which has no chrome classifier."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var expect = {\n\t\"ChargeArrowVisual\": {\"ARROW_COLOR\": \"WARNING_ORANGE\", \"ARROW_SUCCESS_COLOR\": \"CONFIRMED_GREEN\", \"ARROW_FAIL_COLOR\": \"INVALID_RED\", \"CHARGE_FLASH_COLOR\": \"WARNING_ORANGE\", \"PENDING_TEXT_COLOR\": \"MARGINAL_YELLOW\"},\n\t\"ChargeTrajectoryPreview\": {\"TRAJECTORY_COLOR\": \"WARNING_ORANGE\", \"SUMMARY_GOOD_COLOR\": \"CONFIRMED_GREEN\", \"SUMMARY_MID_COLOR\": \"MARGINAL_YELLOW\", \"SUMMARY_HARD_COLOR\": \"INVALID_RED\"},\n\t\"AIMovementPathVisual\": {\"P1_TRAIL_COLOR\": \"FRIENDLY_PLAYER_TEAL\", \"P2_TRAIL_COLOR\": \"ENEMY_PLAYER_MAGENTA\"},\n\t\"HumanMovementPathVisual\": {\"P1_TRAIL_COLOR\": \"FRIENDLY_PLAYER_TEAL\", \"P2_TRAIL_COLOR\": \"ENEMY_PLAYER_MAGENTA\", \"OVER_CAP_COLOR\": \"INVALID_RED\"},\n\t\"CoherencyCircleVisual\": {\"COLOR_GREEN\": \"CONFIRMED_GREEN\", \"COLOR_RED\": \"INVALID_RED\"},\n\t\"DeepStrikeExclusionVisual\": {\"LINE_COLOR\": \"INVALID_RED\", \"GLOW_COLOR\": \"INVALID_RED\", \"FILL_COLOR\": \"INVALID_RED\"},\n\t\"InfiltratorExclusionVisual\": {\"LINE_COLOR\": \"INVALID_RED\", \"GLOW_COLOR\": \"INVALID_RED\"},\n\t\"DamageFeedbackVisual\": {\"DAMAGE_FLASH_COLOR\": \"INVALID_RED\", \"DAMAGE_FLASH_CORE_COLOR\": \"WARNING_ORANGE\", \"DEATH_FLASH_COLOR\": \"WARNING_ORANGE\", \"FLOAT_NUMBER_COLOR_DAMAGE\": \"INVALID_RED\", \"KILL_NOTIFY_COLOR\": \"INVALID_RED\", \"RESULT_SUMMARY_TEXT_COLOR\": \"NEUTRAL_UI_PALE_WHITE\"},\n}\nvar bad = []\nfor script_name in expect:\n\tvar cm = load(\"res://scripts/%s.gd\" % script_name).get_script_constant_map()\n\tfor k in expect[script_name]:\n\t\tvar got = UIConstants.slot_name(cm.get(k, Color(0, 0, 0, 0)))\n\t\tif got != expect[script_name][k]:\n\t\t\tbad.append(\"%s.%s=%s\" % [script_name, k, got])\nreturn \", \".join(bad)",
+      "equals": "",
+      "comment": "[T12 refactor] Each semantic constant is in the slot its meaning calls for."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var names = [\"MovementRangeVisual\", \"EngagementRangeVisual\", \"CoherencyCircleVisual\", \"ChargeTrajectoryPreview\", \"DeepStrikeExclusionVisual\", \"DamageFeedbackVisual\", \"ChargeArrowVisual\", \"DeploymentZoneVisual\", \"AIMovementPathVisual\", \"HumanMovementPathVisual\", \"InfiltratorExclusionVisual\"]\nvar re = RegEx.new()\nre.compile(\"Color\\\\(|\\\\bColor\\\\.[A-Z]\")\nvar hits = []\nfor n in names:\n\tvar lines = FileAccess.get_file_as_string(\"res://scripts/%s.gd\" % n).split(\"\\n\")\n\tfor i in range(lines.size()):\n\t\tif re.search(lines[i]) != null:\n\t\t\thits.append(\"%s:%d\" % [n, i + 1])\nreturn \"%d hits %s\" % [hits.size(), str(hits)]",
+      "equals": "0 hits []",
+      "comment": "[T12 refactor] Tier A grep: no Color( literal and no named Color.X in the eleven files, comments included."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return \"%s|%s|%s\" % [UIConstants.slot_name(Color(1.0, 0.6, 0.0, 1.0)), UIConstants.chrome_name(UIConstants.INVALID_RED), UIConstants.chrome_name(Color(0.1, 0.08, 0.05, 1.0))]",
+      "equals": "||OVERLAY_LABEL_BG",
+      "comment": "[T12 refactor] The classifier is falsifiable: the old charge orange #FF9900 is no slot, a slot is no chrome, the old label chip is OVERLAY_LABEL_BG."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var dfb = tree.root.get_node(\"Main/BoardRoot/DamageFeedbackVisual\")\nvar got = {}\nfor c in dfb.get_children():\n\tif c is Label:\n\t\tgot[c.text] = c.get_theme_color(\"font_color\")\n\telif c is ColorRect:\n\t\tgot[\"bg%d\" % c.z_index + \"_\" + str(snappedf(c.color.a, 0.01))] = c.color\nvar bad = []\nvar want = {\"-3\": UIConstants.INVALID_RED, \"-2\": UIConstants.INVALID_RED.darkened(0.2), \"DESTROYED: Custodian Guard\": UIConstants.INVALID_RED, \"2 hits, 1 wound\": UIConstants.NEUTRAL_UI_PALE_WHITE}\nfor k in want:\n\tif not got.has(k) or not got[k].is_equal_approx(want[k]):\n\t\tbad.append(\"%s=%s\" % [k, str(got.get(k, \"missing\"))])\nvar shadows = 0\nfor k in got:\n\tvar opaque = got[k]\n\topaque.a = 1.0\n\tif k.begins_with(\"bg\") and UIConstants.chrome_name(opaque) == \"OVERLAY_SHADOW\":\n\t\tshadows += 1\nreturn \"%s | shadow backdrops %d\" % [\", \".join(bad), shadows]",
+      "equals": " | shadow backdrops 2",
+      "comment": "[T12 refactor] The live labels the production paths built: damage -3 INVALID_RED, kill -2 a DEEP_RED_SHADE darker, the kill notification INVALID_RED, the summary NEUTRAL_UI_PALE_WHITE, both backdrops OVERLAY_SHADOW."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"user://test_results/scenarios/T12_color_audit_T12_effects_reserves.png\"))\nif img == null:\n\treturn \"no capture\"\nvar m = tree.root.get_node(\"Main\")\nvar zoom = 1.0\nvar offset = Vector2(640, 1930) - Vector2(930, 575)\nvar out = []\nfor pair in [[\"ArrowFail\", \"INVALID_RED\"], [\"ArrowDeclared\", \"WARNING_ORANGE\"]]:\n\tvar a = m.get_node(\"BoardRoot/T12Probe/\" + pair[0])\n\tvar dir = (a.to_pos - a.from_pos).normalized()\n\tvar centroid = a.to_pos - dir * cos(a.ARROW_HEAD_ANGLE) * a.ARROW_HEAD_SIZE * 2.0 / 3.0\n\tvar sp = (centroid - offset) * zoom\n\tvar c = img.get_pixel(int(sp.x), int(sp.y))\n\tvar want = UIConstants.all_slots()[pair[1]]\n\tvar ok = absf(c.r - want.r) < 0.02 and absf(c.g - want.g) < 0.02 and absf(c.b - want.b) < 0.02\n\tout.append(\"%s=%s\" % [pair[0], pair[1] if ok else \"#\" + c.to_html(false)])\nreturn \", \".join(out)",
+      "equals": "ArrowFail=INVALID_RED, ArrowDeclared=WARNING_ORANGE",
+      "comment": "[T12 refactor] Rendered pixels: the failed-charge and declared arrowheads are exactly INVALID_RED and WARNING_ORANGE on the capture."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"user://test_results/scenarios/T12_color_audit_T12_engagement_after.png\"))\nif img == null:\n\treturn \"no capture\"\nvar m = tree.root.get_node(\"Main\")\nvar dr = m.get_node(\"BoardRoot/T12Probe/DragRuler\")\nvar zoom = 2.0\nvar offset = Vector2(380, 200) - Vector2(930, 575) / 2.0\nvar out = []\nfor seg in dr.segments:\n\tvar mid = (seg.from + seg.to) / 2.0\n\tvar sp = (mid - offset) * zoom\n\tvar c = img.get_pixel(int(sp.x), int(sp.y))\n\tvar want = UIConstants.all_slots()[seg.color_slot]\n\tvar ok = absf(c.r - want.r) < 0.02 and absf(c.g - want.g) < 0.02 and absf(c.b - want.b) < 0.02\n\tout.append(seg.color_slot if ok else \"#\" + c.to_html(false))\nreturn \", \".join(out)",
+      "equals": "CONFIRMED_GREEN, MARGINAL_YELLOW, INVALID_RED",
+      "comment": "Sampler sanity on the engagement capture: the drag ruler runs read back as their slot colours."
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

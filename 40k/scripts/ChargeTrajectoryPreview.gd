@@ -10,9 +10,15 @@ class_name ChargeTrajectoryPreview
 # Visual style follows HumanMovementPathVisual (dashed lines, arrowheads)
 # but uses the charge-themed orange color from ChargeArrowVisual.
 
-# Visual settings - orange charge theme (matches ChargeArrowVisual)
-const TRAJECTORY_COLOR := Color(1.0, 0.6, 0.0, 0.6)  # Orange, semi-transparent
-const TRAJECTORY_GLOW_ALPHA := 0.15  # Glow layer alpha multiplier
+# T12: colours are UIConstants slots / neutral chrome; alphas are applied at
+# draw time with UIConstants.with_alpha().
+const UIC := preload("res://autoloads/UIConstants.gd")
+
+# Visual settings - charge theme: UIConstants.WARNING_ORANGE ("charge
+# possible", doc §9), shared with ChargeArrowVisual
+const TRAJECTORY_COLOR := UIC.WARNING_ORANGE
+const TRAJECTORY_ALPHA := 0.6  # dashed core line and arrowhead
+const TRAJECTORY_GLOW_ALPHA := 0.15  # Glow layer alpha
 const LINE_WIDTH := 2.0
 const GLOW_WIDTH := 6.0
 const DASH_LENGTH := 8.0
@@ -31,15 +37,19 @@ const MARCH_SPEED := 25.0  # pixels per second
 
 # Minimum roll summary label
 const SUMMARY_FONT_SIZE := 14
-const SUMMARY_BG_COLOR := Color(0.1, 0.08, 0.05, 0.9)
+const SUMMARY_BG_COLOR := UIC.OVERLAY_LABEL_BG
+const SUMMARY_BG_ALPHA := 0.9
 const SUMMARY_BG_PADDING := Vector2(6, 4)
-const SUMMARY_GOOD_COLOR := Color(0.3, 1.0, 0.4, 0.95)  # Green - easy charge
-const SUMMARY_MID_COLOR := Color(1.0, 0.85, 0.3, 0.95)   # Yellow - average
-const SUMMARY_HARD_COLOR := Color(1.0, 0.4, 0.2, 0.95)   # Red-orange - hard
+# Difficulty in the doc §9 budget colours (green / yellow / red)
+const SUMMARY_GOOD_COLOR := UIC.CONFIRMED_GREEN  # easy charge
+const SUMMARY_MID_COLOR := UIC.MARGINAL_YELLOW   # average
+const SUMMARY_HARD_COLOR := UIC.INVALID_RED      # hard
+const SUMMARY_TEXT_ALPHA := 0.95
 
 # Per-model distance label
 const LABEL_FONT_SIZE := 11
-const LABEL_BG_COLOR := Color(0.1, 0.08, 0.05, 0.8)
+const LABEL_BG_COLOR := UIC.OVERLAY_LABEL_BG
+const LABEL_BG_ALPHA := 0.8
 const LABEL_BG_PADDING := Vector2(3, 2)
 
 # State
@@ -124,18 +134,18 @@ func _draw() -> void:
 		var dir_norm = direction.normalized()
 
 		# Glow line (solid, wide, low alpha)
-		var glow_color = Color(TRAJECTORY_COLOR.r, TRAJECTORY_COLOR.g, TRAJECTORY_COLOR.b, TRAJECTORY_GLOW_ALPHA)
+		var glow_color = UIC.with_alpha(TRAJECTORY_COLOR, TRAJECTORY_GLOW_ALPHA)
 		draw_line(from_pos, to_pos, glow_color, GLOW_WIDTH)
 
 		# Dashed core line with marching ants
-		var trail_color = Color(TRAJECTORY_COLOR.r, TRAJECTORY_COLOR.g, TRAJECTORY_COLOR.b, TRAJECTORY_COLOR.a)
+		var trail_color = UIC.with_alpha(TRAJECTORY_COLOR, TRAJECTORY_ALPHA)
 		_draw_dashed_line_animated(from_pos, to_pos, trail_color, LINE_WIDTH)
 
 		# Arrowhead at destination
 		_draw_arrowhead(to_pos, dir_norm, trail_color)
 
 		# Origin marker circle
-		var origin_color = Color(TRAJECTORY_COLOR.r, TRAJECTORY_COLOR.g, TRAJECTORY_COLOR.b, 0.4)
+		var origin_color = UIC.with_alpha(TRAJECTORY_COLOR, 0.4)
 		draw_circle(from_pos, ORIGIN_MARKER_RADIUS, origin_color)
 
 		# Per-model distance label
@@ -198,14 +208,14 @@ func _draw_distance_label(from: Vector2, to: Vector2, distance_inches: float) ->
 		label_pos - LABEL_BG_PADDING,
 		text_size + LABEL_BG_PADDING * 2
 	)
-	draw_rect(bg_rect, LABEL_BG_COLOR, true)
+	draw_rect(bg_rect, UIC.with_alpha(LABEL_BG_COLOR, LABEL_BG_ALPHA), true)
 
 	# Border
-	var border_color = Color(TRAJECTORY_COLOR.r, TRAJECTORY_COLOR.g, TRAJECTORY_COLOR.b, 0.5)
+	var border_color = UIC.with_alpha(TRAJECTORY_COLOR, 0.5)
 	draw_rect(bg_rect, border_color, false, 1.0)
 
 	# Text in orange charge color
-	var text_color = Color(TRAJECTORY_COLOR.r, TRAJECTORY_COLOR.g, TRAJECTORY_COLOR.b, 0.9)
+	var text_color = UIC.with_alpha(TRAJECTORY_COLOR, 0.9)
 	draw_string(
 		default_font,
 		label_pos + Vector2(0, text_size.y * 0.7),
@@ -243,19 +253,19 @@ func _draw_min_roll_summary() -> void:
 		label_pos - SUMMARY_BG_PADDING,
 		text_size + SUMMARY_BG_PADDING * 2
 	)
-	draw_rect(bg_rect, SUMMARY_BG_COLOR, true)
+	draw_rect(bg_rect, UIC.with_alpha(SUMMARY_BG_COLOR, SUMMARY_BG_ALPHA), true)
 
 	# Color-code based on difficulty (2D6 averages 7)
 	var text_color: Color
 	if roll_needed <= 5:
-		text_color = SUMMARY_GOOD_COLOR
+		text_color = UIC.with_alpha(SUMMARY_GOOD_COLOR, SUMMARY_TEXT_ALPHA)
 	elif roll_needed <= 8:
-		text_color = SUMMARY_MID_COLOR
+		text_color = UIC.with_alpha(SUMMARY_MID_COLOR, SUMMARY_TEXT_ALPHA)
 	else:
-		text_color = SUMMARY_HARD_COLOR
+		text_color = UIC.with_alpha(SUMMARY_HARD_COLOR, SUMMARY_TEXT_ALPHA)
 
 	# Border matches difficulty color
-	var border_color = Color(text_color.r, text_color.g, text_color.b, 0.6)
+	var border_color = UIC.with_alpha(text_color, 0.6)
 	draw_rect(bg_rect, border_color, false, 1.5)
 
 	draw_string(

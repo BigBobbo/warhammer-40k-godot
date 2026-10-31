@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.65.1",
+      "date": "2026-10-31",
+      "summary": "Movement trails now show in the player colours from the token rings (teal for player 1, magenta for player 2), and every board marker uses the game's one colour palette.",
+      "changes": [
+        "The trails left by an AI move, and the dashed paths you plan while dragging a unit, are now teal for player 1 and magenta for player 2, the same colours as the outer ring on each token. Before, they were blue and red.",
+        "Deep Strike and Infiltrator no-go zones are drawn in the same red as every other 'not allowed' marker.",
+        "Charge arrows, charge previews, coherency circles, hit flashes, damage numbers and kill messages now use the game's standard green, yellow, orange and red. They look the same as before apart from small shade changes.",
+        "The AI's hit summary over a target ('2 hits, 1 wound') is now pale white instead of cream."
+      ]
+    },
+    {
       "version": "1.65.0",
       "date": "2026-10-31",
       "summary": "In the Shooting phase, point at an enemy unit with a shooter selected and a line runs from your model to theirs: green if you can see it, yellow if it has cover, red if terrain blocks the shot.",

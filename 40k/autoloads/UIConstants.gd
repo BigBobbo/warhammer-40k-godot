@@ -8,7 +8,8 @@ extends Node
 # table is the single source of truth for "which color means what".
 #
 # Faction colors stay per-army (read from army data); they are intentionally
-# NOT in this table.
+# NOT in this table. Two neutral chrome backdrops (OVERLAY_LABEL_BG,
+# OVERLAY_SHADOW) live here too, outside the slot table (T12).
 #
 # The doc's §9 table mirrors every slot's constant name and #RRGGBB hex.
 # Change a slot here and in the doc together: tests/test_ui_constants_slots.gd
@@ -39,6 +40,26 @@ const _SLOT_TABLE := {
 
 
 # ---------------------------------------------------------------------------
+# Neutral chrome (T12) — NOT slots
+# ---------------------------------------------------------------------------
+# The two contrast backdrops the board-overlay scripts share: the warm
+# near-black chip behind overlay labels, and the black under-stroke / text
+# backdrop that keeps a slot colour readable on light and dark board art.
+# They carry no meaning (no hue), so they stay OUT of the slot table:
+# slot_name() returns "" for them and all_slots() still lists the seven doc §9
+# slots. Visual scripts name them instead of writing their own near-black
+# literals. Like the slots they are fully opaque; a script sets the alpha at
+# draw time with with_alpha().
+const OVERLAY_LABEL_BG := Color(0.10, 0.08, 0.05, 1.0)  # #1A140D
+const OVERLAY_SHADOW   := Color(0.00, 0.00, 0.00, 1.0)  # #000000
+
+const _CHROME_TABLE := {
+	"OVERLAY_LABEL_BG": OVERLAY_LABEL_BG,
+	"OVERLAY_SHADOW":   OVERLAY_SHADOW,
+}
+
+
+# ---------------------------------------------------------------------------
 # Lookups
 # ---------------------------------------------------------------------------
 
@@ -56,6 +77,32 @@ func slot_name(color: Color) -> String:
 # Returns every slot as a Dictionary {name: Color}. For T12-style audits.
 func all_slots() -> Dictionary:
 	return _SLOT_TABLE.duplicate()
+
+
+# T12: the chrome name ("OVERLAY_LABEL_BG" / "OVERLAY_SHADOW") of a neutral
+# chrome colour, or "" for anything else, slots included. Same tolerance as
+# slot_name().
+func chrome_name(color: Color) -> String:
+	for name in _CHROME_TABLE:
+		if _color_eq(color, _CHROME_TABLE[name]):
+			return name
+	return ""
+
+
+# T12: every neutral chrome colour as a Dictionary {name: Color}.
+func all_chrome() -> Dictionary:
+	return _CHROME_TABLE.duplicate()
+
+
+# T12: `color` with its alpha set to `alpha`. This is how the visual scripts
+# fade a slot or chrome colour without writing a Color(...) literal of their
+# own. Static, so a script that preloads this file
+# (const UIC := preload("res://autoloads/UIConstants.gd")) can call it with no
+# autoload in the tree (headless tests, nodes not yet added).
+static func with_alpha(color: Color, alpha: float) -> Color:
+	var c := color
+	c.a = alpha
+	return c
 
 
 # T41: canonical player-SLOT color lookup. Slot colors are perspective-

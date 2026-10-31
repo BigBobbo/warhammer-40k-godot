@@ -3,11 +3,17 @@ extends Node2D
 # EngagementRangeVisual - Pulsing engagement range circle for Fight Phase
 # T5-V9: Draws a pulsing circle around models to show engagement range (1 inch)
 # Follows the same sine-wave animation pattern as RangeCircle.gd
+#
+# T12: the default colours are UIConstants slots (engagement ring
+# WARNING_ORANGE, eligible target CONFIRMED_GREEN). Every caller today passes
+# its own colour, so the defaults only apply to a caller that omits it.
+
+const UIC := preload("res://autoloads/UIConstants.gd")
 
 enum Mode { ENGAGEMENT_RANGE, TARGET_HIGHLIGHT }
 
 var circle_radius: float = 25.4  # Default 1 inch in mm
-var circle_color: Color = Color.ORANGE
+var circle_color: Color = UIC.WARNING_ORANGE
 var fill_alpha: float = 0.2
 var outline_width: float = 2.0
 var mode: int = Mode.ENGAGEMENT_RANGE
@@ -20,7 +26,7 @@ var _pulse_time: float = 0.0
 # engaged" vs "ephemeral selection" rings.
 var is_persistent: bool = false
 
-func setup_engagement_range(radius: float, color: Color = Color.ORANGE) -> void:
+func setup_engagement_range(radius: float, color: Color = UIC.WARNING_ORANGE) -> void:
 	circle_radius = radius
 	circle_color = color
 	fill_alpha = 0.2
@@ -28,7 +34,7 @@ func setup_engagement_range(radius: float, color: Color = Color.ORANGE) -> void:
 	mode = Mode.ENGAGEMENT_RANGE
 	queue_redraw()
 
-func setup_target_highlight(radius: float, color: Color = Color.GREEN, is_eligible: bool = true) -> void:
+func setup_target_highlight(radius: float, color: Color = UIC.CONFIRMED_GREEN, is_eligible: bool = true) -> void:
 	circle_radius = radius
 	circle_color = color
 	fill_alpha = 0.3

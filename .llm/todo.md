@@ -939,7 +939,7 @@ Locks in use:
     ShootingLoSVisual line is gone, and T06's hover check now reads LOSLineVisual.
     (e) current_line also carries shooter_id and target_id.
 
-- [ ] **T12 — Refactor existing visual scripts to consume UIConstants**
+- [x] **T12 — Refactor existing visual scripts to consume UIConstants**
   - **Lock:** UIConstants + all visual scripts (serial — blocks other visual streams)
   - **Doc:** §9  • **Depends:** T01
   - **Touches:** `40k/scripts/MovementRangeVisual.gd`, `EngagementRangeVisual.gd`,
@@ -966,8 +966,60 @@ Locks in use:
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
     - [ ] All visible overlays look perceptually identical to pre-refactor.
-    - [ ] No new color appearing where one didn't exist.
-    - [ ] Commit body lists every substitution.
+      *(Not ticked. Side by side, pre- vs post-T12 (T12_engagement / _reserves / _full_board /
+      _effects_*), every overlay matches except the movement trails, which change hue on
+      purpose: P1 paths blue to FRIENDLY_PLAYER_TEAL, P2 AI trails red to ENEMY_PLAYER_MAGENTA
+      (doc §9 "P1 paths", the Change's "corresponding slot"). Smaller shifts: the hit flash is a
+      touch pinker (#FF260D to INVALID_RED) and the AI result summary text is pale white, not
+      cream.)*
+    - [x] No new color appearing where one didn't exist.
+      *(No overlay gains a colour where it had none. The trails' teal and magenta are the slot
+      colours already on every token's outer ring (T08), next to the trails in the captures.)*
+    - [x] Commit body lists every substitution.
+      *(All 101 literal lines of the eleven files: each colour literal as file:line
+      old=#hex new=SLOT, each Color(c.r, c.g, c.b, a) alpha rebuild as file:line with_alpha.)*
+  - **Note (2026-10-31 audit):** nothing had been refactored. MovementRangeVisual read the
+    slots at runtime but kept literal fallbacks. The other scripts painted ad-hoc literals: 101
+    lines with `Color(` or a named `Color.X` across the eleven files (see (a)). The old scenario only
+    checked `UIConstants.all_slots()`. Changed on this pass: (1) UIConstants gains two neutral
+    chrome backdrops outside the slot table, OVERLAY_LABEL_BG (#1A140D, the old label chip) and
+    OVERLAY_SHADOW (#000000), with chrome_name() / all_chrome(), plus the static
+    with_alpha(color, alpha). The seven slots and the doc §9 table are unchanged; §9 gains a
+    paragraph on the chrome. (2) The eleven scripts preload UIConstants and name a slot or
+    chrome constant for every colour. Alphas are named constants applied with with_alpha() at
+    draw time. Shades are a slot darkened: kill numbers and the death ring are INVALID_RED
+    darkened 0.2; debris is an INVALID_RED..WARNING_ORANGE blend darkened at most 0.35, still
+    three randf() per particle. Mapping: charge declared and charge flash WARNING_ORANGE,
+    success CONFIRMED_GREEN, failure INVALID_RED; min roll easy / average / hard in green /
+    yellow / red; coherency in / out green / red; deep-strike and infiltrator exclusions
+    INVALID_RED; P1 / P2 trails TEAL / MAGENTA; hit flash INVALID_RED with a WARNING_ORANGE core;
+    summary text NEUTRAL_UI_PALE_WHITE; label chips and backdrops chrome. (3) New scenario and
+    new gated test `tests/test_visual_color_slots.gd` (230 checks). Evidence: T12_color_audit
+    passes 50/50 twice, with a run-to-run diff of 0.0% on every frame. Its 6 refactor steps fail
+    on the pre-T12 code (101 source hits, arrowheads #FF3333 / #FF9900, off-slot constants, no
+    chrome classifier). The new test does not parse on the pre-T12 tree, and fails 23 checks
+    with one pre-T12 script (ChargeArrowVisual) swapped back in. Pre- vs post-T12 diff of the
+    same frames (pixel_diff_cli on captures from both builds): engagement 0.38%, reserves 1.01%,
+    full board 0.13% (bound 2%). The frozen effects frames read 3.52% (1.86% of it the hit-flash
+    disc at its peak) and 1.21%. Visual suite on this tree: 42 pass (baseline 41); T23, T27 and
+    T39 fail at their known steps; T45 is XFAIL. The 9 sp scenarios that reach these scripts
+    pass. Deviations: (a) Scope is the nine Touches files plus HumanMovementPathVisual and
+    InfiltratorExclusionVisual. They held the exact literals of AIMovementPathVisual and
+    DeepStrikeExclusionVisual, so converting one of each pair alone would split matched visuals.
+    The task's `grep -rn "Color(" 40k/scripts/*Visual.gd` also covers 19 other *Visual.gd files
+    outside Touches (TokenVisual 72, TerrainVisual 34, ObjectiveVisual 32, GhostVisual 25, the
+    Dice* visuals, ...: 290 lines). They hold art colours with no slot and are left for T41's
+    codebase-wide pass. For the eleven files the grep returns 0. (b) Colours that callers pass
+    in stay theirs (T41 scope): Main.gd's zone borders and fills, PersistentEngagementOverlay's
+    amber ring, and ChargeController's and FightController's ring colours.
+    EngagementRangeVisual's literals were only defaults that no caller uses. (c) The neutral
+    chrome is not a slot, so the class walk accepts a slot or chrome. (d) The 2% bound holds for
+    the three fixture frames. The transient effects, frozen at their peak in their own frames,
+    exceed it through the hit flash, because the old #FF260D has no slot nearer than
+    INVALID_RED. (e) The "engagement-zoom" and "full-board" fixtures are two framings of
+    co_pretrigger: x2 on the engaged Custodian Guard and Warboss, and the load framing at zoom
+    0.3. A third framing covers the reserves overlays. ChargeTrajectoryPreview is in Touches
+    but is not a *Visual.gd file.
 
 ## §1 Camera
 

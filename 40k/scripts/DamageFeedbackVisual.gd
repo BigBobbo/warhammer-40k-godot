@@ -7,35 +7,52 @@ class_name DamageFeedbackVisual
 # - Death animation: Expanding ring + fade-out with skull marker and particles
 # T5-V12: Floating damage numbers that rise from wounded/destroyed models
 # - Floating numbers: Damage value floats upward and fades out from model position
+#
+# T12: every colour is a UIConstants slot (red INVALID_RED, orange
+# WARNING_ORANGE, text NEUTRAL_UI_PALE_WHITE) or its neutral chrome
+# (OVERLAY_SHADOW backdrops); alphas are applied at draw time.
+const UIC := preload("res://autoloads/UIConstants.gd")
+
+# Kills and the death ring read a shade deeper than plain damage: the same
+# INVALID_RED slot darkened by this much (doc §9: shades of one colour for
+# related concepts, not a new hue).
+const DEEP_RED_SHADE := 0.2
 
 # === Damage Flash Constants ===
 const DAMAGE_FLASH_DURATION := 0.4  # Total duration of damage flash
 const DAMAGE_FLASH_RADIUS_MULT := 1.8  # Flash radius relative to base radius
-const DAMAGE_FLASH_COLOR := Color(1.0, 0.15, 0.05, 0.7)  # Bright red flash
-const DAMAGE_FLASH_CORE_COLOR := Color(1.0, 0.6, 0.1, 0.9)  # Orange-white core
+const DAMAGE_FLASH_COLOR := UIC.INVALID_RED  # Red flash
+const DAMAGE_FLASH_CORE_COLOR := UIC.WARNING_ORANGE  # Orange core
 
 # === Death Animation Constants ===
 const DEATH_RING_DURATION := 0.5  # Ring expansion time
 const DEATH_FADE_DURATION := 0.8  # Fade-out time after ring
 const DEATH_RING_START_MULT := 0.5  # Ring starts at 50% of base
 const DEATH_RING_END_MULT := 2.5  # Ring expands to 250% of base
-const DEATH_RING_COLOR := Color(0.8, 0.05, 0.0, 0.8)  # Deep red expanding ring
-const DEATH_FLASH_COLOR := Color(1.0, 0.3, 0.0, 0.9)  # Orange-red death flash
+const DEATH_RING_COLOR := UIC.INVALID_RED  # Expanding ring, drawn DEEP_RED_SHADE darker
+const DEATH_RING_ALPHA := 0.8
+const DEATH_FLASH_COLOR := UIC.WARNING_ORANGE  # Orange death flash
 const DEATH_SKULL_DURATION := 1.5  # How long skull marker stays visible
 const DEATH_PARTICLE_COUNT := 8  # Number of debris particles
+const DEATH_PARTICLE_MAX_DARKEN := 0.35  # Debris: a random INVALID_RED..WARNING_ORANGE blend, up to this much darker
 
 # === T5-V12: Floating Number Constants ===
 const FLOAT_NUMBER_DURATION := 1.2  # How long the number floats
 const FLOAT_NUMBER_RISE_PX := 40.0  # How far the number rises (in pixels)
 const FLOAT_NUMBER_FONT_SIZE := 22  # Base font size for floating numbers
-const FLOAT_NUMBER_COLOR_DAMAGE := Color(1.0, 0.2, 0.1, 1.0)  # Red for damage
-const FLOAT_NUMBER_COLOR_KILL := Color(0.8, 0.05, 0.0, 1.0)  # Dark red for kills
+const FLOAT_NUMBER_COLOR_DAMAGE := UIC.INVALID_RED  # Red for damage
+const FLOAT_NUMBER_COLOR_KILL := UIC.INVALID_RED  # Kills: drawn DEEP_RED_SHADE darker
 
 # === T7-53: Kill Notification Constants ===
 const KILL_NOTIFY_DURATION := 2.0  # How long the notification stays visible
 const KILL_NOTIFY_RISE_PX := 60.0  # How far it rises
 const KILL_NOTIFY_FONT_SIZE := 18  # Font size for kill notification
-const KILL_NOTIFY_COLOR := Color(0.9, 0.05, 0.0, 1.0)  # Deep red for unit destruction
+const KILL_NOTIFY_COLOR := UIC.INVALID_RED  # Red for unit destruction
+const KILL_NOTIFY_BG_ALPHA := 0.7  # UIConstants.OVERLAY_SHADOW backdrop
+
+# === T7-38: Result Summary Constants ===
+const RESULT_SUMMARY_TEXT_COLOR := UIC.NEUTRAL_UI_PALE_WHITE
+const RESULT_SUMMARY_BG_ALPHA := 0.75  # UIConstants.OVERLAY_SHADOW backdrop
 
 # Internal state
 var _effects: Array = []  # Active effects list [{type, pos, radius, elapsed, duration, ...}]
@@ -139,7 +156,7 @@ func play_floating_number(model_pos: Vector2, damage: int, is_kill: bool = false
 	var font_size = FLOAT_NUMBER_FONT_SIZE + (4 if damage >= 3 else 0)  # Bigger text for bigger hits
 	label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	label.add_theme_font_size_override("font_size", font_size)
-	var base_color = FLOAT_NUMBER_COLOR_KILL if is_kill else FLOAT_NUMBER_COLOR_DAMAGE
+	var base_color = FLOAT_NUMBER_COLOR_KILL.darkened(DEEP_RED_SHADE) if is_kill else FLOAT_NUMBER_COLOR_DAMAGE
 	label.add_theme_color_override("font_color", base_color)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	# Slight random horizontal offset to prevent stacking when multiple models hit
@@ -221,16 +238,16 @@ func play_death_animation(model_pos: Vector2, base_radius_px: float) -> void:
 		var angle = (float(p) / float(DEATH_PARTICLE_COUNT)) * TAU + randf() * 0.3
 		var speed = base_radius_px * (1.5 + randf() * 2.0)
 		var size = 2.0 + randf() * 3.0
+		# Three randf() calls per particle colour, as before T12, so the random
+		# stream (and every particle after this one) is unchanged.
+		var blend := randf()
+		var darken := randf() * DEATH_PARTICLE_MAX_DARKEN
+		var particle_alpha := 0.8 + randf() * 0.2
 		particles.append({
 			"angle": angle,
 			"speed": speed,
 			"size": size,
-			"color": Color(
-				0.6 + randf() * 0.4,
-				0.1 + randf() * 0.3,
-				0.0,
-				0.8 + randf() * 0.2
-			)
+			"color": UIC.with_alpha(UIC.INVALID_RED.lerp(UIC.WARNING_ORANGE, blend).darkened(darken), particle_alpha)
 		})
 
 	_effects.append({
@@ -246,7 +263,7 @@ func play_death_animation(model_pos: Vector2, base_radius_px: float) -> void:
 	skull_label.text = "💀"
 	var font_size = int(base_radius_px * 1.2)
 	skull_label.add_theme_font_size_override("font_size", font_size)
-	skull_label.add_theme_color_override("font_color", Color(0.9, 0.1, 0.05, 0.0))  # Start invisible
+	skull_label.add_theme_color_override("font_color", UIC.with_alpha(UIC.INVALID_RED, 0.0))  # Start invisible
 	skull_label.position = model_pos + Vector2(-font_size * 0.3, -font_size * 0.4)
 	skull_label.z_index = 56
 	skull_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -278,7 +295,7 @@ func play_kill_notification(unit_center_pos: Vector2, unit_name: String) -> void
 
 	# Add background panel for readability
 	var bg = ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.7)
+	bg.color = UIC.with_alpha(UIC.OVERLAY_SHADOW, KILL_NOTIFY_BG_ALPHA)
 	bg.size = Vector2(label.text.length() * KILL_NOTIFY_FONT_SIZE * 0.6, KILL_NOTIFY_FONT_SIZE * 1.4)
 	bg.position = unit_center_pos + Vector2(-bg.size.x * 0.5, -KILL_NOTIFY_FONT_SIZE * 1.5)
 	bg.z_index = 57
@@ -311,7 +328,7 @@ func play_result_summary(target_pos: Vector2, summary_text: String) -> void:
 	label.text = summary_text
 	label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.7, 1.0))  # Warm white
+	label.add_theme_color_override("font_color", RESULT_SUMMARY_TEXT_COLOR)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.position = target_pos + Vector2(-summary_text.length() * 3.5, -font_size * 2.5)
 	label.z_index = 58
@@ -319,7 +336,7 @@ func play_result_summary(target_pos: Vector2, summary_text: String) -> void:
 
 	# Background for readability
 	var bg = ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.75)
+	bg.color = UIC.with_alpha(UIC.OVERLAY_SHADOW, RESULT_SUMMARY_BG_ALPHA)
 	bg.size = Vector2(summary_text.length() * 7.0 + 8, font_size + 6)
 	bg.position = target_pos + Vector2(-bg.size.x * 0.5, -font_size * 2.5)
 	bg.z_index = 57
@@ -362,21 +379,21 @@ func _draw_damage_flash(effect: Dictionary) -> void:
 	var alpha = intensity * (1.0 - fade_t)
 
 	# Outer flash (red glow)
-	var outer_color = Color(DAMAGE_FLASH_COLOR.r, DAMAGE_FLASH_COLOR.g, DAMAGE_FLASH_COLOR.b, alpha * 0.4)
+	var outer_color = UIC.with_alpha(DAMAGE_FLASH_COLOR, alpha * 0.4)
 	draw_circle(pos, current_radius, outer_color)
 
 	# Mid ring
-	var mid_color = Color(DAMAGE_FLASH_COLOR.r, DAMAGE_FLASH_COLOR.g, DAMAGE_FLASH_COLOR.b, alpha * 0.6)
+	var mid_color = UIC.with_alpha(DAMAGE_FLASH_COLOR, alpha * 0.6)
 	draw_circle(pos, current_radius * 0.7, mid_color)
 
-	# Inner core (bright orange-white)
+	# Inner core (bright orange)
 	var core_alpha = alpha * (1.0 - expand_t * 0.5)
-	var core_color = Color(DAMAGE_FLASH_CORE_COLOR.r, DAMAGE_FLASH_CORE_COLOR.g, DAMAGE_FLASH_CORE_COLOR.b, core_alpha * 0.7)
+	var core_color = UIC.with_alpha(DAMAGE_FLASH_CORE_COLOR, core_alpha * 0.7)
 	draw_circle(pos, current_radius * 0.35, core_color)
 
 	# Pulsing ring outline for emphasis
 	var ring_alpha = alpha * 0.8
-	var ring_color = Color(1.0, 0.2, 0.0, ring_alpha)
+	var ring_color = UIC.with_alpha(DAMAGE_FLASH_COLOR, ring_alpha)
 	draw_arc(pos, current_radius * 0.85, 0, TAU, 32, ring_color, 2.0)
 
 func _draw_death_ring(effect: Dictionary) -> void:
@@ -396,12 +413,12 @@ func _draw_death_ring(effect: Dictionary) -> void:
 	# Inner flash (bright, fades quickly)
 	if ring_progress < 0.6:
 		var flash_alpha = alpha * (1.0 - ring_progress / 0.6) * 0.7
-		var flash_color = Color(DEATH_FLASH_COLOR.r, DEATH_FLASH_COLOR.g, DEATH_FLASH_COLOR.b, flash_alpha)
+		var flash_color = UIC.with_alpha(DEATH_FLASH_COLOR, flash_alpha)
 		draw_circle(pos, base_r * DEATH_RING_START_MULT, flash_color)
 
 	# Expanding ring outline
 	var ring_width = 3.0 + ring_progress * 2.0
-	var ring_color = Color(DEATH_RING_COLOR.r, DEATH_RING_COLOR.g, DEATH_RING_COLOR.b, alpha * DEATH_RING_COLOR.a)
+	var ring_color = UIC.with_alpha(DEATH_RING_COLOR.darkened(DEEP_RED_SHADE), alpha * DEATH_RING_ALPHA)
 	draw_arc(pos, ring_radius, 0, TAU, 48, ring_color, ring_width)
 
 	# Secondary thinner ring (slightly behind main ring)
@@ -409,7 +426,7 @@ func _draw_death_ring(effect: Dictionary) -> void:
 		var inner_ring_progress = clampf((ring_progress - 0.2) / 0.8, 0.0, 1.0)
 		var inner_radius = base_r * lerpf(DEATH_RING_START_MULT, DEATH_RING_END_MULT * 0.7, inner_ring_progress)
 		var inner_alpha = alpha * 0.4
-		var inner_color = Color(1.0, 0.5, 0.1, inner_alpha)
+		var inner_color = UIC.with_alpha(DEATH_FLASH_COLOR, inner_alpha)
 		draw_arc(pos, inner_radius, 0, TAU, 32, inner_color, 1.5)
 
 func _draw_death_particles(effect: Dictionary) -> void:
@@ -429,7 +446,7 @@ func _draw_death_particles(effect: Dictionary) -> void:
 		var dist = p.speed * particle_progress
 		var particle_pos = pos + Vector2(cos(p.angle), sin(p.angle)) * dist
 		var p_size = p.size * (1.0 - particle_progress * 0.5)
-		var p_color = Color(p.color.r, p.color.g, p.color.b, p.color.a * alpha)
+		var p_color = UIC.with_alpha(p.color, p.color.a * alpha)
 		draw_circle(particle_pos, p_size, p_color)
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────

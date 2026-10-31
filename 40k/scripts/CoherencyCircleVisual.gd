@@ -4,10 +4,15 @@ extends Node2D
 # during deployment. Shows green when the next model (ghost) is within coherency range,
 # red when outside range. Uses edge-to-edge measurement so the visual radius accounts
 # for the model's own base size.
+#
+# T12: green / red are the UIConstants slots CONFIRMED_GREEN / INVALID_RED; the
+# faintness comes from FILL_ALPHA / OUTLINE_ALPHA at draw time.
+
+const UIC := preload("res://autoloads/UIConstants.gd")
 
 var circle_radius_px: float = 80.0  # Default: 2" * 40 px/inch
 var base_radius_px: float = 0.0  # The model's own base radius in pixels
-var circle_color: Color = Color(0.2, 0.9, 0.2, 0.25)  # Faint green default
+var circle_color: Color = UIC.CONFIRMED_GREEN  # in coherency until set_in_range() says otherwise
 var _pulse_time: float = 0.0
 
 # ISS-002: coherency distance comes from GameConstants.coherency_distance_inches().
@@ -17,9 +22,9 @@ const OUTLINE_WIDTH: float = 1.5
 const FILL_ALPHA: float = 0.08
 const OUTLINE_ALPHA: float = 0.35
 
-# Colors
-const COLOR_GREEN: Color = Color(0.2, 0.9, 0.2)
-const COLOR_RED: Color = Color(0.9, 0.2, 0.2)
+# Colors (UIConstants slots): in coherency / out of coherency
+const COLOR_GREEN: Color = UIC.CONFIRMED_GREEN
+const COLOR_RED: Color = UIC.INVALID_RED
 
 func setup(model_base_radius_px: float) -> void:
 	base_radius_px = model_base_radius_px

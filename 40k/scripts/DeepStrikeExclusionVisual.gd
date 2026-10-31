@@ -21,12 +21,19 @@ const GAP_LENGTH: float = 8.0
 const LINE_WIDTH: float = 2.5
 const MARCH_SPEED: float = 25.0
 
-# Colors - orange-red to match existing exclusion visuals
-const LINE_COLOR: Color = Color(1.0, 0.4, 0.3, 0.8)
-const GLOW_COLOR: Color = Color(1.0, 0.4, 0.3, 0.15)
+# Colors - UIConstants.INVALID_RED, ground a model may not be set up on (doc §9
+# "invalid / blocked"); shared with InfiltratorExclusionVisual (T12). Alphas
+# are applied at draw time.
+const UIC := preload("res://autoloads/UIConstants.gd")
+const LINE_COLOR: Color = UIC.INVALID_RED
+const LINE_ALPHA: float = 0.8
+const GLOW_COLOR: Color = UIC.INVALID_RED
+const GLOW_ALPHA: float = 0.15
 const GLOW_WIDTH: float = 8.0
-const FILL_COLOR: Color = Color(1.0, 0.3, 0.2, 0.06)
-const LABEL_BG_COLOR: Color = Color(0.1, 0.08, 0.05, 0.85)
+const FILL_COLOR: Color = UIC.INVALID_RED
+const FILL_ALPHA: float = 0.06
+const LABEL_BG_COLOR: Color = UIC.OVERLAY_LABEL_BG
+const LABEL_BG_ALPHA: float = 0.85
 const LABEL_BG_PADDING: Vector2 = Vector2(6, 3)
 const FONT_SIZE: int = 13
 
@@ -252,7 +259,7 @@ func _draw() -> void:
 			continue
 
 		# Draw semi-transparent fill
-		var fill = Color(FILL_COLOR.r, FILL_COLOR.g, FILL_COLOR.b, FILL_COLOR.a * pulse_alpha)
+		var fill = UIC.with_alpha(FILL_COLOR, FILL_ALPHA * pulse_alpha)
 		draw_colored_polygon(poly, fill)
 
 		# Draw each edge
@@ -265,7 +272,7 @@ func _draw() -> void:
 				continue
 
 			# Draw glow
-			var glow_color = Color(GLOW_COLOR.r, GLOW_COLOR.g, GLOW_COLOR.b, GLOW_COLOR.a * pulse_alpha)
+			var glow_color = UIC.with_alpha(GLOW_COLOR, GLOW_ALPHA * pulse_alpha)
 			draw_line(p1, p2, glow_color, GLOW_WIDTH, true)
 
 			# Draw dashed line
@@ -292,7 +299,7 @@ func _draw_dashed_line(p1: Vector2, p2: Vector2, pulse_alpha: float, march_offse
 	if total_length < 1.0:
 		return
 
-	var line_color = Color(LINE_COLOR.r, LINE_COLOR.g, LINE_COLOR.b, LINE_COLOR.a * pulse_alpha)
+	var line_color = UIC.with_alpha(LINE_COLOR, LINE_ALPHA * pulse_alpha)
 
 	var pos = -march_offset
 	while pos < total_length:
@@ -355,10 +362,10 @@ func _draw_exclusion_label(poly: PackedVector2Array, board_w: float, board_h: fl
 		text_size + LABEL_BG_PADDING * 2
 	)
 
-	var bg_color = Color(LABEL_BG_COLOR.r, LABEL_BG_COLOR.g, LABEL_BG_COLOR.b, LABEL_BG_COLOR.a * pulse_alpha)
+	var bg_color = UIC.with_alpha(LABEL_BG_COLOR, LABEL_BG_ALPHA * pulse_alpha)
 	draw_rect(bg_rect, bg_color, true)
 
-	var text_color = Color(LINE_COLOR.r, LINE_COLOR.g, LINE_COLOR.b, pulse_alpha)
+	var text_color = UIC.with_alpha(LINE_COLOR, pulse_alpha)
 	draw_string(
 		_default_font,
 		label_pos - Vector2(text_size.x / 2.0, 0),

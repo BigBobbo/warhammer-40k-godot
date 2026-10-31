@@ -101,6 +101,14 @@
 #     the board; Tab press / echo / release-with-Shift, the Shooting-phase
 #     tap (cycle shooter) vs hold (overlay) hand-off, stuck-key + focus-loss
 #     release, the viewer's seat against the AI
+#   - T12 overlay colours from UIConstants: no Color( / named Color.X in the
+#     eleven board-overlay scripts, every Color constant / script variable a
+#     slot or neutral chrome and in the slot its meaning calls for (42
+#     walked), chrome kept out of the slot table, with_alpha(); the colours
+#     the scripts hand out (damage / kill numbers, kill notification, result
+#     summary, OVERLAY_SHADOW backdrops, coherency in/out, engagement
+#     defaults, drag-ruler outline) and the death debris (slot blend, three
+#     randf() per particle as before)
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -353,6 +361,7 @@ TESTS=(
     "tests/test_unit_exhaustion.gd"
     "tests/test_threat_overlay.gd"
     "tests/test_los_line_visual.gd"
+    "tests/test_visual_color_slots.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

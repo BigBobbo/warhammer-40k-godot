@@ -10,9 +10,13 @@ class_name AIMovementPathVisual
 const HOLD_DURATION := 2.5  # How long to hold the trail visible
 const FADE_DURATION := 1.0  # Fade out time
 
-# Visual settings - player-themed colors
-const P1_TRAIL_COLOR := Color(0.3, 0.5, 0.9, 0.7)  # Blue for player 1
-const P2_TRAIL_COLOR := Color(0.9, 0.3, 0.2, 0.7)  # Red for player 2
+# Visual settings - the owner's player-slot colour (T12, doc §9 "P1 paths"):
+# P1 FRIENDLY_PLAYER_TEAL, P2 ENEMY_PLAYER_MAGENTA, the slot rings on the
+# tokens (T08). Shared with HumanMovementPathVisual. Alphas at draw time.
+const UIC := preload("res://autoloads/UIConstants.gd")
+const P1_TRAIL_COLOR := UIC.FRIENDLY_PLAYER_TEAL  # Player 1 slot
+const P2_TRAIL_COLOR := UIC.ENEMY_PLAYER_MAGENTA  # Player 2 slot
+const TRAIL_ALPHA := 0.7  # Dashed core line and arrowhead
 const TRAIL_GLOW_COLOR_ALPHA := 0.2  # Glow layer alpha multiplier
 const LINE_WIDTH := 2.5
 const GLOW_WIDTH := 7.0
@@ -67,18 +71,18 @@ func _draw() -> void:
 		var dir_norm = direction.normalized()
 
 		# Glow line (solid, wide, low alpha)
-		var glow_color = Color(base_color.r, base_color.g, base_color.b, alpha * TRAIL_GLOW_COLOR_ALPHA)
+		var glow_color = UIC.with_alpha(base_color, alpha * TRAIL_GLOW_COLOR_ALPHA)
 		draw_line(from_pos, to_pos, glow_color, GLOW_WIDTH)
 
 		# Dashed core line
-		var trail_color = Color(base_color.r, base_color.g, base_color.b, alpha * base_color.a)
+		var trail_color = UIC.with_alpha(base_color, alpha * TRAIL_ALPHA)
 		_draw_dashed_line(from_pos, to_pos, trail_color, LINE_WIDTH)
 
 		# Arrowhead at destination
 		_draw_arrowhead(to_pos, dir_norm, trail_color)
 
 		# Small circle at origin
-		var origin_color = Color(base_color.r, base_color.g, base_color.b, alpha * 0.5)
+		var origin_color = UIC.with_alpha(base_color, alpha * 0.5)
 		draw_circle(from_pos, ORIGIN_MARKER_RADIUS, origin_color)
 
 func _draw_dashed_line(from: Vector2, to: Vector2, color: Color, width: float) -> void:
