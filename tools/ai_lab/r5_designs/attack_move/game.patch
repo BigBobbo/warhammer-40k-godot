@@ -1,0 +1,263 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index dee1aee0..dccfd317 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1668,6 +1668,28 @@ const FIX_RI_QUARTER: float = 1.0
+ # RI-QUARTER: share of the quarter VP counted for each later battle round
+ # (the unit usually stays in the quarter it entered, but may move or die).
+ const RI_QUARTER_LATER_ROUND_SHARE: float = 0.5
++# Movement plan (ATTACK-MOVE, FIX_ATTACK_MOVE): 1 = a unit whose top-scored
++# objective is "already taken" (its OC need is filled) is not sent to a
++# fallback objective where its OC cannot change control — the plan still has
++# no more OC there than the enemy threat even with it (a lone flip of an
++# 11-OC objective with 9 OC, or a top-up of a held objective the enemy
++# out-OCs) — while at the top objective its OC is what decides control: the
++# plan does not out-OC the enemy threat there without it, and with it has at
++# least ATTACK_MOVE_MIN_SHARE of that threat (a better share than at the
++# fallback). It joins the top objective instead (same action as that
++# candidate). Only a top objective it reaches within ATTACK_MOVE_MAX_TURNS
++# moves that is not our home objective (the unit goes FORWARD to the fight,
++# not back — round 2's FAR-TRIP lost full games by holding units back), and
++# not a race / too-late / lone-trip skip. Custodian Guard units walked 2-3
++# turns toward a flank flip they could not win, dragged toward a charge
++# target, while a normal move onto the centre measured +4.0 to +9.8 VP
++# (LLM-critic cluster attack_move). 0 = previous behaviour.
++const FIX_ATTACK_MOVE: float = 1.0
++# ATTACK-MOVE: the most moves the top objective may be away.
++const ATTACK_MOVE_MAX_TURNS: int = 2
++# ATTACK-MOVE: the least share of the enemy threat at the top objective the
++# plan must have there with the unit (below it the centre is a lost fight too).
++const ATTACK_MOVE_MIN_SHARE: float = 0.75
+ # RI-RACE: a one-move reinforcement is a lost race when the enemy can stand
+ # there with at least this multiple of our OC with it. Not 1.0: the enemy has
+ # one move, our shooting and charges act on its approach first, and LONE-TRIP
+@@ -10439,6 +10461,52 @@ static func _assign_units_to_objectives(
+ 			return alt
+ 		return {}
+ 
++	# ATTACK-MOVE (FIX_ATTACK_MOVE): c is a pass-2 fallback (the unit's top
++	# objective was skipped). Returns {top, fb_ours, fb_threat, top_threat,
++	# top_without} when c is futile and the unit's OC is what keeps control of the
++	# top objective; {} otherwise (and always when the switch is 0).
++	var attack_move_on = get_param("FIX_ATTACK_MOVE", FIX_ATTACK_MOVE) >= 0.5
++	var attack_move_redirect := func(c: Dictionary) -> Dictionary:
++		if not attack_move_on or c.get("action", "") not in ["move", "advance"] or c.get("already_on_obj", false):
++			return {}
++		var top: Dictionary = {}
++		for t_c in candidates:
++			if t_c.unit_id == c.unit_id:
++				top = t_c
++				break
++		if top.is_empty() or top.objective_id == c.objective_id or top.get("action", "") not in ["move", "advance"] \
++				or float(top.score) <= float(c.score):
++			return {}
++		if int(top.get("turns_to_reach", 1)) > ATTACK_MOVE_MAX_TURNS or int(obj_oc_remaining.get(top.objective_id, 0)) > 0:
++			return {}
++		var t_ev = _get_obj_eval_by_id(obj_evaluations, top.objective_id)
++		if t_ev.is_empty() or t_ev.get("is_home", false):
++			return {}
++		if too_late.call(top) or race_hopeless.call(top) or lone_trip.call(top):
++			return {}
++		var own := int(c.get("unit_oc", 1))
++		var fb: Dictionary = lone_trip_oc.call(c)
++		var tp: Dictionary = lone_trip_oc.call(top)
++		var without := int(tp.ours) - own
++		var fb_futile := int(fb.ours) <= int(fb.threat)
++		# Pivotal: without it the plan does not out-OC the threat there, and with
++		# it the plan has at least ATTACK_MOVE_MIN_SHARE of the threat (a fight it
++		# can win or contest) — a better share than at the fallback.
++		var top_share := float(tp.ours) / float(maxi(int(tp.threat), 1))
++		var fb_share := float(fb.ours) / float(maxi(int(fb.threat), 1))
++		var top_pivotal := int(tp.threat) > 0 and int(tp.threat) >= without \
++				and top_share >= get_param("ATTACK_MOVE_MIN_SHARE", ATTACK_MOVE_MIN_SHARE) and top_share > fb_share
++		print("AIDecisionMaker: [ATTACK_MOVE_CHECK] %s: fallback %s ours %d vs threat %d (futile=%s); top %s ours %d (without %d) vs threat %d (pivotal=%s)" % [
++			c.unit_id, c.objective_id, int(fb.ours), int(fb.threat), str(fb_futile),
++			top.objective_id, int(tp.ours), without, int(tp.threat), str(top_pivotal)])
++		if not fb_futile or not top_pivotal:
++			return {}
++		var out := {"top": top, "fb_ours": int(fb.ours), "fb_threat": int(fb.threat),
++			"top_threat": int(tp.threat), "top_without": without}
++		print("AIDecisionMaker: [ATTACK_MOVE] %s: %s -> %s instead of %s (score %.1f vs %.1f; its OC keeps control there, it changes nothing at %s)" % [
++			top.objective_id, c.unit_id, top.objective_id, c.objective_id, float(top.score), float(c.score), c.objective_id])
++		return out
++
+ 	# Shared capture-assignment applier (used by pass 2 and the COORD-4
+ 	# backfill pass after attack conversions re-open OC needs). Mutates the
+ 	# captured assignments / assigned_unit_ids / obj_oc_remaining dictionaries.
+@@ -10614,6 +10682,16 @@ static func _assign_units_to_objectives(
+ 			if obj_oc_remaining.get(oid, 0) <= 0:
+ 				continue  # covered — this unit falls through to its next option
+ 
++		# ATTACK-MOVE (FIX_ATTACK_MOVE): a fallback where this unit's OC changes
++		# nothing is swapped for its filled top objective where it does.
++		var am: Dictionary = attack_move_redirect.call(cand)
++		if not am.is_empty():
++			apply_capture_assignment.call(am.top)
++			assignments[uid]["coordination_note"] = "not going to %s — even with this unit the plan has ~%d OC there vs ~%d enemy OC; joining %s, where the enemy can bring ~%d OC vs our ~%d without it" % [
++				oid, int(am.fb_ours), int(am.fb_threat), am.top.objective_id,
++				int(am.top_threat), int(am.top_without)]
++			continue
++
+ 		apply_capture_assignment.call(cand)
+ 
+ 	# =========================================================================
+diff --git a/40k/tests/unit/test_ai_fix_attack_move.gd b/40k/tests/unit/test_ai_fix_attack_move.gd
+new file mode 100644
+index 00000000..28a8f05a
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_attack_move.gd
+@@ -0,0 +1,154 @@
++extends SceneTree
++
++# ATTACK-MOVE (FIX_ATTACK_MOVE): a unit whose top-scored objective reads
++# "already taken" (COORD-5's need, capped, is filled) is not sent to a
++# fallback where its OC changes nothing — the plan has no more OC there than
++# the enemy threat even with it — when at the top objective its OC decides
++# control (the plan does not out-OC the threat there without it, and with it
++# has at least ATTACK_MOVE_MIN_SHARE of it). LLM-critic cluster attack_move
++# (value-checked, 2026-10-30/31): Custodian Guard units sent alone to flip an
++# 11-OC flank objective (dragged toward a charge target) while a Normal move
++# onto the centre measured +4.0 VP (s7475 r2, 24 seeds), +5.9 (s7455 r2, 36)
++# and +9.8 (s7421 r2, 36).
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_attack_move.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const OBJ_C := Vector2(880, 1200)    # the centre: enemy-held, a big enemy force near it
++const OBJ_F := Vector2(300, 1900)    # a flank objective the enemy holds with more OC than the runner
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== The unit goes where its OC decides control (ATTACK-MOVE) ===\n")
++	AIDecisionMaker._config_overrides["FIX_ATTACK_MOVE"] = 1.0
++	test_futile_flank_flip_joins_the_centre()
++	test_winnable_fallback_is_kept()
++	test_centre_without_threat_is_not_joined()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_ATTACK_MOVE")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot() -> Dictionary:
++	var objs = [{"id": "obj_c", "position": OBJ_C, "zone": "no_mans_land"},
++		{"id": "obj_f", "position": OBJ_F, "zone": "no_mans_land"}]
++	return {"battle_round": 2, "meta": {"battle_round": 2},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
++
++# Durable models (T6, 3 wounds, OC 2) at the given positions.
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, positions: Array, move: int = 6, oc: int = 2) -> void:
++	var models = []
++	for i in range(positions.size()):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32,
++			"base_type": "circular", "base_dimensions": {},
++			"position": positions[i], "wounds": 3, "current_wounds": 3})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 200, "stats": {"move": move, "toughness": 6, "save": 3,
++			"wounds": 3, "leadership": 6, "objective_control": oc}, "keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++
++func _row(center: Vector2, n: int) -> Array:
++	var out = []
++	for i in range(n):
++		out.append(Vector2(center.x + (i - (n - 1) / 2.0) * 45.0, center.y))
++	return out
++
++# Centre: enemy 8 OC on it, 14 more OC one move away. Our two "lead" squads
++# (20 OC) one move below it fill the capped need. Flank: enemy 8 OC on it.
++# The runner (4 OC, M8) is two moves from both.
++func _board(enemies: Dictionary, flank_models: int = 6, centre_reserve: bool = true) -> Dictionary:
++	var snap = _snapshot()
++	_add_unit(snap, "e_c", 1, _row(OBJ_C + Vector2(0, -1.0 * PX), 4))
++	if centre_reserve:
++		_add_unit(snap, "e_c2", 1, _row(OBJ_C + Vector2(-4.0 * PX, -9.0 * PX), 4))
++		_add_unit(snap, "e_c3", 1, _row(OBJ_C + Vector2(5.0 * PX, -9.0 * PX), 3))
++	_add_unit(snap, "e_f", 1, _row(OBJ_F + Vector2(0, -1.0 * PX), flank_models))
++	for uid in snap.units:
++		enemies[uid] = snap.units[uid]
++	_add_unit(snap, "lead", 2, _row(OBJ_C + Vector2(-3.0 * PX, 7.0 * PX), 5))
++	_add_unit(snap, "lead2", 2, _row(OBJ_C + Vector2(5.0 * PX, 7.0 * PX), 5))
++	_add_unit(snap, "runner", 2, _row(OBJ_C + Vector2(-2.0 * PX, 11.0 * PX), 5))
++	return snap
++
++func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p2 = {}
++	AIDecisionMaker._secondary_awareness_p2 = {}
++	var friendlies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 2:
++			friendlies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, 2)
++	for ev in evals:
++		print("  eval %s: state %s, friendly %d, enemy %d, projected %d" % [ev.id, ev.state, int(ev.friendly_oc),
++			int(ev.enemy_oc), int(ev.get("projected_enemy_oc", 0))])
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, 2)
++	for c in AIDecisionMaker._last_movement_candidates.get("runner", []):
++		print("  runner cand %s %s score %.1f" % [c.get("objective_id", ""), c.get("action", ""), float(c.get("score", 0.0))])
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s) %s" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 100),
++			str(plan[uid].get("coordination_note", "")).substr(0, 140)])
++	return plan
++
++func _goes_to(plan: Dictionary, uid: String, oid: String) -> bool:
++	var a: Dictionary = plan.get(uid, {})
++	return str(a.get("objective_id", "")) == oid and str(a.get("action", "")) in ["move", "advance"]
++
++func test_futile_flank_flip_joins_the_centre() -> void:
++	print("\n--- centre filled but out-OC'd without the runner (20 vs 22); flank 12 OC vs the runner's 10 ---")
++	var enemies = {}
++	var snap = _board(enemies)
++	var plan = _plan(snap, ["lead", "lead2", "runner"], enemies)
++	_assert(_goes_to(plan, "lead", "obj_c") and _goes_to(plan, "lead2", "obj_c"), "both lead squads go to the centre")
++	_assert(_goes_to(plan, "runner", "obj_c"),
++		"the runner joins the centre instead of flipping the 12-OC flank alone (%s %s)" % [
++			str(plan.get("runner", {}).get("action", "")), str(plan.get("runner", {}).get("objective_id", ""))])
++	_assert(str(plan.get("runner", {}).get("coordination_note", "")).begins_with("not going to obj_f"),
++		"the decision card says why")
++
++func test_winnable_fallback_is_kept() -> void:
++	print("\n--- the flank has 2 OC: the runner's 10 flips it, so it goes there ---")
++	var enemies = {}
++	var snap = _board(enemies, 1)
++	var plan = _plan(snap, ["lead", "lead2", "runner"], enemies)
++	_assert(not _goes_to(plan, "runner", "obj_c"), "a fallback the unit can win is kept (%s %s)" % [
++		str(plan.get("runner", {}).get("action", "")), str(plan.get("runner", {}).get("objective_id", ""))])
++
++func test_centre_without_threat_is_not_joined() -> void:
++	print("\n--- no enemy reserve near the centre: the leads already out-OC it, the runner is not needed there ---")
++	var enemies = {}
++	var snap = _board(enemies, 6, false)
++	var plan = _plan(snap, ["lead", "lead2", "runner"], enemies)
++	_assert(not _goes_to(plan, "runner", "obj_c"), "no redirect onto a centre the plan already wins (%s %s)" % [
++		str(plan.get("runner", {}).get("action", "")), str(plan.get("runner", {}).get("objective_id", ""))])
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_ATTACK_MOVE = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_ATTACK_MOVE"] = 0.0
++	var enemies = {}
++	var snap = _board(enemies)
++	var plan = _plan(snap, ["lead", "lead2", "runner"], enemies)
++	AIDecisionMaker._config_overrides["FIX_ATTACK_MOVE"] = 1.0
++	_assert(not _goes_to(plan, "runner", "obj_c"),
++		"with the fix off the runner is sent to its fallback (%s %s)" % [
++			str(plan.get("runner", {}).get("action", "")), str(plan.get("runner", {}).get("objective_id", ""))])
