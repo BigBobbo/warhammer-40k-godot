@@ -8815,12 +8815,12 @@
    }
   ],
   "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
-  "E": 7.0,
+  "E": 5.625,
   "ci": [
-   3.91,
-   10.09
+   3.42,
+   7.83
   ],
-  "n": 12,
+  "n": 24,
   "class": "clear",
   "applied": 12,
   "identical": 0,
@@ -8828,7 +8828,14 @@
   "suggestion": "Lootas Alpha holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_nml_1)",
   "critic_summary": "The AI sent Lootas Alpha to obj_nml_1, which is already covered by Battlewagon Beta. The unit then moves a 25.6 in trip with no firing lane. It also sent the 10 OC to a contest it cannot win.",
   "drift": false,
-  "round_batch": "r4"
+  "round_batch": "r4",
+  "E12": 7.0,
+  "ci12": [
+   3.91,
+   10.09
+  ],
+  "n12": 12,
+  "recheck": "pr10_2"
  },
  {
   "job": "20261030_160400_r4c11_00__s7462_r1_p2_movement_2_1",
@@ -13973,12 +13980,12 @@
    }
   ],
   "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
-  "E": 3.917,
+  "E": 2.375,
   "ci": [
-   1.25,
-   6.59
+   0.1,
+   4.65
   ],
-  "n": 12,
+  "n": 24,
   "class": "clear",
   "applied": 12,
   "identical": 0,
@@ -13986,7 +13993,14 @@
   "suggestion": "Custodian Guard Sodality Gamma holds obj_home_1 (sole holder \u2014 leaving would drop control)",
   "critic_summary": "Gamma went back to hold home. It is the only unit on home now, but Alpha is near and could hold home instead. That would free Gamma to move forward. The hold bonus is low in round 1 with no enemy nearby.",
   "drift": false,
-  "round_batch": "r5"
+  "round_batch": "r5",
+  "E12": 3.917,
+  "ci12": [
+   1.25,
+   6.59
+  ],
+  "n12": 12,
+  "recheck": "pr10_2"
  },
  {
   "job": "20261030_234707_r5c05_00__s7480_r1_p1_movement_2_1",
@@ -14298,6 +14312,95 @@
   "suggestion": "Lootas Gamma shoots at Burna Boyz Beta \u2014 expected 1.2 dmg vs 4 HP (31% kill); Lootas Beta \u2014 expected 0.2 dmg vs 3 HP (7% kill)",
   "critic_summary": "The AI added a Deffgun shot to Burna Boyz Beta, which already has more expected damage allocated (4.36) than its 4 HP. This is probably overkill.",
   "drift": true,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234730_r5c09_00__s7484_r1_p1_movement_1_0",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c09/20261030_234730_r5c09_00__s7484_r1_p1_movement_1_0.json",
+  "a_did": "Burna Boyz Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 9\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "E": 5.333,
+  "ci": [
+   1.96,
+   8.71
+  ],
+  "n": 12,
+  "class": "clear",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 9\"))",
+  "suggestion": "Burna Boyz Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 9\")",
+  "critic_summary": "The AI sent Burna Boyz Beta to a far-corner 'backfield gap' screen position. The screen scored 2.76 and the moves to objectives scored 17 to 26. The 'screen_denial' assignment overrode the better options.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234730_r5c09_00__s7484_r1_p1_movement_2_1",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c09/20261030_234730_r5c09_00__s7484_r1_p1_movement_2_1.json",
+  "a_did": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 9\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_home_1",
+    "mode": "hold"
+   }
+  ],
+  "better_option": "Hold obj_home_1 (on objective, OC needed \u2014 worth ~2 VP)",
+  "E": -1.083,
+  "ci": [
+   -5.91,
+   3.74
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 22\"))",
+  "suggestion": "Gretchin screens at (1600,960) \u2014 backfield gap (nearest friendly: 22\")",
+  "critic_summary": "The AI sent a lone 10-model Gretchin unit about 33 in across the board into an empty gap, while the army-supporting options scored much higher. The screen_distance term of -10.21 drives the score down, yet screen_base of 8.0 and denial_priority of 3.0 still outweigh it. The Gretchin also leave home objective cover.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234730_r5c09_00__s7484_r2_p2_charge_1_2",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c09/20261030_234730_r5c09_00__s7484_r2_p2_charge_1_2.json",
+  "a_did": "Stormboyz declares charge against Mek Beta (28% chance, 8.5\" away, expected 17.8 melee dmg vs 2 HP, overwatch ",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge (targets [])",
+  "E": -2.083,
+  "ci": [
+   -5.19,
+   1.02
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Charge Mek Beta (8.5\" away, 28% chance)",
+  "suggestion": "Stormboyz declares charge against Mek Beta (28% chance, 8.5\" away, expected 17.8 melee dmg vs 2 HP, overwatch risk: 5.4 dmg)",
+  "critic_summary": "The AI charged a 28% chance target with a heavy negative net chance term, and the final score was positive only because of large bonus terms, so the charge is poor value.",
+  "drift": false,
   "round_batch": "r5"
  },
  {
@@ -14885,6 +14988,214 @@
   "chosen_option": "Charge Custodian Guard Sodality Beta (9.5\" away, 17% chance)",
   "suggestion": "Kommandos declares charge against Custodian Guard Sodality Beta (17% chance, 9.5\" away, expected 8.9 melee dmg vs 12 HP, overwatch risk: 1.0 dmg)",
   "critic_summary": "The AI charges 10 Kommandos at Custodian Guard Sodality Beta on a 17% roll. The terms score the charge as positive (2.72) even though the ch_retaliation term is -10.0.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r1_p1_movement_1_1",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r5c14/20261030_234839_r5c14_00__s7489_r1_p1_movement_1_1.json",
+  "a_did": "Mek Beta moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 17.1\" away)",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_MEK_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~11 VP)",
+  "E": -5.5,
+  "ci": [
+   -10.06,
+   -0.94
+  ],
+  "n": 12,
+  "class": "harmful",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~11 VP)",
+  "suggestion": "Mek Beta moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed), obj: 14.8\" away)",
+  "critic_summary": "The AI sends a 1 OC Mek to obj_nml_2 where Battlewagon Beta (OC5) already goes. The Mek adds little control, and the plan has no clear need for a second unit there.",
+  "drift": true,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r1_p1_movement_2_2",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r5c14/20261030_234839_r5c14_00__s7489_r1_p1_movement_2_2.json",
+  "a_did": "Lootas Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 12\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_B",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~11 VP)",
+  "E": -0.417,
+  "ci": [
+   -3.82,
+   2.98
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 12\"))",
+  "suggestion": "Lootas Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 12\")",
+  "critic_summary": "The AI sent Lootas Beta to a far backfield 'screen' spot and rejected obj_nml_2 and obj_center, which scored about 38. The text says 'staying with the army', but the move goes the wrong way.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r1_p2_movement_2_0",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r5c14/20261030_234839_r5c14_00__s7489_r1_p2_movement_2_0.json",
+  "a_did": "Custodian Guard Sodality Gamma advances toward obj_nml_1 (capturing it (uncontrolled) \u2014 quicker to reach than ",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Advance obj_center is acceptable, but a normal move toward obj_center keeps shooting and charge options open.",
+  "E": 2.917,
+  "ci": [
+   -1.8,
+   7.63
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Advance obj_center (racing for it (enemy can have ~29 OC there before we arrive in 2 turns) \u2014 worth ~4 VP with the 1 other objective(s) this plan takes \u2014 worth ~10 VP)",
+  "suggestion": "Custodian Guard Sodality Gamma advances toward obj_center (racing for it (enemy can have ~29 OC there before we arrive in 2 turns) \u2014 worth ~4 VP with the 1 other objective(s) this plan takes)",
+  "critic_summary": "Gamma advances toward obj_center because Beta already covers home. The advance blocks Gamma from shooting or charging, and the plan has no support or enemy threat check. The 'home' option scored 17.95 against the 17.56 chosen, so this is a close call.",
+  "drift": true,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r2_p1_shooting_2_5",
+  "kind": "shooting",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r5c14/20261030_234839_r5c14_00__s7489_r2_p1_shooting_2_5.json",
+  "a_did": "",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_A",
+    "target": "U_CUSTODIAN_GUARD_D"
+   }
+  ],
+  "better_option": "Big shoota \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "E": 0.0,
+  "ci": [
+   0.0,
+   0.0
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 0,
+  "identical": 12,
+  "chosen_option": "Big shoota \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+  "suggestion": "Burna Boyz Alpha shoots at Custodian Guard Sodality Gamma \u2014 expected 0.1 dmg vs 14 HP (0% kill)",
+  "critic_summary": "The AI shot the Big shoota at Gamma. Expected damage is 0.05 for both targets, so the choice barely matters. It picked on a tiny margin that ignores range and objective value.",
+  "drift": true,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r2_p2_charge_1_4",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r5c14/20261030_234839_r5c14_00__s7489_r2_p2_charge_1_4.json",
+  "a_did": "Allarus Custodians declares charge against Stormboyz (17% chance, 9.8\" away, expected 10.0 melee dmg vs 12 HP,",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge; hold position and keep Allarus Custodians for shooting and the next move",
+  "E": -2.917,
+  "ci": [
+   -7.92,
+   2.09
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Charge Stormboyz (9.8\" away, 17% chance)",
+  "suggestion": "Allarus Custodians declares charge against Stormboyz (17% chance, 9.8\" away, expected 10.0 melee dmg vs 12 HP, overwatch risk: 7.2 dmg)",
+  "critic_summary": "Allarus declares a 17% charge on Stormboyz and takes overwatch for about 1.7 expected melee damage. Even a kill would not flip NML 2, because Battlewagon Beta (OC 5) would still hold it.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r2_p2_movement_2_3",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r5c14/20261030_234839_r5c14_00__s7489_r2_p2_movement_2_3.json",
+  "a_did": "Prosecutor Squad screens at (320,2160) \u2014 backfield gap (nearest friendly: 10\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~8 VP)",
+  "E": 0.333,
+  "ci": [
+   -3.09,
+   3.76
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 10\"))",
+  "suggestion": "Prosecutor Squad screens at (320,2160) \u2014 backfield gap (nearest friendly: 10\")",
+  "critic_summary": "The AI chose a backfield screen with score 0.11. The 29.17 option, moving to obj_nml_1, was legal and clearly better. The screen sends the unit to a useless corner and wastes its turn.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234839_r5c14_00__s7489_r3_p1_movement_2_6",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "case": "40k/tests/rollout_cases/r5c14/20261030_234839_r5c14_00__s7489_r3_p1_movement_2_6.json",
+  "a_did": "Lootas Gamma holds obj_center (holding under threat (enemy OC 6 nearby))",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_home_1",
+    "mode": "hold"
+   }
+  ],
+  "better_option": "Hold obj_home_1 (on objective, OC needed \u2014 worth ~13 VP)",
+  "E": 0.0,
+  "ci": [
+   0.0,
+   0.0
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 12,
+  "chosen_option": "Hold obj_center (holding under threat (enemy OC 6 nearby) \u2014 worth ~13 VP)",
+  "suggestion": "Lootas Gamma holds obj_center (holding under threat (enemy OC 6 nearby))",
+  "critic_summary": "The AI sends Lootas Gamma toward obj_center under a 'hold' label, but the unit is 12.68 in away and cannot reach it this turn. Center is already held, and the move may put the Lootas within charge range of Custodians.",
   "drift": false,
   "round_batch": "r5"
  }
