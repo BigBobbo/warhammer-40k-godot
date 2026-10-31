@@ -131,6 +131,34 @@ godot --headless --path 40k --script tests/make_2000pt_fixture.gd -- \
 error, because it used to be silently ignored and produced a fixture named
 like a mirror whose two sides were packed independently.
 
+### Reserve fixtures (added 2026-10-31, opt-in)
+
+The six fixtures above have every unit on the table and none in reserve, so
+AI code that only runs when the enemy has reserves (deep-strike denial
+screens, reserve-backed keepers) never runs in them. Three opt-in fixtures
+add the reserves the AI's own Formations logic picks (`--reserves=ai`,
+built from the committed fixture with `--base`):
+
+| fixture | in reserve, per side |
+|---|---|
+| `mirror_custodes_2000_reserves_postdeploy` | Allarus A, Custodian Guard D + Blade Champion A (Warlord, attached), Custodian Guard A; all Deep Strike; 825/2000 pts, 4/11 units |
+| `mirror_orks_2000_reserves_postdeploy` | Stormboyz C, D (Strategic Reserves), Deffkoptas A, B (Deep Strike); 410/1975 pts, 4/17 units (the shipped Recon Stomps plan) |
+| `asym_2000_reserves_postdeploy` | Custodes set (P1) + Ork set (P2) |
+
+```bash
+godot --headless --path 40k --script tests/make_2000pt_fixture.gd -- \
+    --base=mirror_custodes_2000_postdeploy --reserves=ai --out=mirror_custodes_2000_reserves_postdeploy
+```
+
+They are an extra gate for reserve-dependent fixes only; the three standard
+fixtures stay the ship gate. Known caveats (smoke games + review, 2026-10-31):
+the AI's Deep Strike placements for Deffkoptas are often rejected (walls) and
+those units are destroyed at the end of round 3, so prefer the Custodes and
+asym reserve fixtures; destroyed reserve units keep `IN_RESERVES` and can
+still "arrive" (engine bug); `fixture_check.py` passes these fixtures only
+without `--strict`. After any rebuild delete the stale copies in
+`user://saves/` (the runner copies a fixture only when it is absent).
+
 ## M1 — game records
 
 `AIBenchmarkRunner` now writes `<out>.record.json` next to its result file, on
