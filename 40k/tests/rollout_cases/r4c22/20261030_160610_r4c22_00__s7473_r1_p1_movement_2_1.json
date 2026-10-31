@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 20\"))",
+ "created": "2026-10-30 16:07:26",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7473_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Gretchin to a far backfield corner to screen. The unit has no real screening job there. It also gave up the objective options because they add little VP, while the screen option has no VP value. Fix: Give screen_base a value only when an enemy unit can reach the screened area next turn. Reject screen positions that are farther from the army than the unit's own current position. Do not let a VP-cap override beat a high-scoring objective hold when the alternative is a screen with no threat. Prefer to move to the nearest held objective for OC support.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7473_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:1600,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 20\")",
+ "verdict": "bad",
+ "version": 1
+}

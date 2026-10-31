@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_2 (racing for it (enemy can have ~14 OC there before we arrive in 2 turns) \u2014 worth ~6 VP with the 2 other objective(s) this plan takes \u2014 worth ~10 VP)",
+ "created": "2026-10-30 01:04:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7404_r1_p1_movement_1",
+ "note": "[LLM critic, low conf] The AI sends Alpha alone on an advance toward obj_nml_2, deep in the enemy half. Lootas, Burnas and Gretchin can focus it on arrival, and the plan spreads three Custodian units over three objectives. Fix: Add a lone-unit risk term for objectives in the enemy half. Sum the enemy shooting and charge threat that can reach the arrival point and compare it with the support units that can arrive within one turn. Prefer targets where two or more friendly units can arrive together.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7404_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:389,1794",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha advances toward obj_nml_2 (racing for it (enemy can have ~14 OC there before we arrive in 2 turns) \u2014 worth ~6 VP with the 2 other objective(s) this plan takes)",
+ "verdict": "pending",
+ "version": 1
+}

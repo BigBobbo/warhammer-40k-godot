@@ -1,0 +1,120 @@
+{
+  "id": "ai_held_objective_terrain_area",
+  "covers": [
+    "ai.movement.held_objective",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "critic_held_dup_s7412_r1",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "HELD-DUP (critic round 1). Saved position from critic game s7412: round 1, Player 1 Movement, after the Prosecutor Squad moved onto the ruin that hosts obj_home_1. The AI measured control only within 3.79 in of the marker, read obj_home_1 as uncontrolled and sent Custodian Guard Beta 9 in back to 'capture' it (rollout value check: the reviewer's alternative was +2.9 VP [1.3, 4.5] over 36 seeds). The game scores any model on the hosting terrain area (11e 14.01). The scenario opens Suggest (K) twice on the same position: first with FIX_HELD_DUP=0 (the old reading: Beta is sent to capture obj_home_1), then with the fix on (obj_home_1 is read as held; Beta goes forward). Nothing is executed.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.load_player_profile(1, {\"parameters\": {\"FIX_HELD_DUP\": 0.0}})\nreturn true",
+      "equals": true,
+      "comment": "BEFORE: switch the fix off for P1"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"chose Move obj_home_1 (capturing it (uncontrolled)\")",
+      "equals": false,
+      "comment": "MERGE: fix off no longer reproduces the reviewed mistake — main's terrain-aware objective range (OBJ-GAP-1/2, the live board's hosting area) is now the base read, so obj_home_1 is held even with FIX_HELD_DUP = 0"
+    },
+    {
+      "act": "screenshot",
+      "label": "00_fix_off_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.clear_player_profile(1)\nreturn true",
+      "equals": true,
+      "comment": "AFTER: fix on (default)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta (OC3): \") and not tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta (OC3): MOVE obj_home_1\")",
+      "equals": true,
+      "comment": "MERGE: Beta is in the movement plan and not sent back to obj_home_1. With main's nearest-model gaps Alpha now takes obj_center (and heads the card) and Beta obj_nml_1, so the card's own decision may be Alpha's"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"chose Move obj_home_1\")",
+      "equals": false,
+      "comment": "fix on: Beta is not sent back to obj_home_1"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"obj_home_1 (capturing it (uncontrolled)\")",
+      "equals": false,
+      "comment": "obj_home_1 is no longer read as uncontrolled"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fix_on_after"
+    }
+  ]
+}

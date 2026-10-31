@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (flipping it (enemy holds with OC 11), needs 5 more OC after this unit \u2014 worth ~6 VP with the 1 other objective(s) this plan takes \u2014 worth ~6 VP)",
+ "created": "2026-10-30 01:12:32",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7404_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent 7 Kommandos toward an objective held at OC 11 that they cannot reach or flip this turn, where the enemy melee units can charge and kill them. Fix: Zero or heavily discount expected_vp and objective_priority when the unit cannot reach the objective this turn and the OC deficit stays positive after the unit's OC is added. Scale threat_delta by the enemy melee units that can charge the destination, such as Fights First 8 in movers with high damage. When the capture override rejects the top objective, re-score the remaining options with those viability checks.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7404_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "pos:1371,606",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos moves toward obj_nml_1 (moving toward charge target Blade Champion Alpha, obj: 14.5\" away)",
+ "verdict": "bad",
+ "version": 1
+}

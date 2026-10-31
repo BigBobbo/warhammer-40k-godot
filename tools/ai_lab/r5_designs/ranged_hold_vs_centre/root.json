@@ -1,0 +1,84 @@
+{
+ "key": "ranged_hold_vs_centre",
+ "angle": "root",
+ "root_cause": "The movement planner mis-prices a capture trip's REACH, and every downstream term inherits the error. (a) On 11e terrain objectives (14.01: the hosting AREA is the objective; all three findings' centres are ruin pairs) gap_in is still centroid -> marker point minus 3\" (FIX-HELD-DUP only fixed the 'already on it' test). At s7462 r1 P2 Lootas Alpha's centroid is 19.6\" from the centre marker (gap 15.8\" -> 2 turns) but its nearest model is 7.3\" from the centre's hosting area. (b) A trip the plan Advances on because the Advance reaches range THIS turn (gap in (M, M+2]) is still costed ceil(gap/M) = 2 turns. The overstated turns_to_reach turned the centre into a 2-turn trip: contest_race x0.5 (-13.85), distance penalty, -2 reachability, and LONE-TRIP's 2-move race window (~30 enemy OC vs our 10 -> veto) instead of now + next move (~5 OC). With the centre vetoed the unit got a 3-turn trip to obj_nml_1 and T7-26 then held it still (its 'reachable' test also reads centroid -> marker). Evidence: branch B (Advance to centre) reached the centre's area in ONE Advance in both seeds and held it at P2's next Command phase (+4 hold_more, P1 lost its hold_min): A -7/-4 vs B +4/+7 (seeds 5001/5002). F2 (s7463, centre 12.1\" from its area: a real 2-turn trip) and F3 (11.9\") are not explained by the reach error: there the centre is a genuine 2-turn race that LONE-TRIP vetoes / T7-26 holds for.",
+ "fix_summary": "FIX_RANGED_CENTRE (default 1; 0 = base exactly). In _assign_units_to_objectives' candidate loop, for a unit not already on the objective: gap_in = min(marker gap, nearest alive model's MissionManager.model_gap_to_objective_range_px) when the objective has hosting areas (via FIX-HELD-DUP's hd_obj_by_id / hd_mm); turns_to_reach is recomputed from that gap; when the gap is in (M, M+2] and _should_unit_advance says Advance (computed once, reused by the action branch), turns_to_reach = 1. RACE-1's long-Advance pace, contest race, distance penalty, reachability, LONE-TRIP / RACE-SKIP / TOO-LATE all then read the corrected turns. Candidates carry gap_in; T7-26 _should_hold_for_heavy_bonus tests 'reachable this move' and 'high-priority within 2 moves' on that gap too. [RANGED_CENTRE] log (stdout + debug log) when an assigned move/advance is priced at fewer turns than the previous pricing, and when the Heavy hold is skipped because of the corrected gap. No special case for Lootas, round 1 or the centre.",
+ "param": "FIX_RANGED_CENTRE",
+ "test_file": "40k/tests/unit/test_ai_fix_ranged_centre.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: 9/0 (test_ai_fix_ranged_centre: fabricated advance-now trip + holder unchanged + param 0 = base, and the s7462 r1 P2 save driven through AIDecisionMaker.decide()); BASE copy: 4 passed 5 failed. All listed related tests pass on the fix: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 52/0, fix_lone_flip 16/0, fix_reinforce_insurance 24/0, charge_decisions 62/0, survival_assessment 23/0, multi_phase_planning 34/0, plan_deployment 34/0, tests/test_ai_battle_plan 15/0, tests/test_ai_movement_coordination 7/0. Known base failures unchanged: test_ai_threat_range_awareness 34/3 (same 3), tests/test_ai_objective_assignment_fixes 6/1 on fix AND on BASE.",
+ "decision_checks": [
+  {
+   "job": "20261030_160400_r4c11_00__s7462_r1_p2_movement_1_0",
+   "base_choice": "Lootas Alpha holds for Heavy weapon bonus (obj obj_nml_1) [LONE-TRIP vetoed the 2-turn centre: ~30 enemy OC vs 10]",
+   "fix_choice": "Lootas Alpha advances toward obj_nml_2 (2 turns). Its centre candidate is now 1 turn / top score 53.3, but the corrected pricing also makes the centre 1 turn for Lootas Gamma (5.2\" from the area), which the plan sends there first ('obj_center already taken by Lootas Gamma, Lootas Beta, Mek Beta')",
+   "changed": true,
+   "measured": "clear: alternative (Alpha Advance centre) E +5.62 [3.42, 7.83] n24. Fix's own branch, 1 seed (5001): -5 vs base -7",
+   "judgement": "Partial match: the hold is gone and the mode (Advance) matches, but the unit goes to obj_nml_2, not the centre; a different Lootas unit takes the centre this turn. The intent (Lootas off their Heavy hold, centre taken in round 1) is met at army level, not unit level; the fix's exact plan is unmeasured beyond 1 seed."
+  },
+  {
+   "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_2_3",
+   "base_choice": "Lootas Alpha screens at (594,1499) - corridor block for Battlewagon Beta approaching obj_nml_2",
+   "fix_choice": "same corridor block (unchanged). The centre is 12.1\" from its hosting area: still a 2-turn race (contest_race -12.0) that LONE-TRIP vetoes; obj_nml_2 is now a 1-turn Advance (31.4) but not taken (already covered)",
+   "changed": false,
+   "measured": "clear: E +4.79 [2.50, 7.09] n24",
+   "judgement": "Not changed. This finding is not a reach error: the centre really is 2 turns away; its cause is LONE-TRIP / the block outscoring a 2-turn race, outside this design's root."
+  },
+  {
+   "job": "20261030_160415_r4c09_00__s7460_r1_p1_movement_2_0 (extra, 12 seeds)",
+   "base_choice": "Lootas Alpha holds for Heavy weapon bonus (obj obj_center) [replayed on base here: value -1, seed 5001]",
+   "fix_choice": "Lootas Alpha screens at (419,1767) - corridor block for Beastboss approaching obj_nml_2 (value -5, seed 5001)",
+   "changed": true,
+   "measured": "clear (12 seeds only): Advance centre E +2.58 [0.19, 4.98] n12",
+   "judgement": "Changed but NOT toward the alternative: repricing elsewhere left the unit unassigned and it fell to a corridor block, an unmeasured option. Counts against the design."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_234808_r5c15_00__s7490_r1_p1_movement_2_3",
+   "base_choice": "Lootas Alpha holds obj_home_1 (keeper)",
+   "fix_choice": "Lootas Alpha holds obj_home_1 (keeper)",
+   "changed": false,
+   "measured": "harmful: Advance centre E -3.83 n12",
+   "judgement": "Consistent: keeper left alone (already-on-objective holds are not repriced)."
+  },
+  {
+   "job": "20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1",
+   "base_choice": "Lootas Gamma advances toward obj_nml_1 (racing)",
+   "fix_choice": "Lootas Gamma advances toward obj_nml_1 (racing)",
+   "changed": false,
+   "measured": "harmful: Move centre E -5.50 n12",
+   "judgement": "Consistent: not moved toward the harmful centre."
+  },
+  {
+   "job": "20261030_160514_r4c15_00__s7466_r1_p2_movement_1_0",
+   "base_choice": "Lootas Gamma advances toward obj_center",
+   "fix_choice": "Lootas Gamma advances toward obj_center",
+   "changed": false,
+   "measured": "harmful: Normal move E -6.67 n12",
+   "judgement": "Consistent: keeps the Advance."
+  },
+  {
+   "job": "20261030_160400_r4c11_00__s7462_r3_p1_movement_1_8",
+   "base_choice": "Lootas Gamma screens at (1211,929) - block Stormboyz approaching obj_nml_1 (base drifted from the recorded Heavy hold)",
+   "fix_choice": "same block",
+   "changed": false,
+   "measured": "neutral: Advance centre E -1.33 n12",
+   "judgement": "Consistent (round 3 unchanged)."
+  },
+  {
+   "job": "20261030_063438_r2c04_00__s7435_r1_p1_movement_2_0",
+   "base_choice": "Lootas Gamma screens at (1232,1528) - corridor block",
+   "fix_choice": "same corridor block",
+   "changed": false,
+   "measured": "neutral: Move centre E +0.11 n36",
+   "judgement": "Consistent."
+  }
+ ],
+ "fires": "Replays (debug-log lines, both players, to the end of the next battle round; only 4 of the 8 fix replays' logs survived log rotation): 11 (f3, 2 Heavy-hold skips), 4, 5, 7 (g4 round 3, 2 Heavy-hold skips); F1/F2 logs showed the reprice firing for Lootas Gamma -> centre (MOVE 5.2\", 1 turn vs 2), Lootas Alpha -> obj_nml_2, Battlewagons, Custodian Guard etc. Bench (mirror_orks_2000_postdeploy, 1 pair, seed 93101): 19 fires in each game (candidate seat only; M1: 11 MOVE + 8 ADVANCE reprices, M2: 10 MOVE + 9 ADVANCE, 0 Heavy-hold skips) - Stompa/Deffkoptas/Warbikers/Wazdakka trips to centre/NML/home priced 1 turn shorter. It fires broadly: it is a board-wide reach correction, not a Lootas trigger.",
+ "bench_fires_per_game": 19,
+ "risks": "(1) Broad: it reprices every unit's trips to terrain-hosted objectives (19 per bench game), so its full-game effect is not predicted by these single-position checks; the one bench pair went -7.5 VP for the candidate (lost both games; 1 pair is noise-level, but nothing positive was seen). (2) Asymmetry: our reach now uses the nearest model to the hosting area, the enemy's arrivals (race_enemy_oc, projected_enemy_oc, friendly_arrivals) still use centroid -> marker with M+2\" slack, so contests look easier for us than for them; LONE-TRIP now judges 1-turn trips on next-move threat only, which can send fragile units forward into a flood arriving the turn after (the round-2 FAR_TRIP/OVERCOMMIT lesson in reverse). (3) Advance-now = 1 turn ignores the 1/6-1/3 chance the roll falls short and the lost shooting of an Advance for ranged units. (4) Execution may not match the price: the executor walks the centroid toward the marker; terrain walls or coherency can leave the front model off the area. (5) It redistributes objectives between units (F1: Gamma took the centre, Alpha went to obj_nml_2; F3: Alpha dropped to a corridor block), so a corrected price can reshuffle the plan into unmeasured assignments. (6) Heavy-hold skips cost the +1 to hit in later rounds when a unit is 'reachable' by gap but not really worth walking.",
+ "drop_reason": ""
+}

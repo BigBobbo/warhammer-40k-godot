@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Thunderwolf Cavalry Alpha arrives",
+ "created": "2026-10-30 01:38:23",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7407_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI put Thunderwolf Cavalry Alpha next to a home objective that P2 already holds. It left the free obj_nml_2 untouched. Fix: Score arrival spots by marginal control change. Give high value to taking an uncontested or enemy-held objective. Give near zero value to adding OC to an objective that already has a safe lead. Choose the arrival edge by the objective the unit can reach.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7407_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "choice": "key:U_THUNDERWOLF_CAVALRY_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_THUNDERWOLF_CAVALRY_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Thunderwolf Cavalry Alpha arrives from Strategic Reserves",
+ "verdict": "pending",
+ "version": 1
+}

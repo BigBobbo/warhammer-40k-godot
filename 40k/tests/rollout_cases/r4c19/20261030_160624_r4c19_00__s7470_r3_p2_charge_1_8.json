@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Gamma (2.0\" away, 100% chance)",
+ "created": "2026-10-30 16:14:58",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7470_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI chose to charge Gamma, which has 11 wounds and is already tied up with the Beastboss. Beta is wounded, stands on the centre objective and scores about the same. Fix: Weight targets by the chance to destroy them and by whether they hold an objective, especially one the AI currently controls. Reduce the value of charging an enemy that is already engaged with a friendly unit. Do not let a 3 percentage point charge difference outweigh a clear kill opportunity.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7470_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:684,1318",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_B,U_CUSTODIAN_GUARD_C",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz declares a charge at Custodian Guard Sodality Gamma + Custodian Guard Sodality Beta \u2014 targets picked after the roll: Custodian Guard Sodality Gamma on 2+ (100%), Custodian Guard Sodality Beta on 3+ (97%), overwatch risk: 0.3 dmg",
+ "verdict": "pending",
+ "version": 1
+}

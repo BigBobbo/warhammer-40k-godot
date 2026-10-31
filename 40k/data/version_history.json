@@ -2,36 +2,126 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.56.1",
-      "date": "2026-10-28",
+      "version": "1.56.9",
+      "date": "2026-10-31",
       "summary": "Terrain objectives now count as 'in range' everywhere, and the AI takes the shortest route onto them.",
       "changes": [
         "Mission and secondary rules now treat a model as within range of a terrain objective once its base touches the objective's area, not only when it is near the marker. This covers Burden of Trust guards (scoring, auto-pick and the guard dropdown), Sabotage, Gather Intel, Punishment, Decoy, Cleanse, Stand Vigil and Dat's Our Loot!.",
         "Clicking anywhere on a terrain objective's area now selects that objective when a prompt asks you to pick one on the board.",
         "The AI checks whether enemy and friendly units are 'on an objective' the same way the game scores it (any base in range), so its shooting, charge, fight and stratagem choices value objective holders correctly.",
-        "AI units heading for a terrain objective now move straight at its nearest edge instead of angling toward the marker in the middle."
+        "AI units heading for a terrain objective now move straight at its nearest edge instead of angling toward the marker in the middle.",
+        "The AI now measures from its nearest model to the edge of an objective's terrain area (being on any part of it counts), not from the middle of the squad to the objective marker. Before, a squad 9\" from a ruin could think it was 14\" away and two turns out.",
+        "The AI now counts its Advance roll. If any roll gets a model onto the objective, it Advances and treats the objective as reached this turn. If it needs a good roll, it weighs the odds (e.g. 50% for 4+) against giving up its shooting or charge.",
+        "When deciding which unit should go for an objective, a unit that will very likely get there this turn by Advancing now beats one that needs two normal moves.",
+        "The Suggest (K) card shows the new 'Gap to close' and 'Advance roll gets there' facts, and says when an Advance is a sure thing or what chance the roll has.",
+        "The AI only bends a unit's move toward a planned charge when that actually leaves it within 9\" of the target — otherwise it heads straight for its objective (a Telemon was crawling 5\" sideways toward a charge it could not make).",
+        "Big-based models (e.g. a Telemon) now plan their path around solid terrain the way the rules check it, so they detour around a tall wall or gantry instead of being dropped on a random side of it.",
+        "When a tall wall or gantry blocks the straight line, the AI now goes around it in two legs (a short sidestep, then on toward the target) instead of veering off at an angle.",
+        "Suggest (K) now lists \"How this turn's move was shaped\": charge steering, terrain detours, staying out of enemy reach, and how far the unit really moves.",
+        "This build merges the terrain-aware objective range and the movement steering above (nearest-edge approach, Advance odds, charge-steer gate, two-leg detours around solid terrain) from the main branch into the lab AI (1.56.8), on top of its objective-race, reinforcement and Waaagh! charge improvements."
+      ]
+    },
+    {
+      "version": "1.56.8",
+      "date": "2026-10-31",
+      "summary": "The AI no longer Advances toward a unit it means to charge when the Advance would cost it the charge.",
+      "changes": [
+        "Movement: Orks (and any unit without an advance-and-charge effect) no longer Advance toward a unit they mean to charge when the Advance would forfeit the charge. They make a Normal move toward it instead and keep the charge.",
+        "Movement: while a Waaagh! is active (or another advance-and-charge effect applies), those units still Advance toward their target, because then the Advance does not stop the charge."
+      ]
+    },
+    {
+      "version": "1.56.7",
+      "date": "2026-10-30",
+      "summary": "The AI shares its units between objectives better: fewer wasted reinforcements, and no lone units sent to flip strongly held objectives.",
+      "changes": [
+        "Movement: the AI no longer sends a unit to reinforce an objective it holds when the enemy can stand there next turn with far more OC than the AI would have, even with that unit. It now measures enemy reach from each unit's nearest model, as objective control does, and sends the unit where it scores more.",
+        "Movement: with the Reconnaissance Sweep primary mission, the AI now counts the VP a unit adds by ending its move wholly within an uncovered table quarter.",
+        "Movement: a unit whose ranged weapons all have [ASSAULT] now Advances on long trips, because Advancing costs it no shooting.",
+        "Movement: a unit that stays on an objective the enemy controls no longer makes the AI think that objective is already taken. Before, one squad standing near an enemy-held centre made the AI send its next unit alone to flip another objective the enemy held with far more OC."
+      ]
+    },
+    {
+      "version": "1.56.6",
+      "date": "2026-10-30",
+      "summary": "The AI reads objective control on terrain correctly and stops wasting moves on objectives it already holds.",
+      "changes": [
+        "Movement: the AI now counts every model on the terrain area that holds an objective when it checks who controls it, as the 11th edition rules do. Before, it looked only near the objective marker, so it sent extra units, and reserve units arriving on the table, to objectives it already held.",
+        "Movement: the AI no longer sends a fragile unit (Toughness 3 or less, 1-wound models or a lone character) alone to a far objective where the enemy has much more OC than the AI can bring."
+      ]
+    },
+    {
+      "version": "1.56.5",
+      "date": "2026-10-29",
+      "summary": "The AI playing second claims its own side's objectives in round 1 again.",
+      "changes": [
+        "Movement: the AI now treats a race for an objective as lost only when the enemy can be there before it arrives, or when the whole enemy army can bring more there than the AI's army. Before, enemy units that could only arrive on the same turn counted against one unit, so the AI playing second often gave up near objectives in round 1 and scored less in round 2."
+      ]
+    },
+    {
+      "version": "1.56.4",
+      "date": "2026-10-29",
+      "summary": "Faster objective control checks.",
+      "changes": [
+        "Performance: the game now works out each model's OC once per objective control check, not once for every objective, and skips a check when nothing on the board has changed. Objective control checks take about 1/5 of the time they did, so phases end faster. Who controls each objective is unchanged."
+      ]
+    },
+    {
+      "version": "1.56.3",
+      "date": "2026-10-29",
+      "summary": "The AI contests the centre again instead of leaving it to the enemy.",
+      "changes": [
+        "Movement: the AI now judges a race for a far objective army against army. Before, it compared the whole enemy army with one unit, so in an even game both sides gave up the centre and crowded onto side objectives.",
+        "Movement: a unit the AI keeps out of a lost race now supports objectives the army holds, contests or is taking, and no longer walks alone toward an enemy objective that nobody is attacking."
+      ]
+    },
+    {
+      "version": "1.56.2",
+      "date": "2026-10-29",
+      "summary": "The AI Advances toward far objectives again when the dice can get it there a turn sooner.",
+      "changes": [
+        "Movement: on a long trip to an objective, the AI now Advances when the Advance roll has a fair chance (about 1 in 3 or better) to arrive a whole turn sooner. Before, it walked unless the average roll saved a turn, so in round 1 it often reached no objective in time for the round-2 scoring."
+      ]
+    },
+    {
+      "version": "1.56.1",
+      "date": "2026-10-28",
+      "summary": "More AI fixes: the cheapest unit keeps home, charges count real help and the cost of being hit back.",
+      "changes": [
+        "When several units stand on an objective, the cheapest unit that can hold it alone stays and the expensive units go forward.",
+        "Charges: the AI only counts help from friendly units that can really charge the same target this turn, and only when the charger cannot destroy the target alone.",
+        "Charges: a charge that does not destroy its target now counts the damage the target does back.",
+        "The AI judges a contested objective better: an enemy unit that is nearer to another objective counts for half.",
+        "Reserves: the AI values the one best objective an arriving unit can help with, and only objectives a deep-striking unit can land next to.",
+        "The suggestion card says 'enemy' and the player number for each shooting target, and 'reinforcing' when a unit joins an objective you already hold."
       ]
     },
     {
       "version": "1.56.0",
       "date": "2026-10-28",
-      "summary": "The AI now measures distance to terrain objectives properly and will Advance onto an objective when the roll is likely to get it there.",
+      "summary": "The AI keeps its army together, finishes wounded units and stops several wasted moves.",
       "changes": [
-        "The AI now measures from its nearest model to the edge of an objective's terrain area (being on any part of it counts), not from the middle of the squad to the objective marker. Before, a squad 9\" from a ruin could think it was 14\" away and two turns out.",
-        "The AI now counts its Advance roll. If any roll gets a model onto the objective, it Advances and treats the objective as reached this turn. If it needs a good roll, it weighs the odds (e.g. 50% for 4+) against giving up its shooting or charge.",
-        "When deciding which unit should go for an objective, a unit that will very likely get there this turn by Advancing now beats one that needs two normal moves.",
-        "The Suggest (K) card shows the new 'Gap to close' and 'Advance roll gets there' facts, and says when an Advance is a sure thing or what chance the roll has."
+        "Objectives: the AI now plans for diminishing returns. Each objective it decides to take lowers the value of the next one, and it does not send a unit to take an extra objective that would add almost no primary VP. Objectives the enemy holds still count, because taking one stops the enemy from scoring it.",
+        "Objectives: in round 1 the AI now plans for the round-2 primary scoring, which depends on where its units stand at the end of round 1.",
+        "Objectives: the AI does not send a unit on a long trip to an objective where the enemy can have far more OC before it arrives, or that it cannot reach before the game ends.",
+        "Objectives: a unit is not kept on an objective that units which are not moving this phase already hold.",
+        "Movement: the AI measures to the objective's control range, not to the marker, so it does not Advance (and lose its shooting and charge) when a normal move already gets there.",
+        "Shooting: the AI values damage by how much of the target unit it removes, and values destroying a whole unit. It now finishes wounded or cheap units it can kill instead of chipping at healthy ones.",
+        "Charges: an extra charge target is valued for tying it up, minus the damage it does back. The AI no longer charges into several units when the extras would hit back hard.",
+        "Charges: the AI counts the cost of leaving an objective that only the charging unit holds.",
+        "Units with weak guns and weak close-combat weapons (for example Prosecutors) no longer run across the board to attack in melee.",
+        "Reserves: units that bring more OC now arrive first when objectives are in play."
       ]
     },
     {
       "version": "1.55.3",
       "date": "2026-10-28",
-      "summary": "AI moves head for their objective instead of drifting toward far-off charges, and the suggestion card explains why a move bends.",
+      "summary": "The AI plans charges and objectives the 11th edition way.",
       "changes": [
-        "The AI only bends a unit's move toward a planned charge when that actually leaves it within 9\" of the target — otherwise it heads straight for its objective (a Telemon was crawling 5\" sideways toward a charge it could not make).",
-        "Big-based models (e.g. a Telemon) now plan their path around solid terrain the way the rules check it, so they detour around a tall wall or gantry instead of being dropped on a random side of it.",
-        "When a tall wall or gantry blocks the straight line, the AI now goes around it in two legs (a short sidestep, then on toward the target) instead of veering off at an angle.",
-        "Suggest (K) now lists \"How this turn's move was shaped\": charge steering, terrain detours, staying out of enemy reach, and how far the unit really moves."
+        "Charges: the AI now knows targets are picked after the charge roll. Listing a second target pays off on a high roll and still takes the nearest one on a low roll, instead of being treated as an all-or-nothing gamble on the farthest target.",
+        "Charges: a second charge target is valued only for tying it up, not as if the charger could deal its full damage to both, so long-shot multi-target charges no longer win over a reliable single charge.",
+        "Objectives: the AI knows primary VP is capped at 15 per turn, so it values an extra objective by the VP it can still add under that cap (often little or nothing).",
+        "Objectives: on missions that pay for holding at least one objective outside your home, the AI now values that first objective properly. It used to count its home objective toward it."
       ]
     },
     {

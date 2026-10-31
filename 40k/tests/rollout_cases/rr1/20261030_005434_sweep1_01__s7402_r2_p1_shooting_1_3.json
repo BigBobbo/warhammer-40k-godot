@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+ "created": "2026-10-30 00:56:51",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7402_r2_p1_shooting_1",
+ "note": "[LLM critic, low conf] The AI shoots at far enemy Gamma instead of closer enemy Alpha. Both shots deal about 0.9 damage and neither can kill, so the choice only matters a little. Alpha holds NML 1, which Player 1 could contest. Fix: When the shooters cannot kill a target, prefer the target that holds or contests an objective and that Player 1 can reach next turn. Add already_allocated into the score so shots stack on one target. Do not split damage across units when no kill is possible.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7402_r2_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha shoots at Custodian Guard Sodality Gamma \u2014 expected 0.9 dmg vs 15 HP (6% kill)",
+ "verdict": "pending",
+ "version": 1
+}

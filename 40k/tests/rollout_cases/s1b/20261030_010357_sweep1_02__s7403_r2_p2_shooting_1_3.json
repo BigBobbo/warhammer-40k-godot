@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Lootas Alpha (P1)",
+ "created": "2026-10-30 01:06:54",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7403_r2_p2_shooting_1",
+ "note": "[LLM critic, low conf] Gamma shoots Lootas Alpha for 1.2 expected damage. Two options tie at 1.08, so the choice between them is arbitrary. The real problem is that Lootas Beta is already allocated more damage (2.33 against 1.17), so the focus-fire term should favour it. Fix: Add the already_allocated damage to the score, with a bonus when it brings a target close to its kill threshold. Break ties toward the target with more allocated damage. Check weapon range per model rather than by centroid, and drop options that nothing can reach.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7403_r2_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Lootas Alpha (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma shoots at Lootas Alpha \u2014 expected 1.2 dmg vs 10 HP (12% kill)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+ "created": "2026-10-30 01:31:34",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7408_r1_p1_movement_1",
+ "note": "[LLM critic, low conf] The AI chose a flat Screen score of 8.0 over objective moves of 17 to 27. The Screen option has no threat, objective or shooting term, so it cannot be compared fairly with the other options. Fix: Score Screen with the same terms as other options: threat_delta, shooting_lane and the value of the units it protects. Choose Screen only if that total beats the best objective move.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7408_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:604,984",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta screens at (604,984) \u2014 screening valuable friendlies from enemy threats",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Beta (9.2\" away, 17% chance)",
+ "created": "2026-10-30 01:52:32",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7417_r2_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI declares a 17% charge with 140 pts of Stormboyz into 2+/4++ Custodians. A success leaves the Stormboyz deep in enemy units and off their objective. A failure wastes the turn. Fix: Multiply every upside term by charge probability. Count only the damage the unit would really deal after saves. Do not declare a charge when the probability is under about 30% and the unit holds an objective, unless the expected gain beats the cost of leaving. Scale the ch_leave_objective penalty by what the objective is worth.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7417_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:967,804",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_C,U_CUSTODIAN_GUARD_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares a charge at Custodian Guard Sodality Beta + Blade Champion Gamma \u2014 targets picked after the roll: Custodian Guard Sodality Beta on 10+ (17%), Blade Champion Gamma on 11+ (8%), overwatch risk: 0.8 dmg",
+ "verdict": "bad",
+ "version": 1
+}

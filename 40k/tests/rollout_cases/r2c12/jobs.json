@@ -1,0 +1,259 @@
+[
+ {
+  "job": "20261030_063558_r2c12_00__s7443_r1_p2_movement_1_0",
+  "case": "20261030_063558_r2c12_00__s7443_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_SCOUT_SQUAD_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent Scout Squad Beta alone to obj_nml_1. That objective is in the enemy zone and 21 in away. The scouts could not arrive before the enemy and would be isolated.",
+  "better_option": "Advance obj_center (advancing for extra range \u2014 worth ~9 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7443",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063558_r2c12_00"
+ },
+ {
+  "job": "20261030_063558_r2c12_00__s7443_r1_p1_movement_1_1",
+  "case": "20261030_063558_r2c12_00__s7443_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent 10 OC2 Beast Snagga Boyz to screen a gap on its own, even though every objective option scored higher. The override says other units cover the objectives, but that coverage is weak.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7443",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063558_r2c12_00"
+ },
+ {
+  "job": "20261030_063558_r2c12_00__s7443_r1_p1_movement_2_2",
+  "case": "20261030_063558_r2c12_00__s7443_r1_p1_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_MEK_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI kept Mek Beta on a home objective that already has 17 OC and no enemy threat. The Mek cannot reach any other objective this turn, so the hold wastes its turn.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7443",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063558_r2c12_00"
+ },
+ {
+  "job": "20261030_063558_r2c12_00__s7443_r2_p1_movement_2_3",
+  "case": "20261030_063558_r2c12_00__s7443_r2_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The Boyz walk toward the Terminator Assault Squad and the centre objective, and score the same as the plain centre move. The charge into a 395pt 2+/4++ unit is a poor trade for 80pts of Boyz.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7443",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063558_r2c12_00"
+ },
+ {
+  "job": "20261030_063558_r2c12_00__s7443_r2_p1_shooting_2_4",
+  "case": "20261030_063558_r2c12_00__s7443_r2_p1_shooting_2_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_B",
+    "target": "U_TERMINATOR_ASSAULT_SQUAD_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Battlewagon Beta shot the far Wulfen for 0.5 damage and a 3% kill chance instead of the close Terminator Assault Squad that it can hit with rapid fire.",
+  "better_option": "Big shoota \u2192 enemy Terminator Assault Squad (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7443",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063558_r2c12_00"
+ },
+ {
+  "job": "20261030_063558_r2c12_00__s7443_r2_p1_charge_1_5",
+  "case": "20261030_063558_r2c12_00__s7443_r2_p1_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges 80 points of Boyz into 8 Terminators for about 4.5 expected damage against 31 HP. It expects to lose most of the unit in return.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7443",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063558_r2c12_00"
+ },
+ {
+  "job": "20261030_063558_r2c12_00__s7443_r3_p2_movement_2_6",
+  "case": "20261030_063558_r2c12_00__s7443_r3_p2_movement_2_6.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_SCOUT_SQUAD_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a 4-model Scout Squad alone into an enemy-held objective where 8 more OC are needed, instead of reinforcing the held centre objective.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7443",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063558_r2c12_00"
+ },
+ {
+  "job": "20261030_063558_r2c12_00__s7443_r3_p1_movement_1_7",
+  "case": "20261030_063558_r2c12_00__s7443_r3_p1_movement_1_7.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Lootas Gamma walks 6 in toward obj_center, which needs 2 turns to reach. It gives up the Heavy bonus and takes a normal move, even though the reasoning line says it holds for the Heavy bonus. The centre is a poor fit for a single OC 1 unit against OC 9.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~5 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7443",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063558_r2c12_00"
+ },
+ {
+  "job": "20261030_063558_r2c12_00__s7443_r3_p1_movement_2_8",
+  "case": "20261030_063558_r2c12_00__s7443_r3_p1_movement_2_8.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI advances Lootas Beta toward obj_center, which loses its Deffgun shooting this turn. The unit needs two turns to arrive and would then sit alone beside the Terminators. The top-scored option, obj_nml_1, was skipped, and the reasoning only explains why obj_nml_2 was skipped.",
+  "better_option": "unlisted: move normally (no advance) toward obj_center so Lootas Beta keeps its shooting, or keep it in a firing position near Lootas Alpha",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7443",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063558_r2c12_00"
+ },
+ {
+  "job": "20261030_063558_r2c12_00__s7443_r3_p1_shooting_2_9",
+  "case": "20261030_063558_r2c12_00__s7443_r3_p1_shooting_2_9.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_A",
+    "target": "U_TERMINATOR_ASSAULT_SQUAD_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot the Big shoota at the Wulfen, which have OC0 and hold no objective. It expects only 0.4 damage, and an already_allocated bonus of 2.97 decided the choice.",
+  "better_option": "Big shoota \u2192 enemy Terminator Assault Squad (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7443",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063558_r2c12_00"
+ }
+]

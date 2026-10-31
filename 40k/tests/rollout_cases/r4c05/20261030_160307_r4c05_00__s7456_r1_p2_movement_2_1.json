@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (deny deep strike near home objective obj_home_2)",
+ "created": "2026-10-30 16:03:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7456_r1_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI sent the Prosecutor Squad to a deep strike screen point. It left its own home objective uncontrolled, and a 4-wound unit is a weak screen. Fix: Do not let a screen assignment override securing an uncontrolled home objective. Score screening only after a unit is assigned to hold home. Give a screen bonus only if the screening unit is worth screening for, not a 4-wound squad.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7456_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A_P2",
+  "choice": "pos:1320,1815",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad screens at (1320,1815) \u2014 deny deep strike near home objective obj_home_2",
+ "verdict": "pending",
+ "version": 1
+}

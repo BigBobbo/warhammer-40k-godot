@@ -1,0 +1,621 @@
+{
+ "key": "screen_vs_objective",
+ "angle": "narrow",
+ "param": "FIX_SCREEN_VS_OBJECTIVE",
+ "base": "1.56.8 = e12e6e8",
+ "apply_conflicts": "git apply -3 narrow.patch on 1.56.8: one conflict hunk in the constants block \u2014 1.56.8 has the FIX_REINFORCE_INSURANCE / FIX_RI_* / RI_QUARTER_LATER_ROUND_SHARE / RI_RACE_LOST_RATIO / FIX_WAAAGH_ADVANCE_CHARGE constants where the design (V9) added FIX_SCREEN_VS_OBJECTIVE. Resolved by keeping all 1.56.8 constants and adding the design's const after FIX_WAAAGH_ADVANCE_CHARGE. The PASS-3 switch block, the svo_switched flag and the 'gap' tag in _calculate_denial_positions applied cleanly; the test file was added as is.",
+ "required_changes": [
+  {
+   "change": "0: PARK (FIX_SCREEN_VS_OBJECTIVE = 0.0 in any merge set until a reserve-carrying A/B shows E > 0)",
+   "applied": false,
+   "how_or_why_not": "shipping rule, not a code change: candidate keeps 1.0 per the finalizer brief; the reserve gate below fails, so it stays parked"
+  },
+  {
+   "change": "1: reproduce branch B \u2014 drop the support_counts bump, append the gap to screener_positions",
+   "applied": true,
+   "how_or_why_not": "support_counts line removed; screener_positions.append(denial_pos) next to denial_idx += 1. Verified at s7467 2_1: every other unit's action identical to the shipped replay, only the Gretchin changes"
+  },
+  {
+   "change": "2: check the released trip (race_lost, too_late, race_hopeless, lone_trip, far_trip)",
+   "applied": true,
+   "how_or_why_not": "candidate loop continues on any of the five; test_too_late_trip_keeps_the_gap fails when the too_late gate is removed"
+  },
+  {
+   "change": "3: narrow the target (uncontrolled, projected_enemy_oc == 0, not home, support_counts >= 1)",
+   "applied": true,
+   "how_or_why_not": "all four conditions in the candidate filter; s7467 still fires (obj_nml_2 passes). Side effect: the new-evidence findings at s7465/s7484/s7482/s7481 (obj_center, enemy-held or enemy one move away / lost race) are excluded"
+  },
+  {
+   "change": "4: SCREEN_VS_OBJECTIVE_MIN_GAIN = 8.0 via get_param; const comment names TOO-LATE and the on-objective rule",
+   "applied": true,
+   "how_or_why_not": "new const, read with get_param; FIX_SCREEN_VS_OBJECTIVE comment rewritten (TOO-LATE / RACE-SKIP / LONE-TRIP / FAR-TRIP marks, on-objective unit keeps its gap, one switch per plan, fires only with enemy reserves). Also the on-objective check now also reads already_on_obj, not only a 'hold' candidate"
+  },
+  {
+   "change": "5: tests \u2014 exact base assertion on a board where only the new filter blocks; one case per gate",
+   "applied": true,
+   "how_or_why_not": "test_held_back_grots_keep_the_gap now asserts action == screen and reason begins with 'backfield gap' with a lone enemy model 10\" from obj_mid (projected_enemy_oc > 0, still uncontrolled). Added (a) TOO-LATE (round 5, margin overridden to 0), (b) grots on an objective, (c) two spare screeners -> exactly one switch (margin 0), (d) home-denial spot -> no switch, (e) non-screen spare unit same assignment fix on/off. Mutation check: removing the target filter, too_late gate, on-objective gate, one-per-plan cap or the gap gate each makes exactly its test fail; (e) is a neutrality check (no gate of the fix touches non-screen units). Run on SHIP (1.56.8) instead of V9R: 7 passed, 2 failed"
+  }
+ ],
+ "grafts": [
+  {
+   "graft": "game: coordination_note on the released unit",
+   "taken": true,
+   "how": "'not screening the backfield gap at (x,y) \u2014 joining the units at <obj>, which no enemy can reach this turn' (decision card thinking step)"
+  },
+  {
+   "graft": "in_zone tag (release only in-zone gaps)",
+   "taken": false,
+   "why": "not needed: 0 fires at every measured guardrail and every non-finding measured gap position except s7436 (unmeasured unit); adds a polygon dependency for no measured gain"
+  },
+  {
+   "graft": "release the cheapest no-ranged unit first (pre-pass)",
+   "taken": false,
+   "why": "changes PASS-3 ordering for all screeners; at s7467 the Gretchin is already the released unit; not small"
+  },
+  {
+   "graft": "keep the gap when a Defend-Stronghold-type secondary is active",
+   "taken": false,
+   "why": "optional, conditional on a 3-round horizon check that was not run"
+  }
+ ],
+ "decision_checks": [
+  {
+   "job": "s7467_r1_p2_2_1",
+   "base_choice": "Gretchin screens at (1600,1520) \u2014 backfield gap (nearest friendly: 9\")",
+   "final_choice": "Gretchin advances toward obj_nml_2 (advancing to arrive a turn sooner \u2014 not parked on a backfield gap (screen 8.4))",
+   "changed": true,
+   "matches_alt_intent": true,
+   "measured": "clear E 3.639 [1.82, 5.46] n=36 alt U_GRETCHIN_A ADVANCE obj_nml_2",
+   "note": "fires once; Gretchin ADVANCE obj_nml_2 = measured alt (same unit, objective, mode); every other unit of the plan identical to shipped"
+  },
+  {
+   "job": "s7465_r1_p2_1_2",
+   "base_choice": "Gretchin screens at (320,2160) \u2014 backfield gap (nearest friendly: 10\")",
+   "final_choice": "Gretchin screens at (320,2160) \u2014 backfield gap (nearest friendly: 10\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear E 11.792 [6.87, 16.72] n=24 alt U_GRETCHIN_A_P2 ADVANCE obj_center",
+   "note": "no fire: alt target obj_center is enemy-held (flip, OC 5) and race_lost -> outside the judge RC3 no-fight filter"
+  },
+  {
+   "job": "s7484_r1_p1_1_0",
+   "base_choice": "Burna Boyz Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 9\")",
+   "final_choice": "Burna Boyz Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 9\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear E 5.333 [1.96, 8.71] n=12 alt U_BURNA_BOYZ_B MOVE obj_center",
+   "note": "no fire: alt target obj_center is enemy-held (OC 3) -> outside RC3 filter"
+  },
+  {
+   "job": "s7482_r1_p1_2_0",
+   "base_choice": "Beast Snagga Boyz screens at (960,960) \u2014 backfield gap (nearest friendly: 10\")",
+   "final_choice": "Beast Snagga Boyz screens at (960,960) \u2014 backfield gap (nearest friendly: 10\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear E 4.583 [1.41, 7.76] n=12 alt U_BEAST_SNAGGA_BOYZ_A ADVANCE obj_center",
+   "note": "no fire: obj_center has projected enemy OC (~5 next move) -> outside RC3 filter"
+  },
+  {
+   "job": "s7481_r1_p1_2_1",
+   "base_choice": "Beast Snagga Boyz screens at (960,320) \u2014 backfield gap (nearest friendly: 9\")",
+   "final_choice": "Beast Snagga Boyz screens at (960,320) \u2014 backfield gap (nearest friendly: 9\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 4.417 [-0.34, 9.17] n=12 alt U_BEAST_SNAGGA_BOYZ_A MOVE obj_center",
+   "note": "no fire: obj_center is a lost race (enemy can have ~23 OC there before we arrive, per the Lootas Alpha line) -> race_lost gate (RC2) and projected-enemy filter (RC3)"
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "s7408_r1_p1_1_1",
+   "base_choice": "(see measured a_did)",
+   "final_choice": "(see measured a_did)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful E -5.83 [-10.75, -0.92] n=12 alt U_BURNA_BOYZ_B MOVE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action"
+  },
+  {
+   "job": "s7437_r1_p2_2_3",
+   "base_choice": "Burna Boyz Alpha screens at (320,2160) \u2014 backfield gap (nearest friendly: 11\")",
+   "final_choice": "Burna Boyz Alpha screens at (320,2160) \u2014 backfield gap (nearest friendly: 11\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -3.25 [-8.45, 1.95] n=12 alt U_BURNA_BOYZ_A ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action"
+  },
+  {
+   "job": "s7408_r1_p1_2_2",
+   "base_choice": "(see measured a_did)",
+   "final_choice": "(see measured a_did)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -2.83 [-10.66, 5.0] n=12 alt U_BURNA_BOYZ_A ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action"
+  },
+  {
+   "job": "s7423_r1_p1_2_1",
+   "base_choice": "(see measured a_did)",
+   "final_choice": "(see measured a_did)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -2.25 [-5.91, 1.41] n=12 alt U_GRETCHIN_A ADVANCE obj_nml_1",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action"
+  },
+  {
+   "job": "s7456_r1_p2_2_1",
+   "base_choice": "Prosecutor Squad screens at (1320,1815) \u2014 deny deep strike near home objective obj_home_2",
+   "final_choice": "Prosecutor Squad screens at (1320,1815) \u2014 deny deep strike near home objective obj_home_2",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 3.25 [-1.81, 8.31] n=12 alt U_PROSECUTORS_A_P2 ADVANCE obj_home_2",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action"
+  },
+  {
+   "job": "s7438_r1_p1_2_1",
+   "base_choice": "Prosecutor Squad screens at (761,742) \u2014 deny deep strike near home objective obj_home_1",
+   "final_choice": "Prosecutor Squad screens at (761,742) \u2014 deny deep strike near home objective obj_home_1",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 2.42 [-2.96, 7.79] n=12 alt U_PROSECUTORS_A ADVANCE obj_nml_1",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action"
+  },
+  {
+   "job": "s7485_r1_p2_1_2",
+   "base_choice": "Burna Boyz Alpha screens at (320,1520) \u2014 backfield gap (nearest friendly: 21\")",
+   "final_choice": "Burna Boyz Alpha screens at (320,1520) \u2014 backfield gap (nearest friendly: 21\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful E -2.917 [-5.75, -0.09] n=12 alt U_BURNA_BOYZ_A_P2 MOVE obj_home_2",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action"
+  },
+  {
+   "job": "s7483_r1_p2_2_4",
+   "base_choice": "Lootas Beta screens at (733,1092) \u2014 block Battlewagon Beta approaching obj_center (10\" away)",
+   "final_choice": "Lootas Beta screens at (733,1092) \u2014 block Battlewagon Beta approaching obj_center (10\" away)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful E -3.917 [-7.13, -0.7] n=12 alt U_LOOTAS_B_P2 HOLD obj_home_2",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action"
+  },
+  {
+   "job": "s7472_r1_p1_1_1",
+   "base_choice": "Burna Boyz Beta screens at (960,960) \u2014 backfield gap (nearest friendly: 13\")",
+   "final_choice": "Burna Boyz Beta screens at (960,960) \u2014 backfield gap (nearest friendly: 13\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -1.583 [-4.06, 0.89] n=12 alt U_BURNA_BOYZ_B MOVE obj_home_1",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action"
+  },
+  {
+   "job": "s7472_r1_p1_2_2",
+   "base_choice": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 10\")",
+   "final_choice": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 10\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -1.167 [-2.42, 0.08] n=12 alt U_GRETCHIN_A MOVE obj_home_1",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action"
+  },
+  {
+   "job": "s7436_r1_p1_2_0",
+   "base_choice": "Beast Snagga Boyz screens (960,960) backfield gap; Burna Boyz Alpha screens (1600,320)",
+   "final_choice": "Beast Snagga Boyz ADVANCE obj_nml_1 (fires: leaves backfield gap (960,960)); measured unit Burna Boyz Alpha unchanged (screen (1600,320))",
+   "changed": true,
+   "matches_alt_intent": false,
+   "measured": "neutral E -0.83 [-2.8, 1.14] n=12 alt U_BURNA_BOYZ_A HOLD obj_home_1",
+   "moved_toward_harmful": false,
+   "replayed": "final + shipped, 1 seed, plans compared action by action",
+   "note": "only fire outside the finding: a different unit than the measured one, toward obj_nml_1 (uncontrolled, no enemy one move away); unmeasured, not toward any harmful alternative"
+  },
+  {
+   "job": "s7461_r1_p1_2_3",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Gretchin screens at (1600,960) \u2014 backfield gap (nearest friendly: 27\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 1.917 [-0.58, 4.42] n=12 alt U_GRETCHIN_A ADVANCE obj_nml_2",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7461_r1_p2_2_1",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Gretchin screens at (960,1520) \u2014 backfield gap (nearest friendly: 8\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 0.75 [-5.44, 6.94] n=12 alt U_GRETCHIN_A_P2 ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7459_r1_p2_2_1",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Beta screens at (320,2160) \u2014 backfield gap (nearest friendly: 18\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 2.5 [-1.25, 6.25] n=12 alt U_BURNA_BOYZ_B_P2 ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7464_r1_p1_1_0",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Beta screens at (960,960) \u2014 backfield gap (nearest friendly: 12\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 1.917 [-1.17, 5.0] n=12 alt U_BURNA_BOYZ_B MOVE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7464_r1_p1_2_1",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 11\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful E -1.833 [-3.17, -0.49] n=12 alt U_GRETCHIN_A HOLD obj_home_1",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7463_r1_p1_1_0",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Alpha screens at (320,960) \u2014 backfield gap (nearest friendly: 8\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful E -3.75 [-7.4, -0.1] n=12 alt U_BURNA_BOYZ_A ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7463_r1_p1_2_1",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Gretchin screens at (960,960) \u2014 backfield gap (nearest friendly: 15\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 0.833 [-3.34, 5.01] n=12 alt U_GRETCHIN_A MOVE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7463_r2_p1_2_4",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Alpha screens at (1600,320) \u2014 backfield gap (nearest friendly: 10\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -2.75 [-8.89, 3.39] n=12 alt U_BURNA_BOYZ_A ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7466_r3_p1_2_4",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Beast Snagga Boyz screens at (1600,320) \u2014 backfield gap (nearest friendly: 9\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 1.667 [-4.4, 7.73] n=12 alt U_BEAST_SNAGGA_BOYZ_A MOVE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7465_r1_p1_1_0",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Alpha screens at (960,320) \u2014 backfield gap (nearest friendly: 10\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -0.75 [-5.65, 4.15] n=12 alt U_BURNA_BOYZ_A ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7465_r1_p2_2_3",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Lootas Beta screens at (960,1520) \u2014 backfield gap (nearest friendly: 8\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -1.333 [-5.21, 2.54] n=12 alt U_LOOTAS_B_P2 HOLD obj_home_2",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7471_r1_p1_1_1",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Beta screens at (960,960) \u2014 backfield gap (nearest friendly: 12\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 3.25 [-1.3, 7.8] n=12 alt U_BURNA_BOYZ_B MOVE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7481_r1_p2_2_3",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Alpha screens at (320,1520) \u2014 backfield gap (nearest friendly: 19\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 1.083 [-1.84, 4.0] n=12 alt U_BURNA_BOYZ_A_P2 MOVE obj_nml_1",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7486_r1_p1_2_1",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Gretchin screens at (1600,960) \u2014 backfield gap (nearest friendly: 25\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 0.333 [-4.51, 5.18] n=12 alt U_GRETCHIN_A ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7484_r1_p1_2_1",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 9\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -1.083 [-5.91, 3.74] n=12 alt U_GRETCHIN_A HOLD obj_home_1",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7485_r1_p1_2_1",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Beta screens at (1600,960) \u2014 backfield gap (nearest friendly: 23\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -2.0 [-4.74, 0.74] n=12 alt U_BURNA_BOYZ_B MOVE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7487_r1_p2_1_0",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Lootas Gamma screens at (320,1520) \u2014 backfield gap (nearest friendly: 17\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 1.833 [-1.63, 5.29] n=12 alt U_LOOTAS_C MOVE obj_home_2",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7483_r1_p1_1_0",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 14\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -0.583 [-4.87, 3.7] n=12 alt U_BURNA_BOYZ_B ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7483_r1_p2_1_3",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Beta screens at (1600,1520) \u2014 backfield gap (nearest friendly: 10\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -3.0 [-6.53, 0.53] n=12 alt U_BURNA_BOYZ_B_P2 HOLD obj_home_2",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7489_r1_p1_2_2",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Lootas Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 12\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -0.417 [-3.82, 2.98] n=12 alt U_LOOTAS_B MOVE obj_nml_2",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7489_r2_p2_2_3",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Prosecutor Squad screens at (320,2160) \u2014 backfield gap (nearest friendly: 10\")",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 0.333 [-3.09, 3.76] n=12 alt U_PROSECUTORS_A MOVE obj_nml_1",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7467_r1_p2_1_0",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Alpha screens at (1042,1564) \u2014 block Custodian Guard Sodality Beta approaching obj_home_2 (28\" away)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -0.5 [-2.73, 1.73] n=12 alt U_BURNA_BOYZ_A MOVE obj_home_2",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7408_r3_p1_2_7",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 0.83 [-5.57, 7.23] n=12 alt U_BURNA_BOYZ_A ADVANCE obj_nml_1",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7423_r1_p1_1_0",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 0.33 [-4.82, 5.49] n=12 alt U_BURNA_BOYZ_A ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7469_r1_p2_2_0",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Burna Boyz Beta screens at (592,949) \u2014 screening valuable friendlies from enemy threats",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 0.917 [-3.1, 4.94] n=12 alt U_BURNA_BOYZ_B HOLD obj_home_2",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7473_r1_p1_2_1",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E -0.083 [-3.11, 2.94] n=12 alt U_GRETCHIN_A ADVANCE obj_center",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7474_r1_p1_2_0",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 1.5 [-2.68, 5.68] n=12 alt U_GRETCHIN_A ADVANCE obj_nml_1",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7451_r1_p1_2_3",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Prosecutor Squad screens at (539,599) \u2014 deny deep strike near home objective obj_home_1",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral E 1.583 [-2.43, 5.59] n=12 alt U_PROSECUTORS_A ADVANCE obj_nml_1",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  },
+  {
+   "job": "s7451_r1_p2_2_1",
+   "base_choice": "= final (no fire: the fix block is the only changed code path, param-gated, and it did not switch)",
+   "final_choice": "Custodian Guard Sodality Beta moves toward obj_center (capturing it (uncontrolled), obj: 19.7\" away)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful E -4.333 [-7.47, -1.19] n=12 alt U_CUSTODIAN_GUARD_B_P2 MOVE obj_nml_2",
+   "moved_toward_harmful": false,
+   "replayed": "final only, 1 seed"
+  }
+ ],
+ "extra_checks": [
+  {
+   "check": "s7467_r1_p2_movement_2 decision check: base screens (1600,1520); one [SCREEN_VS_OBJECTIVE] line; every other unit matches base",
+   "result": "PASS on 1.56.8: shipped replay = 'Gretchin screens at (1600,1520) \u2014 backfield gap'; final = 'Gretchin advances toward obj_nml_2 (\u2026 not parked on a backfield gap (screen 8.4))'; all other movement actions of P2 r1 identical"
+  },
+  {
+   "check": "phase-start save s7467_r1_p2_movement_1_0 (live choice was a corridor block)",
+   "result": "no fire in the real phase plan (final replay, 1 seed)"
+  },
+  {
+   "check": "fire/no-fire at the measured screen positions (s7408 1_1/2_2/r3 2_7, s7423 1_0/2_1, s7436, s7437, s7469, s7472 1_1/2_2, s7473, s7474, s7451 (both), s7456, s7438) + all 31 measured backfield-gap positions + new guardrails s7485 P2 1_2, s7483 P2 2_4",
+   "result": "45 positions replayed with final code: fires at 2 (s7467 finding; s7436 r1 P1 2_0 Beast Snagga Boyz -> ADVANCE obj_nml_1, unmeasured). No fire at s7408 1_1, s7408 2_2, s7437, s7423 2_1, s7472 (both), nor at any harmful position (s7408 1_1, s7463 1_0, s7464 2_1, s7485 P2 1_2, s7451 P2 2_1, s7483 P2 2_4). The s7436 fire needs a 12-seed measurement: left to the bench"
+  },
+  {
+   "check": "bench smoke: fix on, standard fixtures, 0 fires and identical pairs",
+   "result": "1 pair per standard fixture: 0 [SCREEN_VS_OBJECTIVE] lines in 6 games; cus/asy/ork pairs identical in both seats (margins -22/-22, -69/-69, -8/-8)"
+  },
+  {
+   "check": "param 0 = base",
+   "result": "by construction (the only changed behaviour sits under get_param(FIX_SCREEN_VS_OBJECTIVE) >= 0.5; the 'gap' tag is read only there) and test_param_zero_restores_base; byte-identical record diff on 2 seeds not run"
+  },
+  {
+   "check": "fix on vs off at s7467 over 36 paired seeds (+ to end of round 3)",
+   "result": "left to the bench (36 seeds)"
+  },
+  {
+   "check": "24+ pair reserve-carrying full-game A/B (custodes_lions vs Orks_2000)",
+   "result": "left to the bench"
+  },
+  {
+   "check": "new test fails on base, passes on fix; related suites",
+   "result": "see tests"
+  }
+ ],
+ "fix_gate": {
+  "reserve": {
+   "per_fixture": {
+    "cus": 0.0,
+    "asy": 0.5,
+    "ork": 0.0
+   },
+   "pooled_per_game": 0.17,
+   "pass": false,
+   "margins": {
+    "cus": {
+     "seed": 91001,
+     "M1": -10,
+     "M2": -10,
+     "E": 0.0
+    },
+    "asy": {
+     "seed": 91101,
+     "M1": -78,
+     "M2": -73,
+     "E": -2.5
+    },
+    "ork": {
+     "seed": 91201,
+     "M1": -13,
+     "M2": -13,
+     "E": 0.0
+    }
+   },
+   "fires": "1 line in 6 games: asy M1 (candidate P2 Orks) 'Gretchin Beta skips backfield gap (nearest friendly: 18\") for ADVANCE obj_nml_1 (10.5 vs screen -0.4)'; cus and ork pairs identical in both seats"
+  },
+  "standard_info": {
+   "per_fixture": {
+    "cus": 0.0,
+    "asy": 0.0,
+    "ork": 0.0
+   },
+   "pooled_per_game": 0.0,
+   "margins": {
+    "cus": {
+     "seed": 91001,
+     "M1": -22,
+     "M2": -22,
+     "E": 0.0
+    },
+    "asy": {
+     "seed": 91101,
+     "M1": -69,
+     "M2": -69,
+     "E": 0.0
+    },
+    "ork": {
+     "seed": 91201,
+     "M1": -8,
+     "M2": -8,
+     "E": 0.0
+    }
+   }
+  },
+  "script_errors": "none (0 SCRIPT ERROR lines in all 12 gate game logs)",
+  "note": "1 pair per fixture: margins are noise, not evidence. Engine defects (ghost reserve arrivals, rejected Deffkopta Deep Strike) could not be checked: the logs keep only the grep lines"
+ },
+ "tests": {
+  "test_fails_on_ship": true,
+  "test_passes": true,
+  "related_ok": true,
+  "detail": "test_ai_fix_screen_vs_objective: SHIP copy 7 passed 2 failed; final 9 passed 0 failed. All 23 listed related suites pass (0 failures). Known base failures unchanged: test_ai_threat_range_awareness 34/3, tests/test_ai_objective_assignment_fixes.gd 6/1"
+ },
+ "risks": [
+  "Fires very rarely: 1 line in 6 reserve-fixture games, 0 in 6 standard games; 2 of 45 measured positions. The bench cannot measure it.",
+  "Of the 5 measured findings only s7467 flips; the 4 new-evidence findings (s7465 +11.79, s7484 +5.33, s7482 +4.58, s7481 +4.42) all target obj_center while it is enemy-held, contested next move or a lost race \u2014 a different mechanism (contest/flip with a screen unit) that the judge's RC3 deliberately excludes; widening to it would cross the measured-harmful obj_center positions (s7408 1_1 -5.83, s7463 1_0 -3.75).",
+  "s7436 r1 P1 fire (Beast Snagga Boyz -> obj_nml_1) is unmeasured.",
+  "A vacated backfield gap can be used by enemy deep strikers from round 2; rounds 3-5 are unmeasured."
+ ],
+ "verdict": "not_ready",
+ "not_ready_reason": "Protocol v2 V2-1 fix gate on the reserve fixtures fails: 0.17 [SCREEN_VS_OBJECTIVE] lines per game pooled (cus 0, asy 0.5, ork 0) < 1.0. Keep FIX_SCREEN_VS_OBJECTIVE = 0 (parked). The code is safe (no guardrail fire, branch-B plan at s7467) but too rare to measure."
+}

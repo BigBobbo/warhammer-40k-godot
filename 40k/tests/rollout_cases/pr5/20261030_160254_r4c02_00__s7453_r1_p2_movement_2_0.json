@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_2 (sole holder \u2014 leaving would drop control \u2014 worth ~6 VP)",
+ "created": "2026-10-30 16:03:20",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7453_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI kept the unit on its home objective in round 1 although no enemy can reach it for at least a turn. Hold is reasonable, but the AI never considers that the home objective is safe and could be held later. Fix: Before applying the 'sole holder' override, check whether any enemy can reach the objective within one turn. If none can, release the unit to take a contested objective. Reduce expected_vp for holding a home objective with no threat. Keep a reserve unit or a cheap unit for home.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7453_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "pos:890,1860",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta holds obj_home_2 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 19\"))",
+ "created": "2026-10-30 23:49:43",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7481_r1_p2_movement_2",
+ "note": "[LLM critic, high conf] The AI refused to send the unit alone to obj_nml_2, then screened at (8,38), which is next to obj_nml_2 and alone in front of the enemy. It rejected the 40.19 move to obj_nml_1. Fix: When an override rejects a lone move for safety, re-rank the remaining options with a safety check. Reject screen positions that are far beyond one move from the unit, far from friendly units, or near enemy threat ranges. Cap the distance penalty at a level that does not make a far screen look better than joining a nearby held objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7481_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A_P2",
+  "choice": "pos:320,1520",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha screens at (320,1520) \u2014 backfield gap (nearest friendly: 19\")",
+ "verdict": "bad",
+ "version": 1
+}

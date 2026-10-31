@@ -1,0 +1,106 @@
+[
+ {
+  "job": "20261030_063438_r2c04_00__s7435_r1_p1_movement_2_0",
+  "case": "20261030_063438_r2c04_00__s7435_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Lootas Gamma to screen with a flat score of 8.0 and no checks on threats. The unit has a 48 in Deffgun but no enemy is near, and no screen is needed in round 1. Advance obj_center scored 37.5 but lost, because the override reason only concerned obj_home_2.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7435",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063438_r2c04_00"
+ },
+ {
+  "job": "20261030_063438_r2c04_00__s7435_r1_p2_movement_1_1",
+  "case": "20261030_063438_r2c04_00__s7435_r1_p2_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta advances alone toward obj_center, which it cannot reach this turn. The move adds no primary VP, and it puts a lone unit in front of the Ork shooting.",
+  "better_option": "Advance obj_home_2 (advancing to arrive a turn sooner \u2014 worth ~2 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7435",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063438_r2c04_00"
+ },
+ {
+  "job": "20261030_063438_r2c04_00__s7435_r2_p1_movement_2_2",
+  "case": "20261030_063438_r2c04_00__s7435_r2_p1_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_WARBIKERS_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent the Warbikers 23.6 in to an empty objective and left the centre to slower, far-away units (Gretchin 24.8 in away, Mek Beta 27.1 in away). The Warbikers take two turns to arrive. The reasoning also says the enemy can bring about 9 OC there, which does not match an empty objective.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~12 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7435",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063438_r2c04_00"
+ },
+ {
+  "job": "20261030_063438_r2c04_00__s7435_r3_p1_movement_2_3",
+  "case": "20261030_063438_r2c04_00__s7435_r3_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_WARBIKERS_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a lone 6-model Warbikers unit 23.6 in to flip an objective the enemy holds with OC 17. The unit cannot win that fight and will probably die.",
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7435",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063438_r2c04_00"
+ }
+]

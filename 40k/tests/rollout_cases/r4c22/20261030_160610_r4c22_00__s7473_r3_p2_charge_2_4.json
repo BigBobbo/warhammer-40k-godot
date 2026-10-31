@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Battlewagon Beta (8.2\" away, 28% chance)",
+ "created": "2026-10-30 16:12:37",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7473_r3_p2_charge_2",
+ "note": "[LLM critic, medium conf] The AI charges a T11 Battlewagon at 28% for about 6.7 damage of a 15 wound target. The unit then leaves the objective and sits next to the Lootas and Beastboss. The payoff is low. Fix: Compute expected damage per target as models killed times model value, and cap it by target wounds. Raise the objective penalty for a unit that is the main holder. Add a no-charge baseline option. Reject charges that have low probability and low kill value.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7473_r3_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:420,1384",
+  "decision": "charge",
+  "targets": "U_BATTLEWAGON_B,U_LOOTAS_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta declares a charge at Battlewagon Beta + Lootas Beta \u2014 targets picked after the roll: Battlewagon Beta on 9+ (28%), Lootas Beta on 10+ (17%), overwatch risk: 6.8 dmg",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,4 @@
+RECHECK_SHARD pr10_4
+ROLLOUT_RESULT {"job":"20261030_234556_r5c03_00__s7478_r3_p2_movement_1_5","status":"ok","E":5.583,"se":2.131,"ci":[1.41,9.76],"n":24,"A":3.833,"B":9.417,"mat":67.924,"drift":false,"a_did":"Custodian Guard Sodality Beta advances toward obj_home_2 (capturing it (uncontrolled) — quicker to reach than ","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_234707_r5c05_00__s7480_r3_p2_charge_1_6","status":"ok","E":5.75,"se":2.191,"ci":[1.46,10.04],"n":24,"A":-15.042,"B":-9.292,"mat":-161.149,"drift":false,"a_did":"Allarus Custodians declares a charge at Allarus Custodians + Allarus Custodians #2 — targets picked after the ","applied":24,"identical":0}
+SHARD_DONE 4/6 jobs=2

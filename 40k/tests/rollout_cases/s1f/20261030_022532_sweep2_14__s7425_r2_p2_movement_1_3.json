@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Stormboyz arrives",
+ "created": "2026-10-30 02:27:48",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7425_r2_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI deep strikes Stormboyz onto its own held home objective, 0.6 in from the marker. This adds no objective control and gives up the deep strike's reach and its chance to take a non-home objective. Fix: Score arrival objectives only by marginal change in control or VP. Give zero value to a spot on an objective already held with no enemy OC in range. Prefer legal spots near uncontrolled non-home objectives. Add a check that the unit does not stack on its own army when the board has empty objectives.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7425_r2_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_STORMBOYZ_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_STORMBOYZ_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz arrives from Deep Strike",
+ "verdict": "bad",
+ "version": 1
+}

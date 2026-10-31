@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Lootas Beta (8.6\" away, 28% chance)",
+ "created": "2026-10-30 01:38:34",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7408_r2_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI declares a 28% charge with Stormboyz and accepts about 5.4 damage from overwatch. A failed charge, which is the likely result, leaves them exposed. Fix: Scale every success-only bonus by charge probability. Add a 'no charge' baseline with score 0. Only charge when the probability-weighted expected value, minus the full overwatch loss, beats that baseline. Penalise leaving a held objective area.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7408_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A_P2",
+  "choice": "pos:715,854",
+  "decision": "charge",
+  "targets": "U_BURNA_BOYZ_B,U_LOOTAS_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares a charge at Lootas Beta + Burna Boyz Beta \u2014 targets picked after the roll: Lootas Beta on 9+ (28%), Burna Boyz Beta on 10+ (17%), overwatch risk: 5.4 dmg",
+ "verdict": "pending",
+ "version": 1
+}

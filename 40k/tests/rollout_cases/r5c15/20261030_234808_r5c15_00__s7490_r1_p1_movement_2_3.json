@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_1 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "created": "2026-10-30 23:49:07",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7490_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI kept a 10-model Lootas squad on a home objective that already has 14 OC on it from other units. The squad also has no line of sight to any enemy. Fix: When the OC from other friendly units already holds an objective above any plausible threat, do not assign hold to a surplus unit. Give hold only to the minimum units needed. Release the rest to move to a firing position or a contested objective. Do not give shooting_lane credit when the unit has no line of sight to any enemy.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7490_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A",
+  "choice": "pos:300,710",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha holds obj_home_1 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "verdict": "bad",
+ "version": 1
+}

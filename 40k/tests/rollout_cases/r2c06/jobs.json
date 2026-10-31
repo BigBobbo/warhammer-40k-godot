@@ -1,0 +1,411 @@
+[
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r1_p1_movement_1_0",
+  "case": "20261030_063500_r2c06_00__s7437_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Beta to obj_center on a normal move, which takes two turns. The enemy has long-range Lootas and many OC that can contest the center first. The 'racing' reasoning shows the AI knows it will lose the race, yet it still picks the move.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1",
+  "case": "20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI kept Alpha on HOME 1 because it is the sole holder. Nothing threatens the objective in round 1, and other nearby units could hold it instead.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r1_p2_movement_1_2",
+  "case": "20261030_063500_r2c06_00__s7437_r1_p2_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a fragile OC1 Lootas squad, which relies on long-range Heavy guns, to the contested center. It advances toward fast melee units. The center is worth a flat amount that Battlewagon Beta can already contest.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r1_p2_movement_2_3",
+  "case": "20261030_063500_r2c06_00__s7437_r1_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Burna Boyz Alpha to a far backfield corner to screen, when it could advance toward the empty center objective. The screen move wastes the unit's turn.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4",
+  "case": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta (OC3) reinforces obj_center, which is already held with OC 6 and has a second unit (Gamma) assigned. The 'enemy can bring ~7' threat is weak because the nearest enemies are over 20 in away.",
+  "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p1_shooting_1_5",
+  "case": "20261030_063500_r2c06_00__s7437_r2_p1_shooting_1_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "target": "U_LOOTAS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent a lone 3-model unit at Lootas Gamma for 1.5 expected damage and a 15% kill chance, although Lootas Alpha would take 2.33 damage at nearly the same score.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Lootas Alpha (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p1_charge_1_6",
+  "case": "20261030_063500_r2c06_00__s7437_r2_p1_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": [
+     "U_LOOTAS_A"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges a 4-wound Mek Beta with a 270-point unit at 28% success. The Mek scores high because of inflated damage and target value. Lootas Alpha is the better target.",
+  "better_option": "Charge Lootas Alpha (8.5\" away, 28% chance)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p1_charge_2_7",
+  "case": "20261030_063500_r2c06_00__s7437_r2_p1_charge_2_7.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a 4-wound Mek at 8% odds. The positive terms (ch_damage 40, ch_can_wipe 5, ch_can_halve 3, ch_character 2) use full melee damage and ignore that the charge usually fails. This pushes a 0.47 score over the threshold.",
+  "better_option": "unlisted: do not charge with Custodian Guard Sodality Beta; hold the center objective and shoot instead",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p2_movement_1_8",
+  "case": "20261030_063500_r2c06_00__s7437_r2_p2_movement_1_8.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_STORMBOYZ_A",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI arrives Stormboyz at a spot 6 in from obj_nml_2. Units cannot move after a deep strike arrival, so they will not control it this turn. The arrive_objectives term of 11.63 looks like credit for proximity, not for control.",
+  "better_option": "unlisted: place Stormboyz inside the obj_nml_2 ruin so their 10 OC takes the objective",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p2_movement_2_9",
+  "case": "20261030_063500_r2c06_00__s7437_r2_p2_movement_2_9.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_TANKBUSTAS_A",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Tankbustas is the only unit with a legal spot, so arriving is correct. The chosen spot is 10.9 in from obj_nml_2, which a 6 in move cannot reach.",
+  "better_option": "unlisted: place Tankbustas on the left edge near y 41 to 44, within 7 in of obj_nml_2, if that spot is legal",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p2_shooting_2_10",
+  "case": "20261030_063500_r2c06_00__s7437_r2_p2_shooting_2_10.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_A",
+    "target": "U_CUSTODIAN_GUARD_B"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI sent big shoota fire at Custodian Guard Gamma (0.0 expected damage) instead of the nearer Custodian Guard Beta (0.9 expected damage). Target_value and already_allocated inflated the score.",
+  "better_option": "Big shoota \u2192 enemy Custodian Guard Sodality Beta (P1)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p2_charge_1_11",
+  "case": "20261030_063500_r2c06_00__s7437_r2_p2_charge_1_11.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI declares an 8% charge. The ch_chance term is large and negative (-28.92), but ch_charge_target_value (31.55), ch_damage (17.78) and order_round_aggression (7.28) outweigh it. The total score is +3.9 for a charge that fails 92% of the time.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r3_p2_shooting_1_12",
+  "case": "20261030_063500_r2c06_00__s7437_r3_p2_shooting_1_12.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_A",
+    "target": "U_CUSTODIAN_GUARD_D"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent the Battlewagon's big shoota at Allarus Custodians at long range, for 0.1 expected damage, because of the focus-fire allocation bonus. It ignored the closer Delta unit, which is in rapid fire range and gives twice the damage.",
+  "better_option": "Big shoota \u2192 enemy Custodian Guard Sodality Delta (P1)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r3_p2_shooting_2_13",
+  "case": "20261030_063500_r2c06_00__s7437_r3_p2_shooting_2_13.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_STORMBOYZ_A",
+    "target": "U_CUSTODIAN_GUARD_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot 9 Sluggas at the Allarus for 0.3 expected damage and a 5% kill chance. The pick comes from an already_allocated bonus, not from real damage.",
+  "better_option": "Slugga \u2192 enemy Custodian Guard Sodality Alpha (P1)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r3_p2_charge_1_14",
+  "case": "20261030_063500_r2c06_00__s7437_r3_p2_charge_1_14.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 2,
+  "summary": "The AI charges one wounded Allarus with Stormboyz. The 8.0 expected melee damage looks too high, and the charge exposes the Stormboyz to a strong counter-attack.",
+  "better_option": "unlisted: do not charge with Stormboyz; keep them back to screen or hold the objectives they already control",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r3_p2_charge_2_15",
+  "case": "20261030_063500_r2c06_00__s7437_r3_p2_charge_2_15.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges the Blade Champion with the Battlewagon, a poor melee unit. The retaliation term is large but the character bonus and short-charge bonus outweigh it.",
+  "better_option": "unlisted: hold the Battlewagon on or near an objective (obj_nml_1) and let the Lootas and other units shoot, or charge only if the expected damage is higher",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00"
+ }
+]

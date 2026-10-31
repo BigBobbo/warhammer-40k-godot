@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Beta (8.3\" away, 28% chance)",
+ "created": "2026-10-30 16:05:22",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7458_r2_p2_charge_1",
+ "note": "[LLM critic, low conf] Delta charges Custodian Guard Sodality Beta on a 28% chance. A failed charge costs almost nothing. A success leaves Delta alone against Beta and Blade Champion Gamma, with no support. Fix: When a charge has low odds, add a penalty for the unsupported unit meeting the retaliation from every nearby enemy unit. Count the enemy characters standing near the target.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7458_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D_P2",
+  "choice": "pos:778,590",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_C,U_CUSTODIAN_GUARD_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta declares a charge at Custodian Guard Sodality Beta + Blade Champion Gamma \u2014 targets picked after the roll: Custodian Guard Sodality Beta on 9+ (28%), Blade Champion Gamma on 10+ (17%), overwatch risk: 0.2 dmg",
+ "verdict": "pending",
+ "version": 1
+}

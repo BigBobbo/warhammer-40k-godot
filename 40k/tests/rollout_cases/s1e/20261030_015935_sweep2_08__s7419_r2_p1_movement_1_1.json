@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Terminator Assault Squad arrives",
+ "created": "2026-10-30 02:01:06",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7419_r2_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI deep struck its 395pt melee squad onto its own held home objective, far from the enemy. The unit does nothing there on turns 2 and 3. Fix: Score arrival objectives only for objectives not already held, or contested, or ones the unit can flip. Penalize arrival spots on safe, held home objectives. Add a term for distance to the nearest enemy and to uncontrolled objectives, scaled up for slow melee units.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7419_r2_p1_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_TERMINATOR_ASSAULT_SQUAD_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_TERMINATOR_ASSAULT_SQUAD_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Terminator Assault Squad arrives from Deep Strike",
+ "verdict": "bad",
+ "version": 1
+}

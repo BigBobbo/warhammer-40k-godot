@@ -1,0 +1,67 @@
+{
+ "key": "screen_vs_objective",
+ "angle": "game",
+ "root_cause": "PASS 3 of _assign_units_to_objectives hands every still-unassigned cheap 'screening candidate' (<=100 pts & OC<=2, or <=150 pts without ranged weapons) to the next deep-strike denial position before the support fallback runs, with a flat score (SCREEN_SCORE_BASE 8 + priority 3 - 0.3/inch for a 'backfield gap') that is never compared with the unit's own objective candidates. In s7467 r1 P2 the Gretchin (record: screen 8.4 vs Advance obj_nml_2 20.1, no contest_race term) were unassigned only because obj_nml_2's OC need was already met by Battlewagon/Mek/Kommandos ('higher-scored objectives are already covered'), so pass 3 parked them on a backfield gap in their own deployment zone (the Beast Snagga Boyz, OC 20, got the same treatment). A/B records (2 seeds) show B's gain is NOT primary: P2 scored Forward Position +5 and Cleanse +3 more in round 2 — secondary cards that pay for units standing forward. What separates the guardrails: in every guardrail position the unit was held back by a guard (LONE-TRIP 'not going alone... would not survive' in s7408 1_1, s7437, s7408 2_2; DIM-RETURNS in s7423) and/or its objective options carried a lost race (contest_race), or the screen was a home-objective deep-strike denial (s7456). The finding's unit had no guard and no lost race.",
+ "fix_summary": "New const FIX_SCREEN_VS_OBJECTIVE=1.0 (+ SCREEN_VS_OBJECTIVE_MIN_GAIN=8.0) read via get_param. In PASS 3, when the denial position about to be handed to a screen candidate is a 'backfield gap' (denial positions now carry kind='home'|'backfield_gap'), the unit instead takes its best capture candidate if ALL hold: the unit is in none of the guard skip lists (extra_obj_skipped / lone_skipped / far_skipped: DIM-RETURNS, RACE-SKIP, TOO-LATE, LONE-TRIP, FAR-TRIP); the candidate is a move/advance, not already on the objective, race not lost; its score >= screen score + 8; the objective is not our home; the plan already takes it (planned_new_objs) or holds it; it passes too_late/race_hopeless/lone_trip/far_trip; and at least one other friendly unit is assigned there or already moved there (joining, never alone). The candidate's own mode is kept (the measured alternative was Advance). Assigned as assign_pass 'support', reason 'joining X there', coordination_note explains; logs [SCREEN_VS_OBJECTIVE]. Home deep-strike denial, screen-protect and corridor-block are untouched; the denial position stays free for the next candidate. Value 0 restores base exactly (closure returns before any change; the extra 'kind' key is read only by the fix).",
+ "param": "FIX_SCREEN_VS_OBJECTIVE",
+ "test_file": "40k/tests/unit/test_ai_fix_screen_vs_objective.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "All pass with the fix: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race ALL PASSED, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions ALL PASSED, plan_earmarks ALL PASSED, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 22/0, survival_assessment ALL PASSED, multi_phase_planning ALL PASSED, fix_screen_vs_objective 12/0 (BASE: 9 passed, 3 failed). threat_range_awareness 34/3 = the 3 known base failures.",
+ "decision_checks": [
+  {
+   "job": "20261030_160457_r4c16_00__s7467_r1_p2_movement_2_1",
+   "base_choice": "Gretchin screens at (1600,1520) — backfield gap (score 8.4 vs Advance obj_nml_2 20.1)",
+   "fix_choice": "Gretchin advances toward obj_nml_2 (joining Battlewagon Alpha, Beast Snagga Boyz there) — score 20.1",
+   "changed": true,
+   "measured": "clear: E +3.64 [1.82, 5.46] over 36 seeds; own replay seed 5001: base value -13, fix -10; alternative A/B (2 seeds) gained on secondary cards (Forward Position +5, Cleanse +3)",
+   "judgement": "Matches the alternative's intent exactly (same unit, obj_nml_2, Advance). Side effect in the same phase: Beast Snagga Boyz (OC 20, also parked on a backfield gap in base) now Advance to obj_nml_2 too — same rule, not separately measured."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_012809_sweep1_07__s7408_r1_p1_movement_1_1",
+   "base_choice": "Burna Boyz Beta screens at (604,984) — screen-protect (LONE-TRIP held it back from obj_center)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful: E -5.83 [-10.75, -0.92] (alternative Move obj_center)",
+   "judgement": "Consistent: screen-protect is outside the trigger and the unit is a LONE-TRIP skip; no fires in the game; value -7 base = -7 fix."
+  },
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r1_p2_movement_2_3",
+   "base_choice": "Burna Boyz Alpha screens at (320,2160) — backfield gap (LONE-TRIP skip; obj_center candidate has contest_race)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -3.25 [-8.45, 1.95] (alternative Advance obj_center)",
+   "judgement": "Consistent with the measured lean toward the screen; guard skip + lost race exclude it. Value -21 base = -21 fix."
+  },
+  {
+   "job": "20261030_012809_sweep1_07__s7408_r1_p1_movement_2_2",
+   "base_choice": "Burna Boyz Alpha screens at (960,960) — backfield gap (LONE-TRIP skip)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -2.83 [-10.66, 5.00] (alternative Advance obj_center)",
+   "judgement": "Consistent; no fires. Value 6 base = 6 fix."
+  },
+  {
+   "job": "20261030_021358_sweep2_12__s7423_r1_p1_movement_2_1",
+   "base_choice": "Gretchin screens at (1600,320) — backfield gap (DIM-RETURNS skip)",
+   "fix_choice": "same at the decision; fix fired later in P1 round 2 (2 units Advance to obj_center joining Battlewagon Beta)",
+   "changed": false,
+   "measured": "neutral: E -2.25 [-5.91, 1.41] (alternative Advance obj_nml_1)",
+   "judgement": "Decision unchanged (DIM-RETURNS guard respected). One-seed value base +13, fix +20 from the round-2 fires — anecdotal only."
+  },
+  {
+   "job": "20261030_160307_r4c05_00__s7456_r1_p2_movement_2_1",
+   "base_choice": "Prosecutor Squad screens at (1320,1815) — deny deep strike near home objective obj_home_2",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E +3.25 [-1.81, 8.31] (alternative Advance obj_home_2)",
+   "judgement": "Home-objective denial deliberately out of scope (narrow trigger); no fires; value -6."
+  }
+ ],
+ "fires": "Counted from the kept decision records (both players, rounds 1-2 of each replay; print output is discarded by the rollout runner): finding s7467: 2 (P2 r1 Gretchin and Beast Snagga Boyz -> obj_nml_2); s7423 guardrail: 2 (P1 r2, two units -> obj_center joining Battlewagon Beta); s7408 x2, s7437, s7456: 0. About 4 fires in 6 games (~0.7 per game in the first two rounds, both seats), always cheap/no-ranged Ork units the plan had left over. Unit test: fires exactly in the targeted board, not in lost-race, LONE-TRIP, home-denial or nobody-going boards.",
+ "risks": "Rounds 3-5: the trigger needs enemy reserves still off the table (denial positions are only built then), so it naturally dies out once reserves arrive; while it is live it moves only units the plan had nothing for, onto an objective friends already take, so their OC keeps that objective through later rounds and they stand where Forward Position / Cleanse / Engage on All Fronts / Centre Ground pay — the round-2 lesson (held-back units scored less on secondary cards) points the same way. Costs: (1) the backfield gap is left open — an enemy Deep Strike unit could land in our zone; home objectives keep their own (priority 5-8) denial screens, but backfield-zone secondaries (e.g. Defend Stronghold for the opponent's Behind Enemy Lines-type cards) could suffer; (2) the candidate's Advance is kept — a cheap unit with real guns (Lootas-like, <=100 pts) gives up a turn of shooting; the measured case was Gretchin, and the no-ranged branch (Beast Snagga, Burna) loses little; (3) stacking: several spare units can join the same objective (s7467 sent Gretchin and Beast Snagga Boyz to obj_nml_2 with the Battlewagon) — overkill OC there while another quarter is empty; DIM-RETURNS/OVERCOMMIT do not price support joins; (4) the joiners walk 2-3 turns across the table and arrive in rounds 3-4 near the enemy — fragile chaff may die in charges (giving kill secondaries) though LONE-TRIP is re-checked on the exact candidate. Only one position is confirmed (36 seeds); the second fire (Beast Snagga) and the round-2 fires are unmeasured — a full-game paired benchmark (Orks both seats) is needed before shipping.",
+ "drop_reason": ""
+}

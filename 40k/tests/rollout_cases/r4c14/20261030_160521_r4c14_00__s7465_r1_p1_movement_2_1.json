@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (3 units already committed) \u2014 worth ~10 VP)",
+ "created": "2026-10-30 16:06:19",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7465_r1_p1_movement_2",
+ "note": "[LLM critic, low conf] Kommandos reinforce obj_center even though 3 units are already committed there. The primary card pays a flat 4 VP for any non-home objective, plus 5 VP for holding more objectives than the opponent. Fix: Apply a diminishing-returns factor to objective_priority once enough OC is committed to an objective. Add a marginal bonus for objectives that would raise our controlled count above the opponent's.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7465_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos moves toward obj_center (reinforcing obj_center (3 units already committed), obj: 21.6\" away)",
+ "verdict": "pending",
+ "version": 1
+}

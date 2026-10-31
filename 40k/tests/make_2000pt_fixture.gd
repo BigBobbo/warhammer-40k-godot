@@ -32,20 +32,52 @@ extends SceneTree
 # first. Packing each side independently would not be a mirror — it would be
 # two armies in two zones, and the fixture's structural bias F would stop being
 # interpretable.
+#
+# --reserves=ai (opt-in, postdeploy only) puts into Strategic Reserves / Deep
+# Strike exactly the units the AI's own Formations logic would put there, with
+# the reserve type it would pick; every other unit stays deployed exactly as
+# without the flag. For a mirror both players hold back the same units —
+# checked, not assumed. Without the flag nothing is in reserve, as before.
+# See _reserve_like_the_ai.
+#
+# --base=<fixture> (only with --reserves) starts from an existing postdeploy
+# fixture in tests/saves instead of the shell and the lists. That is how the
+# bench's reserves fixtures are built, because the lists no longer reproduce
+# the bench armies (see _load_base):
+#   godot --headless --path 40k -s tests/make_2000pt_fixture.gd -- \
+#       --base=mirror_custodes_2000_postdeploy --reserves=ai \
+#       --out=mirror_custodes_2000_reserves_postdeploy
 
 const SHELL := "mirror_custodes_postdeploy"   # board, terrain, objectives, zones
 const PX_PER_INCH := 40.0
+
+# --reserves=ai drives the AI's Formations decisions at the lab's default
+# difficulty (tools/ai_lab/run_paired.py --difficulty) with a fixed seed. EASY
+# is never used: it declares at random. The seed is belt and braces — the
+# Formations decisions draw no random numbers today (measured 2026-10-31 on the
+# bench armies: the same reserves for seeds 1, 7 and 999 at difficulty 2 and 3).
+const RESERVES_AI_DIFFICULTY := 2   # AIDifficultyConfig.Difficulty.HARD
+const RESERVES_AI_SEED := 1
+const RESERVES_AI_MAX_STEPS := 200  # declarations per seat before the run counts as stuck
 
 # Autoloads are not registered as compile-time globals while a SceneTree
 # script is being loaded, so every one of them is resolved from the tree at
 # run time instead of referenced by name.
 var GS = null
+# GameState's script, for its UnitStatus / Phase enums (--reserves / --base
+# only). For the same reason it is taken from the GameState node at run time:
+# naming its class here compiles GameState.gd while this script loads, before
+# the autoloads that script depends on exist (measured: 4 SCRIPT ERRORs in
+# every build, flag or not).
+var GSD = null
 
 var _p1 := ""
 var _p2 := ""
 var _mirror := ""
 var _out := ""
 var _predeploy := false
+var _reserves := ""   # --reserves=ai — see _reserve_like_the_ai
+var _base := ""       # --base=<fixture> — see _load_base
 
 
 func _initialize() -> void:
@@ -55,6 +87,16 @@ func _initialize() -> void:
 		elif a.begins_with("--mirror="): _mirror = a.split("=", true, 1)[1]
 		elif a.begins_with("--out="): _out = a.split("=", true, 1)[1]
 		elif a == "--predeploy": _predeploy = true
+		elif a.begins_with("--base="): _base = a.split("=", true, 1)[1]
+		elif a.begins_with("--reserves="):
+			# Same lesson as the refusal below: a fixture that reads like a
+			# reserves fixture and is not one poisons every number measured on
+			# it, so a value other than `ai` (empty included) is an error.
+			_reserves = a.split("=", true, 1)[1]
+			if _reserves != "ai":
+				printerr("[fixture] FAIL: --reserves takes 'ai' (got '%s')" % _reserves)
+				quit(2)
+				return
 		else:
 			# Silently ignoring an unrecognised flag is how a bare `--mirror`
 			# (no `=<list>`) produced a fixture that was named like a mirror,
@@ -66,7 +108,16 @@ func _initialize() -> void:
 	if _mirror != "":
 		_p1 = _mirror
 		_p2 = _mirror
-	if _p1 == "" or _p2 == "" or _out == "":
+	if _reserves != "" and _predeploy:
+		printerr("[fixture] FAIL: --reserves builds postdeploy fixtures only; it cannot be combined with --predeploy")
+		quit(2)
+		return
+	if _base != "":
+		if _reserves == "" or _p1 != "" or _p2 != "" or _out == "":
+			printerr("usage: --base=<fixture in tests/saves> --reserves=ai --out=<name>  (no --p1/--p2/--mirror)")
+			quit(2)
+			return
+	elif _p1 == "" or _p2 == "" or _out == "":
 		printerr("usage: --p1=<list> --p2=<list> --out=<name>  |  --mirror=<list> --out=<name>")
 		quit(2)
 		return
@@ -85,6 +136,14 @@ func _build() -> void:
 	GS = root.get_node_or_null("GameState")
 	if slm == null or alm == null or GS == null:
 		_fail("SaveLoadManager / ArmyListManager / GameState autoload missing")
+		return
+
+	# --base: the board, both armies and every position come from an existing
+	# postdeploy fixture, so steps 1-6.5 are skipped (_load_base says why) and
+	# only the reserves step and the report run on it.
+	if _base != "":
+		if _load_base(slm) and _reserve_like_the_ai():
+			_report_and_save(slm)
 		return
 
 	# 1. Shell: board, terrain, objectives, deployment zones, mission, deck.
@@ -217,6 +276,16 @@ func _build() -> void:
 				return
 		print("[fixture] coherency gate: all units coherent as deployed")
 
+	# 6.6. --reserves=ai (opt-in): hold back what the AI would. Everything above
+	# ran exactly as it does without the flag, so the units left on the table
+	# are the default build's, positions included.
+	if _reserves != "" and not _reserve_like_the_ai():
+		return
+
+	_report_and_save(slm)
+
+
+func _report_and_save(slm) -> void:
 	# 7. Report before saving, so a bad fixture is visible in the build log.
 	var report := _summarise()
 	print("[fixture] %s" % _out)
@@ -543,6 +612,8 @@ func _summarise() -> Array:
 	for uid in GS.state.units:
 		var u = GS.state.units[uid]
 		var owner := int(u.get("owner", 0))
+		if _reserves != "" and int(u.get("status", -1)) == GSD.UnitStatus.IN_RESERVES:
+			continue  # --reserves: a unit in reserve is off the table by definition
 		for m in u.get("models", []):
 			var p = m.get("position")
 			if p == null:
@@ -552,4 +623,379 @@ func _summarise() -> Array:
 			if (owner == 1 and y > h_px * 0.5) or (owner == 2 and y < h_px * 0.5):
 				stray += 1
 	out.append("models out of place: %d" % stray)
+	if _reserves != "":
+		for player in [1, 2]:
+			var held := []
+			for uid in GS.state.units:
+				var u = GS.state.units[uid]
+				if int(u.get("owner", 0)) != player or int(u.get("status", -1)) != GSD.UnitStatus.IN_RESERVES:
+					continue
+				var bodyguard = u.get("attached_to")
+				held.append("%s %s%s" % [uid, str(u.get("reserve_type", "")),
+					"" if bodyguard == null else (" (attached to %s)" % str(bodyguard))])
+			held.sort()
+			var pts: int = GS.get_reserves_points(player)
+			var total: int = GS.get_total_army_points(player)
+			out.append("P%d in reserve: %d/%d units, %d/%d pts (%.0f%%) — %s" % [
+				player, GS.get_reserves_unit_count(player), GS.get_total_unit_count(player),
+				pts, total, 100.0 * pts / maxf(float(total), 1.0),
+				", ".join(held) if not held.is_empty() else "none"])
 	return out
+
+
+func _load_base(slm) -> bool:
+	"""--base: start from an existing postdeploy fixture, skipping steps 1-6.5.
+
+	The bench fixtures cannot be rebuilt from the lists any more: the lists
+	have changed under them (measured 2026-10-31 with this builder:
+	custodes_lions now loads as 9 units / 1850 pts against the fixture's
+	11 / 2000, and recon_stomps as 75 models / 2280 pts against 77 / 1975),
+	and so has the board — commit 6f07340 rotated the committed fixtures to
+	the 11e geometry (terrain layout take_and_hold_mirror_1) instead of
+	rebuilding them, while the shell still yields legacy_fallback_mirror_1
+	with the objectives mirrored. A reserves fixture built from the lists
+	would differ from its bench counterpart in every unit and in the board,
+	not just in what is held back, and even the AI's reserves would change:
+	the shipped Ork plan is keyed to the bench layout and does not match the
+	shell's. Loading the fixture itself keeps its board, both armies and every
+	on-table position as committed."""
+	GSD = GS.get_script()
+	var path := "res://tests/saves/%s.w40ksave" % _base
+	if not slm.load_game_from_file_path(path):
+		_fail("could not load the base fixture %s" % path)
+		return false
+	print("[fixture] base loaded: %s" % path)
+	var meta: Dictionary = GS.state.get("meta", {})
+	if int(meta.get("phase", -1)) != GSD.Phase.COMMAND or int(meta.get("battle_round", 0)) != 1:
+		_fail("base %s is not a postdeploy fixture (phase %s, round %s; expected round 1, Command)"
+			% [_base, str(meta.get("phase")), str(meta.get("battle_round"))])
+		return false
+	return true
+
+
+func _reserve_like_the_ai() -> bool:
+	"""--reserves=ai: hold back exactly what the AI's own Formations logic would.
+
+	A reserves fixture exists so that the AI logic which only runs against an
+	enemy with units in reserve — the deep-strike denial screens, the
+	reserve-backed keepers, reserve arrival — meets the reserves it meets in a
+	real game. Those are whatever AIDecisionMaker._decide_formations declares:
+	a matching AI plan's reserves list, else the FORM-3 formula. So the choice
+	is not re-implemented or hand-picked here, it is RUN (_ai_reserve_choice):
+	the real FormationsPhase and the real AIDecisionMaker.decide, both seats,
+	on the fixture's own armies. Change the AI's reserves logic and a rebuilt
+	fixture follows it.
+
+	Only the reserves are taken from that run. The AI's other Formations
+	declarations (leader attachments, embarkations, a warlord pick) are not:
+	every unit left on the table stays exactly as the build placed it. The one
+	exception is a CHARACTER the AI attached to a unit it then reserved — that
+	leader leaves the table WITH its bodyguard
+	(FormationsPhase._reserve_attached_characters), so it goes into reserve
+	attached to it; without the link MovementPhase could not set the two up
+	together when they arrive."""
+	GSD = GS.get_script()
+	# The run and the write-back assume the army the build produces: every unit
+	# deployed, nothing attached, embarked or already in reserve.
+	for uid in GS.state.units:
+		var u = GS.state.units[uid]
+		var ad = u.get("attachment_data", {})
+		var td = u.get("transport_data", {})
+		if int(u.get("status", -1)) != GSD.UnitStatus.DEPLOYED \
+				or u.get("attached_to") != null or u.get("embarked_in") != null \
+				or (ad is Dictionary and not ad.get("attached_characters", []).is_empty()) \
+				or (td is Dictionary and not td.get("embarked_units", []).is_empty()):
+			_fail("--reserves=ai needs every unit DEPLOYED, unattached and not embarked; %s is not (status %s)"
+				% [uid, str(u.get("status"))])
+			return false
+
+	var picked := _ai_reserve_choice()
+	if picked.is_empty():
+		return false
+
+	# A mirror must hold back the SAME units on both sides. Each seat was
+	# decided on its own, so the two are compared rather than P1's copied
+	# over: if the AI would play the seats differently the fixture is not a
+	# mirror. fixture_check cannot catch that — its mirror signature ignores
+	# status, and its position check only looks at models that HAVE one.
+	var twins := _p1_twins()
+	if _base.begins_with("mirror_") and twins.is_empty():
+		_fail("base %s is named as a mirror but its armies do not pair up" % _base)
+		return false
+	if _mirror != "" or (_base != "" and not twins.is_empty()):
+		var sides := []
+		for player in [1, 2]:
+			var lines := []
+			for e in picked[player]:
+				var ids := [str(e.get("unit_id", ""))]
+				for c in e.get("attached_character_ids", []):
+					ids.append(str(c))
+				if player == 2:
+					ids = ids.map(func(x): return str(twins.get(x, "unpaired:" + x)))
+				var riders := ids.slice(1)
+				riders.sort()
+				lines.append("%s %s [%s]" % [ids[0], str(e.get("reserve_type", "")), ",".join(riders)])
+			lines.sort()
+			sides.append(lines)
+		if sides[0] != sides[1]:
+			_fail("mirror: the AI holds back different units for the two seats — P1 %s; P2 (as P1 ids) %s"
+				% [str(sides[0]), str(sides[1])])
+			return false
+		print("[fixture] mirror: both seats hold back the same %d unit(s): %s" % [sides[0].size(), str(sides[0])])
+
+	_apply_reserves(picked)
+	return _reserves_gate()
+
+
+func _ai_reserve_choice() -> Dictionary:
+	"""Run Formations for both seats with the AI deciding, and return what each
+	seat declared into reserves: {1: [...], 2: [...]}, entries exactly as
+	FormationsPhase records them ({unit_id, reserve_type,
+	attached_character_ids}). Empty on failure, which has been reported.
+
+	The AI has to see what it sees at Formations in a real game — nothing on
+	the table, attached, embarked or declared — so the live state is rewound to
+	that first; and executing CONFIRM_FORMATIONS applies the phase's diffs to
+	the live GameState. The whole state is therefore snapshotted before the run
+	and restored after it, and the restore is CHECKED against what a save would
+	have written: a fixture the run leaked into is refused, not written.
+
+	The loop is AIPlayer's Formations loop: a transport is not offered again
+	once an embarkation on it was tried (AIPlayer._failed_transport_ids), and
+	the AI runs on the shipped parameters and plans — a plan that matches the
+	army and board is auto-matched exactly as in a game
+	(AIDecisionMaker._resolve_plan_for), and its reserves list wins."""
+	var AIDM = load("res://scripts/AIDecisionMaker.gd")
+	var pristine: Dictionary = GS.create_snapshot()
+	var pristine_json := JSON.stringify(pristine)
+
+	for uid in GS.state.units:
+		var u = GS.state.units[uid]
+		u["status"] = GSD.UnitStatus.UNDEPLOYED
+		u["flags"] = {}
+		for m in u.get("models", []):
+			m["position"] = null
+	GS.state.meta["phase"] = GSD.Phase.FORMATIONS
+	for key in ["formations", "formations_declared", "formations_p1_confirmed", "formations_p2_confirmed"]:
+		GS.state.meta.erase(key)
+
+	AIDM.clear_all_plans()
+	AIDM.reset_caches()
+	AIDM.set_ai_seed(RESERVES_AI_SEED)
+	var phase = load("res://phases/FormationsPhase.gd").new()
+	root.add_child(phase)
+	phase.enter_phase(GS.create_snapshot(false))
+
+	var error := ""
+	for player in [1, 2]:
+		phase.current_declaring_player = player
+		GS.set_active_player(player)
+		var tried_transports := []
+		var confirmed := false
+		for _step in range(RESERVES_AI_MAX_STEPS):
+			var available: Array = phase.get_available_actions().filter(func(a):
+				return not (a.get("type", "") == "DECLARE_TRANSPORT_EMBARKATION"
+					and str(a.get("transport_id", "")) in tried_transports))
+			var decision: Dictionary = AIDM.decide(GSD.Phase.FORMATIONS,
+				GS.create_snapshot(false), available, player, RESERVES_AI_DIFFICULTY)
+			if decision.is_empty():
+				break
+			decision["player"] = player
+			var kind := str(decision.get("type", ""))
+			var result: Dictionary = phase.execute_action(decision)
+			if kind == "DECLARE_TRANSPORT_EMBARKATION":
+				tried_transports.append(str(decision.get("transport_id", "")))
+			if result.get("success", false):
+				if kind == "CONFIRM_FORMATIONS":
+					confirmed = true
+					break
+				continue
+			var errors := str(result.get("errors", []))
+			if kind == "DECLARE_TRANSPORT_EMBARKATION":
+				print("[fixture] P%d: AI embarkation in %s rejected (%s) — transport skipped, as AIPlayer does"
+					% [player, str(decision.get("transport_id", "")), errors])
+				continue
+			if kind == "CONFIRM_FORMATIONS" and "arlord" in errors:
+				# Not a reserves question, and every reserve is declared by now:
+				# satisfy the warlord rule the way the engine's own reserves-cap
+				# test does (tests/unit/test_reserves_half_army_cap.gd) and confirm
+				# again. The pick is not kept — the state is restored below.
+				var designated := false
+				for action in available:
+					if action.get("type", "") == "DESIGNATE_WARLORD":
+						var pick: Dictionary = action.duplicate(true)
+						pick["player"] = player
+						if phase.execute_action(pick).get("success", false):
+							designated = true
+							break
+				if designated:
+					continue
+			error = "P%d's %s was rejected: %s" % [player, kind, errors]
+			break
+		if error == "" and not confirmed:
+			error = "P%d's AI did not confirm its formations within %d declarations" % [player, RESERVES_AI_MAX_STEPS]
+		if error != "":
+			break
+
+	# Read once BOTH seats have confirmed: the second confirmation is what runs
+	# _build_formation_changes, which can still add forced reserves to either side.
+	var picked := {}
+	if error == "":
+		for player in [1, 2]:
+			var f: Dictionary = phase.player_formations.get(player, {})
+			picked[player] = f.get("reserves", []).duplicate(true)
+			var plan = AIDM.get_player_plan(player)
+			print("[fixture] P%d AI formations (plan: %s) — attachments %s, embarkations %s, reserves %s" % [
+				player, str(plan.get("name", "none")) if plan is Dictionary and not plan.is_empty() else "none",
+				str(f.get("leader_attachments", {})), str(f.get("transport_embarkations", {})),
+				str(picked[player])])
+	root.remove_child(phase)
+	phase.free()
+
+	GS.load_from_snapshot(pristine)
+	if error != "":
+		_fail("--reserves=ai: %s" % error)
+		return {}
+	if JSON.stringify(GS.create_snapshot()) != pristine_json:
+		_fail("--reserves=ai: restoring the state after the Formations run did not reproduce it — refusing to write a fixture the run leaked into")
+		return {}
+	print("[fixture] --reserves=ai: Formations run done, state restored exactly (snapshot compared)")
+	return picked
+
+
+func _p1_twins() -> Dictionary:
+	"""P2 unit id -> the P1 unit it mirrors, paired the way _mirror_p2_from_p1
+	pairs them (sorted ids, same datasheet name). Empty when the two armies do
+	not pair up, i.e. the fixture is not a mirror."""
+	var p1_ids := []
+	var p2_ids := []
+	for uid in GS.state.units:
+		var owner := int(GS.state.units[uid].get("owner", 0))
+		if owner == 1: p1_ids.append(uid)
+		elif owner == 2: p2_ids.append(uid)
+	p1_ids.sort()
+	p2_ids.sort()
+	if p1_ids.size() != p2_ids.size():
+		return {}
+	var twins := {}
+	for i in range(p1_ids.size()):
+		var a = GS.state.units[p1_ids[i]].get("meta", {}).get("name", "")
+		var b = GS.state.units[p2_ids[i]].get("meta", {}).get("name", "")
+		if a != b:
+			return {}
+		twins[str(p2_ids[i])] = str(p1_ids[i])
+	return twins
+
+
+func _apply_reserves(picked: Dictionary) -> void:
+	"""Write the AI's reserves onto the units the way
+	FormationsPhase._build_formation_changes does — status IN_RESERVES and the
+	reserve_type on the unit and on every CHARACTER riding with it, the riders'
+	attached_to and the bodyguard's attachment_data — plus meta.formations for
+	the record. Every model of a reserved unit loses its position: it is not
+	on the battlefield.
+
+	`rotation` is left alone and must never be written as null: the bench
+	fixtures carry no rotation key (readers take model.get("rotation", 0.0)),
+	and an explicit null is passed straight on to Measurement's base-shape
+	maths once an attached CHARACTER arrives (MovementPhase only writes a
+	character's rotation when one is supplied)."""
+	var formations = GS.state.meta.get("formations", {})
+	if not (formations is Dictionary):
+		formations = {}
+	for player in [1, 2]:
+		var pf = formations.get(str(player), {})
+		if not (pf is Dictionary):
+			pf = {}
+		var attachments = pf.get("leader_attachments", {})
+		if not (attachments is Dictionary):
+			attachments = {}
+		var entries := []
+		for e in picked[player]:
+			var uid := str(e.get("unit_id", ""))
+			var rtype := str(e.get("reserve_type", "strategic_reserves"))
+			var riders := []
+			for c in e.get("attached_character_ids", []):
+				riders.append(str(c))
+			for id in [uid] + riders:
+				var u = GS.state.units[id]
+				u["status"] = GSD.UnitStatus.IN_RESERVES
+				u["reserve_type"] = rtype
+				for m in u.get("models", []):
+					m["position"] = null
+			for r in riders:
+				GS.state.units[r]["attached_to"] = uid
+				attachments[r] = uid
+			if not riders.is_empty():
+				var bodyguard = GS.state.units[uid]
+				if not (bodyguard.get("attachment_data") is Dictionary):
+					bodyguard["attachment_data"] = {}
+				bodyguard["attachment_data"]["attached_characters"] = riders.duplicate()
+			entries.append({"unit_id": uid, "reserve_type": rtype, "attached_character_ids": riders})
+		pf["leader_attachments"] = attachments
+		if not pf.has("transport_embarkations"):
+			pf["transport_embarkations"] = {}
+		pf["reserves"] = entries
+		formations[str(player)] = pf
+	GS.state.meta["formations"] = formations
+
+
+func _reserves_gate() -> bool:
+	"""Re-check the 11e reserves rules on the state about to be saved, with the
+	engine's own helpers. fixture_check only checks the points cap (and warns
+	on any reserve at all), so this is the gate for the rest; a fixture that
+	breaks any of them is refused."""
+	for player in [1, 2]:
+		var pts: int = GS.get_reserves_points(player)
+		var total_pts: int = GS.get_total_army_points(player)
+		var n: int = GS.get_reserves_unit_count(player)
+		var total_n: int = GS.get_total_unit_count(player)
+		# 20.01 / Chapter Approved 2025-26: at most half the points AND half the
+		# units, attached leaders counted in both — the caps
+		# FormationsPhase._validate_declare_reserves enforces.
+		if pts > int(total_pts * 0.50) or n > int(total_n * 0.50):
+			_fail("P%d: %d/%d pts and %d/%d units in reserve — over the 50%% caps" % [player, pts, total_pts, n, total_n])
+			return false
+	for uid in GS.state.units:
+		var u = GS.state.units[uid]
+		var models: Array = u.get("models", [])
+		if int(u.get("status", -1)) != GSD.UnitStatus.IN_RESERVES:
+			# 23.01: at 11e an AIRCRAFT unit must start in reserves.
+			if GS.unit_must_start_in_reserves(uid):
+				_fail("%s is AIRCRAFT and must start in reserves" % uid)
+				return false
+			for m in models:
+				if m.get("alive", true) and m.get("position") == null:
+					_fail("%s is on the table but a model of it has no position" % uid)
+					return false
+			# Step 6.5's predicate, for the --base path that skips 6.5.
+			var coh = AttackSequence.check_unit_coherency(u)
+			if not bool(coh.get("coherent", false)):
+				_fail("unit %s is OUT OF COHERENCY (offenders: %s) — fixture not written" % [uid, str(coh.get("offenders", []))])
+				return false
+			continue
+		var rtype := str(u.get("reserve_type", ""))
+		if rtype != "deep_strike" and rtype != "strategic_reserves":
+			_fail("%s is in reserve with reserve_type '%s'" % [uid, rtype])
+			return false
+		if rtype == "deep_strike" and not GS.unit_has_deep_strike(uid):
+			_fail("%s is in Deep Strike reserve without the Deep Strike ability" % uid)
+			return false
+		if GS.unit_is_fortification(uid):
+			_fail("%s is a FORTIFICATION and cannot start in reserves" % uid)
+			return false
+		for m in models:
+			if m.get("position") != null:
+				_fail("%s is in reserve but a model of it still has a position" % uid)
+				return false
+		var bodyguard = u.get("attached_to")
+		if bodyguard != null:
+			var b: Dictionary = GS.state.units.get(str(bodyguard), {})
+			var b_ad = b.get("attachment_data", {})
+			if int(b.get("status", -1)) != GSD.UnitStatus.IN_RESERVES \
+					or str(b.get("reserve_type", "")) != rtype \
+					or not (b_ad is Dictionary and uid in b_ad.get("attached_characters", [])):
+				_fail("%s rides with %s, which is not in the same reserve with it attached" % [uid, str(bodyguard)])
+				return false
+	print("[fixture] reserves gate: caps, reserve types, positions, attachments and coherency all legal")
+	return true

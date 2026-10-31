@@ -1,0 +1,92 @@
+{
+ "key": "attack_move",
+ "angle": "root",
+ "root_cause": "Pass 2 of _assign_units_to_objectives prices OC with a 0/1 need ledger: OC past an objective's need is worth zero (the objective is 'already taken'), and any capture of an objective that still needs OC is worth its full candidate score, even when this unit's OC alone cannot meet the need and no other unit is coming. In all three findings the unit's top-scored candidate was the contested centre (17.5 / 21.8 / 43.9) but the ledger marked it covered by one other 9-OC guard, so the unit was redirected to its next objective that still needed OC: a flip of an 11-OC side objective with 9 OC ('needs 3 more OC after this unit', f1 3 turns, f2 2 turns) or a reinforcement still short of the enemy's 17 OC (f3, 'needs 1 more'). Nobody else was assigned there, so that capture controls nothing (control needs MORE OC than the enemy): its real marginal value under the same ledger is zero too, yet it beat the top-up purely because the ledger zeroed only the top-up. The 'moving toward charge target' text is a symptom (T7-23 charge-intent blending of the move), not the cause. Guardrails differ: g2/g5 pick their top-scored candidate with no redirect; g1 is a support-pass assignment; g3 is an attack; g4 (round 1) was redirected to a short flip of the centre but its top (obj_nml_1) is 3 turns away.",
+ "fix_summary": "FIX_ATTACK_MOVE (default 1.0, gated by get_param; 0 = base code path exactly). In pass 2, remember each unit's best candidate skipped because the ledger said its objective was covered. Before applying a move/advance capture, if (a) the unit leaves the objective short (remaining need - unit OC > 0), (b) unassigned units that can reach that objective no later bring less OC than the gap, (c) the unit's covered best candidate scored higher, is a move/advance trip, its objective has enemy pressure (enemy OC in range or projected next move), and it is reached within max(2, the short capture's turns) moves, then both options have zero marginal value under the ledger and the candidate scores decide: the unit is assigned to top up the covered contested objective instead (apply_capture_assignment on that candidate; oc_consumed 0, need unchanged). Narrated reason + coordination note, and a [ATTACK_MOVE] log line. No change to the chase gate / charge-intent blending (compatible with the round-4 waaagh_advance_charge patch).",
+ "param": "FIX_ATTACK_MOVE",
+ "test_file": "40k/tests/unit/test_ai_fix_attack_move.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: test_ai_fix_attack_move 6/0 (BASE copy: 4 passed, 2 failed - the two redirect checks). All listed related tests pass: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 52/0, fix_lone_flip 16/0, fix_reinforce_insurance 24/0, charge_decisions 62/0, survival_assessment 23/0, multi_phase_planning 34/0; threat_range_awareness 34/3 (the 3 known base failures). Plan-related tests re-run after the final trigger edit (attack_move, lone_flip, reinforce_insurance, objective_race, plan_earmarks, movement_decisions, race_army, plan_diminishing_returns): all pass.",
+ "decision_checks": [
+  {
+   "job": "20261030_234632_r5c00_00__s7475_r2_p1_movement_2_2",
+   "base_choice": "Guard Alpha moves toward obj_nml_2 (short flip: enemy 11 OC, needs 3 more after it, 3 turns)",
+   "fix_choice": "Guard Alpha moves toward obj_center (Normal move, 13.3\")",
+   "changed": true,
+   "measured": "clear +4.00 [1.04, 6.96] n24 for Move obj_center",
+   "judgement": "matches the alternative (same unit, objective and mode)"
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+   "base_choice": "Guard Beta moves toward obj_nml_1 (short flip: enemy 11 OC, needs 3 more after it)",
+   "fix_choice": "Guard Beta moves toward obj_center (Normal move, 17.9\")",
+   "changed": true,
+   "measured": "clear +5.92 [1.30, 10.53] n36 for Move obj_center",
+   "judgement": "matches the alternative (same unit, objective and mode)"
+  },
+  {
+   "job": "20261030_020603_sweep2_10__s7421_r2_p1_movement_2_1",
+   "base_choice": "Guard Gamma moves toward obj_nml_2 (reinforcement still short: we 6 + 9 vs enemy ~17, needs 1 more)",
+   "fix_choice": "Guard Gamma moves toward obj_center (Normal move, 16.5\")",
+   "changed": true,
+   "measured": "clear +9.81 [6.57, 13.04] n36 for ADVANCE obj_center",
+   "judgement": "same unit and objective; mode is Normal move, the alternative was Advance (both 2 turns to reach; Normal keeps shooting/charging)"
+  },
+  {
+   "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3 (extra, 12-seed-era lone_flip finding)",
+   "base_choice": "drifted: base V10 now moves Guard Gamma toward obj_home_2 (LONE-FLIP changed the plan), not the short flip of obj_nml_1",
+   "fix_choice": "unchanged (obj_home_2)",
+   "changed": false,
+   "measured": "clear +21.50 n36 for Advance obj_center (measured on older code)",
+   "judgement": "not reproduced on base - no evidence either way; ATTACK_MOVE fired once in that replay for a different unit (Prosecutors: short centre flip -> top-up of obj_nml_1)"
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+   "base_choice": "Guard Beta moves toward obj_center (support pass)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful -15.00 for Hold obj_nml_2",
+   "judgement": "consistent (kept the measured-better choice)"
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+   "base_choice": "Guard Beta moves toward obj_center (top candidate, completes the flip)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful -6.83 for Advance obj_center vs the old obj_nml_2 choice (base has drifted to a Normal move to the centre)",
+   "judgement": "no change; not moved toward the harmful alternative's mode"
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4",
+   "base_choice": "Stormboyz advance to attack Blade Champion Gamma",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful -8.33 for Hold obj_center",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1",
+   "base_choice": "Guard Alpha moves toward obj_center (redirected short flip; top obj_nml_1 is 3 turns away)",
+   "fix_choice": "same (the 2-move reach limit keeps it)",
+   "changed": false,
+   "measured": "neutral -6.25 for Move obj_nml_2",
+   "judgement": "consistent (no change where no clear evidence)"
+  },
+  {
+   "job": "20261030_234622_r5c01_00__s7476_r3_p2_movement_2_6",
+   "base_choice": "Guard Gamma moves toward obj_center (its top candidate, short flip)",
+   "fix_choice": "same (no covered better candidate)",
+   "changed": false,
+   "measured": "neutral +4.00 for Move obj_home_2",
+   "judgement": "consistent"
+  }
+ ],
+ "fires": "Replays with the fix (1 seed each, horizon 1, both players): f1 1, f2 1, f3 2, f4 1, guardrails g1-g5 0. Fired decisions: f1 Guard A obj_nml_2 -> obj_center (17.5 vs 12.8); f2 Guard B obj_nml_1 -> obj_center (21.8 vs 14.5); f3 Guard C obj_nml_2 -> obj_center (43.9 vs 38.5) and later Guard B obj_nml_2 -> obj_center (46.2 vs 33.4); f4 Prosecutors obj_center (short by 2) -> obj_nml_1 (30.8 vs 28.5). Bench (mirror_custodes_2000_postdeploy, 1 pair, seed 93101): 0 [ATTACK_MOVE] lines in both games (M1 and M2, seed 93101; both games ended identically, margin -53 p2-p1, 681 actions, i.e. the fix never changed a decision there). The trigger (a unit's best objective marked covered AND its redirect left short with no help) did not occur in this seed; it occurred in all 4 finding replays (Custodes mirror / Custodes vs SW positions from rounds 2-3).",
+ "bench_fires_per_game": "0",
+ "risks": "(1) Concentration: units that used to fan out to side objectives now stack on the contested centre; secondaries that pay for presence across the table (Engage on All Fronts, Centre Ground's opposite, no-man's-land spread) may score less over 5 rounds - the round-2 FAR_TRIP/OVERCOMMIT lesson. The short capture's own secondary terms are still in its score, so it only loses when the top-up scores higher, but full-game effect is unmeasured. (2) The help check counts every unassigned unit with a candidate on the objective in time, even if it is later sent elsewhere - so the fix is conservative (fires less), not more. (3) A short capture that the NEXT turn's plan would have completed (round 1, multi-turn convergence) can be dropped; the 2-move reach limit kept the round-1 guardrail g4 unchanged, but other round-1 positions are untested. (4) The top-up only needs some enemy pressure (enemy OC in range or projected); against a much larger enemy force at the centre the top-up can still be a lost fight (RI-RACE prices that only for held_threatened). (5) Interaction with LONE-FLIP/REINFORCE-INSURANCE: tested with them on (V10 defaults); FIX_OVERCOMMIT path (off) untouched; KEEPER_RELEASE off.",
+ "drop_reason": ""
+}

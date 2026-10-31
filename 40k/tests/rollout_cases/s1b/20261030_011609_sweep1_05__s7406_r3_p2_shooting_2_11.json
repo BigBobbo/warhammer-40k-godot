@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Twin bolt rifle \u2192 enemy Custodian Guard Sodality Delta (P1)",
+ "created": "2026-10-30 01:24:39",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r3_p2_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot a weak bolt rifle at Custodian Guard Delta for 0.3 expected damage. Both options score the same 0.17, and the already_allocated bonus of 2.17 causes a pile-on on a unit that cannot realistically die. Fix: Count already_allocated only when the combined expected damage of the allocated units can reach the kill threshold. Otherwise prefer the target with the best kill chance or the most valuable wounded model, such as the Blade Champion with 7 HP and 8.6 in range, inside the rapid fire half range.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7406_r3_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CHAPLAIN_ON_BIKE_A",
+  "choice": "desc:Twin bolt rifle \u2192 enemy Custodian Guard Sodality Delta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Chaplain on Bike shoots at Custodian Guard Sodality Delta \u2014 expected 0.3 dmg vs 14 HP (2% kill)",
+ "verdict": "pending",
+ "version": 1
+}

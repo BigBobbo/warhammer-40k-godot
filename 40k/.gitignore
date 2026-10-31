@@ -17,3 +17,6 @@ exports/
 # 0 stratagems and 0 leader pairings on itch.io and the Steam Deck. Pinning
 # `importer="keep"` in committed .import files is what makes the exporter
 # copy the raw file. Do NOT re-ignore these.
+
+# Extracted old AIDecisionMaker copies for old-vs-new benchmarks (tools/ai_lab/ai_versions.py)
+scripts/ai_versions/

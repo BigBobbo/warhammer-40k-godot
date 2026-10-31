@@ -1,0 +1,3 @@
+RECHECK_SHARD pr10_5
+ROLLOUT_RESULT {"job":"20261030_234630_r5c02_00__s7477_r1_p1_movement_2_0","status":"ok","E":6.375,"se":2.343,"ci":[1.78,10.97],"n":24,"A":-3.125,"B":3.25,"mat":70.128,"drift":true,"a_did":"","applied":24,"identical":0}
+SHARD_DONE 5/6 jobs=1

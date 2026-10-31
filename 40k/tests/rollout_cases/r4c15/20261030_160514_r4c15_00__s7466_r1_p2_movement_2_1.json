@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (block Lootas Gamma approaching obj_home_2 (26\" away))",
+ "created": "2026-10-30 16:08:31",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7466_r1_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI sends a 10-model Lootas unit forward as a corridor screen against Lootas Gamma. This unit has weak melee and exists to shoot. Screening wastes its fire lanes and pulls it out of cover. Fix: Give units with strong ranged weapons and weak melee, such as Lootas, a large penalty or exclusion for screen assignments. Give the screen role to cheap or durable units such as Gretchin, Boyz, or vehicles. Only keep a shooter on a screen if it still has a firing lane.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7466_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A_P2",
+  "choice": "pos:1143,1371",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha screens at (1143,1371) \u2014 block Lootas Gamma approaching obj_home_2 (26\" away)",
+ "verdict": "pending",
+ "version": 1
+}

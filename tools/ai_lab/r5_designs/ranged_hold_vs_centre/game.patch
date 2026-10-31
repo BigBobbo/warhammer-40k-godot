@@ -1,0 +1,383 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index dee1aee0..644f4ae3 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -357,6 +357,10 @@ static var _last_movement_candidates: Dictionary = {}
+ # as a disembark, or a consumed plan) and is narrated when it does.
+ # {player: {round, phase_signature, assignments: {unit_id: assignment}, replans: int}}
+ static var _turn_movement_plan: Dictionary = {}
++# RANGED-CENTRE: {player: {"round": int, "unit_id": String}} — the one unit a
++# player sent to the centre this round, so a re-plan re-applies the same
++# redirect instead of sending a second unit.
++static var _ranged_centre_claims: Dictionary = {}
+ 
+ # UNIT-ORDER (K card): the units the current step will act on, in order, and
+ # why the first one goes first — movement (move order), shooting (focus-fire
+@@ -475,6 +479,7 @@ static func reset_caches() -> void:
+ 	_movement_recorded_units.clear()
+ 	_last_movement_candidates.clear()
+ 	_turn_movement_plan.clear()
++	_ranged_centre_claims.clear()
+ 	_fight_order_plan.clear()
+ 	_fight_order_plan_built.clear()
+ 	_secondary_awareness_p1.clear()
+@@ -1627,6 +1632,11 @@ const FIX_HELD_DUP: float = 1.0
+ # an enemy-held centre (5 vs 8 OC) marked it "already taken" and the next unit
+ # was sent to flip a 14-OC objective alone. 0 = the holder's OC is consumed.
+ const FIX_LONE_FLIP: float = 1.0
++# RANGED-CENTRE: in battle round 1 a ranged unit that would idle (hold still
++# for its Heavy +1 to hit, or stand in a corridor block guarding a far
++# objective) Advances to the central objective instead when it can be in
++# range of it by its round-2 move. One unit per player per round 1. 0 = off.
++const FIX_RANGED_CENTRE := 1.0
+ # Charge (RETALIATION): share of the surviving target's melee damage on the
+ # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+@@ -6862,6 +6872,9 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
+ 		assignments = _assign_units_to_objectives(
+ 			snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round, threat_data
+ 		)
++		# RANGED-CENTRE: an idle round-1 ranged unit goes for the centre instead
++		if get_param("FIX_RANGED_CENTRE", FIX_RANGED_CENTRE) >= 0.5:
++			_ranged_centre_redirect(snapshot, movable_units, assignments, obj_evaluations, enemies, player, battle_round)
+ 		var prior_replans = int(stored_plan.get("replans", -1))
+ 		# TURN-INTENT: capture the whole turn's context at plan time so the
+ 		# announced card can tell the full story in one place — stance, VP
+@@ -7243,7 +7256,9 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
+ 			# Mixed units and melee units should keep advancing.
+ 			# Skip this check entirely for aggressive factions — they want to fight.
+ 			var faction_agg_for_threat = _get_faction_aggression(snapshot, player)
+-			if not threat_data.is_empty() and "REMAIN_STATIONARY" in move_types and faction_agg_for_threat <= 1.2:
++			# RANGED-CENTRE: a unit sent to the centre does not stop for the hold checks below
++			var rc_going = str(assignment.get("assign_pass", "")) == "ranged_centre"
++			if not threat_data.is_empty() and "REMAIN_STATIONARY" in move_types and faction_agg_for_threat <= 1.2 and not rc_going:
+ 				var has_ranged_for_threat = _unit_has_ranged_weapons(unit)
+ 				var has_melee_for_threat = _unit_has_melee_weapons(unit)
+ 				# Only hold back pure ranged units — units with melee capability should keep moving
+@@ -7290,7 +7305,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
+ 			if transport_cap > 0 and "VEHICLE" in unit_kw_transport and _unit_has_melee_weapons(unit):
+ 				max_weapon_range_inches = 0.0
+ 				has_ranged_weapons = false
+-			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types:
++			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types and not rc_going:
+ 				if _should_hold_for_shooting(unit, centroid, target_pos, max_weapon_range_inches, enemies, move_inches, assignment):
+ 					var enemies_in_range = _get_enemies_in_weapon_range(centroid, max_weapon_range_inches, enemies)
+ 					return {
+@@ -7303,7 +7318,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
+ 			# --- T7-26: Heavy weapon stationary bonus (MOV-3) ---
+ 			# Heavy weapons get +1 to hit when the unit remains stationary. If this unit
+ 			# has significant Heavy firepower and targets in range, prefer staying put.
+-			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types:
++			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types and not rc_going:
+ 				var heavy_data = _get_unit_heavy_weapon_data(unit)
+ 				if _should_hold_for_heavy_bonus(unit, centroid, target_pos, enemies, move_inches, assignment, heavy_data):
+ 					return {
+@@ -10923,6 +10938,7 @@ static func _assign_units_to_objectives(
+ 					"objective_pos": block_pos,
+ 					"action": "screen",
+ 					"assign_pass": "corridor_block",
++					"protects_objective": str(block.get("protects_objective", "")),
+ 					"score": score,
+ 					"score_terms": block_terms,
+ 					"reason": block.reason,
+@@ -12363,6 +12379,121 @@ static func _get_weapon_range_inches(weapon: Dictionary) -> float:
+ 		return float(int(range_str))
+ 	return 0.0
+ 
++# =============================================================================
++# RANGED-CENTRE: round-1 idle ranged unit -> central objective
++# =============================================================================
++
++static func _ranged_centre_redirect(snapshot: Dictionary, movable_units: Dictionary,
++		assignments: Dictionary, obj_evaluations: Array, enemies: Dictionary,
++		player: int, battle_round: int) -> void:
++	"""RANGED-CENTRE: in battle round 1, a ranged unit whose plan entry leaves it
++	idle — a support move to a far marker it would not take because T7-26 holds
++	it still for the Heavy +1 to hit, or a T7-42 corridor block guarding some
++	OTHER marker — is sent to the central objective instead, if it can stand in
++	range of it by its round-2 move. A one-turn hit bonus or a block 20"+ out
++	is worth less than a marker that scores primary every round from round 2
++	(and the table centre most secondary cards reward). Keepers ("hold"),
++	units already racing ("advance"), screens of friendlies, earmarked units
++	and blocks guarding the centre itself are left alone; at most one unit per
++	player per round, and never onto a centre the enemy already controls.
++	Rewrites the assignment in place (the plan persists it)."""
++	if battle_round != 1:
++		return
++	var centre := Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
++	var central: Dictionary = {}
++	for ev in obj_evaluations:
++		if ev.get("is_home", false) or ev.get("is_enemy_home", false):
++			continue
++		var ev_pos: Vector2 = ev.get("position", Vector2.INF)
++		if ev_pos != Vector2.INF and ev_pos.distance_to(centre) <= 4.0 * PIXELS_PER_INCH:
++			central = ev
++			break
++	if central.is_empty():
++		return
++	var c_id := str(central.get("id", ""))
++	var c_pos: Vector2 = central.position
++	if str(central.get("state", "")) in ["enemy_weak", "enemy_strong"]:
++		return  # flipping a held centre is a different fight — not an idle unit's job
++	var claim: Dictionary = _ranged_centre_claims.get(player, {})
++	var claimed_uid := ""
++	if int(claim.get("round", -1)) == battle_round:
++		claimed_uid = str(claim.get("unit_id", ""))
++		if not assignments.has(claimed_uid):
++			return  # this round's unit already went — one per round
++	var adv_in := get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES)
++	var ctrl_in := OBJECTIVE_CONTROL_RANGE_PX / PIXELS_PER_INCH
++	var best_uid := ""
++	var best_gap := INF
++	var best_info: Dictionary = {}
++	for uid in assignments:
++		if claimed_uid != "" and uid != claimed_uid:
++			continue
++		var a: Dictionary = assignments[uid]
++		var mt = movable_units.get(uid, [])
++		if not ("BEGIN_ADVANCE" in mt and "REMAIN_STATIONARY" in mt):
++			continue
++		var unit: Dictionary = snapshot.get("units", {}).get(uid, {})
++		if unit.is_empty() or not _unit_has_ranged_weapons(unit) or _is_melee_seeker(unit):
++			continue
++		if unit.get("transport_data", {}).get("embarked_units", []).size() > 0:
++			continue
++		if not _plan_earmark_for(str(uid), player, snapshot).is_empty():
++			continue
++		var centroid := _get_unit_centroid(unit)
++		if centroid == Vector2.INF:
++			continue
++		var action := str(a.get("action", ""))
++		var a_oid := str(a.get("objective_id", ""))
++		var move_in := float(unit.get("meta", {}).get("stats", {}).get("move", 6))
++		var idle_kind := ""
++		if action == "screen" and str(a.get("assign_pass", "")) == "corridor_block" \
++				and str(a.get("protects_objective", "")) != c_id:
++			idle_kind = "corridor block guarding %s" % str(a.get("protects_objective", "?"))
++		elif action == "move":
++			var a_pos: Vector2 = a.get("objective_pos", Vector2.INF)
++			var heavy_data = _get_unit_heavy_weapon_data(unit)
++			if a_pos != Vector2.INF and _should_hold_for_heavy_bonus(unit, centroid, a_pos, enemies, move_in, a, heavy_data, true):
++				idle_kind = "Heavy hold (%.1f extra hits, obj %s)" % [heavy_data.total_expected_extra_hits, a_oid]
++		if idle_kind == "":
++			continue
++		# Gap = how far the closest model must still go to stand in range.
++		var gap := INF
++		for m in _get_alive_models(unit):
++			var mp := _get_model_position(m)
++			if mp != Vector2.INF:
++				gap = min(gap, mp.distance_to(c_pos) / PIXELS_PER_INCH - ctrl_in)
++		if gap == INF:
++			continue
++		gap = max(gap, 0.0)
++		if gap > 2.0 * move_in + adv_in:
++			continue  # not in range by its round-2 move even with an Advance now
++		if gap < best_gap:
++			best_gap = gap
++			best_uid = str(uid)
++			best_info = {"kind": idle_kind, "move": move_in}
++	if best_uid == "":
++		return
++	var b_unit: Dictionary = snapshot.get("units", {}).get(best_uid, {})
++	var b_centroid := _get_unit_centroid(b_unit)
++	# Advance only when two Normal moves would miss round 2 (Advancing gives up
++	# this turn's shooting); otherwise a Normal move keeps the guns firing.
++	var mode := "advance" if best_gap > 2.0 * float(best_info.move) else "move"
++	var old: Dictionary = assignments[best_uid]
++	var na: Dictionary = old.duplicate()
++	na["objective_id"] = c_id
++	na["objective_pos"] = c_pos
++	na["action"] = mode
++	na["assign_pass"] = "ranged_centre"
++	na["distance"] = b_centroid.distance_to(c_pos)
++	na["reason"] = "RANGED-CENTRE: taking the centre in range by round 2 instead of %s" % best_info.kind
++	assignments[best_uid] = na
++	_ranged_centre_claims[player] = {"round": battle_round, "unit_id": best_uid}
++	print("AIDecisionMaker: [RANGED_CENTRE] %s: %s %s (%.1f\" to range, M%.0f) instead of %s (was %s %s)" % [
++		_dn(b_unit, best_uid), mode, c_id, best_gap, float(best_info.move), best_info.kind,
++		str(old.get("action", "")), str(old.get("objective_id", ""))])
++	_add_thinking_step("%s: [RANGED_CENTRE] %s %s — in range by round 2 instead of %s" % [
++		_dn(b_unit, best_uid), mode, c_id, best_info.kind])
++
+ # =============================================================================
+ # T7-26: HEAVY WEAPON STATIONARY BONUS ANALYSIS (MOV-3)
+ # =============================================================================
+@@ -12441,7 +12572,7 @@ static func _get_unit_heavy_weapon_data(unit: Dictionary) -> Dictionary:
+ static func _should_hold_for_heavy_bonus(
+ 	unit: Dictionary, centroid: Vector2, target_pos: Vector2,
+ 	enemies: Dictionary, move_inches: float, assignment: Dictionary,
+-	heavy_data: Dictionary
++	heavy_data: Dictionary, quiet: bool = false
+ ) -> bool:
+ 	"""T7-26: Determine if a unit with Heavy weapons should remain stationary
+ 	to benefit from the +1 to hit bonus rather than moving.
+@@ -12475,6 +12606,8 @@ static func _should_hold_for_heavy_bonus(
+ 		return false  # Charge intent overrides Heavy bonus
+ 
+ 	# Heavy bonus is worthwhile — stay stationary
++	if quiet:
++		return true  # RANGED-CENTRE: probe only — the caller logs its own decision
+ 	var unit_name = _dn(unit, "unit")
+ 	print("AIDecisionMaker: [T7-26] %s has Heavy weapons (%.1f extra expected hits from +1 to hit) — holding stationary (%d targets in %.0f\" range, obj %.1f\" away)" % [
+ 		unit_name, heavy_data.total_expected_extra_hits, enemies_in_heavy_range.size(),
+@@ -13756,6 +13889,7 @@ static func _calculate_corridor_blocking_positions(
+ 			blocking_positions.append({
+ 				"position": block_pos,
+ 				"priority": priority,
++				"protects_objective": obj_id,  # RANGED-CENTRE: which marker this block guards
+ 				"reason": "block %s approaching %s (%.0f\" away)" % [enemy_name, obj_id, dist_to_obj / PIXELS_PER_INCH]
+ 			})
+ 
+diff --git a/40k/tests/unit/test_ai_fix_ranged_centre.gd b/40k/tests/unit/test_ai_fix_ranged_centre.gd
+new file mode 100644
+index 00000000..a374312d
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_ranged_centre.gd
+@@ -0,0 +1,147 @@
++extends SceneTree
++
++# RANGED-CENTRE (FIX_RANGED_CENTRE): in battle round 1 a ranged unit whose plan
++# entry leaves it idle — T7-26 holds it still for the Heavy +1 to hit because
++# its assigned marker is 2+ moves away, or a T7-42 corridor block guarding a
++# far marker — goes for the central objective instead when it can stand in
++# range of it by its round-2 move. LLM-critic cluster ranged_hold_vs_centre
++# (value-checked, 2026-10-31): Lootas Alpha holding for Heavy in the Orks
++# mirror (Advance to the centre +5.62 VP over 24 seeds) and blocking a corridor
++# 26" from the marker it guarded (+4.79 over 24 seeds). Keepers, units already
++# racing elsewhere, later rounds and an enemy-held centre are left alone, and
++# only one unit per player goes.
++# Drives the real movement decision (_decide_movement).
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_ranged_centre.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const CENTRE := Vector2(880, 1200)
++const LOOTAS_POS := Vector2(1180, 1860)  # ~18" from the centre, P2 side
++const HOLDER_POS := Vector2(880, 2160)   # a friendly keeper on obj_home_2
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Idle round-1 ranged unit goes for the centre (RANGED-CENTRE) ===\n")
++	AIDecisionMaker._config_overrides["FIX_RANGED_CENTRE"] = 1.0
++	test_heavy_hold_unit_advances_to_centre()
++	test_round_three_heavy_hold_untouched()
++	test_enemy_held_centre_untouched()
++	test_far_unit_untouched()
++	test_only_one_unit_per_round()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_RANGED_CENTRE")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot(battle_round: int = 1) -> Dictionary:
++	return {"battle_round": battle_round, "meta": {"battle_round": battle_round},
++		"board": {"objectives": [
++			{"id": "obj_center", "position": CENTRE, "zone": "no_mans_land"},
++			{"id": "obj_home_1", "position": Vector2(880, 240), "zone": "player1"},
++			{"id": "obj_home_2", "position": HOLDER_POS, "zone": "player2"}],
++			"terrain_features": []},
++		"units": {}}
++
++const DEFFGUN := {"name": "Deffgun", "type": "Ranged", "range": "48", "attacks": "2",
++	"ballistic_skill": "5", "strength": "8", "ap": "-1", "damage": "2", "special_rules": "heavy"}
++const CHOPPA := {"name": "Choppa", "type": "Melee", "range": "Melee", "attacks": "3",
++	"weapon_skill": "3", "strength": "4", "ap": "-1", "damage": "1", "special_rules": ""}
++
++func _add_unit(snap: Dictionary, uid: String, owner: int, pos: Vector2, n: int, weapons: Array,
++		points: int = 100) -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32, "base_type": "circular",
++			"base_dimensions": {}, "position": Vector2(pos.x + (i - (n - 1) / 2.0) * 34.0, pos.y),
++			"wounds": 1, "current_wounds": 1})
++	snap.units[uid] = {"id": uid, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": uid, "points": points, "stats": {"move": 6, "toughness": 5, "save": 5,
++			"wounds": 1, "leadership": 7, "objective_control": 1}, "keywords": ["INFANTRY"],
++			"weapons": weapons},
++		"models": models, "flags": {}}
++
++# Our Heavy shooters, a keeper on our home, enemies far up the table but in
++# 48" Deffgun range.
++func _board(battle_round: int = 1, lootas: Array = ["lootas"]) -> Dictionary:
++	var snap = _snapshot(battle_round)
++	for i in range(lootas.size()):
++		_add_unit(snap, lootas[i], 2, LOOTAS_POS + Vector2(-60.0 * i, 30.0 * i), 10, [DEFFGUN])
++	_add_unit(snap, "keeper", 2, HOLDER_POS, 10, [CHOPPA], 200)
++	_add_unit(snap, "theirs_a", 1, Vector2(700, 520), 10, [CHOPPA], 200)
++	_add_unit(snap, "theirs_b", 1, Vector2(1100, 480), 10, [CHOPPA], 200)
++	return snap
++
++func _actions(uids: Array) -> Array:
++	var actions = []
++	for uid in uids:
++		for t in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]:
++			actions.append({"type": t, "actor_unit_id": uid})
++	return actions
++
++func _decide(snap: Dictionary, uids: Array) -> Dictionary:
++	AIDecisionMaker.reset_caches()
++	AIDecisionMaker._config_overrides["FIX_RANGED_CENTRE"] = AIDecisionMaker._config_overrides.get("FIX_RANGED_CENTRE", 1.0)
++	var d = AIDecisionMaker._decide_movement(snap, _actions(uids), 2)
++	print("  -> %s %s: %s" % [d.get("type", ""), d.get("actor_unit_id", ""), str(d.get("_ai_description", "")).substr(0, 140)])
++	return d
++
++func _redirected(uid: String) -> bool:
++	var plan: Dictionary = AIDecisionMaker._turn_movement_plan.get(2, {}).get("assignments", {})
++	return str(plan.get(uid, {}).get("assign_pass", "")) == "ranged_centre"
++
++func test_heavy_hold_unit_advances_to_centre() -> void:
++	print("\n--- round 1: Heavy Lootas 18\" from an open centre ---")
++	var d = _decide(_board(), ["lootas"])
++	_assert(d.get("actor_unit_id", "") == "lootas", "the Lootas acts")
++	_assert(d.get("type", "") == "BEGIN_ADVANCE", "it Advances (type=%s) instead of holding for Heavy" % d.get("type", ""))
++	_assert("obj_center" in str(d.get("_ai_description", "")), "toward obj_center (%s)" % d.get("_ai_description", ""))
++
++func test_round_three_heavy_hold_untouched() -> void:
++	print("\n--- round 3: same board ---")
++	var d = _decide(_board(3), ["lootas"])
++	_assert(not _redirected("lootas"), "no redirect after round 1")
++
++func test_enemy_held_centre_untouched() -> void:
++	print("\n--- round 1: the enemy already holds the centre ---")
++	var snap = _board()
++	_add_unit(snap, "theirs_c", 1, CENTRE, 10, [CHOPPA], 200)
++	var d = _decide(snap, ["lootas"])
++	_assert(not _redirected("lootas"), "an idle unit is not sent to flip an enemy-held centre")
++
++func test_far_unit_untouched() -> void:
++	print("\n--- round 1: Lootas 30\" from the centre (not in range by round 2) ---")
++	var snap = _snapshot(1)
++	_add_unit(snap, "lootas", 2, Vector2(1600, 2300), 10, [DEFFGUN])
++	_add_unit(snap, "keeper", 2, HOLDER_POS, 10, [CHOPPA], 200)
++	_add_unit(snap, "theirs_a", 1, Vector2(1500, 900), 10, [CHOPPA], 200)
++	var d = _decide(snap, ["lootas"])
++	_assert(not _redirected("lootas"), "a unit that cannot be in range by its round-2 move is left alone")
++
++func test_only_one_unit_per_round() -> void:
++	print("\n--- round 1: two Heavy Lootas units ---")
++	var d = _decide(_board(1, ["lootas", "lootas_b"]), ["lootas", "lootas_b"])
++	var n := 0
++	for uid in ["lootas", "lootas_b"]:
++		if _redirected(uid):
++			n += 1
++	_assert(n == 1, "exactly one of them is sent to the centre (%d)" % n)
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_RANGED_CENTRE = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_RANGED_CENTRE"] = 0.0
++	var d = _decide(_board(), ["lootas"])
++	AIDecisionMaker._config_overrides["FIX_RANGED_CENTRE"] = 1.0
++	_assert(not _redirected("lootas"), "with the fix off no redirect is planned")
++	_assert(d.get("type", "") != "BEGIN_ADVANCE" or not "obj_center" in str(d.get("_ai_description", "")),
++		"and the Lootas does not Advance to the centre (%s)" % d.get("type", ""))

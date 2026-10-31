@@ -1,0 +1,4 @@
+RECHECK_SHARD pr12h2_6
+ROLLOUT_RESULT {"job":"20261030_234630_r5c02_00__s7477_r1_p1_movement_2_0","status":"ok","E":3.458,"se":3.461,"ci":[-3.33,10.24],"n":24,"A":-8.125,"B":-4.667,"mat":62.824,"drift":true,"a_did":"","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_234632_r5c00_00__s7475_r2_p1_movement_2_2","status":"ok","E":-3.0,"se":3.114,"ci":[-9.1,3.1],"n":24,"A":8.708,"B":5.708,"mat":-278.793,"drift":false,"a_did":"Custodian Guard Sodality Alpha moves toward obj_nml_2 (moving toward charge target Custodian Guard Sodality Be","applied":24,"identical":0}
+SHARD_DONE 6/10 jobs=2

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Delta (8.5\" away, 28% chance)",
+ "created": "2026-10-30 01:21:01",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r2_p2_charge_1",
+ "note": "[LLM critic, high conf] The AI charges a 4-wound-per-model Thunderwolf unit at a 28% chance into Custodian Guard Delta, deep in the enemy blob. The ch_retaliation term of -10.0 is outweighed by other terms, so the score stays positive. Fix: Scale all positive charge terms by charge probability. Add a gate that rejects charges below about 40% when the target is within 6 in of three or more enemy units. Cap the order_round_aggression bonus so that it cannot outweigh ch_retaliation. Compare expected melee damage against the expected retaliation damage in the same units.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7406_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_THUNDERWOLF_CAVALRY_A",
+  "choice": "pos:1061,1150",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_D",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Thunderwolf Cavalry Alpha declares charge against Custodian Guard Sodality Delta (28% chance, 8.5\" away, expected 5.3 melee dmg vs 15 HP, overwatch risk: 0.6 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

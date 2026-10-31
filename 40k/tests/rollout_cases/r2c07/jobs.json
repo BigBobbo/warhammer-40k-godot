@@ -1,0 +1,208 @@
+[
+ {
+  "job": "20261030_063442_r2c07_00__s7438_r1_p1_movement_1_0",
+  "case": "20261030_063442_r2c07_00__s7438_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends Beta on a 3-turn trek across the board to obj_nml_1, which Alpha already covers. Beta adds no VP there, and the center is left empty.",
+  "better_option": "Move obj_center (unlisted: same objective as the Advance option, but as a normal move)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7438",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063442_r2c07_00"
+ },
+ {
+  "job": "20261030_063442_r2c07_00__s7438_r1_p1_movement_2_1",
+  "case": "20261030_063442_r2c07_00__s7438_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI kept the Prosecutor Squad on obj_home_1 as 'sole holder'. This ignores that the Custodian Guard units nearby can hold the home objective instead.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7438",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063442_r2c07_00"
+ },
+ {
+  "job": "20261030_063442_r2c07_00__s7438_r1_p2_movement_1_2",
+  "case": "20261030_063442_r2c07_00__s7438_r1_p2_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent a fragile Lootas unit forward to obj_center. It picked an option scoring 21.03 over obj_nml_2 at 30.06, and the advance also removes its shooting.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7438",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063442_r2c07_00"
+ },
+ {
+  "job": "20261030_063442_r2c07_00__s7438_r1_p2_movement_2_3",
+  "case": "20261030_063442_r2c07_00__s7438_r1_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a lone 10-model Boyz unit across the board to the enemy-held obj_nml_1. This option had the lowest score, and a capture override chose it. The unit would be killed with no extra VP.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7438",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063442_r2c07_00"
+ },
+ {
+  "job": "20261030_063442_r2c07_00__s7438_r2_p1_movement_2_4",
+  "case": "20261030_063442_r2c07_00__s7438_r2_p1_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Beta alone toward the enemy home objective, 33.6 in away. The goal is unreachable for four turns, and the enemy holds it with OC 20. The score is negative, but the capture assignment still overrode all positive options.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7438",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063442_r2c07_00"
+ },
+ {
+  "job": "20261030_063442_r2c07_00__s7438_r2_p1_charge_1_5",
+  "case": "20261030_063442_r2c07_00__s7438_r2_p1_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges a Battlewagon at a 28% chance with overwatch risk. The expected melee damage is only 6.7 against 12 wounds, so the charge is unlikely to kill it. A failed charge also wastes the unit's turn.",
+  "better_option": "unlisted: do not charge. Shoot Battlewagon Beta with the Balistus Grenade Launcher and Guardian Spear instead, or move toward obj_nml_2.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7438",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063442_r2c07_00"
+ },
+ {
+  "job": "20261030_063442_r2c07_00__s7438_r2_p2_charge_1_6",
+  "case": "20261030_063442_r2c07_00__s7438_r2_p2_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges Blade Champion Gamma at 42% with only 3.0 expected melee damage against 7 HP. The retaliation and the charge chance make this a poor trade for a 10-model unit.",
+  "better_option": "Charge Blade Champion Gamma (7.7\" away, 42% chance)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7438",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063442_r2c07_00"
+ },
+ {
+  "job": "20261030_063442_r2c07_00__s7438_r3_p2_movement_2_7",
+  "case": "20261030_063442_r2c07_00__s7438_r3_p2_movement_2_7.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a short-range flamer unit across the board to reinforce an objective that we already hold. The unit needs 2 turns to arrive and adds no VP this turn.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~2 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7438",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063442_r2c07_00"
+ }
+]

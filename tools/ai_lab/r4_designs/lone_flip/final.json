@@ -1,0 +1,198 @@
+{
+ "key": "lone_flip",
+ "angle": "root",
+ "param": "FIX_LONE_FLIP",
+ "base": "V9R = 5e70bc2 + keeper_release_rev_vs_v9.patch",
+ "apply_conflicts": "none: root.patch applied cleanly on V9R with git apply -3 (offset only).",
+ "required_changes": [
+  {
+   "change": "Pass 1: set assignments[uid]['lone_flip_hold']=true when hold_adds_oc is 0",
+   "applied": true,
+   "how_or_why_not": "Set inside the LONE-FLIP branch of pass 1, next to hold_adds_oc = 0."
+  },
+  {
+   "change": "Pass 2.5 COORD-4: for a lone_flip_hold holder converting to ATTACK (param >= 0.5), reopened = _unit_oc_at_position(objective_pos, uid, a_unit, units, hd_obj_by_id[a_oid], hd_mm); keep base formula otherwise",
+   "applied": true,
+   "how_or_why_not": "Done; base formula untouched for other holds and for param 0. [COORD-4] re-open line kept; an extra [LONE_FLIP] line prints the in-range re-open and what the base would have re-opened."
+  },
+  {
+   "change": "Unit test for the pass-2.5 path (melee-seeker partial holder, Custodian Guard profile, runner filling the need, 2-3 spares)",
+   "applied": true,
+   "how_or_why_not": "test_attack_conversion_reopens_only_in_range_oc: holder converts to ATTACK, oc_consumed 0, re-open is 2 (not 17), at most one spare backfills by capture. It fails on a copy with only the pass-2.5 change removed (re-open 17, captures runner+spare_b+spare_c) and passes on the final code. Captures are counted, not pass 3's support fallback, which sends a unit on both versions."
+  }
+ ],
+ "grafts": [
+  {
+   "graft": "narrow: read FIX_LONE_FLIP once before pass 1 (lone_flip_on), reuse in pass 2.5; clearer log wording, '(base would set %d)'",
+   "applied": true,
+   "why": "Small and safe."
+  },
+  {
+   "graft": "Tests: meaningful held_threatened case (oc_consumed == min(unit_oc, need), free unit not sent), contested tie case, two co-holders both hold with oc_consumed 0, battle round 3",
+   "applied": true,
+   "why": "Test-only. Added all four."
+  },
+  {
+   "graft": "Print the number of co-holders in the [LONE_FLIP] line",
+   "applied": true,
+   "why": "Log-only ('movable holders here: N')."
+  },
+  {
+   "graft": "Follow-ups (a) partial holder moves onto the objective, (b) co-holder may leave, (c) phantom holder not treated as on the objective",
+   "applied": false,
+   "why": "The judge said separate params, not this patch. But see risks: a narrow form of (c) was required to keep a test green."
+  },
+  {
+   "graft": "From game: post-pass redirect of lone flips that cannot win (s7455 r2 finding)",
+   "applied": false,
+   "why": "A separate design, per the judge."
+  },
+  {
+   "graft": "Keep base consumption on enemy_strong if the Ork fixtures over-commit",
+   "applied": false,
+   "why": "Conditional on bench evidence that does not exist yet."
+  }
+ ],
+ "extra_change": "Narrowed the pass-1 trigger to holders with OC in range now (_unit_oc_at_position(...) > 0). Reason: test_ai_objective_assignment_fixes went from 1 known failure (V9R: 6/1) to 2 failures (5/2) with root as written. Its 'one of two stays' case has two units on an objective. Their snapshots carry no status (=UNDEPLOYED), so their in-range OC is 0 and friendly_oc does not count them. Root's premise ('the holder is already in friendly_oc') was false there, both phantom holders were pinned, and neither added OC. A battle-shocked holder behaves the same way in real games. After the narrowing the suite is back to 6/1 (only the known base failure). The cost: root's phantom-holder effect (s7408 r3 Tankbustas, friendly 0 vs enemy 0) no longer fires. Test test_holder_without_oc_in_range_keeps_base_ledger pins this.",
+ "decision_checks": [
+  {
+   "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3",
+   "base_choice": "Gamma MOVE obj_nml_1 (flip vs enemy OC 14) (design report, V9-era base)",
+   "final_choice": "Gamma moves toward obj_home_2; Alpha moves toward obj_center (Normal move); Beta holds obj_center. Same plan as the design report claimed.",
+   "changed": true,
+   "matches_alt_intent": false,
+   "measured": "clear +21.50 [16.93, 26.07] for Gamma ADVANCE obj_center. The final plan sends a different unit (Alpha) with a Normal move, so the unit and mode differ from the measured alternative. The intent matches only loosely: the lone 14-OC flip is dropped and the centre gets a unit. Design's 6-seed both-seat evidence: base -30.3 -> fix -1.2."
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+   "base_choice": "Beta moves toward obj_nml_1 (charge target Blade Champion Alpha)",
+   "final_choice": "Beta moves toward obj_nml_1 (charge target Blade Champion Alpha, 18.0\") \u2014 unchanged. [LONE_FLIP] fired once in the replay but not for this unit's choice.",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "CONFIRMED +5.92 [1.30, 10.53] for Beta Normal move to obj_center. Out of scope for this mechanism: no movable holder drives it. The final does not move Beta away from obj_center; the choice is unchanged."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+   "base_choice": "Beta moves toward obj_center",
+   "final_choice": "Beta moves toward obj_center",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful -15.00 (alt: hold obj_nml_2)",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+   "base_choice": "Beta moves toward obj_center (current base already drifts from the case's obj_nml_2 choice)",
+   "final_choice": "Beta moves toward obj_center (same as V9R)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful -6.83 (alt: advance obj_center); unchanged from V9R, as the judge required",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1",
+   "base_choice": "Alpha moves toward obj_center",
+   "final_choice": "Alpha moves toward obj_center",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral -6.25",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4",
+   "base_choice": "Alpha moves toward obj_nml_2",
+   "final_choice": "Alpha moves toward obj_nml_2",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral +1.83",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160256_r4c01_00__s7452_r2_p1_movement_2_2",
+   "base_choice": "Beta moves toward obj_nml_2 (V9R replay; the design never replayed it)",
+   "final_choice": "Beta moves toward obj_nml_2",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral +1.08",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_012005_sweep2_00__s7411_r3_p1_movement_2_6",
+   "base_choice": "Beta moves toward obj_nml_2 (V9R replay)",
+   "final_choice": "Beta moves toward obj_nml_2",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "harmful -2.25 (alt: Beta move obj_center); not moved toward it",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_063510_r2c10_00__s7441_r3_p2_movement_2_9",
+   "base_choice": "Logan Grimnar holds obj_center (V9R replay)",
+   "final_choice": "Logan Grimnar holds obj_center",
+   "changed": false,
+   "matches_alt_intent": true,
+   "measured": "neutral 0.00 (alt: Logan hold obj_center)",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r3_p1_movement_1_6",
+   "base_choice": "Allarus moves toward obj_center (V9R replay)",
+   "final_choice": "Allarus moves toward obj_center. Not drawn to home_2: [LONE_FLIP] fires 4 times for its two co-holders, L2 and L3, on obj_home_2, across 2 plan builds",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "neutral -3.83 (alt: Allarus hold obj_home_2)",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_012809_sweep1_07__s7408_r3_p2_movement_2_6",
+   "base_choice": "Gretchin screens (V9R replay)",
+   "final_choice": "Gretchin screens; [LONE_FLIP] fires 0 times after the narrowing (5 phantom Tankbustas fires with root as written, with the same Gretchin choice)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear +3.94 (alt: Gretchin move obj_home_2); neither version reaches it",
+   "moved_toward_harmful": false
+  }
+ ],
+ "extra_checks": [
+  {
+   "check": "test_ai_fix_lone_flip on V9R with and without the patch; related suites",
+   "result": "Final: 16/0. V9R copy: 10 passed / 6 failed. Pass-2.5-removed copy: 14/1 (only the backfill check fails). All related suites pass; only the known base failures remain: threat_range_awareness 34/3 and objective_assignment_fixes 6/1, the same as V9R."
+  },
+  {
+   "check": "Param-0 identity (determinism_check.py): FIX_LONE_FLIP=0 copy vs unpatched V9R, both seats, mirror_custodes_2000_postdeploy seed 9100",
+   "result": "PASS: outcome, trajectory and decisions match (676/676 actions, 269 decision records). asym_2000 and Orks mirror: left to the bench (time budget)."
+  },
+  {
+   "check": "s7454 r3 P2: 36 paired seeds with the fix in P2's seat only, horizons 1 and 2",
+   "result": "left to the bench. 1-seed replay confirms the plan: Alpha to obj_center (Normal move), Gamma to obj_home_2, Beta holds."
+  },
+  {
+   "check": "Guardrail replays with the fix in the deciding seat (s7455 r3, s7431, s7452, s7458, s7457, s7455 r2, s7411, s7441, s7455 r3 P1 1_6, s7408)",
+   "result": "All unchanged vs V9R or the design report's base; no move toward a measured-harmful alternative. See guardrail_checks. Replays use the working-tree AI for both seats; for the decision seat this matches 'fix in the deciding seat'."
+  },
+  {
+   "check": "Benchmark-layout replays on take_and_hold_mirror_1 (session_20261030_163127 r3/r4 P1, an Ork/asym partial holder)",
+   "result": "not run: no saved cases for that session are in 40k/tests/rollout_cases. In the 11 replays the pass-2.5 [LONE_FLIP] re-open never fired, so the COORD-4 path is verified only by the unit test. Left to the bench."
+  },
+  {
+   "check": "Benchmark reporting (diverging pair share, first-divergence round, primary vs secondary VP per fixture)",
+   "result": "left to the bench"
+  },
+  {
+   "check": "version_history.json entry when shipping",
+   "result": "not done: this patch is not shipped (the task forbids touching other files). Needed if adopted."
+  }
+ ],
+ "fires": "Final code, 11 one-round replays (decision round to end of the next round, both players): pass-1 [LONE_FLIP] fired 10 times (2,1,1,0,1,0,0,0,0,1,4), about 0.9 per replay. The pass-2.5 [LONE_FLIP] re-open fired 0 times. The 4 at s7455 r3 P1 are 2 co-holders x 2 plan builds.",
+ "tests": {
+  "test_fails_on_v9r": true,
+  "test_passes": true,
+  "related_ok": true,
+  "detail": "test_ai_fix_lone_flip: final 16/0, V9R 10/6, pass-2.5 removed 14/1. Related: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 52/0, survival_assessment 23/0, multi_phase_planning 34/0. Known base failures: threat_range_awareness 34/3, objective_assignment_fixes 6/1 (same as V9R; 5/2 before the narrowing)."
+ },
+ "risks": "(1) Evidence of value is thin: one finding flips (s7454 r3), and with a different unit and mode than measured. The confirmed s7455 r2 finding (+5.92) is not reached. (2) Co-holders on objectives we do not control are now pinned (both hold with oc_consumed 0, where the base freed one); this is unmeasured. (3) The pass-2.5 path is covered only by the unit test; it never fired in the replays. (4) The narrowing to holders with OC in range drops root's phantom/battle-shocked effect (s7408); that change is mine, not the judge's. (5) Full-game and secondary-VP effects are unknown, so the bench must decide. Param 0 restores V9R exactly: verified on one Custodes-mirror seed.",
+ "verdict": "ready",
+ "not_ready_reason": ""
+}

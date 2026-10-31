@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (flipping it (enemy holds with OC 15))",
+ "created": "2026-10-30 06:34:55",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7432_r3_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends one 3-model unit 22 in alone, a 3-turn trip, into 3 enemy units to flip obj_nml_1. It gives up the strong 22.25 hold option because the centre is already assigned. Fix: When an objective is already taken, do not force a different objective. Let the unit stay as a second holder or screen, or pick the best-scoring option. Require that a lone unit sent to an enemy-held objective can reach it in 2 turns or fewer. The destination must not hold more enemy OC than the unit's own OC.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7432_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:1100,430",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_nml_1 (moving toward charge target Blade Champion Beta, obj: 22.0\" away)",
+ "verdict": "bad",
+ "version": 1
+}

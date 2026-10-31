@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Stormboyz (8.9\" away, 28% chance)",
+ "created": "2026-10-30 16:11:58",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7459_r2_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI declares a 28% charge that costs 5.4 overwatch damage on a unit with 11 wounds. The charge gives only about 3.4 expected damage, so the net result is negative. Fix: Score each charge as P(success) x (damage + trade value) minus overwatch loss minus the loss of objective presence. Always include a 'no charge' option scored at zero. Reject charges below about 40% unless the net score is clearly positive.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7459_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A_P2",
+  "choice": "pos:990,830",
+  "decision": "charge",
+  "targets": "U_STORMBOYZ_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz declares charge against Stormboyz (28% chance, 8.9\" away, expected 12.0 melee dmg vs 22 HP, overwatch risk: 5.4 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

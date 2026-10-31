@@ -1,0 +1,244 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index dee1aee0..fb7533fc 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1668,6 +1668,22 @@ const FIX_RI_QUARTER: float = 1.0
+ # RI-QUARTER: share of the quarter VP counted for each later battle round
+ # (the unit usually stays in the quarter it entered, but may move or die).
+ const RI_QUARTER_LATER_ROUND_SHARE: float = 0.5
++# Movement plan (FIX_MARGINAL_OC): 1 = a unit's OC goes where it changes who
++# controls an objective, not where it only adds margin. Two gates on existing
++# overrides. (a) Pass 1: a held_threatened objective forced EVERY movable unit
++# on it to hold, even when its need was 0 and the OC of the units that cannot
++# move this phase alone beat the enemy OC there and one move away — the clause
++# came before KEEP-OC, so KEEP-OC's release never ran there. It now runs: such
++# a unit falls through to the keeper / KEEP-OC checks. (b) OBJ-ASSIGN-1 swaps
++# no longer hand an objective nobody can contest (no enemy OC there or one
++# move away) to a higher-OC unit when it only arrives with more spare inches
++# in the same Movement phase and has a candidate where its OC flips or saves
++# control. Custodian Guard Beta held a centre P1 held with OC 20 vs 9 (a Normal
++# move to the enemy-held obj_nml_1 measured +8.00 [3.15, 12.85] n24), and was
++# swapped onto an empty home objective in place of the Prosecutors (a Normal
++# move to the contested centre measured +5.58 [1.41, 9.76] n24) (LLM-critic
++# cluster marginal_oc, round 5). 0 = previous behaviour.
++const FIX_MARGINAL_OC: float = 1.0
+ # RI-RACE: a one-move reinforcement is a lost race when the enemy can stand
+ # there with at least this multiple of our OC with it. Not 1.0: the enemy has
+ # one move, our shooting and charges act on its approach first, and LONE-TRIP
+@@ -10119,6 +10135,8 @@ static func _assign_units_to_objectives(
+ 	var keeper_released := {}  # unit_id -> _keeper_release_check result
+ 	# LONE-FLIP (FIX_LONE_FLIP): read once, reused by pass 2.5.
+ 	var lone_flip_on = get_param("FIX_LONE_FLIP", FIX_LONE_FLIP) >= 0.5
++	# MARGINAL-OC (FIX_MARGINAL_OC): read once, reused by OBJ-ASSIGN-1 in pass 2.
++	var marginal_oc_on = get_param("FIX_MARGINAL_OC", FIX_MARGINAL_OC) >= 0.5
+ 	for cand in candidates:
+ 		var uid = cand.unit_id
+ 		var oid = cand.objective_id
+@@ -10135,6 +10153,16 @@ static func _assign_units_to_objectives(
+ 		var should_hold = false
+ 		if remaining > 0:
+ 			should_hold = true  # OC still needed at this objective
++		elif obj_state == "held_threatened" and marginal_oc_on and locked_oc_holds.call(oid):
++			# MARGINAL-OC (FIX_MARGINAL_OC): no need left and the units that
++			# cannot move this phase hold it alone — not a forced hold; the
++			# keeper / KEEP-OC checks below decide (base: should_hold = true).
++			print("AIDecisionMaker: [MARGINAL_OC] %s: %s not forced to hold — held_threatened, need 0, locked OC %d beats enemy threat %d (enemy %d, next move %d)" % [
++				oid, uid, int(eval_for_obj.get("friendly_oc", 0)) - int(movable_oc_on_obj.get(oid, 0)),
++				maxi(int(eval_for_obj.get("enemy_oc", 0)), int(eval_for_obj.get("projected_enemy_oc", 0))),
++				int(eval_for_obj.get("enemy_oc", 0)), int(eval_for_obj.get("projected_enemy_oc", 0))])
++			if obj_keeper.get(oid, {}).get("uid", "") == uid and get_param("PLAN_KEEP_OC_ENABLED", 1.0) < 0.5:
++				should_hold = true  # KEEP-OC ablated: the keeper keeps it, as below
+ 		elif obj_state == "held_threatened":
+ 			should_hold = true  # Threatened, keep defender
+ 		elif obj_keeper.get(oid, {}).get("uid", "") == uid and locked_oc_holds.call(oid) \
+@@ -10598,6 +10626,27 @@ static func _assign_units_to_objectives(
+ 						and alt_arrival.spare_in >= cand_arrival.spare_in + closer_min_in)
+ 			if not quicker:
+ 				continue
++			# MARGINAL-OC (FIX_MARGINAL_OC): the same phase on an objective no
++			# enemy can contest gains nothing; a higher-OC unit that can flip or
++			# save control elsewhere is not swapped in for spare inches.
++			if marginal_oc_on and alt_arrival.phases == cand_arrival.phases \
++					and int(alt.unit_oc) > int(cand.unit_oc):
++				var mo_eval = _get_obj_eval_by_id(obj_evaluations, oid)
++				if int(mo_eval.get("enemy_oc", 0)) == 0 and int(mo_eval.get("projected_enemy_oc", 0)) == 0:
++					var mo_where := ""
++					for mo_c in candidates:
++						if mo_c.unit_id != alt.unit_id or mo_c.objective_id == oid \
++								or int(obj_oc_remaining.get(mo_c.objective_id, 0)) <= 0:
++							continue
++						var mo_st = str(_get_obj_eval_by_id(obj_evaluations, mo_c.objective_id).get("state", ""))
++						if mo_st in ["contested", "enemy_weak", "held_threatened"]:
++							mo_where = str(mo_c.objective_id)
++							break
++					if mo_where != "":
++						print("AIDecisionMaker: [MARGINAL_OC] %s: not swapping %s (OC %d) in for %s (OC %d) — same phase (%.1f\" vs %.1f\" spare), nobody can contest it, and its OC can change control at %s" % [
++							oid, alt.unit_id, int(alt.unit_oc), uid, int(cand.unit_oc),
++							alt_arrival.spare_in, cand_arrival.spare_in, mo_where])
++						continue
+ 			if closer.is_empty() or alt_arrival.phases < closer_arrival.phases \
+ 					or (alt_arrival.phases == closer_arrival.phases and alt_arrival.spare_in > closer_arrival.spare_in):
+ 				closer = alt
+diff --git a/40k/tests/unit/test_ai_fix_marginal_oc.gd b/40k/tests/unit/test_ai_fix_marginal_oc.gd
+new file mode 100644
+index 00000000..c20186d1
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_marginal_oc.gd
+@@ -0,0 +1,157 @@
++extends SceneTree
++
++# MARGINAL-OC (FIX_MARGINAL_OC): a unit's OC goes where it changes who controls
++# an objective, not where it only adds margin. LLM-critic cluster marginal_oc
++# (round 5, value-checked over 24 seeds):
++#   s7475 r3 P1 — Custodian Guard Beta held obj_center ("holding under threat
++#   (enemy OC 9 nearby)") while the units that could not move held it with OC
++#   11 on their own; a Normal move to the enemy-held obj_nml_1 measured +8.00
++#   [3.15, 12.85]. The held_threatened clause of pass 1 forced EVERY movable
++#   unit on the objective to hold and came before KEEP-OC, so KEEP-OC's
++#   release never ran there.
++#   s7478 r3 P2 — OBJ-ASSIGN-1 swapped Custodian Guard Beta (OC 9) in for the
++#   Prosecutors (OC 8) on an empty home objective nobody could contest, because
++#   it arrived the same turn with 4" more spare movement; the Prosecutors went
++#   to the contested centre instead. A Normal move to the centre measured
++#   +5.58 [1.41, 9.76].
++# Guards: when the locked OC does NOT beat the enemy threat the unit still
++# holds; a swap that arrives a whole turn sooner still happens (s7457 r1 P2,
++# where the quicker unit's capture was right); 0 restores the base.
++#
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_marginal_oc.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDM = preload("res://scripts/AIDecisionMaker.gd")
++const PPI := 40.0
++const MOVE_ALL := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const OBJ_1 := Vector2(600, 600)
++const OBJ_2 := Vector2(1100, 600)
++const OBJ_2_FAR := Vector2(1500, 400)
++
++var _pass_count := 0
++var _fail_count := 0
++
++func _initialize():
++	await create_timer(0.2).timeout
++	print("\n=== MARGINAL-OC: OC goes where it changes control ===\n")
++	AIDM._config_overrides["FIX_MARGINAL_OC"] = 1.0
++	test_surplus_holder_is_freed()
++	test_needed_holder_still_holds()
++	test_same_turn_swap_skipped_on_uncontested_objective()
++	test_whole_turn_swap_still_happens()
++	test_param_zero_restores_base()
++	AIDM._config_overrides.erase("FIX_MARGINAL_OC")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _unit(owner: int, name: String, positions: Array, oc: int, move: int = 6) -> Dictionary:
++	var models = []
++	for i in range(positions.size()):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32, "base_type": "circular",
++			"base_dimensions": {}, "wounds": 3, "current_wounds": 3,
++			"position": Vector2(positions[i].x, positions[i].y)})
++	return {"id": name, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED, "models": models, "flags": {},
++		"meta": {"name": name, "points": 80, "keywords": ["INFANTRY"], "weapons": [],
++			"stats": {"move": move, "objective_control": oc, "toughness": 4, "save": 5}}}
++
++func _snapshot(units: Dictionary, battle_round: int = 3, obj_2: Vector2 = OBJ_2) -> Dictionary:
++	units["U_ENEMY_FAR"] = _unit(1, "Far Guard", [Vector2(1400.0, 2300.0)], 1)
++	return {
++		"meta": {"battle_round": battle_round, "player1_vp": 0, "player2_vp": 0},
++		"battle_round": battle_round,
++		"board": {"terrain_features": [], "objectives": [
++			{"id": "obj_1", "position": OBJ_1, "zone": "no_mans_land"},
++			{"id": "obj_2", "position": obj_2, "zone": "no_mans_land"},
++		]},
++		"units": units,
++	}
++
++func _assign(snapshot: Dictionary, movable_ids: Array) -> Dictionary:
++	AIDM.reset_caches()
++	AIDM._current_player = 2
++	var br := int(snapshot.get("battle_round", 3))
++	var objectives = AIDM._get_objectives(snapshot)
++	var enemies = AIDM._get_enemy_units(snapshot, 2)
++	var friendly = AIDM._get_units_for_player(snapshot, 2)
++	var evals = AIDM._evaluate_all_objectives(snapshot, objectives, 2, enemies, friendly, br)
++	for ev in evals:
++		print("  eval %s: %s friendly %d enemy %d projected %d" % [ev.id, ev.state, int(ev.friendly_oc),
++			int(ev.enemy_oc), int(ev.get("projected_enemy_oc", 0))])
++	var movable = {}
++	for uid in movable_ids:
++		movable[uid] = MOVE_ALL
++	var plan = AIDM._assign_units_to_objectives(snapshot, movable, evals, objectives, enemies, friendly, 2, br, [])
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 120)])
++	return plan
++
++func _did(plan: Dictionary, uid: String) -> String:
++	var a: Dictionary = plan.get(uid, {})
++	return "%s %s" % [a.get("action", ""), a.get("objective_id", "")]
++
++# s7475 shape: obj_1 held 20 vs 9; 11 of our OC there cannot move this phase.
++func _held_board(anchor_oc: int) -> Dictionary:
++	return _snapshot({
++		"U_ANCHOR": _unit(2, "Engaged Squad", [OBJ_1], anchor_oc),
++		"U_GUARD": _unit(2, "Custodian Guard", [OBJ_1 + Vector2(-40, -20), OBJ_1 + Vector2(0, -40), OBJ_1 + Vector2(40, -20)], 3),
++		"U_E_CENTRE": _unit(1, "Enemy Squad", [OBJ_1 + Vector2(-40, 100), OBJ_1 + Vector2(0, 90), OBJ_1 + Vector2(40, 100)], 3),
++		"U_E_NML": _unit(1, "Enemy Holder", [OBJ_2], 3),
++	})
++
++func test_surplus_holder_is_freed() -> void:
++	print("\n--- held_threatened, need 0, locked OC 11 vs enemy 9: the movable unit is not pinned ---")
++	var plan = _assign(_held_board(11), ["U_GUARD"])
++	_assert(_did(plan, "U_GUARD") != "hold obj_1", "Custodian Guard does not hold obj_1 (%s)" % _did(plan, "U_GUARD"))
++	_assert(str(plan.get("U_GUARD", {}).get("objective_id", "")) == "obj_2"
++		and str(plan.get("U_GUARD", {}).get("action", "")) in ["move", "advance"],
++		"it goes to flip the enemy-held obj_2 (%s)" % _did(plan, "U_GUARD"))
++
++func test_needed_holder_still_holds() -> void:
++	print("\n--- guard: locked OC 8 does not beat enemy 9 — the unit still holds ---")
++	var plan = _assign(_held_board(8), ["U_GUARD"])
++	_assert(_did(plan, "U_GUARD") == "hold obj_1", "Custodian Guard holds obj_1 (%s)" % _did(plan, "U_GUARD"))
++
++# s7478 shape: obj_1 empty, no enemy near; the Prosecutors (OC 8, M6) score
++# best there, the Guard (OC 9, M10) is farther but arrives the same turn with
++# more spare inches; obj_2 is enemy-held (the Guard's OC can flip it).
++func _swap_board(guard_gap_in: float) -> Dictionary:
++	var pros_pos := OBJ_1 + Vector2(0, (10.0 + 3.79) * PPI)
++	var g := OBJ_1 + Vector2(-(guard_gap_in + 3.79) * PPI * 0.6, (guard_gap_in + 3.79) * PPI * 0.8)
++	return _snapshot({
++		"U_PROS": _unit(2, "Prosecutors", [pros_pos + Vector2(-60, 0), pros_pos + Vector2(-20, 0), pros_pos + Vector2(20, 0), pros_pos + Vector2(60, 0)], 2, 6),
++		"U_GUARD": _unit(2, "Custodian Guard", [g + Vector2(-40, 0), g, g + Vector2(40, 0)], 3, 10),
++		"U_E_NML": _unit(1, "Enemy Holder", [OBJ_2_FAR + Vector2(0, -60)], 3),
++	}, 3, OBJ_2_FAR)
++
++func test_same_turn_swap_skipped_on_uncontested_objective() -> void:
++	print("\n--- same-turn swap onto an empty, uncontested objective ---")
++	var plan = _assign(_swap_board(14.0), ["U_PROS", "U_GUARD"])
++	_assert(str(plan.get("U_PROS", {}).get("objective_id", "")) == "obj_1",
++		"the Prosecutors keep obj_1 (%s)" % _did(plan, "U_PROS"))
++	_assert(str(plan.get("U_GUARD", {}).get("objective_id", "")) != "obj_1",
++		"the Custodian Guard is not swapped onto it (%s)" % _did(plan, "U_GUARD"))
++
++func test_whole_turn_swap_still_happens() -> void:
++	print("\n--- guard: the Guard arrives a whole turn sooner — OBJ-ASSIGN-1 still swaps ---")
++	var plan = _assign(_swap_board(8.0), ["U_PROS", "U_GUARD"])
++	_assert(str(plan.get("U_GUARD", {}).get("objective_id", "")) == "obj_1",
++		"the quicker Custodian Guard takes obj_1 (%s)" % _did(plan, "U_GUARD"))
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_MARGINAL_OC = 0: base behaviour ---")
++	AIDM._config_overrides["FIX_MARGINAL_OC"] = 0.0
++	var p1 = _assign(_held_board(11), ["U_GUARD"])
++	_assert(_did(p1, "U_GUARD") == "hold obj_1", "base: the surplus Custodian Guard holds obj_1 (%s)" % _did(p1, "U_GUARD"))
++	var p2 = _assign(_swap_board(14.0), ["U_PROS", "U_GUARD"])
++	_assert(str(p2.get("U_GUARD", {}).get("objective_id", "")) == "obj_1",
++		"base: OBJ-ASSIGN-1 swaps the Custodian Guard onto obj_1 (%s)" % _did(p2, "U_GUARD"))
++	AIDM._config_overrides["FIX_MARGINAL_OC"] = 1.0

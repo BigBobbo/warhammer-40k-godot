@@ -1,0 +1,75 @@
+{
+ "key": "screen_vs_objective",
+ "angle": "narrow",
+ "root_cause": "PASS 3 of _assign_units_to_objectives (screening) hands each leftover cheap screening candidate the next deep-strike denial spot, including the lowest-priority 'backfield gap' samples (priority 3, screen score ~8). It never compares that with the unit's own objective candidates. At s7467 r1 P2 the Gretchin was not held back by any objective-pass gate (no lone-trip / far-trip / race / diminishing-returns skip, so its card reads 'higher-scored objectives are already covered'): obj_nml_2's OC need was simply filled by Battlewagon A + support units. So a unit whose Advance obj_nml_2 candidate scored 20.07 (uncontrolled objective) was parked on a backfield gap at 8.36. In the 2-seed A/B replay, branch B (Advance obj_nml_2) gained only on P2 SECONDARY scoring (primary was identical): seed 5001 Forward Position +5 and Cleanse +2 (P2 secondary 9 vs 2); seed 5002 Cleanse 5 vs 2. Another body forward gives more units for action and position secondaries. What separates the guardrails: all five carry a deliberate hold-back note from the objective passes. s7437 / s7408 2_2 / s7408 1_1 have a LONE-TRIP note ('not going alone ... fragile unit would not survive it'). s7423 / s7456 / s7438 have a DIM-RETURNS note ('adds only ~1 VP'). And s7408 1_1 is a screen-protect, s7456 / s7438 are home-objective deep-strike denial, not backfield gaps.",
+ "fix_summary": "One gate in the PASS-3 denial branch, behind FIX_SCREEN_VS_OBJECTIVE (const 1.0, 0 = base exactly). When the denial spot is a backfield gap (new 'gap': true tag in _calculate_denial_positions), the unit is in none of extra_obj_skipped / lone_skipped / far_skipped, it has no Hold candidate (it is not standing on an objective), and its best move/advance candidate to an objective in state uncontrolled / held_safe / held_threatened scores at least SCREEN_SCORE_BASE (8) above the screen score, then the unit takes that candidate (same action, so Advance stays Advance) as a 'support' assignment. The support ledger is bumped and the gap is consumed, so the next screener keeps the spot it had. At most one such switch happens per plan call. Log line: [SCREEN_VS_OBJECTIVE]. No new scoring terms.",
+ "param": "FIX_SCREEN_VS_OBJECTIVE",
+ "test_file": "40k/tests/unit/test_ai_fix_screen_vs_objective.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: test_ai_fix_screen_vs_objective 4/0 (BASE preload copy: 3 passed, 1 failed, the spare-grots check). All required tests pass: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 22/0, survival_assessment 23/0, multi_phase_planning 34/0. Also passing: test_ai_attacker_defender_pause 27/0, test_ai_battle_plan 15/0, test_ai_movement_coordination 7/0. Known failures, the same as the brief lists for base: test_ai_threat_range_awareness 3 failed, tests/test_ai_objective_assignment_fixes.gd 1 failed.",
+ "decision_checks": [
+  {
+   "job": "20261030_160457_r4c16_00__s7467_r1_p2_movement_2_1",
+   "base_choice": "Gretchin screens at (1600,1520), backfield gap (screen 8.36; Advance obj_nml_2 candidate 20.07)",
+   "fix_choice": "Gretchin advances toward obj_nml_2 (support, Advance)",
+   "changed": true,
+   "measured": "clear: E +3.64 [1.82, 5.46] over 36 seeds",
+   "judgement": "Matches the alternative exactly (same unit, objective and mode, Advance). Knock-on in the same plan: Kommandos A now reinforces obj_center instead of obj_nml_2, because the support ledger counts the Gretchin there. All other R1 P2 movement decisions are unchanged (Beast Snagga keeps its gap screen). One-seed value -6 vs base A -13 for the same seed (noise-level evidence only)."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_012809_sweep1_07__s7408_r1_p1_movement_1_1",
+   "base_choice": "Burna Boyz B screen-protect ('screening valuable friendlies'), LONE-TRIP note",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful: E -5.83 [-10.75, -0.92]",
+   "judgement": "Consistent: not moved toward the harmful alternative. The gate does not apply to screen-protect or to lone-trip-skipped units. fix: same decision as base, 0 SCREEN_VS_OBJECTIVE firings in the whole game, identical value (one-seed replay) (-7)."
+  },
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r1_p2_movement_2_3",
+   "base_choice": "Burna Boyz A backfield gap (11\"), LONE-TRIP note",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -3.25 [-8.45, 1.95]",
+   "judgement": "Consistent (the point estimate favours the screen). fix: same decision as base, 0 SCREEN_VS_OBJECTIVE firings in the whole game, identical value (one-seed replay) (-21)."
+  },
+  {
+   "job": "20261030_012809_sweep1_07__s7408_r1_p1_movement_2_2",
+   "base_choice": "Burna Boyz A backfield gap (9\"), LONE-TRIP note",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -2.83 [-10.66, 5.00]",
+   "judgement": "Consistent. fix: same decision as base, 0 SCREEN_VS_OBJECTIVE firings in the whole game, identical value (one-seed replay) (+6)."
+  },
+  {
+   "job": "20261030_021358_sweep2_12__s7423_r1_p1_movement_2_1",
+   "base_choice": "Gretchin backfield gap (14\"), DIM-RETURNS note",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -2.25 [-5.91, 1.41]",
+   "judgement": "Consistent. fix: same decision as base, 0 SCREEN_VS_OBJECTIVE firings in the whole game, identical value (one-seed replay) (+13). The earlier fix iteration without the on-objective / one-per-plan limits fired once here, at R2 P1 (Gretchin to obj_nml_2). The final version did not fire."
+  },
+  {
+   "job": "20261030_160307_r4c05_00__s7456_r1_p2_movement_2_1",
+   "base_choice": "Prosecutors deny deep strike near obj_home_2, DIM-RETURNS note",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E +3.25 [-1.81, 8.31]",
+   "judgement": "Unchanged by design: home-objective deep-strike denial is out of scope. A positive but not significant E is left on the table. fix: same decision as base, 0 SCREEN_VS_OBJECTIVE firings in the whole game, identical value (one-seed replay) (-6)."
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r1_p1_movement_2_1",
+   "base_choice": "Prosecutors deny deep strike near obj_home_1 (base replay did not reproduce the case's decision exactly)",
+   "fix_choice": "same as base replay",
+   "changed": false,
+   "measured": "neutral: E +2.42 [-2.96, 7.79]",
+   "judgement": "Unchanged, home-objective denial is out of scope. fix: same decision as base, 0 SCREEN_VS_OBJECTIVE firings in the whole game, identical value (one-seed replay) (+24)."
+  }
+ ],
+ "fires": "Final version, counted from decision records (both players, rounds 1-2, one seed each): finding game 1 (R1 P2 Gretchin -> Advance obj_nml_2); 6 guardrail games 0. That is 1 firing in 7 games. Earlier iterations: without the one-per-plan cap, the finding fired twice (Gretchin and Beast Snagga); with only the cap it picked Beast Snagga (standing on obj_home_2), which led to the 'not on an objective' condition. Not measured over full 5-round games.",
+ "risks": "(1) Rounds 3-5 are not measured: with fewer backfield gap screens, a late enemy deep strike into the backfield (home objective, Behind Enemy Lines / Defend Stronghold-type cards) gets easier. Home-objective denial still runs, so only the low-priority gaps are given up. (2) The released unit joins a no-fight objective that others already cover (support stacking). The OC is not needed for primary, and the value comes from secondaries (Forward Position, Cleanse). Where those cards are not drawn, the gain is small, and a cheap unit forward can give the opponent easy kill secondaries (e.g. No Prisoners / A Tempting Target style). (3) The candidate score has a 'held_threatened' / 'uncontrolled' state test only at plan time. An enemy that arrives later can still catch the unit. (4) The one-per-plan cap is per call, and the planner is re-run during the phase, so in rare cases a second unit can switch later in the same phase (not seen in these replays). (5) Knock-on through the support ledger can redirect another support unit (seen: Kommandos obj_nml_2 -> obj_center at the finding).",
+ "drop_reason": ""
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~12 VP)",
+ "created": "2026-10-30 06:39:40",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7441_r3_p2_movement_2",
+ "note": "[LLM critic, high conf] Logan walks 20 in alone toward a held enemy objective where three Custodes units sit, and leaves obj_center. He cannot arrive this turn, and he would add only 1 OC against 8 OC. Fix: Apply the override reason (do not go alone to a contested objective) to every far objective, not only obj_nml_1. When the best-scoring option is Hold on an objective with OC needed, never let the support assignment replace it. Reject any move whose distance exceeds two turns of movement and whose OC cannot flip the objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7441_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOGAN_GRIMNAR_A",
+  "choice": "pos:260,1410",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Logan Grimnar moves toward obj_nml_2 (moving toward charge target Blade Champion Alpha, obj: 20.4\" away)",
+ "verdict": "bad",
+ "version": 1
+}

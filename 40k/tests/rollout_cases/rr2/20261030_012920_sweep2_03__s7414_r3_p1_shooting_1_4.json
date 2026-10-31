@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+ "created": "2026-10-30 01:33:13",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7414_r3_p1_shooting_1",
+ "note": "[LLM critic, medium conf] The focus fire plan puts one shooter on each of four enemy units. The plan spreads about 1.8 damage over four units and kills nothing. It picks Gamma, which has the second-highest kill threshold of the four. Fix: Assign shooters to the same target in order until the kill probability is high, then move to the next target. Rank targets by kill_fraction and by proximity to contested objectives before raw target_value. Penalise plans that give every target only one shooter.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7414_r3_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta shoots at Custodian Guard Sodality Gamma \u2014 expected 1.8 dmg vs 15 HP (12% kill)",
+ "verdict": "pending",
+ "version": 1
+}

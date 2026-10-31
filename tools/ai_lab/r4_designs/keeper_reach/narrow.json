@@ -1,0 +1,91 @@
+{
+ "key": "keeper_reach",
+ "angle": "narrow",
+ "root_cause": "Both mirror findings are blocked by KEEPER-RELEASE gates other than the one round 3 suspected, and each by a different gate. s7454 (P1, R1; P2 has the first turn, so the enemy's next turn is round 2): the on-board reach test fires because enemy Custodian Guard Beta (M8) needs 23.25\" to the home hosting area against the worst-case 26\" (M8 + 12\" max charge + 6\" pile-in/consolidate). Even with that relaxed, the next gate also blocks: enemy Allarus Custodians (Deep Strike) are in reserves and may arrive in round 2. 11e 20.04 bars only Strategic Reserves from our DZ before round 3, so Deep Strike onto home is legal. s7453 (P2, R1): there is no threat (the threat test returns ''). The block is _keeper_release_primary_counts=true: P2's Determined Acquisition pays per_objective 3 VP incl. home at its R2 Command phase, and per_new_objective. Even if released, its target would be obj_nml_1 advance (ttr 3, score 27.2), because obj_center is race_lost=true in the planner, so it would not match the obj_center alternative. In the A/B records at seeds 5001/5002, B gained on secondaries/material and by denying the opponent (s7453: P1 Death Trap trapped_score +10 vs +20; s7454: P2 hold_new +3 denied). Primary from the home objective was replaced by the centre in B (both +3 at the R2 Command phase).",
+ "fix_summary": "DROPPED. Tried: (v1) FIX_KEEPER_REACH counts an on-board enemy's charge as 9\" (a 2D6 roll made about 1 time in 4) instead of the 12\" maximum in _keeper_release_threat. That is one extra parameter on the existing threat test. It changes 0/2 mirror findings: s7454 is then blocked by the Deep Strike reserve, and s7453 by the primary card. (v2) Also count enemy reserves only from enemy round 3 (KEEPER_REACH_RESERVE_ROUND=3). This changes s7454 to exactly the alternative (U_CUSTODIAN_GUARD_B Normal move to obj_center, joining Alpha), keeps s7437 releasing, and changes no guardrail (1 [KEEPER_REACH] fire in 9 replayed games). But it fails the round-3 guardrail test test_ai_fix_keeper_release 'reserves that can deep strike onto home next turn keep the keeper' (21 passed, 1 failed). It also ignores a rule-legal threat (Deep Strike in round 2). No rule-faithful narrowing separates s7454's Allarus from that test's reserve unit (20.04 points the other way: Deep Strike can, Strategic Reserves cannot).",
+ "param": "FIX_KEEPER_REACH",
+ "test_file": "",
+ "test_fails_on_base": false,
+ "test_passes_on_fix": false,
+ "related_tests_ok": false,
+ "related_tests_detail": "Not run for a shipped design (dropped). The v2 probe made tests/unit/test_ai_fix_keeper_release.gd fail 1 check (21 passed, 1 failed): 'reserves that can deep strike onto home next turn keep the keeper'.",
+ "decision_checks": [
+  {
+   "job": "20261030_160254_r4c02_00__s7453_r1_p2_movement_2_0",
+   "base_choice": "Hold obj_home_2 (sole holder; primary_counts=true, Determined Acquisition per_objective incl. home at R2 command; threat '' )",
+   "fix_choice": "v1 and v2: Hold obj_home_2 (unchanged; [KEEPER_REACH] 0 fires)",
+   "changed": false,
+   "measured": "clear +6.17 [3.42, 8.91] n36",
+   "judgement": "not addressed; blocked by the primary card, not by reach. The release target would be obj_nml_1 advance, not obj_center."
+  },
+  {
+   "job": "20261030_160317_r4c03_00__s7454_r1_p1_movement_1_1",
+   "base_choice": "Hold obj_home_1 ([KEEPER_RELEASE] keeps it: Custodian Guard Beta can reach it; it needs 23.25\" of a 26\" worst case)",
+   "fix_choice": "v1: Hold (now kept by 'Allarus Custodians can arrive from reserves'); v2: Move obj_center, Normal move, joining Custodian Guard Alpha",
+   "changed": false,
+   "measured": "clear +4.83 [3.08, 6.59] n36",
+   "judgement": "v1 does not change it. v2 matches the alternative exactly (same unit, objective and mode) but breaks the round-3 reserves guardrail test."
+  },
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1",
+   "base_choice": "releases: Move obj_nml_1 ([KEEPER_RELEASE] leaves it)",
+   "fix_choice": "v1 and v2: same release, Move obj_nml_1",
+   "changed": false,
+   "measured": "clear +7.30 [4.98, 9.63] n36 (keep)",
+   "judgement": "kept"
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1",
+   "base_choice": "Hold obj_home_2 (two units on home; KEEPER_RELEASE not invoked for the case unit; A_P2 primary_counts=true)",
+   "fix_choice": "v1 and v2: unchanged",
+   "changed": false,
+   "measured": "harmful -4.33",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_015944_sweep2_09__s7420_r1_p1_movement_2_1",
+   "base_choice": "Hold obj_home_1 (no KEEPER_RELEASE line)",
+   "fix_choice": "v1 and v2: unchanged",
+   "changed": false,
+   "measured": "harmful -2.00",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r1_p1_movement_2_2",
+   "base_choice": "Hold (no release target; primary_counts=true)",
+   "fix_choice": "v1 and v2: unchanged",
+   "changed": false,
+   "measured": "neutral -2.75",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_160353_r4c07_00__s7458_r1_p2_movement_2_0",
+   "base_choice": "Hold (no release target; primary_counts=true)",
+   "fix_choice": "v1 and v2: unchanged",
+   "changed": false,
+   "measured": "neutral +2.17",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_063348_r2c02_00__s7433_r1_p2_movement_1_2",
+   "base_choice": "Hold (primary_counts=true)",
+   "fix_choice": "v1 and v2: unchanged",
+   "changed": false,
+   "measured": "neutral -0.25",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_160256_r4c01_00__s7452_r1_p1_movement_2_1",
+   "base_choice": "Hold (primary_counts=true)",
+   "fix_choice": "v1 and v2: unchanged",
+   "changed": false,
+   "measured": "neutral +0.33",
+   "judgement": "consistent"
+  }
+ ],
+ "fires": "v1: 0 [KEEPER_REACH] lines in 9 replayed games (3 findings + 6 guardrails, both players, up to end of round 2). v2: 1 line (s7454 P1 R1, the finding) in the same 9 games.",
+ "risks": "v2 (not shipped): a released keeper leaves home empty while enemy Deep Strike units can still arrive in round 2. Cards that pay the enemy for our home (per_objective without exclude_home, hold_enemy_home at game end, enemy-territory bonuses) could then score off it in rounds 2-5, and the keeper may be locked forward. The 9\" charge also ignores rerolls and charge bonuses (e.g. +1/+2 charge, advance-and-charge is kept at +6\"). v1 alone is low risk but changes no finding.",
+ "drop_reason": "No narrow change moves a mirror finding without contradicting a guardrail: s7454 needs both the on-board reach and the round-2 Deep Strike reserve gate relaxed, and the latter fails round 3's test_ai_fix_keeper_release reserves check and ignores a rule-legal threat. s7453 is blocked by its primary card (Determined Acquisition pays for home at R2 command), and its release target would be obj_nml_1, not obj_center. The reach-only change (v1) changes 0/2 findings."
+}

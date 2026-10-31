@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+ "created": "2026-10-30 23:48:02",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7485_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] Gretchin walk toward the board centre as a 'screen' while no enemy threat is in range. They end alone ahead of the army, with no clear unit to protect. Fix: Score screen options by the actual enemy threat range to the screened units. Cap the screen distance from the protected units. If no threat exists, send the cheap unit to take or contest an objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7485_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:900,1364",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (900,1364) \u2014 screening valuable friendlies from enemy threats",
+ "verdict": "pending",
+ "version": 1
+}

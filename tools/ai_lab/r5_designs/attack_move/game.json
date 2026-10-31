@@ -1,0 +1,92 @@
+{
+ "key": "attack_move",
+ "angle": "game",
+ "root_cause": "Pass 2 of _assign_units_to_objectives fills COORD-5's need ledger greedily; the projected part of the need is capped (PROJECTED_NEED_CAP), so the centre reads 'already taken' once 1-2 units are sent although the enemy threat there (enemy OC + projected OC) still exceeds what the plan has without the next unit. That unit falls through to a fallback where its OC cannot change control (s7475: lone flip of obj_nml_2, 9 vs ~25 threat, 3 turns; s7455: obj_nml_1, 9 vs 21), and T7-23 then blends 70% of the move toward a charge target, so it neither reaches the fallback nor helps the centre. Decision records: obj_center is the unit's top candidate in every finding (17.5 vs 12.8, 21.8 vs 14.5, 43.9 vs 38.5, 44.4 vs 22.6) and the override note is 'obj_center is already taken by ... - sent to X instead'. A/B at s7421 (2 seeds, base code): B (Gamma to the centre) +4.0 value; all of it is denial - in A the opponent scores 12 VP in round 2 from the centre (Vital Link hold_min +4, hold_central +4, central_operation_markers +4), in B none.",
+ "fix_summary": "ATTACK-MOVE (FIX_ATTACK_MOVE=1, ATTACK_MOVE_MAX_TURNS=2, ATTACK_MOVE_MIN_SHARE=0.75): in pass 2, just before a unit is assigned to a capture that is NOT its top-scored candidate, if (a) the fallback is futile - the plan's OC there with the unit (LONE-TRIP's ledger: holders + units sent that arrive no later + incoming + unit) is <= the enemy threat there - and (b) the unit's top candidate is a move/advance whose need is filled, reachable within 2 moves, not our home objective, not a RACE-SKIP/TOO-LATE/LONE-TRIP skip, and pivotal - the threat there is >= the plan's OC without the unit and with the unit the plan has >= 75% of the threat and a better share than at the fallback - the unit is assigned to the top objective instead (the candidate's own action, so a Normal move stays a Normal move), with a coordination note. Logs [ATTACK_MOVE] when it changes a decision and [ATTACK_MOVE_CHECK] for each evaluation. Does not touch the chase gate (_melee_chase_gate) or the T7-23 blend, so it composes with waaagh_advance_charge. Param 0 = base exactly (the lambda returns {} first).",
+ "param": "FIX_ATTACK_MOVE",
+ "test_file": "40k/tests/unit/test_ai_fix_attack_move.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "All 21 listed tests pass on the fix (rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 52/0, fix_lone_flip 16/0, fix_reinforce_insurance 24/0, charge_decisions 62/0, survival_assessment 23/0, multi_phase_planning 34/0); test_ai_threat_range_awareness 34/3 = the known base failures. New test 6/0 on fix, 4/2 on BASE (the two redirect checks fail). Test drives _assign_units_to_objectives with real evaluations.",
+ "decision_checks": [
+  {
+   "job": "20261030_234632_r5c00_00__s7475_r2_p1_movement_2_2",
+   "base_choice": "Guard Alpha moves toward obj_nml_2 (charge target Guard Beta, obj 24.8\")",
+   "fix_choice": "Guard Alpha moves toward obj_center (Normal move, obj 13.3\")",
+   "changed": true,
+   "measured": "clear +4.00 [1.04, 6.96] n24",
+   "judgement": "matches the alternative (same unit, obj_center, Normal move). Check: fallback 9 vs 25 futile; centre 27 with / 18 without vs threat 20."
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+   "base_choice": "Guard Beta moves toward obj_nml_1 (charge target Blade Champion Alpha, obj 18.0\")",
+   "fix_choice": "Guard Beta moves toward obj_center (Normal move, obj 17.9\")",
+   "changed": true,
+   "measured": "clear +5.92 [1.30, 10.53] n36",
+   "judgement": "matches the alternative. Check: fallback 9 vs 21; centre 26 with / 17 without vs 28 (share 0.93)."
+  },
+  {
+   "job": "20261030_020603_sweep2_10__s7421_r2_p1_movement_2_1",
+   "base_choice": "Guard Gamma moves toward obj_nml_2 (reinforce held obj, obj 9.8\")",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "clear +9.81 [6.57, 13.04] n36",
+   "judgement": "not reached: fallback 15 vs 17 (share 0.88) is a better share than the centre 18 vs 25 (0.72), so the rule keeps it. Strongest finding missed; A/B shows its value is denial of the opponent's centre scoring, which this rule's share test does not see."
+  },
+  {
+   "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3 (extra, 12-seed class)",
+   "base_choice": "drift: Guard Gamma moves toward obj_home_2 (obj 26.5\"; base no longer goes to obj_nml_1)",
+   "fix_choice": "Guard Gamma moves toward obj_center (Normal move, obj 15.0\")",
+   "changed": true,
+   "measured": "clear +21.50 [16.93, 26.07] n36 (measured vs the old obj_nml_1 choice)",
+   "judgement": "matches the alternative's target (obj_center; alt mode was advance, the fix keeps the candidate's Normal move). Base drifted, so the measured E is not direct evidence."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+   "base_choice": "Guard Beta moves toward obj_center (support)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "harmful -15.00 n12 (hold obj_nml_2 alt)",
+   "judgement": "consistent (AI choice kept)."
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+   "base_choice": "drift: Guard Beta moves toward obj_center (top candidate, flip)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "harmful -6.83 n12 (alt obj_center vs old obj_nml_2)",
+   "judgement": "no change by the fix; note the base itself has drifted to the alternative measured harmful (not caused by this fix)."
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4",
+   "base_choice": "Stormboyz advance to attack Blade Champion Gamma",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "harmful -8.33 n12 (hold obj_center alt)",
+   "judgement": "consistent; attack assignments are not touched."
+  },
+  {
+   "job": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1",
+   "base_choice": "Guard Alpha moves toward obj_center (fallback; top obj_nml_1 is 3 turns away)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "neutral -6.25 n12",
+   "judgement": "consistent; ATTACK_MOVE_MAX_TURNS=2 keeps the 3-turn top from being chosen."
+  },
+  {
+   "job": "20261030_234622_r5c01_00__s7476_r3_p2_movement_2_6",
+   "base_choice": "Guard Gamma moves toward obj_center",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "neutral +4.00 n12",
+   "judgement": "consistent (no redirect toward the alternative obj_home_2)."
+  }
+ ],
+ "fires": "Replays (one game each, rounds 2-3 or 3-4, both players): f1 1, f2 1, f3 3 (Guard Alpha -> obj_nml_1, Thunderwolf Cavalry B -> obj_center, Outrider Squad A -> obj_center; not the decision unit), f4 1, g1 0, g2 0, g3 2 (Warbikers A -> obj_center, Guard Delta -> obj_nml_1; not the decision unit), g4 0, g5 0 = 9 fires in 9 replays. Bench reach (mirror_custodes_2000_postdeploy, seed 93101, 1 pair, full 5-round games): game M1 0 fires, game M2 2 fires (Allarus Custodians -> obj_center instead of obj_home_2; Guard Beta -> obj_nml_2 instead of obj_center). That pair: E -24.0 (margins -53 and -5), n=1 - noise-level, but negative.",
+ "bench_fires_per_game": 1.0,
+ "risks": "Rounds 3-5: the trigger can refire each round, so a unit can keep being pulled to a contested top objective instead of spreading; secondary cards that pay for spread (Engage on All Fronts, table quarters, Outflank, secondary_spread) may lose 2-5 VP when the redirected unit would otherwise have reached a flank, even if it could not flip it - a futile flip still scores quarter/spread secondaries. Mitigation: only when the fallback is futile AND the top is pivotal, only top objectives within 2 moves and never our home (the unit always goes forward, not back - the round-2 FAR-TRIP failure mode was holding units back), the top keeps its own scored action. Denial value lasts (opponent's hold_central/central markers every round), which the share test captures only indirectly. Late rounds: stacking a contested centre in rounds 4-5 converts to primary only if the plan's share holds; with MIN_SHARE 0.75 the plan may still lose the centre and the unit then scored nothing anywhere. The strongest finding (s7421) is not changed; the 1-pair bench came out -24 (n=1, not significant) - a full-game bench is required before shipping. MIN_SHARE 0.75 and MAX_TURNS 2 are untuned.",
+ "drop_reason": ""
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (flipping it (enemy holds with OC 11), needs 6 more OC after this unit \u2014 worth ~5 VP)",
+ "created": "2026-10-30 16:10:24",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7472_r2_p1_movement_2",
+ "note": "[LLM critic, low conf] The AI sends a fragile 5-model flamer unit on a 3-turn advance toward an objective that 11 enemy OC hold. The unit arrives late and weakened, and it cannot shoot while it advances. Fix: Scale objective_priority down by the number of turns to reach the objective. For short-range, fragile support units, add a penalty when they would arrive before the main force or when the objective holder's OC is more than 2 times the OC the plan can bring. Prefer a move that keeps the unit inside the army's supporting range. Use a normal move instead of an advance when no target is in re",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7472_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "pos:1370,660",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha advances toward obj_nml_1 (flipping it (enemy holds with OC 11), needs 6 more OC after this unit)",
+ "verdict": "pending",
+ "version": 1
+}

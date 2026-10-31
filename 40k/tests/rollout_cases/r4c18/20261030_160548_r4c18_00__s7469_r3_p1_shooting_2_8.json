@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Lootas Gamma (P2)",
+ "created": "2026-10-30 16:12:02",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7469_r3_p1_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot at Lootas Gamma, which other units already hit for 4.38 expected damage against 4 HP. This is likely wasted overkill. Fix: Scale marginal_value by the remaining HP not yet covered by allocated damage. When already_allocated is at or above kill_threshold, apply a heavy penalty. Spread shots to targets with no allocation.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7469_r3_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Lootas Gamma (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta shoots at Lootas Gamma \u2014 expected 1.2 dmg vs 4 HP (29% kill)",
+ "verdict": "pending",
+ "version": 1
+}

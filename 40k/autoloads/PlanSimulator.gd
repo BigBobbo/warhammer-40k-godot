@@ -171,8 +171,8 @@ func _game_config() -> Dictionary:
 		"player2_secondary_mode": "tactical",
 		"player1_fixed_missions": [],
 		"player2_fixed_missions": [],
-		"player1_disposition": "",
-		"player2_disposition": "",
+		"player1_disposition": str(_config.get("disposition1", "")),
+		"player2_disposition": str(_config.get("disposition2", "")),
 		"player1_name": "",
 		"player2_name": "",
 		# The simulator installs the plans itself after configure(); Main's own
@@ -194,6 +194,14 @@ func _bootstrap(game_seed: int) -> int:
 	GameState.state.meta["game_config"] = config
 
 	var terrain = root.get_node_or_null("TerrainManager")
+	if terrain != null and str(config.terrain) == "" and config.player1_disposition != "" \
+			and config.player2_disposition != "" and terrain.has_method("get_layouts_for_matchup"):
+		var matchup_layouts: Array = terrain.get_layouts_for_matchup(config.player1_disposition, config.player2_disposition)
+		if not matchup_layouts.is_empty():
+			var pick: int = clampi(int(_config.get("layout_variant", 1)) - 1, 0, matchup_layouts.size() - 1)
+			config.terrain = str(matchup_layouts[pick].get("id", ""))
+			GameState.state.meta["game_config"]["terrain"] = config.terrain
+			print("PlanSimulator: %s vs %s -> official layout %s" % [config.player1_disposition, config.player2_disposition, config.terrain])
 	if terrain != null:
 		terrain.current_layout = config.terrain
 		terrain.load_terrain_layout(config.terrain)
@@ -568,6 +576,12 @@ func _normalise(options: Dictionary) -> Dictionary:
 		"mission_id": str(options.get("mission_id", "take_and_hold")),
 		"army1": str(options.get("army1", "")),
 		"army2": str(options.get("army2", options.get("army1", ""))),
+		# 11e Force Dispositions per seat ("" = the default take_and_hold), so a
+		# run can cover other primary cards; with both set and no layout_id, an
+		# official layout for that pairing is used (variant layout_variant).
+		"disposition1": str(options.get("disposition1", "")),
+		"disposition2": str(options.get("disposition2", "")),
+		"layout_variant": int(options.get("layout_variant", 1)),
 		"plan1": options.get("plan1", ""),
 		"plan2": options.get("plan2", ""),
 		"games": maxi(1, int(options.get("games", DEFAULT_GAMES))),

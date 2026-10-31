@@ -1,0 +1,85 @@
+[
+ {
+  "job": "20261030_234736_r5c07_00__s7482_r1_p1_movement_2_0",
+  "case": "20261030_234736_r5c07_00__s7482_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI chose a weak 'Screen' move to (24,24) with no objective. It rejected Advance obj_center, which scored 25.03 against 4.96, because of an unrelated override about racing for obj_home_2.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "reconnaissance",
+   "seeds": "7482",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234736_r5c07_00",
+  "from_batch": "r5c07",
+  "purpose": "v2 batch2 (r5c07 clear; screen class -> reserve track evidence)"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r1_p1_movement_2_1",
+  "case": "20261030_234723_r5c06_00__s7481_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI chose a backfield 'screen' with score 5.06 over advancing to obj_nml_2 or obj_center. It overrode the objective options through the screen_denial assignment, not through the scores. A screen at (24, 8) has no enemy to screen against in round 1.",
+  "better_option": "Move obj_home_1 (moving to objective \u2014 worth ~13 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7481",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234723_r5c06_00",
+  "from_batch": "r5c06",
+  "purpose": "v2 batch2 (r5c06 promising; screen class -> reserve track evidence)"
+ },
+ {
+  "job": "20261030_234736_r5c07_00__s7482_r3_p2_charge_1_6",
+  "case": "20261030_234736_r5c07_00__s7482_r3_p2_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOOTAS_C_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a Lootas unit with weak melee (A2 S4) into a 42% charge against 3 Boyz. The charge costs about 6.9 dmg in overwatch and exposes the unit to retaliation, yet the score stays positive.",
+  "better_option": "Do not charge (targets [])",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "reconnaissance",
+   "seeds": "7482",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_234736_r5c07_00",
+  "from_batch": "r5c07",
+  "purpose": "v2 batch2 (r5c07 promising; Lootas 42% charge)"
+ }
+]

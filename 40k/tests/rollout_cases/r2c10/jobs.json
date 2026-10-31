@@ -1,0 +1,282 @@
+[
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r1_p1_movement_2_0",
+  "case": "20261030_063510_r2c10_00__s7441_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Gamma advances alone to the far obj_nml_1. It gets a -18 contest_race penalty and still wins because obj_nml_2 was already taken.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~14 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r1_p2_movement_1_1",
+  "case": "20261030_063510_r2c10_00__s7441_r1_p2_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Logan walks toward obj_center, which is held by 8 enemy OC, instead of staying near the held obj_nml_1.",
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~12 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r1_p2_movement_2_2",
+  "case": "20261030_063510_r2c10_00__s7441_r1_p2_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_WULFEN_WITH_STORM_SHIELDS_A",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent an OC0 melee unit alone 23 in across the board toward a strongly held enemy objective. It cannot contest this objective. It leaves its army.",
+  "better_option": "Hold obj_home_2 (on objective, OC needed \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r2_p1_shooting_1_3",
+  "case": "20261030_063510_r2c10_00__s7441_r2_p1_shooting_1_3.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "target": "U_CAPTAIN_ON_BIKE_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot 2 models at the Wulfen for 1.78 expected damage. The Wulfen have 20 HP across 10 models and a 9% kill chance. The Captain on Bike was not listed as an option. It is closer, gets rapid fire, and is a 125 pt character with 6 wounds.",
+  "better_option": "unlisted: Guardian Spear \u2013 Ranged \u2192 enemy Captain on Bike (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r2_p1_shooting_2_4",
+  "case": "20261030_063510_r2c10_00__s7441_r2_p1_shooting_2_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "target": "U_CHAPLAIN_ON_BIKE_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot the far Scout Squad Beta (10 HP, no rapid fire bonus) and not the 3-wound Chaplain on Bike inside 12 in, where rapid fire doubles the attacks.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Chaplain on Bike (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r2_p2_shooting_1_5",
+  "case": "20261030_063510_r2c10_00__s7441_r2_p2_shooting_1_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "target": "U_CUSTODIAN_GUARD_C"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Logan fires 2 storm bolter shots at Custodian Guard Gamma for 0.3 expected damage. The pick is reasonable, but the shot adds almost nothing and the focus-fire term drives the choice.",
+  "better_option": "",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r2_p2_charge_2_6",
+  "case": "20261030_063510_r2c10_00__s7441_r2_p2_charge_2_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges 395 points of Terminators at a 7 wound Blade Champion that other units already engage, at 42 percent odds. The charge would leave the center objective it holds.",
+  "better_option": "unlisted: do not charge, hold the center objective",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r3_p1_charge_1_7",
+  "case": "20261030_063510_r2c10_00__s7441_r3_p1_charge_1_7.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges with an 8% chance because the bonus terms outweigh the chance penalty. If the charge fails, Gamma leaves a held objective for nothing.",
+  "better_option": "unlisted: do not charge, stay on obj_nml_1 and shoot",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r3_p2_movement_1_8",
+  "case": "20261030_063510_r2c10_00__s7441_r3_p2_movement_1_8.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GREY_HUNTERS_A",
+    "objective": "obj_home_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Grey Hunters on a normal move toward obj_home_1. A normal move of 7 in leaves them just short of the 3 in control range, so they do not flip it this turn.",
+  "better_option": "Advance obj_home_1 (flip the enemy home objective this turn)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r3_p2_movement_2_9",
+  "case": "20261030_063510_r2c10_00__s7441_r3_p2_movement_2_9.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "objective": "obj_center",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Logan walks 20 in alone toward a held enemy objective where three Custodes units sit, and leaves obj_center. He cannot arrive this turn, and he would add only 1 OC against 8 OC.",
+  "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~12 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r3_p2_charge_2_10",
+  "case": "20261030_063510_r2c10_00__s7441_r3_p2_charge_2_10.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a wounded Logan into a cluster of heavy melee units at 28% odds. Success likely kills him, and failure wastes his turn.",
+  "better_option": "unlisted: do not charge. Keep Logan with the Terminator Assault Squad near obj_center.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7441",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063510_r2c10_00"
+ }
+]

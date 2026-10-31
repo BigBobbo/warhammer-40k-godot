@@ -1,0 +1,233 @@
+[
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r1_p1_movement_1_0",
+  "case": "20261030_160610_r4c22_00__s7473_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a lone Lootas squad on a 5-turn advance to the enemy home objective, where nine OC of Custodians would kill it. The AI picked this option although it scored 3.9 against 33.2 for obj_center.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7473",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160610_r4c22_00"
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r1_p1_movement_2_1",
+  "case": "20261030_160610_r4c22_00__s7473_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Gretchin to a far backfield corner to screen. The unit has no real screening job there. It also gave up the objective options because they add little VP, while the screen option has no VP value.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7473",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160610_r4c22_00"
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r2_p2_charge_1_2",
+  "case": "20261030_160610_r4c22_00__s7473_r2_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI declares a charge with an 8% success chance at a target about 10.6 in away. Failure wastes the unit's turn and its position.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7473",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160610_r4c22_00"
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r2_p1_shooting_2_3",
+  "case": "20261030_160610_r4c22_00__s7473_r2_p1_shooting_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BATTLEWAGON_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI shot a Big shoota at Delta for 0.2 expected damage. Both options are nearly worthless. The unit stays an exposed, weak shooter and the score terms inflate a meaningless shot.",
+  "better_option": "unlisted: Battlewagon Beta moves to a Home 1 or Center objective to hold it and screen, or at least shoots the nearer wounded unit without relying on already_allocated.",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7473",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160610_r4c22_00"
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r3_p2_charge_2_4",
+  "case": "20261030_160610_r4c22_00__s7473_r3_p2_charge_2_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges a T11 Battlewagon at 28% for about 6.7 damage of a 15 wound target. The unit then leaves the objective and sits next to the Lootas and Beastboss. The payoff is low.",
+  "better_option": "unlisted: do not charge, keep Custodian Guard Sodality Beta on NML 2",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7473",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160610_r4c22_00"
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5",
+  "case": "20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI moves the 3 Boyz onto obj_center under an 'attack Allarus Custodians' label. The move itself is fine, but the attack goal is not sensible.",
+  "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7473",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160610_r4c22_00"
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r3_p1_shooting_1_6",
+  "case": "20261030_160610_r4c22_00__s7473_r3_p1_shooting_1_6.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "target": "U_PROSECUTORS_A"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI fires S4 AP0 Sluggas at a T8 2+/4++ Allarus for 0.11 expected damage and a 2% kill chance. The Prosecutor Squad is a far better target for these weapons.",
+  "better_option": "Slugga \u2192 enemy Prosecutor Squad (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7473",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160610_r4c22_00"
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r3_p1_shooting_2_7",
+  "case": "20261030_160610_r4c22_00__s7473_r3_p1_shooting_2_7.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_B",
+    "target": "U_PROSECUTORS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot a Big shoota at a 13 HP Custodian unit for 0.8 expected damage. It also fired Burna at the same unit. This is low value but cheap, and the alternative targets are no better.",
+  "better_option": "",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7473",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160610_r4c22_00"
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r3_p1_charge_1_8",
+  "case": "20261030_160610_r4c22_00__s7473_r3_p1_charge_1_8.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": [
+     "U_PROSECUTORS_A"
+    ]
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends 3 weak Boyz into a 270-point Allarus Custodians unit that they cannot hurt. The Boyz will probably die in the fight phase. The Prosecutor Squad charge could wipe a whole unit.",
+  "better_option": "Charge Prosecutor Squad (6.3\" away, 58% chance)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7473",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160610_r4c22_00"
+ }
+]

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (racing for it (enemy can have ~25 OC there before we arrive in 3 turns) \u2014 switched from obj_center to backfill for a unit that went hunting \u2014 worth ~10 VP)",
+ "created": "2026-10-30 16:03:36",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7455_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Alpha alone to far obj_nml_2 and rejects the nearer obj_center. The sole reason is a dedupe override. The unit then needs 3 turns to arrive and is likely to be contested by several enemy units. Fix: When the dedupe step reassigns a unit, rescore the remaining objectives with distance, turns_to_reach and the enemy's arrival time. Prefer keeping units together near the centre when the alternative needs 3 turns and has an equal contest penalty. Cap the number of lone units sent to far flank objectives.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7455_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:350,1700",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_nml_2 (racing for it (enemy can have ~25 OC there before we arrive in 3 turns) \u2014 switched from obj_center to backfill for a unit that went hunting, obj: 24.5\" away)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,195 @@
+{
+ "key": "waaagh_advance_charge",
+ "angle": "game",
+ "param": "FIX_WAAAGH_ADVANCE_CHARGE",
+ "base": "V9R = 5e70bc2 + keeper_release_rev_vs_v9.patch",
+ "apply_conflicts": "None. game.patch applied cleanly to V9R (git apply -3 fell back to direct application, offsets only). Setup note: the clone was shallow, so 5e70bc2 had to be fetched first (git fetch --unshallow).",
+ "required_changes": [
+  {
+   "change": "Count a rile at selection as an engine grant in the FIX_WAAAGH_ADVANCE_CHARGE block (_rile_pending_on_selection, 11e only; keep_huntin/BEAST SNAGGA, intimidating_motivation/ORKS, get_back_in_da_race/SPEED FREEKS via oa.group_holder + group_has_keyword + not army_used_this_round); log '[WAAAGH_ADVANCE_CHARGE] <unit> keeps the Advance - <ability> will rile it...'; param 0 skips the block",
+   "applied": true,
+   "how_or_why_not": "New static helper _rile_pending_on_selection(unit_id, player) -> slug ('' when none); returns '' when GameConstants.edition < 11. In _melee_chase_gate, the slug is only checked when has_effect_advance_and_charge is false; if it is set, the Advance flag is kept and the 'keeps the Advance - <Display> will rile it when it is selected to move' line is printed (only when the Normal move would reach charge range, i.e. when it is the term that decides). The whole block stays inside the get_param >= 0.5 guard. Verified live: s7473 and s7472 print the line, keep the Advance and then charge (legal)."
+  },
+  {
+   "change": "Tests (a)-(e) in test_ai_fix_waaagh_advance_charge.gd",
+   "applied": true,
+   "how_or_why_not": "(a) live GameState Beast Snagga Boyz + attached Beastboss, 13\": keep_huntin.round=2 -> advance=true, round=3 -> advance=false; (b) bench Stormboyz (Waaagh! text + 'Full Throttle: The unit gains the Advance & Charge ability.', M12, enemy 18\") -> advance=false; (c) SPEED FREEKS unit with live factions['1'].detachment='Kult of Speed' -> advance=true; (d) far case moved 20\" -> 19\"; (e) planner level (narrow's _decide_movement harness): dormant Waaagh! chaser -> BEGIN_NORMAL_MOVE 'moves to attack marines'. Live-state tests use root.get_node('GameState') (autoload identifiers do not compile in -s mode) and restore GameState.state after. 10/10 on final; 4 fail on V9R ((b), (a)-used-this-round, (e), dormant Normal move)."
+  },
+  {
+   "change": "Correct the report (s7473/s7472 are legal Keep Huntin'! Advances; s7468 is the only genuine lost charge; add s7418 and s7470; restate fires; drop the 4-seed numbers)",
+   "applied": true,
+   "how_or_why_not": "Done in this final.json: s7473/s7472 replays with the final code keep the Advance (Keep Huntin'! line fires) and the games are trajectory-identical to V9R (determinism_check PASS); in both the Boyz charge after the Advance. s7473's +10.03 (holding obj_center) stays open as a hold-versus-attack follow-up. s7418 and s7470 added (see decision_checks/guardrail_checks). The 4-seed fix-vs-base numbers are not cited. Per-fixture bench fire counts were not measured here (left to the bench); expected sources per the judge: Ork side Stormboyz x4, Gretchin x2, Mek; Custodes side Blade Champions via 'Martial Inspiration'; SPEED FREEKS (Kult of Speed) and permanently riled Stompa unchanged (SPEED FREEKS case covered by test (c))."
+  },
+  {
+   "change": "Update the FIX_WAAAGH_ADVANCE_CHARGE const comment",
+   "applied": true,
+   "how_or_why_not": "Comment now names the 11e ChargePhase predicate, the Full Throttle / Martial Inspiration texts, the rile-at-selection exception (Keep Huntin'!, Intimidating Motivation, Get Back in da Race!), cites s7468 +6.14 [3.08, 9.19] over 36 seeds, and no longer claims s7473 lost its charge."
+  }
+ ],
+ "grafts": [
+  {
+   "graft": "narrow's _decide_movement planner-level harness",
+   "applied": true,
+   "why": "Small, test-only; drives the real decision path (required change (e))."
+  },
+  {
+   "graft": "owner/faction in the [WAAAGH_ADVANCE_CHARGE] line",
+   "applied": true,
+   "why": "Small, log-only: lines now read '<unit> (P<n> <faction>)' so bench fire counts split Orks from Custodes."
+  },
+  {
+   "graft": "root's single helper _unit_can_charge_after_advance",
+   "applied": false,
+   "why": "Refactor not needed for this merge; the rile term is already its own helper (_rile_pending_on_selection) and AI-GAP-4/RACE-1 stay unchanged. Left for a later round."
+  },
+  {
+   "graft": "FIX_WAAAGH_ADVANCE_CHARGE_MAX_GAP sub-param",
+   "applied": false,
+   "why": "Judge: only if the bench or charge_low_odds merge shows 9-12\" flips cost VP. Not yet indicated."
+  },
+  {
+   "graft": "one claim per rile ability per plan",
+   "applied": false,
+   "why": "Optional; changes planner bookkeeping; no measured position needs it (bench rosters have no holders)."
+  }
+ ],
+ "decision_checks": [
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6",
+   "base_choice": "Stormboyz ADVANCES to attack Prosecutor Squad (12.0\"); V9R replay: no charge in round 3",
+   "final_choice": "Stormboyz Normal-moves to attack Prosecutor Squad; declares charge (92%) and charges (rolled 7\"), fights with Rokkit Charge",
+   "changed": true,
+   "matches_alt_intent": "partly: same MODE as the alternative (Normal move, charge kept); keeps the attack on the Prosecutors (next to obj_nml_1) rather than a plain move to obj_nml_1",
+   "measured": "clear: E +6.14 [3.08, 9.19] over 36 seeds (alt = Normal move to obj_nml_1). 1 seed here: final 1.0 vs V9R 12.0 (single seed, not evidence)"
+  },
+  {
+   "job": "20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5",
+   "base_choice": "Beast Snagga Boyz ADVANCES to attack Allarus Custodians (9.5\") and charges (legal: Keep Huntin'! unused this round)",
+   "final_choice": "same (Advance kept, [WAAAGH_ADVANCE_CHARGE] 'keeps the Advance - Keep Huntin'! will rile it'); then charges Allarus Custodians (rolled 10\")",
+   "changed": false,
+   "matches_alt_intent": "no: the alternative is holding/moving onto obj_center; that is a hold-versus-attack problem this fix does not address (as the judge ruled). Differs from the design report's claim (it claimed a Normal-move flip); V9R replay confirms the base Advance; final vs V9R trajectory-identical (determinism_check PASS, 194 actions, 85 decisions)",
+   "measured": "clear: E +10.03 [6.82, 13.23] over 36 seeds (alt = Normal move onto obj_center) - stays open"
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4 (extra)",
+   "base_choice": "Stormboyz ADVANCES to attack Blade Champion Gamma (8.8\") onto pos (880,1200)=obj_center; V9R replay: no charge declared",
+   "final_choice": "Stormboyz Normal-moves to attack Blade Champion Gamma, same destination pos (880,1200); declares charge (97%) and charges (rolled 10\")",
+   "changed": true,
+   "matches_alt_intent": "n/a (the alternative 'hold obj_center' is harmful); final changes only the mode, same end target position, charge now legal - not toward holding",
+   "measured": "harmful alt: E -8.33 [-12.33, -4.34]. Paired 6 seeds final vs V9R (5001-5006): 8.17 vs 7.50, diff +0.67 (per-seed -4,-3,+13,-12,+6,+4) - not below base, within noise"
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1",
+   "base_choice": "Lootas Gamma advances toward obj_nml_1 (race)",
+   "final_choice": "Lootas Gamma advances toward obj_nml_1",
+   "changed": false,
+   "matches_alt_intent": "n/a (alt harmful); stays an Advance",
+   "measured": "harmful: E -5.50 [-10.10, -0.90]",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7",
+   "base_choice": "Beast Snagga Boyz advances to attack Blade Champion Gamma (7.8\")",
+   "final_choice": "same (Keep Huntin'! rile pending -> Advance kept); charges Custodian Guard Beta (rolled 7\")",
+   "changed": false,
+   "matches_alt_intent": "no (alt = hold obj_nml_1, neutral). Design report claimed a flip; V9R replay identical to final (determinism_check PASS)",
+   "measured": "neutral: E +2.00 [-4.12, 8.12]",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_063415_r2c05_00__s7436_r3_p1_movement_2_4",
+   "base_choice": "Lootas Beta advances toward obj_nml_1",
+   "final_choice": "Lootas Beta advances toward obj_nml_1",
+   "changed": false,
+   "matches_alt_intent": "n/a",
+   "measured": "neutral: E -5.25",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r1_p2_movement_1_2",
+   "base_choice": "Lootas Gamma advances toward obj_center",
+   "final_choice": "Lootas Gamma advances toward obj_center",
+   "changed": false,
+   "matches_alt_intent": "n/a",
+   "measured": "neutral: E -2.75",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r1_p2_movement_1_2",
+   "base_choice": "Lootas Alpha advances toward obj_center",
+   "final_choice": "Lootas Alpha advances toward obj_center",
+   "changed": false,
+   "matches_alt_intent": "n/a",
+   "measured": "neutral: E -0.58",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r1_p2_movement_2_3",
+   "base_choice": "Beast Snagga Boyz advances toward obj_nml_1",
+   "final_choice": "Beast Snagga Boyz advances toward obj_nml_1",
+   "changed": false,
+   "matches_alt_intent": "n/a",
+   "measured": "neutral: E +0.08",
+   "moved_toward_harmful": false
+  },
+  {
+   "job": "20261030_063517_r2c11_00__s7442_r2_p2_movement_2_2",
+   "base_choice": "Terminator Assault Squad advances to attack Blade Champion Beta (11.7\")",
+   "final_choice": "same (no fire)",
+   "changed": false,
+   "matches_alt_intent": "n/a",
+   "measured": "neutral: E 0.00",
+   "moved_toward_harmful": false
+  }
+ ],
+ "extra_checks": [
+  {
+   "check": "Unit tests: revised test passes; with FIX_WAAAGH_ADVANCE_CHARGE=0 the dormant-Waaagh! and 1.0.19-Stormboyz checks fail; 18 related tests unchanged; ability_awareness / threat_range only known failures",
+   "result": "Final: 10/10. Param 0 (temp copy with override 0): 6 passed 4 failed (dormant Normal move, Keep Huntin'!-used, bench Stormboyz, planner) - same as V9R. All 18 related tests + keeper_release 52/0 pass. test_ai_threat_range_awareness 34/3 and test_ai_objective_assignment_fixes 6/1 (known base failures). test_ai_ability_awareness 72/1: the failing check is 'unit_has_ability_containing detects fall back in description' (AIAbilityAnalyzer, untouched; same 72/1 the design reported) - not re-run on V9R."
+  },
+  {
+   "check": "Paired rollouts param 1 vs 0: s7468 24+ seeds",
+   "result": "Not run (time budget); 1 seed only: final 1.0 vs V9R 12.0. Left to the bench / a later paired run."
+  },
+  {
+   "check": "Paired rollouts: s7418 12+ seeds (must not score below base)",
+   "result": "6 paired seeds (5001-5006): final mean 8.17 vs V9R 7.50, diff +0.67 (sd ~8.6). Not below base; fewer seeds than asked (time budget)."
+  },
+  {
+   "check": "s7473 and s7472: 0 Normal-move flips and identical games",
+   "result": "PASS: only the 'keeps the Advance' line fires (1 each), decisions unchanged, determinism_check final vs V9R trajectory+decisions identical for both."
+  },
+  {
+   "check": "s7470 and s7436 identical",
+   "result": "Unchanged decisions (Advance kept), 0 fires. Full-game identity vs V9R not compared (no V9R replay at these two)."
+  },
+  {
+   "check": "determinism_check param-0 identity",
+   "result": "PASS at s7468 seed 5001: final with FIX_WAAAGH_ADVANCE_CHARGE=0 vs V9R - 172 action lines and 72 decision records identical."
+  },
+  {
+   "check": "Bench-roster positions (Orks-mirror Stormboyz chases, Custodes-mirror Blade Champion attack-Advances, 12+ paired seeds)",
+   "result": "Left to the bench."
+  },
+  {
+   "check": "Bench run with AI_LAB_KEEP_LOG_GREP '[WAAAGH_ADVANCE_CHARGE]' (fires per fixture/unit, VP split)",
+   "result": "Left to the bench."
+  },
+  {
+   "check": "Rerun 9-12\" gap Stormboyz position with charge_low_odds also merged",
+   "result": "Left to the bench (depends on that merge)."
+  }
+ ],
+ "fires": "Counted from stdout of the replays (one-round horizon, local temporary stdout capture in rollout.py, not pushed): s7468 1 (P2 Stormboyz Normal-move flip), s7418 1 (P2 Stormboyz flip), s7473 1 and s7472 1 (P1 Beast Snagga Boyz 'keeps the Advance - Keep Huntin'!', no decision change), all 6 other guardrails 0. Per-game bench rates not measured here.",
+ "tests": {
+  "test_fails_on_v9r": true,
+  "test_passes": true,
+  "related_ok": true,
+  "detail": "test_ai_fix_waaagh_advance_charge: 10/10 on final, 6 passed 4 failed on V9R (preload res://scripts/ai_versions/BASE/AIDecisionMaker.gd). Related: rollout_override 11, e_race_tuning 8, race_army 3, advance_probability 8, objective_race 16, plan_diminishing_returns 4, critic_round2 7, 11e_charge_ev_primary_cap 26, movement_decisions 36, plan_earmarks 35, fix_held_dup 14, fix_lone_trip 8, fix_charge_ev 11, fix_far_trip 11, fix_overcommit 8, fix_keeper_release 52, survival_assessment 23, multi_phase_planning 34 - all 0 failed. Known: threat_range_awareness 34/3, objective_assignment_fixes 6/1, ability_awareness 72/1."
+ },
+ "risks": "1) s7468 gain is measured only by the 36-seed alternative rollout (Normal move to obj_nml_1); the final keeps the attack instead, and only 1 seed was replayed here. 2) Custodes-mirror Blade Champion flips ('Martial Inspiration' text, ~0.67/game in V9-era records) are unmeasured. 3) 9-12\" post-move gaps give long-shot charges; if declined the unit sits ~2\" shorter than an Advance (MAX_GAP graft not applied). 4) The rile term checks only the unit's own Attached unit as holder; a Beastboss/Warboss in a different unit within 6\" could also rile it (unit-to-unit), so such units still Normal-move (conservative, matches the judge's spec). 5) The rile term assumes the AI uses the ability when offered (judge: scored 2.5 vs 1.0 bar; seen in s7473/s7472 where the post-Advance charge was legal). 6) s7473 hold-versus-attack (+10.03) stays open.",
+ "verdict": "ready",
+ "not_ready_reason": ""
+}

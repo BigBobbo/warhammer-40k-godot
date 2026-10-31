@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Warbikers Alpha arrives",
+ "created": "2026-10-30 16:19:06",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7464_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] Warbikers Alpha arrives far from any objective in the enemy half. The AI's own reasoning says obj_nml_2 is the most valuable objective at about 8 VP, yet the placement does nothing for it. Fix: Score each arrival spot by the VP it can swing next turn. Count a 12 in move plus the unit's OC against the objective's current OC balance and its stake. Give little credit for objectives that are over 12 in away or that hold more than twice the unit's OC. Give extra credit for spots that protect or retake the objectives named in the stakes list.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7464_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "choice": "key:U_WARBIKERS_A_P2",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_WARBIKERS_A_P2"
+ },
+ "source": "llm_critic",
+ "suggestion": "Warbikers Alpha arrives from Strategic Reserves",
+ "verdict": "bad",
+ "version": 1
+}

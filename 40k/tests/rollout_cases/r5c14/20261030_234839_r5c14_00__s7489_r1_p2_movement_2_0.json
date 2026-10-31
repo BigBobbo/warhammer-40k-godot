@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~29 OC there before we arrive in 2 turns) \u2014 worth ~4 VP with the 1 other objective(s) this plan takes \u2014 worth ~10 VP)",
+ "created": "2026-10-30 23:49:21",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7489_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] Gamma advances toward obj_center because Beta already covers home. The advance blocks Gamma from shooting or charging, and the plan has no support or enemy threat check. The 'home' option scored 17.95 against the 17.56 chosen, so this is a close call. Fix: Cap expected_vp by the marginal VP from the primary table. Skip the advance mode when no enemy is within 24 in, unless the extra distance reaches the objective one turn sooner.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7489_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma advances toward obj_center (racing for it (enemy can have ~29 OC there before we arrive in 2 turns) \u2014 worth ~4 VP with the 1 other objective(s) this plan takes)",
+ "verdict": "pending",
+ "version": 1
+}

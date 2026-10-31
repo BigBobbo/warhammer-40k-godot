@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Stormboyz arrives",
+ "created": "2026-10-30 16:08:35",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7470_r2_p2_movement_1",
+ "note": "[LLM critic, low conf] The AI chose the fragile Stormboyz for the central drop. A +2.0 arrive_deep_strike bonus decided it, although Warbikers score higher on arrive_objectives. Fix: Remove or shrink the flat arrival-method bonus. Add a survival term for the arriving unit: charge threat from enemy units within 12 in plus 2D6 reach, against the unit's toughness and wounds. Weight the objective term by OC held against enemy OC nearby.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7470_r2_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_STORMBOYZ_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_STORMBOYZ_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz arrives from Deep Strike",
+ "verdict": "pending",
+ "version": 1
+}

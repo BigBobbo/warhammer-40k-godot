@@ -1,0 +1,67 @@
+{
+ "key": "lone_flip",
+ "angle": "root",
+ "root_cause": "Need-ledger double count in _assign_units_to_objectives pass 1. The OC need of an objective we do not control is enemy_oc - friendly_oc + 1 (and COORD-5's projected need likewise subtracts friendly_oc), so it already counts every friendly model in control range. When a unit already on the objective is assigned HOLD (REMAIN_STATIONARY, it adds no OC), pass 1 subtracted its WHOLE unit OC again (obj_oc_remaining -= cand.unit_oc). At s7454 r3 obj_center was enemy_weak 5 vs 8 (need 4); Custodian Guard Beta had 1 model (OC 3) in range, holding consumed its full OC 9 -> need 0, obj_center read 'already taken by Beta', and pass 2 sent the next units elsewhere: Gamma to flip obj_nml_1 (enemy OC 14) alone, Alpha to obj_home_2. Beta standing still leaves the centre at 5 vs 8, so nobody actually flipped the 20-VP centre.",
+ "fix_summary": "FIX_LONE_FLIP (const 1.0, get_param): in pass 1, on an objective whose state is not held_safe/held_threatened, a HOLD assignment consumes 0 OC from the need ledger (oc_consumed 0, need unchanged) because the holder is already in friendly_oc. Held objectives keep the old ledger (keeper/surplus-freeing logic untouched). Prints [LONE_FLIP] when it keeps a need open. With 0 the base behaviour is restored exactly. No score term or veto added: the corrected need lets the existing scores pick the centre (Alpha 58.1 -> obj_center), Gamma takes obj_home_2 instead of the lone 14-OC flip.",
+ "param": "FIX_LONE_FLIP",
+ "test_file": "40k/tests/unit/test_ai_fix_lone_flip.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "All pass on fix: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 22/0, survival_assessment 23/0, multi_phase_planning 34/0, fix_lone_flip 5/0. threat_range_awareness 34/3 = the known base failures. New test on BASE: 3 passed, 2 failed (oc_consumed 7 instead of 0; runner sent to obj_side).",
+ "decision_checks": [
+  {
+   "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3",
+   "base_choice": "Gamma MOVE obj_nml_1 (flip vs enemy OC 14); Alpha ADVANCE obj_home_2; centre left 5 vs 8",
+   "fix_choice": "Gamma MOVE obj_home_2; Alpha MOVE obj_center (score 58.1, 'flipping it (enemy holds with OC 8)'); Beta still holds centre",
+   "changed": true,
+   "measured": "alternative (Gamma ADVANCE obj_center): E +21.50 [16.93, 26.07] over 36 seeds. Fix vs base, own choice, same 6 seeds (5001-5006, horizon 1): base mean -30.3, fix mean -1.2, paired +29.2 (every seed better: -29/-32/-26/-26/-37/-32 -> -6/1/0/12/-7/-7)",
+   "judgement": "Matches the alternative's intent (a unit goes to flip the centre, the lone 14-OC flip is dropped), but by a different unit: Alpha (score 58.1, already 'blocked' from the centre in base) goes to the centre and Gamma takes Alpha's obj_home_2. Not the same unit/mode as the alternative; measured gain at the position is larger than the alternative's."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+   "base_choice": "Beta moves toward obj_center",
+   "fix_choice": "Beta moves toward obj_center (same)",
+   "changed": false,
+   "measured": "harmful alt (hold obj_nml_2) E -15.00",
+   "judgement": "unchanged, consistent (AI's own choice was right). [LONE_FLIP] fired once, same value -11 seed 5001"
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+   "base_choice": "Beta moves toward obj_center (base already drifts from the case's obj_nml_2 choice)",
+   "fix_choice": "Beta moves toward obj_center (same)",
+   "changed": false,
+   "measured": "harmful alt (advance obj_center) E -6.83",
+   "judgement": "no change from base; note the CURRENT base already plays the measured-harmful centre move here (drift, not caused by this fix). Fired once, value same -6"
+  },
+  {
+   "job": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1",
+   "base_choice": "Alpha moves toward obj_center",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral E -6.25",
+   "judgement": "unchanged; did not fire"
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+   "base_choice": "Beta moves toward obj_nml_1",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral E +8.00",
+   "judgement": "unchanged; fired once, value same 7"
+  },
+  {
+   "job": "20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4",
+   "base_choice": "Alpha moves toward obj_nml_2",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral E +1.83",
+   "judgement": "unchanged; did not fire"
+  }
+ ],
+ "fires": "[LONE_FLIP] lines per one-round replay (both players, horizon 1): f1 2 (P2 obj_center Beta: need kept 4, changed Alpha/Gamma; P1 obj_center Custodian Guard B: need 10 kept instead of 7), g1 1, g2 1, g3 0, g4 1, g5 0. The g1/g2/g4 fires changed no decision of the decision unit (values identical to base).",
+ "risks": "(1) More units drawn to an enemy-held objective where we have a partial holder: if the enemy's OC there is far above what we can bring, pass 2 may now send a unit to a lost flip it previously skipped (LONE-TRIP / RACE-SKIP still guard fragile units and 3+ turn trips; a durable unit on a 1-2 turn trip is not guarded). (2) A partial holder still HOLDS (stationary) instead of moving its out-of-range models in; the fix does not address that, so the freed need is filled by another unit. (3) In rounds 4-5 units that previously spread to side/home objectives (secondary cards such as Engage on All Fronts, Area Denial) may now converge on contested centre/NML objectives; the trigger is narrow (only enemy-held/contested/uncontrolled objectives with a stationary partial holder) but full-game effect is unmeasured. (4) Held objectives (held_safe/held_threatened) keep the old double count, so a held_threatened objective still frees second holders as before.",
+ "drop_reason": ""
+}

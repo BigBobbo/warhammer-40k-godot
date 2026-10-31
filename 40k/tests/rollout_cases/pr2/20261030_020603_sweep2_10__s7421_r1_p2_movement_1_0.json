@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (capturing it (enemy can bring ~8 OC next move), needs 7 more OC after this unit \u2014 worth ~3 VP with the 1 other objective(s) this plan takes \u2014 worth ~6 VP)",
+ "created": "2026-10-30 02:08:08",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7421_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI moves the lone Chaplain to obj_nml_1, where it expects about 8 enemy OC next turn and cannot win the objective. Its own text says it needs 7 more OC after this unit. Fix: Scale expected_vp by the chance of holding the objective. Compare the unit's OC with the enemy OC that can arrive. When the unit is outnumbered, cut the objective_priority and expected_vp terms sharply. Add a larger threat_delta penalty for a lone, valuable character that ends inside enemy charge reach.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7421_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CHAPLAIN_ON_BIKE_A",
+  "choice": "pos:1450,900",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Chaplain on Bike moves toward obj_nml_1 (capturing it (enemy can bring ~8 OC next move), needs 7 more OC after this unit \u2014 worth ~3 VP with the 1 other objective(s) this plan takes, obj: 12.5\" away)",
+ "verdict": "pending",
+ "version": 1
+}

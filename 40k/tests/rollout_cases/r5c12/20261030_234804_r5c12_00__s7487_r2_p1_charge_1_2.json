@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Battlewagon Beta (5.5\" away, 72% chance)",
+ "created": "2026-10-30 23:50:29",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7487_r2_p1_charge_1",
+ "note": "[LLM critic, high conf] The AI sends a lone 5-wound model to charge a 15 HP Battlewagon. It expects 2.2 damage and 7.6 overwatch damage, and it leaves the contested objective. Fix: Reject a charge when expected overwatch damage is at least the unit's remaining wounds, or when expected melee damage is under about 20 percent of the target's HP. Add a penalty for leaving a contested or held objective, scaled by the OC lost. Cap the tie-up and gang-up bonuses for units with few models left.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7487_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:626,1781",
+  "decision": "charge",
+  "targets": "U_BATTLEWAGON_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha declares charge against Battlewagon Beta (72% chance, 5.5\" away, expected 2.2 melee dmg vs 15 HP, overwatch risk: 7.6 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

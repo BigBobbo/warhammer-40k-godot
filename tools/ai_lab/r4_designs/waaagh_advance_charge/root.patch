@@ -1,0 +1,250 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..2b64eef 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1626,6 +1626,18 @@ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+ # target without it. 0 = V6 behaviour (every declared charger counts).
+ # Off since the round-1 bundle test (2026-10-30, vs V6, 3 fixtures): with it +0.97 [-1.17, +3.12], without it +1.58 [-0.27, +3.42]. Kept for a later test.
+ const FIX_CHARGE_EV: float = 0.0
++# Movement (FIX-WAAAGH-ADVANCE-CHARGE): 1 = "can this unit still charge after
++# it Advances?" is answered with the predicate ChargePhase enforces
++# (EffectPrimitivesData.has_effect_advance_and_charge: the riled-up Waaagh!
++# flag, stratagems, detachment / datasheet grants). The old estimate was a text
++# match — any ability whose name or text says "advance" and "charge" — which is
++# true for EVERY Ork unit (the Waaagh! text describes the riled-up effect, only
++# active for one turn after the once-per-battle War Cry) and for Swift
++# Onslaught (re-roll advance and charge rolls). So Ork melee units Advanced
++# "to attack" when a Normal move reached charge range, then could not charge
++# (LLM-critic cluster waaagh_advance_charge: Stormboyz +6.1 VP [3.1, 9.2] over
++# 36 rollouts, Beast Snagga Boyz +11.3 [5.1, 17.4] over 12). 0 = text match.
++const FIX_WAAAGH_ADVANCE_CHARGE: float = 1.0
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -2638,11 +2650,13 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
+ 			return {}
+ 
+ 	# --- Advance vs normal move (port of the former advance decision) ---
+-	var can_advance_and_charge_flag = unit.get("flags", {}).get("effect_advance_and_charge", false)
+-	if not can_advance_and_charge_flag:
+-		can_advance_and_charge_flag = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
++	var can_advance_and_charge_flag = _unit_can_charge_after_advance(unit)
+ 	var dist_after_normal_move = enemy_dist - move_inches
+ 	var in_charge_range_after_normal = dist_after_normal_move <= charge_range_inches
++	if in_charge_range_after_normal and not can_advance_and_charge_flag and _unit_text_says_advance_and_charge(unit):
++		# WAAAGH-ADV-CHG: the old text estimate would have Advanced here and lost the charge
++		print("AIDecisionMaker: [WAAAGH_ADVANCE_CHARGE] %s normal-moves toward %s (%.1f\" after move) — it cannot charge after an Advance this turn" % [
++			unit_name, enemy_name, maxf(dist_after_normal_move, 0.0)])
+ 	var should_advance = false
+ 	if can_advance_and_charge_flag:
+ 		should_advance = true
+@@ -2662,6 +2676,19 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
+ 		"reason": reason,
+ 	}
+ 
++## FIX-WAAAGH-ADVANCE-CHARGE: can this unit declare a charge this turn after
++## it Advances? On: the predicate ChargePhase enforces. Off: the old text
++## match (an ability that mentions both "advance" and "charge").
++static func _unit_can_charge_after_advance(unit: Dictionary) -> bool:
++	if unit.get("flags", {}).get("effect_advance_and_charge", false):
++		return true
++	if get_param("FIX_WAAAGH_ADVANCE_CHARGE", FIX_WAAAGH_ADVANCE_CHARGE) >= 0.5:
++		return EffectPrimitivesData.has_effect_advance_and_charge(unit)
++	return _unit_text_says_advance_and_charge(unit)
++
++static func _unit_text_says_advance_and_charge(unit: Dictionary) -> bool:
++	return AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
++
+ static func _get_nearest_enemy_for_charge(unit: Dictionary, enemies: Dictionary) -> Dictionary:
+ 	"""Find the nearest enemy unit and return {enemy_id, enemy_unit, distance_inches, centroid}.
+ 	Factors in terrain penalties to prefer enemies reachable without climbing through terrain."""
+@@ -11544,7 +11571,10 @@ static func _should_unit_advance(
+ 	if not adv_and_shoot:
+ 		adv_and_shoot = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "shoot")
+ 	if not adv_and_charge:
+-		adv_and_charge = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
++		adv_and_charge = _unit_can_charge_after_advance(unit)
++		if not adv_and_charge and _unit_text_says_advance_and_charge(unit):
++			# WAAAGH-ADV-CHG: no free Advance — the shooting/objective tests below decide
++			print("AIDecisionMaker: [WAAAGH_ADVANCE_CHARGE] %s cannot charge after an Advance this turn — no free Advance" % _dn(unit, unit_id))
+ 
+ 	if adv_and_shoot:
+ 		print("AIDecisionMaker: %s has Advance and Shoot — advancing has no shooting penalty" % _dn(unit, unit_id))
+@@ -11629,12 +11659,15 @@ static func _prob_sum_d6_at_least(n: int, need: float) -> float:
+ static func _should_unit_advance_long_trip(unit: Dictionary, has_ranged: bool,
+ 		max_weapon_range: float, enemies: Dictionary, centroid: Vector2) -> bool:
+ 	var adv_and_charge: bool = unit.get("flags", {}).get("effect_advance_and_charge", false) \
+-			or (AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge"))
++			or _unit_can_charge_after_advance(unit)
+ 	if not adv_and_charge:
+ 		var charge_reach_px := (float(unit.get("meta", {}).get("stats", {}).get("move", 6)) + 12.0) * PIXELS_PER_INCH
+ 		for enemy_id in enemies:
+ 			var ec = _get_unit_centroid(enemies[enemy_id])
+ 			if ec != Vector2.INF and centroid.distance_to(ec) <= charge_reach_px:
++				if _unit_text_says_advance_and_charge(unit):
++					# WAAAGH-ADV-CHG: the old text estimate skipped this check
++					print("AIDecisionMaker: [WAAAGH_ADVANCE_CHARGE] %s keeps its charge — enemy within M+12\", no long-trip Advance" % _dn(unit, str(unit.get("id", ""))))
+ 				return false
+ 	if unit.get("flags", {}).get("effect_advance_and_shoot", false):
+ 		return true
+diff --git a/40k/tests/unit/test_ai_fix_waaagh_advance_charge.gd b/40k/tests/unit/test_ai_fix_waaagh_advance_charge.gd
+new file mode 100644
+index 0000000..8ad03c8
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_waaagh_advance_charge.gd
+@@ -0,0 +1,155 @@
++extends SceneTree
++
++# FIX-WAAAGH-ADVANCE-CHARGE (critic cluster "waaagh_advance_charge", 2026-10-30):
++# Ork melee units Advanced "to attack" when a Normal move already reached
++# charge range, then could not declare the charge.
++#
++# Root cause — the AI estimated "can this unit charge after it Advances?" with
++# a text match: any ability whose name or text contains "advance" and
++# "charge". Every Ork unit carries Waaagh!, whose text describes the riled-up
++# effect ("that advance move does not prevent that unit from being eligible to
++# declare a charge") — but a unit is riled up only for one turn after the
++# once-per-battle War Cry. Custodes' Swift Onslaught ("re-roll advance rolls,
++# re-roll charge rolls") matched too. ChargePhase allows a charge after an
++# Advance only through EffectPrimitivesData.has_effect_advance_and_charge; the
++# AI now asks the same predicate.
++#
++# Measured (36 / 12 rollouts): Stormboyz Normal move +6.1 VP [3.1, 9.2],
++# Beast Snagga Boyz Normal move +11.3 VP [5.1, 17.4].
++#
++# Run with: godot --headless --path . -s tests/unit/test_ai_fix_waaagh_advance_charge.gd
++
++const AI_PATH := "res://scripts/AIDecisionMaker.gd"
++const PX := 40.0
++const WAAAGH := {"name": "Waaagh!", "type": "Faction", "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."}
++const SWIFT := {"name": "Swift Onslaught", "type": "Datasheet", "description": "This unit can:\n• Re-roll advance rolls.\n• Re-roll charge rolls."}
++const OBJ := Vector2(880, 1200)
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++var _ran := false
++var AIDM = null
++
++func _init():
++	root.connect("ready", Callable(self, "_run_tests"))
++	create_timer(0.1).timeout.connect(_run_tests)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _run_tests():
++	if _ran:
++		return
++	_ran = true
++	await process_frame
++	print("\n=== FIX-WAAAGH-ADVANCE-CHARGE: Advance only when the charge survives it ===\n")
++	var prev_edition = GameConstants.edition
++	GameConstants.edition = 11
++	AIDM = load(AI_PATH)
++	AIDM._config_overrides["FIX_WAAAGH_ADVANCE_CHARGE"] = 1.0
++
++	test_plan_normal_moves_when_waaagh_not_called()
++	test_riled_up_unit_still_advances()
++	test_swift_onslaught_is_not_advance_and_charge()
++	test_far_enemy_still_advances()
++	test_long_trip_keeps_charge()
++	test_param_zero_restores_old_estimate()
++
++	AIDM._config_overrides.erase("FIX_WAAAGH_ADVANCE_CHARGE")
++	GameConstants.edition = prev_edition
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++# --- fixtures ---------------------------------------------------------------
++
++func _snapshot(battle_round: int = 3) -> Dictionary:
++	var objs = [{"id": "obj_center", "position": OBJ, "zone": "no_mans_land"}]
++	return {"battle_round": battle_round, "meta": {"battle_round": battle_round},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {},
++		"factions": {"1": "Orks", "2": "Adeptus Custodes"}}
++
++func _add_unit(snap: Dictionary, uid: String, owner: int, at: Vector2, n: int,
++		abilities: Array, melee: bool, flags: Dictionary = {}) -> Dictionary:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32,
++			"base_type": "circular", "base_dimensions": {}, "position": at + Vector2(40 * i, 0),
++			"wounds": 2, "current_wounds": 2})
++	var weapons = []
++	if melee:
++		weapons.append({"name": "Choppa", "type": "Melee", "range": "Melee", "attacks": "3",
++			"weapon_skill": "3", "strength": "5", "ap": "-1", "damage": "1", "special_rules": ""})
++	else:
++		weapons.append({"name": "Spear", "type": "Melee", "range": "Melee", "attacks": "5",
++			"weapon_skill": "2", "strength": "7", "ap": "-2", "damage": "2", "special_rules": ""})
++		weapons.append({"name": "Bolter", "type": "Ranged", "range": "24", "attacks": "2",
++			"ballistic_skill": "2", "strength": "5", "ap": "-1", "damage": "2", "special_rules": ""})
++	var u = {"id": uid, "owner": owner, "status": 2,
++		"meta": {"name": uid, "points": 150, "faction": "Orks" if owner == 1 else "Adeptus Custodes",
++			"stats": {"move": 6, "toughness": 5, "save": 5, "wounds": 2, "leadership": 7, "objective_control": 2},
++			"keywords": ["INFANTRY", "ORKS"] if owner == 1 else ["INFANTRY"], "weapons": weapons,
++			"abilities": abilities},
++		"models": models, "flags": flags.duplicate()}
++	snap.units[uid] = u
++	return u
++
++## An Ork melee unit 9.5" from an enemy: a Normal move (M6) ends 3.5" away,
++## inside charge range, so Advancing only throws the charge away.
++func _gate(abilities: Array, flags: Dictionary = {}, enemy_gap_in: float = 9.5) -> Dictionary:
++	var snap = _snapshot()
++	var u = _add_unit(snap, "BOYZ", 1, OBJ + Vector2(-80, 0), 5, abilities, true, flags)
++	var c = AIDM._get_unit_centroid(u)
++	_add_unit(snap, "ENEMY", 2, c + Vector2(-20, enemy_gap_in * PX), 1, [], false)
++	var enemies = AIDM._get_enemy_units(snap, 1)
++	var friendly = AIDM._get_units_for_player(snap, 1)
++	var assignment = {"action": "move", "objective_id": "obj_center", "objective_pos": OBJ + Vector2(0, -600)}
++	return AIDM._melee_chase_gate(u, "BOYZ", assignment, enemies, friendly, snap, 1)
++
++# --- tests --------------------------------------------------------------------
++
++func test_plan_normal_moves_when_waaagh_not_called() -> void:
++	print("\n--- Waaagh! not called: Ork melee unit, enemy 9.5\" away ---")
++	var g = _gate([WAAAGH])
++	print("  gate: %s" % str(g))
++	_assert(not g.is_empty(), "the unit still goes to attack the enemy")
++	_assert(g.get("advance", true) == false, "it Normal-moves into charge range instead of Advancing (advance=%s)" % str(g.get("advance")))
++
++func test_riled_up_unit_still_advances() -> void:
++	print("\n--- Waaagh! called this turn (effect_advance_and_charge set) ---")
++	var g = _gate([WAAAGH], {"effect_advance_and_charge": true})
++	_assert(g.get("advance", false) == true, "a riled-up unit may Advance and still charge, so it Advances (advance=%s)" % str(g.get("advance")))
++
++func test_swift_onslaught_is_not_advance_and_charge() -> void:
++	print("\n--- Swift Onslaught (re-roll advance / re-roll charge) is not advance-and-charge ---")
++	var g = _gate([SWIFT])
++	_assert(g.get("advance", true) == false, "re-roll text does not make the AI Advance into a lost charge (advance=%s)" % str(g.get("advance")))
++
++func test_far_enemy_still_advances() -> void:
++	print("\n--- enemy 19\" away: a Normal move cannot reach charge range ---")
++	var g = _gate([WAAAGH], {}, 19.0)
++	_assert(g.get("advance", false) == true, "it still Advances to close the distance (advance=%s)" % str(g.get("advance")))
++
++func test_long_trip_keeps_charge() -> void:
++	print("\n--- long trip: enemy within M+12\" of an Ork melee unit without Waaagh! ---")
++	var snap = _snapshot()
++	var u = _add_unit(snap, "BOYZ", 1, OBJ, 5, [WAAAGH], true)
++	var c = AIDM._get_unit_centroid(u)
++	_add_unit(snap, "ENEMY", 2, c + Vector2(0, 15 * PX), 1, [], false)
++	var enemies = AIDM._get_enemy_units(snap, 1)
++	var adv = AIDM._should_unit_advance_long_trip(u, false, 0.0, enemies, c)
++	_assert(adv == false, "no long-trip Advance that would lose a charge (advance=%s)" % str(adv))
++	u.flags["effect_advance_and_charge"] = true
++	adv = AIDM._should_unit_advance_long_trip(u, false, 0.0, enemies, c)
++	_assert(adv == true, "riled up: the long-trip Advance is free (advance=%s)" % str(adv))
++
++func test_param_zero_restores_old_estimate() -> void:
++	print("\n--- FIX_WAAAGH_ADVANCE_CHARGE = 0: the text match is back ---")
++	AIDM._config_overrides["FIX_WAAAGH_ADVANCE_CHARGE"] = 0.0
++	var g = _gate([WAAAGH])
++	AIDM._config_overrides["FIX_WAAAGH_ADVANCE_CHARGE"] = 1.0
++	_assert(g.get("advance", false) == true, "off: the Ork unit Advances (old behaviour, advance=%s)" % str(g.get("advance")))

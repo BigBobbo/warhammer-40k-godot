@@ -1,0 +1,75 @@
+{
+ "key": "reinforce_insurance",
+ "angle": "root",
+ "root_cause": "At s7437 r2 the centre (held, OC 6) scored 48.2 for Custodian Guard Beta vs 30.7 for obj_nml_2. Three estimates were wrong. (1) The 1-move reinforcement had no race test, and enemy reach (COORD-5 and RACE-1) was measured from unit centroids. Control needs only ONE model in range, so 10-model Gretchin (front model gap 7.6\") and Lootas Alpha (6.1\") were invisible. Measured from the nearest model, the enemy can stand there with ~27 OC next move vs our 17 with Beta: the reinforcement cannot keep the centre, yet it was priced at full hold value. (2) _should_unit_advance_long_trip treated Beta's Guardian Spear (assault, rapid fire 2) as a shooting cost (Zodgrod 20.3\" in its 24\" range), so obj_nml_2 was costed as a 3-turn walk (distance -5.4) instead of a 2-turn Advance. (3) The Reconnaissance Sweep quarters term was a flat 4.2 on the walking spot. It ignored 'wholly within, >6\" from centre' (a walk ends on the quarter line; measured -4.0) and the card's tier VP. The f1alt A/B (2 seeds) confirms the source of the gain: B scored 'quarters +3' at R2 end of turn in both seeds, A in neither.",
+ "fix_summary": "FIX_REINFORCE_INSURANCE (1.0; 0 = base exactly), three corrections in the movement planner's candidate scoring. RI-RACE: a 1-move reinforcement of a held_threatened objective is a lost race when enemy OC that can stand in range after one move (M+2\", measured from each unit's nearest model; units standing on another objective count half) is >= RI_RACE_LOST_RATIO (1.5) x (held OC + this unit + friendly 1-move arrivals). It then keeps MOVE_RACE_LOSS_FACTOR (0.5) of its value, like RACE-1. The ratio is 1.5, not 1.0, because LONE-TRIP pins 18 vs 20 as a fight worth joining. RI-ASSAULT: a unit whose ranged weapons are all [ASSAULT] gives up no shooting by Advancing on a long trip (11e). The charge-reach check is unchanged. RI-QUARTER: for primary quarter-tier cards (eot), the flat bonus is replaced by tier VP gain (army without this unit vs with it at its end-of-move spot, at the pace it travels, using the exact wholly-within/6\" test) x WEIGHT_VP_PER_POINT x (1 + 0.5 per later round). Logs: [REINFORCE_INSURANCE] RI-RACE / RI-ASSAULT / RI-QUARTER. Result at s7437: centre 48.2 -> 34.8, obj_nml_2 30.7 -> 38.3 (Advance, quarter_vp +9.0). Beta Advances to obj_nml_2.",
+ "param": "FIX_REINFORCE_INSURANCE",
+ "test_file": "40k/tests/unit/test_ai_fix_reinforce_insurance.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "On the fix, all listed tests pass: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 22/0, survival_assessment 23/0, multi_phase_planning 34/0. The new test is 11/0 on the fix and 6 pass / 5 fail on BASE (temp copy preloading ai_versions/BASE); the 5 failures are the race cost, the redirect, the Advance pace and the two quarter checks. Known base failures are unchanged: threat_range_awareness 34/3, tests/test_ai_objective_assignment_fixes 6/1. With an RI_RACE ratio of 1.0, fix_lone_trip failed 1 check ('18 vs 20 is a fight worth joining'), which is why the ratio is 1.5.",
+ "decision_checks": [
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4",
+   "base_choice": "Custodian Guard Beta moves toward obj_center (reinforcing; 48.2 vs obj_nml_2 30.7)",
+   "fix_choice": "Custodian Guard Beta ADVANCES toward obj_nml_2 (38.3: quarter_vp +9.0, 2-turn Advance pace; centre 34.8 after reinforce_race -13.5, 27 enemy OC vs 17)",
+   "changed": true,
+   "measured": "clear: alt advance obj_nml_2 E +7.75 [1.97,13.53] n12, +4.36 n36; full game +19.0 [3.33,34.67] n12",
+   "judgement": "Matches the alternative exactly (same unit, objective and mode advance). Seed 5001 value went 14 -> 20 with 'quarters +3' at R2 eot (base had none at R2)."
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r1_p2_movement_1_0",
+   "base_choice": "Mek Beta moves toward obj_home_2 (reinforcing; already drifted from the finding's obj_nml_2 on the current base)",
+   "fix_choice": "Mek Beta moves toward obj_home_2 (unchanged)",
+   "changed": false,
+   "measured": "clear: alt advance obj_center E +2.67 [0.36,4.97] n36 (measured on the round-1 AI)",
+   "judgement": "Not changed. The finding no longer reproduces on the base (base now picks obj_home_2, not obj_nml_2), and none of the three corrections bears on Mek Beta's choice there. RI-QUARTER fired on 2 candidates in this game, but not on the decision itself."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_014802_sweep2_06__s7417_r1_p2_movement_1_0",
+   "base_choice": "Mek Beta holds obj_home_2 (base drifted)",
+   "fix_choice": "Mek Beta holds obj_home_2",
+   "changed": false,
+   "measured": "harmful: alt move obj_home_2 E -5.42",
+   "judgement": "No change. The fix moved nothing toward the harmful alternative (base already stands on obj_home_2; drift not caused by the fix)."
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+   "base_choice": "Custodian Guard Beta moves toward obj_center (base drifted from obj_nml_2)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful: alt advance obj_center E -6.83",
+   "judgement": "No change. Base and fix both already go to the centre (base drift); the fix does not push further toward it. 0 fires."
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r2_p2_movement_2_2",
+   "base_choice": "Mek Beta moves toward obj_center (reinforcing)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful: alt move obj_home_2 E -3.67",
+   "judgement": "Consistent: the reinforcement the measurement favours is kept."
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4",
+   "base_choice": "Stormboyz advance to attack Blade Champion Gamma",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful: alt hold obj_center E -8.33",
+   "judgement": "Consistent: no veto of attacking out; the decision is unchanged. The one-seed value differs (14 vs 6) because later P1 decisions changed (Allarus Advance via RI-ASSAULT), not this decision."
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r3_p2_movement_2_7",
+   "base_choice": "Burna Boyz Alpha screens (base drifted)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: alt advance obj_center E -0.25",
+   "judgement": "No change, 0 fires."
+  }
+ ],
+ "fires": "Exact log-line counts per one-round replay (both players; stdout of un-quieted reruns): f1 s7437 3 (RI-RACE 1 = Beta->centre 27 vs 17; RI-QUARTER 2 = the deciding Beta->obj_nml_2 +9.0, plus 1 later); f2 2 (RI-QUARTER); g1 0; g2 0; g3 2 (RI-QUARTER); g4 6 (RI-QUARTER, Ork units under Reconnaissance Sweep, e.g. Stormboyz/Mek Beta -> obj_nml_1 +7.2/+10.8); g5 0. RI-RACE fired once in 7 games. RI-QUARTER fires only for the player holding a quarter-tier primary (Reconnaissance Sweep). RI-ASSAULT logging was added after these replays and was not counted. Its decision effect was seen in the records: Custodes Allarus Advance instead of Normal-moving on long trips (g3, g4, and f2's Custodian Guard Gamma).",
+ "risks": "(1) RI-ASSAULT is the broadest part. Every all-[ASSAULT] unit (many Custodes units: Guardian Spears, Allarus) now Advances on long trips whenever nothing is in charge reach. That gives up any charge that a later move would make possible this turn. Advancing also pays: arriving a turn sooner over rounds 1-3. This needs its own full-game arm; the round-2 lesson says one-round rollouts cannot see it. (2) RI-QUARTER pushes units into empty quarters under Reconnaissance Sweep each round (values 5.4-10.8). In rounds 1-2 the 1 + 0.5 x later-rounds multiplier is largest (up to 3x), so a unit can leave an objective lane for a quarter early. The flat 4.2 it replaces fired on many more candidates, so the net direction is not obvious. The full-game +19.0 at s7437 suggests the quarter is worth it there. (3) RI-RACE gives up on reinforcing when the enemy's 1-move reach is 1.5x ours. It ignores holders that charge off, which makes us weaker, so it is conservative. But the enemy AI may not commit everything in reach, so a lost-looking centre can still hold if reinforced. Halving keeps it as an option. In rounds 4-5 the hold value is larger and a 0.5 factor may give up a held objective the enemy only threatens. Watch Centre Ground / per_objective cards. (4) Reach is measured from model positions as they are now; transports' embarked cargo is still invisible (same as base). (5) Only 2 findings in the cluster; f2 no longer reproduces on base, so the evidence that the change helps rests on s7437 alone.",
+ "drop_reason": ""
+}

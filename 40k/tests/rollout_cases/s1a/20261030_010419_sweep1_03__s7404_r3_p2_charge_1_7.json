@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Alpha (4.8\" away, 83% chance)",
+ "created": "2026-10-30 01:13:18",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7404_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charged 7 Kommandos into Blade Champion Alpha (T7, 2+ save, 4+ invulnerable). It overrates the damage and underrates the retaliation. The Allarus charge can wipe a 270 point unit. Fix: Compute charge damage from the real strength, toughness, AP, invulnerable save and wound rolls. Compute retaliation from the target's attacks and any nearby enemy units that could join the fight. Scale the bonus for a full kill with the points value of the unit removed. Penalise charges where the expected damage is below half the target's wounds and retaliation would wipe the cha",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7404_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "pos:1341,725",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos declares charge against Blade Champion Alpha (83% chance, 4.8\" away, expected 6.2 melee dmg vs 7 HP, overwatch risk: 0.4 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

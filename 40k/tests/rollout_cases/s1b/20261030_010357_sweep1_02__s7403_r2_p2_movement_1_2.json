@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Custodian Guard Sodality Delta arrives",
+ "created": "2026-10-30 01:06:18",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7403_r2_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI deep-strikes Delta onto an objective its own units already hold with large surplus OC. It gives that placement 15.15 in arrive_objectives. Obj_center, which could be contested, is ignored. Fix: Compute arrive_objectives as the change in control from the unit's OC. Pay nothing for objectives already held with surplus OC. Pay extra for contested or enemy-held objectives that the unit can flip or contest. Also score the spot by distance to the objectives that need help.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7403_r2_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_CUSTODIAN_GUARD_D",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_CUSTODIAN_GUARD_D"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta arrives from Deep Strike",
+ "verdict": "bad",
+ "version": 1
+}

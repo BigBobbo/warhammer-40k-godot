@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Custodian Guard Sodality Beta (P2)",
+ "created": "2026-10-30 01:42:06",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7415_r2_p1_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot at Custodian Guard Sodality Beta for 0.2 expected damage and a 1% kill chance. Prosecutor Squad gives 0.39 damage and a 10% kill chance, and it was ranked lower. Fix: Cut the weight of target_value and already_allocated when kill_fraction is below about 5% and no friendly unit can finish the target. In that case rank targets by expected kills, or by models removed, per shot. Also add credit for removing OC from contested objectives.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7415_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_B",
+  "choice": "desc:Big shoota \u2192 enemy Custodian Guard Sodality Beta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Beta shoots at Custodian Guard Sodality Beta \u2014 expected 0.2 dmg vs 15 HP (1% kill)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -92,9 +92,39 @@ const BENCH_RECORD_BATCH_CAP := 100000
 # MissionManager.victory_points_scored. This is the intermediate reward
 # signal that the terminal margin alone cannot provide.
 var _vp_events: Array = []
+# AB-SEC: secondary-card events (drawn / scored / discarded) per player, kept in
+# the outcome so a campaign can say WHICH cards a version loses VP on.
+var _secondary_events: Array = []
 # Parsed profile JSON per player, kept for INLINE provenance so a record
 # stays self-describing even if the profile file is later edited or deleted.
 var _profile_inline: Dictionary = {1: {}, 2: {}}
+# AB-SEAT: optional per-seat AIDecisionMaker version (script path), for
+# old-vs-new AI head-to-head games. "" = the current AIDecisionMaker.
+var _seat_ai: Dictionary = {1: "", 2: ""}
+# AB-11E: "p1,p2" force dispositions. Older fixture saves carry no 11e primary
+# cards, so the game falls back to legacy Take and Hold scoring (5 VP/objective)
+# and the AI has no card to plan for. "" = keep what the fixture has.
+var _dispositions: String = ""
+# AB-11E: --bench-11e plays the fixture under the 11e GDM 2026 mission rules:
+# disposition-paired primary cards (from --bench-dispositions, or derived from
+# the seed so a campaign rotates through the 25 pairings) and a fresh 11e
+# tactical secondary deck built by the normal Command-phase flow. Older
+# fixtures carry legacy Take and Hold scoring and the 10e secondary deck.
+var _bench_11e: bool = false
+# OBJ-CACHE: --bench-no-objective-cache turns the objective-control cache off;
+# --bench-verify-objective-cache recomputes on every hit and counts mismatches.
+var _obj_cache_mode: String = "on"
+# ROLLOUT (tools/ai_lab/rollout.py): counterfactual rollouts from a saved
+# mid-game position. --bench-override=<json> arms one-shot forced decisions in
+# AIDecisionMaker; --bench-stop-round=N ends the game the moment battle round
+# N+1 begins (before it scores anything), so a short horizon is measured at an
+# exact, deterministic point. The result carries VP and material (points lost)
+# at the start and at the end, so the driver can take deltas.
+var _override_path: String = ""
+var _stop_round: int = 0
+var _vp_start: Dictionary = {}
+var _material_start: Dictionary = {}
+var _start_round: int = 0
 
 func _ready() -> void:
 	var args = OS.get_cmdline_args() + OS.get_cmdline_user_args()
@@ -117,6 +147,22 @@ func _ready() -> void:
 			_p1_plan_path = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-p2-plan="):
 			_p2_plan_path = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-p1-ai="):
+			_seat_ai[1] = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-p2-ai="):
+			_seat_ai[2] = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-override="):
+			_override_path = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-stop-round="):
+			_stop_round = int(a.split("=", true, 1)[1])
+		elif a == "--bench-no-objective-cache":
+			_obj_cache_mode = "off"
+		elif a == "--bench-verify-objective-cache":
+			_obj_cache_mode = "verify"
+		elif a == "--bench-11e":
+			_bench_11e = true
+		elif a.begins_with("--bench-dispositions="):
+			_dispositions = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-difficulty="):
 			_difficulty = int(a.split("=", true, 1)[1])
 		elif a.begins_with("--bench-max-seconds="):
@@ -280,12 +326,42 @@ func _kick_off() -> void:
 	await get_tree().process_frame
 
 	# 1) Load the fixture (a post-deployment save = full game from round 1)
+	_ensure_fixture_in_user_saves()
 	var save_mgr = get_node_or_null("/root/SaveLoadManager")
 	if save_mgr == null or not save_mgr.load_game(_fixture):
 		_finish_with_error("fixture load failed: %s" % _fixture)
 		return
 	GameState.state["meta"]["from_save"] = true
 	GameConstants.edition = 11
+	var mm_cache = get_node_or_null("/root/MissionManager")
+	if mm_cache != null and "control_cache_enabled" in mm_cache:
+		mm_cache.control_cache_enabled = _obj_cache_mode != "off"
+		mm_cache.control_cache_verify = _obj_cache_mode == "verify"
+		mm_cache.invalidate_control_cache()
+		print("[AIBench] OBJ-CACHE mode: %s" % _obj_cache_mode)
+	if _bench_11e and _dispositions == "":
+		var d = PrimaryMissionData11e.DISPOSITIONS
+		var s_ = maxi(_seed, 0)
+		_dispositions = "%s,%s" % [d[s_ % d.size()], d[(s_ / d.size()) % d.size()]]
+	if _bench_11e:
+		# Empty the fixture's secondary state: CommandPhase then builds the
+		# edition's (11e) deck and draws for the active player, as in a new game.
+		var smm_11e = get_node_or_null("/root/SecondaryMissionManager")
+		if smm_11e == null:
+			_finish_with_error("--bench-11e: SecondaryMissionManager missing")
+			return
+		smm_11e.initialize_for_game()
+		print("[AIBench] AB-11E secondary decks reset; CommandPhase builds the 11e deck")
+	if _dispositions != "":
+		var mm = get_node_or_null("/root/MissionManager")
+		var parts = _dispositions.split(",")
+		if mm == null or parts.size() != 2:
+			_finish_with_error("bad --bench-dispositions: %s" % _dispositions)
+			return
+		mm.initialize_dispositions_11e(parts[0], parts[1])
+		print("[AIBench] AB-11E dispositions %s -> P1 '%s', P2 '%s'" % [_dispositions,
+			mm.player_primary_missions.get("1", {}).get("name", "?"),
+			mm.player_primary_missions.get("2", {}).get("name", "?")])
 
 	# Both players are AI for the whole game. This must be written into
 	# game_config, not just AIPlayer — engine human-gates (e.g. the 03.03
@@ -334,12 +410,37 @@ func _kick_off() -> void:
 	# clears the accumulator, so this must come AFTER it.
 	ai._max_decision_record_batches = BENCH_RECORD_BATCH_CAP
 	_connect_vp_events()
+	for seat in [1, 2]:
+		if _seat_ai[seat] == "":
+			continue
+		if not ai.set_seat_decision_maker(seat, _seat_ai[seat]):
+			_finish_with_error("AI version for P%d could not be loaded: %s" % [seat, _seat_ai[seat]])
+			return
+		var seat_dm = ai.get_seat_decision_makers()[seat]
+		seat_dm.reset_caches()
+		if _seed >= 0:
+			seat_dm.set_ai_seed(_seed)
 	_load_profile(1, _p1_profile_path)
 	_load_profile(2, _p2_profile_path)
 	# PM-2a: plans, like profiles, must be applied AFTER configure() — it calls
 	# clear_all_profiles(), which also clears plans.
 	_load_plan(1, _p1_plan_path)
 	_load_plan(2, _p2_plan_path)
+	if _override_path != "":
+		var of := FileAccess.open(_override_path, FileAccess.READ)
+		var parsed_ov = JSON.parse_string(of.get_as_text()) if of != null else null
+		if not (parsed_ov is Array):
+			_finish_with_error("--bench-override: %s is not a JSON array" % _override_path)
+			return
+		AIDecisionMaker.set_rollout_overrides(parsed_ov)
+	var mm_start = get_node_or_null("/root/MissionManager")
+	_vp_start = mm_start.get_vp_summary() if mm_start != null else {}
+	_material_start = _material_lost()
+	_start_round = GameState.get_battle_round()
+	if _stop_round > 0:
+		var pm_stop = get_node_or_null("/root/PhaseManager")
+		if pm_stop != null and pm_stop.has_signal("battle_round_started"):
+			pm_stop.battle_round_started.connect(_on_round_started_stop)
 
 	# 5) Accelerate the AI's pacing timers
 	Engine.time_scale = maxf(1.0, _time_scale)
@@ -505,6 +606,8 @@ func _collect_result(status: String, note: String) -> Dictionary:
 	return {
 		"status": status,
 		"note": note,
+		"rules": "11e" if _bench_11e else ("11e_primary_only" if _dispositions != "" else "legacy_fixture"),
+		"dispositions": _dispositions,
 		"fixture": _fixture,
 		"seed": _seed,
 		"difficulty": _difficulty,
@@ -521,7 +624,57 @@ func _collect_result(status: String, note: String) -> Dictionary:
 		"actions_taken": ai._action_log.size() if ai != null else 0,
 		"wall_seconds": (Time.get_ticks_msec() - _start_ticks) / 1000.0,
 		"time_scale": _time_scale,
+		"perf_seconds": _perf_seconds(ai),
+		"vp_start": _vp_start,
+		"material_start": _material_start,
+		"material_end": _material_lost(),
+		"start_round": _start_round,
+		"rollout_overrides": AIDecisionMaker.get_rollout_overrides(),
+		"secondary_events": _secondary_events,
 	}
+
+func _perf_seconds(ai) -> Dictionary:
+	var out := {}
+	if ai == null:
+		return out
+	for k in ai._perf_usec:
+		out[k] = snappedf(float(ai._perf_usec[k]) / 1000000.0, 0.01)
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm != null and "perf_check_objectives_usec" in mm:
+		out["check_all_objectives"] = snappedf(float(mm.perf_check_objectives_usec) / 1000000.0, 0.01)
+		out["check_all_objectives_calls"] = mm.perf_check_objectives_calls
+		if "perf_check_objectives_hits" in mm:
+			out["check_all_objectives_cache_hits"] = mm.perf_check_objectives_hits
+			out["objective_cache_mismatches"] = mm.control_cache_mismatches
+			out["objective_cache_mode"] = _obj_cache_mode
+	return out
+
+func _on_round_started_stop(round_now: int) -> void:
+	if _stop_round > 0 and round_now > _stop_round:
+		_stop_round = 0  # once
+		_write_and_quit(_collect_result("completed", "horizon: stopped at the start of round %d" % round_now), 0)
+
+## Points lost per player: each unit's points x the share of its wounds gone
+## (a destroyed unit loses all its points). Units that never had wounds count 0.
+func _material_lost() -> Dictionary:
+	var out := {"1": 0.0, "2": 0.0}
+	for uid in GameState.state.get("units", {}):
+		var u = GameState.state.units[uid]
+		var owner := str(int(u.get("owner", 0)))
+		if not out.has(owner):
+			continue
+		var pts := float(u.get("meta", {}).get("points", 0))
+		var w_stat := float(u.get("meta", {}).get("stats", {}).get("wounds", 1))
+		var total := 0.0
+		var left := 0.0
+		for m in u.get("models", []):
+			var mw := float(m.get("wounds", w_stat))
+			total += mw
+			if m.get("alive", true):
+				left += clampf(float(m.get("current_wounds", mw)), 0.0, mw)
+		if total > 0.0:
+			out[owner] = float(out[owner]) + pts * (1.0 - left / total)
+	return out
 
 func _finish_completed() -> void:
 	_write_and_quit(_collect_result("completed", ""), 0)
@@ -554,6 +707,19 @@ func _connect_vp_events() -> void:
 		print("[AIBench] WARNING: MissionManager.victory_points_scored unavailable; vp_events will be empty")
 		return
 	mm.victory_points_scored.connect(_on_vp_scored)
+	var smm = get_node_or_null("/root/SecondaryMissionManager")
+	if smm != null:
+		if smm.has_signal("mission_drawn"):
+			smm.mission_drawn.connect(func(pl, mid): _on_secondary_event("drawn", pl, str(mid), 0, ""))
+		if smm.has_signal("secondary_vp_scored"):
+			smm.secondary_vp_scored.connect(func(pl, vp, mid): _on_secondary_event("scored", pl, str(mid), int(vp), ""))
+		if smm.has_signal("mission_discarded"):
+			smm.mission_discarded.connect(func(pl, mid, why): _on_secondary_event("discarded", pl, str(mid), 0, str(why)))
+
+func _on_secondary_event(kind: String, player: int, mission_id: String, vp: int, note: String) -> void:
+	_secondary_events.append({"round": GameState.get_battle_round(), "phase": GameState.get_current_phase(),
+		"active": GameState.get_active_player(), "player": player, "kind": kind, "mission": mission_id,
+		"vp": vp, "note": note})
 
 func _on_vp_scored(player: int, points: int, reason: String) -> void:
 	_vp_events.append({
@@ -577,6 +743,31 @@ static func _sha256_of(path: String) -> String:
 	if path == "" or not FileAccess.file_exists(path):
 		return ""
 	return FileAccess.get_sha256(path)
+
+## A fresh container has no user://saves/ copy of the fixture (the migration
+## from res:// runs from the menu, never in a headless benchmark), so the load
+## failed with "fixture load failed". Copy it (and its .meta) from the repo:
+## res://tests/saves/ (tracked) or res://saves/.
+func _ensure_fixture_in_user_saves() -> void:
+	var dst_dir := "user://saves/"
+	if FileAccess.file_exists(dst_dir + _fixture + ".w40ksave"):
+		return
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dst_dir))
+	for src_dir in ["res://tests/saves/", "res://saves/"]:
+		if not FileAccess.file_exists(src_dir + _fixture + ".w40ksave"):
+			continue
+		for ext in [".w40ksave", ".meta"]:
+			var src: String = src_dir + _fixture + ext
+			if not FileAccess.file_exists(src):
+				continue
+			var data := FileAccess.get_file_as_bytes(src)
+			var f := FileAccess.open(dst_dir + _fixture + ext, FileAccess.WRITE)
+			if f != null:
+				f.store_buffer(data)
+				f.close()
+		print("[AIBench] fixture %s copied from %s to %s" % [_fixture, src_dir, dst_dir])
+		return
+	print("[AIBench] WARNING: fixture %s not found in res://tests/saves/ or res://saves/" % _fixture)
 
 func _fixture_path() -> String:
 	"""Where the loaded fixture actually lives.

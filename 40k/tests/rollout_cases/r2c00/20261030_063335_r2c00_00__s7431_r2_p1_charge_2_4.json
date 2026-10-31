@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Gamma (10.8\" away, 8% chance)",
+ "created": "2026-10-30 06:35:40",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7431_r2_p1_charge_2",
+ "note": "[LLM critic, high conf] The AI picked an 8% charge for Delta because ch_damage, ch_can_wipe and ch_points_trade outweigh a ch_chance penalty that is too small. Fix: Multiply all reward terms (damage, can_wipe, can_halve, points_trade, character) by charge_probability. Reject any charge below charge_threshold. Add a penalty for leaving a held objective. Always include a 'no charge' option with a baseline score.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7431_r2_p1_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D",
+  "choice": "pos:1070,1694",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_C_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta declares charge against Blade Champion Gamma (8% chance, 10.8\" away, expected 10.0 melee dmg vs 7 HP, overwatch risk: 0.4 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

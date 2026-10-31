@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Storm Bolter \u2192 enemy Custodian Guard Sodality Delta (P2)",
+ "created": "2026-10-30 06:39:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7440_r2_p1_shooting_1",
+ "note": "[LLM critic, low conf] Logan fires a storm bolter at Custodian Guard Delta at 20.3 in for about 0.2 damage and a 1% kill chance. The AI only considered two long-range targets and never listed the close Blade Champion Gamma. Fix: Always include every visible target in range. Weigh target_value by kill probability or expected damage share. Add a bonus for rapid fire range, and prefer targets that are in range and threaten friendly units.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7440_r2_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOGAN_GRIMNAR_A",
+  "choice": "desc:Storm Bolter \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Logan Grimnar shoots at Custodian Guard Sodality Delta \u2014 expected 0.2 dmg vs 15 HP (1% kill)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (racing for it (enemy can have ~34 OC there before we arrive in 3 turns) \u2014 worth ~9 VP)",
+ "created": "2026-10-30 16:12:02",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7470_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] Beta travels 25.9 in, a 3-turn trip, to the empty obj_nml_1. Other Custodian units are much closer to it and can take it. The score also lets a large contest_race penalty be outweighed by a huge objective_priority. Fix: Cap objective_priority by travel time and discount it to near zero when arrival is 3 or more turns away. Do not send a unit to an objective if a friendly unit is already closer or already assigned. Penalise a lone unit sent more than 20 in away when the contest_race estimate says it will lose. Prefer a nearer objective or a hold for a back-line unit.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7470_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:1370,420",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_nml_1 (moving toward charge target Boss Snikrot, obj: 25.9\" away)",
+ "verdict": "bad",
+ "version": 1
+}

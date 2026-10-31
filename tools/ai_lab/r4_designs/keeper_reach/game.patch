@@ -1,0 +1,521 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..87037af 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1606,6 +1606,30 @@ const FIX_KEEPER_RELEASE: float = 1.0
+ # KEEPER-RELEASE: how many planner score points the keeper's best objective
+ # elsewhere must beat holding by (the round-1 stay bonus is 5).
+ const KEEPER_RELEASE_MIN_GAIN: float = 5.0
++# Movement plan (KEEPER-REACH): 1 = in battle round 1 (KEEPER_REACH_MAX_ROUND)
++# KEEPER-RELEASE also frees the sole keeper of our home objective when only its
++# worst cases hold it back: (a) the threat reach — an enemy model must be able
++# to get within Move + 12" (a Normal move plus an Advance) of the objective's
++# range, or charge a model of ours within its range + 6" (and pile in and
++# consolidate onto it), not the max-roll Move + 12" + 6" radius, and in battle
++# round 2 only enemy reserves that can Deep Strike (Strategic Reserves cannot
++# be set up in our zone then); (b) the backup — a unit of ours in reserves (it can
++# arrive from battle round 2, 15.07) also re-takes home when no unit can step
++# onto it in one move; (c) a primary card that pays for home — leaving costs
++# home's VP for one scoring (the backup re-takes it), so the target must beat
++# holding by KEEPER_RELEASE_MIN_GAIN plus that VP (and a secondary card that
++# pays for home); a rule whose VP needs home held (require_hold_home) or that
++# cannot be priced keeps the keeper. Released this way, the keeper makes a
++# Normal move (keeping its shooting and charge) to the objective it reaches
++# soonest among those that beat holding (a lost race too: its penalty is in
++# the score). In the Custodes mirror a Custodian
++# Guard unit idled turn 1 on a home objective with the enemy 23-30" away
++# (LLM-critic cluster keeper_reach: moving it to the centre measured +6.17 VP
++# [3.42, 8.91] and +4.83 [3.08, 6.59], 36 rollouts each). 0 = previous behaviour.
++const FIX_KEEPER_REACH: float = 1.0
++# KEEPER-REACH: the last battle round it widens KEEPER-RELEASE in (round 1:
++# the keeper has the whole game left to pay off forward, the enemy is furthest).
++const KEEPER_REACH_MAX_ROUND: int = 1
+ # Movement plan + reserve arrival (FIX-HELD-DUP): 1 = the AI reads who holds a
+ # terrain-hosted objective with the predicate MissionManager scores with (11e
+ # 14.01: a model whose base overlaps a hosting area named in source_pieces is
+@@ -9101,8 +9125,22 @@ static func _keeper_release_check(snapshot: Dictionary, hold: Dictionary, ev: Di
+ 			continue
+ 		if float(c.score) >= float(hold.score) + min_gain and (target.is_empty() or float(c.score) > float(target.score)):
+ 			target = c
+-	if target.is_empty() or _keeper_release_primary_counts(player, ev):
++	# KEEPER-REACH (FIX_KEEPER_REACH): what it widened (empty = the base release).
++	var reach_on: bool = get_param("FIX_KEEPER_REACH", FIX_KEEPER_REACH) >= 0.5 \
++			and battle_round <= int(get_param("KEEPER_REACH_MAX_ROUND", KEEPER_REACH_MAX_ROUND))
++	var reach: Array = []
++	if target.is_empty():
+ 		return {}
++	if _keeper_release_primary_counts(player, ev):
++		if not reach_on:
++			return {}
++		var home_vp := _keeper_reach_home_vp(player, ev)
++		if home_vp < 0.0 or float(target.score) < float(hold.score) + min_gain + home_vp:
++			print("AIDecisionMaker: [KEEPER_REACH] %s: %s keeps it — our cards pay for it (%s), best elsewhere %s %.1f vs %.1f holding" % [
++				ev.get("id", "?"), uid, "cannot be priced" if home_vp < 0.0 else "%.1f VP a scoring" % home_vp,
++				str(target.objective_id), float(target.score), float(hold.score)])
++			return {}
++		reach.append("its %.1f VP a scoring is worth less than the trip" % home_vp)
+ 	var keeper_group: Array = [uid]
+ 	var k_att = unit.get("attachment_data", {})
+ 	if k_att is Dictionary:
+@@ -9119,7 +9157,22 @@ static func _keeper_release_check(snapshot: Dictionary, hold: Dictionary, ev: Di
+ 		if int(f_arr.get("moves", 99)) <= 1 and int(f_arr.get("oc", 0)) > 0:
+ 			backups.append({"unit_id": f_uid, "name": _dn(units.get(f_uid, {}), f_uid),
+ 				"points": float(units.get(f_uid, {}).get("meta", {}).get("points", 0))})
++	# KEEPER-REACH: a unit of ours in reserves can arrive (battle round 2+)
++	# and re-take home when no unit can step onto it in one move.
++	if reach_on and backups.is_empty():
++		for r_uid in units:
++			var r_u: Dictionary = units[r_uid]
++			if int(r_u.get("owner", 0)) != player or r_u.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES \
++					or str(r_uid) in keeper_group or r_u.get("attached_to", null) != null \
++					or _get_alive_models(r_u).is_empty() or _unit_alive_oc(r_u, 0) <= 0:
++				continue
++			backups.append({"unit_id": str(r_uid), "name": _dn(r_u, str(r_uid)) + " (from reserves)",
++				"points": float(r_u.get("meta", {}).get("points", 0)), "reserve": true})
++		if not backups.is_empty():
++			reach.append("a reserve unit can re-take it")
+ 	if backups.is_empty():
++		if reach_on:
++			print("AIDecisionMaker: [KEEPER_REACH] %s: %s keeps it — no unit of ours can re-take it in one move or from reserves" % [ev.get("id", "?"), uid])
+ 		return {}
+ 	backups.sort_custom(func(a, b): return float(a.points) < float(b.points))
+ 	# The enemy's next turn: this battle round if we take the first turn of
+@@ -9127,10 +9180,186 @@ static func _keeper_release_check(snapshot: Dictionary, hold: Dictionary, ev: Di
+ 	var first := int(snapshot.get("meta", {}).get("first_turn_player", 1))
+ 	var enemy_round := battle_round if (player == first or (first != 1 and first != 2 and player == 1)) else battle_round + 1
+ 	var threat := _keeper_release_threat(snapshot, ev, enemies, player, enemy_round)
++	if threat != "" and reach_on:
++		# KEEPER-REACH: the base reach is the max-roll worst case; re-check it
++		# with what an enemy can do with no unit of ours left near home.
++		var r_threat := _keeper_reach_threat(snapshot, ev, enemies, player, enemy_round, keeper_group)
++		print("AIDecisionMaker: [KEEPER_REACH] %s: %s — base threat '%s', realistic reach: %s" % [
++			ev.id, uid, threat, "none" if r_threat == "" else r_threat])
++		if r_threat == "":
++			reach.append("no enemy can get on it next turn (%s)" % threat)
++		threat = r_threat
+ 	if threat != "":
+ 		print("AIDecisionMaker: [KEEPER_RELEASE] %s: %s keeps it — %s" % [ev.id, uid, threat])
+ 		return {}
+-	return {"target": target, "objective_id": str(ev.id), "hold": hold, "backups": backups}
++	if not reach.is_empty() and not _keeper_release_primary_counts(player, ev):
++		# KEEPER-REACH: a secondary card that pays for home is part of the cost.
++		var sec_vp := 0.0
++		for hint in _get_secondary_awareness(player).get("vp_objective_hints", []):
++			if str(hint.get("kind", "")) in ["home", "any"]:
++				sec_vp += float(hint.get("vp", 0.0))
++		if sec_vp > 0.0 and float(target.score) < float(hold.score) + min_gain + sec_vp:
++			print("AIDecisionMaker: [KEEPER_REACH] %s: %s keeps it — a secondary card pays %.1f VP for it" % [ev.id, uid, sec_vp])
++			return {}
++	if not reach.is_empty():
++		# KEEPER-REACH: the objective it reaches soonest with a Normal move among
++		# those that beat holding (ties: score, then distance), as a Normal move:
++		# a durable unit forward pays off on every later turn (centre, secondary
++		# positions, fights), so getting there soonest matters more than the
++		# best one-turn score.
++		var k_move_px := maxf(float(unit.get("meta", {}).get("stats", {}).get("move", 6)), 1.0) * PIXELS_PER_INCH
++		var best: Dictionary = {}
++		var best_key := []
++		for c in candidates:
++			if str(c.unit_id) != uid or c.get("already_on_obj", false) or c.get("action", "") not in ["move", "advance"]:
++				continue
++			if float(c.score) < float(hold.score):
++				continue  # a lost race still counts: its penalty is in the score
++			var c_turns := int(ceil(maxf(0.0, float(c.get("distance", 0.0)) - OBJECTIVE_CONTROL_RANGE_PX) / k_move_px))
++			if battle_round + maxi(c_turns, 1) - 1 > MAX_BATTLE_ROUNDS_AI:
++				continue
++			var key := [c_turns, -float(c.score), float(c.get("distance", 0.0))]
++			if best.is_empty() or key < best_key:
++				best = c
++				best_key = key
++		if not best.is_empty():
++			print("AIDecisionMaker: [KEEPER_REACH] %s: %s goes to %s by Normal move (%d move(s), score %.1f; best-scoring %s %s %.1f) — %s" % [
++				ev.id, uid, str(best.objective_id), int(best_key[0]), float(best.score),
++				str(target.get("action", "")).to_upper(), str(target.objective_id), float(target.score), "; ".join(reach)])
++			target = best.duplicate()
++			target["action"] = "move"
++	return {"target": target, "objective_id": str(ev.id), "hold": hold, "backups": backups, "reach": reach}
++
++## KEEPER-REACH: the VP our cards pay for holding our home `ev` at one scoring
++## (primary rules that count it + secondary hints for home), or -1 when a rule
++## cannot be priced that way (its VP needs home held, or a mechanic).
++static func _keeper_reach_home_vp(player: int, ev: Dictionary) -> float:
++	var primary = _get_primary_awareness(player)
++	if primary.is_empty() or int(primary.get("active_rules", 0)) <= 0:
++		return -1.0
++	var vp := 0.0
++	for rule in primary.get("vp_rules", []):
++		var r_type := str(rule.get("type", ""))
++		if r_type in ["destroyed_min", "destroyed_per_unit", "killed_more_than_opponent_last_turn",
++				"destroyed_started_on_objective", "destroyed_near_central", "destroyed_in_terrain_area", "quarters",
++				"hold_central", "hold_central_plus_nml", "hold_enemy_home"]:
++			continue  # kills, quarters, centre and enemy home: never our home
++		if r_type in ["per_new_objective", "hold_new"]:
++			continue  # pays again when the backup re-takes it
++		if rule.get("require_hold_home", false):
++			return -1.0
++		if r_type == "per_objective":
++			if rule.get("exclude_home", false):
++				continue
++			var zone := str(rule.get("zone", ""))
++			if zone != "" and zone != "own_territory":
++				continue
++			vp += float(rule.get("vp_per", rule.get("vp", 0)))
++			continue
++		if r_type == "hold_min":
++			if rule.get("exclude_home", false):
++				continue
++			vp += float(rule.get("vp", 0))
++			continue
++		return -1.0  # hold_more, marker and action mechanics
++	for hint in _get_secondary_awareness(player).get("vp_objective_hints", []):
++		if str(hint.get("kind", "")) in ["home", "any"]:
++			vp += float(hint.get("vp", 0.0))
++	return vp
++
++## KEEPER-REACH: the enemy that can be in range of `ev` by the end of the
++## enemy's next turn once the keeper has left, or "". On the board: a model
++## within Move + 12" (a Normal move and an Advance) of the objective's range,
++## or within charge reach (Move + 12" + 1", +6" when it may advance and charge)
++## of a model of ours (not the keeper's) within the objective's range + 6" — it
++## charges it, then piles in and consolidates onto the objective.
++## Reserves: as _keeper_release_threat, except that in battle round 2 only a
++## unit that can Deep Strike counts (no Strategic Reserves in our zone).
++static func _keeper_reach_threat(snapshot: Dictionary, ev: Dictionary, enemies: Dictionary,
++		player: int, enemy_round: int, keeper_group: Array) -> String:
++	var obj_pos: Vector2 = ev.get("position", Vector2.INF)
++	if obj_pos == Vector2.INF:
++		return "its position is unknown"
++	var od: Dictionary = _held_dup_objective_at(snapshot, obj_pos)
++	var mm = _mission_manager()
++	if not od.is_empty() and (mm == null or not mm.has_method("model_within_inches_of_objective")):
++		return "its terrain area cannot be measured"
++	var units: Dictionary = snapshot.get("units", {})
++	var near_models: Array = []  # [position, unit name] of our models near home
++	for f_uid in units:
++		var fu: Dictionary = units[f_uid]
++		if int(fu.get("owner", 0)) != player or str(f_uid) in keeper_group:
++			continue
++		var f_status = fu.get("status", 0)
++		if f_status == GameStateData.UnitStatus.UNDEPLOYED or f_status == GameStateData.UnitStatus.IN_RESERVES:
++			continue
++		for fm in fu.get("models", []):
++			if not fm.get("alive", true):
++				continue
++			var fp := _get_model_position(fm)
++			if fp == Vector2.INF:
++				continue
++			var f_near: bool
++			if od.is_empty():
++				f_near = fp.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX + 6.0 * PIXELS_PER_INCH
++			else:
++				f_near = mm.model_within_inches_of_objective(fm, od, 6.0)
++			if f_near:
++				near_models.append([fp, _dn(fu, str(f_uid))])
++	for e_uid in enemies:
++		var eu: Dictionary = enemies[e_uid]
++		var e_status = eu.get("status", 0)
++		if e_status == GameStateData.UnitStatus.UNDEPLOYED or e_status == GameStateData.UnitStatus.IN_RESERVES:
++			continue
++		var e_move := float(eu.get("meta", {}).get("stats", {}).get("move", 6))
++		var reach_in := e_move + 12.0
++		# a charge (+1" engagement range) into one of our models near home,
++		# then pile-in and consolidate onto it
++		var charge_in := e_move + 12.0 + 1.0
++		if eu.get("flags", {}).get("effect_advance_and_charge", false):
++			charge_in += 6.0
++		for model in eu.get("models", []):
++			if not model.get("alive", true):
++				continue
++			var mp := _get_model_position(model)
++			if mp == Vector2.INF:
++				continue
++			var near: bool
++			if od.is_empty():
++				near = mp.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX + reach_in * PIXELS_PER_INCH
++			else:
++				near = mm.model_within_inches_of_objective(model, od, reach_in)
++			if near:
++				return "%s can get within %.0f\" of it" % [_dn(eu, e_uid), reach_in]
++			for nm in near_models:
++				if mp.distance_to(nm[0]) <= charge_in * PIXELS_PER_INCH:
++					return "%s can charge %s near it and consolidate onto it" % [_dn(eu, e_uid), str(nm[1])]
++	# Reserves: the base check with no unit on the board — but in battle round
++	# 2 Strategic Reserves cannot be set up in our deployment zone, where home
++	# is: a unit in Strategic Reserves arrives on it only if it can Deep Strike
++	# (any other or unknown reserve type counts).
++	if enemy_round != 2:
++		return _keeper_release_threat(snapshot, ev, {}, player, enemy_round)
++	for r_uid in units:
++		var ru: Dictionary = units[r_uid]
++		if int(ru.get("owner", 0)) == player or ru.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES \
++				or _get_alive_models(ru).is_empty():
++			continue
++		var group: Array = [ru]
++		var r_att = ru.get("attachment_data", {})
++		if r_att is Dictionary:
++			for ch in r_att.get("attached_characters", []):
++				group.append(units.get(str(ch), {}))
++		if ru.get("attached_to", null) != null:
++			group.append(units.get(str(ru.attached_to), {}))
++		if str(ru.get("reserve_type", "")) != "strategic_reserves":
++			return "%s can arrive from reserves in the enemy's next turn" % _dn(ru, str(r_uid))
++		for gu in group:
++			for ab in gu.get("meta", {}).get("abilities", []):
++				var ab_name := str(ab.get("name", "")) if ab is Dictionary else str(ab)
++				if ab_name == "Deep Strike":
++					return "%s can arrive from reserves in the enemy's next turn (Deep Strike)" % _dn(ru, str(r_uid))
++	return ""
+ 
+ ## KEEPER-RELEASE: does our primary card pay for holding `ev` (a rule active
+ ## this round, or scoring at our next Command phase, counts it)? True when the
+@@ -10427,6 +10656,14 @@ static func _assign_units_to_objectives(
+ 			kr.objective_id, kr_uid, kr_oid, str(kr_t.action).to_upper(), float(kr_t.score),
+ 			float(kr.hold.score), kr.why])
+ 
++	# KEEPER-REACH (FIX_KEEPER_REACH): report the releases it widened.
++	for kr_uid in keeper_released:
++		if not (keeper_released[kr_uid].get("reach", []) as Array).is_empty() \
++				and str(assignments.get(kr_uid, {}).get("assign_pass", "")) == "keeper_release":
++			print("AIDecisionMaker: [KEEPER_REACH] %s: %s released — %s %s (%s)" % [
++				keeper_released[kr_uid].objective_id, kr_uid, str(assignments[kr_uid].get("action", "")).to_upper(),
++				str(assignments[kr_uid].get("objective_id", "")), "; ".join(keeper_released[kr_uid].reach)])
++
+ 	# =========================================================================
+ 	# PASS 2.5 (COORD-4): ATTACK-INTENT CONVERSION — melee seekers that would
+ 	# abandon their objective for a nearby enemy decide it HERE, at plan time,
+diff --git a/40k/tests/unit/test_ai_fix_keeper_reach.gd b/40k/tests/unit/test_ai_fix_keeper_reach.gd
+new file mode 100644
+index 0000000..012eaad
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_keeper_reach.gd
+@@ -0,0 +1,230 @@
++extends SceneTree
++
++# KEEPER-REACH (FIX_KEEPER_REACH): in battle round 1 KEEPER-RELEASE also frees
++# the sole keeper of our home objective when only its worst cases hold it
++# back — the max-roll threat reach (Move + 12" + 6"), a backup that must step
++# onto home in one move (a unit in reserves re-takes it too), or a primary
++# card that pays for home (priced: the target must beat holding by the margin
++# plus home's VP for one scoring). Released this way the keeper makes a Normal
++# move to the objective it reaches soonest among those that beat holding.
++# LLM-critic cluster keeper_reach (value-checked, 2026-10-30): in the Custodes
++# mirror a Custodian Guard unit held home in round 1 with the enemy 23-30"
++# away; moving it to the centre measured +6.17 VP [3.42, 8.91] (s7453) and
++# +4.83 [3.08, 6.59] (s7454), 36 rollouts each.
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_keeper_reach.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const HOME := Vector2(510, 340)      # our home objective (player 1 zone)
++const NML := Vector2(890, 560)       # a no man's land objective ~11" away
++const FAR_NML := Vector2(1370, 660)  # a no man's land objective ~23" away
++const ENEMY_HOME := Vector2(1250, 2060)
++const ENEMY_DIR := Vector2(-400, 900)  # from home, away from the no man's land objectives
++
++# Immovable Object: centre + per_objective that excludes home.
++const IMMOVABLE_RULES := [
++	{"type": "hold_central", "vp": 3, "when": "eot"},
++	{"type": "per_objective", "exclude_home": true, "vp_per": 5, "when": "command", "rounds": [2, 5]},
++]
++# Determined Acquisition: per_objective counts home (3 VP a scoring).
++const DETERMINED_RULES := [
++	{"type": "per_new_objective", "vp_per": 2, "when": "eot"},
++	{"type": "per_objective", "exclude_home": false, "vp_per": 3, "when": "command", "rounds": [2, 5]},
++	{"type": "per_objective", "vp_per": 3, "zone": "enemy_territory", "when": "command", "rounds": [2, 5]},
++]
++# A per-objective rule that only pays while home is held.
++const HOME_REQUIRED_RULES := [
++	{"type": "per_objective", "exclude_home": true, "require_hold_home": true, "vp_per": 3, "when": "command", "rounds": [2, 5]},
++]
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Sole keeper held back only by worst cases (KEEPER-REACH) ===\n")
++	AIDecisionMaker._config_overrides["FIX_KEEPER_REACH"] = 1.0
++	test_keeper_leaves_when_only_the_max_roll_reach_holds_it()
++	test_keeper_holds_when_the_enemy_can_walk_onto_home()
++	test_keeper_holds_when_a_unit_left_near_home_can_be_charged()
++	test_keeper_holds_without_reserves_or_a_backup()
++	test_round_two_enemy_strategic_reserves_cannot_reach_home()
++	test_round_two_enemy_deep_strike_keeps_the_keeper()
++	test_priced_home_primary_releases_a_big_gain()
++	test_home_required_primary_keeps_the_keeper()
++	test_secondary_that_pays_for_home_keeps_the_keeper()
++	test_round_two_is_the_base_rule()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_KEEPER_REACH")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot(battle_round: int = 1, first_turn_player: int = 1) -> Dictionary:
++	return {"battle_round": battle_round, "meta": {"battle_round": battle_round, "first_turn_player": first_turn_player},
++		"board": {"objectives": [
++			{"id": "obj_home_1", "position": HOME, "zone": "player1"},
++			{"id": "obj_nml_1", "position": NML, "zone": "no_mans_land"},
++			{"id": "obj_nml_2", "position": FAR_NML, "zone": "no_mans_land"},
++			{"id": "obj_home_2", "position": ENEMY_HOME, "zone": "player2"},
++		], "terrain_features": []}, "units": {}}
++
++# `n` models (OC `oc` each) whose centroid is at `pos`.
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int,
++		toughness: int, wounds: int, oc: int, move: int, points: int,
++		status: int = GameStateData.UnitStatus.DEPLOYED) -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 40,
++			"base_type": "circular", "base_dimensions": {},
++			"position": Vector2(pos.x + (i - (n - 1) / 2.0) * 45.0, pos.y), "wounds": wounds, "current_wounds": wounds})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": status,
++		"meta": {"name": unit_id, "points": points, "stats": {"move": move, "toughness": toughness, "save": 2,
++			"wounds": wounds, "leadership": 6, "objective_control": oc}, "keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++
++# The s7453/s7454 shape: a 240 pt Custodian Guard unit alone on home, nobody
++# within one move of it, a unit of ours in reserves, an enemy M6 unit 24"+
++# from home (inside the max-roll 6+12+6" reach, outside Move + 12").
++func _board(enemy_inches: float = 24.5, battle_round: int = 1, with_reserve: bool = true,
++		first_turn_player: int = 1) -> Dictionary:
++	var snap = _snapshot(battle_round, first_turn_player)
++	_add_unit(snap, "keeper", 1, HOME, 3, 7, 5, 3, 8, 240)
++	if with_reserve:
++		_add_unit(snap, "allarus", 1, Vector2.ZERO, 3, 7, 4, 2, 7, 195, GameStateData.UnitStatus.IN_RESERVES)
++	# nearest model ~`enemy_inches` from home's centre
++	_add_unit(snap, "guard_p2", 2, HOME + ENEMY_DIR.normalized() * (enemy_inches * PX) + Vector2(45, 0), 3, 7, 5, 3, 6, 240)
++	return snap
++
++func _plan(snap: Dictionary, rules: Array, secondary_hints: Array = []) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p1 = {"card_name": "test", "active_rules": rules.size(), "vp_rules": rules.duplicate(true),
++		"objective_pressure": 0.0, "enemy_home_bonus": 0.0, "central_bonus": 0.0, "hold_home_required": false,
++		"kill_pressure": false, "quarters": false}
++	AIDecisionMaker._secondary_awareness_p1 = {} if secondary_hints.is_empty() else {"vp_objective_hints": secondary_hints.duplicate(true)}
++	var friendlies = {}
++	var enemies = {}
++	var movable = {}
++	for uid in snap.units:
++		var u = snap.units[uid]
++		if int(u.owner) == 1:
++			friendlies[uid] = u
++		elif int(u.status) != GameStateData.UnitStatus.IN_RESERVES:
++			enemies[uid] = u
++	movable["keeper"] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var br := int(snap.meta.battle_round)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 1, enemies, friendlies, br)
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 1, br)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	for c in AIDecisionMaker._last_movement_candidates.get("keeper", []):
++		print("    keeper candidate %s %s score %.1f" % [c.get("action", ""), c.get("objective_id", ""), float(c.get("score", 0.0))])
++	AIDecisionMaker._primary_awareness_p1 = {}
++	AIDecisionMaker._secondary_awareness_p1 = {}
++	return plan
++
++func _holds_home(plan: Dictionary) -> bool:
++	var a: Dictionary = plan.get("keeper", {})
++	return str(a.get("objective_id", "")) == "obj_home_1" and str(a.get("action", "")) == "hold"
++
++func _normal_move_forward(plan: Dictionary) -> bool:
++	var a: Dictionary = plan.get("keeper", {})
++	return str(a.get("objective_id", "")) == "obj_nml_1" and str(a.get("action", "")) == "move" \
++		and str(a.get("assign_pass", "")) == "keeper_release"
++
++func test_keeper_leaves_when_only_the_max_roll_reach_holds_it() -> void:
++	print("\n--- round 1, Immovable Object, enemy M6 24.5\" away, a unit of ours in reserves ---")
++	var plan = _plan(_board(), IMMOVABLE_RULES)
++	_assert(_normal_move_forward(plan), "the keeper leaves home for obj_nml_1 by Normal move (%s %s [%s])" % [
++		plan.get("keeper", {}).get("action", ""), plan.get("keeper", {}).get("objective_id", ""), plan.get("keeper", {}).get("assign_pass", "")])
++	_assert(str(plan.get("keeper", {}).get("coordination_note", "")).find("from reserves") >= 0,
++		"its card names the reserve unit that re-takes home (%s)" % str(plan.get("keeper", {}).get("coordination_note", "")))
++
++func test_keeper_holds_when_the_enemy_can_walk_onto_home() -> void:
++	print("\n--- same, enemy M6 18\" away (Move + 12\" reaches home's range) ---")
++	var plan = _plan(_board(18.0), IMMOVABLE_RULES)
++	_assert(_holds_home(plan), "an enemy that can move onto home next turn keeps the keeper")
++
++func test_keeper_holds_when_a_unit_left_near_home_can_be_charged() -> void:
++	print("\n--- same as the first, but a unit of ours stands 6\" from home toward the enemy (it can be charged) ---")
++	var snap = _board()
++	_add_unit(snap, "servitors", 1, HOME + ENEMY_DIR.normalized() * (6.0 * PX), 1, 4, 3, 1, 5, 30)
++	var plan = _plan(snap, IMMOVABLE_RULES)
++	_assert(_holds_home(plan), "an enemy that can charge a unit of ours near home and consolidate onto it keeps the keeper")
++
++func test_keeper_holds_without_reserves_or_a_backup() -> void:
++	print("\n--- same as the first, no unit in reserves ---")
++	var plan = _plan(_board(24.5, 1, false), IMMOVABLE_RULES)
++	_assert(_holds_home(plan), "with nobody to re-take home, the keeper holds")
++
++func test_round_two_enemy_strategic_reserves_cannot_reach_home() -> void:
++	print("\n--- going second (enemy's next turn is round 2), enemy unit in Strategic Reserves ---")
++	var snap = _board(24.5, 1, true, 2)
++	_add_unit(snap, "bikes_p2", 2, Vector2.ZERO, 3, 5, 2, 2, 12, 120, GameStateData.UnitStatus.IN_RESERVES)
++	snap.units["bikes_p2"]["reserve_type"] = "strategic_reserves"
++	var plan = _plan(snap, IMMOVABLE_RULES)
++	_assert(_normal_move_forward(plan), "Strategic Reserves cannot be set up in our zone in round 2: the keeper leaves (%s %s)" % [
++		plan.get("keeper", {}).get("action", ""), plan.get("keeper", {}).get("objective_id", "")])
++
++func test_round_two_enemy_deep_strike_keeps_the_keeper() -> void:
++	print("\n--- going second, enemy unit in reserves that can Deep Strike ---")
++	var snap = _board(24.5, 1, true, 2)
++	_add_unit(snap, "allarus_p2", 2, Vector2.ZERO, 3, 7, 4, 2, 7, 195, GameStateData.UnitStatus.IN_RESERVES)
++	snap.units["allarus_p2"]["reserve_type"] = "deep_strike"
++	snap.units["allarus_p2"].meta["abilities"] = ["Deep Strike"]
++	var plan = _plan(snap, IMMOVABLE_RULES)
++	_assert(_holds_home(plan), "a Deep Strike unit can land on our empty home next turn: the keeper holds")
++
++func test_priced_home_primary_releases_a_big_gain() -> void:
++	print("\n--- Determined Acquisition (home pays 3 VP a scoring), enemy far away ---")
++	var plan = _plan(_board(40.0), DETERMINED_RULES)
++	var a: Dictionary = plan.get("keeper", {})
++	var cands: Array = AIDecisionMaker._last_movement_candidates.get("keeper", [])
++	var hold_score := -INF
++	var best := -INF
++	for c in cands:
++		if str(c.get("action", "")) == "hold":
++			hold_score = float(c.score)
++		elif str(c.get("objective_id", "")) != "obj_home_1":
++			best = maxf(best, float(c.score))
++	var min_gain := float(AIDecisionMaker.KEEPER_RELEASE_MIN_GAIN)
++	print("  hold %.1f, best elsewhere %.1f" % [hold_score, best])
++	if best >= hold_score + min_gain + 3.0:
++		_assert(_normal_move_forward(plan), "gain %.1f >= %.1f + 3 VP: the keeper leaves by Normal move" % [best - hold_score, min_gain])
++	else:
++		_assert(_holds_home(plan), "gain %.1f < %.1f + 3 VP: the keeper holds" % [best - hold_score, min_gain])
++
++func test_home_required_primary_keeps_the_keeper() -> void:
++	print("\n--- a per-objective rule that pays only while home is held ---")
++	var plan = _plan(_board(40.0), HOME_REQUIRED_RULES)
++	_assert(_holds_home(plan), "require_hold_home cannot be priced: the keeper holds")
++
++func test_secondary_that_pays_for_home_keeps_the_keeper() -> void:
++	print("\n--- first board + a secondary that pays 6 VP for home (cost beats the gain) ---")
++	var plan = _plan(_board(), IMMOVABLE_RULES, [{"kind": "home", "vp": 6.0, "card": "Test Stronghold"}])
++	_assert(_holds_home(plan), "a secondary card that pays for home is part of the cost")
++
++func test_round_two_is_the_base_rule() -> void:
++	print("\n--- first board in battle round 2 ---")
++	var plan = _plan(_board(24.5, 2), IMMOVABLE_RULES)
++	_assert(_holds_home(plan), "from round 2 KEEPER-RELEASE's own rule applies (the keeper holds)")
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_KEEPER_REACH = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_KEEPER_REACH"] = 0.0
++	var plan = _plan(_board(), IMMOVABLE_RULES)
++	AIDecisionMaker._config_overrides["FIX_KEEPER_REACH"] = 1.0
++	_assert(_holds_home(plan), "with the fix off the sole keeper holds home as before")

@@ -1,0 +1,232 @@
+[
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r1_p2_movement_2_0",
+  "case": "20261030_160548_r4c18_00__s7469_r1_p2_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent a short-range Burna unit to screen an empty backfield gap on round 1, although no enemy can reach it soon. The Burna unit leaves the OC it could add at home.",
+  "better_option": "Hold obj_home_2 (on objective, OC needed)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r2_p2_movement_1_1",
+  "case": "20261030_160548_r4c18_00__s7469_r2_p2_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_WARBIKERS_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI deep strikes 10 Stormboyz (OC1, 1 wound each) into the enemy zone next to NML 1. They may take that objective, but the Custodians and Prosecutors can charge and kill them.",
+  "better_option": "Warbikers Alpha arrives",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2",
+  "case": "20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Stormboyz (140pts) charge a T7, 2+ save, 4+ invulnerable Blade Champion on an objective at 28% odds. The 8.9 expected damage is far too high.",
+  "better_option": "unlisted: do not charge with Stormboyz; keep them back or screen",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r2_p1_movement_2_3",
+  "case": "20261030_160548_r4c18_00__s7469_r2_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI kept Beta at home as the sole holder. The OC data says Beta is not in range, so it holds nothing, and a 9 OC unit idles far from the fight.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~5 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r2_p1_shooting_1_4",
+  "case": "20261030_160548_r4c18_00__s7469_r2_p1_shooting_1_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot at Lootas Gamma for 0.9 expected damage and a 12% kill chance. Stormboyz are inside rapid fire range and give 2.33 expected damage.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Stormboyz (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r2_p1_shooting_2_5",
+  "case": "20261030_160548_r4c18_00__s7469_r2_p1_shooting_2_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot at far Lootas Beta for 0.9 expected damage. Closer Stormboyz would take 2.3 expected damage, and they are the nearer threat.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Stormboyz (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r3_p2_movement_2_6",
+  "case": "20261030_160548_r4c18_00__s7469_r3_p2_movement_2_6.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Lootas Beta back to obj_home_2, which already has 12 OC and no enemy nearby. This wastes the unit's firing lane and a chance to contest the centre.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r3_p1_movement_2_7",
+  "case": "20261030_160548_r4c18_00__s7469_r3_p1_movement_2_7.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "objective": "obj_nml_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI chose to leave obj_nml_1 for a far objective that needs two turns. It scored Hold at 28.75 but picked Move at 19.0 anyway. The reasoning text says it stays with the army, which contradicts the move.",
+  "better_option": "Hold obj_nml_1 (on objective, OC needed \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r3_p1_shooting_2_8",
+  "case": "20261030_160548_r4c18_00__s7469_r3_p1_shooting_2_8.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "target": "U_LOOTAS_B"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot at Lootas Gamma, which other units already hit for 4.38 expected damage against 4 HP. This is likely wasted overkill.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Lootas Beta (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00"
+ }
+]

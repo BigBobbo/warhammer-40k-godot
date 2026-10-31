@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "created": "2026-10-30 06:33:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7431_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI kept Beta on a home objective that no enemy can reach this turn. It also sent three units to NML 2 and none to CENTER. Fix: Cap the units sent to one objective at what is needed for OC and safety, for example one unit against no threat. Release a hold unit when other units already keep the home objective safe and no enemy can reach it this turn. Send the freed unit to the nearest uncommitted objective, such as CENTER.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7431_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "pos:1460,2050",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta holds obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "verdict": "pending",
+ "version": 1
+}

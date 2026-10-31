@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_1 (flipping it (enemy holds with OC 11), needs 22 more OC after this unit \u2014 worth ~6 VP)",
+ "created": "2026-10-30 02:39:37",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7426_r3_p2_movement_2",
+ "note": "[LLM critic, high conf] The AI sent a 4-model Burna unit alone on a 30 in advance to the enemy home objective, which holds OC 33. It gave up the nearby obj_nml_2 because other units already hold it. Fix: When the override reassigns a unit, reject any target where the unit's OC plus allies' OC cannot beat the enemy OC. Scale expected_vp by the chance of flipping. If no valid target exists, keep the unit at the best nearby objective as extra OC and a screen. Also add a penalty for a lone unit moving far into enemy territory, and prefer the closest objective or a central support position.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7426_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:320,510",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta advances toward obj_home_1 (flipping it (enemy holds with OC 11), needs 22 more OC after this unit)",
+ "verdict": "bad",
+ "version": 1
+}

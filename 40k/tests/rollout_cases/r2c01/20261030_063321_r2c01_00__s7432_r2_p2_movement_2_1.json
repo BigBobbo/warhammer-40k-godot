@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+ "created": "2026-10-30 06:34:33",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7432_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI chose Screen at (22.8,47.0) with score 8.0 over Move obj_nml_2 at 33.9. The override reason it gave was about the lone trip to obj_center, not about obj_nml_2. Fix: Apply the lone-unit override only to objectives where the enemy OC far exceeds ours. Give Screen a score that depends on a real threat to a friendly unit, and make it lose to a nearby held objective that is contested. Count the OC a unit adds to a held objective when the friendly holder is engaged and may die.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7432_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A_P2",
+  "choice": "pos:913,1881",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad screens at (913,1881) \u2014 screening valuable friendlies from enemy threats",
+ "verdict": "pending",
+ "version": 1
+}

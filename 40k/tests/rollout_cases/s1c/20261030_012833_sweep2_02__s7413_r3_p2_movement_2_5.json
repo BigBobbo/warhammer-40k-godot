@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (flipping it (enemy holds with OC 17), needs 3 more OC after this unit \u2014 worth ~7 VP)",
+ "created": "2026-10-30 01:34:21",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7413_r3_p2_movement_2",
+ "note": "[LLM critic, high conf] Delta leaves a safe held objective and walks 18.9 in toward an enemy blob with OC 27. It can arrive only in 2 turns and may be killed alone. Fix: Do not let a capture override send a unit to flip an objective when the enemy OC in range is more than the combined OC the AI can bring in 2 turns. Cap objective_priority and expected_vp when contest_race and threat_delta show the unit cannot win the objective. Keep units that already hold a safe objective, or join them with a partner, instead of sending them alone.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7413_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta moves toward obj_center (moving toward charge target Custodian Guard Sodality Alpha, obj: 18.9\" away)",
+ "verdict": "bad",
+ "version": 1
+}

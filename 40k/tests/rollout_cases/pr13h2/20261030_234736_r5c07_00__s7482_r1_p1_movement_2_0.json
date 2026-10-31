@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 12\"))",
+ "created": "2026-10-30 23:48:33",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7482_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI chose a weak 'Screen' move to (24,24) with no objective. It rejected Advance obj_center, which scored 25.03 against 4.96, because of an unrelated override about racing for obj_home_2. Fix: Apply the 'enemy too strong to race' override only to the specific objective it concerns, not to every objective. Let a screen option override a higher-scoring objective option only when an enemy threat can reach the screened unit next turn. Scale screen_base by real threat proximity.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7482_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:960,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz screens at (960,960) \u2014 backfield gap (nearest friendly: 12\")",
+ "verdict": "bad",
+ "version": 1
+}

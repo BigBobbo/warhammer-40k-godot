@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 14\"))",
+ "created": "2026-10-30 02:14:43",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7423_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] Gretchin were sent on a long move to a distant empty backfield gap. The AI rejected obj_center and NML 1 and used a screen score that has no threat check. Fix: Score a screen position only by the enemy deep-strike or move threat it blocks, such as reserves arriving or fast units able to reach a vulnerable unit. Cap the screen distance from the army. If the best objective is overridden, prefer a position near the army that supports an objective, such as a near-army hold on obj_home_1, over a distant gap with no threat.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7423_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:1600,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 14\")",
+ "verdict": "bad",
+ "version": 1
+}

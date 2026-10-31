@@ -1,0 +1,79 @@
+[
+ {
+  "job": "20261030_234730_r5c09_00__s7484_r1_p1_movement_1_0",
+  "case": "20261030_234730_r5c09_00__s7484_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Burna Boyz Beta to a far-corner 'backfield gap' screen position. The screen scored 2.76 and the moves to objectives scored 17 to 26. The 'screen_denial' assignment overrode the better options.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7484",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234730_r5c09_00"
+ },
+ {
+  "job": "20261030_234730_r5c09_00__s7484_r1_p1_movement_2_1",
+  "case": "20261030_234730_r5c09_00__s7484_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_home_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a lone 10-model Gretchin unit about 33 in across the board into an empty gap, while the army-supporting options scored much higher. The screen_distance term of -10.21 drives the score down, yet screen_base of 8.0 and denial_priority of 3.0 still outweigh it. The Gretchin also leave home objective cover.",
+  "better_option": "Hold obj_home_1 (on objective, OC needed \u2014 worth ~2 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7484",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234730_r5c09_00"
+ },
+ {
+  "job": "20261030_234730_r5c09_00__s7484_r2_p2_charge_1_2",
+  "case": "20261030_234730_r5c09_00__s7484_r2_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charged a 28% chance target with a heavy negative net chance term, and the final score was positive only because of large bonus terms, so the charge is poor value.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7484",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234730_r5c09_00"
+ }
+]

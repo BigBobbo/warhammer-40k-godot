@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+ "created": "2026-10-30 23:53:47",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7489_r2_p1_shooting_2",
+ "note": "[LLM critic, low conf] The AI shot the Big shoota at Gamma. Expected damage is 0.05 for both targets, so the choice barely matters. It picked on a tiny margin that ignores range and objective value. Fix: Compute expected damage with the rapid fire bonus when the nearest model is within half range. Skip low-value shots when no kill is possible. Favour the target that other units are already damaging.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7489_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "desc:Big shoota \u2192 enemy Custodian Guard Sodality Gamma (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha shoots at Custodian Guard Sodality Gamma \u2014 expected 0.1 dmg vs 14 HP (0% kill)",
+ "verdict": "pending",
+ "version": 1
+}

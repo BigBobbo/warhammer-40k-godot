@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (flipping it (enemy holds with OC 22), needs 7 more OC after this unit \u2014 worth ~2 VP)",
+ "created": "2026-10-30 16:08:45",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7468_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a fragile Lootas unit forward to obj_center, where it adds only 1 OC and enters the threat range of several Custodian melee units. It left Hold obj_home_2 as the top score. Fix: Do not let an assigned objective capture override the choice when the option scores far lower than the best alternative. Block an advance for ranged-heavy, 1 OC units when the OC they add cannot close the gap. Also block it when the end point is in enemy charge range. Keep such units shooting from a safe position.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7468_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha advances toward obj_center (flipping it (enemy holds with OC 22), needs 7 more OC after this unit)",
+ "verdict": "bad",
+ "version": 1
+}

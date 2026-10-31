@@ -1,0 +1,131 @@
+[
+ {
+  "job": "20261030_160307_r4c05_00__s7456_r1_p1_movement_2_0",
+  "case": "20261030_160307_r4c05_00__s7456_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Beta heads to reinforce a home objective that is already held with no enemy near. The center objective stays empty in round 1.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7456",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160307_r4c05_00"
+ },
+ {
+  "job": "20261030_160307_r4c05_00__s7456_r1_p2_movement_2_1",
+  "case": "20261030_160307_r4c05_00__s7456_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A_P2",
+    "objective": "obj_home_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent the Prosecutor Squad to a deep strike screen point. It left its own home objective uncontrolled, and a 4-wound unit is a weak screen.",
+  "better_option": "Advance obj_home_2 (advancing for extra range)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7456",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160307_r4c05_00"
+ },
+ {
+  "job": "20261030_160307_r4c05_00__s7456_r2_p1_movement_1_2",
+  "case": "20261030_160307_r4c05_00__s7456_r2_p1_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI deep strikes Custodian Guard Sodality Delta near the board centre but not onto the CENTER objective. The unit takes no objective on arrival and stays about 6.9 in away. The choice between the two reserve units is only a small difference in score.",
+  "better_option": "unlisted: Custodian Guard Sodality Delta arrives within range of obj_center, if a legal spot exists",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7456",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160307_r4c05_00"
+ },
+ {
+  "job": "20261030_160307_r4c05_00__s7456_r3_p2_movement_2_3",
+  "case": "20261030_160307_r4c05_00__s7456_r3_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "objective": "obj_nml_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends the 15-wound Guard unit 19 in toward an enemy-held centre it cannot reach this turn. Blade Champion Beta can hold obj_nml_2 alone, so the move is defensible. But the unit arrives alone, in pieces, against a stronger enemy group.",
+  "better_option": "Hold obj_nml_2 (on objective, OC needed \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7456",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160307_r4c05_00"
+ },
+ {
+  "job": "20261030_160307_r4c05_00__s7456_r3_p2_shooting_1_4",
+  "case": "20261030_160307_r4c05_00__s7456_r3_p2_shooting_1_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "target": "U_ALLARUS_CUSTODIANS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot at Delta (1.78 expected damage, 30% kill). Allarus Custodians has 4 wounds left and gives more expected damage (2.22) and a higher kill chance (56%).",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Allarus Custodians (P1)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7456",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160307_r4c05_00"
+ }
+]

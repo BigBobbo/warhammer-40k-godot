@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 16\"))",
+ "created": "2026-10-30 01:48:55",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7408_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a weak 3-model unit alone toward a far-right backfield gap. Its own reasoning says it is staying with the army, which contradicts this move. Advance obj_nml_1 scored 33.9 against 4.0 for the screen. Fix: Never let a screen assignment override an objective option that scores far higher. Score screens by the enemy threat in range of the screening position. Penalise a screen for splitting a small unit away from its supporting units. Reject a screen position more than one move away from friendly units.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7408_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "pos:1600,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha screens at (1600,960) \u2014 backfield gap (nearest friendly: 16\")",
+ "verdict": "bad",
+ "version": 1
+}

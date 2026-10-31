@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 25\"))",
+ "created": "2026-10-30 23:49:38",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7486_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI chose a screen spot far from the army, even though its own reasoning says it wants to stay with the army. The unit's turn is mostly wasted. Fix: Score a screen position by its distance to the nearest friendly unit and its closeness to the real enemy approach lane. Reject any screen position more than about 12 in from friendly units. Make the override that blocks a race compare against the actual threat, not total enemy OC.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7486_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:1600,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (1600,960) \u2014 backfield gap (nearest friendly: 25\")",
+ "verdict": "pending",
+ "version": 1
+}

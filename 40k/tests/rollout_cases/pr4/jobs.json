@@ -1,0 +1,82 @@
+[
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1",
+  "case": "20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI kept Alpha on HOME 1 because it is the sole holder. Nothing threatens the objective in round 1, and other nearby units could hold it instead.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00",
+  "from_batch": "r2c06"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4",
+  "case": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta (OC3) reinforces obj_center, which is already held with OC 6 and has a second unit (Gamma) assigned. The 'enemy can bring ~7' threat is weak because the nearest enemies are over 20 in away.",
+  "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00",
+  "from_batch": "r2c06"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p2_charge_1_11",
+  "case": "20261030_063500_r2c06_00__s7437_r2_p2_charge_1_11.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI declares an 8% charge. The ch_chance term is large and negative (-28.92), but ch_charge_target_value (31.55), ch_damage (17.78) and order_round_aggression (7.28) outweigh it. The total score is +3.9 for a charge that fails 92% of the time.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7437",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063500_r2c06_00",
+  "from_batch": "r2c06"
+ }
+]

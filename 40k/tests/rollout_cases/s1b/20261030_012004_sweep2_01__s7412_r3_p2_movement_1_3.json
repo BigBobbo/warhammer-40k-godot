@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (racing for it (enemy can have ~17 OC there before we arrive in 2 turns), needs 3 more OC after this unit \u2014 worth ~6 VP)",
+ "created": "2026-10-30 01:24:34",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7412_r3_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends a lone 4-model OC 2 squad to obj_nml_1, a 2-turn trip. The plan itself says the enemy can bring about 17 OC and we need 3 more OC after this unit, so the squad probably cannot hold it. Fix: When the plan says the enemy can bring more OC than we can, scale objective_priority and expected_vp by the estimated chance of holding. Do not send a lone unit to an objective it loses the race for. Reduce double counting between objective_priority, expected_vp and the secondary terms. Prefer to join friendly units at the objective with the best chance to hold, or den",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7412_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A_P2",
+  "choice": "pos:1450,900",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad moves toward obj_nml_1 (racing for it (enemy can have ~17 OC there before we arrive in 2 turns), needs 3 more OC after this unit, obj: 16.8\" away)",
+ "verdict": "pending",
+ "version": 1
+}

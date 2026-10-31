@@ -1,0 +1,184 @@
+[
+ {
+  "job": "20261030_063341_r2c03_00__s7434_r1_p1_movement_1_0",
+  "case": "20261030_063341_r2c03_00__s7434_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta advances toward obj_center, but Alpha already heads there. Two Custodian Guard units at one objective is more OC than the plan needs, and Beta cannot arrive for two turns.",
+  "better_option": "Advance obj_nml_2",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7434",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063341_r2c03_00"
+ },
+ {
+  "job": "20261030_063341_r2c03_00__s7434_r2_p2_movement_2_1",
+  "case": "20261030_063341_r2c03_00__s7434_r2_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Beta 31 in across the board to flip an enemy-held home objective. It rejected obj_nml_1, which scored 26.9, because that objective already had enough OC. The move is a 4-turn trip with no chance to win the fight at the end.",
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~12 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7434",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063341_r2c03_00"
+ },
+ {
+  "job": "20261030_063341_r2c03_00__s7434_r3_p2_movement_1_2",
+  "case": "20261030_063341_r2c03_00__s7434_r3_p2_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "objective": "obj_nml_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Delta leaves a held objective, obj_nml_1, for a 3-turn trip to obj_home_1. It would arrive alone against 14 OC and fight Gamma and Prosecutors. The hold option scored 20.4 against 7.0, but an override sent Delta away.",
+  "better_option": "Hold obj_nml_1 (on objective, OC needed \u2014 worth ~2 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7434",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063341_r2c03_00"
+ },
+ {
+  "job": "20261030_063341_r2c03_00__s7434_r3_p2_movement_2_3",
+  "case": "20261030_063341_r2c03_00__s7434_r3_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI keeps Beta on the center objective, where five other units already hold it, and the 'freed to move' note shows it knows this. Beta stays idle instead of helping elsewhere.",
+  "better_option": "Move obj_home_2",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7434",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063341_r2c03_00"
+ },
+ {
+  "job": "20261030_063341_r2c03_00__s7434_r3_p1_movement_1_4",
+  "case": "20261030_063341_r2c03_00__s7434_r3_p1_movement_1_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_home_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 3,
+  "summary": "Gamma, the last real unit with OC 3, leaves home 1 for obj_nml_1. It cannot reach the objective this turn and faces far stronger enemies there. The Prosecutors have OC 2 and are the only holders left at home.",
+  "better_option": "Hold obj_home_1 (on objective, OC needed \u2014 worth ~13 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7434",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063341_r2c03_00"
+ },
+ {
+  "job": "20261030_063341_r2c03_00__s7434_r3_p1_shooting_1_5",
+  "case": "20261030_063341_r2c03_00__s7434_r3_p1_shooting_1_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "target": "U_CUSTODIAN_GUARD_D_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gamma shoots Delta for about 1.8 expected damage. Rapid-fire range and the Blade Champion in sight were not weighed. Delta is the best listed target, but the pick is weak.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7434",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063341_r2c03_00"
+ },
+ {
+  "job": "20261030_063341_r2c03_00__s7434_r3_p1_charge_1_6",
+  "case": "20261030_063341_r2c03_00__s7434_r3_p1_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "targets": [
+     "U_BLADE_CHAMPION_A_P2"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges Delta, a fresh 3-model Custodian Guard unit with 13 wounds, with a unit that is slightly weaker. The charge likely trades evenly at best, then leaves Gamma exposed to Blade Champion Alpha and other P2 units.",
+  "better_option": "Charge Blade Champion Alpha (6.6\" away, 58% chance)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7434",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063341_r2c03_00"
+ }
+]

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+ "created": "2026-10-30 16:06:48",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7457_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI moved the Prosecutor Squad off obj_center to a flat-score screen spot, although holding the centre scored 24.64 and screening scored 8.0. Fix: Only let a screen assignment override when a named enemy threat can reach the protected unit next turn. Never let it override when the unit is holding an objective with a needed OC. Otherwise, compare the screen score with the best scored option.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7457_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:1184,985",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad screens at (1184,985) \u2014 screening valuable friendlies from enemy threats",
+ "verdict": "bad",
+ "version": 1
+}

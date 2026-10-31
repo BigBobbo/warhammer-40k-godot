@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_2 (racing for it (enemy can have ~30 OC there before we arrive in 3 turns), needs 2 more OC after this unit \u2014 worth ~3 VP with the 2 other objective(s) this plan takes \u2014 quicker to reach than Custodian Guard Sodality Gamma (38.1\" away, there in 5 turns at M8 vs 42.1\" away, there in 5 turns at M8) \u2014 worth ~6 VP)",
+ "created": "2026-10-30 23:46:54",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7475_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends a lone Custodian Guard unit 38 inches into the enemy zone. It would take 3 turns to get there, and it would face several enemy units. The AI's own contest_race term (-13.08) says the enemy gets there first. Fix: When the capture fallback target is badly lost (contest_race strongly negative) or lies deep in enemy reach, drop the override. Instead, send the unit to the best objective already in friendly reach or to support a weakly held objective. Apply a lone-unit risk penalty that grows with the number of nearby enemy units. Cap expected_vp by the chance ",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7475_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:429,1914",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha advances toward obj_nml_2 (racing for it (enemy can have ~30 OC there before we arrive in 3 turns), needs 2 more OC after this unit \u2014 worth ~3 VP with the 2 other objective(s) this plan takes \u2014 quicker to reach than Custodian Guard Sodality Gamma (38.1\" away, there in 5 turns at M8 vs 42.1\" away, there in 5 turns at M8))",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (capturing it (enemy can bring ~11 OC next move), needs 3 more OC after this unit \u2014 worth ~7 VP)",
+ "created": "2026-10-30 16:03:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7455_r2_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI sends a cheap 4-wound squad alone toward the center. It cannot reach the objective on a normal move and will probably be charged and killed before support arrives. Fix: Count expected_vp only if the unit and its support can really hold the objective at the end of the next enemy turn. Scale the threat_delta penalty by enemy charge reach and by how fragile the unit is. Do not send a lone low-toughness unit alone into a contested objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7455_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad moves toward obj_center (capturing it (enemy can bring ~11 OC next move), needs 3 more OC after this unit, obj: 9.5\" away)",
+ "verdict": "pending",
+ "version": 1
+}

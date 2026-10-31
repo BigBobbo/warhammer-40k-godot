@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (supporting nearby objective \u2014 worth ~7 VP)",
+ "created": "2026-10-30 16:05:13",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7455_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] Beta leaves obj_nml_2 to move toward obj_center. The center is already held and Beta is 17.8 in away, so it will need two turns to arrive. Fix: Do not let an assigned or override move beat a higher-scoring hold. Cut expected_vp and objective_priority for an objective already held by us, and for units that cannot arrive this turn. Count the OC already on the objective that the unit would leave. Nml_2 still has Allarus (OC 2) and Blade Champion Gamma (OC 2) nearby, so leaving is not a loss on that front. Beta still has value at the center.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7455_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_center (moving toward charge target Blade Champion Beta, obj: 17.8\" away)",
+ "verdict": "pending",
+ "version": 1
+}

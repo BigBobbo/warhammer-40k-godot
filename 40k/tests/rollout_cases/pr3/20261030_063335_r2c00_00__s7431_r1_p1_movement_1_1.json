@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_2 (flipping it (enemy holds with OC 6) \u2014 switched from obj_nml_2 to backfill for a unit that went hunting \u2014 worth ~6 VP)",
+ "created": "2026-10-30 06:34:13",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7431_r1_p1_movement_1",
+ "note": "[LLM critic, high conf] The AI sent a lone 3-model Custodian Guard unit 44.9 in across the board to the enemy home objective. That option had the lowest score and took 4 turns to reach. Fix: Do not let the capture or backfill override select an objective that is more than 2 turns away, or one where the enemy holds OC above the unit's own. Keep the best-scoring remaining option instead, such as supporting the central objective or obj_nml_1. Add a penalty for sending one unit alone into the enemy deployment zone.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7431_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:1460,2050",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma advances toward obj_home_2 (flipping it (enemy holds with OC 6) \u2014 switched from obj_nml_2 to backfill for a unit that went hunting)",
+ "verdict": "bad",
+ "version": 1
+}

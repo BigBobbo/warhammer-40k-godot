@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_2 (flipping it (enemy holds with OC 1), needs 10 more OC after this unit \u2014 worth ~3 VP)",
+ "created": "2026-10-30 02:19:58",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7423_r3_p1_movement_1",
+ "note": "[LLM critic, high conf] The AI sends 4 Burna Boyz alone on a 3-turn trip to the enemy home objective. It does this only because obj_center was already given to other units. Fix: When the capture assignment sends a unit to an objective more than 2 turns away, check that the unit can win it. Count the OC the unit brings against the enemy OC there and the enemy units that can reach it. If it cannot win, fall back to the unit's best-scoring nearby objective or a support role. Also add a large penalty for a lone unit ending alone near several enemy units.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7423_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:1420,2050",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta advances toward obj_home_2 (flipping it (enemy holds with OC 1), needs 10 more OC after this unit)",
+ "verdict": "bad",
+ "version": 1
+}

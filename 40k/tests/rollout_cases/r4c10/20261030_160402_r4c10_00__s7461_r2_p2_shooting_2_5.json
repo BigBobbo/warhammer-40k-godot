@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Kommandos (P1)",
+ "created": "2026-10-30 16:11:13",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7461_r2_p2_shooting_2",
+ "note": "[LLM critic, low conf] The AI shot Big shoota at Kommandos (21.5 in, no rapid fire). It scored the same 0.39 expected damage as Lootas Beta (16.1 in), which are inside the 18 in rapid fire range. Fix: Add the rapid fire bonus to expected damage when the target is within half range. Compare marginal_value across targets after that. Do not let a small already_allocated amount outweigh a damage gain. Give a higher target_value to units with heavy weapons, such as Lootas.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7461_r2_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A_P2",
+  "choice": "desc:Big shoota \u2192 enemy Kommandos (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha shoots at Kommandos \u2014 expected 0.4 dmg vs 12 HP (3% kill)",
+ "verdict": "pending",
+ "version": 1
+}

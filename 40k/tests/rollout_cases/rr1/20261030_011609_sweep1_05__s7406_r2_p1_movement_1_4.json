@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Custodian Guard Sodality Delta arrives",
+ "created": "2026-10-30 01:18:58",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r2_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI deep strikes Custodian Guard Sodality Delta to a spot 1.8 in from obj_center. The unit already holds that objective with no enemy contesting it. The unit adds almost no new control. Fix: Score arrive_objectives by marginal change in control. Give a large bonus for taking an uncontrolled or enemy-held objective. Give a small bonus for reinforcing an objective only when a real enemy threat could flip it. Subtract the value of friendly OC already in range.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7406_r2_p1_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_CUSTODIAN_GUARD_D",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_CUSTODIAN_GUARD_D"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta arrives from Deep Strike",
+ "verdict": "bad",
+ "version": 1
+}

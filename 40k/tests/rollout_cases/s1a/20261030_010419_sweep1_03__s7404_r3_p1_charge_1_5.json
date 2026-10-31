@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Lootas Beta (8.9\" away, 28% chance)",
+ "created": "2026-10-30 01:11:13",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7404_r3_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI sends a 240pt Custodian Guard unit on a 28% charge into the enemy deployment zone. The score is only 0.66 because large positive terms for damage and plan lock offset a strong chance penalty. Fix: Multiply the damage and plan-lock bonuses by the charge probability so they are expected values. Require a minimum charge probability, or a minimum score margin, before declaring a charge with a high-value unit. Add a cost for a failed charge that leaves the unit out of position, and for overwatch damage taken before the charge roll.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7404_r3_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:1045,1430",
+  "decision": "charge",
+  "targets": "U_LOOTAS_B,U_ZODGROD_WORTSNAGGA_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma declares a charge at Lootas Beta + Zodgrod Wortsnagga \u2014 targets picked after the roll: Lootas Beta on 9+ (28%), Zodgrod Wortsnagga on 10+ (17%), overwatch risk: 7.6 dmg",
+ "verdict": "bad",
+ "version": 1
+}

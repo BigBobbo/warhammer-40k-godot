@@ -1,0 +1,15 @@
+r5c02/..._s7477_r1_p1_movement_2_0 [v2] FADED-H2: h1 24 seeds +6.38 [1.78,10.97]; h2 24 seeds +3.46 [-3.33,10.24] (screen; reserve track) -> dropped
+r5c00/..._s7475_r2_p1_movement_2_2 [info:attack_move] FADED-H2 (sign flips): h1 24 seeds +4.00 [1.04,6.96]; h2 24 seeds -3.00 [-9.10,3.10]
+r5c03/..._s7478_r3_p2_movement_1_5 [info:marginal_oc] NOT CONFIRMED-H2: h1 24 seeds +5.58 [1.41,9.76]; h2 24 seeds +4.54 [-4.49,13.57] (same sign, wider)
+r4c03/..._s7454_r3_p2_movement_1_3 [info:attack_move extra] NOT CONFIRMED-H2 (drift: V10 now Gamma -> obj_home_2 toward charge target): h1 36 seeds +21.50 (V9); h2 24 seeds -3.42 [-9.62,2.78]
+r5c00/..._s7475_r3_p1_movement_2_5 [info:marginal_oc] NOT CONFIRMED-H2 (borderline): h1 +8.00 [3.15,12.85]; h2 +6.67 [-0.34,13.67] (same sign)
+r5c12/..._s7487_r2_p2_charge_1_3 [v2] FADED-H2: h1 12 seeds +5.33 [0.96,9.70]; h2 24 seeds -0.08 [-6.80,6.63] (Kommandos 28% charge) -> dropped
+r4c10/..._s7461_r3_p2_charge_1_6 [info:charge_target extra] NOT CONFIRMED-H2: h1 12 seeds +3.75 [-1.77,9.27]; h2 24 seeds +0.08 [-3.55,3.72]
+r4c12/..._s7463_r1_p2_movement_1_2 [info:marginal_oc] NOT CONFIRMED-H2 (borderline): h1 24 seeds +4.50 [1.34,7.66]; h2 24 seeds +4.88 [-0.07,9.82]
+r4c04/..._s7455_r2_p1_movement_2_4 [info:attack_move] FADED-H2: h1 36 seeds +5.92 [1.30,10.53]; h2 24 seeds +4.54 [-5.18,14.26] -> attack_move cluster DROPPED (judge's extra check 1)
+r4c14/..._s7465_r2_p1_charge_1_4 [v2 pr12 + info:charge_target extra] FADED-H2: h1 12 seeds +6.75 [1.62,11.88] (no charge); h2 24 seeds -1.13 [-8.35,6.10] (Stormboyz 2-target charge at Battlewagon + Beastboss) -> dropped
+r4c12/..._s7463_r1_p2_movement_2_3 [info:ranged_hold finding F2, corridor block] FADED-H2: h2 24 seeds -1.63 [-4.35,1.10] -> per judge extra check 1, ranged_hold CORRIDOR BRANCH DROPPED
+r4c09/..._s7460_r1_p1_movement_2_0 [info:ranged_hold F3, Heavy branch] NOT CONFIRMED-H2 (DRIFT): h2 24 seeds +6.00 [1.60,10.40] but drift=true (the replayed AI now holds for the Heavy bonus at obj_center, not the recorded order), so treated like s7477 (drift -> not confirmed); info only, ranged_hold already PARKED via s7462
+r5c07/..._s7482_r3_p2_charge_1_6 [v2 batch2] FADED-H2: h1 12 seeds +1.75 [-0.66,4.16] (promising); h2 24 seeds +0.75 [-2.06,3.56] (Lootas Gamma 42% charge) -> dropped
+r5c06/..._s7481_r1_p1_movement_2_1 [v2 batch2; screen class] FADED-H2: h1 12 seeds +4.42 [-0.34,9.17] (promising); h2 24 seeds +0.96 [-7.39,9.31] (Beast Snagga backfield-gap screen) -> dropped
+r5c07/..._s7482_r1_p1_movement_2_0 [v2 batch2; screen class] FADED-H2: h1 12 seeds +4.58 [1.41,7.76] (clear); h2 24 seeds +2.08 [-2.03,6.19] (Beast Snagga backfield-gap screen) -> dropped

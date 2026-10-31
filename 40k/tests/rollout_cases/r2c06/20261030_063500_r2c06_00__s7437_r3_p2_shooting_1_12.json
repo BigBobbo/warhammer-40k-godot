@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Allarus Custodians (P1)",
+ "created": "2026-10-30 06:44:26",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7437_r3_p2_shooting_1",
+ "note": "[LLM critic, medium conf] The AI sent the Battlewagon's big shoota at Allarus Custodians at long range, for 0.1 expected damage, because of the focus-fire allocation bonus. It ignored the closer Delta unit, which is in rapid fire range and gives twice the damage. Fix: Scale the focus-fire bonus by the weapon's own expected damage. Skip the bonus when the shooter is outside rapid fire range or its expected damage is below about 0.3. Prefer the target where this shooter does the most damage, especially a nearby unit that threatens it in melee.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7437_r3_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A",
+  "choice": "desc:Big shoota \u2192 enemy Allarus Custodians (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha shoots at Allarus Custodians \u2014 expected 0.1 dmg vs 7 HP (1% kill)",
+ "verdict": "pending",
+ "version": 1
+}

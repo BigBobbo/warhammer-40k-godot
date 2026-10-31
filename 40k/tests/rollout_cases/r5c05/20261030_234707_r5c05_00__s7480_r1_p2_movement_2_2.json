@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (capturing it (uncontrolled) \u2014 worth ~8 VP)",
+ "created": "2026-10-30 23:47:56",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7480_r1_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI sends a 3-model OC 9 unit to nml_2, calling it uncontrolled and worth about 8 VP. The board shows it is already held, so the move adds little. Fix: Count an objective as already held when a friendly unit is on it and no enemy is near. Cut expected_vp and objective_priority to near zero for extra units sent there. Raise contested or central objectives so spare units go to them.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7480_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A_P2",
+  "choice": "pos:388,1860",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_nml_2 (capturing it (uncontrolled), obj: 11.3\" away)",
+ "verdict": "pending",
+ "version": 1
+}

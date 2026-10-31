@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_2 (flipping it (enemy holds with OC 3), needs 3 more OC after this unit \u2014 worth ~6 VP)",
+ "created": "2026-10-30 23:48:15",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7480_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Beta on a 3-turn trek to enemy home obj_home_2 because center had enough OC. The override ignored that the objective is unreachable in time and that a lone unit would likely be destroyed. Fix: Apply the override only if the alternative objective is reachable within 2 turns and the unit can win the contest there. Otherwise keep the unit on the best-scoring nearby option, as a reserve or support for the central group. Subtract a large penalty from objective_priority when contest_race is negative and turns_to_reach is 3 or more.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7480_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:1380,1970",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta advances toward obj_home_2 (flipping it (enemy holds with OC 3), needs 3 more OC after this unit)",
+ "verdict": "bad",
+ "version": 1
+}

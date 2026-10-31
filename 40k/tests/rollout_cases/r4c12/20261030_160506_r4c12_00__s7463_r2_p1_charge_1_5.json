@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Mek Beta (9.8\" away, 17% chance)",
+ "created": "2026-10-30 16:13:02",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7463_r2_p1_charge_1",
+ "note": "[LLM critic, high conf] The AI sends a 160-point Battlewagon on a 17% charge at a 4 wound Mek. It scores positive only because of large bonus terms. A failed charge leaves the wagon exposed to heavy shooting. Fix: Multiply every outcome bonus (can_wipe, can_halve, character, points_trade, order_round_aggression) by charge probability. Add a penalty for a high-value unit ending in an enemy firing zone. Reject any charge where probability is below about 20% and expected melee damage is less than the unit's exposure risk. Prefer a non-charge move or shooting instead.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7463_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_B",
+  "choice": "pos:698,1986",
+  "decision": "charge",
+  "targets": "U_MEK_B_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Beta declares charge against Mek Beta (17% chance, 9.8\" away, expected 5.3 melee dmg vs 4 HP, overwatch risk: 5.3 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,4 @@
+RECHECK_SHARD pr10_0
+ROLLOUT_RESULT {"job":"20261030_160506_r4c12_00__s7463_r1_p2_movement_1_2","status":"ok","E":4.5,"se":1.614,"ci":[1.34,7.66],"n":24,"A":-5.542,"B":-1.042,"mat":-71.491,"drift":true,"a_did":"Kommandos moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed), obj: 18.4\" away)","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_234632_r5c00_00__s7475_r3_p1_movement_2_5","status":"ok","E":8.0,"se":2.475,"ci":[3.15,12.85],"n":24,"A":13.042,"B":21.042,"mat":127.583,"drift":false,"a_did":"Custodian Guard Sodality Beta holds obj_center (holding under threat (enemy OC 9 nearby))","applied":24,"identical":1}
+SHARD_DONE 0/6 jobs=2

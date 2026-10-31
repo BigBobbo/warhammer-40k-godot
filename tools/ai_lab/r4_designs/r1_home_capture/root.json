@@ -1,0 +1,91 @@
+{
+ "key": "r1_home_capture",
+ "angle": "root",
+ "root_cause": "Two valuation errors in the movement plan's SUPPORT pass (_find_best_remaining_objective), which scores spare units with eval.priority. (a) Value counted twice: eval.priority contains WEIGHT_HOME_UNDEFENDED (+9, x tempo ~1.09 = +9.8) for any empty home objective, because the evaluation reads live positions. After a capture-pass unit is committed there this phase (obj_oc_remaining[home] == 0) the capture pass skips it, but the support pass still paid the bonus, so a second strong unit was sent home. s7468 r1 P1: Gamma took obj_home_1, then Alpha's support scores were home 20.3 vs obj_nml_1 11.5 - 9.8 of the gap was the bonus -> 'reinforcing obj_home_1 (1 unit already committed)'. (b) Wrong mode: the support pass always returns action 'move', while the unit's own capture candidate for the same objective chose 'advance' (RACE-1 long trip; its turns_to_reach and contest_race were costed at the Advance pace). s7451 r1 P2: Gamma's capture candidate for obj_center was costed at 2 turns (Advance pace) but the support pass walked it 6\". Not fixed here: in s7468 the first capturer (Gamma) still beats the alternative (Advance obj_center) on its own score: home 38.1 vs obj_nml_1 24.4 vs centre 14.7 (centre has contest_race -13.1 against ~26 Ork OC). Removing the +9.8 bonus would leave home at 28.3, still first. Where B gains: the 2-seed A/B comparison shows the round-1 Smoke and Mirrors 'decoyed_score' at end of turn paid +6 in B vs +2 in A (Gamma reached a decoyable objective), which the contest-race/VP model does not credit to a round-1 arrival. Findings s7412 / s7411 no longer reproduce on the V9 base: the AI already Advances those units to obj_center instead of home.",
+ "fix_summary": "FIX_R1_HOME_CAPTURE (default 1.0; 0 = base behaviour, checked by the unit test). The objective evaluation stores the home-undefended bonus's share of priority (home_undefended_bonus, tempo included). The support pass gets the plan's obj_oc_remaining and this unit's capture-candidate actions per objective: (a) when an objective's OC need is already covered by this phase's commitments, its home_undefended_bonus is subtracted from the support score (the bonus is not paid again); (b) when the unit's capture candidate for the chosen objective was 'advance' and the unit is not already in range, the support assignment Advances instead of walking. Log lines tagged [R1_HOME_CAPTURE] print only when (a) changed the pick or (b) set an Advance.",
+ "param": "FIX_R1_HOME_CAPTURE",
+ "test_file": "40k/tests/unit/test_ai_fix_r1_home_capture.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "With the fix: test_ai_fix_r1_home_capture 9/0; rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 22/0, survival_assessment 23/0, multi_phase_planning 34/0; threat_range_awareness 34/3 (the 3 known base failures). On BASE (temp copy loading ai_versions/BASE) the new test fails 2 checks: the spare unit is sent to the covered home objective, and it walks instead of Advancing.",
+ "decision_checks": [
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r1_p1_movement_1_0",
+   "base_choice": "Gamma Move obj_home_1 (capture); then Alpha Move obj_home_1 (support, 'reinforcing obj_home_1 (1 unit already committed)')",
+   "fix_choice": "Gamma Move obj_home_1 (unchanged); Alpha Advance obj_nml_1 (support) instead of going home",
+   "changed": false,
+   "measured": "clear +6.86 [4.45, 9.27] (alternative: Gamma Advance obj_center)",
+   "judgement": "Decision unit (Gamma) unchanged - does not match the alternative. The critic's note (one unit home, the rest forward) is met through the second unit: only one unit now goes home. Value of that change not measured."
+  },
+  {
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0",
+   "base_choice": "Gamma Move obj_center (support, walk)",
+   "fix_choice": "Gamma Advance obj_center (support)",
+   "changed": true,
+   "measured": "clear +5.86 [3.09, 8.63] (alternative: Gamma Advance obj_center)",
+   "judgement": "Matches the alternative exactly (same unit, objective and mode)."
+  },
+  {
+   "job": "20261030_012004_sweep2_01__s7412_r1_p1_movement_2_0",
+   "base_choice": "does not reproduce on V9: Beta Advance obj_center (capture); no unit sent home",
+   "fix_choice": "same (Beta Advance obj_center)",
+   "changed": false,
+   "measured": "clear +2.86 [1.27, 4.45] (alternative: Beta Advance obj_nml_1; older AI)",
+   "judgement": "Base already makes the forward Advance (to centre, not obj_nml_1); fix keeps it."
+  },
+  {
+   "job": "20261030_012005_sweep2_00__s7411_r1_p1_movement_2_1",
+   "base_choice": "does not reproduce on V9: Gamma Advance obj_center (racing); no unit sent home",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "clear +2.50 [0.71, 4.29] (alternative: Gamma Advance obj_nml_1; older AI)",
+   "judgement": "Base already sends it forward with an Advance; fix keeps it."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_010419_sweep1_03__s7404_r1_p1_movement_1_0",
+   "base_choice": "Alpha Advance obj_nml_2 (racing)",
+   "fix_choice": "Alpha Advance obj_nml_2 (racing)",
+   "changed": false,
+   "measured": "harmful -6.58 (alternative Advance obj_center)",
+   "judgement": "Unchanged; keeps the measured-better own choice."
+  },
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r1_p2_movement_2_2",
+   "base_choice": "Kommandos hold obj_home_2",
+   "fix_choice": "Kommandos hold obj_home_2",
+   "changed": false,
+   "measured": "harmful -6.58 (alternative Advance obj_center)",
+   "judgement": "Unchanged; the keeper still holds home (a held home has no undefended bonus, so (a) cannot touch it)."
+  },
+  {
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1",
+   "base_choice": "does not reproduce: Beta Move obj_center (capture)",
+   "fix_choice": "Beta Move obj_center (capture)",
+   "changed": false,
+   "measured": "harmful -4.33 (alternative Beta Move obj_nml_2)",
+   "judgement": "Unchanged (capture pass, not touched)."
+  },
+  {
+   "job": "20261030_020728_sweep2_11__s7422_r1_p1_movement_1_0",
+   "base_choice": "does not reproduce: Beta holds obj_home_1 (sole holder)",
+   "fix_choice": "Beta holds obj_home_1 (sole holder)",
+   "changed": false,
+   "measured": "neutral +0.72 (alternative Beta Move obj_center)",
+   "judgement": "Unchanged; consistent with a neutral E."
+  },
+  {
+   "job": "20261030_010419_sweep1_03__s7404_r1_p1_movement_2_1",
+   "base_choice": "does not reproduce: Prosecutors Advance obj_center (capture)",
+   "fix_choice": "Prosecutors Advance obj_center (capture)",
+   "changed": false,
+   "measured": "neutral 0.0 (alternative Prosecutors Advance obj_center)",
+   "judgement": "Unchanged; base already makes the alternative's move."
+  }
+ ],
+ "fires": "Counted from game stdout (rollout.py with stdout captured, --quiet removed; 1 seed, horizon end of round 2, both seats use the fixed file): per game 4, 1, 1, 0, 3, 1, 0, 3, 3 over the 9 replayed positions (avg 1.8). (a) 'not paid twice' changed a pick once in 9 games (s7468 P1 Alpha -> obj_nml_1). (b) support Advance fired 15 times: Custodian Guard (s7468 Alpha, s7451 Gamma, s7412 Alpha), Ork Kommandos and Mek Beta (rounds 1 and 2), Space Wolves Ancient in Terminator Armour and Chaplain on Bike (s7422, rounds 1 and 2).",
+ "risks": "(b) is the broad part: every support-pass unit whose capture candidate chose a long-trip Advance now Advances (about 1-3 per game, both armies). It inherits RACE-1's gate (no enemy within M+12\" unless Advance-and-charge, nothing in weapon range now), but an Advancing unit cannot shoot or charge that turn, and in round 2 a support Advance could put a unit into range of targets it then cannot shoot - full-game value not measured; characters (Ancient, Chaplain, Mek) Advancing ahead of their bodyguards could arrive alone. (a) frees a second unit from an empty home objective another unit is already taking: if the first capturer is destroyed or its move fails before it arrives, home is left without the backup (the next phase's plan re-evaluates). Against fast enemies or deep strikers that can reach home in round 2 the bonus is still the only home-threat term, and (a) does not change the first capturer. Over rounds 3-5 the freed unit goes forward; this helps cards that pay for objectives beyond home and table spread (Engage on All Fronts, Smoke and Mirrors) but home-holding cards keep their VP term (vp_value), so they are unaffected. The cluster's main finding (s7468 Gamma -> Advance obj_center, +6.86) is NOT fixed: its score loses on contest_race and on a round-1 secondary/primary scoring term (decoyed_score) the model does not credit.",
+ "drop_reason": ""
+}

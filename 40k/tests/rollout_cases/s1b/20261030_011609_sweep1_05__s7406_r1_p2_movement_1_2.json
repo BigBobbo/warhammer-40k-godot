@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~28 OC there before we arrive in 2 turns), needs 7 more OC after this unit \u2014 switched from obj_nml_1 to backfill for a unit that went hunting \u2014 worth ~9 VP)",
+ "created": "2026-10-30 01:17:29",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7406_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] Scout Squad Beta advances alone toward obj_center, which the AI itself says the enemy can hold with about 28 OC. The squad is likely to be charged and destroyed without taking the objective. Fix: When the race term shows the enemy has much more OC than we can bring and the enemy melee units can charge the destination, penalise that option heavily or reject it. The penalty should scale with the OC gap and the enemy charge threat. Do not let a backfill reassignment override a higher-scoring uncontested objective. Prefer the unit that arrives first for each objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7406_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_SCOUT_SQUAD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Scout Squad Beta advances toward obj_center (racing for it (enemy can have ~28 OC there before we arrive in 2 turns), needs 7 more OC after this unit \u2014 switched from obj_nml_1 to backfill for a unit that went hunting)",
+ "verdict": "bad",
+ "version": 1
+}

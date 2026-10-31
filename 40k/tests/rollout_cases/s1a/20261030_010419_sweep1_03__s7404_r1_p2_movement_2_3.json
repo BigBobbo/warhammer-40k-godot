@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (racing for it (enemy can have ~25 OC there before we arrive in 3 turns), needs 7 more OC after this unit \u2014 worth ~5 VP with the 2 other objective(s) this plan takes \u2014 worth ~13 VP)",
+ "created": "2026-10-30 01:05:46",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7404_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends a fragile 5-model Burna Boyz squad alone 26 in forward to obj_nml_1, a 3-turn trip. The enemy squads that can reach it first are far tougher. Fix: When an objective is already covered by the plan, do not send a surplus unit to a far objective whose enemy-reachable OC is much greater than the unit's OC. Instead, add a survival or isolation penalty scaled by the enemy threat and the distance from friendly support. Otherwise, fall back to supporting the covered objective or the home objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7404_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "pos:1371,606",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha advances toward obj_nml_1 (racing for it (enemy can have ~25 OC there before we arrive in 3 turns), needs 7 more OC after this unit \u2014 worth ~5 VP with the 2 other objective(s) this plan takes)",
+ "verdict": "bad",
+ "version": 1
+}

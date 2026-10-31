@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Beta (5.9\" away, 72% chance)",
+ "created": "2026-10-30 01:23:19",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7411_r2_p2_charge_2",
+ "note": "[LLM critic, low conf] The AI sends a damaged 2-model Guard unit at a 7-wound Blade Champion that has enemy Guards next to it. The AI counts only about 5 retaliation damage and ignores the other enemy unit. Fix: Add the melee output of every enemy unit within 3 in of the target to ch_retaliation. Scale ch_retaliation by the charging unit's remaining wounds, so a weakened unit is more likely to be wiped out. Pay ch_gang_up only for supporters that are eligible and likely to charge.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7411_r2_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A_P2",
+  "choice": "pos:885,1005",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha declares charge against Blade Champion Beta (72% chance, 5.9\" away, expected 6.7 melee dmg vs 7 HP, overwatch risk: 0.4 dmg)",
+ "verdict": "pending",
+ "version": 1
+}

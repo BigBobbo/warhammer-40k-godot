@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (flipping it (enemy holds with OC 14), needs 4 more OC after this unit \u2014 worth ~11 VP)",
+ "created": "2026-10-30 23:49:24",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7475_r3_p2_movement_1",
+ "note": "[LLM critic, medium conf] Delta leaves a held objective for a three-turn walk to obj_center. There it would meet a stack with OC 14 and 15-wound Beta, and it cannot flip the objective alone. Fix: Before reassigning a unit off a held objective, check enemy units within charge reach, about 20 in, of that objective. Cap the benefit of flipping an enemy-held objective by the OC the unit can actually add against the enemy OC there. Never reward distance_inches positively.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7475_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_D_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Delta moves toward obj_center (moving toward charge target Custodian Guard Sodality Beta, obj: 20.8\" away)",
+ "verdict": "pending",
+ "version": 1
+}
