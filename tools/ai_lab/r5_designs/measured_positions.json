@@ -3679,19 +3679,26 @@
    }
   ],
   "better_option": "Move obj_center (moving to objective \u2014 worth ~7 VP)",
-  "E": 9.81,
+  "E": 14.833,
   "ci": [
-   6.57,
-   13.04
+   7.13,
+   22.53
   ],
-  "n": 36,
+  "n": 24,
   "class": "clear",
   "applied": 36,
   "identical": 0,
   "chosen_option": "Move obj_nml_2 (capturing it (enemy can bring ~17 OC next move), needs 2 more OC after this unit \u2014 worth ~7 VP)",
   "suggestion": "Custodian Guard Sodality Gamma moves toward obj_nml_2 (moving toward charge target Scout Squad Alpha, obj: 9.8\" away)",
   "round": 2,
-  "player": 1
+  "player": 1,
+  "E12": 9.81,
+  "ci12": [
+   6.57,
+   13.04
+  ],
+  "n12": 36,
+  "recheck": "pr12h2_8"
  },
  {
   "job": "20261030_020603_sweep2_10__s7421_r2_p2_charge_1_4",
@@ -8107,19 +8114,26 @@
    }
   ],
   "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
-  "E": 5.917,
+  "E": 4.542,
   "ci": [
-   1.3,
-   10.53
+   -5.18,
+   14.26
   ],
-  "n": 36,
-  "class": "clear",
+  "n": 24,
+  "class": "neutral",
   "applied": 36,
   "identical": 1,
   "chosen_option": "Move obj_nml_1 (flipping it (enemy holds with OC 11) \u2014 worth ~3 VP)",
   "suggestion": "Custodian Guard Sodality Beta moves toward obj_nml_1 (moving toward charge target Blade Champion Alpha, obj: 18.0\" away)",
   "round": 2,
-  "player": 1
+  "player": 1,
+  "E12": 5.917,
+  "ci12": [
+   1.3,
+   10.53
+  ],
+  "n12": 36,
+  "recheck": "pr12h2_7"
  },
  {
   "job": "20261030_160257_r4c04_00__s7455_r2_p2_movement_2_3",
@@ -8543,19 +8557,26 @@
    }
   ],
   "better_option": "Move obj_center (moving to objective \u2014 worth ~20 VP)",
-  "E": 21.5,
+  "E": -3.417,
   "ci": [
-   16.93,
-   26.07
+   -9.62,
+   2.78
   ],
-  "n": 36,
-  "class": "clear",
+  "n": 24,
+  "class": "neutral",
   "applied": 36,
   "identical": 0,
   "chosen_option": "Move obj_nml_1 (flipping it (enemy holds with OC 14), needs 6 more OC after this unit \u2014 worth ~11 VP)",
   "suggestion": "Custodian Guard Sodality Gamma moves toward obj_nml_1 (moving toward charge target Custodian Guard Sodality Gamma, obj: 11.7\" away)",
   "round": 3,
-  "player": 2
+  "player": 2,
+  "E12": 21.5,
+  "ci12": [
+   16.93,
+   26.07
+  ],
+  "n12": 36,
+  "recheck": "pr12h2_9"
  },
  {
   "job": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1",
@@ -8815,10 +8836,10 @@
    }
   ],
   "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
-  "E": 5.625,
+  "E": 6.25,
   "ci": [
-   3.42,
-   7.83
+   3.48,
+   9.02
   ],
   "n": 24,
   "class": "clear",
@@ -8829,13 +8850,13 @@
   "critic_summary": "The AI sent Lootas Alpha to obj_nml_1, which is already covered by Battlewagon Beta. The unit then moves a 25.6 in trip with no firing lane. It also sent the 10 OC to a contest it cannot win.",
   "drift": false,
   "round_batch": "r4",
-  "E12": 7.0,
+  "E12": 5.625,
   "ci12": [
-   3.91,
-   10.09
+   3.42,
+   7.83
   ],
-  "n12": 12,
-  "recheck": "pr10_2"
+  "n12": 24,
+  "recheck": "pr12h2_3"
  },
  {
   "job": "20261030_160400_r4c11_00__s7462_r1_p2_movement_2_1",
@@ -9210,12 +9231,12 @@
    }
   ],
   "better_option": "Charge Beastboss (5.1\" away, 72% chance)",
-  "E": 3.75,
+  "E": 0.083,
   "ci": [
-   -1.77,
-   9.27
+   -3.55,
+   3.72
   ],
-  "n": 12,
+  "n": 24,
   "class": "neutral",
   "applied": 12,
   "identical": 2,
@@ -9223,7 +9244,14 @@
   "suggestion": "Battlewagon Alpha declares a charge at Beast Snagga Boyz + Beastboss \u2014 targets picked after the roll: Beast Snagga Boyz on 5+ (83%), Beastboss on 6+ (72%), overwatch risk: 5.3 dmg",
   "critic_summary": "The AI charges the Beast Snagga Boyz and Beastboss with its Battlewagon. The scores tie at 2.51, and a ch_retaliation of -4.0 shows the risk. The charge value is thin and it scores no objective gain.",
   "drift": false,
-  "round_batch": "r4"
+  "round_batch": "r4",
+  "E12": 3.75,
+  "ci12": [
+   -1.77,
+   9.27
+  ],
+  "n12": 12,
+  "recheck": "pr12h2_2"
  },
  {
   "job": "20261030_160413_r4c08_00__s7459_r1_p1_movement_2_2",
@@ -9240,12 +9268,12 @@
    }
   ],
   "better_option": "Hold obj_home_1 (on objective, OC needed \u2014 worth ~12 VP)",
-  "E": 4.833,
+  "E": 4.583,
   "ci": [
-   1.93,
-   7.74
+   0.37,
+   8.8
   ],
-  "n": 12,
+  "n": 24,
   "class": "clear",
   "applied": 12,
   "identical": 0,
@@ -9253,7 +9281,14 @@
   "suggestion": "Lootas Alpha advances toward obj_home_2 (flipping it (enemy holds with OC 15), needs 6 more OC after this unit \u2014 worth ~13 VP with the 1 other objective(s) this plan takes)",
   "critic_summary": "A Lootas unit with a 48 in Deffgun walks 42 in alone to the enemy home objective. It would arrive on turn 5 and would give up its firing and objective roles.",
   "drift": false,
-  "round_batch": "r4"
+  "round_batch": "r4",
+  "E12": 4.833,
+  "ci12": [
+   1.93,
+   7.74
+  ],
+  "n12": 12,
+  "recheck": "pr12h2_0"
  },
  {
   "job": "20261030_160413_r4c08_00__s7459_r1_p2_movement_1_0",
@@ -9329,20 +9364,27 @@
    }
   ],
   "better_option": "unlisted: do not charge, keep Beast Snagga Boyz near CENTER and HOME 2",
-  "E": 6.667,
+  "E": 5.208,
   "ci": [
-   -0.69,
-   14.03
+   0.3,
+   10.12
   ],
-  "n": 12,
-  "class": "neutral",
+  "n": 24,
+  "class": "clear",
   "applied": 12,
   "identical": 0,
   "chosen_option": "Charge Stormboyz (8.9\" away, 28% chance)",
   "suggestion": "Beast Snagga Boyz declares charge against Stormboyz (28% chance, 8.9\" away, expected 12.0 melee dmg vs 22 HP, overwatch risk: 5.4 dmg)",
   "critic_summary": "The AI declares a 28% charge that costs 5.4 overwatch damage on a unit with 11 wounds. The charge gives only about 3.4 expected damage, so the net result is negative.",
   "drift": false,
-  "round_batch": "r4"
+  "round_batch": "r4",
+  "E12": 6.667,
+  "ci12": [
+   -0.69,
+   14.03
+  ],
+  "n12": 12,
+  "recheck": "pr12h2_1"
  },
  {
   "job": "20261030_160413_r4c08_00__s7459_r2_p2_charge_2_7",
@@ -10418,13 +10460,13 @@
    }
   ],
   "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~7 VP)",
-  "E": 4.5,
+  "E": 4.875,
   "ci": [
-   1.34,
-   7.66
+   -0.07,
+   9.82
   ],
   "n": 24,
-  "class": "clear",
+  "class": "neutral",
   "applied": 12,
   "identical": 0,
   "chosen_option": "Move obj_home_2 (reinforcing obj_home_2 (1 unit already committed) \u2014 worth ~2 VP)",
@@ -10432,13 +10474,13 @@
   "critic_summary": "Kommandos walk to a home objective that is already held with 20 OC. The AI rejects an Advance to obj_center by 0.11 points even though it values obj_center at about 7 VP.",
   "drift": true,
   "round_batch": "r4",
-  "E12": 10.917,
+  "E12": 4.5,
   "ci12": [
-   6.73,
-   15.11
+   1.34,
+   7.66
   ],
-  "n12": 12,
-  "recheck": "pr10_0"
+  "n12": 24,
+  "recheck": "pr12h2_7"
  },
  {
   "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_2_3",
@@ -10455,13 +10497,13 @@
    }
   ],
   "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~7 VP)",
-  "E": 4.792,
+  "E": -1.625,
   "ci": [
-   2.5,
-   7.09
+   -4.35,
+   1.1
   ],
   "n": 24,
-  "class": "clear",
+  "class": "neutral",
   "applied": 12,
   "identical": 0,
   "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
@@ -10469,13 +10511,13 @@
   "critic_summary": "The AI chose a flat 8.0 'screen' score over objective moves that score 22 to 28. The screen option has no threat, distance or objective terms, so it cannot be compared fairly.",
   "drift": false,
   "round_batch": "r4",
-  "E12": 4.167,
+  "E12": 4.792,
   "ci12": [
-   0.73,
-   7.6
+   2.5,
+   7.09
   ],
-  "n12": 12,
-  "recheck": "pr10_1"
+  "n12": 24,
+  "recheck": "pr12h2_4"
  },
  {
   "job": "20261030_160506_r4c12_00__s7463_r2_p1_charge_1_5",
@@ -11137,12 +11179,12 @@
    }
   ],
   "better_option": "Advance obj_center (advancing to arrive a turn sooner)",
-  "E": 5.5,
+  "E": 11.792,
   "ci": [
-   1.56,
-   9.44
+   6.87,
+   16.72
   ],
-  "n": 12,
+  "n": 24,
   "class": "clear",
   "applied": 12,
   "identical": 0,
@@ -11150,7 +11192,14 @@
   "suggestion": "Gretchin screens at (320,2160) \u2014 backfield gap (nearest friendly: 10\")",
   "critic_summary": "Gretchin march to a far-left backfield corner to screen, and they leave the nearby center objective and the right flank empty.",
   "drift": false,
-  "round_batch": "r4"
+  "round_batch": "r4",
+  "E12": 5.5,
+  "ci12": [
+   1.56,
+   9.44
+  ],
+  "n12": 12,
+  "recheck": "pr12h2_3"
  },
  {
   "job": "20261030_160521_r4c14_00__s7465_r1_p2_movement_2_3",
@@ -11196,20 +11245,27 @@
    }
   ],
   "better_option": "unlisted: do not charge (targets [])",
-  "E": 6.75,
+  "E": -1.125,
   "ci": [
-   1.62,
-   11.88
+   -8.35,
+   6.1
   ],
-  "n": 12,
-  "class": "clear",
+  "n": 24,
+  "class": "neutral",
   "applied": 12,
   "identical": 0,
   "chosen_option": "Charge Battlewagon Alpha (10.0\" away, 17% chance)",
   "suggestion": "Stormboyz declares a charge at Battlewagon Alpha + Beastboss \u2014 targets picked after the roll: Battlewagon Alpha on 10+ (17%), Beastboss on 11+ (8%), overwatch risk: 5.4 dmg",
   "critic_summary": "Stormboyz declare a 17% charge at a 16 wound Battlewagon. The Stormboyz cannot hurt it much and would be left alone deep in enemy lines.",
   "drift": false,
-  "round_batch": "r4"
+  "round_batch": "r4",
+  "E12": 6.75,
+  "ci12": [
+   1.62,
+   11.88
+  ],
+  "n12": 12,
+  "recheck": "pr12h2_4"
  },
  {
   "job": "20261030_160521_r4c14_00__s7465_r2_p2_charge_1_5",
@@ -13062,13 +13118,13 @@
    }
   ],
   "better_option": "Move obj_center (moving to objective \u2014 worth ~13 VP)",
-  "E": 5.583,
+  "E": 4.542,
   "ci": [
-   1.41,
-   9.76
+   -4.49,
+   13.57
   ],
   "n": 24,
-  "class": "clear",
+  "class": "neutral",
   "applied": 12,
   "identical": 0,
   "chosen_option": "Advance obj_home_2 (capturing it (uncontrolled) \u2014 quicker to reach than Prosecutor Squad (13.4\" away, there in 2 turns at M8 vs 15.4\" away, there in 2 turns at M7))",
@@ -13076,13 +13132,13 @@
   "critic_summary": "The AI sends a 3-model Custodian Guard unit with OC 9 on a 2-turn trip to an uncontested home objective, instead of backing the contested centre fight.",
   "drift": false,
   "round_batch": "r5",
-  "E12": 7.583,
+  "E12": 5.583,
   "ci12": [
-   -0.6,
-   15.77
+   1.41,
+   9.76
   ],
-  "n12": 12,
-  "recheck": "pr10_4"
+  "n12": 24,
+  "recheck": "pr12h2_9"
  },
  {
   "job": "20261030_234622_r5c01_00__s7476_r1_p1_movement_2_0",
@@ -13307,13 +13363,13 @@
    }
   ],
   "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
-  "E": 6.375,
+  "E": 3.458,
   "ci": [
-   1.78,
-   10.97
+   -3.33,
+   10.24
   ],
   "n": 24,
-  "class": "clear",
+  "class": "neutral",
   "applied": 12,
   "identical": 0,
   "chosen_option": "Screen (backfield gap (nearest friendly: 15\"))",
@@ -13321,13 +13377,13 @@
   "critic_summary": "The AI sent the Prosecutor Squad to a backfield screen spot. It rejected the top-scored move to obj_nml_1 for a reason that applies only to obj_home_2, so the override reason does not match the choice.",
   "drift": true,
   "round_batch": "r5",
-  "E12": 8.417,
+  "E12": 6.375,
   "ci12": [
-   1.4,
-   15.43
+   1.78,
+   10.97
   ],
-  "n12": 12,
-  "recheck": "pr10_5"
+  "n12": 24,
+  "recheck": "pr12h2_6"
  },
  {
   "job": "20261030_234630_r5c02_00__s7477_r2_p1_charge_1_2",
@@ -13581,13 +13637,13 @@
    }
   ],
   "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
-  "E": 4.0,
+  "E": -3.0,
   "ci": [
-   1.04,
-   6.96
+   -9.1,
+   3.1
   ],
   "n": 24,
-  "class": "clear",
+  "class": "neutral",
   "applied": 12,
   "identical": 0,
   "chosen_option": "Move obj_nml_2 (flipping it (enemy holds with OC 11), needs 3 more OC after this unit \u2014 worth ~3 VP)",
@@ -13595,13 +13651,13 @@
   "critic_summary": "The AI sent Alpha alone on a 3-turn walk to an objective the enemy holds with OC 11. It skipped obj_center, where the main fight will be.",
   "drift": false,
   "round_batch": "r5",
-  "E12": 5.333,
+  "E12": 4.0,
   "ci12": [
-   -1.1,
-   11.77
+   1.04,
+   6.96
   ],
-  "n12": 12,
-  "recheck": "pr10_1"
+  "n12": 24,
+  "recheck": "pr12h2_6"
  },
  {
   "job": "20261030_234632_r5c00_00__s7475_r2_p1_shooting_2_3",
@@ -13647,13 +13703,13 @@
    }
   ],
   "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~3 VP)",
-  "E": 8.0,
+  "E": 6.667,
   "ci": [
-   3.15,
-   12.85
+   -0.34,
+   13.67
   ],
   "n": 24,
-  "class": "clear",
+  "class": "neutral",
   "applied": 12,
   "identical": 0,
   "chosen_option": "Hold obj_center (holding under threat (enemy OC 9 nearby) \u2014 worth ~3 VP)",
@@ -13661,13 +13717,13 @@
   "critic_summary": "The AI sends Custodian Guard Sodality Beta to hold a centre objective that is already held 20 to 9. It could instead advance toward the enemy-held obj_nml_1.",
   "drift": false,
   "round_batch": "r5",
-  "E12": 11.833,
+  "E12": 8.0,
   "ci12": [
-   2.26,
-   21.4
+   3.15,
+   12.85
   ],
-  "n12": 12,
-  "recheck": "pr10_0"
+  "n12": 24,
+  "recheck": "pr12h2_8"
  },
  {
   "job": "20261030_234632_r5c00_00__s7475_r3_p2_charge_1_8",
@@ -13980,10 +14036,10 @@
    }
   ],
   "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
-  "E": 2.375,
+  "E": 5.708,
   "ci": [
-   0.1,
-   4.65
+   0.08,
+   11.33
   ],
   "n": 24,
   "class": "clear",
@@ -13994,13 +14050,13 @@
   "critic_summary": "Gamma went back to hold home. It is the only unit on home now, but Alpha is near and could hold home instead. That would free Gamma to move forward. The hold bonus is low in round 1 with no enemy nearby.",
   "drift": false,
   "round_batch": "r5",
-  "E12": 3.917,
+  "E12": 2.375,
   "ci12": [
-   1.25,
-   6.59
+   0.1,
+   4.65
   ],
-  "n12": 12,
-  "recheck": "pr10_2"
+  "n12": 24,
+  "recheck": "pr12h2_0"
  },
  {
   "job": "20261030_234707_r5c05_00__s7480_r1_p1_movement_2_1",
@@ -14173,10 +14229,10 @@
    }
   ],
   "better_option": "Charge Blade Champion Alpha (4.3\" away, 83% chance)",
-  "E": 5.75,
+  "E": 11.542,
   "ci": [
-   1.46,
-   10.04
+   5.53,
+   17.55
   ],
   "n": 24,
   "class": "clear",
@@ -14187,13 +14243,250 @@
   "critic_summary": "The AI sends 3 Allarus models (18 wounds) at a 2-wound lone model. This wastes most of the unit's melee output. The 97% chance and the ch_short_charge bonus push the score above the higher-value Blade Champion Alpha.",
   "drift": false,
   "round_batch": "r5",
-  "E12": 6.167,
+  "E12": 5.75,
   "ci12": [
-   -0.33,
-   12.66
+   1.46,
+   10.04
   ],
-  "n12": 12,
-  "recheck": "pr10_4"
+  "n12": 24,
+  "recheck": "pr12h2_1"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r1_p1_movement_1_0",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c06/20261030_234723_r5c06_00__s7481_r1_p1_movement_1_0.json",
+  "a_did": "Lootas Gamma advances toward obj_nml_2 (capturing it (uncontrolled))",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_nml_2",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Advance obj_nml_2 (capturing it (uncontrolled) \u2014 worth ~11 VP)",
+  "E": -9.333,
+  "ci": [
+   -13.16,
+   -5.51
+  ],
+  "n": 12,
+  "class": "harmful",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Advance obj_nml_2 (capturing it (uncontrolled) \u2014 worth ~11 VP)",
+  "suggestion": "Lootas Gamma advances toward obj_nml_2 (capturing it (uncontrolled))",
+  "critic_summary": "Lootas Gamma advances alone to uncontested obj_nml_2. An advance gives up most of its 36 in Deffgun and Big shoota shooting for a 2-turn trip. No enemy is within 30 in of it in round 1.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r1_p1_movement_2_1",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c06/20261030_234723_r5c06_00__s7481_r1_p1_movement_2_1.json",
+  "a_did": "Beast Snagga Boyz screens at (960,320) \u2014 backfield gap (nearest friendly: 9\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_home_1 (moving to objective \u2014 worth ~13 VP)",
+  "E": 4.417,
+  "ci": [
+   -0.34,
+   9.17
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 9\"))",
+  "suggestion": "Beast Snagga Boyz screens at (960,320) \u2014 backfield gap (nearest friendly: 9\")",
+  "critic_summary": "The AI chose a backfield 'screen' with score 5.06 over advancing to obj_nml_2 or obj_center. It overrode the objective options through the screen_denial assignment, not through the scores. A screen at (24, 8) has no enemy to screen against in round 1.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r1_p2_movement_1_2",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c06/20261030_234723_r5c06_00__s7481_r1_p2_movement_1_2.json",
+  "a_did": "Lootas Alpha advances toward obj_nml_1 (capturing it (uncontrolled))",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A_P2",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Advance obj_nml_1 (capturing it (uncontrolled) \u2014 worth ~12 VP)",
+  "E": -18.5,
+  "ci": [
+   -23.29,
+   -13.71
+  ],
+  "n": 12,
+  "class": "harmful",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Advance obj_nml_1 (capturing it (uncontrolled) \u2014 worth ~12 VP)",
+  "suggestion": "Lootas Alpha advances toward obj_nml_1 (capturing it (uncontrolled))",
+  "critic_summary": "The AI advances Lootas Alpha toward obj_nml_1. The unit has no Assault weapon, so it cannot shoot this turn, and it would still probably end outside the objective range.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r1_p2_movement_2_3",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c06/20261030_234723_r5c06_00__s7481_r1_p2_movement_2_3.json",
+  "a_did": "Burna Boyz Alpha screens at (320,1520) \u2014 backfield gap (nearest friendly: 19\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~12 VP)",
+  "E": 1.083,
+  "ci": [
+   -1.84,
+   4.0
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 19\"))",
+  "suggestion": "Burna Boyz Alpha screens at (320,1520) \u2014 backfield gap (nearest friendly: 19\")",
+  "critic_summary": "The AI refused to send the unit alone to obj_nml_2, then screened at (8,38), which is next to obj_nml_2 and alone in front of the enemy. It rejected the 40.19 move to obj_nml_1.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r2_p1_charge_1_5",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c06/20261030_234723_r5c06_00__s7481_r2_p1_charge_1_5.json",
+  "a_did": "Stormboyz declares charge against Beastboss (17% chance, 9.5\" away, expected 11.9 melee dmg vs 6 HP, overwatch",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge, keep Stormboyz on or near the centre objective",
+  "E": -2.417,
+  "ci": [
+   -9.28,
+   4.45
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 1,
+  "chosen_option": "Charge Beastboss (9.5\" away, 17% chance)",
+  "suggestion": "Stormboyz declares charge against Beastboss (17% chance, 9.5\" away, expected 11.9 melee dmg vs 6 HP, overwatch risk: 5.4 dmg)",
+  "critic_summary": "The AI declares a 17% charge on Beastboss, below its own 0.29 charge threshold. A failed charge still costs overwatch damage, and a success leaves the Stormboyz exposed.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r2_p1_movement_1_4",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c06/20261030_234723_r5c06_00__s7481_r2_p1_movement_1_4.json",
+  "a_did": "Stormboyz arrives from Deep Strike",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_WARBIKERS_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Warbikers Alpha arrives",
+  "E": 0.0,
+  "ci": [
+   0.0,
+   0.0
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 12,
+  "chosen_option": "Stormboyz arrives",
+  "suggestion": "Stormboyz arrives from Deep Strike",
+  "critic_summary": "The AI deep strikes Stormboyz (OC1) next to a centre objective it already holds with 4 OC. The same unit with an added deep_strike term of 2.0 beats Warbikers (OC2) by 1.5. This looks like a small, mostly flat choice.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r2_p2_charge_1_6",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c06/20261030_234723_r5c06_00__s7481_r2_p2_charge_1_6.json",
+  "a_did": "Beast Snagga Boyz declares charge against Stormboyz (17% chance, 9.6\" away, expected 7.1 melee dmg vs 22 HP, o",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge (targets [])",
+  "E": -0.083,
+  "ci": [
+   -4.37,
+   4.2
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Charge Stormboyz (9.6\" away, 17% chance)",
+  "suggestion": "Beast Snagga Boyz declares charge against Stormboyz (17% chance, 9.6\" away, expected 7.1 melee dmg vs 22 HP, overwatch risk: 4.8 dmg)",
+  "critic_summary": "The AI declares a 17% charge on Stormboyz. The overwatch risk (4.8 expected damage against 8 wounds) is much larger than the expected gain, yet the total score stays positive.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234723_r5c06_00__s7481_r3_p2_charge_1_7",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c06/20261030_234723_r5c06_00__s7481_r3_p2_charge_1_7.json",
+  "a_did": "Battlewagon Alpha declares charge against Stormboyz (97% chance, 2.6\" away, expected 2.7 melee dmg vs 12 HP, o",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge; keep Battlewagon Alpha shooting or move it to support an objective",
+  "E": -2.417,
+  "ci": [
+   -8.03,
+   3.19
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Charge Stormboyz (2.6\" away, 97% chance)",
+  "suggestion": "Battlewagon Alpha declares charge against Stormboyz (97% chance, 2.6\" away, expected 2.7 melee dmg vs 12 HP, overwatch risk: 4.8 dmg)",
+  "critic_summary": "The Battlewagon charges 4 weak Stormboyz for about 2.7 expected damage. It risks 4.8 overwatch damage and retaliation. Easy-charge bonuses make a poor trade look positive.",
+  "drift": false,
+  "round_batch": "r5"
  },
  {
   "job": "20261030_234725_r5c11_00__s7486_r1_p1_movement_2_1",
@@ -14404,6 +14697,480 @@
   "round_batch": "r5"
  },
  {
+  "job": "20261030_234732_r5c10_00__s7485_r1_p1_movement_1_0",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c10/20261030_234732_r5c10_00__s7485_r1_p1_movement_1_0.json",
+  "a_did": "Gretchin screens at (900,1364) \u2014 screening valuable friendlies from enemy threats",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "E": 0.667,
+  "ci": [
+   -2.15,
+   3.48
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+  "suggestion": "Gretchin screens at (900,1364) \u2014 screening valuable friendlies from enemy threats",
+  "critic_summary": "Gretchin walk toward the board centre as a 'screen' while no enemy threat is in range. They end alone ahead of the army, with no clear unit to protect.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234732_r5c10_00__s7485_r1_p1_movement_2_1",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c10/20261030_234732_r5c10_00__s7485_r1_p1_movement_2_1.json",
+  "a_did": "Burna Boyz Beta screens at (1600,960) \u2014 backfield gap (nearest friendly: 23\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~4 VP)",
+  "E": -2.0,
+  "ci": [
+   -4.74,
+   0.74
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 23\"))",
+  "suggestion": "Burna Boyz Beta screens at (1600,960) \u2014 backfield gap (nearest friendly: 23\")",
+  "critic_summary": "The AI sent Burna Boyz Beta alone to a far-flank screen point, although its own reasoning says it stays with the army. The screen option scored 2.87 against 30.77 for obj_center.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234732_r5c10_00__s7485_r1_p2_movement_1_2",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c10/20261030_234732_r5c10_00__s7485_r1_p2_movement_1_2.json",
+  "a_did": "Burna Boyz Alpha screens at (320,1520) \u2014 backfield gap (nearest friendly: 21\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Advance obj_home_2 (advancing to arrive a turn sooner)",
+  "E": -2.917,
+  "ci": [
+   -5.75,
+   -0.09
+  ],
+  "n": 12,
+  "class": "harmful",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 21\"))",
+  "suggestion": "Burna Boyz Alpha screens at (320,1520) \u2014 backfield gap (nearest friendly: 21\")",
+  "critic_summary": "The AI sends a 5-model Burna unit toward a distant left-side screen point it cannot reach, cutting it off from its army. The unit is unlikely to arrive there and is exposed on the way.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234732_r5c10_00__s7485_r1_p2_shooting_1_3",
+  "kind": "shooting",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c10/20261030_234732_r5c10_00__s7485_r1_p2_shooting_1_3.json",
+  "a_did": "Battlewagon Beta shoots at Mek Beta \u2014 expected 0.6 dmg vs 4 HP (14% kill)",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_B_P2",
+    "target": "U_BURNA_BOYZ_B"
+   }
+  ],
+  "better_option": "Big shoota \u2192 enemy Burna Boyz Beta (P1)",
+  "E": 0.667,
+  "ci": [
+   -2.08,
+   3.41
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 5,
+  "chosen_option": "Big shoota \u2192 enemy Mek Beta (P1)",
+  "suggestion": "Battlewagon Beta shoots at Mek Beta \u2014 expected 0.6 dmg vs 4 HP (14% kill)",
+  "critic_summary": "The Battlewagon fires 3 Big shoota shots at Mek Beta, a 4-wound character, for only 0.57 expected damage and a 14 percent kill chance. Focus-fire bonuses drive the pick, not real damage.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234732_r5c10_00__s7485_r2_p1_charge_1_5",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c10/20261030_234732_r5c10_00__s7485_r2_p1_charge_1_5.json",
+  "a_did": "Stormboyz declares charge against Beastboss (28% chance, 8.6\" away, expected 11.9 melee dmg vs 6 HP, overwatch",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge",
+  "E": -3.667,
+  "ci": [
+   -7.81,
+   0.48
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 2,
+  "chosen_option": "Charge Beastboss (8.6\" away, 28% chance)",
+  "suggestion": "Stormboyz declares charge against Beastboss (28% chance, 8.6\" away, expected 11.9 melee dmg vs 6 HP, overwatch risk: 5.4 dmg)",
+  "critic_summary": "The AI sent 140 pts of Stormboyz at a 6 HP Beastboss on a 28% charge. The positive terms (ch_damage, ch_can_wipe, ch_can_halve, ch_character, order_round_aggression) outweigh the ch_chance penalty. The result is a marginal, high-risk charge.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234732_r5c10_00__s7485_r2_p1_movement_2_4",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c10/20261030_234732_r5c10_00__s7485_r2_p1_movement_2_4.json",
+  "a_did": "Gretchin screens at (697,1490) \u2014 screening valuable friendlies from enemy threats",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "E": -2.25,
+  "ci": [
+   -5.47,
+   0.97
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+  "suggestion": "Gretchin screens at (697,1490) \u2014 screening valuable friendlies from enemy threats",
+  "critic_summary": "The AI sent the Gretchin to a generic Screen spot at (17.4, 37.2), near Stormboyz. The Screen option scored a flat 8.0 with no threat or objective reasoning, while moving to obj_center scored 20.0 and was overridden.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234732_r5c10_00__s7485_r2_p2_movement_2_6",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c10/20261030_234732_r5c10_00__s7485_r2_p2_movement_2_6.json",
+  "a_did": "Burna Boyz Alpha screens at (525,1746) \u2014 block Stormboyz approaching obj_nml_2 (15\" away)",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Advance obj_home_2 (advancing to arrive a turn sooner)",
+  "E": -0.75,
+  "ci": [
+   -6.37,
+   4.87
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (block Stormboyz approaching obj_nml_2 (15\" away))",
+  "suggestion": "Burna Boyz Alpha screens at (525,1746) \u2014 block Stormboyz approaching obj_nml_2 (15\" away)",
+  "critic_summary": "The AI sends a 5-model Burna Boyz unit on a long move across the board to screen against fast Stormboyz. The screen cannot be reached this turn and cannot stop a flyer.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234732_r5c10_00__s7485_r2_p2_shooting_2_7",
+  "kind": "shooting",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c10/20261030_234732_r5c10_00__s7485_r2_p2_shooting_2_7.json",
+  "a_did": "Burna Boyz Alpha shoots at Burna Boyz Alpha \u2014 expected 0.2 dmg vs 5 HP (5% kill); Stormboyz \u2014 expected 4.4 dmg",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P1)",
+  "E": -1.333,
+  "ci": [
+   -6.34,
+   3.67
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Big shoota \u2192 enemy Burna Boyz Alpha (P1)",
+  "suggestion": "Burna Boyz Alpha shoots at Burna Boyz Alpha \u2014 expected 0.2 dmg vs 5 HP (5% kill); Stormboyz \u2014 expected 4.4 dmg vs 22 HP (20% kill)",
+  "critic_summary": "The AI sent the Big shoota at a target 32 in away for 0.2 expected damage. It could have added the Big shoota to the Stormboyz, with rapid fire at under 18 in, for 0.78 damage.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234732_r5c10_00__s7485_r3_p2_movement_1_8",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c10/20261030_234732_r5c10_00__s7485_r3_p2_movement_1_8.json",
+  "a_did": "Stormboyz moves toward obj_nml_2 (moving toward charge target Lootas Gamma, obj: 45.3\" away)",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_STORMBOYZ_A_P2",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~3 VP)",
+  "E": -1.167,
+  "ci": [
+   -7.96,
+   5.62
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (4 units already committed) \u2014 worth ~6 VP)",
+  "suggestion": "Stormboyz moves toward obj_nml_2 (moving toward charge target Lootas Gamma, obj: 45.3\" away)",
+  "critic_summary": "The AI sends Stormboyz on a 3-turn trip to reinforce obj_nml_2. That objective is already held, and four other units are already committed to it. The Stormboyz are fast and could instead go for the enemy's weakly held obj_nml_1 or support the centre.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234736_r5c07_00__s7482_r1_p1_movement_2_0",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c07/20261030_234736_r5c07_00__s7482_r1_p1_movement_2_0.json",
+  "a_did": "Beast Snagga Boyz screens at (960,960) \u2014 backfield gap (nearest friendly: 10\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "E": 4.583,
+  "ci": [
+   1.41,
+   7.76
+  ],
+  "n": 12,
+  "class": "clear",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 12\"))",
+  "suggestion": "Beast Snagga Boyz screens at (960,960) \u2014 backfield gap (nearest friendly: 12\")",
+  "critic_summary": "The AI chose a weak 'Screen' move to (24,24) with no objective. It rejected Advance obj_center, which scored 25.03 against 4.96, because of an unrelated override about racing for obj_home_2.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234736_r5c07_00__s7482_r1_p2_movement_1_1",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c07/20261030_234736_r5c07_00__s7482_r1_p2_movement_1_1.json",
+  "a_did": "Mek Beta moves toward obj_center (reinforcing obj_center (2 units already committed), obj: 14.8\" away)",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_MEK_B_P2",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "better_option": "Advance obj_home_2 (advancing for extra range \u2014 worth ~10 VP)",
+  "E": 1.417,
+  "ci": [
+   -1.13,
+   3.96
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Move obj_center (reinforcing obj_center (2 units already committed) \u2014 worth ~9 VP)",
+  "suggestion": "Mek Beta moves toward obj_center (reinforcing obj_center (2 units already committed), obj: 14.8\" away)",
+  "critic_summary": "The AI sends a fragile OC1 Mek toward obj_center, which is already reinforced by 2 units, and it walks a lone character ahead of its army. The reasoning says it is staying with the army.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234736_r5c07_00__s7482_r1_p2_movement_2_2",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c07/20261030_234736_r5c07_00__s7482_r1_p2_movement_2_2.json",
+  "a_did": "Lootas Gamma holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_nml_2)",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C_P2",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "better_option": "Hold obj_home_2 (on objective, OC needed \u2014 worth ~10 VP)",
+  "E": 0.0,
+  "ci": [
+   0.0,
+   0.0
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 12,
+  "chosen_option": "Move obj_nml_2 (capturing it (uncontrolled) \u2014 worth ~9 VP)",
+  "suggestion": "Lootas Gamma holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_nml_2)",
+  "critic_summary": "The AI sends Lootas Gamma 15.6 in toward obj_nml_2. It cannot arrive this turn, loses the Heavy bonus, and a closer unit could take the objective.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234736_r5c07_00__s7482_r2_p1_charge_1_3",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c07/20261030_234736_r5c07_00__s7482_r2_p1_charge_1_3.json",
+  "a_did": "Stormboyz declares a charge at Battlewagon Alpha + Burna Boyz Alpha \u2014 targets picked after the roll: Battlewag",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge, and stay on the centre objective",
+  "E": -0.5,
+  "ci": [
+   -4.6,
+   3.6
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Charge Battlewagon Alpha (8.6\" away, 28% chance)",
+  "suggestion": "Stormboyz declares a charge at Battlewagon Alpha + Burna Boyz Alpha \u2014 targets picked after the roll: Battlewagon Alpha on 9+ (28%), Burna Boyz Alpha on 11+ (8%), overwatch risk: 5.4 dmg",
+  "critic_summary": "Stormboyz declare a 28% charge on a T11 Battlewagon. They would deal only about 3 to 4 wounds and take heavy retaliation, and they leave the centre objective.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234736_r5c07_00__s7482_r2_p2_movement_2_4",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c07/20261030_234736_r5c07_00__s7482_r2_p2_movement_2_4.json",
+  "a_did": "Burna Boyz Alpha advances toward obj_center (flipping it (enemy holds with OC 4))",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "better_option": "unlisted: Move (no advance) toward obj_center so the unit can still shoot, or hold near obj_nml_2.",
+  "E": 1.0,
+  "ci": [
+   -2.91,
+   4.91
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Advance obj_center (flipping it (enemy holds with OC 4) \u2014 worth ~6 VP)",
+  "suggestion": "Burna Boyz Alpha advances toward obj_center (flipping it (enemy holds with OC 4))",
+  "critic_summary": "The AI advances 5 Burna Boyz alone toward a centre objective they cannot reach this turn. The advance gives up all shooting and exposes them to a Stormboyz charge.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234736_r5c07_00__s7482_r3_p2_charge_1_6",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c07/20261030_234736_r5c07_00__s7482_r3_p2_charge_1_6.json",
+  "a_did": "Lootas Gamma declares charge against Beast Snagga Boyz (42% chance, 7.8\" away, expected 2.7 melee dmg vs 3 HP,",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOOTAS_C_P2",
+    "targets": []
+   }
+  ],
+  "better_option": "Do not charge (targets [])",
+  "E": 1.75,
+  "ci": [
+   -0.66,
+   4.16
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 1,
+  "chosen_option": "Charge Beast Snagga Boyz (7.8\" away, 42% chance)",
+  "suggestion": "Lootas Gamma declares charge against Beast Snagga Boyz (42% chance, 7.8\" away, expected 2.7 melee dmg vs 3 HP, overwatch risk: 6.9 dmg)",
+  "critic_summary": "The AI sends a Lootas unit with weak melee (A2 S4) into a 42% charge against 3 Boyz. The charge costs about 6.9 dmg in overwatch and exposes the unit to retaliation, yet the score stays positive.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234736_r5c07_00__s7482_r3_p2_shooting_2_5",
+  "kind": "shooting",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c07/20261030_234736_r5c07_00__s7482_r3_p2_shooting_2_5.json",
+  "a_did": "Lootas Beta shoots at Burna Boyz Alpha \u2014 expected 1.6 dmg vs 5 HP (31% kill)",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_LOOTAS_B_P2",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "better_option": "Deffgun \u2192 enemy Stormboyz (P1)",
+  "E": -0.333,
+  "ci": [
+   -3.12,
+   2.45
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Deffgun \u2192 enemy Burna Boyz Alpha (P1)",
+  "suggestion": "Lootas Beta shoots at Burna Boyz Alpha \u2014 expected 1.6 dmg vs 5 HP (31% kill)",
+  "critic_summary": "Lootas Beta fires its Deffgun at Burna Boyz Alpha. The 'already_allocated' term of 1.87 swamps the real numbers. The shot kills about 0.3 of a 5-model unit.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
   "job": "20261030_234804_r5c12_00__s7487_r1_p2_movement_1_0",
   "kind": "movement",
   "matchup": "custodes_lions vs Orks_2000",
@@ -14505,20 +15272,27 @@
    }
   ],
   "better_option": "unlisted: do not charge with Kommandos (targets [])",
-  "E": 5.333,
+  "E": -0.083,
   "ci": [
-   0.96,
-   9.7
+   -6.8,
+   6.63
   ],
-  "n": 12,
-  "class": "clear",
+  "n": 24,
+  "class": "neutral",
   "applied": 12,
   "identical": 0,
   "chosen_option": "Charge Blade Champion Beta (8.3\" away, 28% chance)",
   "suggestion": "Kommandos declares charge against Blade Champion Beta (28% chance, 8.3\" away, expected 8.9 melee dmg vs 7 HP, overwatch risk: 0.7 dmg)",
   "critic_summary": "The AI charges a Blade Champion at 28% odds. It overrates the damage and ignores that the Blade Champion would kill many Kommandos in return.",
   "drift": false,
-  "round_batch": "r5"
+  "round_batch": "r5",
+  "E12": 5.333,
+  "ci12": [
+   0.96,
+   9.7
+  ],
+  "n12": 12,
+  "recheck": "pr12h2_2"
  },
  {
   "job": "20261030_234804_r5c12_00__s7487_r3_p2_charge_1_4",
@@ -14755,6 +15529,271 @@
   "suggestion": "Custodian Guard Sodality Gamma moves toward obj_center (moving toward charge target Beastboss, obj: 4.5\" away)",
   "critic_summary": "The AI moves the wounded Gamma unit to obj_center, which already has strong Custodian support and is held by us. The move is reasonable but adds little. Its threat_delta of -16.71 is ignored in the score, which is only 0.31 ahead of the obj_nml_2 option.",
   "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r1_p1_movement_1_0",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c08/20261030_234810_r5c08_00__s7483_r1_p1_movement_1_0.json",
+  "a_did": "Burna Boyz Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 14\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner)",
+  "E": -0.583,
+  "ci": [
+   -4.87,
+   3.7
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 14\"))",
+  "suggestion": "Burna Boyz Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 14\")",
+  "critic_summary": "The AI sent Burna Boyz Beta to an empty backfield corner as a screen. The unit then does nothing useful in round 1. It picked an option that scored 1.79 over options that scored up to 26.5.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r1_p1_movement_2_1",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c08/20261030_234810_r5c08_00__s7483_r1_p1_movement_2_1.json",
+  "a_did": "Kommandos moves toward obj_center (reinforcing obj_center (2 units already committed), obj: 21.0\" away)",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_KOMMANDOS_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner)",
+  "E": -1.083,
+  "ci": [
+   -3.05,
+   0.88
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Move obj_home_1 (supporting nearby objective)",
+  "suggestion": "Kommandos moves toward obj_home_1 (supporting nearby objective, obj: 10.4\" away)",
+  "critic_summary": "The AI sent Kommandos to obj_home_1, which P1 already holds with 38 OC. The move adds no OC and no VP. The top-scoring option, Advance obj_center at 14.29, was skipped.",
+  "drift": true,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r1_p1_shooting_1_2",
+  "kind": "shooting",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c08/20261030_234810_r5c08_00__s7483_r1_p1_shooting_1_2.json",
+  "a_did": "Burna Boyz Beta shoots at Beast Snagga Boyz \u2014 expected 0.2 dmg vs 11 HP (2% kill)",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_B",
+    "target": "U_KOMMANDOS_A_P2"
+   }
+  ],
+  "better_option": "Big shoota \u2192 enemy Kommandos (P2)",
+  "E": -2.417,
+  "ci": [
+   -5.04,
+   0.21
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 5,
+  "chosen_option": "Big shoota \u2192 enemy Beast Snagga Boyz (P2)",
+  "suggestion": "Burna Boyz Beta shoots at Beast Snagga Boyz \u2014 expected 0.2 dmg vs 11 HP (2% kill)",
+  "critic_summary": "The AI shoots a big shoota at a target 36 in away for 0.2 expected damage and a 2% kill chance. It also records already_allocated 10.11 and target_value 8.41, which inflate the focus-fire plan. The shot is weak and gains little.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r1_p2_movement_1_3",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c08/20261030_234810_r5c08_00__s7483_r1_p2_movement_1_3.json",
+  "a_did": "Burna Boyz Beta screens at (1600,1520) \u2014 backfield gap (nearest friendly: 10\")",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B_P2",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "better_option": "Hold obj_home_2 (on objective, OC needed)",
+  "E": -3.0,
+  "ci": [
+   -6.53,
+   0.53
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (backfield gap (nearest friendly: 10\"))",
+  "suggestion": "Burna Boyz Beta screens at (1600,1520) \u2014 backfield gap (nearest friendly: 10\")",
+  "critic_summary": "The AI sent a 5-model Burna Boyz unit to a 'backfield gap' screen position far from any enemy and from the army. Round 1 offers no threat to screen against, so the move wastes the unit's turn.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r1_p2_movement_2_4",
+  "kind": "movement",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c08/20261030_234810_r5c08_00__s7483_r1_p2_movement_2_4.json",
+  "a_did": "Lootas Beta screens at (733,1092) \u2014 block Battlewagon Beta approaching obj_center (10\" away)",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_B_P2",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "better_option": "Hold obj_home_2 (on objective, OC needed)",
+  "E": -3.917,
+  "ci": [
+   -7.13,
+   -0.7
+  ],
+  "n": 12,
+  "class": "harmful",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Screen (block Battlewagon Beta approaching obj_center (10\" away))",
+  "suggestion": "Lootas Beta screens at (733,1092) \u2014 block Battlewagon Beta approaching obj_center (10\" away)",
+  "critic_summary": "The AI sent Lootas Beta out of its home ruin to screen a Battlewagon it cannot reach this turn. The Screen option scored 6.4, far below the other options, and was chosen only through an override.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r2_p1_charge_1_5",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c08/20261030_234810_r5c08_00__s7483_r2_p1_charge_1_5.json",
+  "a_did": "Stormboyz declares charge against Zodgrod Wortsnagga (28% chance, 8.7\" away, expected 10.7 melee dmg vs 5 HP, ",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge, and keep Stormboyz on the center objective",
+  "E": -1.833,
+  "ci": [
+   -5.24,
+   1.58
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Charge Zodgrod Wortsnagga (8.7\" away, 28% chance)",
+  "suggestion": "Stormboyz declares charge against Zodgrod Wortsnagga (28% chance, 8.7\" away, expected 10.7 melee dmg vs 5 HP, overwatch risk: 5.4 dmg)",
+  "critic_summary": "Stormboyz charge Zodgrod at 28% chance for a net score of only 0.73. A success would give up a held objective and expose a 140 pt unit.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r2_p2_charge_2_7",
+  "kind": "charge",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c08/20261030_234810_r5c08_00__s7483_r2_p2_charge_2_7.json",
+  "a_did": "Beast Snagga Boyz declares a charge at Battlewagon Beta + Stormboyz \u2014 targets picked after the roll: Battlewag",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "better_option": "unlisted: do not charge; keep the unit back to hold or screen",
+  "E": -3.083,
+  "ci": [
+   -8.95,
+   2.78
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 0,
+  "chosen_option": "Charge Battlewagon Beta (5.6\" away, 72% chance)",
+  "suggestion": "Beast Snagga Boyz declares a charge at Battlewagon Beta + Stormboyz \u2014 targets picked after the roll: Battlewagon Beta on 6+ (72%), Stormboyz on 11+ (8%), overwatch risk: 1.9 dmg",
+  "critic_summary": "The AI charges a battered 4-model unit into an 11-wound Battlewagon. It expects about 1.8 damage and invites a strong melee reply.",
+  "drift": false,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r2_p2_shooting_2_6",
+  "kind": "shooting",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c08/20261030_234810_r5c08_00__s7483_r2_p2_shooting_2_6.json",
+  "a_did": "",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P1)",
+  "E": 0.0,
+  "ci": [
+   0.0,
+   0.0
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 0,
+  "identical": 12,
+  "chosen_option": "Big shoota \u2192 enemy Burna Boyz Alpha (P1)",
+  "suggestion": "Battlewagon Alpha shoots at Burna Boyz Alpha \u2014 expected 0.5 dmg vs 5 HP (9% kill)",
+  "critic_summary": "Battlewagon Alpha shoots far Burna Boyz Alpha for 0.47 expected damage instead of near Stormboyz for 0.78.",
+  "drift": true,
+  "round_batch": "r5"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r3_p2_shooting_1_8",
+  "kind": "shooting",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "case": "40k/tests/rollout_cases/r5c08/20261030_234810_r5c08_00__s7483_r3_p2_shooting_1_8.json",
+  "a_did": "Battlewagon Alpha shoots at Stormboyz \u2014 expected 0.8 dmg vs 15 HP (5% kill)",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P1)",
+  "E": 0.0,
+  "ci": [
+   0.0,
+   0.0
+  ],
+  "n": 12,
+  "class": "neutral",
+  "applied": 12,
+  "identical": 12,
+  "chosen_option": "Big shoota \u2192 enemy Mek Beta (P1)",
+  "suggestion": "Battlewagon Alpha shoots at Mek Beta \u2014 expected 0.6 dmg vs 4 HP (16% kill)",
+  "critic_summary": "The AI shot a lone 4-wound Mek with 0.64 expected damage and a 16% kill chance, while the same shot would kill about 0.8 of a 1-wound model.",
+  "drift": true,
   "round_batch": "r5"
  },
  {
