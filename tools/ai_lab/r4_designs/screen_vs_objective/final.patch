@@ -1,0 +1,337 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index 80c9b361..a71d0206 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1724,6 +1724,24 @@ const RI_RACE_LOST_RATIO: float = 1.5
+ # and secondary-card coverage are untouched.
+ # 0 = the text test (base behaviour).
+ const FIX_WAAAGH_ADVANCE_CHARGE: float = 1.0
++# Movement (FIX_SCREEN_VS_OBJECTIVE): 1 = a screening candidate the objective
++# passes did NOT deliberately keep back (no LONE-TRIP / FAR-TRIP / TOO-LATE /
++# RACE-SKIP / diminishing-returns skip) is not parked on a low-priority
++# "backfield gap" denial spot when it has an objective trip that needs no
++# fight — an uncontrolled, non-home objective with no enemy OC one move away,
++# that a friendly unit already holds or is going to — scoring at least
++# SCREEN_VS_OBJECTIVE_MIN_GAIN above the screen, and that trip itself passes
++# the TOO-LATE / RACE-SKIP / LONE-TRIP / FAR-TRIP gates and is not a lost race.
++# It joins that objective instead; the gap is consumed (as if screened), so
++# every other unit keeps its base assignment. At most one such switch per
++# movement plan; a unit standing on an objective keeps its base gap screen;
++# home-objective deep-strike denial is untouched. s7467 r1 P2 Gretchin:
++# Advancing onto obj_nml_2 measured +3.64 [1.82, 5.46] over 36 seeds.
++# Fires only when the enemy has units in reserve. 0 = base.
++const FIX_SCREEN_VS_OBJECTIVE: float = 1.0
++# SCREEN-VS-OBJ: the released trip must score at least this much above the
++# gap screen it replaces.
++const SCREEN_VS_OBJECTIVE_MIN_GAIN: float = 8.0
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -11130,6 +11148,7 @@ static func _assign_units_to_objectives(
+ 		support_counts[inc_oid] = support_counts.get(inc_oid, 0) + incoming_names[inc_oid].size()
+ 
+ 	var denial_idx = 0  # Track which denial position to assign next
++	var svo_switched := false  # SCREEN-VS-OBJ: at most one gap screen released per plan call
+ 	var block_idx = 0   # T7-42: Track which corridor blocking position to assign next
+ 	# F007: screeners are spaced so their denial bubbles touch (2R), derived
+ 	# from the real arrival stand-off rather than a hardcoded 18".
+@@ -11162,6 +11181,55 @@ static func _assign_units_to_objectives(
+ 				score += _t_add(screen_terms, "denial_priority", float(denial.priority))
+ 				# Closer units score higher for screening
+ 				score += _t_add(screen_terms, "screen_distance", -((dist_to_denial / PIXELS_PER_INCH) * 0.3))
++				# SCREEN-VS-OBJ (FIX_SCREEN_VS_OBJECTIVE): a unit nothing held back
++				# skips a backfield-gap spot for a no-fight objective trip that
++				# clearly outscores it. The gap is consumed so the next screener
++				# keeps the spot it had.
++				if get_param("FIX_SCREEN_VS_OBJECTIVE", FIX_SCREEN_VS_OBJECTIVE) >= 0.5 \
++						and not svo_switched and bool(denial.get("gap", false)) \
++						and not extra_obj_skipped.has(unit_id) and not lone_skipped.has(unit_id) \
++						and not far_skipped.has(unit_id):
++					var svo_best: Dictionary = {}
++					var svo_on_obj := false  # a unit standing on an objective is not released
++					for svo_cand in candidates:
++						if svo_cand.unit_id == unit_id and (svo_cand.action == "hold" or svo_cand.get("already_on_obj", false)):
++							svo_on_obj = true
++						if svo_cand.unit_id != unit_id or svo_cand.action not in ["move", "advance"]:
++							continue
++						# The released trip passes the pass-2 gates PASS 2 never ran on it
++						# (covered objectives are skipped before them).
++						if svo_cand.get("race_lost", false) or too_late.call(svo_cand) \
++								or race_hopeless.call(svo_cand) or lone_trip.call(svo_cand) or far_trip.call(svo_cand):
++							continue
++						var svo_eval = _get_obj_eval_by_id(obj_evaluations, svo_cand.objective_id)
++						# No-fight target only: uncontrolled, not home, no enemy OC one move
++						# away, and a friendly unit already there or going there.
++						if svo_eval.is_empty() or svo_eval.state != "uncontrolled" \
++								or svo_eval.get("is_home", false) \
++								or int(svo_eval.get("projected_enemy_oc", 0)) != 0 \
++								or int(support_counts.get(str(svo_cand.objective_id), 0)) < 1:
++							continue
++						if svo_best.is_empty() or float(svo_cand.score) > float(svo_best.score):
++							svo_best = svo_cand
++					if not svo_best.is_empty() and not svo_on_obj \
++							and float(svo_best.score) >= score + get_param("SCREEN_VS_OBJECTIVE_MIN_GAIN", SCREEN_VS_OBJECTIVE_MIN_GAIN):
++						var svo_oid = str(svo_best.objective_id)
++						assignments[unit_id] = svo_best.duplicate()
++						assignments[unit_id]["assign_pass"] = "support"
++						assignments[unit_id]["reason"] = "%s — not parked on a backfield gap (screen %.1f)" % [
++							str(svo_best.get("reason", "")), score]
++						assignments[unit_id]["coordination_note"] = "not screening the backfield gap at (%.0f,%.0f) — joining the units at %s, which no enemy can reach this turn" % [
++							denial_pos.x, denial_pos.y, svo_oid]
++						assigned_unit_ids[unit_id] = true
++						# Consume the gap as if screened (branch B): later screeners and
++						# support units keep their base assignments.
++						screener_positions.append(denial_pos)
++						denial_idx += 1
++						svo_switched = true
++						print("AIDecisionMaker: [SCREEN_VS_OBJECTIVE] %s skips %s for %s %s (%.1f vs screen %.1f)" % [
++							_dn(unit, unit_id), denial.reason, str(svo_best.action).to_upper(), svo_oid,
++							float(svo_best.score), score])
++						continue
+ 				assignments[unit_id] = {
+ 					"objective_id": "screen_denial",
+ 					"objective_pos": denial_pos,
+@@ -13975,6 +14043,7 @@ static func _calculate_denial_positions(
+ 				if nearest_friendly_dist > denial_radius_px:
+ 					denial_positions.append({
+ 						"position": sample_pos,
++						"gap": true,  # SCREEN-VS-OBJ: backfield gap, not home-objective denial
+ 						"priority": 3.0,  # Lower priority than objective denial
+ 						"reason": "backfield gap (nearest friendly: %.0f\")" % (nearest_friendly_dist / PIXELS_PER_INCH)
+ 					})
+diff --git a/40k/tests/unit/test_ai_fix_screen_vs_objective.gd b/40k/tests/unit/test_ai_fix_screen_vs_objective.gd
+new file mode 100644
+index 00000000..e17aaf79
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_screen_vs_objective.gd
+@@ -0,0 +1,230 @@
++extends SceneTree
++
++# SCREEN-VS-OBJ (FIX_SCREEN_VS_OBJECTIVE): a cheap screening candidate that
++# the objective passes did NOT deliberately keep back is not parked on a
++# low-priority "backfield gap" denial spot when it has an objective trip that
++# needs no fight (uncontrolled, not home, no enemy OC one move away, a friend
++# already going there; the trip itself passes TOO-LATE / RACE-SKIP /
++# LONE-TRIP / FAR-TRIP) scoring at least SCREEN_VS_OBJECTIVE_MIN_GAIN above
++# the screen. One switch per plan; the gap is consumed (branch B).
++# LLM-critic cluster screen_vs_objective (value-checked, 36 seeds, 2026-10-30):
++# s7467 r1 P2 Gretchin sent to a backfield gap instead of Advancing onto the
++# uncontrolled obj_nml_2 measured +3.64 [1.82, 5.46] (more bodies forward for
++# Forward Position / Cleanse). Guardrails: units held back by LONE-TRIP or
++# DIM-RETURNS, and home-objective deep-strike denial, keep their screens.
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_screen_vs_objective.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const OBJ_MID := Vector2(880, 1200)  # uncontrolled, no enemy near it
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Screen vs objective (SCREEN-VS-OBJ) ===\n")
++	AIDecisionMaker._config_overrides["FIX_SCREEN_VS_OBJECTIVE"] = 1.0
++	test_spare_grots_support_the_open_objective()
++	test_held_back_grots_keep_the_gap()
++	test_too_late_trip_keeps_the_gap()
++	test_grots_on_an_objective_keep_the_gap()
++	test_two_spare_screeners_one_switch()
++	test_home_denial_spot_no_switch()
++	test_non_screen_support_unchanged()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_SCREEN_VS_OBJECTIVE")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot(battle_round: int = 1, extra_objs: Array = []) -> Dictionary:
++	var objs = [{"id": "obj_mid", "position": OBJ_MID, "zone": "no_mans_land"}]
++	objs.append_array(extra_objs)
++	return {"battle_round": battle_round, "meta": {"battle_round": battle_round},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
++
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int, points: int,
++		oc: int, toughness: int, wounds: int, move: int = 6,
++		status: int = GameStateData.UnitStatus.DEPLOYED) -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32,
++			"base_type": "circular", "base_dimensions": {},
++			"position": Vector2(pos.x + (i - (n - 1) / 2.0) * 45.0, pos.y), "wounds": wounds, "current_wounds": wounds})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": status,
++		"meta": {"name": unit_id, "points": points, "stats": {"move": move, "toughness": toughness, "save": 6,
++			"wounds": wounds, "leadership": 7, "objective_control": oc}, "keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++
++# Our army: a big squad that takes obj_mid on its own, and a cheap grot unit
++# in the deployment zone that the capture passes leave spare. The enemy has a
++# unit in reserves (so the deep-strike denial pass runs) and one on the board.
++# enemy_at: where that enemy stands (default far away, on its own edge).
++func _board(enemy_near_mid: bool, enemy_at: Vector2 = Vector2.INF, battle_round: int = 1,
++		grots_at: Vector2 = Vector2(880, 1520), extra_objs: Array = []) -> Dictionary:
++	var snap = _snapshot(battle_round, extra_objs)
++	var enemies = {}
++	_add_unit(snap, "boyz", 2, Vector2(880, 1380), 10, 170, 2, 5, 1)
++	_add_unit(snap, "grots", 2, grots_at, 10, 40, 1, 2, 1, 5)
++	_add_unit(snap, "deepstrikers", 1, Vector2(-1000, -1000), 5, 200, 2, 4, 2, 6,
++		GameStateData.UnitStatus.IN_RESERVES)
++	var far_pos = OBJ_MID if enemy_near_mid else Vector2(880, 150)
++	if enemy_at != Vector2.INF:
++		far_pos = enemy_at
++	_add_unit(snap, "theirs", 1, far_pos, 10, 200, 2, 4, 2)
++	enemies["theirs"] = snap.units["theirs"]
++	enemies["deepstrikers"] = snap.units["deepstrikers"]
++	return {"snap": snap, "enemies": enemies}
++
++func _is_switch(a: Dictionary) -> bool:
++	return str(a.get("reason", "")).contains("not parked on a backfield gap")
++
++func _is_base_gap(a: Dictionary) -> bool:
++	return str(a.get("action", "")) == "screen" and str(a.get("reason", "")).begins_with("backfield gap")
++
++func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p2 = {}
++	AIDecisionMaker._secondary_awareness_p2 = {}
++	var friendlies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 2:
++			friendlies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var on_board_enemies = {}
++	for eid in enemies:
++		if int(enemies[eid].get("status", 0)) != GameStateData.UnitStatus.IN_RESERVES:
++			on_board_enemies[eid] = enemies[eid]
++	var br = int(snap.get("battle_round", 1))
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, on_board_enemies, friendlies, br)
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, on_board_enemies, friendlies, 2, br)
++	for uid in plan:
++		print("  %s: %s %s [%s] score %.1f (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), float(plan[uid].get("score", 0.0)), str(plan[uid].get("reason", "")).substr(0, 110)])
++	return plan
++
++func test_spare_grots_support_the_open_objective() -> void:
++	print("\n--- spare grots: backfield gap vs the open obj_mid the boyz already take ---")
++	var b = _board(false)
++	var plan = _plan(b.snap, ["boyz", "grots"], b.enemies)
++	for c in AIDecisionMaker._last_movement_candidates.get("grots", []):
++		print("  grots candidate: %s %s %.1f" % [str(c.get("action", "")), str(c.get("objective_id", "")), float(c.get("score", 0.0))])
++	var g: Dictionary = plan.get("grots", {})
++	_assert(str(g.get("objective_id", "")) == "obj_mid" and str(g.get("action", "")) in ["move", "advance"],
++		"the spare grots go to the open obj_mid instead of a backfield gap (got %s %s)" % [
++			str(g.get("action", "")), str(g.get("objective_id", ""))])
++	_assert(str(plan.get("boyz", {}).get("objective_id", "")) == "obj_mid", "the boyz still take obj_mid")
++
++func test_held_back_grots_keep_the_gap() -> void:
++	# Only the new target filter blocks the switch: obj_mid is still
++	# uncontrolled, but a lone enemy model stands 10" from it (inside M + 2"
++	# plus control range), so projected_enemy_oc > 0 and the trip is not
++	# no-fight. The boyz alone out-OC it, so the grots stay spare.
++	print("\n--- an enemy model one move from obj_mid: the grots keep their exact base gap screen ---")
++	var b = _board(false)
++	_add_unit(b.snap, "scout", 1, OBJ_MID + Vector2(0, -400), 1, 20, 1, 4, 2)
++	b.enemies["scout"] = b.snap.units["scout"]
++	var plan = _plan(b.snap, ["boyz", "grots"], b.enemies)
++	var g: Dictionary = plan.get("grots", {})
++	_assert(_is_base_gap(g),
++		"no SCREEN-VS-OBJ switch onto an objective an enemy reaches next move (got %s %s: %s)" % [
++			str(g.get("action", "")), str(g.get("objective_id", "")), str(g.get("reason", ""))])
++
++func test_too_late_trip_keeps_the_gap() -> void:
++	# (a) Battle round 5, the grots need 2 turns to reach obj_mid: TOO-LATE.
++	print("\n--- round 5, a 2-turn trip: TOO-LATE keeps the gap ---")
++	# Margin 0 so only the TOO-LATE gate can keep the gap.
++	AIDecisionMaker._config_overrides["SCREEN_VS_OBJECTIVE_MIN_GAIN"] = 0.0
++	var b = _board(false, Vector2.INF, 5, Vector2(880, 2100))
++	var plan = _plan(b.snap, ["boyz", "grots"], b.enemies)
++	AIDecisionMaker._config_overrides.erase("SCREEN_VS_OBJECTIVE_MIN_GAIN")
++	var g: Dictionary = plan.get("grots", {})
++	_assert(not _is_switch(g),
++		"the released trip is TOO-LATE checked (got %s %s: %s)" % [
++			str(g.get("action", "")), str(g.get("objective_id", "")), str(g.get("reason", ""))])
++
++func test_grots_on_an_objective_keep_the_gap() -> void:
++	# (b) The grots stand on obj_side, which our boyz-sized holder also
++	# holds: the grots are spare, but a unit on an objective is not released.
++	print("\n--- grots standing on an objective keep their base gap screen ---")
++	var side := Vector2(1500, 1500)
++	var b = _board(false, Vector2.INF, 1, side,
++		[{"id": "obj_side", "position": side, "zone": "no_mans_land"}])
++	_add_unit(b.snap, "holder", 2, side + Vector2(0, 60), 10, 170, 2, 5, 1)
++	var plan = _plan(b.snap, ["boyz", "grots"], b.enemies)
++	var g: Dictionary = plan.get("grots", {})
++	_assert(not _is_switch(g),
++		"grots already on an objective are not switched (got %s %s: %s)" % [
++			str(g.get("action", "")), str(g.get("objective_id", "")), str(g.get("reason", ""))])
++
++func test_two_spare_screeners_one_switch() -> void:
++	# (c) Two spare grot units: at most one switch per movement plan.
++	print("\n--- two spare screeners: exactly one switch ---")
++	var b = _board(false)
++	_add_unit(b.snap, "grots2", 2, Vector2(1000, 1560), 10, 40, 1, 2, 1, 5)
++	# Margin 0 so both would qualify: only the one-per-plan cap stops the second.
++	AIDecisionMaker._config_overrides["SCREEN_VS_OBJECTIVE_MIN_GAIN"] = 0.0
++	var plan = _plan(b.snap, ["boyz", "grots", "grots2"], b.enemies)
++	AIDecisionMaker._config_overrides.erase("SCREEN_VS_OBJECTIVE_MIN_GAIN")
++	var n := 0
++	for uid in ["grots", "grots2"]:
++		if _is_switch(plan.get(uid, {})):
++			n += 1
++	_assert(n == 1, "exactly one of two spare screeners is switched (got %d)" % n)
++
++func test_home_denial_spot_no_switch() -> void:
++	# (d) A home objective puts a deep-strike denial spot first in the list:
++	# the only screener takes that spot (not a gap), so there is no switch.
++	print("\n--- a home-denial spot is never released ---")
++	var b = _board(false, Vector2.INF, 1, Vector2(880, 1520),
++		[{"id": "obj_home_2", "position": Vector2(1500, 2200), "zone": "player2"}])
++	_add_unit(b.snap, "homeguard", 2, Vector2(1500, 2240), 10, 170, 2, 5, 1)
++	var plan = _plan(b.snap, ["boyz", "grots"], b.enemies)
++	var g: Dictionary = plan.get("grots", {})
++	_assert(not _is_switch(g) and str(g.get("action", "")) == "screen"
++			and str(g.get("reason", "")).begins_with("deny deep strike near home objective"),
++		"the grots keep the home-objective denial spot (got %s %s: %s)" % [
++			str(g.get("action", "")), str(g.get("objective_id", "")), str(g.get("reason", ""))])
++
++func test_non_screen_support_unchanged() -> void:
++	# (e) A spare unit that is not a screening candidate gets the same
++	# assignment with the fix on and off.
++	print("\n--- a non-screen spare unit: same assignment with the fix on and off ---")
++	var b = _board(false)
++	_add_unit(b.snap, "nobz", 2, Vector2(700, 1560), 5, 200, 2, 5, 2)
++	var on_plan = _plan(b.snap, ["boyz", "nobz"], b.enemies)
++	AIDecisionMaker._config_overrides["FIX_SCREEN_VS_OBJECTIVE"] = 0.0
++	var off_plan = _plan(b.snap, ["boyz", "nobz"], b.enemies)
++	AIDecisionMaker._config_overrides["FIX_SCREEN_VS_OBJECTIVE"] = 1.0
++	var on_a: Dictionary = on_plan.get("nobz", {})
++	var off_a: Dictionary = off_plan.get("nobz", {})
++	_assert(str(on_a.get("action", "")) == str(off_a.get("action", ""))
++			and str(on_a.get("objective_id", "")) == str(off_a.get("objective_id", ""))
++			and str(on_a.get("reason", "")) == str(off_a.get("reason", "")),
++		"non-screen unit unchanged (on %s %s, off %s %s)" % [str(on_a.get("action", "")),
++			str(on_a.get("objective_id", "")), str(off_a.get("action", "")), str(off_a.get("objective_id", ""))])
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_SCREEN_VS_OBJECTIVE = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_SCREEN_VS_OBJECTIVE"] = 0.0
++	var b = _board(false)
++	var plan = _plan(b.snap, ["boyz", "grots"], b.enemies)
++	AIDecisionMaker._config_overrides["FIX_SCREEN_VS_OBJECTIVE"] = 1.0
++	var g: Dictionary = plan.get("grots", {})
++	_assert(str(g.get("action", "")) == "screen" and str(g.get("reason", "")).begins_with("backfield gap"),
++		"with the fix off the grots screen a backfield gap as before (got %s %s)" % [
++			str(g.get("action", "")), str(g.get("reason", ""))])
