@@ -1,0 +1,92 @@
+{
+ "key": "ranged_hold_vs_centre",
+ "angle": "game",
+ "root_cause": "In round 1 the Lootas ends up idle for two independent reasons, and nothing re-asks whether the central objective is the better use of an idle unit. (1) T7-26 _should_hold_for_heavy_bonus fires whenever the assigned marker is more than one move away and not 'high priority within 2 moves' \u2014 after LONE-TRIP/RACE-ARMY overrides pulled the unit off the centre (s7462: candidate 'Advance obj_center' 33.1 > chosen 'Move obj_nml_1' 30.5, override 'not going alone to obj_center') or even when the centre IS its target (s7460: Move obj_center 20.6\" away -> Heavy hold). (2) A unit skipped from objective assignment (s7463: 'not racing for obj_nml_1 ... staying with the army'; its best candidate was Advance obj_center 27.9) falls through to the T7-42 corridor block guarding a far marker (obj_nml_2, 26\" away). The Heavy bonus is worth ~3.3 extra hits for ONE shooting phase; the block delays one enemy unit. Reaching the centre pays every round: in the s7462 A/B replay (2 seeds) branch B's Lootas stood on obj_center at P2's round-2 command phase and held it (REMAIN 'holds obj_center'), which flipped Consecrate from hold_min only (+4) to hold_min+hold_more (+8) for P2 and cost P1 its hold_min +4 (P1's Gretchin had taken the centre in A); B also killed more (material +72). Once on the marker the unit stands still, so it gets its Heavy +1 to hit back from round 2 on \u2014 the hold-for-Heavy trade only loses the round-1 volley.",
+ "fix_summary": "New plan-level pass _ranged_centre_redirect (FIX_RANGED_CENTRE, default 1.0), run once when the movement plan is built. Battle round 1 only. Finds the non-home objective within 4\" of the board centre (same is_central test the VP estimator uses); skips if the enemy controls it. Eligible units: can Advance and Remain Stationary, have ranged weapons, are not melee seekers, carry no embarked units, have no plan earmark, and whose plan entry is idle: either action 'move' where T7-26 would hold them still for Heavy (probed with a new quiet flag), or a T7-42 corridor block guarding a marker OTHER than the centre (blocks now carry protects_objective). Keepers ('hold'), units already advancing/racing, screens of friendlies and centre-guarding blocks are never touched. Reach gate: the closest model must be able to stand in range (3.79\") by its round-2 move: gap <= 2*M + 3.5. Mode: Advance only if two Normal moves would miss round 2 (gap > 2*M), else Normal move (keeps round-1 shooting). One unit per player per round (the closest), remembered in _ranged_centre_claims so a re-plan re-applies the same unit instead of adding another. The redirected entry gets assign_pass 'ranged_centre', which also bypasses the three round-1 hold checks (threat hold, MOV-1 hold-for-shooting, T7-26 Heavy) for that unit only. Logs [RANGED_CENTRE] and a thinking step when it fires. Value 0 restores the base exactly (the pass is not called; protects_objective/quiet flag are inert).",
+ "param": "FIX_RANGED_CENTRE",
+ "test_file": "40k/tests/unit/test_ai_fix_ranged_centre.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "New test (drives _decide_movement): 9/9 on fix; on BASE (preload ai_versions/BASE) 7 passed 2 failed (Heavy Lootas holds instead of Advancing; no unit redirected). All listed tests pass on fix: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 52/0, fix_lone_flip 16/0, fix_reinforce_insurance 24/0, charge_decisions 62/0, survival_assessment 23/0, multi_phase_planning 34/0. Known base failures unchanged: threat_range_awareness 34/3 (same 3 on base), tests/test_ai_objective_assignment_fixes 6/1.",
+ "decision_checks": [
+  {
+   "job": "20261030_160400_r4c11_00__s7462_r1_p2_movement_1_0",
+   "base_choice": "Lootas Alpha holds for Heavy (obj obj_nml_1); Lootas Gamma also holds for Heavy (obj obj_nml_2)",
+   "fix_choice": "Lootas Gamma (the other Heavy-holding Lootas, closer to the centre so the one-per-round pick chose it) Advances to obj_center; Lootas Alpha still holds for Heavy",
+   "changed": true,
+   "measured": "clear +5.62 [3.42, 7.83] n24 (alternative: Lootas ALPHA Advance obj_center)",
+   "judgement": "Intent matched by the sibling unit, not the exact unit: an idle Heavy Lootas Advances to the centre this turn. Single seed 5001 end-of-round-2 VP diff: base -7, fix +7 (forced alternative B on that seed: +4). Not the identical decision \u2014 the one-per-round cap picked Gamma."
+  },
+  {
+   "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_2_3",
+   "base_choice": "Lootas Alpha corridor block at (594,1499) guarding obj_nml_2 (26\" away)",
+   "fix_choice": "Lootas Alpha Advances toward obj_center",
+   "changed": true,
+   "measured": "clear +4.79 [2.50, 7.09] n24",
+   "judgement": "Matches the alternative exactly (same unit, obj_center, Advance). Seed 5001: base -9, fix +4."
+  },
+  {
+   "job": "20261030_160415_r4c09_00__s7460_r1_p1_movement_2_0 (extra, 12 seeds)",
+   "base_choice": "Lootas Alpha holds for Heavy (assigned obj_center 20.6\" away)",
+   "fix_choice": "Lootas Alpha Advances toward obj_center",
+   "changed": true,
+   "measured": "clear +2.58 [0.19, 4.98] n12",
+   "judgement": "Matches the alternative exactly. Seed 5001: base -1, fix +8."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_234808_r5c15_00__s7490_r1_p1_movement_2_3",
+   "base_choice": "Lootas Alpha holds obj_home_1 (keeper)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful -3.83 n12",
+   "judgement": "Consistent: keepers ('hold') are never eligible. Value 15 both."
+  },
+  {
+   "job": "20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1",
+   "base_choice": "Lootas Gamma Advances toward obj_nml_1 (race)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful -5.50 n12",
+   "judgement": "Consistent: units already Advancing/racing are never eligible. Value 18 both."
+  },
+  {
+   "job": "20261030_160514_r4c15_00__s7466_r1_p2_movement_1_0",
+   "base_choice": "Lootas Gamma Advances toward obj_center (flipping)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful -6.67 n12 (Normal move instead)",
+   "judgement": "Consistent: Advance kept; the pass also skips an enemy-held centre. Value 8 both."
+  },
+  {
+   "job": "20261030_063438_r2c04_00__s7435_r1_p1_movement_2_0",
+   "base_choice": "Lootas Gamma corridor block guarding obj_center",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral +0.11 n36",
+   "judgement": "Consistent: blocks guarding the centre itself are excluded. Value 18 both."
+  },
+  {
+   "job": "20261030_160400_r4c11_00__s7462_r1_p1_movement_1_2",
+   "base_choice": "Lootas Gamma corridor block guarding obj_center",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral -0.58 n12",
+   "judgement": "Consistent: centre-guarding block excluded. Value 2 both."
+  },
+  {
+   "job": "20261030_160400_r4c11_00__s7462_r3_p1_movement_1_8",
+   "base_choice": "not replayed (round-3 Heavy hold)",
+   "fix_choice": "unchanged by construction: battle_round != 1 returns before any work",
+   "changed": false,
+   "measured": "neutral -1.33 n12",
+   "judgement": "Round gate; covered by unit test test_round_three_heavy_hold_untouched."
+  }
+ ],
+ "fires": "Replays (horizon end of round 2, both players, counted from decision-record thinking steps): s7462 P2 1 (Lootas Gamma, Heavy hold -> Advance centre), s7463 1 (Lootas Alpha, block -> Advance centre), s7460 1 (Lootas Alpha, Heavy hold -> Advance centre); 0 in all 5 guardrail replays. Bench (mirror_orks_2000_postdeploy, 1 pair, candidate seat): 0 fires in both games (seed 93101, margin -23 in both seats, 589 actions each: candidate played identically to base). Why: the bench Orks_2000 postdeploy list has no Lootas; in round 1 no unit of either player Heavy-holds or takes a T7-42 corridor block (round-1 movement records: Gretchin get screen_protect, everything else move/advance/hold), and by P2's round-1 turn the centre is already enemy-held (OC 3). So this design does NOT reach the bench as it stands.",
+ "bench_fires_per_game": 0.0,
+ "risks": "Rounds 3-5 / secondaries: the pass never runs after round 1, so it cannot hold units back later (the round-2 FAR_TRIP/OVERCOMMIT failure mode); it only moves one idle unit FORWARD, which tends to help Centre-Ground / Engage-on-All-Fronts / Beacon-type cards (a unit outside its deployment zone, in the middle). Once on the centre the unit is a normal holder: it stays still (so regains Heavy +1 to hit), and HELD_DUP/REINFORCE-INSURANCE treat it like any holder. Costs: (a) the round-1 volley (Advance = no shooting for non-Assault weapons) \u2014 small for Lootas (~1 expected damage in the replays); (b) a 10-model T5 5+ unit standing in the open middle draws fire \u2014 in s7462 B it went from 10 to 2-3 HP by end of round 2 in one seed, so the centre may be lost again in round 3 and the unit is worth fewer points later (Assassination-type cards); (c) with several Heavy shooters only one goes (cap), so overcommit is bounded, but the redirected unit may not be the one the critic named (s7462 picked Gamma, not Alpha); (d) an army with a big round-1 alpha strike (e.g. Custodes vs a fragile ranged unit 9\" from the centre after the Advance) can delete it; the enemy-held-centre skip does not see enemy units that will ARRIVE first. Bench reach was measured only on the Orks mirror; whether any Custodes unit qualifies (Custodes mirror / asym fixtures) is NOT verified. Untested: boards whose central objective sits >4\" off the board centre (pass then does nothing).",
+ "drop_reason": ""
+}
