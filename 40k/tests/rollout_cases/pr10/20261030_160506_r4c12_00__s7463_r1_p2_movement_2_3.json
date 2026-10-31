@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+ "created": "2026-10-30 16:08:11",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7463_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI chose a flat 8.0 'screen' score over objective moves that score 22 to 28. The screen option has no threat, distance or objective terms, so it cannot be compared fairly. Fix: Give the screen option the same score terms as the other options (threat, reachability, objective value). Only choose screen when an actual enemy threat to a screened unit exists within charge range plus move distance. Do not let an assignment override a clearly higher-scoring objective move.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7463_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A_P2",
+  "choice": "pos:767,1358",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha screens at (767,1358) \u2014 screening valuable friendlies from enemy threats",
+ "verdict": "bad",
+ "version": 1
+}
