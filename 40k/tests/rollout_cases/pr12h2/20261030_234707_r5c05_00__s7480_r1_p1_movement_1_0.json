@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_1 (sole holder \u2014 leaving would drop control \u2014 worth ~2 VP)",
+ "created": "2026-10-30 23:47:28",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7480_r1_p1_movement_1",
+ "note": "[LLM critic, low conf] Gamma went back to hold home. It is the only unit on home now, but Alpha is near and could hold home instead. That would free Gamma to move forward. The hold bonus is low in round 1 with no enemy nearby. Fix: Before the hold override, check whether another nearby unit can cover the home objective. Reduce the hold value in round 1 when no enemy can reach the objective in two turns.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7480_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:380,430",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma holds obj_home_1 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

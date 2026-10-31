@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_2 (reinforcing obj_home_2 (1 unit already committed) \u2014 worth ~2 VP)",
+ "created": "2026-10-30 16:07:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7463_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] Kommandos walk to a home objective that is already held with 20 OC. The AI rejects an Advance to obj_center by 0.11 points even though it values obj_center at about 7 VP. Fix: Score marginal control only. When a unit's OC is not needed to keep an objective held, give reinforcement terms (reachability, defend_home) a value near zero. Cap contest_race when no enemy unit can reach the objective within 2 turns. Check that the movement plan role matches the chosen move.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7463_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A_P2",
+  "choice": "pos:1460,2050",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos moves toward obj_home_2 (reinforcing obj_home_2 (1 unit already committed), obj: 9.4\" away)",
+ "verdict": "pending",
+ "version": 1
+}

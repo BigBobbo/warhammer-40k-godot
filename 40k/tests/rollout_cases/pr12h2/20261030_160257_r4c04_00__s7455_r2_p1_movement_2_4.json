@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (flipping it (enemy holds with OC 11) \u2014 worth ~3 VP)",
+ "created": "2026-10-30 16:04:26",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7455_r2_p1_movement_2",
+ "note": "[LLM critic, low conf] Beta moves 18 in toward obj_nml_1 to flip an OC 11 enemy hold. Beta has OC 9 and needs two turns to arrive. The move is only sound if Gamma and Champion Gamma join it. Fix: Score a contested objective using the combined OC of all friendly units committed to it. Penalise a lone unit that cannot beat the enemy OC. Compare options by the VP swing when the whole force goes.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7455_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:1410,700",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_nml_1 (moving toward charge target Blade Champion Alpha, obj: 18.0\" away)",
+ "verdict": "pending",
+ "version": 1
+}

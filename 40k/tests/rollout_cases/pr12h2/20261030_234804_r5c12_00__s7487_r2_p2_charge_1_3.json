@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Beta (8.3\" away, 28% chance)",
+ "created": "2026-10-30 23:52:03",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7487_r2_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges a Blade Champion at 28% odds. It overrates the damage and ignores that the Blade Champion would kill many Kommandos in return. Fix: Compute melee damage with the real wound and save math, using the target's best save or invulnerable save and its toughness. Only award ch_can_wipe when the expected damage is at least the target's wounds. Add a retaliation term for every target, not only for some options. Scale the aggression bonus by the charge probability.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7487_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "pos:642,1835",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos declares charge against Blade Champion Beta (28% chance, 8.3\" away, expected 8.9 melee dmg vs 7 HP, overwatch risk: 0.7 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 10\"))",
+ "created": "2026-10-30 16:08:10",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7465_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] Gretchin march to a far-left backfield corner to screen, and they leave the nearby center objective and the right flank empty. Fix: Scale screen_base by the number of enemy reserve units that can arrive near the screened spot. Penalise screen moves that take the unit away from the nearest friendly group, or move it more than one turn of movement. Use the contest_race penalty only when the unit would fight alone, not when it is a cheap forward screen.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7465_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A_P2",
+  "choice": "pos:320,2160",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (320,2160) \u2014 backfield gap (nearest friendly: 10\")",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Beast Snagga Boyz (4.7\" away, 83% chance)",
+ "created": "2026-10-30 16:19:44",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7461_r3_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges the Beast Snagga Boyz and Beastboss with its Battlewagon. The scores tie at 2.51, and a ch_retaliation of -4.0 shows the risk. The charge value is thin and it scores no objective gain. Fix: Add a term for removing enemy OC from a contested objective, so a charge that wipes out the objective holder counts. Set charge_target_value for a multi-model unit from its points, not 0.0. Break ties toward the target with the higher kill chance on a character.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7461_r3_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A_P2",
+  "choice": "pos:1442,996",
+  "decision": "charge",
+  "targets": "U_BEASTBOSS_A,U_BEAST_SNAGGA_BOYZ_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha declares a charge at Beast Snagga Boyz + Beastboss \u2014 targets picked after the roll: Beast Snagga Boyz on 5+ (83%), Beastboss on 6+ (72%), overwatch risk: 5.3 dmg",
+ "verdict": "pending",
+ "version": 1
+}

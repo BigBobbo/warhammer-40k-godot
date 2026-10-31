@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (reinforcing obj_nml_1 (1 unit already committed) \u2014 worth ~10 VP)",
+ "created": "2026-10-30 16:04:34",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7462_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent Lootas Alpha to obj_nml_1, which is already covered by Battlewagon Beta. The unit then moves a 25.6 in trip with no firing lane. It also sent the 10 OC to a contest it cannot win. Fix: Reduce expected_vp for an objective already assigned to another unit when the card pays a flat amount. When an override rejects the top option, re-score all other options. Use a fallback that keeps the unit near the army, with a firing lane to enemy units, instead of a distant objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7462_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A_P2",
+  "choice": "pos:1371,606",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_nml_1)",
+ "verdict": "bad",
+ "version": 1
+}
