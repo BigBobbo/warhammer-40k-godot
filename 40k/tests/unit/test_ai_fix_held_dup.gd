@@ -32,6 +32,11 @@ const PX := 40.0  # pixels per inch
 # spot right on it (distance 0) beats any spot near the open objective.
 const HOME := Vector2(830, 350)
 const FAR := Vector2(880, 1200)
+# MERGE (main ADV-ODDS-1): the threatened-home test puts obj_far 4" further
+# south. At ~12" MOVER's 83% Advance onto it (ADV-ODDS-1 prices the roll)
+# outscored reinforcing the threatened home; at ~16" no Advance reaches it this
+# turn, so that test again isolates FIX-HELD-DUP's need.
+const FAR_THREAT := Vector2(880, 1360)
 const ENEMY_POS := Vector2(880, 2200)
 
 var _pass_count: int = 0
@@ -89,10 +94,10 @@ func _run_tests():
 
 # --- fixtures ---------------------------------------------------------------
 
-func _snapshot(battle_round: int = 1) -> Dictionary:
+func _snapshot(battle_round: int = 1, far: Vector2 = FAR) -> Dictionary:
 	var objs = [
 		{"id": "obj_home_1", "position": HOME, "zone": "player1", "source_pieces": ["area_home"]},
-		{"id": "obj_far", "position": FAR, "zone": "no_mans_land"},
+		{"id": "obj_far", "position": far, "zone": "no_mans_land"},
 	]
 	return {"battle_round": battle_round, "meta": {"battle_round": battle_round},
 		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
@@ -117,10 +122,10 @@ func _add_unit(snap: Dictionary, uid: String, owner: int, positions: Array, oc: 
 func _area_holder_positions() -> Array:
 	return [HOME + Vector2(165, 0), HOME + Vector2(190, 30), HOME + Vector2(215, 0), HOME + Vector2(190, -30)]
 
-func _board(with_threat: bool) -> Dictionary:
+func _board(with_threat: bool, far: Vector2 = FAR) -> Dictionary:
 	AIDM._primary_awareness_p1 = {}
 	AIDM._secondary_awareness_p1 = {}
-	var snap = _snapshot()
+	var snap = _snapshot(1, far)
 	_add_unit(snap, "HOLDER", 1, _area_holder_positions(), 2)
 	# 3 x OC3 squad 9" from the home marker (there this turn), ~12" from obj_far.
 	_add_unit(snap, "MOVER", 1, [HOME + Vector2(-50, 360), HOME + Vector2(0, 360), HOME + Vector2(50, 360)], 3)
@@ -174,7 +179,7 @@ func test_mover_not_sent_to_held_objective() -> void:
 
 func test_threatened_held_objective_still_reinforced() -> void:
 	print("\n--- an enemy squad (OC 15) one move from our held home (OC 8) ---")
-	var snap = _board(true)
+	var snap = _board(true, FAR_THREAT)
 	var ev = _eval_of(_evals(snap), "obj_home_1")
 	var friendly = AIDM._get_units_for_player(snap, 1)
 	var needs = AIDM._initial_objective_oc_needs(_evals(snap), friendly)

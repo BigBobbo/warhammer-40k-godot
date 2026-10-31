@@ -268,12 +268,19 @@ func test_param_zero_restores_old_reads() -> void:
 	_add(snap4, "BITER", 2, [OBJ + Vector2(12, 224 + 64)], 1, [SHANK], 3, 1)
 	var d = _engaged(snap4, "CG")
 	print("  engaged off: %s / %s" % [str(d.get("type", "")), str(d.get("_ai_description", ""))])
-	_assert(not str(d.get("_ai_description", "")).contains("OC 10 vs 6") and str(d.get("_ai_description", "")).contains("not on objective"),
-		"off: the engaged squad reads 'not on objective' (got %s)" % str(d.get("_ai_description", "")))
+	# MERGE (main OBJ-GAP-2): with the fix off _decide_engaged_unit reads "on
+	# the objective" with main's _unit_has_model_in_control_range (one model
+	# centre within 3.79" here — the snapshot area is not on the live board),
+	# no longer the centroid; the OC is still summed around the centroid, so
+	# the fix's at-the-objective sum (OC 10 vs 6) stays the difference.
+	_assert(not str(d.get("_ai_description", "")).contains("OC 10 vs 6") and not str(d.get("_ai_description", "")).contains("not on objective"),
+		"off (main's per-model read): the engaged squad reads on the objective, OC summed around its centroid (got %s)" % str(d.get("_ai_description", "")))
 	var r = _fall_back_case(true)
 	_assert(r.target.distance_to(OBJ) < 1.0, "off: the enemy area holders are not counted - retreats toward A (got %s)" % str(r.target))
 	var best = _support_case(true)
-	_assert(str(best.get("action", "")) == "move", "off: support pass reads it as not at the objective - move (got %s)" % str(best.get("action", "")))
+	# MERGE (main OBJ-GAP-2): the support pass's "already at objective" is
+	# main's per-model read with the fix off — one model centre in range holds.
+	_assert(str(best.get("action", "")) == "hold", "off (main's per-model read): support pass reads it as at the objective - hold (got %s)" % str(best.get("action", "")))
 	_set_fix(1.0)
 
 # --- (c) guards ------------------------------------------------------------------

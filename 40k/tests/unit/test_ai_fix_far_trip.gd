@@ -22,7 +22,12 @@ const PX := 40.0  # pixels per inch
 const OBJ_X := Vector2(880, 1200)     # the far objective the enemy races for
 const OBJ_NEAR := Vector2(300, 1900)  # a quiet objective next to our units
 const POS_A := Vector2(300, 2100)     # 5" from obj_near — takes it this turn
-const POS_B := Vector2(560, 1700)     # 8" from obj_near, 15" (2 turns at M7) from obj_x
+# MERGE (main OBJ-GAP-1 + ADV-ODDS-1): squad b moved 1.5" further from obj_x
+# (was (560, 1700)). Measured from its nearest model the old spot was a 10.2"
+# gap, which an Advance closes on a 4+ — ADV-ODDS-1 then plans it as a
+# this-turn arrival (turns 1) and there is no 2-turn race to judge. From here
+# the gap is ~11.7" (a 5+, 33%): still 2 turns, the race FAR-TRIP is about.
+const POS_B := Vector2(528, 1751)     # ~7" from obj_near, 2 turns at M7 from obj_x
 
 var _pass_count: int = 0
 var _fail_count: int = 0

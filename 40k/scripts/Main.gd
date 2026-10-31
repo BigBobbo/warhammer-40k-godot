@@ -16619,7 +16619,12 @@ func _find_objective_at_world_pos(world_pos: Vector2) -> String:
 		if pos is Dictionary:
 			pos = Vector2(pos.get("x", 0), pos.get("y", 0))
 		var d: float = pos.distance_to(world_pos)
-		if d <= hit_radius and d < best_dist:
+		# OBJ-GAP-2: an 11e terrain objective is drawn as its hosting AREA —
+		# a click anywhere on that area picks it.
+		for host_area in MissionManager._objective_host_areas_for_edition(obj):
+			if Geometry2D.is_point_in_polygon(world_pos, host_area.get("polygon", PackedVector2Array())):
+				d = minf(d, 0.0)
+		if (d <= hit_radius or d == 0.0) and d < best_dist:
 			best_dist = d
 			best_id = str(obj.get("id", ""))
 	return best_id

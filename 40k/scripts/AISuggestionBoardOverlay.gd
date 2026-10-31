@@ -258,11 +258,12 @@ func _collect_moves(decision: Dictionary) -> void:
 	var models: Array = unit.get("models", [])
 	var dests = decision.get("_ai_model_destinations", decision.get("_ai_scout_destinations", null))
 	if dests is Dictionary:
+		var wps: Dictionary = decision.get("_ai_model_waypoints", {})
 		for m in models:
 			var mid := str(m.get("id", ""))
 			if not m.get("alive", true) or not dests.has(mid):
 				continue
-			_add_move(m, _to_vec(dests[mid]), float(m.get("rotation", 0.0)))
+			_add_move(m, _to_vec(dests[mid]), float(m.get("rotation", 0.0)), _to_vec(wps.get(mid, null)))
 		return
 	# Deployment: positions are a list aligned with the unit's models.
 	var positions = decision.get("model_positions", null)
@@ -288,11 +289,12 @@ func _chosen_point(decision: Dictionary) -> Dictionary:
 	return {}
 
 
-func _add_move(model: Dictionary, to: Vector2, rot: float) -> void:
+func _add_move(model: Dictionary, to: Vector2, rot: float, via: Vector2 = Vector2.INF) -> void:
+	"""`via` = TWO-LEG waypoint (the move bends there around solid terrain)."""
 	if to == Vector2.INF:
 		return
 	var from := _to_vec(model.get("position", null))  # INF while in reserves / undeployed
-	_moves.append({"from": from, "to": to, "shape": Measurement.create_base_shape(model), "rot": rot})
+	_moves.append({"from": from, "to": to, "via": via, "shape": Measurement.create_base_shape(model), "rot": rot})
 
 
 static func _to_vec(v) -> Vector2:
@@ -318,10 +320,16 @@ func _draw() -> void:
 	for mv in _moves:
 		var col := Color(ACTOR_COLOR, ACTOR_COLOR.a * dim)
 		if mv.from != Vector2.INF and mv.from.distance_to(mv.to) > 1.0:
-			_draw_dashed_line(mv.from, mv.to, Color(col, col.a * 0.25), GLOW_WIDTH)
-			_draw_dashed_line(mv.from, mv.to, col, LINE_WIDTH)
-			var tip: Vector2 = mv.shape.get_closest_edge_point(mv.from, mv.to, mv.rot) if mv.shape else mv.to
-			_draw_arrowhead(tip, (mv.to - mv.from).normalized(), col)
+			# A dogleg is drawn as its two legs; the arrow follows the last one
+			var leg_from: Vector2 = mv.from
+			if mv.via != Vector2.INF:
+				_draw_dashed_line(mv.from, mv.via, Color(col, col.a * 0.25), GLOW_WIDTH)
+				_draw_dashed_line(mv.from, mv.via, col, LINE_WIDTH)
+				leg_from = mv.via
+			_draw_dashed_line(leg_from, mv.to, Color(col, col.a * 0.25), GLOW_WIDTH)
+			_draw_dashed_line(leg_from, mv.to, col, LINE_WIDTH)
+			var tip: Vector2 = mv.shape.get_closest_edge_point(leg_from, mv.to, mv.rot) if mv.shape else mv.to
+			_draw_arrowhead(tip, (mv.to - leg_from).normalized(), col)
 		if mv.shape:
 			mv.shape.draw(self, mv.to, mv.rot, Color(ACTOR_COLOR, GHOST_FILL_ALPHA * pulse * dim),
 				col, 2.0 * _k)

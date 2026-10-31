@@ -224,7 +224,12 @@ func _race_board() -> Dictionary:
 	_add_unit(snap, "lead", 1, NML + Vector2(-8.0 * PX, -10.0 * PX), 3, 7, 3, 3, 6, 160)
 	_add_unit(snap, "trailer", 1, NML + Vector2(-19.0 * PX, -6.0 * PX), 3, 7, 3, 3, 6, 160)
 	_add_unit(snap, "home_squad", 1, HOME, 4, 3, 1, 2, 7, 45)
-	_add_unit(snap, "boyz", 2, NML + Vector2(8.0 * PX, 10.0 * PX), 20, 5, 1, 2, 6, 170)
+	# MERGE (main OBJ-GAP-1): the boyz moved 3" further south (was 10"). They
+	# stand in a 21"-wide row, and the race/threat tables now measure from the
+	# NEAREST model: at 10" an end model was one M6 + 2" move from range
+	# (COORD-5 raised obj_nml_1's need to 14 and trailer became a capture).
+	# Here the nearest boy is ~9.5" out — two moves, the race this board is about.
+	_add_unit(snap, "boyz", 2, NML + Vector2(8.0 * PX, 13.0 * PX), 20, 5, 1, 2, 6, 170)
 	return snap
 
 func test_support_trip_into_lost_race_advances() -> void:
@@ -313,8 +318,8 @@ func test_support_non_assault_in_range_walks() -> void:
 
 # The s7470 r1 P2 shape (Battlewagon Alpha): a transport, M10, whose only gun
 # is a 36" Big shoota without [ASSAULT], on the race board's support trip to
-# obj_nml_1 (27.8" away). The nearest enemy (boyz) is 40" away: out of range
-# where the wagon stands, ~30" away after the 10" walk the Advance replaces.
+# obj_nml_1 (27.8" away). The nearest enemy (boyz) is ~42" away: out of range
+# where the wagon stands, ~32" away after the 10" walk the Advance replaces.
 # `cargo`: a unit is embarked in it (models off the battlefield, as
 # TransportManager.embark_unit leaves them).
 func _wagon_board(gun_range: String, cargo: bool = false) -> Dictionary:

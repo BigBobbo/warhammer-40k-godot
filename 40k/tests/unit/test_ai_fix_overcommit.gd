@@ -24,7 +24,12 @@ const PX := 40.0  # pixels per inch
 const OBJ_X := Vector2(880, 1200)     # the hot objective the enemy floods
 const OBJ_SIDE := Vector2(300, 1500)  # an objective a small enemy squad holds
 const ALPHA_POS := Vector2(1180, 1400)  # 9" from obj_x: there this turn; 22" from obj_side
-const BETA_POS := Vector2(810, 1776)    # 14.5" from obj_x AND from obj_side: two moves to either
+# MERGE (main OBJ-GAP-1 + ADV-ODDS-1): beta moved ~1" (was (810, 1776)).
+# From its nearest model the old spot was a 9.6" gap to obj_side, which an
+# Advance closes on a 4+ — ADV-ODDS-1 plans that as a this-turn arrival, so
+# obj_side was no longer a 2-turn trip. Here both gaps are over M+4"
+# (obj_x ~11.2", obj_side ~10.6"): two moves to either, as the tests assume.
+const BETA_POS := Vector2(840, 1800)    # ~15" from obj_x AND ~14.5" from obj_side: two moves to either
 
 var _pass_count: int = 0
 var _fail_count: int = 0

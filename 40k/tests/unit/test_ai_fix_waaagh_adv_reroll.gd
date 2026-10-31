@@ -269,31 +269,48 @@ func test_planner_prices_the_reroll_pace():
 	_assert(str(c1.get("action", "")) == "advance" and int(c1.get("turns_to_reach", 0)) == 2,
 		"FIX=1: 32\" / 16.25\" per turn = 2 turns (%s, %d)" % [str(c1.get("action", "")), int(c1.get("turns_to_reach", 0))])
 
+# MERGE (main ADV-ODDS-1): the AI-GAP-4 "M+2\" band" (M+3\" with the re-roll)
+# was replaced by main's per-roll Advance odds (_advance_reach_chance). The
+# fix now reads that chance off the re-rolled D6 (1-3: 1/12, 4-6: 1/4), so a
+# gap M+2.5\" (needs a 3+) is 4/6 = 0.667 plain and 0.833 re-rolled, and the
+# likely-roll bar (ADVANCE_MIN_REACH_CHANCE 0.5) moves from M+4\" to M+5\".
+func _chance_at(value: float, unit: Dictionary, gap_in: float) -> float:
+	AIDM._config_overrides[FIX] = value
+	var faces: Array = AIDM._adv_face_probs(unit)
+	var c: float = AIDM._advance_reach_chance(unit, gap_in, float(unit.meta.stats.move), faces)
+	AIDM._config_overrides[FIX] = 1.0
+	return c
+
 func test_ai_gap4_band_reaches_m_plus_3():
-	print("\n--- AI-GAP-4: objective gap M+2.5\" (Gretchin M6: 8.5\"; Blade Champion M6: 8.5\") ---")
-	var ev := {"id": "obj_nml_1", "zone": "no_mans_land", "state": "enemy_held", "priority": 5.0}
+	print("\n--- ADV-ODDS-1 chance: objective gap M+2.5\" / M+4.5\" (Gretchin M6; Blade Champion M6) ---")
 	var grots := _gretchin()
 	_live([grots], ORKS_KOS)
-	var g0 = _at(0.0, func(): return _gap4(grots, 8.5, 2, ev, {}))
-	var g1 = _at(1.0, func(): return _gap4(grots, 8.5, 2, ev, {}))
-	_assert(g0 == false, "FIX=0: Gretchin 8.5\" > M+2\" -> 'cannot reach even with advance' (got %s)" % str(g0))
-	_assert(g1 == true, "FIX=1: Gretchin 8.5\" <= M+3\" -> reaches the advance branch and Advances (got %s)" % str(g1))
+	var g0 := _chance_at(0.0, grots, 8.5)
+	var g1 := _chance_at(1.0, grots, 8.5)
+	_assert(absf(g0 - 4.0 / 6.0) < 1e-4, "FIX=0: Gretchin 8.5\" needs a 3+ on a plain D6 -> 0.667 (got %.4f)" % g0)
+	_assert(absf(g1 - 10.0 / 12.0) < 1e-4, "FIX=1: Gretchin 8.5\" with the Waaagh! re-roll -> 0.833 (got %.4f)" % g1)
+	var ev := {"id": "obj_nml_1", "zone": "no_mans_land", "state": "uncontrolled", "priority": 5.0}
+	var gl0 = _at(0.0, func(): return _gap4(grots, 10.5, 2, ev, {}))
+	var gl1 = _at(1.0, func(): return _gap4(grots, 10.5, 2, ev, {}))
+	_assert(gl0 == true and gl1 == true, "Gretchin 10.5\": an Advance-and-charge (text) unit takes any chance at 0 and 1 (%s, %s)" % [str(gl0), str(gl1)])
 	var bc := _blade_champion()
 	_live([bc], CUSTODES)
-	var b0 = _at(0.0, func(): return _gap4(bc, 8.5, 2, ev, {}))
-	var b1 = _at(1.0, func(): return _gap4(bc, 8.5, 2, ev, {}))
-	_assert(b0 == false, "FIX=0: Blade Champion 8.5\" -> cannot reach (got %s)" % str(b0))
-	_assert(b1 == true, "FIX=1: Blade Champion (Swift Onslaught re-roll) 8.5\" -> Advances (got %s)" % str(b1))
+	var b0 := _chance_at(0.0, bc, 10.5)
+	var b1 := _chance_at(1.0, bc, 10.5)
+	_assert(absf(b0 - 2.0 / 6.0) < 1e-4, "FIX=0: Blade Champion 10.5\" needs a 5+ -> 0.333, below the 0.5 bar (got %.4f)" % b0)
+	_assert(absf(b1 - 0.5) < 1e-4, "FIX=1: Blade Champion (Swift Onslaught re-roll) 10.5\" -> 0.5, a likely roll (got %.4f)" % b1)
 
 func test_planner_band_advances_gretchin():
-	print("\n--- planner: Gretchin, objective gap 8.5\", an enemy 10\" away (in pistol range: no RACE-1 Advance) ---")
+	print("\n--- planner: Gretchin, objective gap 8.5\", an enemy 10\" away: the candidate's Advance odds ---")
 	var grots := _gretchin()
 	var enemy := _enemy(ORIGIN + Vector2(10.0 * PX, 0))
 	_live([grots, enemy], ORKS_KOS)
 	var c0 := _plan_candidate(0.0, grots, 8.5, Vector2(0, -1), [], {"U_ENEMY": enemy})
 	var c1 := _plan_candidate(1.0, grots, 8.5, Vector2(0, -1), [], {"U_ENEMY": enemy})
-	_assert(str(c0.get("action", "")) == "move", "FIX=0: walks (8.5\" is past the M+2\" band) (%s)" % str(c0.get("action", "")))
-	_assert(str(c1.get("action", "")) == "advance", "FIX=1: Advances (inside the M+3\" band) (%s)" % str(c1.get("action", "")))
+	_assert(absf(float(c0.get("adv_chance", -1.0)) - 4.0 / 6.0) < 1e-4,
+		"FIX=0: the plan prices the Advance at the plain D6's 0.667 (%s, %.3f)" % [str(c0.get("action", "")), float(c0.get("adv_chance", -1.0))])
+	_assert(absf(float(c1.get("adv_chance", -1.0)) - 10.0 / 12.0) < 1e-4 and str(c1.get("action", "")) == "advance",
+		"FIX=1: Advances, priced at the re-rolled 0.833 (%s, %.3f)" % [str(c1.get("action", "")), float(c1.get("adv_chance", -1.0))])
 
 func test_ri_quarter_spot_at_the_reroll_pace():
 	print("\n--- RI-QUARTER: Warbikers Advance east; M+15.5\" ends in a covered quarter, M+16.25\" in the 4th ---")
@@ -327,7 +344,8 @@ func test_guard_custodian_guard_unchanged():
 	var ev := {"id": "obj_nml_1", "zone": "no_mans_land", "state": "enemy_held", "priority": 5.0}
 	var g0 = _at(0.0, func(): return _gap4(cg, 8.5, 2, ev, {}))
 	var g1 = _at(1.0, func(): return _gap4(cg, 8.5, 2, ev, {}))
-	_assert(g0 == false and g1 == false, "AI-GAP-4: 8.5\" stays out of reach at 0 and 1 (%s, %s)" % [str(g0), str(g1)])
+	_assert(g0 == g1 and is_equal_approx(_chance_at(0.0, cg, 8.5), _chance_at(1.0, cg, 8.5)),
+		"ADV-ODDS-1: 8.5\" -> the same Advance decision and odds at 0 and 1 (%s, %s)" % [str(g0), str(g1)])
 	var c0 := _plan_candidate(0.0, cg, 15.0, Vector2(0, -1), [], {"U_ENEMY": enemy})
 	var c1 := _plan_candidate(1.0, cg, 15.0, Vector2(0, -1), [], {"U_ENEMY": enemy})
 	_assert(str(c0.get("action", "")) == str(c1.get("action", "")) and int(c0.get("turns_to_reach", 0)) == int(c1.get("turns_to_reach", 0)),
@@ -346,13 +364,13 @@ func test_guard_one_die_trip_unchanged():
 	_assert(s0 == false and s1 == false, "RACE-1: a one-roll 6 does not save the turn at 0 or 1 (%s, %s)" % [str(s0), str(s1)])
 
 func test_guard_beyond_the_band_unchanged():
-	print("\n--- guard: Gretchin gap 9.5\" (beyond M+3\") ---")
+	print("\n--- guard: Gretchin gap 12.5\" (beyond M+6\": no roll gets there) ---")
 	var grots := _gretchin()
 	_live([grots], ORKS_KOS)
 	var ev := {"id": "obj_nml_1", "zone": "no_mans_land", "state": "enemy_held", "priority": 5.0}
-	var g0 = _at(0.0, func(): return _gap4(grots, 9.5, 2, ev, {}))
-	var g1 = _at(1.0, func(): return _gap4(grots, 9.5, 2, ev, {}))
-	_assert(g0 == false and g1 == false, "AI-GAP-4: 9.5\" is out of reach at 0 and 1 (%s, %s)" % [str(g0), str(g1)])
+	var g0 = _at(0.0, func(): return _gap4(grots, 12.5, 2, ev, {}))
+	var g1 = _at(1.0, func(): return _gap4(grots, 12.5, 2, ev, {}))
+	_assert(g0 == false and g1 == false, "ADV-ODDS-1: 12.5\" is out of reach at 0 and 1 (%s, %s)" % [str(g0), str(g1)])
 
 func test_guard_with_engine_predicates_stompa_keeps_shooting():
 	print("\n--- guard (with FIX_ADV_ENGINE_PREDICATES = 1): Stompa gap 12.5\" (M10), target 30\" away ---")

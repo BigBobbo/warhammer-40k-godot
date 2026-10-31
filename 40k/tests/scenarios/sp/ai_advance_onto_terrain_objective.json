@@ -1,0 +1,128 @@
+{
+  "id": "ai_advance_onto_terrain_objective",
+  "covers": [
+    "ai.movement.objective_assignment",
+    "ai.movement.advance",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "OBJ-GAP-1 / ADV-ODDS-1: obj_nml_1 is a terrain objective (area-large-2, x 3-10\"). A Witchseekers squad (M6) has its front model 6.9\" from the area's edge (centroid 13\" from the marker). The AI must measure the real gap (edge -> area, not centroid -> marker less 3.79\"), see that ANY Advance roll gets a model onto the area this turn, plan ADVANCE obj_nml_1 with 'Turns to get there 1', show the odds on the Suggest card, then actually Advance onto the area when it plays. OBJ-PATH-1: the move heads straight for the area's nearest edge (horizontal here), not diagonally at the marker dot.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var objs = []\nfor obj in TerrainManager.layout_objectives:\n\tvar pos = obj.get(\"position\", [0, 0])\n\tobjs.append({\"id\": str(obj.id), \"position\": Vector2(pos[0] * 40.0, pos[1] * 40.0), \"radius_mm\": 40, \"zone\": str(obj.get(\"zone\", \"no_mans_land\")), \"source_pieces\": obj.get(\"source_pieces\", []).duplicate()})\nGameState.state.board[\"objectives\"] = objs\nvar tel = GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"]\ntel.flags[\"moved\"] = true\nvar wc = GameState.state.units[\"U_WITCHSEEKERS_C\"]\nvar i = 0\nfor m in wc.models:\n\tm[\"position\"] = {\"x\": 1020.0 + i * 45.0, \"y\": 470.0}\n\ti += 1\nwc.flags[\"moved\"] = true\nvar ws = GameState.state.units[\"U_WITCHSEEKERS_D\"]\nfor k in [\"moved\", \"advanced\", \"fell_back\", \"remained_stationary\", \"has_shot\", \"cannot_charge\", \"move_cap_inches\"]:\n\tws.flags.erase(k)\ni = 0\nfor m in ws.models:\n\tm[\"position\"] = {\"x\": 700.0 + i * 45.0, \"y\": 900.0}\n\ti += 1\nfor o in objs:\n\tvar v = MissionManager.objectives_visual_refs.get(o.id)\n\tif v != null:\n\t\tfor c in v.get_children():\n\t\t\tc.free()\n\t\tv.setup(o)\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nreturn \"%.1f\" % (AIDecisionMaker._unit_gap_to_objective_px(ws, Vector2(260, 750)) / 40.0)",
+      "equals": "6.9",
+      "comment": "front model's base edge is 6.9\" from the area"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Picked: Advance obj_nml_1\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"any roll gets there this turn\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Turns to get there 1\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Gap to close 6.9\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0,
+      "comment": "preview only — nothing executed"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_suggest_advance_onto_terrain_objective"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"AI\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ws = GameState.state.units[\"U_WITCHSEEKERS_D\"]\nvar nml = {}\nfor o in GameState.state.board.objectives:\n\tif o.id == \"obj_nml_1\":\n\t\tnml = o\nvar on := false\nfor m in ws.models:\n\tif m.get(\"alive\", true) and MissionManager.model_in_objective_range(m, nml):\n\t\ton = true\nreturn on and bool(ws.flags.get(\"advanced\", false))",
+      "equals": true,
+      "comment": "the squad Advanced and a model's base now touches the obj_nml_1 area"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m1 = GameState.state.units[\"U_WITCHSEEKERS_D\"].models[0]\nvar v = Vector2(float(m1.position.x) - 700.0, float(m1.position.y) - 900.0)\nvar deg = absf(rad_to_deg(atan2(-v.y, -v.x)))\nreturn \"straight\" if v.x < 0.0 and deg < 8.0 else \"angle %.1f deg\" % deg",
+      "equals": "straight",
+      "comment": "OBJ-PATH-1: the lead model (front, 6.9\" from the area's right edge, level with it) travels within 8 deg of straight left onto the nearest edge. The marker-centre heading would be ~16 deg (toward y=750). The trailing models re-pack slightly for spacing, so the check is on the lead model's line."
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_witchseekers_on_obj_nml_1"
+    }
+  ]
+}

@@ -96,7 +96,7 @@ func _evals(snap: Dictionary, enemies: Dictionary) -> Array:
 		objectives.append(o.position)
 	return AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, _friendlies(snap), 3)
 
-func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary) -> Dictionary:
+func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary, battle_round: int = 3) -> Dictionary:
 	AIDecisionMaker._primary_awareness_p2 = {}
 	AIDecisionMaker._secondary_awareness_p2 = {}
 	var friendlies = {}
@@ -109,10 +109,10 @@ func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary) -> Diction
 	var objectives = []
 	for o in snap.board.objectives:
 		objectives.append(o.position)
-	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, 3)
+	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, battle_round)
 	for ev in evals:
 		print("  eval %s: state %s, friendly %d, enemy %d" % [ev.id, ev.state, int(ev.friendly_oc), int(ev.enemy_oc)])
-	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, 3)
+	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, battle_round)
 	for uid in plan:
 		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
 			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
@@ -206,7 +206,14 @@ func test_attack_conversion_reopens_only_in_range_oc() -> void:
 	_add_unit(snap, "spare_a", 2, _row(OBJ_X + Vector2(-6.0 * PX, 12.0 * PX), 2))
 	_add_unit(snap, "spare_b", 2, _row(OBJ_X + Vector2(6.0 * PX, 12.0 * PX), 2))
 	_add_unit(snap, "spare_c", 2, _row(OBJ_X + Vector2(0, 14.0 * PX), 2))
-	var plan = _plan(snap, ["holder", "runner", "spare_a", "spare_b", "spare_c"], enemies)
+	# MERGE (main OBJ-GAP-2): the chase gate now reads "on a contested
+	# objective" per model (our holder's model AND the enemy's are in range),
+	# so from round 2 on it keeps the holder on obj_x instead of converting it.
+	# Round 1 has no contested-objective stay, so the conversion — and the
+	# COORD-4 re-open this test is about — still happens.
+	snap["battle_round"] = 1
+	snap["meta"]["battle_round"] = 1
+	var plan = _plan(snap, ["holder", "runner", "spare_a", "spare_b", "spare_c"], enemies, 1)
 	_assert(str(plan.get("holder", {}).get("action", "")) == "attack", "the holder converts to ATTACK (%s)" % str(plan.get("holder", {}).get("action", "")))
 	_assert(int(plan.get("holder", {}).get("oc_consumed", 0)) == 0, "the converted holder consumes no OC")
 	# capture assignments (pass 2 + COORD-4 backfill); pass 3's support fallback is not the ledger

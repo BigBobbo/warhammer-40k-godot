@@ -2560,7 +2560,7 @@ func _determine_cleanse_objective(unit_id: String) -> String:
 		var obj_id = str(obj.get("id", ""))
 		if GameConstants.edition >= 11 and _is_home_objective(obj):
 			continue
-		if not SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius):
+		if not SecondaryMissionManager._unit_in_objective_range(unit, obj):
 			continue
 		if _objective_cleansed_this_turn(player, obj_id):
 			if fallback == "":
@@ -2788,7 +2788,7 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 					if _objective_cleansed_this_turn(player, str(obj_id)):
 						DebugLogger.info(str("ShootingPhase: Cleanse - %s already cleansed this turn" % obj_id))
 						continue
-					var in_range = SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius)
+					var in_range = SecondaryMissionManager._unit_in_objective_range(unit, obj)
 					DebugLogger.info(str("ShootingPhase: Cleanse - obj %s at %s, in_range=%s" % [obj_id, obj_pos, in_range]))
 					if in_range:
 						var obj_label = _friendly_objective_name(obj_id)

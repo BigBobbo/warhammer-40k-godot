@@ -402,6 +402,12 @@ func test_normal_pace_matches_the_planner() -> void:
 		var c: Dictionary = adv_cands[key]
 		if str(c.get("action", "")) != "advance":
 			continue
+		# MERGE (main ADV-ODDS-1): a this-turn Advance priced at its roll odds
+		# (adv_chance > 0) is ADV-ODDS-1's, which MOVE_LONG_ADVANCE = 0 does not
+		# turn off — the oracle loop still Advances it, so only RACE-1 long
+		# trips are compared with the loop's Normal move.
+		if float(c.get("adv_chance", 0.0)) > 0.0:
+			continue
 		var ev: Dictionary = {}
 		for e in adv_evals:
 			if str(e.id) == str(c.objective_id):

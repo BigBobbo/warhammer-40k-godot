@@ -510,6 +510,25 @@ static var _bodyguards_with_leaders: Array = []
 # Cleared at the start of each decide() call, and attached as "_ai_thinking_steps" to the result
 static var _thinking_steps: Array = []
 
+# MOVE-SHAPE: plain-English notes on why a unit's move this turn does not head
+# straight at its objective (charge steering, threat dodge, terrain detours,
+# weapon-range clamp). Cleared per unit before its move is computed and
+# attached to the move decision as "_ai_move_adjustments" for the K card.
+static var _move_shape_notes: Array = []
+
+# TWO-LEG: when a unit's straight line is blocked by a solid feature its base
+# can't cross, _compute_movement_toward_target may plan a dogleg — leg 1 to a
+# waypoint beside the obstacle, leg 2 on toward the target. While that unit's
+# models are being placed, _move_waypoint_offset holds the leg-1 vector (each
+# model's waypoint = its start + offset) and _move_waypoint_cap_px the move
+# allowance the summed path must fit (the engine sums staged legs, T-082).
+# Vector2.INF = no dogleg active. Waypoints that end up used are logged per
+# unit in _move_waypoint_log (keyed by the final destination) and attached to
+# the returned decision as "_ai_model_waypoints" by decide().
+static var _move_waypoint_offset: Vector2 = Vector2.INF
+static var _move_waypoint_cap_px: float = 0.0
+static var _move_waypoint_log: Dictionary = {}  # unit_id -> Array of {model_id, dest: Vector2, wp: Vector2}
+
 # Structured decision records — captures full scoring breakdowns for the AI Gameplay Visualizer
 # Each entry is a dictionary with decision_type, unit_id, candidates[], chosen_index, parameters_used, etc.
 # Cleared at the start of each decide() call, and attached as "_ai_decision_records" to the result
@@ -2245,7 +2264,11 @@ const MOVE_STAY_BONUS_EARLY: float = 5.0          # already on objective, round 
 const MOVE_HORDE_BONUS_LARGE: float = 2.0         # >= 10 alive models holding
 const MOVE_HORDE_BONUS_MEDIUM: float = 1.0        # >= 5 alive models holding
 const MOVE_REACHABLE_BONUS: float = 3.0           # arrives this turn with a normal move
-const MOVE_ADVANCE_REACHABLE_BONUS: float = 1.5   # arrives only by advancing
+const MOVE_ADVANCE_REACHABLE_BONUS: float = 1.5   # (unused since ADV-ODDS-1: MOVE_REACHABLE_BONUS x roll chance)
+# ADV-ODDS-1: an Advance that forfeits this turn's shooting is only taken to
+# reach an objective when the D6 makes it at least this likely (0.5 = a 4"
+# shortfall, 4+). Free Advances (nothing to shoot, Advance-and-shoot) take any chance.
+const ADVANCE_MIN_REACH_CHANCE: float = 0.5
 const MOVE_UNREACHABLE_EARLY_PENALTY: float = 2.0 # round 1 and cannot arrive next round
 const MOVE_ENEMIES_NEAR_OBJ_BONUS: float = 1.0    # no firing solution, but enemies are near
 
@@ -2512,6 +2535,12 @@ const WEIGHT_FIRING_POSITION_KEPT: float = 3.0     # Bonus for destinations that
 const WEIGHT_FIRING_POSITION_LOST: float = -2.5    # Penalty for destinations that lose all current shooting targets
 const WEIGHT_FIRING_POSITION_GAINED: float = 1.5   # Bonus for destinations that bring new enemies into range
 const FIRING_POSITION_BLEND: float = 0.35           # How much to blend movement toward firing position vs objective (0-1)
+# T7-23: steer a move toward a planned charge target only when that leaves the
+# unit within this many inches (centroid to centroid) of it — a realistic next
+# turn charge. Steering is tried objective-first (30%, then 50%, then 70% toward
+# the charge target); if none gets there the unit just heads for its objective.
+const CHARGE_BLEND_REACH_INCHES: float = 9.0
+const CHARGE_BLEND_WEIGHTS: Array = [0.3, 0.5, 0.7]
 
 # T7-26: Heavy weapon stationary bonus consideration (MOV-3)
 # When a unit has Heavy weapons and targets in range, prefer remaining stationary
@@ -2973,11 +3002,10 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
 	var unit_is_on_objective = false
 	var unit_objective_is_contested = false
 	if centroid != Vector2.INF and assigned_obj_pos != Vector2.INF:
-		unit_is_on_objective = centroid.distance_to(assigned_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX
+		unit_is_on_objective = _unit_has_model_in_control_range(unit, assigned_obj_pos)
 		if unit_is_on_objective:
 			for e_uid in enemies:
-				var e_centroid = _get_unit_centroid(enemies[e_uid])
-				if e_centroid != Vector2.INF and e_centroid.distance_to(assigned_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				if _unit_has_model_in_control_range(enemies[e_uid], assigned_obj_pos):
 					unit_objective_is_contested = true
 					break
 	# OBJ-AREA-HOLD (FIX_OBJ_AREA_HOLD): on / contested = a model (ours / an
@@ -3297,12 +3325,12 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 				rule_context["is_vehicle"] = "VEHICLE" in kws
 				# unit_points
 				rule_context["unit_points"] = int(active_unit.get("meta", {}).get("points", 0))
-				# on_objective — check if unit centroid is within objective control range
+				# on_objective — OBJ-GAP-2: any model in range (terrain-aware), not the centroid
 				var centroid = _get_unit_centroid(active_unit)
 				if centroid != Vector2.INF:
 					var objectives = _get_objectives(snapshot)
 					for obj_pos in objectives:
-						if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+						if _unit_has_model_in_control_range(active_unit, obj_pos):
 							rule_context["on_objective"] = true
 							break
 				# nearest_enemy_inches
@@ -3314,6 +3342,7 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		evaluate_rules(player, rule_context)
 	_thinking_steps.clear()  # Reset thinking log for this decision
 	_decision_records.clear()  # Reset decision records for this decision
+	_move_waypoint_log = {}  # TWO-LEG waypoints planned during this decision
 	_param_reads.clear()  # A3: parameter reads are attributed per decision
 	_thinking_context = {}  # Reset board-link context for this decision
 	var diff_name = AIDifficultyConfigData.difficulty_name(difficulty)
@@ -3429,6 +3458,7 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 					result = {"type": t, "_ai_description": "End phase (fallback)"}
 					break
 
+	_attach_move_waypoints(result)
 	# Attach accumulated thinking steps and decision records to the decision
 	if not _thinking_steps.is_empty() and not result.is_empty():
 		result["_ai_thinking_steps"] = _thinking_steps.duplicate()
@@ -4150,7 +4180,8 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 			var objectives = _get_objectives(snapshot)
 			var plan_target_on_obj := false
 			for obj_pos in objectives:
-				if enemy_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+				if _unit_has_model_in_control_range(enemy, obj_pos):
 					plan_target_on_obj = true
 					break
 			# OBJ-AREA-ON-OBJ (FIX_OBJ_AREA_ON_OBJ): a target model on the objective's range.
@@ -4341,7 +4372,10 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 				# Only claim the objective if we are heading to/holding it:
 				# within the band at the destination, and not moving away from it.
 				var d_now = centroid.distance_to(obj_pos) if centroid != Vector2.INF else d_dest
-				if d_dest <= assoc_range_px and d_dest <= d_now + 1.0:
+				# OBJ-GAP-2: a unit staying put "holds" an objective when a model
+				# is in range of it (terrain-aware), not when its centroid is.
+				var holding_it: bool = dtype == "REMAIN_STATIONARY" and _unit_has_model_in_control_range(unit, obj_pos)
+				if holding_it or (dtype != "REMAIN_STATIONARY" and d_dest <= assoc_range_px and d_dest <= d_now + 1.0):
 					objective_id = obj_data[i].get("id", "obj_%d" % i) if i < obj_data.size() else "obj_%d" % i
 				else:
 					objective_id = ""
@@ -4426,6 +4460,10 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 				cand_terms["expected_vp"] = cand_vp
 				cand_terms["distance_inches"] = cand.get("distance", 0.0) / PIXELS_PER_INCH
 				cand_terms["turns_to_reach"] = float(cand.get("turns_to_reach", 0.0))
+				if cand.has("gap_inches"):
+					cand_terms["gap_inches"] = float(cand.gap_inches)
+				if float(cand.get("adv_chance", 0.0)) > 0.0:
+					cand_terms["adv_chance"] = float(cand.adv_chance)
 				cand_terms["assigned_by"] = assign_pass_name
 				cand_cards.append({
 					"description": cand_desc,
@@ -6738,7 +6776,8 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			var dk_centroid = _get_unit_centroid(dk_unit)
 			if dk_centroid != Vector2.INF:
 				for obj_pos in _get_objectives(snapshot):
-					if dk_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+					if _unit_has_model_in_control_range(dk_unit, obj_pos):
 						dk_on_obj = true
 						break
 			if dk_pts >= 100.0 or dk_on_obj:
@@ -7364,6 +7403,9 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var p_oc = int(p_unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
 			var p_obj = pa.get("objective_id", "")
 			var p_dist_in = pa.get("distance", 0.0) / PIXELS_PER_INCH
+			# OBJ-GAP-1: objective assignments report the real gap to close.
+			if pa.has("gap_inches") and pa.get("action", "") != "attack":
+				p_dist_in = float(pa.gap_inches)
 			var p_action = str(pa.get("action", "move")).to_upper()
 			var p_reason = pa.get("reason", "")
 			var p_line: String
@@ -7484,8 +7526,10 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 			var advance_move = move_inches + 2.0  # Average advance roll
 			var target_pos = assigned_obj_pos if assigned_obj_pos != Vector2.INF else _nearest_objective_pos(_get_unit_centroid(unit), objectives)
+			# OBJ-PATH-1: steer along the shortest line onto the objective footprint.
+			var approach_pos = _objective_approach_target(unit, target_pos) if assigned_obj_pos != Vector2.INF else target_pos
 			var model_destinations = _compute_movement_toward_target(
-				unit, unit_id, target_pos, advance_move, snapshot, enemies,
+				unit, unit_id, approach_pos, advance_move, snapshot, enemies,
 				0.0, threat_data, objectives
 			)
 			if not model_destinations.is_empty():
@@ -7621,7 +7665,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				elif not obj_hold_nearest.is_empty():
 					print("AIDecisionMaker: [OBJ-PRIORITY] %s holding objective — enemy %s at %.1f\" beyond limit %.0f\" (round %d)" % [
 						unit_name, _dn(obj_hold_nearest.enemy_unit, "enemy"), obj_hold_nearest.distance_inches, obj_hold_dist_limit, obj_hold_round])
-			if not obj_hold_skip and target_pos != Vector2.INF and centroid.distance_to(target_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-1: "already on it" = a model in range (terrain-area aware).
+			if not obj_hold_skip and target_pos != Vector2.INF and _unit_has_model_in_control_range(unit, target_pos):
 				if "REMAIN_STATIONARY" in move_types:
 					var dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH
 					print("AIDecisionMaker: %s within control range of %s (%.1f\"), holding" % [unit_name, assigned_obj_id, dist_inches])
@@ -7766,26 +7811,63 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						}
 
 			# --- T7-23: Charge-intent-aware movement target ---
-			# If this unit intends to charge, blend the movement target toward
-			# the charge target to set up a good charge angle
-			var move_target = target_pos
+			# If this unit intends to charge, steer the move toward the charge
+			# target — but only as far as needed to end within
+			# CHARGE_BLEND_REACH_INCHES of it, objective-first. A steer that
+			# cannot set up the charge this turn just costs objective progress,
+			# so the unit heads straight for its objective instead.
+			# OBJ-PATH-1: "its objective" = the shortest line onto the objective's
+			# footprint (its terrain area's nearest edge), not the marker dot —
+			# both the straight move and the charge blends start from that aim.
+			_move_shape_notes = []
+			var obj_aim: Vector2 = _objective_approach_target(unit, target_pos) if target_pos != Vector2.INF else target_pos
+			var move_target = obj_aim
 			var charge_intent = _get_charge_intent(unit_id)
+			var charge_steer_centroid := Vector2.INF  # set when the move IS steered toward the charge
+			var charge_steer_name := ""
+			var charge_reach_in := float(get_param("CHARGE_BLEND_REACH_INCHES", CHARGE_BLEND_REACH_INCHES))
 			if not charge_intent.is_empty():
 				var charge_target_id = charge_intent.get("target_id", "")
 				if charge_target_id != "" and enemies.has(charge_target_id):
 					var charge_target = enemies[charge_target_id]
 					var charge_centroid = _get_unit_centroid(charge_target)
+					var ct_name := str(charge_intent.get("target_name", charge_target_id))
 					if charge_centroid != Vector2.INF:
-						# Move toward charge target, but try to stay near objectives
 						var dist_to_charge = centroid.distance_to(charge_centroid) / PIXELS_PER_INCH
 						if dist_to_charge <= move_inches + 12.0:  # Within move + charge range
-							# Blend: 70% toward charge target, 30% toward objective
-							if target_pos != Vector2.INF:
-								move_target = charge_centroid * 0.7 + target_pos * 0.3
-							else:
+							if target_pos == Vector2.INF:
 								move_target = charge_centroid
-							print("AIDecisionMaker: [PHASE-PLAN] %s blending movement toward charge target %s" % [
-								unit_name, charge_intent.get("target_name", charge_target_id)])
+								charge_steer_centroid = charge_centroid
+								charge_steer_name = ct_name
+								_move_shape_notes.append("Heads for its planned charge on %s (%.1f\" away) — no objective to balance it against" % [ct_name, dist_to_charge])
+							else:
+								var obj_end := _projected_move_end(centroid, obj_aim, move_inches)
+								var obj_end_dist := obj_end.distance_to(charge_centroid) / PIXELS_PER_INCH
+								if obj_end_dist <= charge_reach_in:
+									print("AIDecisionMaker: [PHASE-PLAN] %s objective move already ends %.1f\" from charge target %s — no steer" % [unit_name, obj_end_dist, ct_name])
+									_move_shape_notes.append("Planned charge on %s: the straight objective move already ends %.1f\" from it, so no steering needed" % [ct_name, obj_end_dist])
+								else:
+									var steered := false
+									var last_end_dist := obj_end_dist
+									for w in CHARGE_BLEND_WEIGHTS:
+										var blended: Vector2 = charge_centroid * float(w) + obj_aim * (1.0 - float(w))
+										var end_dist := _projected_move_end(centroid, blended, move_inches).distance_to(charge_centroid) / PIXELS_PER_INCH
+										last_end_dist = end_dist
+										if end_dist <= charge_reach_in:
+											move_target = blended
+											charge_steer_centroid = charge_centroid
+											charge_steer_name = ct_name
+											steered = true
+											print("AIDecisionMaker: [PHASE-PLAN] %s blending movement %d%% toward charge target %s (ends %.1f\" from it)" % [
+												unit_name, int(float(w) * 100.0), ct_name, end_dist])
+											_move_shape_notes.append("Steered %d%% toward its planned charge on %s so it ends %.1f\" away (straight to the objective would end %.1f\" away, needs ≤%.0f\")" % [
+												int(float(w) * 100.0), ct_name, end_dist, obj_end_dist, charge_reach_in])
+											break
+									if not steered:
+										print("AIDecisionMaker: [PHASE-PLAN] %s NOT steering toward charge target %s — best steer ends %.1f\" away (needs <= %.0f\")" % [
+											unit_name, ct_name, last_end_dist, charge_reach_in])
+										_move_shape_notes.append("Planned charge on %s is out of reach this turn (even steering %d%% toward it ends %.1f\" away, needs ≤%.0f\") — heads straight for the objective" % [
+											ct_name, int(float(CHARGE_BLEND_WEIGHTS.back()) * 100.0), last_end_dist, charge_reach_in])
 
 			# --- T7-30: Half-range optimization for Rapid Fire/Melta ---
 			# If this unit has weapons that benefit from half range and isn't planning
@@ -7837,16 +7919,47 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				max_weapon_range_inches, threat_data, objectives
 			)
 
+			# T7-23 follow-through: the steer only pays if the move that actually
+			# comes out (after threat dodge / terrain / collisions) still ends in
+			# charge reach. If it doesn't, redo the move straight at the objective.
+			if charge_steer_centroid != Vector2.INF and target_pos != Vector2.INF and move_target != target_pos \
+					and not model_destinations.is_empty():
+				var steered_end := _destinations_centroid(model_destinations)
+				var steered_end_dist := steered_end.distance_to(charge_steer_centroid) / PIXELS_PER_INCH if steered_end != Vector2.INF else INF
+				if steered_end_dist > charge_reach_in:
+					print("AIDecisionMaker: [PHASE-PLAN] %s steered move ends %.1f\" from %s after adjustments — re-planning straight to objective" % [
+						unit_name, steered_end_dist, charge_steer_name])
+					var steer_notes: Array = _move_shape_notes.duplicate()
+					_move_shape_notes = []
+					var straight = _compute_movement_toward_target(
+						unit, unit_id, target_pos, move_inches, snapshot, enemies,
+						max_weapon_range_inches, threat_data, objectives
+					)
+					if not straight.is_empty():
+						model_destinations = straight
+						charge_steer_centroid = Vector2.INF
+						_move_shape_notes.push_front("Dropped the steer toward its planned charge on %s: after the adjustments below it would only have ended %.1f\" away (needs ≤%.0f\"), so it heads straight for the objective" % [
+							charge_steer_name, steered_end_dist, charge_reach_in])
+					else:
+						_move_shape_notes = steer_notes
+
 			if not model_destinations.is_empty():
-				var obj_dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH if target_pos != Vector2.INF else 0.0
+				# OBJ-GAP-1: the gap the unit's nearest model still has to close.
+				var obj_dist_inches = _unit_gap_to_objective_px(unit, target_pos) / PIXELS_PER_INCH if target_pos != Vector2.INF else 0.0
 				var reason = assignment.get("reason", "moving to objective")
-				if not charge_intent.is_empty():
-					reason = "moving toward charge target %s" % charge_intent.get("target_name", "")
+				if charge_steer_centroid != Vector2.INF:
+					reason = "%s, steering toward charge target %s" % [reason, charge_steer_name]
 				print("AIDecisionMaker: %s moving toward %s (%s, M: %.0f\")" % [unit_name, assigned_obj_id, reason, move_inches])
+				var moved_in := _destinations_max_move_inches(_get_alive_models_with_positions(unit), model_destinations)
+				if moved_in >= 0.0 and moved_in < move_inches - 0.5 and obj_dist_inches > moved_in + 0.5 and not _move_shape_notes.is_empty():
+					_move_shape_notes.append("Net result: moves %.1f\" of its %.0f\" this turn" % [moved_in, move_inches])
+				for n in _move_shape_notes:
+					_add_thinking_step("%s move: %s" % [unit_name, n])
 				return {
 					"type": "BEGIN_NORMAL_MOVE",
 					"actor_unit_id": unit_id,
 					"_ai_model_destinations": model_destinations,
+					"_ai_move_adjustments": _move_shape_notes.duplicate(),
 					"_ai_description": "%s moves toward %s (%s, obj: %.1f\" away)" % [unit_name, assigned_obj_id, reason, obj_dist_inches]
 				}
 			else:
@@ -9195,8 +9308,10 @@ static func _evaluate_all_objectives(
 		var e_step = (float(e_unit.get("meta", {}).get("stats", {}).get("move", 6)) + 2.0) * PIXELS_PER_INCH
 		var best_m := 999
 		for o_pos in objectives:
-			var m = 0 if e_c.distance_to(o_pos) <= OBJECTIVE_CONTROL_RANGE_PX else \
-				int(ceil((e_c.distance_to(o_pos) - OBJECTIVE_CONTROL_RANGE_PX) / maxf(e_step, 1.0)))
+			# OBJ-GAP-1 (merged from main): moves until the nearest model is in
+			# range (terrain-area aware), the same gap the race below uses.
+			var e_g := _unit_gap_to_objective_px(e_unit, o_pos)
+			var m = 0 if e_g <= 0.0 else int(ceil(e_g / maxf(e_step, 1.0)))
 			best_m = mini(best_m, m)
 		enemy_min_moves[e_uid] = best_m
 	# RACE-ARMY: the same moves-to-nearest-objective table for OUR units, so a
@@ -9210,14 +9325,16 @@ static func _evaluate_all_objectives(
 		var f_step = (float(f_unit.get("meta", {}).get("stats", {}).get("move", 6)) + 2.0) * PIXELS_PER_INCH
 		var f_best := 999
 		for o_pos in objectives:
-			var fm = 0 if f_c.distance_to(o_pos) <= OBJECTIVE_CONTROL_RANGE_PX else \
-				int(ceil((f_c.distance_to(o_pos) - OBJECTIVE_CONTROL_RANGE_PX) / maxf(f_step, 1.0)))
+			# OBJ-GAP-1 (merged from main): nearest model's terrain-aware gap.
+			var f_g := _unit_gap_to_objective_px(f_unit, o_pos)
+			var fm = 0 if f_g <= 0.0 else int(ceil(f_g / maxf(f_step, 1.0)))
 			f_best = mini(f_best, fm)
 		friendly_min_moves[f_uid] = f_best
 	# OBJ-AREA-REACH (FIX_OBJ_AREA_REACH): every reach/contest gap below from
 	# the unit's nearest model to the objective's range (the hosting area on
 	# an 11e terrain objective), computed once per (unit, objective) per plan.
-	# The centroid tables above are kept for the old/new log lines.
+	# The base tables above (main's OBJ-GAP-1 _unit_gap_to_objective_px, read
+	# from the live board) are kept for the old/new log lines.
 	var oar_on: bool = get_param("FIX_OBJ_AREA_REACH", FIX_OBJ_AREA_REACH) >= 0.5
 	var oar_gaps: Array = []
 	var oar_enemy_min := {}
@@ -9278,14 +9395,16 @@ static func _evaluate_all_objectives(
 			var e_centroid = _get_unit_centroid(e_unit)
 			if e_centroid == Vector2.INF:
 				continue
-			var e_dist = e_centroid.distance_to(obj_pos)
-			if e_dist <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-1: the enemy's real gap (nearest model to the objective
+			# footprint — the terrain area on an 11e terrain objective).
+			var e_gap = _unit_gap_to_objective_px(e_unit, obj_pos)
+			if e_gap <= 0.0:
 				continue  # Already counted in enemy_oc
 			if not hd_objs[i].is_empty() and _unit_in_objective_range(e_unit, hd_objs[i], hd_mm):
 				continue  # FIX-HELD-DUP: on the hosting area — already in enemy_oc
 			var e_move = float(e_unit.get("meta", {}).get("stats", {}).get("move", 6))
-			var e_reach: bool = e_dist <= (e_move + 2.0) * PIXELS_PER_INCH + OBJECTIVE_CONTROL_RANGE_PX
-			var e_gap_px := 0.0
+			var e_reach: bool = e_gap <= (e_move + 2.0) * PIXELS_PER_INCH
+			var e_gap_px: float = e_gap
 			if oar_on:
 				# OBJ-AREA-REACH: one move puts the NEAREST model in range
 				e_gap_px = float(oar_gaps[i].get(e_uid, INF))
@@ -9299,7 +9418,7 @@ static func _evaluate_all_objectives(
 			# multi-turn trip can ask "who gets there first" (see the race term).
 			var e_step_px = (e_move + 2.0) * PIXELS_PER_INCH
 			if e_step_px > 0.0:
-				var e_moves = int(ceil((e_dist - OBJECTIVE_CONTROL_RANGE_PX) / e_step_px))
+				var e_moves = maxi(1, int(ceil(e_gap / e_step_px)))
 				var e_nearest: bool = e_moves <= int(enemy_min_moves.get(e_uid, e_moves))
 				if oar_on and e_gap_px != INF:
 					var oar_moves := int(ceil(e_gap_px / e_step_px))
@@ -9331,13 +9450,14 @@ static func _evaluate_all_objectives(
 			var f_centroid = _get_unit_centroid(f_unit)
 			if f_centroid == Vector2.INF:
 				continue
-			var f_dist = f_centroid.distance_to(obj_pos)
-			if f_dist <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-1 (merged from main): nearest model's terrain-aware gap.
+			var f_gap := _unit_gap_to_objective_px(f_unit, obj_pos)
+			if f_gap <= 0.0:
 				continue  # Already counted in friendly_oc
 			if not hd_objs[i].is_empty() and _unit_in_objective_range(f_unit, hd_objs[i], hd_mm):
 				continue  # FIX-HELD-DUP: on the hosting area — already in friendly_oc
 			var f_step_px = (float(f_unit.get("meta", {}).get("stats", {}).get("move", 6)) + 2.0) * PIXELS_PER_INCH
-			var f_moves = int(ceil((f_dist - OBJECTIVE_CONTROL_RANGE_PX) / maxf(f_step_px, 1.0)))
+			var f_moves = maxi(1, int(ceil(f_gap / maxf(f_step_px, 1.0))))
 			var f_nearest: bool = f_moves <= int(friendly_min_moves.get(f_uid, f_moves))
 			if oar_on and float(oar_gaps[i].get(f_uid, INF)) != INF:
 				# OBJ-AREA-REACH: moves until the NEAREST model is in range
@@ -9715,7 +9835,7 @@ static func _keeper_release_check(snapshot: Dictionary, hold: Dictionary, ev: Di
 
 ## KEEPER-RELEASE: candidate `c` — a trip the planner prices as an Advance —
 ## re-priced as a Normal move of the same unit to the same objective: the
-## turns a Normal move needs (the REACH-CR gap / M) and every term the
+## turns a Normal move needs (the OBJ-GAP-1 / REACH-CR gap / M) and every term the
 ## candidate loop of _assign_units_to_objectives derives from them — the
 ## contest race (RACE-1/1b, RACE-LATE, RACE-ARMY), the distance penalty, the
 ## reach horizon and the reachability terms. The other terms do not depend on
@@ -9732,8 +9852,13 @@ static func _keeper_release_normal_pace(c: Dictionary, ev: Dictionary, battle_ro
 	var gap_in := maxf(0.0, dist_in - OBJECTIVE_CONTROL_RANGE_PX / PIXELS_PER_INCH)
 	if get_param("PLAN_REACH_CR", 1.0) < 0.5:
 		gap_in = dist_in
+	if c.has("gap_inches"):
+		# MERGE (main OBJ-GAP-1): the loop's own gap — nearest model to the
+		# objective's range (incl. the OBJ-AREA-REACH and REACH-CR ablation reads).
+		gap_in = maxf(0.0, float(c.gap_inches))
 	var turns: float = max(1.0, ceil(gap_in / move_in)) if move_in > 0 else 99.0
 	n["turns_to_reach"] = turns
+	n["adv_chance"] = 0.0  # a Normal move: no Advance roll (ADV-ODDS-1)
 	if is_equal_approx(turns, float(c.get("turns_to_reach", turns))):
 		return n  # already priced at a Normal move's pace (a short Advance)
 	var old_terms: Dictionary = c.get("score_terms", {})
@@ -9800,11 +9925,13 @@ static func _keeper_release_normal_pace(c: Dictionary, ev: Dictionary, battle_ro
 		var reach_factor := maxf(float(scoring_chances) / float(total_chances),
 			get_param("MOVE_UNREACHABLE_FLOOR", MOVE_UNREACHABLE_FLOOR))
 		score = _t_mul(terms, "reach_horizon", score, reach_factor)
-	if gap_in <= move_in:
+	# MERGE (main ADV-ODDS-1): the loop's reachability terms for a Normal move —
+	# the bonus only when a Move gets there (the Advance share needs adv_now),
+	# no round-1 penalty for a unit already on the objective.
+	var on_obj: bool = bool(c.get("already_on_obj", false))
+	if not on_obj and gap_in <= move_in:
 		score += _t_add(terms, "reachability", get_param("MOVE_REACHABLE_BONUS", MOVE_REACHABLE_BONUS))
-	elif gap_in <= move_in + 2.0:
-		score += _t_add(terms, "reachability", get_param("MOVE_ADVANCE_REACHABLE_BONUS", MOVE_ADVANCE_REACHABLE_BONUS))
-	if battle_round == 1 and turns > 1:
+	if battle_round == 1 and turns > 1 and not on_obj:
 		score += _t_add(terms, "reachability", -(get_param("MOVE_UNREACHABLE_EARLY_PENALTY", MOVE_UNREACHABLE_EARLY_PENALTY)))
 	for k in old_terms:
 		if not k in ["objective_priority", "oc_efficiency", "contest_race", "distance_penalty", "reach_horizon", "reachability"]:
@@ -10085,9 +10212,7 @@ static func _assign_units_to_objectives(
 		# friendly_oc by the objective evaluation — don't double-count it.
 		var intent_obj_eval = _get_obj_eval_by_id(obj_evaluations, intent_obj)
 		var intent_obj_pos = intent_obj_eval.get("position", Vector2.INF)
-		var intent_centroid = _get_unit_centroid(intent_unit)
-		if intent_obj_pos != Vector2.INF and intent_centroid != Vector2.INF \
-				and intent_centroid.distance_to(intent_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+		if intent_obj_pos != Vector2.INF and _unit_has_model_in_control_range(intent_unit, intent_obj_pos):
 			continue
 		if not (hd_obj_by_id.get(intent_obj, {}) as Dictionary).is_empty() \
 				and _unit_in_objective_range(intent_unit, hd_obj_by_id[intent_obj], hd_mm):
@@ -10145,10 +10270,10 @@ static func _assign_units_to_objectives(
 				and "BEGIN_ADVANCE" in move_types \
 				and _should_unit_advance_long_trip(unit, has_ranged, max_weapon_range, enemies, centroid)
 		# WAAAGH-ADV-REROLL (FIX_WAAAGH_ADV_REROLL): a unit that re-rolls a 1-3
-		# Advance roll plans RACE-1 (odds, pace) and the AI-GAP-4 band with the
-		# re-rolled D6 ([] = plain D6: band 2", pace ADVANCE_EXPECTED_EXTRA_INCHES).
+		# Advance roll plans RACE-1 (odds, pace) and ADV-ODDS-1's this-turn
+		# Advance chance with the re-rolled D6 ([] = plain D6, pace
+		# ADVANCE_EXPECTED_EXTRA_INCHES).
 		var adv_faces: Array = _adv_face_probs(unit)
-		var adv_band_in: float = _adv_band_in(adv_faces)
 
 		var race_same_turn: bool = get_param("PLAN_RACE_SAME_TURN", 1.0) >= 0.5
 		for eval in obj_evaluations:
@@ -10156,15 +10281,21 @@ static func _assign_units_to_objectives(
 			var obj_id = eval.id
 			var dist_px = centroid.distance_to(obj_pos)
 			var dist_inches = dist_px / PIXELS_PER_INCH
-			# REACH-CR: a unit takes an objective when a model is within control
-			# range of the marker, not on it — every reach/advance test uses the
-			# gap to control range (same as _capture_arrival), so a unit 9" away
-			# at M8 is "there this turn" and does not Advance for nothing.
-			var gap_in = maxf(0.0, dist_inches - OBJECTIVE_CONTROL_RANGE_PX / PIXELS_PER_INCH)
+			# OBJ-GAP-1 (main) + REACH-CR (lab): what the unit must actually cover —
+			# its NEAREST model to the objective footprint (a terrain objective's
+			# hosting AREA, 11e 14.01; 3" of the marker on open ground), not
+			# centroid to marker centre. A unit takes an objective when a model is
+			# within range, not on the marker, so every reach/advance test below
+			# uses this gap (same as _capture_arrival): a unit 9" away at M8 is
+			# "there this turn" and does not Advance for nothing.
+			var gap_px := _unit_gap_to_objective_px(unit, obj_pos)
+			var gap_in: float = gap_px / PIXELS_PER_INCH if gap_px != INF \
+					else maxf(0.0, dist_inches - OBJECTIVE_CONTROL_RANGE_PX / PIXELS_PER_INCH)
 			if get_param("PLAN_REACH_CR", 1.0) < 0.5:
 				gap_in = dist_inches  # ablation: pre-REACH-CR distance
 			# OBJ-AREA-REACH (FIX_OBJ_AREA_REACH): the gap from the NEAREST model to
-			# the objective's range (hosting area on an 11e terrain objective).
+			# the objective's range read from the planner's snapshot board entry
+			# (hosting area on an 11e terrain objective, base edge on open ground).
 			var oar_gap_in := -1.0
 			var oar_old_gap_in: float = gap_in
 			if oar_on and get_param("PLAN_REACH_CR", 1.0) >= 0.5:
@@ -10174,32 +10305,58 @@ static func _assign_units_to_objectives(
 				if oar_px != INF:
 					oar_gap_in = oar_px / PIXELS_PER_INCH
 					gap_in = oar_gap_in
+			var gap_inches: float = gap_in  # main's name for the same gap (cards, reasons)
 			var turns_to_reach = max(1.0, ceil(gap_in / move_inches)) if move_inches > 0 else 99.0
 			# OBJ-HOLD-1: a unit is "on" an objective when ANY alive model is in
-			# control range (that is what scores — see _unit_oc_at_position), not
-			# just its centroid. A spread squad with models on the marker but a
-			# centroid >3.79" away was treated as off-objective and sent away.
-			var already_on_obj = dist_px <= OBJECTIVE_CONTROL_RANGE_PX or _unit_has_model_in_control_range(unit, obj_pos)
+			# range (that is what scores — see _unit_oc_at_position), not just its
+			# centroid. A spread squad with models on the marker but a centroid
+			# >3.79" away was treated as off-objective and sent away.
+			var already_on_obj = gap_px <= 0.0 or _unit_has_model_in_control_range(unit, obj_pos)
 			# FIX-HELD-DUP: a model on the 11e hosting area holds it too
 			if not already_on_obj and not (hd_obj_by_id.get(obj_id, {}) as Dictionary).is_empty():
 				already_on_obj = _unit_in_objective_range(unit, hd_obj_by_id[obj_id], hd_mm)
+			# ADV-ODDS-1: a Move falls short but an Advance (M + D6) may not — the
+			# chance of a good enough roll, and whether the unit takes the gamble
+			# (_should_unit_advance weighs the chance against what a failed or
+			# successful Advance costs: no shooting / charging this turn).
+			# WAAAGH-ADV-REROLL (FIX_WAAAGH_ADV_REROLL): with a 1-3 re-roll the
+			# chance is read off the re-rolled D6 (adv_faces; [] = plain D6).
+			var adv_chance := 0.0
+			var adv_now := false
+			if not already_on_obj and gap_in > move_inches and "BEGIN_ADVANCE" in move_types:
+				adv_chance = _advance_reach_chance(unit, gap_in, move_inches, adv_faces)
+				if adv_chance > 0.0:
+					adv_now = _should_unit_advance(unit, gap_in, move_inches, has_ranged,
+						max_weapon_range, enemies, centroid, battle_round, eval, adv_chance)
+			# Expected Movement phases to arrive: a good roll arrives now, a short
+			# one a turn later — the distance penalty is charged on this, so a
+			# 5/6 Advance costs 1/6 of a turn, not a whole one.
+			var turns_expected := float(turns_to_reach)
+			if adv_now:
+				turns_expected = adv_chance + (1.0 - adv_chance) * float(turns_to_reach)
+				if adv_chance >= 0.5:
+					turns_to_reach = 1.0
 			# RACE-1: a long trip the unit will Advance on is costed (distance,
-			# contest race) at the Advance pace it will actually travel.
-			var long_adv: bool = long_adv_ok and not already_on_obj \
-					and gap_in > move_inches + 2.0 \
+			# contest race) at the Advance pace it will actually travel. Merged
+			# with ADV-ODDS-1: a gap an Advance can close THIS turn (M, M+6"] is
+			# ADV-ODDS-1's call above; RACE-1 covers the longer trips.
+			var long_adv: bool = long_adv_ok and not already_on_obj and not adv_now \
+					and gap_in > move_inches + 6.0 \
 					and _long_trip_advance_saves_turn(gap_in, move_inches, adv_faces)
 			if long_adv:
 				turns_to_reach = max(1.0, ceil(gap_in / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES))))
 				if not adv_faces.is_empty():
 					# WAAAGH-ADV-REROLL: the re-rolled Advance's pace (M + 4.25").
 					turns_to_reach = max(1.0, ceil(gap_in / (move_inches + get_param("ADVANCE_REROLL_EXPECTED_EXTRA_INCHES", ADVANCE_REROLL_EXPECTED_EXTRA_INCHES))))
+				turns_expected = float(turns_to_reach)
 			if oar_gap_in >= 0.0 and move_inches > 0:
-				# OBJ-AREA-REACH: what the centroid gap would have given, for the log.
-				# Same Advance roll odds, pace and AI-GAP-4 band as the plan above
-				# (WAAAGH-ADV-REROLL's re-rolled D6 when that fix is on; adv_faces = []
-				# and adv_band_in = 2.0 when it is off), so this line counts only the gap.
+				# OBJ-AREA-REACH: what the base gap (main's OBJ-GAP-1, live board)
+				# would have given, for the log. Same Advance roll odds, pace and
+				# re-roll faces as the plan above (WAAAGH-ADV-REROLL's re-rolled D6
+				# when that fix is on; adv_faces = [] when it is off), so this line
+				# counts only the gap.
 				var oar_old_turns = max(1.0, ceil(oar_old_gap_in / move_inches))
-				if long_adv_ok and not already_on_obj and oar_old_gap_in > move_inches + 2.0 \
+				if long_adv_ok and not already_on_obj and oar_old_gap_in > move_inches + 6.0 \
 						and _long_trip_advance_saves_turn(oar_old_gap_in, move_inches, adv_faces):
 					oar_old_turns = max(1.0, ceil(oar_old_gap_in / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES))))
 					if not adv_faces.is_empty():
@@ -10207,25 +10364,35 @@ static func _assign_units_to_objectives(
 				if int(oar_old_turns) != int(turns_to_reach):
 					print("AIDecisionMaker: [FIX_OBJ_AREA_REACH] %s turns_to_reach %s old=%d new=%d" % [
 						_dn(unit, unit_id), obj_id, int(oar_old_turns), int(turns_to_reach)])
+				# The pre-ADV-ODDS-1 AI-GAP-4 band (M, M+2"] (M+3" re-rolled), kept for
+				# the log: since the merge the Advance decision is the chance below.
+				var adv_band_in: float = _adv_band_in(adv_faces)
 				var oar_band_old: bool = oar_old_gap_in > move_inches and oar_old_gap_in <= move_inches + adv_band_in
 				var oar_band_new: bool = gap_in > move_inches and gap_in <= move_inches + adv_band_in
 				if oar_band_old != oar_band_new:
 					print("AIDecisionMaker: [FIX_OBJ_AREA_REACH] %s advance_band %s old=%s new=%s" % [
 						_dn(unit, unit_id), obj_id, str(oar_band_old), str(oar_band_new)])
+				var oar_chance_old: float = _advance_reach_chance(unit, oar_old_gap_in, move_inches, adv_faces) \
+						if oar_old_gap_in > move_inches else 0.0
+				var oar_chance_new: float = _advance_reach_chance(unit, gap_in, move_inches, adv_faces) \
+						if gap_in > move_inches else 0.0
+				if not is_equal_approx(oar_chance_old, oar_chance_new):
+					print("AIDecisionMaker: [FIX_OBJ_AREA_REACH] %s advance_chance %s old=%.2f new=%.2f" % [
+						_dn(unit, unit_id), obj_id, oar_chance_old, oar_chance_new])
 			if not adv_faces.is_empty() and move_inches > 0:
 				# WAAAGH-ADV-REROLL: this objective's Advance plan with a plain D6
 				# (the old values) vs the re-rolled D6 — logged when they differ.
-				# Branch: "band" = AI-GAP-4 decides the action (the gap is in
-				# (M, M+band]), "race1" = a RACE-1 Advance, "walk" otherwise.
-				var wr_old_long: bool = long_adv_ok and not already_on_obj \
-						and gap_in > move_inches + 2.0 \
+				# "adv<N>%" = ADV-ODDS-1's chance an Advance arrives this turn,
+				# "race1" = a RACE-1 Advance, "walk" otherwise.
+				var wr_old_chance: float = _advance_reach_chance(unit, gap_in, move_inches) \
+						if not already_on_obj and gap_in > move_inches else 0.0
+				var wr_old_long: bool = long_adv_ok and not already_on_obj and not adv_now \
+						and gap_in > move_inches + 6.0 \
 						and _long_trip_advance_saves_turn(gap_in, move_inches)
 				var wr_old_turns: float = max(1.0, ceil(gap_in / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES)))) \
 						if wr_old_long else max(1.0, ceil(gap_in / move_inches))
-				var wr_old_band: bool = not already_on_obj and gap_in > move_inches and gap_in <= move_inches + 2.0
-				var wr_new_band: bool = not already_on_obj and gap_in > move_inches and gap_in <= move_inches + adv_band_in
-				var wr_old: String = "%s/%dt" % ["band" if wr_old_band else ("race1" if wr_old_long else "walk"), int(wr_old_turns)]
-				var wr_new: String = "%s/%dt" % ["band" if wr_new_band else ("race1" if long_adv else "walk"), int(turns_to_reach)]
+				var wr_old: String = "%s/%dt" % ["adv%d%%" % int(round(wr_old_chance * 100.0)) if wr_old_chance > 0.0 else ("race1" if wr_old_long else "walk"), int(wr_old_turns)]
+				var wr_new: String = "%s/%dt" % ["adv%d%%" % int(round(adv_chance * 100.0)) if adv_chance > 0.0 else ("race1" if long_adv else "walk"), int(turns_to_reach)]
 				if wr_old != wr_new:
 					print("AIDecisionMaker: [FIX_WAAAGH_ADV_REROLL] %s -> %s advance plan (gap %.1f\", M%d\", re-rolled Advance) old=%s new=%s" % [
 						_dn(unit, unit_id), obj_id, gap_in, int(move_inches), wr_old, wr_new])
@@ -10339,10 +10506,10 @@ static func _assign_units_to_objectives(
 			# Distance penalty: further away = less useful. RACE-1: each extra turn
 			# costs a share of the objective's value (floored at the flat penalty),
 			# so a +20 objective three turns away is no longer down just -4.
-			if turns_to_reach > 1:
+			if turns_expected > 1.0:
 				var per_turn := maxf(get_param("MOVE_TURNS_AWAY_PENALTY", MOVE_TURNS_AWAY_PENALTY),
 					get_param("MOVE_TURNS_AWAY_FRACTION", MOVE_TURNS_AWAY_FRACTION) * maxf(0.0, score))
-				score += _t_add(score_terms, "distance_penalty", -((turns_to_reach - 1) * per_turn))
+				score += _t_add(score_terms, "distance_penalty", -((turns_expected - 1.0) * per_turn))
 
 			# SCORING HORIZON. An objective is only worth what it can still score.
 			# A unit arriving in round A holds it for the command phases of
@@ -10384,21 +10551,26 @@ static func _assign_units_to_objectives(
 				elif alive_models >= 5:
 					score += _t_add(score_terms, "horde_presence", get_param("MOVE_HORDE_BONUS_MEDIUM", MOVE_HORDE_BONUS_MEDIUM))  # Medium squad — decent presence
 
-			# Can reach this turn: bonus
-			if gap_in <= move_inches:
+			# Can reach this turn: bonus (OBJ-GAP-1: on the real gap). ADV-ODDS-1:
+			# by Advancing, the bonus is weighted by the chance the roll gets there.
+			if not already_on_obj and gap_in <= move_inches:
 				score += _t_add(score_terms, "reachability", get_param("MOVE_REACHABLE_BONUS", MOVE_REACHABLE_BONUS))
-			elif gap_in <= move_inches + 2.0:  # Reachable with advance
-				score += _t_add(score_terms, "reachability", get_param("MOVE_ADVANCE_REACHABLE_BONUS", MOVE_ADVANCE_REACHABLE_BONUS))
+			elif adv_now:
+				score += _t_add(score_terms, "reachability", get_param("MOVE_REACHABLE_BONUS", MOVE_REACHABLE_BONUS) * adv_chance)
 
 			# Scoring round awareness: if this is round 1 and we can't reach by round 2, lower priority
-			if battle_round == 1 and turns_to_reach > 1:
+			if battle_round == 1 and turns_to_reach > 1 and not already_on_obj:
 				score += _t_add(score_terms, "reachability", -(get_param("MOVE_UNREACHABLE_EARLY_PENALTY", MOVE_UNREACHABLE_EARLY_PENALTY)))
 
 			# Estimate where the unit would end up after moving toward this objective
 			# (used by both weapon range scoring and threat awareness)
-			var move_direction = (obj_pos - centroid).normalized() if dist_px > 1.0 else Vector2.ZERO
-			var move_px_cap = move_inches * PIXELS_PER_INCH
-			var estimated_dest = centroid + move_direction * min(move_px_cap, dist_px)
+			# OBJ-PATH-1: the heading the executor will take (shortest line onto
+			# the objective footprint), so threat / range / quarter estimates
+			# score the square the unit will actually reach.
+			var approach_pos: Vector2 = obj_pos if already_on_obj else _objective_approach_target(unit, obj_pos)
+			var move_direction = (approach_pos - centroid).normalized() if centroid.distance_to(approach_pos) > 1.0 else Vector2.ZERO
+			var move_px_cap = (move_inches + (get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES) if adv_now else 0.0)) * PIXELS_PER_INCH
+			var estimated_dest = centroid + move_direction * min(move_px_cap, centroid.distance_to(approach_pos))
 
 			# --- T7-14: Weapon range consideration in movement scoring (MOV-1) ---
 			# Score destinations based on whether they maintain or lose weapon range
@@ -10657,16 +10829,14 @@ static func _assign_units_to_objectives(
 			if already_on_obj:
 				action = "hold"
 				reason = "on objective, OC needed"
-			elif gap_in > move_inches and gap_in <= move_inches + adv_band_in:
-				# Advance consideration (Task 3) — on the gap to control range
-				# (WAAAGH-ADV-REROLL: band M+3" with a 1-3 re-roll, else M+2")
-				var should_advance = _should_unit_advance(
-					unit, gap_in, move_inches, has_ranged, max_weapon_range,
-					enemies, centroid, battle_round, eval
-				)
-				if should_advance:
-					action = "advance"
-					reason = "advancing for extra range"
+			elif adv_now:
+				# ADV-ODDS-1: a Move falls short, an Advance may not (decided above).
+				action = "advance"
+				if adv_chance >= 0.999:
+					reason = "advancing — %.1f\" away, any Advance roll gets there this turn" % gap_inches
+				else:
+					reason = "advancing — %.1f\" away, %d%% chance the roll gets there this turn" % [
+						gap_inches, int(round(adv_chance * 100.0))]
 			elif long_adv:
 				# RACE-1: a trip that takes several turns either way — Advance when
 				# the roll has a real chance (ADV-PROB) to get there a whole turn
@@ -10730,6 +10900,8 @@ static func _assign_units_to_objectives(
 				"action": action,
 				"reason": reason,
 				"distance": dist_px,
+				"gap_inches": gap_inches,
+				"adv_chance": adv_chance,
 				"unit_oc": unit_oc,
 				"already_on_obj": already_on_obj,
 				"turns_to_reach": turns_to_reach,
@@ -11190,6 +11362,14 @@ static func _assign_units_to_objectives(
 			if float(c_price.get("drop", 0.0)) > 0.0:
 				assign_reason += " — worth ~%.0f VP with the %d other objective(s) this plan takes" % [
 					float(c_price.new_vp), int(c_price.extra)]
+			# ADV-ODDS-1: keep the Advance odds in the story.
+			var c_adv = float(cand.get("adv_chance", 0.0))
+			if cand.action == "advance" and c_adv > 0.0:
+				if c_adv >= 0.999:
+					assign_reason += "; Advancing: %.1f\" to go, any roll gets there this turn" % float(cand.get("gap_inches", 0.0))
+				else:
+					assign_reason += "; Advancing: %.1f\" to go, %d%% the roll gets there this turn" % [
+						float(cand.get("gap_inches", 0.0)), int(round(c_adv * 100.0))]
 		assignments[c_uid]["reason"] = assign_reason
 		assignments[c_uid]["assign_pass"] = "capture"
 		print("AIDecisionMaker: Assigned %s to %s %s (score: %.1f, reason: %s)" % [c_uid, cand.action.to_upper(), c_oid, cand.score, assign_reason])
@@ -11346,7 +11526,9 @@ static func _assign_units_to_objectives(
 		# and arrives QUICKER at its own Move: fewer Movement phases to bring a
 		# model within control range (an M12 unit 24" away arrives in 2, an M4
 		# unit 12" away needs 3), or — arriving the same phase — at least
-		# MIN_INCHES more spare movement. Advance is ignored (its roll is random).
+		# MIN_INCHES more spare movement. ADV-ODDS-1: a planned Advance counts at
+		# its odds — `expected` phases (a sure Advance arrives this turn, a 50%
+		# one in 1.5) — and is quicker when at least half a turn sooner.
 		var closer_margin = get_param("MOVE_ASSIGN_CLOSER_MARGIN", MOVE_ASSIGN_CLOSER_MARGIN)
 		var closer_min_in = get_param("MOVE_ASSIGN_CLOSER_MIN_INCHES", MOVE_ASSIGN_CLOSER_MIN_INCHES)
 		var needed_cover = mini(int(cand.unit_oc), remaining)
@@ -11370,13 +11552,13 @@ static func _assign_units_to_objectives(
 			if far_trip.call(alt):
 				continue  # FAR-TRIP: quicker, but alone on a trip it loses
 			var alt_arrival = _capture_arrival(alt)
-			var quicker: bool = alt_arrival.phases < cand_arrival.phases \
-					or (alt_arrival.phases == cand_arrival.phases
+			var quicker: bool = float(alt_arrival.expected) <= float(cand_arrival.expected) - 0.5 \
+					or (absf(float(alt_arrival.expected) - float(cand_arrival.expected)) < 0.01
 						and alt_arrival.spare_in >= cand_arrival.spare_in + closer_min_in)
 			if not quicker:
 				continue
-			if closer.is_empty() or alt_arrival.phases < closer_arrival.phases \
-					or (alt_arrival.phases == closer_arrival.phases and alt_arrival.spare_in > closer_arrival.spare_in):
+			if closer.is_empty() or float(alt_arrival.expected) < float(closer_arrival.expected) - 0.01 \
+					or (absf(float(alt_arrival.expected) - float(closer_arrival.expected)) < 0.01 and alt_arrival.spare_in > closer_arrival.spare_in):
 				closer = alt
 				closer_arrival = alt_arrival
 		if not closer.is_empty():
@@ -11385,9 +11567,9 @@ static func _assign_units_to_objectives(
 			assignments[closer.unit_id]["reason"] += " — quicker to reach than %s (%s at M%d vs %s at M%d)" % [
 				far_name, _arrival_text(closer, closer_arrival), int(closer.move_inches),
 				_arrival_text(cand, cand_arrival), int(cand.move_inches)]
-			print("AIDecisionMaker: [OBJ-ASSIGN-1] %s: %s arrives quicker than %s (%d phase(s), %.1f\" spare vs %d phase(s), %.1f\" spare; score %.1f vs %.1f) — it takes the objective" % [
-				oid, closer.unit_id, uid, closer_arrival.phases, closer_arrival.spare_in,
-				cand_arrival.phases, cand_arrival.spare_in, float(closer.score), float(cand.score)])
+			print("AIDecisionMaker: [OBJ-ASSIGN-1] %s: %s arrives quicker than %s (%.2f expected phase(s), %.1f\" spare vs %.2f, %.1f\" spare; score %.1f vs %.1f) — it takes the objective" % [
+				oid, closer.unit_id, uid, float(closer_arrival.expected), closer_arrival.spare_in,
+				float(cand_arrival.expected), cand_arrival.spare_in, float(closer.score), float(cand.score)])
 			if obj_oc_remaining.get(oid, 0) <= 0:
 				continue  # covered — this unit falls through to its next option
 
@@ -12139,7 +12321,8 @@ static func _decide_engaged_unit(
 	var on_objective = false
 	var obj_id_held = ""
 	for obj_pos in objectives:
-		if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+		# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+		if _unit_has_model_in_control_range(unit, obj_pos):
 			on_objective = true
 			# Find the objective ID
 			var obj_data = snapshot.get("board", {}).get("objectives", [])
@@ -12815,24 +12998,26 @@ static func _adv_engine_predicates(unit: Dictionary) -> Dictionary:
 static func _should_unit_advance(
 	unit: Dictionary, dist_inches: float, move_inches: float,
 	has_ranged: bool, max_weapon_range: float, enemies: Dictionary,
-	centroid: Vector2, battle_round: int, obj_eval: Dictionary
+	centroid: Vector2, battle_round: int, obj_eval: Dictionary,
+	reach_chance: float = -1.0
 ) -> bool:
-	# Can't reach with normal move but can with advance?
-	var can_reach_normal = dist_inches <= move_inches
-	var can_reach_advance = dist_inches <= move_inches + 2.0  # Average advance
-
-	if can_reach_normal:
+	# `dist_inches` is the gap still to cover (OBJ-GAP-1). ADV-ODDS-1:
+	# `reach_chance` = chance the Advance roll covers it (_advance_reach_chance;
+	# computed here when not given). The old test, "within M + 2\"", treated a
+	# guaranteed 1" shortfall and a 1-in-6 gamble the same and never Advanced
+	# for 3"+ shortfalls at all.
+	if dist_inches <= move_inches:
 		return false  # Normal move is enough
-
-	# WAAAGH-ADV-REROLL (FIX_WAAAGH_ADV_REROLL): with a 1-3 re-roll the same
-	# reliability (P = 0.83) reaches M+3" (the planner's band matches).
-	if not can_reach_advance:
-		var adv_faces: Array = _adv_face_probs(unit)
-		if not adv_faces.is_empty():
-			can_reach_advance = dist_inches <= move_inches + _adv_band_in(adv_faces)
-
-	if not can_reach_advance:
-		return false  # Can't reach even with advance
+	if reach_chance < 0.0:
+		# WAAAGH-ADV-REROLL (FIX_WAAAGH_ADV_REROLL): with a 1-3 re-roll the
+		# chance is read off the re-rolled D6 (the planner passes the same).
+		reach_chance = _advance_reach_chance(unit, dist_inches, move_inches, _adv_face_probs(unit))
+	if reach_chance <= 0.0:
+		return false  # Can't reach even with a 6
+	# A gamble that costs nothing (Advance-and-shoot/charge, nothing to shoot)
+	# is worth any chance: a short roll still ends closer than a Move would.
+	# One that forfeits shooting is only worth it when the roll is likely.
+	var likely: bool = reach_chance >= get_param("ADVANCE_MIN_REACH_CHANCE", ADVANCE_MIN_REACH_CHANCE)
 
 	# --- AI-GAP-4: Check for Advance and X abilities ---
 	# If the unit can advance and still shoot/charge, advancing has no downside
@@ -12866,8 +13051,16 @@ static func _should_unit_advance(
 		print("AIDecisionMaker: %s has Advance and Charge — advancing allows charge" % _dn(unit, unit_id))
 		return true  # Can still charge after advancing
 
-	# Units without ranged weapons should always advance
+	# Units without ranged weapons should always advance — ADV-ODDS-1: unless
+	# an enemy is in charge reach, when Advancing gives up the charge and is
+	# only worth a likely roll.
 	if not has_ranged:
+		if likely:
+			return true
+		for enemy_id in enemies:
+			var e_c = _get_unit_centroid(enemies[enemy_id])
+			if e_c != Vector2.INF and centroid.distance_to(e_c) <= (move_inches + 12.0) * PIXELS_PER_INCH:
+				return false
 		return true
 
 	# Issue #383: 10e battle-shock does NOT block shooting (9e carryover removed).
@@ -12875,13 +13068,13 @@ static func _should_unit_advance(
 	# it's no longer forced — let the objective heuristics below decide.
 
 	# Round 1: aggressive positioning is critical for Round 2 scoring
-	if battle_round == 1:
+	if battle_round == 1 and likely:
 		# Advance to reach no-man's-land objectives
 		if obj_eval.get("zone", "") == "no_mans_land":
 			return true
 
 	# High-priority uncontrolled objective: advancing to grab it is worth losing shooting
-	if obj_eval.get("state", "") == "uncontrolled" and obj_eval.get("priority", 0) >= 8.0:
+	if likely and obj_eval.get("state", "") == "uncontrolled" and obj_eval.get("priority", 0) >= 8.0:
 		return true
 
 	# Cross-phase consideration (Task 6): check if we have viable shooting targets nearby
@@ -13223,33 +13416,201 @@ static func _unit_oc_at_position(pos: Vector2, unit_id: String, unit: Dictionary
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
-		var mpos = _get_model_position(model)
-		if mpos == Vector2.INF:
-			continue
-		var in_range: bool = mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX
+		# OBJ-GAP-1 (main): the same per-model predicate objective control uses
+		# (terrain-area aware via the live board's objective entry).
+		var in_range: bool = _ai_model_in_objective_range(model, pos)
 		if mm != null and not objective.is_empty():
 			in_range = mm.model_in_objective_range(model, objective)  # FIX-HELD-DUP
 		if in_range:
 			total_oc += _ai_model_oc(unit, model)
 	return total_oc
 
-## OBJ-ASSIGN-1: when a capture candidate's unit gets a model within control
-## range, moving at its own M each Movement phase (no Advance): `phases` = how
-## many Movement phases (min 1), `spare_in` = movement left over in the arrival
-## phase. Both measured from the centroid, like every other candidate distance
-## — OBJ-AREA-REACH (FIX_OBJ_AREA_REACH): from the candidate's own gap (its
-## nearest model to the objective's range) when the fix measured one.
+## OBJ-ASSIGN-1: when a capture candidate's unit gets a model within range of
+## its objective. `phases` = Movement phases at its own M (min 1), `spare_in` =
+## movement left over in the arrival phase, measured on the OBJ-GAP-1 gap
+## (nearest model to the objective footprint). ADV-ODDS-1: `expected` is the
+## same count once an Advance this turn is planned — a roll that gets there
+## (chance `adv_chance`) arrives in 1, a short roll in `phases` —
+## so a guaranteed Advance (gap <= M+1) counts as arriving this turn and a
+## coin-flip one as 1.5 turns. OBJ-AREA-REACH (FIX_OBJ_AREA_REACH): the
+## candidate's own snapshot gap (`obj_gap_in`) when the fix measured one.
+## Candidates without a gap fall back to the legacy centroid distance less
+## the marker control radius.
 static func _capture_arrival(cand: Dictionary) -> Dictionary:
 	var move_in = maxf(float(cand.get("move_inches", 6.0)), 0.1)
-	var gap_in = maxf(0.0, (float(cand.distance) - OBJECTIVE_CONTROL_RANGE_PX) / PIXELS_PER_INCH)
+	var gap_in: float
 	if cand.has("obj_gap_in"):
 		gap_in = maxf(0.0, float(cand.obj_gap_in))
+	elif cand.has("gap_inches"):
+		gap_in = maxf(0.0, float(cand.gap_inches))
+	else:
+		gap_in = maxf(0.0, (float(cand.distance) - OBJECTIVE_CONTROL_RANGE_PX) / PIXELS_PER_INCH)
 	var phases = maxi(1, int(ceil(gap_in / move_in)))
-	return {"phases": phases, "spare_in": float(phases) * move_in - gap_in}
+	var adv_chance := 0.0
+	if str(cand.get("action", "")) == "advance" and phases >= 2:
+		adv_chance = clampf(float(cand.get("adv_chance", 0.0)), 0.0, 1.0)
+	var expected := adv_chance + (1.0 - adv_chance) * float(phases)
+	return {"phases": phases, "expected": expected, "adv_chance": adv_chance,
+		"gap_in": gap_in, "spare_in": float(phases) * move_in - gap_in}
 
 static func _arrival_text(cand: Dictionary, arrival: Dictionary) -> String:
+	var gap_in = float(arrival.get("gap_in", float(cand.distance) / PIXELS_PER_INCH))
+	var chance = float(arrival.get("adv_chance", 0.0))
+	if chance >= 0.999:
+		return "%.1f\" away, there this turn on an Advance (any roll)" % gap_in
+	if chance > 0.0:
+		return "%.1f\" away, %d%% to get there this turn on an Advance, else in %d turns" % [
+			gap_in, int(round(chance * 100.0)), int(arrival.phases)]
 	var turns = "this turn" if int(arrival.phases) == 1 else "in %d turns" % int(arrival.phases)
-	return "%.1f\" away, there %s" % [float(cand.distance) / PIXELS_PER_INCH, turns]
+	return "%.1f\" away, there %s" % [gap_in, turns]
+
+## OBJ-GAP-1: the objective dictionary (board.objectives entry) whose marker
+## sits at `pos` — the AI plans with bare marker positions, but 11e range is
+## decided by the objective's hosting terrain AREA (14.01), which only the
+## dictionary's source_pieces resolve. {} when none matches (headless tests
+## that hand the planner raw positions keep the legacy marker-radius geometry).
+static func _objective_at_pos(pos: Vector2) -> Dictionary:
+	var main = Engine.get_main_loop()
+	if not (main is SceneTree) or main.root == null:
+		return {}
+	var gs = main.root.get_node_or_null("GameState")
+	if gs == null:
+		return {}
+	for od in gs.state.get("board", {}).get("objectives", []):
+		var od_pos = od.get("position", null)
+		if od_pos == null:
+			continue
+		var od_vec = od_pos if od_pos is Vector2 else Vector2(float(od_pos.get("x", 0)), float(od_pos.get("y", 0)))
+		if od_vec.distance_to(pos) < 1.0:
+			return od
+	return {}
+
+## OBJ-GAP-1: is this model within range of the objective at `pos`? The SAME
+## predicate objective control scores with (MissionManager.model_in_objective_range):
+## on a terrain-hosted objective any part of the base touching the hosting area;
+## on open ground any part of the base within 3" of the 40mm marker. Falls back
+## to the legacy model-centre-within-3.79" test without the autoloads.
+static func _ai_model_in_objective_range(model: Dictionary, pos: Vector2) -> bool:
+	var mpos = _get_model_position(model)
+	if mpos == Vector2.INF:
+		return false
+	var mm = _mission_manager()
+	if mm != null and mm.has_method("model_in_objective_range"):
+		var objective = _objective_at_pos(pos)
+		if not objective.is_empty():
+			return bool(mm.model_in_objective_range(model, objective))
+	return mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX
+
+## OBJ-GAP-1: how far (px) `unit` still has to move to stand within range of the
+## objective at `pos` — the smallest per-model gap (MissionManager
+## .model_gap_to_objective_range_px: base edge to the hosting AREA on a terrain
+## objective, to 3" off the marker on open ground), 0 once any model is in
+## range. Replaces "centroid to marker centre less 3.79\"", which overstated a
+## terrain objective by the area's half-width plus the squad's own depth (a
+## squad 8.9" from the ruin read as 13.8" away and "2 turns" at M8).
+static func _unit_gap_to_objective_px(unit: Dictionary, pos: Vector2) -> float:
+	var mm = _mission_manager()
+	var objective: Dictionary = {}
+	if mm != null and mm.has_method("model_gap_to_objective_range_px"):
+		objective = _objective_at_pos(pos)
+	var best := INF
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var gap: float
+		if not objective.is_empty():
+			gap = float(mm.model_gap_to_objective_range_px(model, objective))
+		else:
+			gap = maxf(0.0, mpos.distance_to(pos) - OBJECTIVE_CONTROL_RANGE_PX)
+		best = minf(best, gap)
+	return best
+
+## OBJ-PATH-1: the point to steer `unit` at so the SHORTEST move puts a model
+## within range of the objective at `pos`. The mover translates the whole unit
+## from its centroid toward its target, so heading for the marker centre walks
+## a squad diagonally at a terrain objective whose nearest edge is straight
+## ahead. Instead: take the model with the smallest gap (OBJ-GAP-1), the
+## nearest point of the objective footprint to it (the hosting AREA's edge on
+## an 11e terrain objective; the marker on open ground), and aim the centroid
+## along that model's line to it, 2" past the edge so the lead model ends
+## firmly on the area (the move cap trims the rest). Returns `pos` when a model
+## is already in range or nothing better can be resolved.
+static func _objective_approach_target(unit: Dictionary, pos: Vector2) -> Vector2:
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF or pos == Vector2.INF:
+		return pos
+	var mm = _mission_manager()
+	var objective := _objective_at_pos(pos)
+	var polys: Array = []
+	if mm != null and not objective.is_empty() and mm.has_method("_objective_host_areas_for_edition"):
+		for area in mm._objective_host_areas_for_edition(objective):
+			var poly: PackedVector2Array = area.get("polygon", PackedVector2Array())
+			if poly.size() >= 3:
+				polys.append(poly)
+	var best_gap := INF
+	var best_dir := Vector2.ZERO
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var gap: float
+		if mm != null and not objective.is_empty() and mm.has_method("model_gap_to_objective_range_px"):
+			gap = float(mm.model_gap_to_objective_range_px(model, objective))
+		else:
+			gap = maxf(0.0, mpos.distance_to(pos) - OBJECTIVE_CONTROL_RANGE_PX)
+		if gap <= 0.0:
+			return pos  # already in range: keep heading for the marker
+		if gap >= best_gap:
+			continue
+		var nearest: Vector2 = pos
+		if not polys.is_empty():
+			var nearest_d := INF
+			for poly in polys:
+				for i in range(poly.size()):
+					var cp := Geometry2D.get_closest_point_to_segment(mpos, poly[i], poly[(i + 1) % poly.size()])
+					var d := mpos.distance_to(cp)
+					if d < nearest_d:
+						nearest_d = d
+						nearest = cp
+		if mpos.distance_to(nearest) < 1.0:
+			continue
+		best_gap = gap
+		best_dir = (nearest - mpos).normalized()
+	if best_dir == Vector2.ZERO:
+		return pos
+	return centroid + best_dir * (best_gap + 2.0 * PIXELS_PER_INCH)
+
+## ADV-ODDS-1: the chance an Advance THIS turn closes a `gap_in` gap at Move
+## `move_in` — Advance adds a D6 to M, so it is the chance of rolling at least
+## (gap - M): 1.0 when a Move already covers it or the shortfall is <= 1"
+## (any roll does), 5/6 for a 2" shortfall ... 1/6 for 6", 0 past M+6. Units
+## that always Advance 6" (Boardin' Rush, auto-6 / flat +6 effects) are certain
+## within M+6. No re-roll is assumed unless `face_probs` (WAAAGH-ADV-REROLL's
+## re-rolled D6, _adv_face_probs) is given.
+static func _advance_reach_chance(unit: Dictionary, gap_in: float, move_in: float, face_probs: Array = []) -> float:
+	if gap_in <= move_in:
+		return 1.0
+	var shortfall := gap_in - move_in
+	if shortfall > 6.0:
+		return 0.0
+	if unit.get("flags", {}).get("effect_boardin_rush", false) \
+			or EffectPrimitivesData.has_effect_flat_advance(unit) \
+			or EffectPrimitivesData.has_effect_auto_advance_6(unit):
+		return 1.0
+	var min_roll := clampi(int(ceil(shortfall - 0.001)), 1, 6)
+	if face_probs.size() == 6:
+		# WAAAGH-ADV-REROLL (FIX_WAAAGH_ADV_REROLL): the re-rolled D6's face odds
+		# (_adv_face_probs; [] = a fair D6) — P(roll >= min_roll).
+		var p := 0.0
+		for face in range(min_roll, 7):
+			p += float(face_probs[face - 1])
+		return clampf(p, 0.0, 1.0)
+	return float(7 - min_roll) / 6.0
 
 ## OBJ-HOLD-1: true when any alive model of `unit` stands within control
 ## range of `pos` — the per-model test _unit_oc_at_position scores with.
@@ -13257,8 +13618,7 @@ static func _unit_has_model_in_control_range(unit: Dictionary, pos: Vector2) -> 
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
-		var mpos = _get_model_position(model)
-		if mpos != Vector2.INF and mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+		if _ai_model_in_objective_range(model, pos):
 			return true
 	return false
 
@@ -13428,8 +13788,8 @@ static func _unit_alive_oc(unit: Dictionary, missing_default: int = 1) -> int:
 
 ## 14.02 contest capacity at `pos`: the per-model OC (_unit_alive_oc) of every
 ## unit in `units` that can stand within control range of it within `moves`
-## moves — centroid within moves x (M + 2" slack, COORD-5's cautious advance)
-## + control range. Battle-shocked (OC '-'), undeployed and reserve units add
+## moves — OBJ-GAP-1: its nearest model's gap to the objective's range within
+## moves x (M + 2" slack, COORD-5's cautious advance). Battle-shocked (OC '-'), undeployed and reserve units add
 ## nothing. Same units as the per-model enemy level of control it is weighed
 ## against in _evaluate_all_objectives. OBJ-AREA-REACH (FIX_OBJ_AREA_REACH):
 ## with `obj_gaps` (unit_id -> _obj_gap_px for this objective) a unit counts
@@ -13446,15 +13806,16 @@ static func _reachable_contest_oc(pos: Vector2, units: Dictionary, moves: int, o
 		var u_oc = _unit_alive_oc(unit, 0)
 		if u_oc <= 0:
 			continue
-		var centroid = _get_unit_centroid(unit)
-		if centroid == Vector2.INF:
+		# OBJ-GAP-1: nearest model to the objective footprint, not the centroid.
+		var u_gap = _unit_gap_to_objective_px(unit, pos)
+		if u_gap == INF:
 			continue
 		var u_move = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 		if obj_gaps is Dictionary:
 			if float(obj_gaps.get(uid, INF)) <= float(moves) * (u_move + 2.0) * PIXELS_PER_INCH:
 				total_oc += u_oc
 			continue
-		if centroid.distance_to(pos) <= float(moves) * (u_move + 2.0) * PIXELS_PER_INCH + OBJECTIVE_CONTROL_RANGE_PX:
+		if u_gap <= float(moves) * (u_move + 2.0) * PIXELS_PER_INCH:
 			total_oc += u_oc
 	return total_oc
 
@@ -13829,6 +14190,7 @@ static func _clamp_move_for_weapon_range(
 	var clamped = move_vector * best_fraction
 	print("AIDecisionMaker: %s movement clamped to %.0f%% to stay within %.0f\" weapon range of nearest enemy" % [
 		unit_name, best_fraction * 100.0, max_weapon_range])
+	_move_shape_notes.append("Shortened to %.0f%% so an enemy stays within its %.0f\" weapon range" % [best_fraction * 100.0, max_weapon_range])
 	return clamped
 
 static func _find_firing_position_toward_objective(
@@ -14132,7 +14494,8 @@ static func _find_best_remaining_objective(
 			var reason = "supporting nearby objective"
 			if committed > 0:
 				reason = "reinforcing %s (%d unit%s already committed)" % [eval.id, committed, "" if committed == 1 else "s"]
-			var at_objective: bool = dist <= OBJECTIVE_CONTROL_RANGE_PX
+			# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+			var at_objective: bool = _unit_has_model_in_control_range(unit, eval.position)
 			# OBJ-AREA-HOLD (FIX_OBJ_AREA_HOLD): a model within the objective's
 			# range (the hosting area on an 11e terrain objective) — OC-03's test.
 			if get_param("FIX_OBJ_AREA_HOLD", FIX_OBJ_AREA_HOLD) >= 0.5:
@@ -14156,7 +14519,154 @@ static func _find_best_remaining_objective(
 
 	return best
 
+static func _projected_move_end(from: Vector2, toward: Vector2, move_inches: float) -> Vector2:
+	"""Where a straight move of up to move_inches from `from` toward `toward` ends."""
+	var d := from.distance_to(toward)
+	if d < 0.001:
+		return from
+	return from + (toward - from) / d * minf(move_inches * PIXELS_PER_INCH, d)
+
+static func _destinations_centroid(dests: Dictionary) -> Vector2:
+	var sum := Vector2.ZERO
+	var n := 0
+	for mid in dests:
+		var p = dests[mid]
+		if p is Array and p.size() >= 2:
+			sum += Vector2(float(p[0]), float(p[1]))
+			n += 1
+		elif p is Vector2:
+			sum += p
+			n += 1
+	return sum / n if n > 0 else Vector2.INF
+
+static func _destinations_max_move_inches(models: Array, dests: Dictionary) -> float:
+	"""Longest distance any model travels in `dests` (inches), -1 if unknown."""
+	var best := -1.0
+	for m in models:
+		var mid := str(m.get("id", ""))
+		if mid == "" or not dests.has(mid):
+			continue
+		var p = dests[mid]
+		var to := Vector2.INF
+		if p is Array and p.size() >= 2:
+			to = Vector2(float(p[0]), float(p[1]))
+		elif p is Vector2:
+			to = p
+		var from := _get_model_position(m)
+		if to != Vector2.INF and from != Vector2.INF:
+			best = maxf(best, from.distance_to(to) / PIXELS_PER_INCH)
+	return best
+
 static func _compute_movement_toward_target(
+	unit: Dictionary, unit_id: String, target_pos: Vector2,
+	move_inches: float, snapshot: Dictionary, enemies: Dictionary,
+	max_weapon_range: float = 0.0, threat_data: Array = [], objectives: Array = []
+) -> Dictionary:
+	# TWO-LEG wrapper: the impl may arm a dogleg (_move_waypoint_offset) for its
+	# placement; afterwards record which models actually need their waypoint
+	# (straight line still blocked, dogleg legal) so decide() can attach them.
+	_move_waypoint_offset = Vector2.INF
+	var dests := _compute_movement_toward_target_impl(unit, unit_id, target_pos, move_inches,
+		snapshot, enemies, max_weapon_range, threat_data, objectives)
+	var offset := _move_waypoint_offset
+	_move_waypoint_offset = Vector2.INF
+	if offset == Vector2.INF or dests.is_empty():
+		return dests
+	var kw: Array = unit.get("meta", {}).get("keywords", [])
+	var entries: Array = _move_waypoint_log.get(unit_id, [])
+	for m in _get_alive_models_with_positions(unit):
+		var mid := str(m.get("id", ""))
+		if not dests.has(mid):
+			continue
+		var p = dests[mid]
+		var to: Vector2 = Vector2(float(p[0]), float(p[1])) if p is Array else p
+		var from := _get_model_position(m)
+		var bm := int(m.get("base_mm", 32))
+		var bt := str(m.get("base_type", "circular"))
+		var bd: Dictionary = m.get("base_dimensions", {})
+		if not _path_blocked_by_solid_terrain_direct(from, to, bm, bt, bd, kw):
+			continue  # straight line is fine for this model
+		if _dogleg_legal(from, from + offset, to, bm, bt, bd, kw, _move_waypoint_cap_px):
+			entries.append({"model_id": mid, "dest": to, "wp": from + offset})
+	if not entries.is_empty():
+		_move_waypoint_log[unit_id] = entries
+	return dests
+
+static func _dogleg_legal(from: Vector2, wp: Vector2, to: Vector2, base_mm: int, base_type: String,
+		base_dimensions: Dictionary, kw: Array, cap_px: float) -> bool:
+	"""Both legs clear of solid terrain for this base, and the summed path
+	(+ per-leg terrain penalty, as MovementPhase sums staged legs) fits cap_px."""
+	if _path_blocked_by_solid_terrain_direct(from, wp, base_mm, base_type, base_dimensions, kw):
+		return false
+	if _path_blocked_by_solid_terrain_direct(wp, to, base_mm, base_type, base_dimensions, kw):
+		return false
+	if cap_px > 0.0:
+		var fly := "FLY" in kw
+		var path_px := from.distance_to(wp) + wp.distance_to(to) \
+			+ (_estimate_charge_terrain_penalty(from, wp, fly, kw) + _estimate_charge_terrain_penalty(wp, to, fly, kw)) * PIXELS_PER_INCH
+		if path_px > cap_px:
+			return false
+	return true
+
+static func _attach_move_waypoints(result: Dictionary) -> void:
+	"""Give a move decision the waypoints its destinations were planned with
+	(matched by unit and final destination, so an earlier discarded plan for
+	the same unit cannot leak in). AIPlayer stages the waypoint first."""
+	if result.is_empty() or _move_waypoint_log.is_empty():
+		return
+	var dests = result.get("_ai_model_destinations", null)
+	var uid := str(result.get("actor_unit_id", ""))
+	if not (dests is Dictionary) or not _move_waypoint_log.has(uid):
+		return
+	var wps := {}
+	for e in _move_waypoint_log[uid]:
+		var mid := str(e.model_id)
+		if not dests.has(mid):
+			continue
+		var p = dests[mid]
+		var to: Vector2 = Vector2(float(p[0]), float(p[1])) if p is Array else p
+		if to.distance_to(e.dest) < 0.5:
+			wps[mid] = [e.wp.x, e.wp.y]
+	if not wps.is_empty():
+		result["_ai_model_waypoints"] = wps
+
+static func _plan_dogleg(centroid: Vector2, target_pos: Vector2, move_px: float, base_mm: int,
+		base_type: String, base_dimensions: Dictionary, kw: Array, terrain_features: Array) -> Dictionary:
+	"""Best two-leg path toward target_pos when the straight line is blocked:
+	leg 1 at 15°..90° either side for 1".."M-1", then straight on toward the
+	target with what is left of the move. Returns {wp_offset, final_vector,
+	progress_px} or {} when nothing clears."""
+	var to_t := target_pos - centroid
+	var dist_t := to_t.length()
+	if dist_t < 1.0:
+		return {}
+	var dir := to_t / dist_t
+	var best := {}
+	var best_progress := -INF
+	var max_leg1 := int(floor(move_px / PIXELS_PER_INCH)) - 1
+	for deg in [15, -15, 30, -30, 45, -45, 60, -60, 75, -75, 90, -90]:
+		var d1_dir := dir.rotated(deg_to_rad(deg))
+		for leg1_in in range(1, max_leg1 + 1):
+			var wp := centroid + d1_dir * (leg1_in * PIXELS_PER_INCH)
+			if wp.x < BASE_MARGIN_PX or wp.y < BASE_MARGIN_PX or wp.x > BOARD_WIDTH_PX - BASE_MARGIN_PX or wp.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+				break
+			if _path_blocked_by_terrain(centroid, wp, kw, terrain_features) \
+					or _path_blocked_by_solid_terrain_direct(centroid, wp, base_mm, base_type, base_dimensions, kw):
+				break  # longer along this heading is blocked too
+			var left_px := move_px - leg1_in * PIXELS_PER_INCH
+			var wp_to_t := target_pos - wp
+			var fin := wp + wp_to_t.normalized() * minf(left_px, wp_to_t.length())
+			if _path_blocked_by_terrain(wp, fin, kw, terrain_features) \
+					or not _dogleg_legal(centroid, wp, fin, base_mm, base_type, base_dimensions, kw, move_px):
+				continue
+			var progress := dist_t - fin.distance_to(target_pos)
+			if progress > best_progress:
+				best_progress = progress
+				best = {"wp_offset": wp - centroid, "final_vector": fin - centroid, "progress_px": progress,
+					"angle": deg, "leg1_in": leg1_in}
+	return best
+
+static func _compute_movement_toward_target_impl(
 	unit: Dictionary, unit_id: String, target_pos: Vector2,
 	move_inches: float, snapshot: Dictionary, enemies: Dictionary,
 	max_weapon_range: float = 0.0, threat_data: Array = [], objectives: Array = []
@@ -14187,10 +14697,52 @@ static func _compute_movement_toward_target(
 	var terrain_features = snapshot.get("board", {}).get("terrain_features", [])
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 
-	# Check if the direct path is blocked by terrain (Task 8: terrain-aware pathing)
+	# Check if the direct path is blocked by terrain (Task 8: terrain-aware pathing).
+	# The lead model's base is passed so the check also uses the engine's 11e
+	# swept-base rule (13.06 solid dense features) — the legacy polygon check
+	# alone can pass a line the engine rejects, and the per-model placement
+	# below then relocates the model to an arbitrary legal spot.
+	var lead_model: Dictionary = alive_models[0] if alive_models.size() > 0 else {}
 	var final_move_vector = _find_unblocked_move_enhanced(
-		centroid, move_vector, actual_move_px, unit_keywords, terrain_features, enemies, unit
+		centroid, move_vector, actual_move_px, unit_keywords, terrain_features, enemies, unit,
+		int(lead_model.get("base_mm", 0)), str(lead_model.get("base_type", "circular")),
+		lead_model.get("base_dimensions", {})
 	)
+
+	# TWO-LEG: when the straight line is blocked by solid terrain the base
+	# can't cross, a dogleg around it can beat the best single rotated line.
+	var dogleg_active := false
+	var lead_bm := int(lead_model.get("base_mm", 0))
+	if lead_bm > 0 and not ("FLY" in unit_keywords) \
+			and _path_blocked_by_solid_terrain_direct(centroid, centroid + move_vector, lead_bm,
+				str(lead_model.get("base_type", "circular")), lead_model.get("base_dimensions", {}), unit_keywords):
+		var dl := _plan_dogleg(centroid, target_pos, move_inches * PIXELS_PER_INCH * 0.95, lead_bm,
+			str(lead_model.get("base_type", "circular")), lead_model.get("base_dimensions", {}),
+			unit_keywords, terrain_features)
+		var single_progress := centroid.distance_to(target_pos) - (centroid + final_move_vector).distance_to(target_pos) \
+			if final_move_vector != Vector2.ZERO else -INF
+		if not dl.is_empty() and float(dl.progress_px) > single_progress + PIXELS_PER_INCH * 0.5:
+			print("AIDecisionMaker: [TWO-LEG] %s doglegs around solid terrain: %d\" at %d°, then on toward target (%.1f\" progress vs %.1f\" single line)" % [
+				_dn(unit, unit_id), int(dl.leg1_in), int(dl.angle), float(dl.progress_px) / PIXELS_PER_INCH,
+				single_progress / PIXELS_PER_INCH if single_progress > -INF else 0.0])
+			# The single-line detour note no longer describes this move
+			for i in range(_move_shape_notes.size() - 1, -1, -1):
+				if str(_move_shape_notes[i]).begins_with("Straight line to the target is blocked"):
+					_move_shape_notes.remove_at(i)
+			var dl_blockers := ""
+			var tm_dl = _terrain_manager()
+			if tm_dl and tm_dl.has_method("can_move_through_11e"):
+				var trav_dl = tm_dl.can_move_through_11e(unit_keywords, centroid, centroid + move_vector, [], {
+					"position": centroid, "base_mm": lead_bm, "base_type": str(lead_model.get("base_type", "circular")),
+					"base_dimensions": lead_model.get("base_dimensions", {})})
+				if not trav_dl.get("blockers", []).is_empty():
+					dl_blockers = " (%s)" % ", ".join(PackedStringArray(trav_dl.blockers))
+			_move_shape_notes.append("Straight line is blocked by solid terrain%s its base can't cross — goes around it: %d\" to the side first, then on toward the target (%.1f\" closer this turn vs %.1f\" on the best single line)" % [
+				dl_blockers, int(dl.leg1_in), float(dl.progress_px) / PIXELS_PER_INCH, maxf(single_progress, 0.0) / PIXELS_PER_INCH])
+			final_move_vector = dl.final_vector
+			_move_waypoint_offset = dl.wp_offset
+			_move_waypoint_cap_px = move_inches * PIXELS_PER_INCH * 0.95
+			dogleg_active = true
 
 	if final_move_vector == Vector2.ZERO:
 		print("AIDecisionMaker: All movement paths blocked by terrain")
@@ -14200,7 +14752,7 @@ static func _compute_movement_toward_target(
 	# MovementPhase validates: raw_distance + terrain_penalty <= move_cap
 	# So we must ensure our destination satisfies: raw_distance + terrain_penalty <= move_inches
 	var has_fly_move = "FLY" in unit_keywords
-	if not has_fly_move:
+	if not has_fly_move and not dogleg_active:  # a dogleg's legs are already penalty-checked
 		var dest_candidate = centroid + final_move_vector
 		# MOVE-TERRAIN-11E (FIX_MOVE_TERRAIN_11E): the engine's movement cost when on.
 		var terrain_move_penalty = _normal_move_terrain_penalty(centroid, dest_candidate, false, unit_keywords, unit)
@@ -14249,6 +14801,8 @@ static func _compute_movement_toward_target(
 				if direct_score < best_alt_score:
 					print("AIDecisionMaker: Found terrain-avoiding path (penalty %.1f\" -> %.1f\", net progress %.1f\") at alternate angle" % [
 						terrain_move_penalty, best_alt_penalty, best_alt_score])
+					_move_shape_notes.append("Angled around terrain that would cost %.1f\" of climbing (%.1f\" on the new line)" % [
+						terrain_move_penalty, best_alt_penalty])
 					final_move_vector = best_alt_vector
 					terrain_move_penalty = best_alt_penalty
 					raw_move_inches = final_move_vector.length() / PIXELS_PER_INCH
@@ -14518,15 +15072,24 @@ static func _compute_movement_toward_target(
 static func _find_unblocked_move_enhanced(
 	centroid: Vector2, move_vector: Vector2, move_distance_px: float,
 	unit_keywords: Array, terrain_features: Array,
-	enemies: Dictionary, unit: Dictionary
+	enemies: Dictionary, unit: Dictionary,
+	base_mm: int = 0, base_type: String = "circular", base_dimensions: Dictionary = {}
 ) -> Vector2:
-	# MOVE-TERRAIN-11E (FIX_MOVE_TERRAIN_11E): the engine's 13.06 path gate when on.
-	var direct_blocked := _move_path_blocked(centroid, centroid + move_vector, unit_keywords, terrain_features, unit)
+	# Blocked = the planner's path rule (MOVE-TERRAIN-11E, FIX_MOVE_TERRAIN_11E:
+	# the engine's 13.06 gate when on, else the legacy polygon rule) OR — main's
+	# 11e swept-base rule for solid dense features (only when the caller passed
+	# a base).
+	var _blocked := func(to: Vector2) -> bool:
+		if _move_path_blocked(centroid, to, unit_keywords, terrain_features, unit):
+			return true
+		return base_mm > 0 and _path_blocked_by_solid_terrain(centroid, to, base_mm, base_type, base_dimensions, unit_keywords)
+	var direct_blocked: bool = _blocked.call(centroid + move_vector)
 	if _move_terrain_fix_on(unit):
 		var old_blocked := _path_blocked_by_terrain(centroid, centroid + move_vector, unit_keywords, terrain_features)
-		if old_blocked != direct_blocked:
+		var new_gate := _move_path_blocked(centroid, centroid + move_vector, unit_keywords, terrain_features, unit)
+		if old_blocked != new_gate:
 			print("AIDecisionMaker: [FIX_MOVE_TERRAIN_11E] %s direct path blocked old=%s new=%s" % [
-				_dn(unit, str(unit.get("id", "?"))), str(old_blocked), str(direct_blocked)])
+				_dn(unit, str(unit.get("id", "?"))), str(old_blocked), str(new_gate)])
 	if not direct_blocked:
 		var cover_path = _find_cover_path(centroid, move_vector, move_distance_px, unit_keywords, terrain_features, enemies, unit)
 		if cover_path != Vector2.ZERO:
@@ -14556,7 +15119,7 @@ static func _find_unblocked_move_enhanced(
 			var alt_vector = rotated_dir * alt_dist
 			var dest = centroid + alt_vector
 			checked_count += 1
-			if not _move_path_blocked(centroid, dest, unit_keywords, terrain_features, unit):
+			if not _blocked.call(dest):
 				var forward_progress = alt_vector.dot(base_direction)
 				var score = forward_progress
 				if score > best_score:
@@ -14572,7 +15135,7 @@ static func _find_unblocked_move_enhanced(
 	# Also try direct path at reduced distances
 	for frac in [0.75, 0.5, 0.25]:
 		var short_vector = move_vector * frac
-		if not _move_path_blocked(centroid, centroid + short_vector, unit_keywords, terrain_features, unit):
+		if not _blocked.call(centroid + short_vector):
 			var forward_progress = short_vector.dot(base_direction)
 			if forward_progress > best_score:
 				best_score = forward_progress
@@ -14581,6 +15144,15 @@ static func _find_unblocked_move_enhanced(
 	if best_vector != Vector2.ZERO:
 		print("AIDecisionMaker: Found unblocked path, forward progress=%.1fpx (%.1fin)" % [
 			best_score, best_score / PIXELS_PER_INCH])
+		var blocker_label := "terrain"
+		var tm_b = _terrain_manager()
+		if base_mm > 0 and tm_b and tm_b.has_method("can_move_through_11e"):
+			var trav_b = tm_b.can_move_through_11e(unit_keywords, centroid, centroid + move_vector, [], {
+				"position": centroid, "base_mm": base_mm, "base_type": base_type, "base_dimensions": base_dimensions})
+			if not trav_b.get("blockers", []).is_empty():
+				blocker_label = "solid terrain (%s) its base can't pass" % ", ".join(PackedStringArray(trav_b.blockers))
+		_move_shape_notes.append("Straight line to the target is blocked by %s — turned %.0f° to get past (%.1f\" of forward progress this turn)" % [
+			blocker_label, absf(rad_to_deg(base_direction.angle_to(best_vector.normalized()))), best_score / PIXELS_PER_INCH])
 		return best_vector
 
 	print("AIDecisionMaker: All %d paths blocked" % (len(angles_to_try) * len(distance_fractions) + 3))
@@ -14626,6 +15198,7 @@ static func _find_cover_path(
 		if not _move_path_blocked(centroid, alt_dest, unit_keywords, terrain_features, unit):
 			if _position_has_cover(alt_dest, enemy_positions, terrain_features):
 				print("AIDecisionMaker: Found cover path at %.0f degrees offset" % rad_to_deg(angle))
+				_move_shape_notes.append("Angled %.0f° off the straight line to end behind terrain (cover from enemy fire)" % absf(rad_to_deg(angle)))
 				return alt_vector
 
 	return Vector2.ZERO  # No better cover path found
@@ -15152,6 +15725,17 @@ static func _dest_overlaps_wall(dest: Vector2, base_mm: int, base_type: String, 
 # the same way so the AI routes around ruin walls instead of dispatching
 # doomed staged moves.
 static func _path_blocked_by_solid_terrain(from_pos: Vector2, to_pos: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary, unit_keywords: Array) -> bool:
+	# Placement checks call this with the model's START position; while a
+	# TWO-LEG dogleg is armed a blocked straight line is still fine when the
+	# path via (start + leg-1 offset) is clear and fits the move.
+	if not _path_blocked_by_solid_terrain_direct(from_pos, to_pos, base_mm, base_type, base_dimensions, unit_keywords):
+		return false
+	if _move_waypoint_offset == Vector2.INF or from_pos == Vector2.INF:
+		return true
+	return not _dogleg_legal(from_pos, from_pos + _move_waypoint_offset, to_pos, base_mm, base_type,
+		base_dimensions, unit_keywords, _move_waypoint_cap_px)
+
+static func _path_blocked_by_solid_terrain_direct(from_pos: Vector2, to_pos: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary, unit_keywords: Array) -> bool:
 	_prof_terrain += 1
 	if from_pos == Vector2.INF:
 		return false
@@ -16019,12 +16603,20 @@ static func _resolve_movement_collision(
 	# Third pass: full spiral search around destination for horde congestion.
 	# Coherency is still enforced via _accept, so this can only relocate a model
 	# to a spot that keeps the unit legal (or fail, letting a shorter move try).
+	# Points in each ring are tried nearest-to-the-move-direction first
+	# (0, +1, -1, +2, -2 … steps), so the first legal spot keeps as much
+	# forward progress as possible. Previously each ring started due east and
+	# went clockwise, which dropped blocked movers on an arbitrary side (a
+	# Telemon heading north-east ended up south-east of where it started).
 	var step = base_radius * 2.0 + 4.0
+	var fwd_angle: float = move_vector.angle() if move_vector.length() > 0.001 else 0.0
 	for ring in range(1, 10):
 		var ring_radius = step * ring
 		var points_in_ring = maxi(12, ring * 8)
 		for p_idx in range(points_in_ring):
-			var angle = (2.0 * PI * p_idx) / points_in_ring
+			var k := (p_idx + 1) / 2
+			var sgn := 1.0 if p_idx % 2 == 1 else -1.0
+			var angle = fwd_angle + sgn * (2.0 * PI * k) / points_in_ring
 			var candidate = Vector2(dest.x + cos(angle) * ring_radius, dest.y + sin(angle) * ring_radius)
 			_rej.tried += 1
 			var _r3: String = _reject_reason.call(candidate)
@@ -16891,7 +17483,8 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 				var obj_positions = _get_objectives(snapshot)
 				var ff_on_obj := false
 				for obj_pos in obj_positions:
-					if enemy_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+					if _unit_has_model_in_control_range(enemy, obj_pos):
 						ff_on_obj = true
 						break
 				# OBJ-AREA-ON-OBJ (FIX_OBJ_AREA_ON_OBJ): a target model on the objective's range.
@@ -17573,11 +18166,13 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		var on_objective = false
 		var near_objective = false
 		for obj_pos in objectives:
-			var dist = unit_centroid.distance_to(obj_pos)
-			if dist < OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-2: on = a model in range (terrain-aware); near = within
+			# another 3.79" of being in range (was: centroid within 2 x 3.79").
+			var gap_px = _unit_gap_to_objective_px(target_unit, obj_pos)
+			if gap_px <= 0.0:
 				on_objective = true
 				break
-			elif dist < OBJECTIVE_CONTROL_RANGE_PX * 2:
+			elif gap_px < OBJECTIVE_CONTROL_RANGE_PX:
 				near_objective = true
 		# OBJ-AREA-ON-OBJ (FIX_OBJ_AREA_ON_OBJ): on = a model within the
 		# objective's range (the hosting area on an 11e terrain objective),
@@ -18363,7 +18958,8 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var charge_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 			var ch_target_on_obj := false
 			for obj_pos in objectives:
-				if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+				if target_centroid != Vector2.INF and _unit_has_model_in_control_range(target_unit, obj_pos):
 					ch_target_on_obj = true
 					break
 			# OBJ-AREA-ON-OBJ (FIX_OBJ_AREA_ON_OBJ): a target model on the objective's range.
@@ -20636,7 +21232,8 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 	var fight_target_on_obj := false
 	if target_centroid != Vector2.INF:
 		for obj_pos in objectives:
-			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+			if _unit_has_model_in_control_range(target, obj_pos):
 				fight_target_on_obj = true
 				break
 	# OBJ-AREA-ON-OBJ (FIX_OBJ_AREA_ON_OBJ): a target model on the objective's range.
@@ -20870,7 +21467,8 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 	var order_target_on_obj := false
 	if target_centroid != Vector2.INF:
 		for obj_pos in objectives:
-			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+			if _unit_has_model_in_control_range(best_target, obj_pos):
 				order_target_on_obj = true
 				break
 	# OBJ-AREA-ON-OBJ (FIX_OBJ_AREA_ON_OBJ): a target model on the objective's range.
@@ -22280,7 +22878,8 @@ static func _evaluate_end_turn_redeploy(snapshot: Dictionary, unit: Dictionary, 
 		var d = centroid.distance_to(obj_pos)
 		if d < nearest_obj_dist_px:
 			nearest_obj_dist_px = d
-		if d <= OBJECTIVE_CONTROL_RANGE_PX:
+		# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+		if _unit_has_model_in_control_range(unit, obj_pos):
 			return {"use": false, "reason": "declining From Golden Light — holding an objective (board OC beats a re-drop)"}
 	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 	var enemies = _get_enemy_units(snapshot, owner)
@@ -25870,8 +26469,8 @@ static func _battle_shock_flip_value(
 		for m in target_unit.get("models", []):
 			if not m.get("alive", true):
 				continue
-			var mp = _get_model_position(m)
-			if mp != Vector2.INF and mp.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			# OBJ-GAP-2: the same per-model predicate objective control uses.
+			if _ai_model_in_objective_range(m, obj_pos):
 				contributes = true
 				break
 		if not contributes:
@@ -25975,7 +26574,8 @@ static func _evaluate_insane_bravery(snapshot: Dictionary, use_strat_actions: Ar
 		var on_objective = false
 		if centroid != Vector2.INF:
 			for obj_pos in objectives:
-				if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+				if _unit_has_model_in_control_range(unit, obj_pos):
 					on_objective = true
 					break
 		# OBJ-AREA-ON-OBJ (FIX_OBJ_AREA_ON_OBJ): a model on the objective's range.
@@ -26453,7 +27053,8 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 				if centroid == Vector2.INF:
 					continue
 				for obj_pos in objectives:
-					if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					# OBJ-GAP-2: terrain-aware "on the objective" (any base in range — on the hosting area of an 11e terrain objective).
+					if _unit_has_model_in_control_range(unit, obj_pos):
 						# Only worth it when enemies aren't about to contest anyway
 						var enemy_oc = _get_oc_at_position(obj_pos, snapshot.get("units", {}), player, false)
 						if enemy_oc == 0:
@@ -28762,11 +29363,19 @@ static func _find_safer_position(
 			best_pos = candidate
 
 	if best_pos != desired_pos:
+		var best_threat: float = _evaluate_position_threat(best_pos, threat_data, own_unit).total_threat
 		print("AIDecisionMaker: Threat-adjusted position from (%.0f, %.0f) to (%.0f, %.0f) — threat %.1f -> %.1f" % [
 			desired_pos.x, desired_pos.y, best_pos.x, best_pos.y,
-			desired_threat.total_threat,
-			_evaluate_position_threat(best_pos, threat_data, own_unit).total_threat
+			desired_threat.total_threat, best_threat
 		])
+		var shape := "shifted sideways"
+		var along: float = (best_pos - current_pos).dot(move_dir) / move_dist
+		if along < 0.9 and best_pos.distance_to(current_pos + move_dir * move_dist * along) > PIXELS_PER_INCH:
+			shape = "cut to %.0f%% and shifted sideways" % (along * 100.0)
+		elif along < 0.9:
+			shape = "cut to %.0f%%" % (along * 100.0)
+		_move_shape_notes.append("Move %s to stay out of enemy charge/shooting reach (danger %.1f → %.1f)" % [
+			shape, desired_threat.total_threat, best_threat])
 
 	return best_pos
 

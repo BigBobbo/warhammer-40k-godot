@@ -501,6 +501,12 @@ static func build_breakdown(decision: Dictionary, meta: Dictionary = {},
 			"candidates": 0, "subtitle": subtitle}
 	var desc := str(decision.get("_ai_description", decision.get("type", "unknown")))
 	o.line("[font_size=17][b][color=%s]%s[/color][/b][/font_size]" % [HEX_CYAN, _esc(desc)], desc)
+	# MOVE-SHAPE: why this turn's move does not head straight at its objective
+	var adj: Array = decision.get("_ai_move_adjustments", [])
+	if not adj.is_empty():
+		o.line("[color=%s]How this turn's move was shaped:[/color]" % HEX_WARN, "How this turn's move was shaped:")
+		for a in adj:
+			o.line("  [color=%s]↳[/color] %s" % [HEX_DIM, _esc(str(a))], "  -> " + str(a))
 	_render_move_order(o, decision.get("_ai_unit_order", {}))
 
 	var records: Array = decision.get("_ai_decision_records", [])

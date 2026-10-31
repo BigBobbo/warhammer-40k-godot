@@ -2737,7 +2737,8 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 					origin_positions[mid] = pos
 	# Try staging with computed destinations
 	var move_type = decision.get("type", "BEGIN_NORMAL_MOVE")
-	var result = _try_stage_and_confirm(player, unit_id, destinations, description, origin_positions, unit_name)
+	var result = _try_stage_and_confirm(player, unit_id, destinations, description, origin_positions, unit_name,
+		decision.get("_ai_model_waypoints", {}))
 	if result == "success":
 		return
 
@@ -2851,13 +2852,29 @@ func _scale_destinations(destinations: Dictionary, origin_positions: Dictionary,
 	return scaled
 
 func _try_stage_and_confirm(player: int, unit_id: String, destinations: Dictionary,
-	description: String, origin_positions: Dictionary, unit_name: String) -> String:
+	description: String, origin_positions: Dictionary, unit_name: String,
+	waypoints: Dictionary = {}) -> String:
 	var staged_count = 0
 	var failed_count = 0
 	var failure_reasons = []
 
 	for model_id in destinations:
 		var dest = destinations[model_id]
+		# TWO-LEG: a dogleg around solid terrain stages the waypoint first; the
+		# engine then measures the second leg from it and sums both (T-082).
+		if waypoints.has(model_id):
+			_current_phase_actions += 1
+			var wp_result = NetworkIntegration.route_action({
+				"type": "STAGE_MODEL_MOVE",
+				"actor_unit_id": unit_id,
+				"player": player,
+				"payload": {"model_id": model_id, "dest": waypoints[model_id], "rotation": 0.0}
+			})
+			if wp_result != null and wp_result.get("success", false):
+				print("AIPlayer: [TWO-LEG] %s staged via waypoint %s" % [model_id, str(waypoints[model_id])])
+			else:
+				print("AIPlayer: [TWO-LEG] waypoint stage failed for %s (%s) — trying the straight line" % [
+					model_id, str(wp_result.get("errors", wp_result.get("error", "?"))) if wp_result != null else "null result"])
 		var stage_action = {
 			"type": "STAGE_MODEL_MOVE",
 			"actor_unit_id": unit_id,

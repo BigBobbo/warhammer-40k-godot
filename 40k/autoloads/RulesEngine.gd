@@ -10053,8 +10053,18 @@ static func is_unit_near_any_objective(unit: Dictionary, board: Dictionary) -> b
 
 	# Objective control range: 3" + 20mm marker base radius = 3.78740157"
 	var control_range_px = 3.78740157 * 40.0  # PX_PER_INCH = 40.0
+	# OBJ-GAP-2: with MissionManager up, "within range" is its shared predicate
+	# (base touching the hosting area of an 11e terrain objective); the marker
+	# radius below is the headless fallback.
+	var mm = Engine.get_main_loop().root.get_node_or_null("/root/MissionManager") if Engine.get_main_loop() != null else null
 
 	for obj in objectives:
+		if mm != null and mm.has_method("model_in_objective_range") and obj.get("position", null) != null:
+			for model in unit.get("models", []):
+				if model.get("alive", true) and model.get("position", null) != null \
+						and mm.model_in_objective_range(model, obj):
+					return true
+			continue
 		var obj_pos = obj.get("position", null)
 		if obj_pos == null:
 			continue

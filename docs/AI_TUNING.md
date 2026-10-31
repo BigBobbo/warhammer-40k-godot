@@ -132,6 +132,7 @@ full machine-readable decision log to `user://ai_decision_log.json`.
 | `WEIGHT_FIRING_POSITION_LOST` | -2.5 | Penalty for destinations losing ALL shooting targets |
 | `WEIGHT_FIRING_POSITION_GAINED` | 1.5 | Bonus for destinations bringing new targets into range |
 | `FIRING_POSITION_BLEND` | 0.35 | 0-1: how far movement bends toward a firing position vs the objective |
+| `CHARGE_BLEND_REACH_INCHES` | 9.0 | A move only bends toward a planned charge target if it then ends within this many inches of it (tried 30%/50%/70% toward it, objective-first); otherwise the unit heads straight for its objective |
 | `HALF_RANGE_MOVE_BLEND` | 0.4 | 0-1: how far movement bends toward Rapid Fire/Melta half-range |
 | `HALF_RANGE_MIN_BENEFIT` | 2.0 | Min extra expected attacks/damage to bother repositioning for half-range |
 | `HALF_RANGE_APPROACH_MARGIN_INCHES` | 1.0 | Safety margin inside half range |

@@ -83,9 +83,11 @@ func _assign(snapshot: Dictionary, our_ids: Array, enemy_ids: Array) -> Dictiona
 	var evals = AIDecisionMaker._evaluate_all_objectives(snapshot, objectives, 2, enemies, friendlies, 2)
 	return AIDecisionMaker._assign_units_to_objectives(snapshot, movable, evals, objectives, enemies, friendlies, 2, 2)
 
-# 20.8" from the objective, like the reported Sentinel Guard squad.
+# A 20.8" GAP to close, like the reported Sentinel Guard squad. OBJ-GAP-1:
+# the planner measures the gap to control range (marker centre less 3.79" on
+# open ground), so the squad stands 20.8" + 3.79" from the marker.
 func _our_pos() -> Vector2:
-	return OBJ_POS + Vector2(0, 20.8 * 40.0)
+	return OBJ_POS + Vector2(0, (20.8 + 3.79) * 40.0)
 
 func test_long_trip_advance_saves_turn():
 	print("\n--- test_long_trip_advance_saves_turn ---")
@@ -121,8 +123,9 @@ func test_race_not_lost_when_enemy_too_far():
 func test_distance_cost_scales_with_value():
 	print("\n--- test_distance_cost_scales_with_value ---")
 	var snap = _snapshot()
-	# Ranged weapon + enemy in range => no long advance. 20.8" from the marker is
-	# a 17.0" gap to its control range (REACH-CR) => 3 turns at M6.
+	# Ranged weapon + enemy in range => no long advance. _our_pos() stands a
+	# 20.8" GAP from control range (OBJ-GAP-1 / REACH-CR both measure the gap,
+	# not the marker distance) => ceil(20.8 / 6) = 4 turns at M6.
 	_add_unit(snap, "us", 2, _our_pos(), 6, [{"name": "Rifle", "type": "Ranged", "range": "36"}])
 	_add_unit(snap, "them", 1, _our_pos() + Vector2(1200, 0), 6)
 	var a = _assign(snap, ["us"], ["them"]).get("us", {})
@@ -130,7 +133,7 @@ func test_distance_cost_scales_with_value():
 	var turns := float(a.get("turns_to_reach", 0))
 	var dp := float(terms.get("distance_penalty", 0.0))
 	print("  turns=%d distance_penalty=%.2f objective_priority=%.2f" % [turns, dp, float(terms.get("objective_priority", 0.0))])
-	_assert(turns == 3.0, "3 turns at M6 without advancing — gap to control range (got %d)" % turns)
+	_assert(turns == 4.0, "4 turns at M6 without advancing — 20.8\" gap to control range (got %d)" % turns)
 	_assert(dp < -2.0 * (turns - 1.0), "distance cost (%.1f) exceeds the old flat -2/turn (%.1f)" % [dp, -2.0 * (turns - 1.0)])
 
 func test_long_trip_advances_with_no_targets():

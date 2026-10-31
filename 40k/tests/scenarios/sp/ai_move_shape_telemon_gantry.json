@@ -1,0 +1,115 @@
+{
+  "id": "ai_move_shape_telemon_gantry",
+  "covers": [
+    "ai.movement.charge_steer_gate",
+    "ai.movement.solid_terrain_detour",
+    "ai.suggestion.move_shape_notes",
+    "ai.movement.two_leg_dogleg"
+  ],
+  "fixture": "telemon_move_issue",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "Regression for the TELEMON_MOVE_ISSUE save (R1 Movement, Custodes mirror). The Telemon's objective is obj_nml_1 to the north-east, it has a planned charge on the enemy Sentinel Guard Sodality Beta 19.1\" away to the south-east, and a 3\" solid gantry (gantry-38) is touching its base on the north-east side. Before: the move was bent 70% toward the charge target and then cut short by the threat dodge, so it went 5.4\" south-east and gained ~0.2\" on the objective. After: the charge steer is dropped (even 70% only ends 10\" away, needs <=9\"), the 100mm base's path is checked against the engine's 11e solid-terrain rule so it detours around the gantry, and the suggestion card lists every adjustment under 'How this turn's move was shaped'. Two-leg: the Telemon now doglegs around gantry-38 (1\" sidestep, then on toward obj_nml_1) instead of a single 45-degree line; the decision carries _ai_model_waypoints, the card says it 'goes around it', and executing the move through AIPlayer stages the waypoint then the destination and the engine confirms it — the Telemon ends within 1\" of obj_nml_1's terrain area (OBJ-GAP-2: measured to the area, which the move now aims at, not the marker dot).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_current_phase()",
+      "equals": 7
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_TELEMON_HEAVY_DREADNOUGHT_A\")",
+      "comment": "what clicking the Telemon in the card's move order does"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"How this turn's move was shaped\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Planned charge on Sentinel Guard Sodality Beta is out of reach this turn\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"gantry-38\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"steering toward charge target\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "var dst = AIPlayer.request_suggestion(-1, \"U_TELEMON_HEAVY_DREADNOUGHT_A\").get(\"_ai_model_destinations\").get(\"m1\")\nvar m = GameState.state.units.U_TELEMON_HEAVY_DREADNOUGHT_A.models[0].duplicate(true)\nm[\"position\"] = {\"x\": float(dst[0]), \"y\": float(dst[1])}\nvar nml = {}\nfor o in GameState.state.board.objectives:\n\tif o.id == \"obj_nml_1\":\n\t\tnml = o\nreturn MissionManager.model_gap_to_objective_range_px(m, nml) <= 40.0",
+      "equals": true,
+      "comment": "OBJ-GAP-2: obj_nml_1 is a terrain objective — the planned destination ends within 1\" of its AREA (the old check measured 8\" to the marker dot; the move now aims at the area's nearest edge).",
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"goes around it\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.request_suggestion(-1, \"U_TELEMON_HEAVY_DREADNOUGHT_A\").get(\"_ai_model_waypoints\", {}).has(\"m1\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_telemon_dogleg_preview"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = AIPlayer.request_suggestion(-1, \"U_TELEMON_HEAVY_DREADNOUGHT_A\")\nvar r = NetworkIntegration.route_action({\"type\": \"BEGIN_NORMAL_MOVE\", \"actor_unit_id\": \"U_TELEMON_HEAVY_DREADNOUGHT_A\", \"player\": 1})\nvar ph = PhaseManager.current_phase_instance\nif ph.has_pending_stratagem_window():\n\tvar w = ph.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nAIPlayer._execute_ai_movement(1, d)\nvar u = GameState.state.units.U_TELEMON_HEAVY_DREADNOUGHT_A\nvar p = Vector2(u.models[0].position.x, u.models[0].position.y)\nvar nml = {}\nfor o in GameState.state.board.objectives:\n\tif o.id == \"obj_nml_1\":\n\t\tnml = o\nreturn bool(u.flags.get(\"moved\", false)) and MissionManager.model_gap_to_objective_range_px(u.models[0], nml) <= 40.0",
+      "equals": true,
+      "comment": "the AI's real execution path: waypoint staged, then destination, CONFIRM accepted by the engine"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_telemon_dogleg_executed"
+    }
+  ]
+}

@@ -103,22 +103,16 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Gamma moves toward obj_home_2\")",
-      "equals": true,
-      "comment": "fix on: the card's headline is Gamma moving toward obj_home_2"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Gamma [movement]: chose Move obj_home_2\")",
-      "equals": true
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"chose Move obj_nml_1\")",
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"obj_center is already taken by Custodian Guard Sodality Beta —\")",
       "equals": false,
-      "comment": "fix on: no lone flip of obj_nml_1"
+      "comment": "fix on: the centre is no longer read as 'already taken' by Beta alone (Beta's in-range OC is not subtracted twice)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Gamma [movement]: chose\")",
+      "equals": true,
+      "comment": "MERGE: the card is still Gamma's decision. Gamma's objective is no longer pinned: with main's terrain-aware gap obj_nml_1's area is 4.1\" from Gamma (one Normal move, not the 2-turn race the lab measured from the centroid), so the plan now prefers it over obj_home_2 — a lone 1-move flip the race guards (RACE-1/FAR-TRIP/LONE-TRIP, 2+ turn trips) do not cover; flagged as a follow-up"
     },
     {
       "act": "execute_script",

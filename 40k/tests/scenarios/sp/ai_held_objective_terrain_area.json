@@ -59,8 +59,8 @@
       "act": "execute_script",
       "multiline": true,
       "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"chose Move obj_home_1 (capturing it (uncontrolled)\")",
-      "equals": true,
-      "comment": "fix off: the reviewed mistake is reproduced"
+      "equals": false,
+      "comment": "MERGE: fix off no longer reproduces the reviewed mistake — main's terrain-aware objective range (OBJ-GAP-1/2, the live board's hosting area) is now the base read, so obj_home_1 is held even with FIX_HELD_DUP = 0"
     },
     {
       "act": "screenshot",
@@ -89,8 +89,9 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta [movement]: chose\")",
-      "equals": true
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta (OC3): \") and not tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta (OC3): MOVE obj_home_1\")",
+      "equals": true,
+      "comment": "MERGE: Beta is in the movement plan and not sent back to obj_home_1. With main's nearest-model gaps Alpha now takes obj_center (and heads the card) and Beta obj_nml_1, so the card's own decision may be Alpha's"
     },
     {
       "act": "execute_script",

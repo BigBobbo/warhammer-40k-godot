@@ -227,15 +227,22 @@ func test_param_zero_restores_centroid_arithmetic() -> void:
 		"off: centroid 12.2\" - 3.79\" = 8.4\" at M6 - turns_to_reach 2 (got %s)" % str(c.get("turns_to_reach", "?")))
 	_assert(not (c.get("score_terms", {}) as Dictionary).has("reachability"),
 		"off: no reachability term (got %s)" % str((c.get("score_terms", {}) as Dictionary).get("reachability", "none")))
+	# MERGE (main OBJ-GAP-1): with the fix off the reach/contest tables use
+	# main's unconditional _unit_gap_to_objective_px — the NEAREST model's
+	# centre less 3.79" (this snapshot's area is not on the live board, so the
+	# marker radius) — no longer the centroid. The front rank's centre model is
+	# within one M6 + 2" move of the marker's range, so these tables now agree
+	# with the fix; the candidate's walking gap (above: 2 turns vs 1 on the
+	# area) still tells them apart.
 	var f_moves := _arrival_moves(_eval_of(_evals(_board_a(), 1), "obj_area"), "friendly_arrivals", "CG")
-	_assert(f_moves == 2, "off: RACE-ARMY arrival moves 2 (got %d)" % f_moves)
+	_assert(f_moves == 1, "off (main's nearest-model gap): RACE-ARMY arrival moves 1 (got %d)" % f_moves)
 	var ev2 = _eval_of(_evals(_board_a(), 2), "obj_area")
-	_assert(int(ev2.get("projected_enemy_oc", -1)) == 0,
-		"off: the squad is missing from P2's projected_enemy_oc (12.2\" > 11.8\") (got %s)" % str(ev2.get("projected_enemy_oc", "?")))
-	_assert(_arrival_moves(ev2, "enemy_arrivals", "CG") == 2, "off: RACE-1 enemy arrival moves 2 (got %d)" % _arrival_moves(ev2, "enemy_arrivals", "CG"))
+	_assert(int(ev2.get("projected_enemy_oc", -1)) == 10,
+		"off (main's nearest-model gap): the front rank is one move out - projected_enemy_oc 10 (got %s)" % str(ev2.get("projected_enemy_oc", "?")))
+	_assert(_arrival_moves(ev2, "enemy_arrivals", "CG") == 1, "off (main's nearest-model gap): RACE-1 enemy arrival moves 1 (got %d)" % _arrival_moves(ev2, "enemy_arrivals", "CG"))
 	var evc = _eval_of(_evals(_board_c(), 1), "obj_area")
-	_assert(int(evc.get("contest_oc", -1)) == 0 and str(evc.get("state", "")) == "enemy_strong",
-		"off: contest_oc 0, enemy_strong (got %s, %s)" % [str(evc.get("contest_oc", "?")), str(evc.get("state", "?"))])
+	_assert(int(evc.get("contest_oc", -1)) == 10 and str(evc.get("state", "")) == "enemy_weak",
+		"off (main's nearest-model gap): contest_oc 10, enemy_weak (got %s, %s)" % [str(evc.get("contest_oc", "?")), str(evc.get("state", "?"))])
 	_set_fix(1.0)
 
 func test_guard_long_edge_unit_unchanged() -> void:

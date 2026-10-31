@@ -500,6 +500,14 @@ func _objective_host_areas(objective: Dictionary) -> Array:
 ##   its centre point does not need to be inside — mek-contested bug).
 ## - Open ground (host_areas empty): any part of the base within the classic
 ##   3" + 20mm-marker-radius of the marker centre.
+## 14.01 host areas for `objective` when the 11e terrain-objective rule applies
+## (edition >= 11), else [] — so callers that hoist the lookup out of a model
+## loop stay edition-gated exactly like model_in_objective_range().
+func _objective_host_areas_for_edition(objective: Dictionary) -> Array:
+	if GameConstants.edition >= 11:
+		return _objective_host_areas(objective)
+	return []
+
 func _model_in_objective_range(model: Dictionary, objective: Dictionary, host_areas: Array) -> bool:
 	if not host_areas.is_empty():
 		for host_area in host_areas:
@@ -1461,6 +1469,10 @@ func _score_sites_of_power(active_player: int, battle_round: int) -> void:
 
 func _player_has_character_on_objective(player: int, obj: Dictionary, units: Dictionary, control_radius: float) -> bool:
 	"""Check if a player has a CHARACTER unit within range of an objective."""
+	# OBJ-GAP-2: "within range" is the shared predicate (base touching the
+	# hosting terrain area on an 11e terrain objective; base within 3" of the
+	# marker otherwise). `control_radius` is kept for callers' signatures.
+	var host_areas := _objective_host_areas_for_edition(obj)
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("owner", 0) != player:
@@ -1477,13 +1489,9 @@ func _player_has_character_on_objective(player: int, obj: Dictionary, units: Dic
 		for model in unit.get("models", []):
 			if not model.get("alive", true):
 				continue
-			var model_pos = model.get("position")
-			if model_pos == null:
+			if model.get("position") == null:
 				continue
-			if model_pos is Dictionary:
-				model_pos = Vector2(model_pos.x, model_pos.y)
-
-			if model_pos.distance_to(obj.position) <= control_radius:
+			if _model_in_objective_range(model, obj, host_areas):
 				return true
 
 	return false
@@ -1796,15 +1804,15 @@ func _condemn_eligible_units_11e(player: int) -> Array:
 	return eligible
 
 func _unit_within_of_any_objective_11e(unit_id: String, radius_px: float) -> bool:
+	# OBJ-GAP-2: in range = the shared terrain-aware predicate (radius_px is the
+	# marker control range every caller passes; kept for the signature).
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	for obj in GameState.state.board.get("objectives", []):
-		var obj_pos = obj.get("position")
-		if obj_pos is Dictionary:
-			obj_pos = Vector2(obj_pos.x, obj_pos.y)
+		var host_areas := _objective_host_areas_for_edition(obj)
 		for model in unit.get("models", []):
 			if not model.get("alive", true) or model.get("position") == null:
 				continue
-			if Measurement.model_edge_to_point_distance_px(model, obj_pos) <= radius_px:
+			if _model_in_objective_range(model, obj, host_areas):
 				return true
 	return false
 
@@ -2107,14 +2115,16 @@ func _nearest_objective_in_range_11e(unit_id: String, radius_px: float, obj_filt
 			continue
 		if obj_filter == "nml" and obj.get("zone", "") != "no_mans_land":
 			continue
-		var obj_pos = obj.get("position")
-		if obj_pos is Dictionary:
-			obj_pos = Vector2(obj_pos.x, obj_pos.y)
+		# OBJ-GAP-2: in range by the shared terrain-aware predicate; ties broken
+		# by the terrain-aware distance (0 on the area / marker edge).
+		var host_areas := _objective_host_areas_for_edition(obj)
 		for model in unit.get("models", []):
 			if not model.get("alive", true) or model.get("position") == null:
 				continue
-			var d = Measurement.model_edge_to_point_distance_px(model, obj_pos)
-			if d <= radius_px and d < best_dist:
+			if not _model_in_objective_range(model, obj, host_areas):
+				continue
+			var d = model_distance_to_objective_px(model, obj)
+			if d < best_dist:
 				best_dist = d
 				best_id = obj_id
 	return best_id
@@ -2922,11 +2932,10 @@ func _enemy_unit_in_range_of_objective_11e(player: int, obj_id: String, radius_p
 
 func _any_unit_in_range_of_objective_11e(owner: int, obj_id: String, radius_px: float) -> bool:
 	var obj = _get_objective_by_id(obj_id)
-	var obj_pos = obj.get("position")
-	if obj_pos == null:
+	if obj.get("position") == null:
 		return false
-	if obj_pos is Dictionary:
-		obj_pos = Vector2(obj_pos.x, obj_pos.y)
+	# OBJ-GAP-2: the shared terrain-aware predicate (radius_px kept for callers).
+	var host_areas := _objective_host_areas_for_edition(obj)
 	for unit_id in GameState.state.get("units", {}):
 		var unit = GameState.state.units[unit_id]
 		if int(unit.get("owner", 0)) != owner:
@@ -2934,7 +2943,7 @@ func _any_unit_in_range_of_objective_11e(owner: int, obj_id: String, radius_px: 
 		for model in unit.get("models", []):
 			if not model.get("alive", true) or model.get("position") == null:
 				continue
-			if Measurement.model_edge_to_point_distance_px(model, obj_pos) <= radius_px:
+			if _model_in_objective_range(model, obj, host_areas):
 				return true
 	return false
 
@@ -3167,19 +3176,17 @@ func _destroyed_enemy_units_this_turn_11e(player: int) -> Array:
 	return out
 
 func _destroyed_enemy_near_objective_11e(player: int, obj_id: String) -> bool:
-	var control_radius = Measurement.inches_to_px(3.78740157)
 	var obj = _get_objective_by_id(obj_id)
-	var obj_pos = obj.get("position")
-	if obj_pos == null:
+	if obj.get("position") == null:
 		return false
-	if obj_pos is Dictionary:
-		obj_pos = Vector2(obj_pos.x, obj_pos.y)
+	# OBJ-GAP-2: "within range" of a terrain objective = base on its area.
+	var host_areas := _objective_host_areas_for_edition(obj)
 	for unit_id in _destroyed_enemy_units_this_turn_11e(player):
 		var unit = GameState.state.units[unit_id]
 		for model in unit.get("models", []):
 			if model.get("position") == null:
 				continue
-			if Measurement.model_edge_to_point_distance_px(model, obj_pos) <= control_radius:
+			if _model_in_objective_range(model, obj, host_areas):
 				return true
 	return false
 

@@ -62,6 +62,8 @@ const TERMS := {
 	"expected_vp": {"label": "VP at stake", "fmt": "vp", "good": "high", "help": "Victory points this objective is worth to you over the game."},
 	"distance_inches": {"label": "Distance", "fmt": "in", "good": "low", "help": "Distance from the unit to the objective."},
 	"turns_to_reach": {"label": "Turns to get there", "fmt": "turns", "good": "low", "help": "Battle turns of movement needed to arrive."},
+	"gap_inches": {"label": "Gap to close", "fmt": "in", "good": "low", "help": "How far the unit's nearest model still has to move to be on the objective (touching its terrain area, or within 3\" of an open-ground marker)."},
+	"adv_chance": {"label": "Advance roll gets there", "fmt": "pct", "good": "high", "help": "Chance an Advance (Move + D6) gets a model onto the objective this turn when a normal Move falls short."},
 	"assigned_by": {"label": "Assigned by", "fmt": "text", "hidden": true, "help": "Which planning pass assigned the unit."},
 
 	# --- Shooting -----------------------------------------------------------
