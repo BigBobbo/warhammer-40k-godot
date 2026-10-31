@@ -1,0 +1,84 @@
+{
+ "key": "marginal_oc",
+ "angle": "root",
+ "root_cause": "The need ledger (_initial_objective_oc_needs: enemy OC - friendly OC + 1, COORD-5 projected need) correctly says when an objective's OC is surplus, but two later steps credit OC that changes no control. (1) s7475 r3 P1: pass 1 of _assign_units_to_objectives holds EVERY movable unit on a held_threatened objective (`elif obj_state == \"held_threatened\": should_hold = true`) even when remaining need is 0 - obj_center was held 20 vs 9 (projected ~7), Custodian Guard Beta's 9 OC changed nothing there (11 stays > 9) while obj_nml_1 (enemy_weak, 8 OC) needed it; held_safe extras are already freed via KEEP-OC/keeper, held_threatened ones never were. (2) s7478 r3 P2: OBJ-ASSIGN-1 swaps a 'quicker' unit in for the greedy pick when it merely arrives with more spare inches in the SAME Movement phase (both 2 phases) - same Command phase, no VP gained - parking Custodian Guard Beta (OC 9) on an uncontested objective needing OC 1 that the Prosecutors (OC 8) were taking, and so removing its OC from the contested centre/nml_1 where it changes control. (3) s7463 r1 P2 (Orks, base now goes to obj_nml_2 via the support/screen fallback): obj_center's need 6 is marked covered by two Battlewagons arriving in 3 turns, so Kommandos (2 turns, Advance score 12.3 > 9.7) is skipped - the ledger is time-blind (OC arriving later counted as present now). This third mechanism is NOT addressed by this design (a time-indexed ledger is a larger change and Kommandos are LONE-TRIP-fragile at a 56-OC race).",
+ "fix_summary": "FIX_MARGINAL_OC (const 1.0, get_param). (a) Pass 1: on a held_threatened objective whose remaining need is 0, a movable holder is freed to pass 2 when the friendly OC that stays without it (and without holders already freed from it) is > 0 and > max(enemy OC in range, projected enemy OC one move away) - the same threat measure KEEP-OC/keeper-pick use; otherwise it holds as before. Helper _marginal_oc_holder_surplus(). (b) OBJ-ASSIGN-1: an alternative unit that arrives in the SAME number of phases is not swapped in when its OC exceeds max(greedy pick's OC, remaining need) (surplus OC parked where it changes nothing). Phase-sooner swaps unchanged. Both print [MARGINAL_OC]. 0 = base exactly (both branches gated).",
+ "param": "FIX_MARGINAL_OC",
+ "test_file": "40k/tests/unit/test_ai_fix_marginal_oc.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: test_ai_fix_marginal_oc 8/0; base copy 4 passed 4 failed. All 21 listed tests pass (rollout_override 11, e_race_tuning 8, race_army 3, advance_probability 8, objective_race 16, plan_diminishing_returns 4, critic_round2 7, 11e_charge_ev_primary_cap 26, movement_decisions 36, plan_earmarks 35, fix_held_dup 14, fix_lone_trip 8, fix_charge_ev 11, fix_far_trip 11, fix_overcommit 8, fix_keeper_release 52, fix_lone_flip 16, fix_reinforce_insurance 24, charge_decisions 62, survival_assessment 23, multi_phase_planning 34). Known failures identical on BASE: test_ai_threat_range_awareness 34/3, tests/test_ai_objective_assignment_fixes 6/1.",
+ "decision_checks": [
+  {
+   "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_1_2",
+   "base_choice": "Kommandos moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed))",
+   "fix_choice": "Kommandos moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed)) - unchanged, 0 fires",
+   "changed": false,
+   "measured": "+4.50 [1.34, 7.66] n24 (Advance obj_center)",
+   "judgement": "not addressed: root is the time-blind need ledger (obj_center's need 6 covered by 2 Battlewagons 3 turns out), a different mechanism."
+  },
+  {
+   "job": "20261030_234632_r5c00_00__s7475_r3_p1_movement_2_5",
+   "base_choice": "Custodian Guard Sodality Beta holds obj_center (holding under threat (enemy OC 9 nearby))",
+   "fix_choice": "Custodian Guard Sodality Beta moves toward obj_nml_1 (normal move; freed: friendly 20, 11 stays vs threat 9 (enemy 9, projected 7))",
+   "changed": true,
+   "measured": "+8.00 [3.15, 12.85] n24 (Move obj_nml_1, mode move)",
+   "judgement": "matches the alternative exactly: same unit, same objective, Normal move."
+  },
+  {
+   "job": "20261030_234556_r5c03_00__s7478_r3_p2_movement_1_5",
+   "base_choice": "Custodian Guard Sodality Beta advances toward obj_home_2 (OBJ-ASSIGN-1 swap, quicker than Prosecutor Squad)",
+   "fix_choice": "Custodian Guard Sodality Beta moves toward obj_nml_1 (normal move, flipping it, enemy OC 3; score 19.8, its base 2nd choice); Prosecutors capture obj_home_2",
+   "changed": true,
+   "measured": "+5.58 [1.41, 9.76] n24 (Move obj_center, mode move)",
+   "judgement": "partial match: same unit, same mode (Normal move, no longer an Advance to an uncontested objective), OC sent to a contested enemy-held objective - but obj_nml_1 instead of obj_center (centre scored 15.4 < 19.8 for this unit after contest_race/threat). The fix's own choice was not value-checked."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r1_p2_movement_2_2",
+   "base_choice": "Kommandos holds obj_home_2 (keeping hold)",
+   "fix_choice": "Kommandos holds obj_home_2 (keeping hold)",
+   "changed": false,
+   "measured": "harmful -6.58 (alt = Advance obj_center)",
+   "judgement": "unchanged = consistent (keeper of a held_safe home is not touched)."
+  },
+  {
+   "job": "20261030_234808_r5c15_00__s7490_r1_p1_movement_2_3",
+   "base_choice": "Lootas Alpha holds obj_home_1 (keeping hold)",
+   "fix_choice": "Lootas Alpha holds obj_home_1 (keeping hold)",
+   "changed": false,
+   "measured": "harmful -3.83",
+   "judgement": "unchanged = consistent."
+  },
+  {
+   "job": "20261030_234556_r5c03_00__s7478_r2_p1_movement_2_2",
+   "base_choice": "Prosecutor Squad advances toward obj_home_2 (flipping it)",
+   "fix_choice": "Prosecutor Squad advances toward obj_home_2 (flipping it)",
+   "changed": false,
+   "measured": "harmful -8.17",
+   "judgement": "unchanged = consistent."
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+   "base_choice": "Custodian Guard Sodality Beta moves toward obj_center (charge target)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful -15.00 (alt = hold obj_nml_2)",
+   "judgement": "unchanged = consistent (the fix only ever frees holders, never adds holds)."
+  },
+  {
+   "job": "20261030_234640_r5c04_00__s7479_r1_p1_movement_1_0",
+   "base_choice": "Custodian Guard Sodality Gamma advances toward obj_center (capturing it)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "harmful -3.92",
+   "judgement": "unchanged = consistent."
+  }
+ ],
+ "fires": "Replays (decision + rest of horizon, both players): 3 fires in 8 replays - s7475 (a) frees CG Beta from obj_center; s7478 (b) blocks the CG Beta swap on obj_home_2; s7479 guardrail replay (a) frees opponent P2 CG Gamma from obj_home_2 (14 vs 2, 5 stays) - not the guardrail unit; 0 fires at s7463, s7468, s7490, s7478r2, s7455. Bench (step 9b, mirror_custodes_2000_postdeploy seed 93101, fix in candidate seat): 0 fires in game M1, 1 fire in game M2 (P1 Prosecutor Squad freed from held_threatened obj_home_1: friendly 12, 8 stays vs threat 3) = 0.5 per game; both games ended -53 with 681 actions (pair E 0.0), so the one fire did not change the game outcome. Low bench reach.",
+ "bench_fires_per_game": 0.5,
+ "risks": "(a) frees a held_threatened holder with a thin margin (strict >, same as the ledger): the threat is enemy OC in range or one move away (max, not sum), and melee in the following Fight phase can kill models of the units that stay - a freed unit could lose a held objective the stay-behind units cannot keep after casualties (e.g. s7475: 11 vs 9 in range, projected 7). Over 5 rounds this sends more units forward from held objectives (round 2-5), which also helps secondaries needing units across the table, but can lose primary on a held centre if the enemy charges in. Home objectives are included when held_threatened (seen once: 5 OC stays vs 2). (b) narrow (same-phase swaps only, OC larger than both the greedy pick and the need); the swapped-out unit's next choice is whatever pass 2 scores next (s7478: obj_nml_1, not the centre the critic measured), unmeasured. s7463 (time-blind ledger) not addressed. Not tested with FIX_WAAAGH_ADVANCE_CHARGE / FIX_R1_SUPPORT_ADVANCE. KEEPER-RELEASE lesson: (a) does not touch the held_safe keeper path.",
+ "drop_reason": ""
+}
