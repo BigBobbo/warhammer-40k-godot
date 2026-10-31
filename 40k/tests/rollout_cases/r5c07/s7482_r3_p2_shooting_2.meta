@@ -1,0 +1,99 @@
+{
+	"created_at": 1793405175.14761,
+	"description": "LLM critic s7482_r3_p2_shooting_2",
+	"game_state": {
+		"active_player": 2,
+		"battle_round": 3,
+		"game_id": "991c8152-26dd-7ae4-b42a-6596813f32e48d35",
+		"is_multiplayer": false,
+		"phase": 8,
+		"player1_difficulty": 3,
+		"player1_type": "AI",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 3,
+		"turn_number": 1
+	},
+	"preview": {
+		"battle_round": 3,
+		"players": {
+			"1": {
+				"alive_models": 86,
+				"alive_units": 19,
+				"cp": 1,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 19,
+				"secondary_vp": 14,
+				"total_models": 106,
+				"total_units": 20,
+				"unit_names": [
+					"Beastboss",
+					"Boss Snikrot",
+					"Deffkilla Wartrike",
+					"Mek",
+					"Mek",
+					"Zodgrod Wortsnagga",
+					"Beast Snagga Boyz",
+					"Battlewagon",
+					"Battlewagon",
+					"Burna Boyz",
+					"Burna Boyz",
+					"Gretchin",
+					"Kommandos",
+					"Lootas",
+					"Lootas",
+					"Lootas",
+					"Stormboyz",
+					"Tankbustas",
+					"Warbikers",
+					"Warbikers"
+				],
+				"vp": 33
+			},
+			"2": {
+				"alive_models": 95,
+				"alive_units": 18,
+				"cp": 2,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 10,
+				"secondary_vp": 7,
+				"total_models": 106,
+				"total_units": 20,
+				"unit_names": [
+					"Beastboss",
+					"Boss Snikrot",
+					"Deffkilla Wartrike",
+					"Mek",
+					"Mek",
+					"Zodgrod Wortsnagga",
+					"Beast Snagga Boyz",
+					"Battlewagon",
+					"Battlewagon",
+					"Burna Boyz",
+					"Burna Boyz",
+					"Gretchin",
+					"Kommandos",
+					"Lootas",
+					"Lootas",
+					"Lootas",
+					"Stormboyz",
+					"Tankbustas",
+					"Warbikers",
+					"Warbikers"
+				],
+				"vp": 17
+			}
+		}
+	},
+	"save_info": {
+		"description": "LLM critic s7482_r3_p2_shooting_2",
+		"save_type": "ai_test_case",
+		"tags": []
+	},
+	"type": "ai_test_case",
+	"version": "1.3.0"
+}

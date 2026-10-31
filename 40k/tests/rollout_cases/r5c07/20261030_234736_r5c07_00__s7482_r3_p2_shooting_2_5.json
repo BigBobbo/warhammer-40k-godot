@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Deffgun \u2192 enemy Burna Boyz Alpha (P1)",
+ "created": "2026-10-31 00:06:15",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7482_r3_p2_shooting_2",
+ "note": "[LLM critic, medium conf] Lootas Beta fires its Deffgun at Burna Boyz Alpha. The 'already_allocated' term of 1.87 swamps the real numbers. The shot kills about 0.3 of a 5-model unit. Fix: Cap the focus-fire bonus. Apply it only if the chosen target has a realistic chance to die after all allocated units shoot. Compare it with the value of the chance to kill. Also weigh the threat of fast units that can charge next turn.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7482_r3_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_B_P2",
+  "choice": "desc:Deffgun \u2192 enemy Burna Boyz Alpha (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Beta shoots at Burna Boyz Alpha \u2014 expected 1.6 dmg vs 5 HP (31% kill)",
+ "verdict": "pending",
+ "version": 1
+}
