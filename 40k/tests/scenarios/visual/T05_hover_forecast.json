@@ -1,48 +1,446 @@
 {
   "id": "T05_hover_forecast",
-  "covers": ["design_guidelines.T05", "shooting.hover_forecast"],
-  "fixture": "co_pretrigger",
+  "covers": [
+    "design_guidelines.T05",
+    "shooting.hover_forecast",
+    "scripts.HoverForecast",
+    "autoloads.RulesEngine.preview_attack",
+    "scripts.ShootingController.hover_forecast",
+    "scripts.ShootingController._calc_weapon_expected_damage"
+  ],
+  "fixture": "audit_383_battleshock_shoot",
   "transition_to_phase": 8,
-  "description": "Hover forecast: ShootingController.compute_hover_forecast(shooter, target) returns a Dictionary {attacks, bs, s, t, ap, d, expected_wounds} for the first weapon of the shooter against the target. Verified for WARBOSS_B shooting CUSTODIAN_GUARD_B in co_pretrigger.",
-
+  "disable_ai": true,
+  "description": "T05 hover forecast (design guidelines §7). Fixture audit_383_battleshock_shoot, P1 Custodes shooting. A: SELECT_SHOOTER the Caladius Grav-tank (BS 2+ guns); TerrainManager.unit_has_cover_11e confirms Boyz E has the benefit of cover from it. B: the task's seam ShootingController.test_hover_target_id = U_BOYZ_E builds current_hover_forecast through RulesEngine.preview_attack: bs == 3 (2+ worsened by cover, 11e 13.08; also recomputed from the weapon profile), expected_wounds > 0, and the HoverForecast card (/root/Main/ShootingController/HoverForecast) is visible with its shield-icon cover row 'Benefit of cover: BS 2+ → 3+', fully on screen; pixel_diff of the card's rect against the no-hover frame. C: real mouse hovers move between the Battlewagon (T12) and Boyz E (T5) and the numbers follow; once Main's TokenHoverTooltip stats card opens, the forecast card does not overlap it. D: hovering the HUD, then empty board, clears the forecast (null) and hides the card; the card's rect matches the no-hover frame again. E: the Contemptor-Achillus with its twin adrathic destructor row selected: the card describes the selected weapon, BS 2+ and 0.83 hits vs Boyz E in the open, BS 3+ and 0.67 hits plus the cover row vs Kommandos H in cover.",
+  "regions": {
+    "tooltip_area": [
+      1140,
+      494,
+      310,
+      199
+    ]
+  },
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/ShootingController\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CALADIUS_GRAV-TANK_E"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").active_shooter_id",
+      "equals": "U_CALADIUS_GRAV-TANK_E"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").eligible_targets.has(\"U_BOYZ_E\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "comment": "Before: nothing hovered, so no forecast and no card.",
       "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast == null",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/ShootingController\").compute_hover_forecast(\"U_WARBOSS_B\", \"U_CUSTODIAN_GUARD_B\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var card = tree.root.get_node_or_null(\"Main/ShootingController/HoverForecast\")\nreturn card == null or not card.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Independent evidence Boyz E has the benefit of cover: the 11e terrain module (13.08) says so for the Caladius's own model, without going through the forecast.",
+      "script": "var boyz = GameState.state[\"units\"][\"U_BOYZ_E\"]\nvar cal = GameState.state[\"units\"][\"U_CALADIUS_GRAV-TANK_E\"][\"models\"][0]\nreturn tree.root.get_node(\"TerrainManager\").unit_has_cover_11e(boyz, cal)",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "T05_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "ShootingController.test_hover_target_id runs the production hover path (_set_hover_target) anchored at the unit's on-screen centre.",
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nsc.test_hover_target_id = \"U_BOYZ_E\"\nreturn sc.current_hover_forecast != null",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.target_id",
-      "equals": "U_CUSTODIAN_GUARD_B" },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.attacks",
-      "expect_min": 1 },
-    { "act": "execute_script",
+      "equals": "U_BOYZ_E"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.bs",
-      "expect_min": 2 },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.bs",
-      "expect_max": 6 },
-    { "act": "execute_script",
+      "equals": 3,
+      "comment": "Tier A: BS 2+ guns vs a target with the benefit of cover = BS 3+ (11e 13.08 worsens BS by 1)."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The same expectation computed from the fixture data: the chosen weapon's profile BS plus the one cover step.",
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar f = sc.current_hover_forecast\nreturn f.bs == int(RulesEngine.get_weapon_profile(f.weapon_id).bs) + 1 and f.base_bs == 2 and f.bs_no_cover == 2 and f.in_cover and f.cover_bs_delta == 1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.expected_wounds > 0.0",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/ShootingController\").compute_hover_forecast(\"\", \"\")",
-      "equals": null },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/ShootingController\").compute_hover_forecast(\"NOPE\", \"U_CUSTODIAN_GUARD_B\")",
-      "equals": null },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController/HoverForecast\").visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Cover icon row with the BS change it causes.",
+      "script": "var card = tree.root.get_node(\"Main/ShootingController/HoverForecast\")\nif not card.get_node(\"Body/CoverRow\").visible or not card.get_node(\"Body/CoverRow/CoverIcon\").visible:\n\treturn \"cover row hidden\"\nreturn card.get_node(\"Body/CoverRow/CoverLabel\").text",
+      "equals": "Benefit of cover: BS 2+ → 3+"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Title is weapon -> target; the profile row shows the cover-worsened BS.",
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar card = tree.root.get_node(\"Main/ShootingController/HoverForecast\")\nvar f = sc.current_hover_forecast\nvar title = card.get_node(\"Body/Title\").get_parsed_text()\nreturn title.contains(str(f.weapon_name)) and title.contains(\"Boyz\") and card.get_node(\"Body/Stats\").get_parsed_text().contains(\"BS 3+\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Card fully inside the viewport (not clipped).",
+      "script": "var card = tree.root.get_node(\"Main/ShootingController/HoverForecast\")\nvar r: Rect2 = card.get_global_rect()\nvar vp: Rect2 = card.get_viewport_rect()\nreturn card.visible and r.size.x > 200.0 and r.size.y > 100.0 and r.position.x >= vp.position.x + 4.0 and r.position.y >= vp.position.y + 4.0 and r.end.x <= vp.end.x - 4.0 and r.end.y <= vp.end.y - 4.0",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "T05_after"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T05_before",
+      "after": "T05_after",
+      "region": "tooltip_area",
+      "expect_min_pct": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Not clipped at the viewport edges: anchored at each corner (the card's own move_to_anchor, as a cursor there would), it flips to stay fully on screen. Then back to Boyz E.",
+      "script": "var card = tree.root.get_node(\"Main/ShootingController/HoverForecast\")\nvar vp: Rect2 = card.get_viewport_rect()\nvar home: Vector2 = card.anchor_screen\nvar bad = []\nfor a in [Vector2(vp.end.x - 3.0, vp.position.y + 3.0), Vector2(vp.end.x - 3.0, vp.end.y - 3.0), Vector2(vp.position.x + 3.0, vp.end.y - 3.0), Vector2(vp.position.x + 3.0, vp.position.y + 3.0)]:\n\tcard.move_to_anchor(a)\n\tvar r: Rect2 = card.get_global_rect()\n\tif r.position.x < vp.position.x or r.position.y < vp.position.y or r.end.x > vp.end.x or r.end.y > vp.end.y:\n\t\tbad.append(str(a) + ' -> ' + str(r))\ncard.move_to_anchor(home)\nreturn 'ok' if bad.is_empty() else ', '.join(bad)",
+      "equals": "ok"
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_BATTLEWAGON_G"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.target_id",
+      "equals": "U_BATTLEWAGON_G"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.t",
+      "equals": 12,
+      "comment": "Numbers follow the hover: the Battlewagon's T12 replaces the Boyz' T5."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.bs",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.expected_wounds > 0.0",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8,
+      "comment": "Let Main's 0.55 s dwell open the TokenHoverTooltip stats card under the cursor."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The forecast card steers clear of the stats card and stays on screen.",
+      "script": "var card = tree.root.get_node(\"Main/ShootingController/HoverForecast\")\nvar tip = tree.root.get_node_or_null(\"Main/TokenHoverTooltip\")\nif tip == null or not tip.visible:\n\treturn \"stats card not shown\"\nif card.get_global_rect().intersects(tip.get_global_rect()):\n\treturn \"overlap\"\nreturn \"clear\"",
+      "equals": "clear"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var card = tree.root.get_node(\"Main/ShootingController/HoverForecast\")\nvar r: Rect2 = card.get_global_rect()\nvar vp: Rect2 = card.get_viewport_rect()\nreturn card.visible and r.size.x > 200.0 and r.size.y > 100.0 and r.position.x >= vp.position.x + 4.0 and r.position.y >= vp.position.y + 4.0 and r.end.x <= vp.end.x - 4.0 and r.end.y <= vp.end.y - 4.0",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "T05_hover_battlewagon"
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_BOYZ_E"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.target_id",
+      "equals": "U_BOYZ_E"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.t",
+      "equals": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.bs",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var card = tree.root.get_node(\"Main/ShootingController/HoverForecast\")\nvar r: Rect2 = card.get_global_rect()\nvar vp: Rect2 = card.get_viewport_rect()\nreturn card.visible and r.size.x > 200.0 and r.size.y > 100.0 and r.position.x >= vp.position.x + 4.0 and r.position.y >= vp.position.y + 4.0 and r.end.x <= vp.end.x - 4.0 and r.end.y <= vp.end.y - 4.0",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "T05_hover_boyz"
+    },
+    {
+      "act": "hover_node",
+      "node": "/root/Main/HUD_Right"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast == null",
+      "equals": true,
+      "comment": "Over the HUD the board underneath is not what the player points at."
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_BOYZ_E"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.target_id",
+      "equals": "U_BOYZ_E"
+    },
+    {
+      "act": "hover_board_at",
+      "x": 880.0,
+      "y": 900.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast == null",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController/HoverForecast\").visible",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "T05_hover_off"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T05_before",
+      "after": "T05_hover_off",
+      "region": "tooltip_area",
+      "expect_max_pct": 2.0
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_tree_item",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree",
+      "metadata": "twin_adrathic_destructor_ranged"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").selected_weapon_id",
+      "equals": "twin_adrathic_destructor_ranged"
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_BOYZ_E"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.weapon_id",
+      "equals": "twin_adrathic_destructor_ranged",
+      "comment": "The selected weapon row is the one described."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.weapon_choice",
+      "equals": "selected"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.bs",
+      "equals": 2,
+      "comment": "Boyz E is in the open for the Contemptor: BS 2+ unchanged."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.in_cover",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController/HoverForecast/Body/CoverRow\").visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.expected_hits",
+      "expect_min": 0.83,
+      "expect_max": 0.84
+    },
+    {
+      "act": "screenshot",
+      "label": "T05_no_cover"
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_KOMMANDOS_H"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.target_id",
+      "equals": "U_KOMMANDOS_H"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.weapon_id",
+      "equals": "twin_adrathic_destructor_ranged"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.bs",
+      "equals": 3,
+      "comment": "Kommandos H has the benefit of cover: the same gun needs 3+."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.in_cover",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var card = tree.root.get_node(\"Main/ShootingController/HoverForecast\")\nif not card.get_node(\"Body/CoverRow\").visible or not card.get_node(\"Body/CoverRow/CoverIcon\").visible:\n\treturn \"cover row hidden\"\nreturn card.get_node(\"Body/CoverRow/CoverLabel\").text",
+      "equals": "Benefit of cover: BS 2+ → 3+"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.expected_hits",
+      "expect_min": 0.66,
+      "expect_max": 0.67,
+      "comment": "1 attack x 4/6 (was 5/6 in the open)."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var card = tree.root.get_node(\"Main/ShootingController/HoverForecast\")\nvar r: Rect2 = card.get_global_rect()\nvar vp: Rect2 = card.get_viewport_rect()\nreturn card.visible and r.size.x > 200.0 and r.size.y > 100.0 and r.position.x >= vp.position.x + 4.0 and r.position.y >= vp.position.y + 4.0 and r.end.x <= vp.end.x - 4.0 and r.end.y <= vp.end.y - 4.0",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "T05_cover"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

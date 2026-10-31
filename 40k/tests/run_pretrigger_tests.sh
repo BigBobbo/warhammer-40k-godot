@@ -73,6 +73,11 @@
 #     move mode), the green / yellow / red path split (spent movement, SHIFT
 #     waypoint corners), the BEGIN_MODEL_DRAG action contract and the
 #     MovementRangeVisual.DragRuler label / clear
+#   - T05 shooting hover forecast: RulesEngine.preview_attack (11e cover = BS
+#     worsened by 1, [IGNORES COVER] / [TORRENT], [HEAVY], plunging fire, +1/-1
+#     cancelling, re-roll crits, overkill, 10e rules at edition 10), the
+#     P3-114 card wrapper, the hover hook + test_hover_target_id seam, and the
+#     HoverForecast card rows
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -318,6 +323,7 @@ TESTS=(
     "tests/tools/pixel_diff_unit_test.gd"
     "tests/test_drag_ruler_budget.gd"
     "tests/test_phase_bar.gd"
+    "tests/test_hover_forecast.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

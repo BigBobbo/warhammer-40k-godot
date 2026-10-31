@@ -345,7 +345,7 @@ Locks in use:
     hollow gives "active not brightest"; a future pill forced grey gives "completed vs
     future too close". Scenario 71/71.
 
-- [ ] **T05 — Hover-forecast tooltip for shooting**
+- [x] **T05 — Hover-forecast tooltip for shooting**
   - **Lock:** Shooting  • **Doc:** §7  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/ShootingController.gd`, new `40k/scripts/HoverForecast.gd`,
     `40k/autoloads/RulesEngine.gd` (add `preview_attack(shooter, target, weapon)`
@@ -373,10 +373,69 @@ Locks in use:
       `regions["tooltip_area"].diff_pct > 4.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Tooltip readable, not clipped by viewport edges.
-    - [ ] Numbers update when hover moves between targets.
-    - [ ] Cover icon / cover delta surfaced in the tooltip.
-    - [ ] Tooltip disappears on hover-off.
+    - [x] Tooltip readable, not clipped by viewport edges.
+      *(T05_after, _hover_battlewagon, _hover_boyz, _no_cover, _cover: a dark card with a
+      gold border, 15-18 px text, every row legible. It sits above-right of the cursor. On
+      the Battlewagon, Main's stats card opened under the cursor, so the forecast flipped
+      above-left with no overlap. The scenario asserts the card is on screen after every
+      hover and when anchored at each of the four viewport corners.)*
+    - [x] Numbers update when hover moves between targets.
+      *(Caladius: Boyz E T5 shows "Twin iliastus accelerator cannon, A 8, ≈ 13.0 damage
+      (≈ 4.3 models)". The Battlewagon shows T12, the blaze cannon and ≈ 9.2 damage. Back on
+      Boyz E it shows the Boyz numbers again. Contemptor with one gun: Boyz E reads BS 2+,
+      0.8 hits; Kommandos H reads BS 3+, 0.7 hits.)*
+    - [x] Cover icon / cover delta surfaced in the tooltip.
+      *(T05_after / _cover: a yellow shield row "Benefit of cover: BS 2+ → 3+", and BS 3+
+      in yellow on the profile row. T05_no_cover (target in the open) has neither.)*
+    - [x] Tooltip disappears on hover-off.
+      *(T05_hover_off: no card, no LoS line, no stats card. current_hover_forecast is null,
+      and the card's rect differs 0.0% from the no-hover T05_before. Moving onto the
+      right-hand HUD panel also clears it.)*
+  - **Note (2026-10-31 audit):** what had shipped was `current_hover_forecast` and a
+    `compute_hover_forecast()` what-if helper with its own naive maths. It used the first
+    datasheet weapon, even a melee one. It treated cover as +1 to the save (the 10e rule;
+    11e 13.08 worsens BS) and applied no modifiers. Nothing called it on hover. There was
+    no tooltip, no `HoverForecast.gd`, no `preview_attack` and no `test_hover_target_id`.
+    The scenario only called the helper. Changed on this pass: (1) New
+    `RulesEngine.preview_attack(shooter, target, weapon, board, opts)`. It holds the maths
+    of the P3-114 forecast (`ShootingController._calc_weapon_expected_damage`, now a
+    one-line wrapper), so the hover card, the Forecast panel, the Quick Assign buttons, the
+    resolution dock and T40's panel all read one forecast. Fixes that came with the move:
+    die probabilities come from the live evaluators (`AttackSequence.evaluate_hit_roll` /
+    `evaluate_wound_roll`, every face and re-roll face enumerated); +1/-1 cancel as in the
+    live roll; the 11e ModifierStack adds [HEAVY] (24.16), plunging fire and the
+    close-quarters penalties; cover worsens BS per firing model, sampling at most 4 per
+    weapon; [TORRENT] never crits; Sustained Hits Dx uses its average; the hit display
+    includes cover; "kills" drop damage beyond a model's Wounds. (2) Hovering an eligible
+    enemy (shooter selected, cursor not over the HUD) fills `current_hover_forecast` and
+    shows the new `HoverForecast` card. The card describes the selected weapon row, or
+    else the weapon that takes the most wounds off the target. The hover clears on
+    hover-off, deselect, shooter change, resolution start and phase end. (3) The
+    `test_hover_target_id` seam (task name) calls `t05_set_hover_target`, which runs the
+    production hover path anchored at the unit's centre. (4) Cost: about 5-9 ms per weapon
+    forecast against 4.5 ms for the old maths, using a per-frame cover cache and memoised
+    probability tables. A first cut without sampling ran 15-19 ms per call for a 20-model
+    mob. Tier A: scenario 82/82. It covers SELECT_SHOOTER, the seam, bs == 3 (BS 2+ in
+    cover, also recomputed from the weapon profile), expected_wounds > 0, the card visible
+    with its cover row, a tooltip_area diff of 99.96% (bound 4%), real mouse hovers, the
+    HUD and empty-board hover-off (0.0% diff back to the before frame, bound 2%), and one
+    gun against an open target and a target in cover. Visual suite: 42 passing (baseline
+    41); T23, T27 and T39 fail as before, and T45 is XFAIL. New gated test
+    `tests/test_hover_forecast.gd` (67 checks) fails at HEAD. Gate: 178/178 (known XFAIL
+    only). The 12 sp scenarios that read the forecast or hover in Shooting pass.
+    Deviations: (a) Oath of Moment does not exist in this 11e build: Codex: Space Marines
+    replaced it (FactionAbilityManager.gd). The preview counts what the engine does apply:
+    the re-roll and +1 effect flags that army rules and stratagems set, [HEAVY] and cover.
+    (b) 11e cover is one rule, the benefit of cover. It worsens BS by 1 against any target
+    that has it: INFANTRY/BEASTS/SWARM in a terrain area, any unit not fully visible to
+    the firing model, STEALTH, or the stratagem. There is no light/heavy cover. The
+    expected value is BS 2+ guns worsened to 3+, read off the weapon profile and confirmed
+    by `TerrainManager.unit_has_cover_11e`. (c) `expected_wounds` means successful wound
+    rolls, as "wounds" does on the P3-114 card and in the dock. The hook also carries
+    `expected_damage` and `expected_models_killed`. (d) The tooltip node is
+    `/root/Main/ShootingController/HoverForecast`, so it goes away with the phase. (e) The
+    scenario fixture is `audit_383_battleshock_shoot`, not co_pretrigger: no P2 unit has
+    an eligible target in co_pretrigger.
 
 - [ ] **T06 — Convert Weapon Order modal to side-anchored panel**
   - **Lock:** HUD-Right  • **Doc:** §3  • **Depends:** T01, T02

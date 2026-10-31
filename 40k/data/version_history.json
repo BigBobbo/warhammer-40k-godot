@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.59.0",
+      "date": "2026-10-31",
+      "summary": "In the Shooting phase, resting the cursor on an enemy your shooter can hit now shows a forecast card beside the cursor: the weapon against that target, the dice it needs, and the expected hits, wounds and damage, with cover already counted.",
+      "changes": [
+        "Select a shooter, then rest the cursor on an enemy unit it can shoot. A card next to the cursor names the weapon and the target and shows the weapon's Attacks, BS, Strength against the target's Toughness, AP and Damage, the rolls needed to hit, wound and save, and the expected hits, wounds, unsaved wounds, damage and models slain.",
+        "When the target has the benefit of cover, the card's BS turns yellow and a shield line says what it did (for example 'Benefit of cover: BS 2+ → 3+'). Heavy, plunging fire, re-rolls and the other modifiers in play are listed on the card and already counted in its numbers.",
+        "With a weapon picked in the Weapon Assignments list, the card describes that weapon. Otherwise it describes the weapon that takes the most wounds off that target, and adds what all your weapons in range would do together.",
+        "Move the cursor to another enemy and the card updates; move it onto empty board or the side panels and the card goes away. It keeps clear of the unit stats card that opens under the cursor.",
+        "The Forecast panel, the Quick Assign buttons and the shot list use the same numbers, so they now also count cover against your BS, the 11th-edition Heavy rule (no model moved more than 3\") and plunging fire, and 'kills' no longer counts extra damage on a one-wound model as extra kills."
+      ]
+    },
+    {
       "version": "1.58.0",
       "date": "2026-10-30",
       "summary": "The phase strip at the bottom of the screen now shows each phase as a pill: the current phase lit in the active player's colour, finished phases grey, phases still to come faded.",
