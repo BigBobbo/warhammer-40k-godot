@@ -65,8 +65,17 @@ const DIFFICULT_GROUND_PENALTY_INCHES: float = 2.0
 
 func _ready() -> void:
 	print("[TerrainManager] Initializing terrain system")
+	# T11: sight lines are memoized by model geometry only (RulesEngine._los_memo).
+	# Its terrain-epoch guard reads board.terrain_features, but the GameState
+	# snapshots the rules are judged on nest terrain under board.board, so the
+	# guard never fired and a new layout kept the old layout's verdicts (target
+	# lists, the LoS line). Every terrain change is announced here, so drop it.
+	terrain_loaded.connect(_on_terrain_loaded_clear_los_memo)
 	_preload_layout_metadata()
 	load_terrain_layout(current_layout)
+
+func _on_terrain_loaded_clear_los_memo(_features: Array) -> void:
+	RulesEngine.clear_los_memo()
 
 func _preload_layout_metadata() -> void:
 	# The converted official 11e layouts (index_11e.json) are the only

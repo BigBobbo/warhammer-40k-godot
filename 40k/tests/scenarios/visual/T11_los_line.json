@@ -1,52 +1,398 @@
 {
   "id": "T11_los_line",
-  "covers": ["design_guidelines.T11", "shooting.los_line"],
+  "covers": [
+    "design_guidelines.T11",
+    "shooting.los_line",
+    "scripts.LOSLineVisual",
+    "scripts.ShootingController._handle_board_hover",
+    "autoloads.RulesEngine.unit_sight_line",
+    "autoloads.TerrainManager.unit_has_cover_11e",
+    "autoloads.TerrainManager.load_terrain_from_save"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 8,
-  "description": "LOSLineVisual.compute_line(shooter, target) returns {from, to, color_slot, los_state}. Clear LOS yields CONFIRMED_GREEN; obscured yields MARGINAL_YELLOW; blocked yields INVALID_RED. We move WARBOSS_B between three positions to exercise each branch (open ground vs terrain piece between vs no path).",
-
+  "description": "T11 LOS line tool (design doc §6). With a shooter selected by clicking its token, a real mouse hover over an enemy unit draws ONE line through BoardRoot/LOSLineVisual from the shooter's base centre to the target's base centre, coloured by the rules engine's own verdict (RulesEngine.unit_sight_line for sight, TerrainManager.unit_has_cover_11e for 13.08 cover). Curated board on co_pretrigger (P2 shooting): Kaptin Badrukk at (400,1200), the Contemptor-Achillus at (1000,1200), the fixture's terrain replaced through TerrainManager.load_terrain_from_save by (a) open ground, (b) a light barricade between them hiding the top of the target's base (visible, not fully visible: cover), (c) a dense ruin across the line. Each sub-check asserts color_slot / los_state, the endpoints against the live token centres, the Line2D colour and 3px screen stroke, the captured pixel's slot colour, and that the rules predicates agree independently; pixel_diff on the los_line band (a part of the line no terrain touches) between (a)/(b) and (b)/(c) is > 5%; hover-off removes the line and its range label.",
+  "regions": {
+    "los_line": [
+      705,
+      532,
+      195,
+      16
+    ]
+  },
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/Main/BoardRoot/LOSLineVisual\") != null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line == null",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").compute_line(\"U_WARBOSS_B\", \"U_CUSTODIAN_GUARD_B\") != null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.from.x",
-      "expect_min": 0 },
-    { "act": "execute_script",
-      "script": "[\"CONFIRMED_GREEN\", \"MARGINAL_YELLOW\", \"INVALID_RED\"].has(get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.color_slot)",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "[\"clear\", \"obscured\", \"blocked\"].has(get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.los_state)",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual/Line\").visible",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").clear_line()" },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line == null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual/Line\").visible",
-      "equals": false },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").compute_line(\"\", \"\") == null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").compute_line(\"NOPE\", \"U_CUSTODIAN_GUARD_B\") == null",
-      "equals": true },
-
-    { "act": "expect_baseline_unchanged" }
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "emit_pressed": true,
+      "comment": "Player 2's drawn-secondaries review (not under test) is closed so the board is unobstructed."
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var d = tree.root.get_node_or_null(\"SecondaryMissionReviewDialog\")\nreturn (d == null or not d.visible) and ToastManager.active_toasts.is_empty()",
+      "equals": true,
+      "timeout_s": 8.0,
+      "poll_s": 0.25
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The hot-seat handoff screen eats input; acknowledge it the way the player's [Enter] does.",
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The tool's node is installed on BoardRoot and draws nothing before any hover.",
+      "script": "var lv = tree.root.get_node_or_null(\"Main/BoardRoot/LOSLineVisual\")\nif lv == null:\n\treturn \"no LOSLineVisual on BoardRoot\"\nif lv.current_line != null or lv.get_node(\"Line\").visible:\n\treturn \"a line is drawn before any hover\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Curated board, part 1: Kaptin Badrukk (P2, 40mm, 24\" Kustom mega-blasta) and the Contemptor-Achillus (P1, 60mm, VEHICLE: no in-area cover) 15\" apart on one horizontal line, and the fixture's terrain replaced through the save-load path by one far-away ruin (decor). Sub-check (a): open ground between them.",
+      "script": "var main = tree.root.get_node(\"Main\")\nvar units = GameState.state[\"units\"]\nunits[\"U_KAPTIN_BADRUKK_A\"][\"models\"][0][\"position\"] = {\"x\": 400.0, \"y\": 1200.0}\nunits[\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"][\"models\"][0][\"position\"] = {\"x\": 1000.0, \"y\": 1200.0}\nmain._recreate_unit_visuals()\nTerrainManager.load_terrain_from_save([{\"id\": \"t11_decor\", \"type\": \"ruins\", \"position\": [1500.0, 600.0], \"size\": [120.0, 120.0], \"height_category\": \"tall\", \"rotation\": 0.0, \"traits\": []}])\nGameState.state[\"board\"][\"terrain_features\"] = TerrainManager.terrain_features.duplicate(true)\nvar ids = PackedStringArray()\nfor f in TerrainManager.terrain_features:\n\tids.append(\"%s:%s\" % [str(f.id), TerrainManager.category_of(f)])\nreturn \",\".join(ids)",
+      "equals": "t11_decor:dense"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_decision([\"U_KAPTIN_BADRUKK_A\", \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"])",
+      "equals": true,
+      "comment": "Frame the pair (deterministic camera: zoom 1.0 centred on the line), so the los_line region is fixed."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_KAPTIN_BADRUKK_A",
+      "comment": "Player path: click the shooter's token to select it."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DontOfferAgainButton",
+      "emit_pressed": true,
+      "comment": "Selecting the shooter opens P2's 'selected to shoot' stratagem window (CLOSE-RANGE DAKKA), which holds the board's input until answered. Not under test: decline it for the phase, as a player would."
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nreturn d == null or not d.visible",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar ph = PhaseManager.get_current_phase_instance()\nreturn \"%s|%s\" % [sc.active_shooter_id, ph.active_shooter_id]",
+      "equals": "U_KAPTIN_BADRUKK_A|U_KAPTIN_BADRUKK_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_decision([\"U_KAPTIN_BADRUKK_A\", \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"])",
+      "equals": true,
+      "comment": "Re-frame in case selecting moved the camera."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = GameState.create_snapshot(false)\nvar sl = RulesEngine.unit_sight_line(\"U_KAPTIN_BADRUKK_A\", \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", b, false)\nvar cov = TerrainManager.unit_has_cover_11e(b[\"units\"][\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"], b[\"units\"][\"U_KAPTIN_BADRUKK_A\"][\"models\"][0])\nvar elig = tree.root.get_node(\"Main/ShootingController\").eligible_targets.has(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")\nreturn \"sees=%s cover=%s eligible=%s\" % [str(sl.has_los), str(cov), str(elig)]",
+      "comment": "Independent evidence for (a), straight from the rules predicates: sight, no 13.08 cover, a legal target.",
+      "equals": "sees=true cover=false eligible=true"
+    },
+    {
+      "act": "hover_board_at",
+      "x": 700.0,
+      "y": 1560.0,
+      "comment": "Empty board below the line: no enemy under the cursor."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LOSLineVisual\")\nvar sc = tree.root.get_node(\"Main/ShootingController\")\nif lv.current_line != null:\n\treturn \"current_line still set: %s\" % str(lv.current_line)\nif lv.get_node(\"Line\").visible:\n\treturn \"Line2D still visible\"\nfor c in sc.range_visual.get_children():\n\tif c.has_meta(\"is_range_label\") and not c.is_queued_for_deletion():\n\t\treturn \"the range label stayed behind\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "screenshot",
+      "label": "T11_before"
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+      "comment": "(a) Real mouse hover over the candidate target."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.color_slot",
+      "equals": "CONFIRMED_GREEN",
+      "comment": "Tier A (a): color_slot == CONFIRMED_GREEN"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.los_state",
+      "equals": "clear",
+      "comment": "Tier A (a): los_state == clear"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LOSLineVisual\")\nvar l = lv.current_line\nif l == null:\n\treturn \"no line drawn\"\nif l.shooter_id != \"U_KAPTIN_BADRUKK_A\" or l.target_id != \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\":\n\treturn \"wrong pair %s -> %s\" % [l.shooter_id, l.target_id]\nvar sp = GameState.get_unit(\"U_KAPTIN_BADRUKK_A\")[\"models\"][0][\"position\"]\nvar tp = GameState.get_unit(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")[\"models\"][0][\"position\"]\nvar s_w = Vector2(float(sp.x), float(sp.y))\nvar t_w = Vector2(float(tp.x), float(tp.y))\nif l.from.distance_to(s_w) > 0.5 or l.to.distance_to(t_w) > 0.5:\n\treturn \"endpoints %s -> %s are not the base centres %s -> %s\" % [str(l.from), str(l.to), str(s_w), str(t_w)]\nvar line = lv.get_node(\"Line\")\nif not line.visible or line.points.size() != 2 or line.points[0] != l.from or line.points[1] != l.to:\n\treturn \"Line2D does not run from -> to: visible=%s points=%s\" % [str(line.visible), str(line.points)]\nif not line.default_color.is_equal_approx(UIConstants.CONFIRMED_GREEN):\n\treturn \"Line2D painted %s, not CONFIRMED_GREEN\" % line.default_color.to_html()\nvar xf = line.get_global_transform_with_canvas()\nvar screen_w = line.width * absf(xf.get_scale().x)\nif absf(screen_w - 3.0) > 0.25:\n\treturn \"stroke is %.2f px on screen, not 3\" % screen_w\nvar main = tree.root.get_node(\"Main\")\nvar ends = {\"U_KAPTIN_BADRUKK_A\": xf * line.points[0], \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\": xf * line.points[1]}\nvar seen = 0\nfor tok in main.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif not tok.has_meta(\"unit_id\") or not ends.has(str(tok.get_meta(\"unit_id\"))):\n\t\tcontinue\n\tvar c = main.world_to_screen_position(tok.position)\n\tvar e = ends[str(tok.get_meta(\"unit_id\"))]\n\tif c.distance_to(e) > 1.0:\n\t\treturn \"line end %s is %.1f px from its token centre %s\" % [str(e), c.distance_to(e), str(c)]\n\tseen += 1\nif seen != 2:\n\treturn \"found %d of the 2 tokens\" % seen\nif tree.root.get_node_or_null(\"Main/BoardRoot/ShootingLoSVisual\") != null:\n\treturn \"the old red ShootingLoSVisual line still exists (two lines)\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Endpoints are the two base centres (board px AND on screen, against the live tokens), the Line2D is painted CONFIRMED_GREEN with a 3px on-screen stroke, and the old red line is gone."
+    },
+    {
+      "act": "screenshot",
+      "label": "T11_a_clear"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"user://test_results/scenarios/T11_los_line_T11_a_clear.png\"))\nif img == null:\n\treturn \"no capture\"\nvar lv = tree.root.get_node(\"Main/BoardRoot/LOSLineVisual\")\nvar line = lv.get_node(\"Line\")\nif lv.current_line == null or line.points.size() != 2:\n\treturn \"no line drawn\"\nvar p = line.get_global_transform_with_canvas() * line.points[0].lerp(line.points[1], 0.25)\nvar px = img.get_pixel(int(round(p.x)), int(round(p.y)))\nvar best = \"\"\nvar bd = 99.0\nfor slot in [\"CONFIRMED_GREEN\", \"MARGINAL_YELLOW\", \"INVALID_RED\"]:\n\tvar c = UIConstants.all_slots()[slot]\n\tvar d = absf(c.r - px.r) + absf(c.g - px.g) + absf(c.b - px.b)\n\tif d < bd:\n\t\tbd = d\n\t\tbest = slot\nif bd > 0.2:\n\treturn \"pixel %s at %s is no slot colour (nearest %s, %.2f)\" % [px.to_html(false), str(p), best, bd]\nreturn best",
+      "equals": "CONFIRMED_GREEN",
+      "comment": "The rendered frame: the pixel a quarter of the way along the line is CONFIRMED_GREEN."
+    },
+    {
+      "act": "hover_board_at",
+      "x": 700.0,
+      "y": 1560.0,
+      "comment": "Empty board below the line: no enemy under the cursor."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LOSLineVisual\")\nvar sc = tree.root.get_node(\"Main/ShootingController\")\nif lv.current_line != null:\n\treturn \"current_line still set: %s\" % str(lv.current_line)\nif lv.get_node(\"Line\").visible:\n\treturn \"Line2D still visible\"\nfor c in sc.range_visual.get_children():\n\tif c.has_meta(\"is_range_label\") and not c.is_queued_for_deletion():\n\t\treturn \"the range label stayed behind\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Tier B: the line (and its range label) disappears on hover-off."
+    },
+    {
+      "act": "screenshot",
+      "label": "T11_hover_off"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T11_a_clear",
+      "after": "T11_hover_off",
+      "region": "los_line",
+      "expect_min_pct": 5.0,
+      "comment": "Hover-off really removes the drawn line from the frame."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "TerrainManager.load_terrain_from_save([{\"id\": \"t11_decor\", \"type\": \"ruins\", \"position\": [1500.0, 600.0], \"size\": [120.0, 120.0], \"height_category\": \"tall\", \"rotation\": 0.0, \"traits\": []}, {\"id\": \"t11_light\", \"type\": \"barricade\", \"position\": [850.0, 1160.0], \"size\": [60.0, 50.0], \"height_category\": \"low\", \"rotation\": 0.0, \"traits\": []}])\nGameState.state[\"board\"][\"terrain_features\"] = TerrainManager.terrain_features.duplicate(true)\ntree.root.get_node(\"Main/ShootingController\").resync_from_phase()\nvar ids = PackedStringArray()\nfor f in TerrainManager.terrain_features:\n\tids.append(\"%s:%s\" % [str(f.id), TerrainManager.category_of(f)])\nreturn \",\".join(ids)",
+      "comment": "Curated board, part 2 (b): a light barricade (11e Obscuring) between the units, just above the line near the target. The centre-to-centre sight line passes under it; the lines to the top of the target's base cross it.",
+      "equals": "t11_decor:dense,t11_light:light"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nreturn d == null or not d.visible",
+      "equals": true,
+      "comment": "The resync did not re-open a stratagem window over the board."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = GameState.create_snapshot(false)\nvar sl = RulesEngine.unit_sight_line(\"U_KAPTIN_BADRUKK_A\", \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", b, false)\nvar cov = TerrainManager.unit_has_cover_11e(b[\"units\"][\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"], b[\"units\"][\"U_KAPTIN_BADRUKK_A\"][\"models\"][0])\nvar elig = tree.root.get_node(\"Main/ShootingController\").eligible_targets.has(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")\nreturn \"sees=%s cover=%s eligible=%s\" % [str(sl.has_los), str(cov), str(elig)]",
+      "comment": "Independent evidence for (b): still visible and still a legal target, but the 13.08 test gives the target the benefit of cover.",
+      "equals": "sees=true cover=true eligible=true"
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.color_slot",
+      "equals": "MARGINAL_YELLOW",
+      "comment": "Tier A (b): color_slot == MARGINAL_YELLOW"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.los_state",
+      "equals": "obscured",
+      "comment": "Tier A (b): los_state == obscured"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LOSLineVisual\")\nvar l = lv.current_line\nif l == null:\n\treturn \"no line drawn\"\nif l.shooter_id != \"U_KAPTIN_BADRUKK_A\" or l.target_id != \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\":\n\treturn \"wrong pair %s -> %s\" % [l.shooter_id, l.target_id]\nvar sp = GameState.get_unit(\"U_KAPTIN_BADRUKK_A\")[\"models\"][0][\"position\"]\nvar tp = GameState.get_unit(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")[\"models\"][0][\"position\"]\nvar s_w = Vector2(float(sp.x), float(sp.y))\nvar t_w = Vector2(float(tp.x), float(tp.y))\nif l.from.distance_to(s_w) > 0.5 or l.to.distance_to(t_w) > 0.5:\n\treturn \"endpoints %s -> %s are not the base centres %s -> %s\" % [str(l.from), str(l.to), str(s_w), str(t_w)]\nvar line = lv.get_node(\"Line\")\nif not line.visible or line.points.size() != 2 or line.points[0] != l.from or line.points[1] != l.to:\n\treturn \"Line2D does not run from -> to: visible=%s points=%s\" % [str(line.visible), str(line.points)]\nif not line.default_color.is_equal_approx(UIConstants.MARGINAL_YELLOW):\n\treturn \"Line2D painted %s, not MARGINAL_YELLOW\" % line.default_color.to_html()\nvar xf = line.get_global_transform_with_canvas()\nvar screen_w = line.width * absf(xf.get_scale().x)\nif absf(screen_w - 3.0) > 0.25:\n\treturn \"stroke is %.2f px on screen, not 3\" % screen_w\nvar main = tree.root.get_node(\"Main\")\nvar ends = {\"U_KAPTIN_BADRUKK_A\": xf * line.points[0], \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\": xf * line.points[1]}\nvar seen = 0\nfor tok in main.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif not tok.has_meta(\"unit_id\") or not ends.has(str(tok.get_meta(\"unit_id\"))):\n\t\tcontinue\n\tvar c = main.world_to_screen_position(tok.position)\n\tvar e = ends[str(tok.get_meta(\"unit_id\"))]\n\tif c.distance_to(e) > 1.0:\n\t\treturn \"line end %s is %.1f px from its token centre %s\" % [str(e), c.distance_to(e), str(c)]\n\tseen += 1\nif seen != 2:\n\treturn \"found %d of the 2 tokens\" % seen\nif tree.root.get_node_or_null(\"Main/BoardRoot/ShootingLoSVisual\") != null:\n\treturn \"the old red ShootingLoSVisual line still exists (two lines)\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "screenshot",
+      "label": "T11_b_obscured"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"user://test_results/scenarios/T11_los_line_T11_b_obscured.png\"))\nif img == null:\n\treturn \"no capture\"\nvar lv = tree.root.get_node(\"Main/BoardRoot/LOSLineVisual\")\nvar line = lv.get_node(\"Line\")\nif lv.current_line == null or line.points.size() != 2:\n\treturn \"no line drawn\"\nvar p = line.get_global_transform_with_canvas() * line.points[0].lerp(line.points[1], 0.25)\nvar px = img.get_pixel(int(round(p.x)), int(round(p.y)))\nvar best = \"\"\nvar bd = 99.0\nfor slot in [\"CONFIRMED_GREEN\", \"MARGINAL_YELLOW\", \"INVALID_RED\"]:\n\tvar c = UIConstants.all_slots()[slot]\n\tvar d = absf(c.r - px.r) + absf(c.g - px.g) + absf(c.b - px.b)\n\tif d < bd:\n\t\tbd = d\n\t\tbest = slot\nif bd > 0.2:\n\treturn \"pixel %s at %s is no slot colour (nearest %s, %.2f)\" % [px.to_html(false), str(p), best, bd]\nreturn best",
+      "equals": "MARGINAL_YELLOW"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T11_a_clear",
+      "after": "T11_b_obscured",
+      "region": "los_line",
+      "expect_min_pct": 5.0,
+      "comment": "Tier A: line region (a) vs (b) differs by > 5%."
+    },
+    {
+      "act": "hover_board_at",
+      "x": 700.0,
+      "y": 1560.0,
+      "comment": "Empty board below the line: no enemy under the cursor."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "TerrainManager.load_terrain_from_save([{\"id\": \"t11_decor\", \"type\": \"ruins\", \"position\": [1500.0, 600.0], \"size\": [120.0, 120.0], \"height_category\": \"tall\", \"rotation\": 0.0, \"traits\": []}, {\"id\": \"t11_dense\", \"type\": \"ruins\", \"position\": [700.0, 1200.0], \"size\": [80.0, 300.0], \"height_category\": \"tall\", \"rotation\": 0.0, \"traits\": []}])\nGameState.state[\"board\"][\"terrain_features\"] = TerrainManager.terrain_features.duplicate(true)\ntree.root.get_node(\"Main/ShootingController\").resync_from_phase()\nvar ids = PackedStringArray()\nfor f in TerrainManager.terrain_features:\n\tids.append(\"%s:%s\" % [str(f.id), TerrainManager.category_of(f)])\nreturn \",\".join(ids)",
+      "comment": "Curated board, part 3 (c): a dense ruin (blocking) right across the line.",
+      "equals": "t11_decor:dense,t11_dense:dense"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = GameState.create_snapshot(false)\nvar sl = RulesEngine.unit_sight_line(\"U_KAPTIN_BADRUKK_A\", \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", b, false)\nvar cov = TerrainManager.unit_has_cover_11e(b[\"units\"][\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"], b[\"units\"][\"U_KAPTIN_BADRUKK_A\"][\"models\"][0])\nvar elig = tree.root.get_node(\"Main/ShootingController\").eligible_targets.has(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")\nreturn \"sees=%s cover=%s eligible=%s\" % [str(sl.has_los), str(cov), str(elig)]",
+      "comment": "Independent evidence for (c): no sight line, so the target list drops the Contemptor (proves the target list re-judged the new terrain too).",
+      "equals": "sees=false cover=true eligible=false"
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.color_slot",
+      "equals": "INVALID_RED",
+      "comment": "Tier A (c): color_slot == INVALID_RED"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.los_state",
+      "equals": "blocked",
+      "comment": "Tier A (c): los_state == blocked"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LOSLineVisual\")\nvar l = lv.current_line\nif l == null:\n\treturn \"no line drawn\"\nif l.shooter_id != \"U_KAPTIN_BADRUKK_A\" or l.target_id != \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\":\n\treturn \"wrong pair %s -> %s\" % [l.shooter_id, l.target_id]\nvar sp = GameState.get_unit(\"U_KAPTIN_BADRUKK_A\")[\"models\"][0][\"position\"]\nvar tp = GameState.get_unit(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")[\"models\"][0][\"position\"]\nvar s_w = Vector2(float(sp.x), float(sp.y))\nvar t_w = Vector2(float(tp.x), float(tp.y))\nif l.from.distance_to(s_w) > 0.5 or l.to.distance_to(t_w) > 0.5:\n\treturn \"endpoints %s -> %s are not the base centres %s -> %s\" % [str(l.from), str(l.to), str(s_w), str(t_w)]\nvar line = lv.get_node(\"Line\")\nif not line.visible or line.points.size() != 2 or line.points[0] != l.from or line.points[1] != l.to:\n\treturn \"Line2D does not run from -> to: visible=%s points=%s\" % [str(line.visible), str(line.points)]\nif not line.default_color.is_equal_approx(UIConstants.INVALID_RED):\n\treturn \"Line2D painted %s, not INVALID_RED\" % line.default_color.to_html()\nvar xf = line.get_global_transform_with_canvas()\nvar screen_w = line.width * absf(xf.get_scale().x)\nif absf(screen_w - 3.0) > 0.25:\n\treturn \"stroke is %.2f px on screen, not 3\" % screen_w\nvar main = tree.root.get_node(\"Main\")\nvar ends = {\"U_KAPTIN_BADRUKK_A\": xf * line.points[0], \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\": xf * line.points[1]}\nvar seen = 0\nfor tok in main.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif not tok.has_meta(\"unit_id\") or not ends.has(str(tok.get_meta(\"unit_id\"))):\n\t\tcontinue\n\tvar c = main.world_to_screen_position(tok.position)\n\tvar e = ends[str(tok.get_meta(\"unit_id\"))]\n\tif c.distance_to(e) > 1.0:\n\t\treturn \"line end %s is %.1f px from its token centre %s\" % [str(e), c.distance_to(e), str(c)]\n\tseen += 1\nif seen != 2:\n\treturn \"found %d of the 2 tokens\" % seen\nif tree.root.get_node_or_null(\"Main/BoardRoot/ShootingLoSVisual\") != null:\n\treturn \"the old red ShootingLoSVisual line still exists (two lines)\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast == null",
+      "equals": true,
+      "comment": "A blocked target is not a legal target: the line explains it, and no T05 forecast card offers a shot."
+    },
+    {
+      "act": "screenshot",
+      "label": "T11_c_blocked"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"user://test_results/scenarios/T11_los_line_T11_c_blocked.png\"))\nif img == null:\n\treturn \"no capture\"\nvar lv = tree.root.get_node(\"Main/BoardRoot/LOSLineVisual\")\nvar line = lv.get_node(\"Line\")\nif lv.current_line == null or line.points.size() != 2:\n\treturn \"no line drawn\"\nvar p = line.get_global_transform_with_canvas() * line.points[0].lerp(line.points[1], 0.25)\nvar px = img.get_pixel(int(round(p.x)), int(round(p.y)))\nvar best = \"\"\nvar bd = 99.0\nfor slot in [\"CONFIRMED_GREEN\", \"MARGINAL_YELLOW\", \"INVALID_RED\"]:\n\tvar c = UIConstants.all_slots()[slot]\n\tvar d = absf(c.r - px.r) + absf(c.g - px.g) + absf(c.b - px.b)\n\tif d < bd:\n\t\tbd = d\n\t\tbest = slot\nif bd > 0.2:\n\treturn \"pixel %s at %s is no slot colour (nearest %s, %.2f)\" % [px.to_html(false), str(p), best, bd]\nreturn best",
+      "equals": "INVALID_RED"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T11_b_obscured",
+      "after": "T11_c_blocked",
+      "region": "los_line",
+      "expect_min_pct": 5.0,
+      "comment": "Tier A: line region (b) vs (c) differs by > 5%."
+    },
+    {
+      "act": "hover_board_at",
+      "x": 700.0,
+      "y": 1560.0,
+      "comment": "Empty board below the line: no enemy under the cursor."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LOSLineVisual\")\nvar sc = tree.root.get_node(\"Main/ShootingController\")\nif lv.current_line != null:\n\treturn \"current_line still set: %s\" % str(lv.current_line)\nif lv.get_node(\"Line\").visible:\n\treturn \"Line2D still visible\"\nfor c in sc.range_visual.get_children():\n\tif c.has_meta(\"is_range_label\") and not c.is_queued_for_deletion():\n\t\treturn \"the range label stayed behind\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "screenshot",
+      "label": "T11_after"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T11_before",
+      "after": "T11_after",
+      "region": "los_line",
+      "expect_max_pct": 1.0,
+      "comment": "No residue: with nothing hovered the line region matches the frame before any hover."
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

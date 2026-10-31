@@ -352,6 +352,7 @@ TESTS=(
     "tests/test_two_ring_token.gd"
     "tests/test_unit_exhaustion.gd"
     "tests/test_threat_overlay.gd"
+    "tests/test_los_line_visual.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

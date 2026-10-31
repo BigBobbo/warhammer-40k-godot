@@ -876,7 +876,7 @@ Locks in use:
     on the key-up rather than the key-down. (f) The vs-AI viewer and the focus-loss release are
     verified headless only.
 
-- [ ] **T11 — LOS line tool**
+- [x] **T11 — LOS line tool**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/ShootingController.gd`, new `40k/scripts/LOSLineVisual.gd`,
     reuse existing LOS math
@@ -899,9 +899,45 @@ Locks in use:
     - `pixel_diff` between (b) and (c): `regions["los_line"].diff_pct > 5.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Three distinct colors in three screenshots.
-    - [ ] Line endpoints anchored to base centers.
-    - [ ] Line disappears on hover-off.
+    - [x] Three distinct colors in three screenshots.
+      *(T11_a_clear green, T11_b_obscured yellow, T11_c_blocked red. The scenario also reads
+      the captured pixel a quarter of the way along the line back to CONFIRMED_GREEN /
+      MARGINAL_YELLOW / INVALID_RED.)*
+    - [x] Line endpoints anchored to base centers.
+      *(Enlarged crops of all three captures: the end dots sit on the centres of the Kaptin
+      Badrukk and Contemptor tokens. The scenario checks both ends within 1px of the live
+      token centres on screen, and within 0.5px of the model positions.)*
+    - [x] Line disappears on hover-off.
+      *(T11_hover_off and T11_after show no line and no range label. The los_line band differs
+      by 18.75% between (a) and hover-off, and by 0.0% between before and after.)*
+  - **Note (2026-10-31 audit):** LOSLineVisual and its BoardRoot install had shipped, but
+    nothing drew it. Hovering still drew ShootingController's plain red line, only for eligible
+    targets. The verdict came from LineOfSightManager.check_los (10e point rules) plus "any
+    non-tall terrain on the centre line = obscured", so an 11e barricade between the units read
+    yellow for a target the rules cannot see. The old scenario called compute_line directly and
+    accepted any of the three states. Now ShootingController._handle_board_hover draws the line
+    for every enemy under the cursor, eligible or not. It clears the line and its range label on
+    hover-off, over the HUD, and when the shooter changes. The verdict is
+    RulesEngine.unit_sight_line (the eligibility predicate) for sight, plus
+    TerrainManager.unit_has_cover_11e (13.08, or a stratagem cover flag) for the firing model the
+    line starts from. The line runs between that pair's base centres, 3px on screen at any zoom,
+    above the tokens, with end dots. Also fixed: RulesEngine's sight-line memo was never
+    invalidated, because snapshots nest terrain under board.board and its epoch guard read null.
+    TerrainManager now clears it on terrain_loaded. Without that, the target list and the line
+    kept the old terrain's verdicts. Evidence: the scenario passes 67/67, and fails 18 steps on
+    the old code. pixel_diff on the los_line band: (a)/(b) 18.75%, (b)/(c) 18.75%. New gated
+    test `tests/test_los_line_visual.gd` (54 checks); 7 scratch sabotage probes each turn it red.
+    Visual suite: 42 pass (baseline 41), with T23, T27 and T39 failing at their known steps and
+    T45 XFAIL. 15 of the 16 sp scenarios this change can reach pass; terrain_11e_menu_matchup
+    fails the same way on the HEAD code (menu disposition defaults, unrelated). Deviations:
+    (a) the scenario installs the curated terrain through TerrainManager.load_terrain_from_save
+    on co_pretrigger, not from a separate .w40ksave.
+    (b) "Obscured" means the target has the benefit of cover (doc §6 "cover saves"), judged for
+    the model the line starts from. A squad whose other models see the target differently can
+    still show "Cover from N% of models" on the T05 card. (c) Blocked lines are drawn for
+    ineligible enemies too, since red could never show otherwise. (d) The old red
+    ShootingLoSVisual line is gone, and T06's hover check now reads LOSLineVisual.
+    (e) current_line also carries shooter_id and target_id.
 
 - [ ] **T12 — Refactor existing visual scripts to consume UIConstants**
   - **Lock:** UIConstants + all visual scripts (serial — blocks other visual streams)

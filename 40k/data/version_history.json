@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.65.0",
+      "date": "2026-10-31",
+      "summary": "In the Shooting phase, point at an enemy unit with a shooter selected and a line runs from your model to theirs: green if you can see it, yellow if it has cover, red if terrain blocks the shot.",
+      "changes": [
+        "With a unit selected to shoot, rest the cursor on any enemy unit to see one line from the centre of your model's base to the centre of theirs. Move the cursor off the unit and the line disappears.",
+        "Green: your unit can see it and it has no cover. Yellow: you can see it, but it has the benefit of cover, so your shots hit on a worse roll. Red: no model in your unit can see any model in theirs, so you cannot shoot it.",
+        "Red lines also show on enemies you cannot target, so you can see why they are missing from the target list. The distance still shows in the middle of the line.",
+        "The colours follow the same line-of-sight and cover rules the dice use. A barricade between the two units now shows red, because light terrain blocks sight lines in 11th edition; before, it showed as only cover. The line starts from the model that can actually see the target.",
+        "The line keeps the same thickness at every zoom and is drawn over the models, so both ends sit on the base centres. It replaces the plain red line that used to show only for legal targets.",
+        "Fixed: after the terrain changed, for example when a different layout was loaded, line of sight and the target list could keep giving answers for the old terrain."
+      ]
+    },
+    {
       "version": "1.64.0",
       "date": "2026-10-31",
       "summary": "Hold Tab to see where the enemy can shoot and charge you: each enemy unit's shooting range is shaded yellow and its 12\" charge range red, one clear ring per unit, until you let go.",

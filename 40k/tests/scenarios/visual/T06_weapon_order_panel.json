@@ -224,9 +224,9 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar hov = tree.root.get_viewport().gui_get_hovered_control()\nif hov != null:\n\treturn \"a Control swallows the mouse over the board: %s\" % hov.get_path()\nif sc.los_visual == null or sc.los_visual.get_point_count() < 2:\n\treturn \"the board did not react to the hover (no shooter-to-target LoS line)\"\nreturn \"ok\"",
+      "script": "var hov = tree.root.get_viewport().gui_get_hovered_control()\nif hov != null:\n\treturn \"a Control swallows the mouse over the board: %s\" % hov.get_path()\nvar lv = tree.root.get_node_or_null(\"Main/BoardRoot/LOSLineVisual\")\nif lv == null or lv.current_line == null or str(lv.current_line.target_id) != \"U_WITCHSEEKERS_C\" or not lv.get_node(\"Line\").visible:\n\treturn \"the board did not react to the hover (no shooter-to-target LoS line)\"\nreturn \"ok\"",
       "equals": "ok",
-      "comment": "Over the Witchseekers no Control is hovered, and the board's own hover handling draws the shooter-to-target LoS line."
+      "comment": "Over the Witchseekers no Control is hovered, and the board's own hover handling draws the shooter-to-target LoS line (T11: BoardRoot/LOSLineVisual, which replaced the controller's plain red ShootingLoSVisual line)."
     },
     {
       "act": "click_unit",

@@ -139,7 +139,10 @@ var _shown_save_broadcast_ids: Array = []  # Recent broadcast ids the defender h
 const SHOWN_SBID_HISTORY_CAP: int = 32  # Trim to last N to keep memory bounded
 
 # UI References (board_view / hud_bottom / hud_right live in PhaseControllerBase)
-var los_visual: Line2D
+# T11: the line current_line of BoardRoot/LOSLineVisual this controller last
+# drew on hover (null when none) — lets _process drop it for a stale shooter
+# without a node lookup every frame, and skips redrawing an unchanged line.
+var _last_drawn_los_line = null
 var range_visual: Node2D
 var target_highlights: Node2D
 var los_debug_visual: Node2D  # New LoS debug visualization
@@ -226,8 +229,6 @@ var _no_targets_reported_unit: String = ""
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
 const HIGHLIGHT_COLOR_INELIGIBLE = Color.GRAY
 const HIGHLIGHT_COLOR_SELECTED = Color.YELLOW
-const LOS_LINE_COLOR = Color.RED
-const LOS_LINE_WIDTH = 2.0
 const SHOOTING_LINE_COLOR = Color(1.0, 0.5, 0.0, 0.8)  # Orange for shooting lines
 const SHOOTING_LINE_WIDTH = 3.0
 
@@ -527,6 +528,11 @@ func _unit_screen_anchor(unit_id: String) -> Vector2:
 
 
 func _process(_delta: float) -> void:
+	# T11: the hover LoS line belongs to the shooter that drew it — drop it the
+	# moment that shooter is deselected or replaced.
+	if _last_drawn_los_line != null and (active_shooter_id == "" \
+			or str(_last_drawn_los_line.get("shooter_id", "")) != active_shooter_id):
+		_clear_los_line()
 	# T05: drop the hover card the moment it stops being actionable (shooter
 	# deselected or switched, target no longer eligible, resolution started)...
 	if current_hover_forecast == null:
@@ -553,8 +559,9 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	# Clean up visual elements (existing)
-	if los_visual and is_instance_valid(los_visual):
-		los_visual.queue_free()
+	# T11: the LOS line node is Main's persistent BoardRoot layer — clear the
+	# line, never free the node (the next shooting phase draws through it).
+	_clear_los_line()
 	if range_visual and is_instance_valid(range_visual):
 		range_visual.queue_free()
 	if target_highlights and is_instance_valid(target_highlights):
@@ -615,15 +622,10 @@ func _create_shooting_visuals() -> void:
 		print("ERROR: Cannot find BoardRoot for visual layers")
 		return
 	
-	# Create LoS visualization line
-	los_visual = Line2D.new()
-	los_visual.name = "ShootingLoSVisual"
-	los_visual.width = LOS_LINE_WIDTH
-	los_visual.default_color = LOS_LINE_COLOR
-	los_visual.add_point(Vector2.ZERO)
-	los_visual.clear_points()
-	board_root.add_child(los_visual)
-	
+	# T11: the hover LoS line is drawn by Main's persistent
+	# BoardRoot/LOSLineVisual (see _draw_los_line), which replaced the plain
+	# red ShootingLoSVisual line this controller used to create here.
+
 	# LoS debug visualization — reuse the persistent BoardRoot node Main
 	# creates (2026-07-12) so the L overlay works outside the shooting phase
 	# too; only create one here if it is somehow missing.
@@ -1891,48 +1893,56 @@ func _get_closest_range_inches(from_unit_id: String, to_unit_id: String) -> floa
 		return -1.0
 	return Measurement.px_to_inches(min_dist)
 
+# T11 (design doc §6): the LOS line tool. One line from a shooter model's base
+# centre to a target model's base centre, coloured by the rules engine's own
+# verdict (BoardRoot/LOSLineVisual: green clear / yellow obscured — the target
+# has the benefit of cover / red blocked), with the closest edge-to-edge range
+# at its midpoint. It replaced a plain red line between the closest models
+# that said nothing about what the shooter could see.
 func _draw_los_line(from_unit_id: String, to_unit_id: String) -> void:
-	if not los_visual or not current_phase:
+	var lv = _los_line_visual()
+	if lv == null or not current_phase:
 		return
-	
-	los_visual.clear_points()
-	
-	var from_unit = current_phase.get_unit(from_unit_id)
-	var to_unit = current_phase.get_unit(to_unit_id)
-	
-	if from_unit.is_empty() or to_unit.is_empty():
+	var line = lv.show_line(from_unit_id, to_unit_id)
+	if line == null:
+		_clear_los_line()
 		return
-	
-	# Find closest models between units
-	var min_distance = INF
-	var from_pos = Vector2.ZERO
-	var to_pos = Vector2.ZERO
-	
-	for from_model in from_unit.get("models", []):
-		if not from_model.get("alive", true):
-			continue
-		var f_pos = _get_model_position(from_model)
+	if is_same(line, _last_drawn_los_line):
+		return  # same verdict, same line: nothing to redraw
+	_last_drawn_los_line = line
+	DebugLogger.info("ShootingController: T11 LOS line %s -> %s: %s (%s)" % [
+		from_unit_id, to_unit_id, str(line.los_state), str(line.color_slot)])
+	var range_inches := _get_closest_range_inches(from_unit_id, to_unit_id)
+	if range_inches >= 0.0:
+		_show_range_label((line.from + line.to) / 2.0, "%.1f\"" % range_inches)
 
-		for to_model in to_unit.get("models", []):
-			if not to_model.get("alive", true):
-				continue
-			var t_pos = _get_model_position(to_model)
 
-			# Use shape-aware edge-to-edge distance
-			var dist = Measurement.model_to_model_distance_px(from_model, to_model)
-			if dist < min_distance:
-				min_distance = dist
-				from_pos = f_pos
-				to_pos = t_pos
+# T11: hide the hover LoS line and the range label that goes with it.
+func _clear_los_line() -> void:
+	if _last_drawn_los_line != null:
+		DebugLogger.info("ShootingController: T11 LOS line cleared")
+	_last_drawn_los_line = null
+	var lv = _los_line_visual()
+	if lv != null and lv.current_line != null:
+		lv.clear_line()
+	_clear_range_label()
 
-	if from_pos != Vector2.ZERO and to_pos != Vector2.ZERO:
-		los_visual.add_point(from_pos)
-		los_visual.add_point(to_pos)
 
-		# Add range indicator using edge-to-edge distance
-		var range_inches = Measurement.px_to_inches(min_distance)
-		var mid_point = (from_pos + to_pos) / 2
-		_show_range_label(mid_point, "%.1f\"" % range_inches)
+# T11: Main installs LOSLineVisual on BoardRoot for the whole game; this
+# controller only tells it which pair to draw.
+func _los_line_visual() -> Node:
+	var board_root = SceneRefs.board_root()
+	if board_root == null:
+		return null
+	return board_root.get_node_or_null("LOSLineVisual")
+
+
+func _clear_range_label() -> void:
+	if not range_visual or not is_instance_valid(range_visual):
+		return
+	for child in range_visual.get_children():
+		if child.has_meta("is_range_label"):
+			child.queue_free()
 
 func _show_range_label(position: Vector2, text: String) -> void:
 	if not range_visual:
@@ -2076,9 +2086,8 @@ func _clear_visuals() -> void:
 	# T05: the hover forecast card goes with the board visuals
 	_clear_hover_forecast()
 
-	# Clear LoS line
-	if los_visual and is_instance_valid(los_visual):
-		los_visual.clear_points()
+	# T11: clear the hover LoS line
+	_clear_los_line()
 
 	# Clear range indicators (this clears children of range_visual)
 	_clear_range_indicators()
@@ -5782,21 +5791,24 @@ func _handle_board_hover(position: Vector2, screen_pos: Vector2 = Vector2.INF) -
 		screen_pos = get_viewport().get_mouse_position()
 	# T05: over a HUD panel the board underneath is not what the player points at.
 	if _screen_pos_over_hud(screen_pos):
-		if los_visual:
-			los_visual.clear_points()
+		_clear_los_line()
 		_clear_hover_forecast()
 		return
-	# Show LoS line to hovered target, and the T05 hover forecast card for it
 	var hovered_id := _enemy_unit_at_board_position(position)
-	if hovered_id != "" and eligible_targets.has(hovered_id):
-		_draw_los_line(active_shooter_id, hovered_id)
-		_set_hover_target(hovered_id, screen_pos)
+	if hovered_id == "":
+		# Not over an enemy: the LoS line (and the forecast card) go away.
+		_clear_los_line()
+		_clear_hover_forecast()
 		return
-
-	# Clear LoS (and the forecast card) if not hovering a target
-	if los_visual:
-		los_visual.clear_points()
-	_clear_hover_forecast()
+	# T11: the LoS line answers "can my unit see that one?" for EVERY enemy
+	# under the cursor — a blocked one included, which is never in
+	# eligible_targets — so it is drawn before the eligibility gate. The T05
+	# forecast card only describes a shot the player can actually take.
+	_draw_los_line(active_shooter_id, hovered_id)
+	if eligible_targets.has(hovered_id):
+		_set_hover_target(hovered_id, screen_pos)
+	else:
+		_clear_hover_forecast()
 
 # Explain in the dice log + a toast why the active shooter has no eligible
 # targets at all (out of range / no line of sight / engagement / Lone
