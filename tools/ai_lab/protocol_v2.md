@@ -93,3 +93,24 @@ commit time fixes the order. Applies to every new data collection from now on.
 No pull requests; push only to claude/awesome-clarke-31p54m; never claim a result that was
 not run; never remove debug logs; wait on conditions, never a bare sleep; archive each sibling
 session after its result is read.
+
+## Arm registrations
+
+### AUD — V2-4 rules-audit bundle (registered 2026-10-31 12:27 UTC, before its first bench game)
+- Candidate: commit ca913e2 with `bash tools/ai_lab/audit_fixes/flip.sh` (no arguments) applied in the worker, which
+  turns ON the 11 fixes that passed the V2-1 fix gate: FIX_OBJ_AREA_REACH, FIX_OBJ_AREA_ON_OBJ, FIX_OBJ_AREA_HOLD,
+  FIX_EOG_TIMING, FIX_MOVE_TERRAIN_11E, FIX_CHARGE_OW_11E, FIX_HI_CHARGE_ODDS, FIX_CHARGE_REROLL_ODDS,
+  FIX_PILEIN_TARGETS_11E, FIX_ADV_ENGINE_PREDICATES, FIX_WAAAGH_ADV_REROLL. Parked (stay 0): FIX_SECURED_AWARE (0 lines
+  per game), FIX_CO_NEXT_PICK (0.83). Base: SHIP = e12e6e8 (1.56.8), extracted with ai_versions.py.
+- Fix-gate counting (registered 06:5x, before the gate data): a fix's [FIX_<NAME>] line prints once per evaluation where
+  the fix changes a value the old code used; pass = >= 1.0 line per game over the 6 gate games.
+- Design: V2-2 as above (looks 124/248/372 pairs on the registered seeds; --rules11e; difficulty 3; --max-seconds 1800,
+  2400 for the Orks mirror; --lanes = nproc; one arm per container season). Decision by .ai_lab_work/decide_v2.py with
+  file pattern 'aud_%s_SHIP_'.
+- Ship only on efficacy (z >= 3.710 / 2.512 / 1.993 at looks 1 / 2 / 3 AND no fixture 95% CI wholly below 0).
+  Futility (non-binding): stop at look 1 or 2 if pooled E <= 0. No switch-off arms unless efficacy is crossed.
+- No extra fixture gate for this arm: the proposed current-list fixture (tools/ai_lab/fixture_proposal.md) is not built;
+  if it is built later, its result is information only for AUD.
+- Per-tag fire counts are reported for information. If AUD ships: the 11 consts become 1.0, a version_history.json entry,
+  a windowed scenario + live screenshot, and the 6 unit-test checks that fail with all fixes on are updated (they assume
+  the other new fixes are off).
