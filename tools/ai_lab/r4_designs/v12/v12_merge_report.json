@@ -1,0 +1,456 @@
+{
+ "head_sha": "c9aa3135b8fe30f5b57efcad20c5d6acef68caf3",
+ "tip": "06663b2ccd6bd55e3efeea05d57814a406b2b58c",
+ "worktree": "/home/user/warhammer-40k-godot/.ai_lab_work/wt_v12",
+ "conflicts": [
+  {
+   "where": "40k/scripts/AIDecisionMaker.gd const block after FIX_HELD_DUP",
+   "v10_side": "FIX_LONE_FLIP 1.0",
+   "v11b_side": "FIX_R1_HOME_CAPTURE 0.0, FIX_R1_SUPPORT_ADVANCE 1.0",
+   "resolution": "kept both blocks, V10's first; no line changed"
+  },
+  {
+   "where": "40k/scripts/AIDecisionMaker.gd const block after FIX_CHARGE_EV",
+   "v10_side": "FIX_REINFORCE_INSURANCE, FIX_RI_RACE, FIX_RI_ASSAULT, FIX_RI_QUARTER, RI_QUARTER_LATER_ROUND_SHARE, RI_RACE_LOST_RATIO",
+   "v11b_side": "FIX_WAAAGH_ADVANCE_CHARGE 1.0",
+   "resolution": "kept both blocks, V10's first; no line changed"
+  },
+  {
+   "where": "all other hunks",
+   "resolution": "the other 9 AI-file hunks (_melee_chase_gate x2, _rile_pending_on_selection, R1SA/R1-HOME helpers after _keeper_release_threat, candidate keys long_adv/race_lost_walk, R1-HOME-LAST before/in/after pass 2, R1SA in pass 3) and the 2 new test files applied cleanly with git apply -3. V12 minus TIP = exactly V11b's 375 added AI lines, same order, 0 deletions. Every fix keeps its own FIX_ const read through get_param."
+  },
+  {
+   "where": "[ASSAULT] helpers",
+   "resolution": "not deduped. _ri_ranged_all_assault (V10 RI-ASSAULT) matches the comma token 'assault' and is false for a unit with no ranged weapon. The inline loop in _r1sa_advance_costs_shooting (V11b R1SA) matches the substring 'assault' and is true for a unit with no ranged weapon. They are not identical, so each stays as written under its own switch."
+  }
+ ],
+ "tests": [
+  {
+   "file": "tests/unit/test_ai_fix_lone_flip.gd",
+   "result": "16 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_fix_reinforce_insurance.gd",
+   "result": "24 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_fix_waaagh_advance_charge.gd",
+   "result": "10 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_fix_r1_home_capture.gd",
+   "result": "29 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_fix_keeper_release.gd",
+   "result": "52 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_fix_held_dup.gd",
+   "result": "14 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_fix_lone_trip.gd",
+   "result": "8 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_movement_decisions.gd",
+   "result": "36 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_charge_decisions.gd",
+   "result": "62 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_plan_earmarks.gd",
+   "result": "35 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_objective_race.gd",
+   "result": "16 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_race_army.gd",
+   "result": "3 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_rollout_override.gd",
+   "result": "11 passed, 0 failed"
+  },
+  {
+   "file": "tests/unit/test_ai_multi_phase_planning.gd",
+   "result": "34 passed, 0 failed"
+  },
+  {
+   "file": "tests/test_ai_objective_assignment_fixes.gd",
+   "result": "6 passed, 1 failed (pre-existing: '[FAIL] unit arriving in fewer turns keeps obj_1 - FAST->obj_1, PLOD->obj_1'; the same assertion fails 6/1 on TIP's AI file, re-run here)"
+  }
+ ],
+ "identity": [
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6",
+   "finding": "waaagh_advance_charge",
+   "unit": "Stormboyz",
+   "same": true,
+   "v12_switches_off": "Stormboyz advances to attack Prosecutor Squad (12.0\" away - closing to charge range (0.0\" after move))",
+   "v10": "Stormboyz advances to attack Prosecutor Squad (12.0\" away - closing to charge range (0.0\" after move))",
+   "full_trajectory_same": true,
+   "actions": 72,
+   "vp_same": true,
+   "ai_log_lines_same": "2127 of 2127 (timestamps removed)"
+  },
+  {
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0",
+   "finding": "r1_home_capture (R1-SUPPORT-ADVANCE)",
+   "unit": "Custodian Guard Sodality Gamma",
+   "same": true,
+   "v12_switches_off": "Custodian Guard Sodality Gamma moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 20.0\" away)",
+   "v10": "Custodian Guard Sodality Gamma moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 20.0\" away)",
+   "full_trajectory_same": true,
+   "actions": 54,
+   "vp_same": true,
+   "ai_log_lines_same": "735 of 735 (timestamps removed)"
+  },
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4",
+   "finding": "reinforce_insurance",
+   "unit": "Custodian Guard Sodality Beta",
+   "same": true,
+   "v12_switches_off": "Custodian Guard Sodality Beta advances toward obj_nml_2 (racing for it (enemy can have ~26 OC there before we arrive in 2 turns), needs 2 more OC after this unit)",
+   "v10": "Custodian Guard Sodality Beta advances toward obj_nml_2 (racing for it (enemy can have ~26 OC there before we arrive in 2 turns), needs 2 more OC after this unit)",
+   "full_trajectory_same": true,
+   "actions": 108,
+   "vp_same": true,
+   "ai_log_lines_same": "3925 of 3925 (timestamps removed)"
+  }
+ ],
+ "identity_method": "V12 with FIX_WAAAGH_ADVANCE_CHARGE=0 and FIX_R1_SUPPORT_ADVANCE=0 (temporary const edits, AI md5 ffe2ce46) vs TIP's AI file checked out into the worktree (md5 decd649b); both restored to V12 (md5 5ea8460d). Tags v12off_* and v10_*, seed 5001, horizon 1.",
+ "decision_checks": [
+  {
+   "fix": "waaagh_advance_charge",
+   "job": "20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6",
+   "final_choice": "Stormboyz Normal-moves to attack Prosecutor Squad; declares charge (92%) and charges (rolled 7\"), fights with Rokkit Charge",
+   "v12_choice": "Stormboyz moves to attack Prosecutor Squad (12.0\" away — closing to charge range (0.0\" after move)) | Stormboyz declares charge against Prosecutor Squad (92% chance, 3.3\" away, expected 11.9 melee dmg vs 3 HP, overwatch risk: 1.0 dmg) | Stormboyz charges into Prosecutor Squad (rolled 7\")",
+   "same": true,
+   "v12_tag": "v12_s7468_r3_p2_movement_2_6",
+   "v12_fire_lines": [
+    "[WAAAGH_ADVANCE_CHARGE] Stormboyz (P2 Orks) Normal-moves toward Prosecutor Squad (12.0\" away, 0.0\" after move) — no active advance-and-charge effect, an Advance would forfeit the charge"
+   ]
+  },
+  {
+   "fix": "waaagh_advance_charge",
+   "job": "20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5",
+   "final_choice": "same (Advance kept, [WAAAGH_ADVANCE_CHARGE] 'keeps the Advance - Keep Huntin'! will rile it'); then charges Allarus Custodians (rolled 10\")",
+   "v12_choice": "Beast Snagga Boyz advances to attack Allarus Custodians (9.5\" away — closing to charge range (3.5\" after move)) | Beast Snagga Boyz declares a charge at Allarus Custodians + Prosecutor Squad — targets picked after the roll: Allarus Custodians on 3+ (97%), Prosecutor Squad on 9+ (28%), overwatch risk: 0.3 dmg | Beast Snagga Boyz charges into Allarus Custodians (rolled 10\")",
+   "same": true,
+   "v12_tag": "v12_s7473_r3_p1_movement_2_5",
+   "v12_fire_lines": [
+    "[WAAAGH_ADVANCE_CHARGE] Beast Snagga Boyz (P1 Orks) keeps the Advance - Keep Huntin'! will rile it when it is selected to move"
+   ]
+  },
+  {
+   "fix": "waaagh_advance_charge",
+   "job": "20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4 (extra)",
+   "final_choice": "Stormboyz Normal-moves to attack Blade Champion Gamma, same destination pos (880,1200); declares charge (97%) and charges (rolled 10\")",
+   "v12_choice": "Stormboyz moves to attack Blade Champion Gamma (8.8\" away — closing to charge range (0.0\" after move)) | Stormboyz declares charge against Blade Champion Gamma (97% chance, 2.1\" away, expected 8.0 melee dmg vs 5 HP, overwatch risk: 1.0 dmg) | Stormboyz charges into Blade Champion Gamma (rolled 10\")",
+   "same": true,
+   "v12_tag": "v12_s7418_r3_p2_movement_1_4",
+   "v12_fire_lines": [
+    "[WAAAGH_ADVANCE_CHARGE] Stormboyz (P2 Orks) Normal-moves toward Blade Champion Gamma (8.8\" away, 0.0\" after move) — no active advance-and-charge effect, an Advance would forfeit the charge"
+   ]
+  },
+  {
+   "fix": "r1_home_capture",
+   "job": "20261030_160517_r4c17_00__s7468_r1_p1_movement_1_0",
+   "final_choice": "Gamma moves toward obj_home_1 (capturing it (uncontrolled), 9.4\" away)",
+   "v12_choice": "Custodian Guard Sodality Gamma moves toward obj_home_1 (capturing it (uncontrolled), obj: 9.4\" away)",
+   "same": true,
+   "v12_tag": "v12_s7468_r1_p1_movement_1_0"
+  },
+  {
+   "fix": "r1_home_capture",
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0",
+   "final_choice": "Gamma ADVANCES toward obj_center (reinforcing — advancing to arrive a turn sooner) via [R1_SUPPORT_ADVANCE]",
+   "v12_choice": "Custodian Guard Sodality Gamma advances toward obj_center (reinforcing obj_center (1 unit already committed) — advancing to arrive a turn sooner)",
+   "same": true,
+   "v12_tag": "v12_s7451_r1_p2_movement_1_0",
+   "v12_fire_lines": [
+    "[R1_SUPPORT_ADVANCE] U_CUSTODIAN_GUARD_C_P2: support trip to obj_center ADVANCES (2 turn(s) at the Advance pace; a race the enemy wins at the walking pace — OC there on arrival matters)"
+   ]
+  },
+  {
+   "fix": "r1_home_capture",
+   "job": "20261030_012004_sweep2_01__s7412_r1_p1_movement_2_0",
+   "final_choice": "Beta advances toward obj_center (capturing it)",
+   "v12_choice": "Custodian Guard Sodality Beta advances toward obj_center (capturing it (uncontrolled))",
+   "same": true,
+   "v12_tag": "v12_s7412_r1_p1_movement_2_0",
+   "v12_fire_lines": [
+    "[R1_SUPPORT_ADVANCE] U_CUSTODIAN_GUARD_A_P2: support trip to obj_center ADVANCES (3 turn(s) at the Advance pace; a race the enemy wins at the walking pace — OC there on arrival matters)"
+   ]
+  },
+  {
+   "fix": "r1_home_capture",
+   "job": "20261030_012005_sweep2_00__s7411_r1_p1_movement_2_1",
+   "final_choice": "Gamma advances toward obj_center (racing)",
+   "v12_choice": "Custodian Guard Sodality Gamma advances toward obj_center (racing for it (enemy can have ~20 OC there before we arrive in 3 turns))",
+   "same": true,
+   "v12_tag": "v12_s7411_r1_p1_movement_2_1"
+  },
+  {
+   "fix": "r1_home_capture",
+   "job": "20261030_160624_r4c19_00__s7470_r1_p1_movement_1_2",
+   "final_choice": "Beta ADVANCES toward obj_center (reinforcing) via [R1_SUPPORT_ADVANCE]",
+   "v12_choice": "Custodian Guard Sodality Beta advances toward obj_center (reinforcing obj_center (1 unit already committed) — advancing to arrive a turn sooner)",
+   "same": true,
+   "v12_tag": "v12_s7470_r1_p1_movement_1_2",
+   "v12_fire_lines": [
+    "[R1_SUPPORT_ADVANCE] U_CUSTODIAN_GUARD_B: support trip to obj_center ADVANCES (2 turn(s) at the Advance pace; a race the enemy wins at the walking pace — OC there on arrival matters)"
+   ]
+  },
+  {
+   "fix": "r1_home_capture",
+   "job": "20261030_011540_sweep1_04__s7405_r1_p1_movement_1_0",
+   "final_choice": "Wulfen ADVANCE toward obj_nml_1 (reinforcing) via [R1_SUPPORT_ADVANCE]",
+   "v12_choice": "Wulfen with Storm Shields advances toward obj_nml_1 (reinforcing obj_nml_1 (3 units already committed) — advancing to arrive a turn sooner)",
+   "same": true,
+   "v12_tag": "v12_s7405_r1_p1_movement_1_0",
+   "v12_fire_lines": [
+    "[R1_SUPPORT_ADVANCE] U_WULFEN_WITH_STORM_SHIELDS_A: support trip to obj_nml_1 ADVANCES (3 turn(s) at the Advance pace; a race the enemy wins at the walking pace — OC there on arrival matters)"
+   ]
+  },
+  {
+   "fix": "r1_home_capture",
+   "job": "20261030_010357_sweep1_02__s7403_r1_p2_movement_1_0",
+   "final_choice": "same (unchanged)",
+   "v12_choice": "Prosecutor Squad screens at (1277,1737) — deny deep strike near home objective obj_home_2",
+   "same": true,
+   "v12_tag": "v12_s7403_r1_p2_movement_1_0"
+  },
+  {
+   "fix": "r1_home_capture",
+   "job": "20261030_012005_sweep2_00__s7411_r1_p1_movement_1_0",
+   "final_choice": "Beta moves toward obj_home_1 (reinforcing) — unchanged, Beta still goes home",
+   "v12_choice": "Custodian Guard Sodality Beta moves toward obj_home_1 (reinforcing obj_home_1 (1 unit already committed), obj: 9.0\" away)",
+   "same": true,
+   "v12_tag": "v12_s7411_r1_p1_movement_1_0"
+  },
+  {
+   "fix": "lone_flip",
+   "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3",
+   "final_choice": "Gamma moves toward obj_home_2; Alpha moves toward obj_center (Normal move); Beta holds obj_center. Same plan as the design report claimed.",
+   "v12_choice": "Custodian Guard Sodality Gamma moves toward obj_home_2 (moving toward charge target Custodian Guard Sodality Gamma, obj: 26.5\" away) | Custodian Guard Sodality Beta holds obj_center (holding (enemy can bring ~2 OC next move)) | Custodian Guard Sodality Alpha moves toward obj_center (moving toward charge target Blade Champion Gamma, obj: 10.7\" away)",
+   "same": true,
+   "v12_tag": "v12_s7454_r3_p2_movement_1_3",
+   "v12_fire_lines": [
+    "[LONE_FLIP] obj_center: U_CUSTODIAN_GUARD_B_P2 holds but adds no OC (already counted: friendly 5 vs enemy 8) — need stays 4 (base would set 0; movable holders here: 1)",
+    "[LONE_FLIP] obj_center: U_CUSTODIAN_GUARD_B holds but adds no OC (already counted: friendly 5 vs enemy 14) — need stays 10 (base would set 7; movable holders here: 1)"
+   ]
+  },
+  {
+   "fix": "lone_flip",
+   "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+   "final_choice": "Beta moves toward obj_nml_1 (charge target Blade Champion Alpha, 18.0\") — unchanged. [LONE_FLIP] fired once in the replay but not for this unit's choice.",
+   "v12_choice": "Custodian Guard Sodality Beta moves toward obj_nml_1 (moving toward charge target Blade Champion Alpha, obj: 18.0\" away)",
+   "same": true,
+   "v12_tag": "v12_s7455_r2_p1_movement_2_4",
+   "v12_fire_lines": [
+    "[LONE_FLIP] obj_home_2: U_ALLARUS_CUSTODIANS_A holds but adds no OC (already counted: friendly 4 vs enemy 6) — need stays 3 (base would set 0; movable holders here: 1)"
+   ]
+  },
+  {
+   "fix": "reinforce_insurance",
+   "job": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4",
+   "final_choice": "Beta ADVANCES toward obj_nml_2 (RI-QUARTER +9.0 advance; RI-RACE centre 42 vs 17 OC, area-correct)",
+   "v12_choice": "Custodian Guard Sodality Beta advances toward obj_nml_2 (racing for it (enemy can have ~26 OC there before we arrive in 2 turns), needs 2 more OC after this unit)",
+   "same": true,
+   "v12_tag": "v12_s7437_r2_p1_movement_2_4",
+   "v12_fire_lines": [
+    "[REINFORCE_INSURANCE] RI-ASSAULT Custodian Guard Sodality Beta: every ranged weapon is [ASSAULT] — a long-trip Advance costs no shooting",
+    "[REINFORCE_INSURANCE] RI-QUARTER Custodian Guard Sodality Beta -> obj_nml_2 (advance): ends wholly in an uncovered table quarter, +9.0 (card VP)",
+    "[REINFORCE_INSURANCE] RI-RACE Custodian Guard Sodality Beta -> obj_center: the enemy can stand there with ~42 OC next move vs our 17 with it — reinforcing keeps 13.5 of 27.0"
+   ]
+  },
+  {
+   "fix": "reinforce_insurance",
+   "job": "20261030_014824_sweep2_07__s7418_r1_p2_movement_1_0",
+   "final_choice": "Mek Beta moves toward obj_home_2",
+   "v12_choice": "Mek Beta moves toward obj_home_2 (reinforcing obj_home_2 (1 unit already committed), obj: 12.8\" away)",
+   "same": true,
+   "v12_tag": "v12_s7418_r1_p2_movement_1_0",
+   "v12_fire_lines": [
+    "[REINFORCE_INSURANCE] RI-QUARTER Mek Beta -> obj_home_1 (advance): ends wholly in an uncovered table quarter, +10.8 (card VP)",
+    "[REINFORCE_INSURANCE] RI-QUARTER Mek Beta -> obj_nml_1 (advance): ends wholly in an uncovered table quarter, +10.8 (card VP)"
+   ]
+  },
+  {
+   "fix": "reinforce_insurance",
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0 (extra)",
+   "final_choice": "Gamma moves (walks) toward obj_center",
+   "v12_choice": "Custodian Guard Sodality Gamma advances toward obj_center (reinforcing obj_center (1 unit already committed) — advancing to arrive a turn sooner)",
+   "same": false,
+   "v12_tag": "v12_s7451_r1_p2_movement_1_0"
+  },
+  {
+   "fix": "reinforce_insurance",
+   "job": "20261030_160257_r4c04_00__s7455_r1_p2_movement_2_0 (extra)",
+   "final_choice": "Prosecutor Squad advances toward obj_center (0 RI fires in this game)",
+   "v12_choice": "Prosecutor Squad advances toward obj_center (capturing it (uncontrolled))",
+   "same": true,
+   "v12_tag": "v12_s7455_r1_p2_movement_2_0"
+  }
+ ],
+ "interactions": [
+  {
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0",
+   "check": "reinforce_insurance decision check (extra)",
+   "difference": "RI final_choice (measured on V9R + RI, no R1SA): Gamma walks toward obj_center. V12: Gamma ADVANCES toward obj_center.",
+   "cause": "FIX_R1_SUPPORT_ADVANCE. V12 stdout: '[R1_SUPPORT_ADVANCE] U_CUSTODIAN_GUARD_C_P2: support trip to obj_center ADVANCES'. Replay with FIX_R1_SUPPORT_ADVANCE=0 only (tag v12noR1SA_s7451_r1_p2_movement_1_0): Gamma 'moves toward obj_center (reinforcing ...)', the same as RI's final_choice.",
+   "assessment": "expected, not harmful: this is R1SA's own decision check at the same position (r1 final_choice: Gamma ADVANCES, measured +5.86 [3.09, 8.63] over 36 rollouts). RI does not touch this pass-3 walk (RI final says so)."
+  },
+  {
+   "job": "all 10 round-1 decision-check positions",
+   "check": "known overlap RI-ASSAULT -> R1-SUPPORT-ADVANCE",
+   "difference": "none observed",
+   "cause": "Replayed with FIX_RI_ASSAULT=0 (tags v12noRIA_*): the [R1_SUPPORT_ADVANCE] fires (4) and every 'R1-SUPPORT-ADVANCE ... walks as before' reason are the same, and the deciders' movement actions are the same in 10/10. The 4 R1SA units are Custodian Guard (no RI-ASSAULT line for that unit in that replay) or Wulfen (no ranged weapons). So none of these R1SA decisions depends on RI-ASSAULT.",
+   "assessment": "the feed can still occur elsewhere and is not measured. Example: an all-[ASSAULT] unit with an enemy inside weapon range but outside M+12\" in round 1. V11b walks it ('not a RACE-1 long trip'). V12 can Advance it."
+  },
+  {
+   "job": "20261030_010357_sweep1_02__s7403_r1_p2_movement_1_0",
+   "check": "r1 census (not the decision unit)",
+   "difference": "P1 Battlewagon Beta no longer fires [R1_SUPPORT_ADVANCE] (the r1 final census counted it). V12: 'R1-SUPPORT-ADVANCE U_BATTLEWAGON_B: support trip to obj_center walks as before - it would lose shooting'",
+   "cause": "the V11 review fixup (range + M shooting test), as expected; not an interaction",
+   "assessment": "expected. The decision unit (Prosecutor Squad screen) is unchanged."
+  }
+ ],
+ "fires": {
+  "how_counted": "rollout.py runs Godot with --quiet, which silences print(). The canonical replays' stdout has no tag lines (checked: 0 AIDecisionMaker lines). So each replay was run again through a wrapper that drops only --quiet and keeps stdout. All 16 V12 loud re-runs have the same full trajectory and VP as the canonical runs (16/16). Counts are stdout lines; both players' plans to the horizon are included.",
+  "v12_as_built_16_decision_check_replays": {
+   "[LONE_FLIP]": 6,
+   "[REINFORCE_INSURANCE]": 37,
+   "[WAAAGH_ADVANCE_CHARGE]": 3,
+   "[R1_SUPPORT_ADVANCE]": 4,
+   "[R1_HOME_CAPTURE]": 0,
+   "reinforce_insurance_parts": {
+    "RI-ASSAULT": 22,
+    "RI-QUARTER": 14,
+    "RI-RACE": 1
+   },
+   "replays_with_fire": {
+    "[LONE_FLIP]": 5,
+    "[REINFORCE_INSURANCE]": 12,
+    "[WAAAGH_ADVANCE_CHARGE]": 3,
+    "[R1_SUPPORT_ADVANCE]": 4
+   },
+   "r1_support_advance_units": [
+    "s7451 P2 Custodian Guard Gamma",
+    "s7412 P2 Custodian Guard Alpha",
+    "s7470 P1 Custodian Guard Beta",
+    "s7405 P1 Wulfen with Storm Shields"
+   ],
+   "waaagh_lines": [
+    "s7468 r3 Stormboyz Normal-moves (no active effect)",
+    "s7418 r3 Stormboyz Normal-moves (no active effect)",
+    "s7473 r3 Beast Snagga Boyz keeps the Advance (Keep Huntin'!)"
+   ],
+   "per_replay": {
+    "s7403_r1_p2_movement_1_0": {
+     "REINFORCE_INSURANCE": 1
+    },
+    "s7405_r1_p1_movement_1_0": {
+     "REINFORCE_INSURANCE": 2,
+     "R1_SUPPORT_ADVANCE": 1
+    },
+    "s7411_r1_p1_movement_1_0": {
+     "LONE_FLIP": 1,
+     "REINFORCE_INSURANCE": 5
+    },
+    "s7411_r1_p1_movement_2_1": {
+     "LONE_FLIP": 1,
+     "REINFORCE_INSURANCE": 2
+    },
+    "s7412_r1_p1_movement_2_0": {
+     "R1_SUPPORT_ADVANCE": 1
+    },
+    "s7418_r1_p2_movement_1_0": {
+     "REINFORCE_INSURANCE": 4
+    },
+    "s7418_r3_p2_movement_1_4": {
+     "REINFORCE_INSURANCE": 10,
+     "WAAAGH_ADVANCE_CHARGE": 1
+    },
+    "s7437_r2_p1_movement_2_4": {
+     "LONE_FLIP": 1,
+     "REINFORCE_INSURANCE": 5
+    },
+    "s7451_r1_p2_movement_1_0": {
+     "REINFORCE_INSURANCE": 1,
+     "R1_SUPPORT_ADVANCE": 1
+    },
+    "s7454_r3_p2_movement_1_3": {
+     "LONE_FLIP": 2,
+     "REINFORCE_INSURANCE": 2
+    },
+    "s7455_r1_p2_movement_2_0": {},
+    "s7455_r2_p1_movement_2_4": {
+     "LONE_FLIP": 1,
+     "REINFORCE_INSURANCE": 2
+    },
+    "s7468_r1_p1_movement_1_0": {
+     "REINFORCE_INSURANCE": 2
+    },
+    "s7468_r3_p2_movement_2_6": {
+     "REINFORCE_INSURANCE": 1,
+     "WAAAGH_ADVANCE_CHARGE": 1
+    },
+    "s7470_r1_p1_movement_1_2": {
+     "R1_SUPPORT_ADVANCE": 1
+    },
+    "s7473_r3_p1_movement_2_5": {
+     "WAAAGH_ADVANCE_CHARGE": 1
+    }
+   }
+  },
+  "v12_switches_off_3_identity_replays": {
+   "LONE_FLIP": 5,
+   "REINFORCE_INSURANCE": 8,
+   "WAAAGH_ADVANCE_CHARGE": 0,
+   "R1_SUPPORT_ADVANCE": 0,
+   "R1_HOME_CAPTURE": 0
+  },
+  "v10_3_identity_replays": {
+   "LONE_FLIP": 5,
+   "REINFORCE_INSURANCE": 8,
+   "WAAAGH_ADVANCE_CHARGE": 0,
+   "R1_SUPPORT_ADVANCE": 0,
+   "R1_HOME_CAPTURE": 0
+  },
+  "v12_r1sa_off_s7451": {
+   "LONE_FLIP": 0,
+   "REINFORCE_INSURANCE": 2,
+   "WAAAGH_ADVANCE_CHARGE": 0,
+   "R1_SUPPORT_ADVANCE": 0,
+   "R1_HOME_CAPTURE": 0
+  },
+  "v12_ri_assault_off_10_round1_replays": {
+   "LONE_FLIP": 3,
+   "REINFORCE_INSURANCE": 10,
+   "WAAAGH_ADVANCE_CHARGE": 0,
+   "R1_SUPPORT_ADVANCE": 4,
+   "R1_HOME_CAPTURE": 0
+  }
+ },
+ "patch": {
+  "path": "/home/user/warhammer-40k-godot/.ai_lab_work/v12_from_v10.patch",
+  "lines": 456,
+  "applies_cleanly_to_tip_ai_file": true,
+  "reproduces_v12_byte_for_byte": true,
+  "method": "TIP's AI file in 2 temp dirs: git apply --check + git apply, and GNU patch -p1; cmp equal to V12's AI file in both (md5 5ea8460dde8a85189112f813ac68ff4f)"
+ },
+ "problems": [],
+ "notes": [
+  "Local commit only, nothing pushed. The worktree is at c9aa313, clean except the untracked *.gd.uid files the Godot import made.",
+  "Replays: tools/ai_lab/rollout.py from the worktree, --alt none --seeds 1 --horizon 1 --lanes 1 --keep, tags v12_* (canonical), v12L_* (same runs without --quiet), v12off_*, v10_*, v12noR1SA_*, v12noRIA_*. Records are under /root/.local/share/godot/app_userdata/40k/test_results/rollout/<tag>/.",
+  "All temporary const edits and the TIP AI-file checkout were restored (AI md5 = HEAD 5ea8460d). The main checkout was not changed (git status empty)."
+ ]
+}
