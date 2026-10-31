@@ -389,7 +389,11 @@ if [ $VISUAL_RAN -eq 1 ]; then
             continue
         fi
         SCENARIO_ID=$(grep -oE '"id"[[:space:]]*:[[:space:]]*"[^"]*"' "$s" | head -1 | sed -E 's/.*"id"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')
-        TASK_ID=$(echo "$SCENARIO_ID" | grep -oE '^T[0-9]+')
+        # `|| true`: grep exits 1 on an un-numbered id (T_phase_strip_bottom),
+        # which under `set -e` killed the script with exit 1 after every
+        # scenario had passed, skipping the artifact copy and the exit-3
+        # baseline check below.
+        TASK_ID=$(echo "$SCENARIO_ID" | grep -oE '^T[0-9]+' || true)
         if [ -z "$TASK_ID" ]; then
             continue
         fi
