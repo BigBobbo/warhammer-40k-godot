@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Review Programme Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one reading column of report sections; charts span the column; summary first, detail last. */
+:root {
+  color-scheme: light;
+  --page: #f6f7f8;
+  --surface: #fcfcfb;
+  --ink: #0f1419;
+  --ink-2: #4a5360;
+  --muted: #858b93;
+  --line: #e0e3e7;
+  --axis: #c1c6cc;
+  --accent: #2a5f94;
+  --accent-soft: #e3ecf6;
+  --good: #0ca30c;
+  --good-ink: #006300;
+  --warn: #fab219;
+  --warn-ink: #8a5a00;
+  --bad: #d03b3b;
+  --bad-ink: #b02a2a;
+  --neutral-fill: #d6dade;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0f1114;
+    --surface: #1a1c1f;
+    --ink: #eef0f2;
+    --ink-2: #b9c0c8;
+    --muted: #8b929a;
+    --line: #2c3035;
+    --axis: #3d4248;
+    --accent: #6fa3da;
+    --accent-soft: #1d2a38;
+    --good-ink: #2fc02f;
+    --warn-ink: #fab219;
+    --bad-ink: #ef6b6b;
+    --neutral-fill: #3a3f45;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0f1114;
+  --surface: #1a1c1f;
+  --ink: #eef0f2;
+  --ink-2: #b9c0c8;
+  --muted: #8b929a;
+  --line: #2c3035;
+  --axis: #3d4248;
+  --accent: #6fa3da;
+  --accent-soft: #1d2a38;
+  --good-ink: #2fc02f;
+  --warn-ink: #fab219;
+  --bad-ink: #ef6b6b;
+  --neutral-fill: #3a3f45;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+}
+main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 64px; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: .01em; }
+h1 { font-size: 44px; line-height: 1.05; font-weight: 700; }
+h2 { font-size: 28px; font-weight: 600; }
+h3 { font-size: 20px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.num, td.num, .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+header.top { display: grid; gap: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--ink); }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--accent); }
+.lede { font-size: 18px; color: var(--ink-2); }
+.meta { font-size: 13px; color: var(--muted); }
+section.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 24px; display: grid; gap: 16px; }
+.sub { color: var(--ink-2); font-size: 15px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 4px; align-content: start; }
+.tile .big { font-family: var(--font-display); font-size: 42px; font-weight: 700; line-height: 1; }
+.tile .lbl { font-size: 14px; color: var(--ink-2); }
+.tile.good { border-top: 4px solid var(--good); }
+.tile.warn { border-top: 4px solid var(--warn); }
+.tile.bad { border-top: 4px solid var(--bad); }
+.tile.acc { border-top: 4px solid var(--accent); }
+
+/* chips */
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; border: 1px solid; }
+.chip.good { color: var(--good-ink); border-color: var(--good); }
+.chip.warn { color: var(--warn-ink); border-color: var(--warn); }
+.chip.bad { color: var(--bad-ink); border-color: var(--bad); }
+.chip .ic { font-size: 11px; }
+
+/* process flow */
+.flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; align-items: stretch; }
+.step { position: relative; background: var(--accent-soft); border: 1px solid var(--line); padding: 14px 14px 14px 18px; display: grid; gap: 4px; align-content: start; }
+.step:first-child { border-radius: 8px 0 0 8px; }
+.step:last-child { border-radius: 0 8px 8px 0; }
+.step .n { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+.step b { font-family: var(--font-display); font-size: 19px; font-weight: 600; }
+.step span { font-size: 13px; color: var(--ink-2); }
+.step:not(:last-child)::after { content: ""; position: absolute; right: -9px; top: 50%; transform: translateY(-50%) rotate(45deg); width: 16px; height: 16px; background: var(--accent-soft); border-top: 1px solid var(--line); border-right: 1px solid var(--line); z-index: 1; }
+.outs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.out { border: 1px solid var(--line); border-left-width: 5px; border-radius: 8px; padding: 10px 12px; font-size: 14px; display: grid; gap: 2px; }
+.out.good { border-left-color: var(--good); }
+.out.warn { border-left-color: var(--warn); }
+.out.bad { border-left-color: var(--bad); }
+.out strong { font-size: 15px; }
+@media (max-width: 760px) {
+  .flow { grid-template-columns: 1fr; }
+  .step, .step:first-child, .step:last-child { border-radius: 0; }
+  .step:first-child { border-radius: 8px 8px 0 0; }
+  .step:last-child { border-radius: 0 0 8px 8px; }
+  .step:not(:last-child)::after { right: auto; left: 50%; top: auto; bottom: -9px; transform: translateX(-50%) rotate(135deg); }
+  .outs { grid-template-columns: 1fr; }
+}
+
+/* stacked outcome bar */
+.stack { display: flex; gap: 2px; height: 44px; border-radius: 6px; overflow: hidden; }
+.stack div { display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; color: #fff; cursor: default; min-width: 0; }
+.stack .s-good { background: var(--good); }
+.stack .s-warn { background: var(--warn); color: #0b0b0b; }
+.stack .s-bad { background: var(--bad); }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* charts */
+.chart-wrap { overflow-x: auto; }
+svg text { fill: var(--ink-2); font-family: var(--font-body); }
+svg .tick { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
+svg .grid { stroke: var(--line); stroke-width: 1; }
+svg .zero { stroke: var(--ink); stroke-width: 1.5; }
+svg .row-hit { fill: transparent; }
+svg .row-hit:hover { fill: var(--accent-soft); }
+.tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 13px; padding: 8px 10px; border-radius: 6px; max-width: 300px; line-height: 1.4; opacity: 0; transition: opacity .1s; z-index: 10; }
+.tip b { display: block; margin-bottom: 2px; }
+
+/* timeline */
+.tl { display: grid; gap: 0; position: relative; }
+.tl-month { font-family: var(--font-display); font-size: 22px; font-weight: 600; color: var(--accent); padding: 8px 0 4px 0; }
+.tl-item { display: grid; grid-template-columns: 74px 20px 1fr; gap: 10px; align-items: start; padding: 6px 0; }
+.tl-date { font-family: var(--font-mono); font-size: 13px; color: var(--muted); padding-top: 2px; text-align: right; }
+.tl-dot { width: 14px; height: 14px; border-radius: 50%; margin-top: 4px; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--axis); position: relative; }
+.tl-dot.good { background: var(--good); }
+.tl-dot.warn { background: var(--warn); }
+.tl-dot.bad { background: var(--bad); }
+.tl-dot.acc { background: var(--accent); }
+.tl-body { display: grid; gap: 2px; }
+.tl-body b { font-weight: 600; }
+.tl-body span { font-size: 14px; color: var(--ink-2); }
+
+/* before/after */
+.ba { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.ba-card { border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 8px; }
+.ba-card h4 { margin: 0; font-size: 14px; font-weight: 600; }
+.ba-row { display: grid; grid-template-columns: 48px 1fr 70px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.ba-bar { height: 14px; background: var(--line); border-radius: 0 4px 4px 0; position: relative; }
+.ba-bar > div { height: 100%; border-radius: 0 4px 4px 0; }
+.ba-bar .before { background: var(--muted); }
+.ba-bar .after { background: var(--accent); }
+.ba-val { font-family: var(--font-mono); font-size: 13px; color: var(--ink); text-align: right; }
+
+/* waffle */
+.waffle-wrap { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center; }
+.waffle { display: grid; grid-template-columns: repeat(6, 44px); gap: 6px; }
+.waffle div { height: 44px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 12px; background: var(--neutral-fill); color: var(--ink-2); }
+.waffle div.diff { background: var(--bad); color: #fff; font-weight: 600; }
+.waffle-lbl { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+@media (max-width: 600px) { .waffle-wrap { grid-template-columns: 1fr; } .waffle { grid-template-columns: repeat(6, 1fr); } }
+
+/* ladder */
+.ladder { display: flex; align-items: flex-end; gap: 10px; height: 190px; padding-top: 10px; }
+.rung { flex: 1; display: grid; align-content: end; gap: 6px; text-align: center; }
+.rung .bar { background: var(--accent); border-radius: 6px 6px 0 0; opacity: .9; }
+.rung .name { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.rung .gap { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+
+/* table */
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 720px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--surface); }
+td.num { text-align: right; white-space: nowrap; }
+tr.grp td { font-family: var(--font-display); font-size: 17px; font-weight: 600; color: var(--accent); padding-top: 16px; border-bottom: 2px solid var(--line); }
+
+.lessons { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.lesson { border-left: 4px solid var(--accent); padding: 6px 12px; display: grid; gap: 4px; }
+.lesson b { font-family: var(--font-display); font-size: 19px; font-weight: 600; }
+.lesson span { font-size: 14px; color: var(--ink-2); }
+ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+ul.plain li { max-width: 72ch; }
+.note { font-size: 13px; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+
+<header class="top">
+  <div class="eyebrow">Warhammer 40K Godot · AI opponent · July – October 2026</div>
+  <h1>AI Review Programme Results</h1>
+  <p class="lede">LLMs examined the game AI. They found problems and proposed changes. The team measured each change in AI-vs-AI games. This page shows the results, the decisions and the changes that went into the game.</p>
+  <p class="meta">Status on 31 October 2026 · Game version 1.56.1 · Sources: <span class="mono">docs/AI_REVIEW_2026-07-11.md</span>, <span class="mono">docs/AI_DECISION_REVIEW_2026-07.md</span>, <span class="mono">40k/tests/bench_baselines/*.md</span>, <span class="mono">.llm/ai-overhaul-progress.md</span>, git history.</p>
+</header>
+
+<!-- KPI tiles -->
+<div class="tiles" aria-label="Summary figures">
+  <div class="tile acc"><div class="big num">23</div><div class="lbl">Proposals that got a decision</div></div>
+  <div class="tile good"><div class="big num">15</div><div class="lbl">Shipped in the game</div></div>
+  <div class="tile warn"><div class="big num">2</div><div class="lbl">Kept as an option, not a default</div></div>
+  <div class="tile bad"><div class="big num">6</div><div class="lbl">Rejected after measurement</div></div>
+  <div class="tile good"><div class="big num">+24</div><div class="lbl">VP per game: largest measured gain (Competitive vs Normal AI)</div></div>
+</div>
+
+<!-- Process -->
+<section class="card" aria-labelledby="h-process">
+  <h2 id="h-process">How one review cycle works</h2>
+  <p class="sub">Each proposal goes through the same five steps. A change goes into the game only if the evidence supports it.</p>
+  <div class="flow">
+    <div class="step"><span class="n">01</span><b>Observe</b><span>The AI plays a full game in the real UI. Or a person presses K and reads the AI suggestion card.</span></div>
+    <div class="step"><span class="n">02</span><b>Diagnose</b><span>An LLM reads the game log, the decision cards and the code. It finds the cause of each bad decision.</span></div>
+    <div class="step"><span class="n">03</span><b>Propose</b><span>The LLM writes a change: a bug fix, a new rule, a weight value or a battle plan.</span></div>
+    <div class="step"><span class="n">04</span><b>Measure</b><span>AI-vs-AI games on the same dice seeds, both sides swapped. Result: VP per game, with error range.</span></div>
+    <div class="step"><span class="n">05</span><b>Decide</b><span>A gate set before the run decides. Bug fixes ship without win-rate proof.</span></div>
+  </div>
+  <div class="outs">
+    <div class="out good"><strong><span aria-hidden="true">✔</span> Ship</strong>The change is the new default.</div>
+    <div class="out warn"><strong><span aria-hidden="true">○</span> Keep as option</strong>The code stays. The default is off or the change gives no gain.</div>
+    <div class="out bad"><strong><span aria-hidden="true">✖</span> Reject</strong>The change hurts or does nothing. A report records why.</div>
+  </div>
+</section>
+
+<!-- Outcome split -->
+<section class="card" aria-labelledby="h-split">
+  <h2 id="h-split">Decision split: 23 proposals</h2>
+  <div class="stack" id="stack" role="img" aria-label="15 shipped, 2 kept as option, 6 rejected">
+    <div class="s-good" style="flex:15" data-tip="<b>Shipped: 15</b>Coordination rework, objective fixes, RACE-1, difficulty gates, Free-Grab Grip plan, and more.">15 shipped</div>
+    <div class="s-warn" style="flex:2" data-tip="<b>Kept as option: 2</b>YouTube-corpus weights (default off) and AI battle plans (no measured win gain).">2</div>
+    <div class="s-bad" style="flex:6" data-tip="<b>Rejected: 6</b>Scoring horizon, Custodes plans, two LLM-commander runs, offline tuning loop, per-action LLM backend.">6 rejected</div>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--good)"></i>✔ Shipped (65%)</span>
+    <span><i style="background:var(--warn)"></i>○ Kept as option (9%)</span>
+    <span><i style="background:var(--bad)"></i>✖ Rejected (26%)</span>
+  </div>
+</section>
+
+<!-- Forest plot -->
+<section class="card" aria-labelledby="h-effect">
+  <h2 id="h-effect">Measured effect of each proposal</h2>
+  <p class="sub">Each dot is the change in victory points (VP) per game. Right of zero: the change helped. Left of zero: the change hurt. A line shows the 95% error range where the report gives one. Most single results inside ±4 VP are noise.</p>
+  <div class="chart-wrap"><svg id="forest" role="img" aria-label="Effect of each proposal in VP per game"></svg></div>
+  <div class="legend">
+    <span><i style="background:var(--good)"></i>✔ Shipped</span>
+    <span><i style="background:var(--warn)"></i>○ Kept as option</span>
+    <span><i style="background:var(--bad)"></i>✖ Rejected</span>
+    <span>— 95% error range</span>
+  </div>
+  <p class="note">The Free-Grab Grip result compares two plans, not plan vs no plan. The Ork aggression result came from a test board that the team later found had an error. The full data is in the table at the end of this page.</p>
+</section>
+
+<!-- Timeline -->
+<section class="card" aria-labelledby="h-time">
+  <h2 id="h-time">Timeline</h2>
+  <div class="tl" id="timeline"></div>
+</section>
+
+<!-- July review before/after -->
+<section class="card" aria-labelledby="h-july">
+  <h2 id="h-july">July review: the AI did not keep to its plan</h2>
+  <p class="sub">An LLM watched a full Orks vs Custodes game. The AI made a new plan before each unit moved, so units did not keep to the plan. The game log also gave wrong reasons. The fix: one plan per Movement phase, kept until a unit needs a new order.</p>
+  <div class="ba" id="ba"></div>
+  <p class="note">Grey bar: before. Blue bar: after. Each card uses its own scale. Shorter is better on all cards except the last one.</p>
+</section>
+
+<!-- LLM commander -->
+<section class="card" aria-labelledby="h-cmd">
+  <h2 id="h-cmd">August test: an LLM as the army commander</h2>
+  <p class="sub">An LLM read the board at the start of each battle round. It gave each unit an order: hold, push or hunt. The test ran 12 games on fixed dice seeds and compared each game with the same game without the LLM.</p>
+  <div class="waffle-wrap">
+    <div>
+      <div class="waffle" id="waffle" aria-label="12 games: 10 identical to the baseline, 2 changed"></div>
+      <div class="waffle-lbl" style="margin-top:6px">Row 1: LLM on Player 1 · Row 2: LLM on Player 2</div>
+    </div>
+    <ul class="plain">
+      <li><b>10 of 12 games were identical</b> to the games without the LLM, VP for VP.</li>
+      <li>The 2 games that changed were worse: <span class="mono">−12</span> and <span class="mono">−5</span> VP.</li>
+      <li>Net effect: <span class="mono">−1.4</span> VP per game. This is zero within the noise.</li>
+      <li>With 5× stronger orders, the AI obeyed about 95% of the orders. The result was still <span class="mono">+0.3</span> VP.</li>
+      <li><b>Conclusion:</b> the built-in AI already picks objectives about as well as the LLM. The team closed this line of work.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- Difficulty ladder -->
+<section class="card" aria-labelledby="h-ladder">
+  <h2 id="h-ladder">The difficulty levels now play differently</h2>
+  <p class="sub">A review found seven difficulty switches in the code that no part of the AI used. The team connected them and measured each step. Most of the gain is between Normal and Hard. Result: the game now uses Competitive as the default (v1.41.0).</p>
+  <div class="ladder" aria-label="Relative strength: Easy, Normal, Hard, Competitive">
+    <div class="rung"><div class="gap">much weaker</div><div class="bar" style="height:22px;opacity:.45"></div><div class="name">Easy</div></div>
+    <div class="rung"><div class="gap">71 VP swing vs Comp. (1 seed)</div><div class="bar" style="height:70px;opacity:.6"></div><div class="name">Normal</div></div>
+    <div class="rung"><div class="gap">≈ Competitive (+3, noise)</div><div class="bar" style="height:130px"></div><div class="name">Hard</div></div>
+    <div class="rung"><div class="gap">+24 VP vs Normal</div><div class="bar" style="height:132px"></div><div class="name">Competitive</div></div>
+  </div>
+  <p class="note">Bar heights show order and approximate gaps, not an exact scale. The +24 VP figure is Competitive vs Normal; Hard and Competitive measured equal.</p>
+</section>
+
+<!-- Lessons -->
+<section class="card" aria-labelledby="h-lessons">
+  <h2 id="h-lessons">What the reviews taught</h2>
+  <div class="lessons">
+    <div class="lesson"><b>Structure beats small weights</b><span>Changes to how the AI plans (coordination, difficulty features, deployment) moved results. Changes to one weight value almost never did.</span></div>
+    <div class="lesson"><b>An LLM is a good reviewer, not a good player</b><span>LLM reviews found real bugs and wrong log text. An LLM that gives orders during play added nothing measurable. One call per action is too slow and costly.</span></div>
+    <div class="lesson"><b>Measure first, then ship</b><span>Ideas that seemed correct, such as the scoring horizon, made the AI worse (−4.3 VP). The A/B gate stopped them.</span></div>
+    <div class="lesson"><b>Check the test board</b><span>One test board had an extra 2000-point row. It let the AI put 69% of its army in reserve. Later tests used 2000-point boards built from real army lists.</span></div>
+    <div class="lesson"><b>Bug fixes need no win-rate proof</b><span>A fix that makes the AI obey the rules ships even when the VP result is zero, for example the melee damage cap.</span></div>
+    <div class="lesson"><b>People find what tests miss</b><span>The K card lets a player mark a suggestion "Good call" or "Bad call". Each mark saves a test case. Most October fixes started this way.</span></div>
+  </div>
+</section>
+
+<!-- Full table -->
+<section class="card" aria-labelledby="h-table">
+  <h2 id="h-table">All proposals and decisions</h2>
+  <p class="sub">VP = change in victory points per game. A dash means the report gives no single VP figure, or the change is a fix that needs none.</p>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>Date</th><th>Proposal</th><th>Source</th><th>Result</th><th class="num">VP / game</th><th>Decision</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  </div>
+</section>
+
+<!-- Next -->
+<section class="card" aria-labelledby="h-next">
+  <h2 id="h-next">Open items</h2>
+  <ul class="plain">
+    <li>Run a larger test of RACE-1. Six seed pairs give a wide error range (−12 to +21 VP).</li>
+    <li>Test the Ork aggression value (1.2) again on a correct board. The first test used the board with the error.</li>
+    <li>Close the ranged half of the damage-estimate gaps (task D1b). 81 known gaps remain.</li>
+    <li>Make reserve decisions react to the enemy army. The 25% reserve limit is fixed now.</li>
+    <li>Teach the AI to move aircraft. The Wazbom Blastajet loses its move each round.</li>
+    <li>Test a one-move look-ahead at Competitive level.</li>
+    <li>Turn the saved "Bad call" test cases into fixes. A bad case passes when the AI changes its choice.</li>
+  </ul>
+</section>
+
+<footer>
+  <span>Written in ASD-STE100 Simplified Technical English style: short sentences, active voice, one instruction or fact per sentence.</span>
+  <span>All numbers come from the reports in the repository. No number on this page is new.</span>
+</footer>
+
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+(function () {
+  "use strict";
+  var tip = document.getElementById("tip");
+  function showTip(html, e) { tip.innerHTML = html; tip.style.opacity = "1"; moveTip(e); }
+  function moveTip(e) {
+    var x = e.clientX + 14, y = e.clientY + 14;
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    if (x + w > window.innerWidth - 8) x = e.clientX - w - 14;
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - 14;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  function hideTip() { tip.style.opacity = "0"; }
+  function bindTip(el, html) {
+    el.addEventListener("mouseenter", function (e) { showTip(html, e); });
+    el.addEventListener("mousemove", moveTip);
+    el.addEventListener("mouseleave", hideTip);
+  }
+  document.querySelectorAll("[data-tip]").forEach(function (el) { bindTip(el, el.getAttribute("data-tip")); });
+
+  var ICON = { good: "✔", warn: "○", bad: "✖" };
+  var WORD = { good: "Shipped", warn: "Kept as option", bad: "Rejected" };
+  var COLOR = { good: "var(--good)", warn: "var(--warn)", bad: "var(--bad)" };
+
+  /* ---------- Forest plot ---------- */
+  var effects = [
+    { l: "Competitive vs Normal difficulty", e: 24, s: "good", n: "8 of 12 games won. Competitive became the default (v1.41.0)." },
+    { l: "Free-Grab Grip Ork plan (vs old plan)", e: 21.1, s: "good", n: "11–1 in games against the old Ork plan. Ships as v1.38.0." },
+    { l: "Ork aggression 1.8 → 1.2", e: 13.2, s: "good", n: "Loss margin −28.3 → −15.1. Ork primary VP 6 → 21 per game. Test board later found to have an error." },
+    { l: "RACE-1 objective race", e: 4.75, lo: -12, hi: 21, s: "good", n: "6 seed pairs. Wide range. Shipped because it fixes clearly wrong suggestions." },
+    { l: "AI battle plans vs built-in formula", e: 0.92, lo: -3.33, hi: 5.16, s: "warn", n: "AI follows the plan exactly (0 repairs in 12 games) but does not win more." },
+    { l: "LLM commander, strong orders", e: 0.3, s: "bad", n: "Order weight 40. AI obeyed ~95% of orders. No effect. Line closed." },
+    { l: "Offline tuning: Custodes aggression", e: -0.4, s: "bad", n: "Three LLM analysis views agreed on this value. Measured null. Not adopted." },
+    { l: "Melee damage cap (D1 fix)", e: -0.74, lo: -2.21, hi: 0.73, s: "good", n: "AI over-valued melee by 1.6–3.0×. Fix ships as a correctness fix." },
+    { l: "LLM commander, normal orders", e: -1.4, s: "bad", n: "10 of 12 games identical to no-LLM games. Two changed games were worse." },
+    { l: "YouTube-corpus behaviour weights", e: -2.05, lo: -7.2, hi: 3.1, s: "warn", n: "Weights from 1,029 video transcripts. Head-to-head 6–12. Code kept, default off. The rule fixes from the same work shipped." },
+    { l: "Scoring-horizon model", e: -4.29, lo: -7.43, hi: -1.15, s: "bad", n: "Clearly worse. Rejected by the pre-set stop rule after 12 pairs." },
+    { l: "Custodes plan v3 (orders only)", e: -14.4, s: "bad", n: "3–9 in games. Not shipped." },
+    { l: "Custodes plan v1 (Auric Vice)", e: -21.9, s: "bad", n: "4–8 in games. Not shipped." }
+  ];
+  (function drawForest() {
+    var svg = document.getElementById("forest");
+    var W = 940, rowH = 34, top = 30, labelW = 290, right = 30, bottom = 34;
+    var H = top + effects.length * rowH + bottom;
+    var x0 = labelW + 10, x1 = W - right, min = -30, max = 30;
+    function X(v) { return x0 + (v - min) / (max - min) * (x1 - x0); }
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("width", "100%");
+    svg.style.minWidth = "720px";
+    var ns = "http://www.w3.org/2000/svg", out = [];
+    for (var t = -30; t <= 30; t += 5) {
+      out.push('<line class="' + (t === 0 ? "zero" : "grid") + '" x1="' + X(t) + '" x2="' + X(t) + '" y1="' + (top - 8) + '" y2="' + (H - bottom + 4) + '"/>');
+      out.push('<text class="tick" x="' + X(t) + '" y="' + (H - bottom + 20) + '" text-anchor="middle">' + (t > 0 ? "+" + t : t) + '</text>');
+    }
+    out.push('<text class="tick" x="' + X(-30) + '" y="16">← change hurt</text>');
+    out.push('<text class="tick" x="' + X(30) + '" y="16" text-anchor="end">change helped →</text>');
+    effects.forEach(function (d, i) {
+      var y = top + i * rowH + rowH / 2;
+      out.push('<rect class="row-hit" data-i="' + i + '" x="0" y="' + (y - rowH / 2) + '" width="' + W + '" height="' + rowH + '" rx="4"/>');
+      out.push('<text x="' + labelW + '" y="' + (y + 4) + '" text-anchor="end" font-size="13" style="fill:var(--ink)">' + ICON[d.s] + " " + d.l + '</text>');
+      if (d.lo !== undefined) {
+        out.push('<line x1="' + X(d.lo) + '" x2="' + X(d.hi) + '" y1="' + y + '" y2="' + y + '" stroke="' + COLOR[d.s] + '" stroke-width="2" stroke-linecap="round" pointer-events="none"/>');
+      }
+      out.push('<circle cx="' + X(d.e) + '" cy="' + y + '" r="6.5" fill="' + COLOR[d.s] + '" stroke="var(--surface)" stroke-width="2" pointer-events="none"/>');
+      var lx = X(d.e) + (d.e >= 0 ? 12 : -12);
+      if (d.hi !== undefined && d.e >= 0) lx = X(d.hi) + 8;
+      if (d.lo !== undefined && d.e < 0) lx = X(d.lo) - 8;
+      out.push('<text class="tick" x="' + lx + '" y="' + (y + 4) + '" text-anchor="' + (d.e >= 0 ? "start" : "end") + '" style="fill:var(--ink-2)" pointer-events="none">' + (d.e > 0 ? "+" : "") + d.e + '</text>');
+    });
+    out.push('<text class="tick" x="' + ((x0 + x1) / 2) + '" y="' + (H - 2) + '" text-anchor="middle">VP per game</text>');
+    svg.innerHTML = out.join("");
+    svg.querySelectorAll(".row-hit").forEach(function (r) {
+      var d = effects[+r.getAttribute("data-i")];
+      var rng = d.lo !== undefined ? "<br>95% range: " + d.lo + " to +" + d.hi : "";
+      bindTip(r, "<b>" + d.l + "</b>" + ICON[d.s] + " " + WORD[d.s] + " · " + (d.e > 0 ? "+" : "") + d.e + " VP/game" + rng + "<br>" + d.n);
+    });
+  })();
+
+  /* ---------- Timeline ---------- */
+  var tl = [
+    { m: "July 2026" },
+    { d: "10 Jul", s: "good", t: "First AI-vs-AI soak and stall fixes", x: "20 games found 3 stalls. Fixes SOAK-1 to SOAK-5 shipped. Stall gate set to 0." },
+    { d: "10 Jul", s: "good", t: "Ork discipline A/B", x: "Orks chased enemies and left objectives. Aggression 1.8 → 1.2 shipped." },
+    { d: "Jul", s: "good", t: "AI decision review (phase by phase)", x: "Per-player plans, movement intent ledger, one plan card in the log (COORD-1 to 3). Advice: no LLM per action." },
+    { d: "11 Jul", s: "good", t: "Live-game review and coordination rework", x: "Persistent movement plan, spread of spare units, enemy contest forecast, reserve limit (COORD-4 to 6). 2 crash bugs fixed." },
+    { m: "August 2026" },
+    { d: "6 Aug", s: "warn", t: "YouTube-corpus findings", x: "1,029 transcripts mined. Rule fixes shipped. Five behaviour weights measured −2.05 VP and set to off." },
+    { d: "7 Aug", s: "acc", t: "AI lab: measurement tools", x: "Named score terms (0 → 797 of 803 decisions), 238-value frozen baseline, combat-math oracle, 12 tactical exams." },
+    { d: "7 Aug", s: "bad", t: "Scoring-horizon model", x: "Measured −4.29 VP per game. Rejected." },
+    { d: "8 Aug", s: "acc", t: "2000-point test boards", x: "Boards built from real army lists. Benchmarks now include deployment." },
+    { d: "11–21 Aug", s: "warn", t: "AI battle plans vs formula", x: "Plan Editor and plans shipped as a player feature. Measured +0.92 VP: no win gain." },
+    { d: "25 Aug", s: "good", t: "Free-Grab Grip Ork plan", x: "Claude wrote the plan in the Plan Editor. 11–1 vs the old plan. Shipped in v1.38.0." },
+    { d: "26 Aug", s: "bad", t: "Custodes plans v1–v3", x: "All three variants lost to the formula. Not shipped." },
+    { d: "26 Aug", s: "bad", t: "LLM commander", x: "−1.4 VP per game. 10 of 12 games identical. Not shipped." },
+    { d: "27 Aug", s: "bad", t: "Strong orders and offline tuning loop", x: "+0.3 VP and −0.4 VP. Nothing adopted. LLM commander line closed." },
+    { d: "27 Aug", s: "good", t: "Difficulty switches connected; Competitive default", x: "Competitive +24 VP vs Normal. v1.39.0 and v1.41.0." },
+    { m: "October 2026" },
+    { d: "26 Oct", s: "good", t: "K card: full reasoning and Good/Bad call", x: "Each player review saves a test case. Heroic Intervention value fix. Melee overkill cap in fight targets." },
+    { d: "27 Oct", s: "good", t: "RACE-1 and objective-assignment fixes", x: "AI skips objectives the enemy reaches first, Advances on long trips. +4.75 VP. Per-model hold check, closer-unit rule." },
+    { d: "27 Oct", s: "good", t: "Secondary mission advice", x: "AI suggestion now sees secondaries you can score or hold this turn." },
+    { d: "28 Oct", s: "good", t: "Movement around terrain", x: "Charge-steer limit, dogleg path around solid terrain, real gap to terrain objectives, Advance odds (v1.55.3 – v1.56.1)." }
+  ];
+  var tlEl = document.getElementById("timeline");
+  tl.forEach(function (r) {
+    if (r.m) { var h = document.createElement("div"); h.className = "tl-month"; h.textContent = r.m; tlEl.appendChild(h); return; }
+    var row = document.createElement("div"); row.className = "tl-item";
+    var chip = r.s === "acc" ? '<span class="chip" style="color:var(--accent);border-color:var(--accent)">Tooling</span>'
+      : '<span class="chip ' + r.s + '"><span class="ic" aria-hidden="true">' + ICON[r.s] + '</span>' + WORD[r.s] + '</span>';
+    row.innerHTML = '<div class="tl-date">' + r.d + '</div><div class="tl-dot ' + r.s + '"></div><div class="tl-body"><div><b>' + r.t + '</b> ' + chip + '</div><span>' + r.x + '</span></div>';
+    tlEl.appendChild(row);
+  });
+
+  /* ---------- Before / after ---------- */
+  var ba = [
+    { h: "Decision cards that chose a lower score with no reason", b: 58, a: 0, u: "%", max: 60 },
+    { h: "Cards that named a different objective from the action", b: 47, a: 0, u: "%", max: 50 },
+    { h: "Custodes points put in Strategic Reserves", b: 950, a: 500, u: " pts", max: 1000 },
+    { h: "Stalled games in 20-game soak", b: 3, a: 0, u: "", max: 3 },
+    { h: "Average loss margin of Orks at Hard (VP)", b: 27.3, a: 7.2, u: "", max: 30 },
+    { h: "Live game result for Custodes (VP)", b: 28, a: 66, u: "", max: 70 }
+  ];
+  var baEl = document.getElementById("ba");
+  ba.forEach(function (m) {
+    var c = document.createElement("div"); c.className = "ba-card";
+    function row(lbl, v, cls) {
+      return '<div class="ba-row"><span>' + lbl + '</span><div class="ba-bar"><div class="' + cls + '" style="width:' + Math.max(v / m.max * 100, v === 0 ? 0 : 2) + '%"></div></div><span class="ba-val">' + v + m.u + '</span></div>';
+    }
+    c.innerHTML = "<h4>" + m.h + "</h4>" + row("Before", m.b, "before") + row("After", m.a, "after");
+    baEl.appendChild(c);
+  });
+
+  /* ---------- Waffle ---------- */
+  var games = [
+    ["5001", 0], ["5002", 0], ["5003", 0], ["5004", 0], ["5005", -12], ["5006", 0],
+    ["5001", 0], ["5002", 0], ["5003", 0], ["5004", -5], ["5005", 0], ["5006", 0]
+  ];
+  var wf = document.getElementById("waffle");
+  games.forEach(function (g, i) {
+    var d = document.createElement("div");
+    if (g[1] !== 0) { d.className = "diff"; d.textContent = g[1]; }
+    else { d.textContent = "="; }
+    bindTip(d, "<b>Seed " + g[0] + " · LLM on Player " + (i < 6 ? 1 : 2) + "</b>" + (g[1] === 0 ? "Identical to the game without the LLM." : "Changed: " + g[1] + " VP for the LLM side."));
+    wf.appendChild(d);
+  });
+
+  /* ---------- Table ---------- */
+  var rows = [
+    { g: "July: live-game and decision reviews" },
+    ["10 Jul", "Stall fixes SOAK-1 to SOAK-5", "Benchmark soak", "3/20 stalls → 0/20", "—", "good"],
+    ["10 Jul", "Ork aggression 1.8 → 1.2", "Soak post-mortem", "Loss margin −28.3 → −15.1", "+13.2", "good"],
+    ["Jul", "Per-player phase plans, intent ledger, plan card (COORD-1–3)", "AI decision review", "No more stacking on one objective", "—", "good"],
+    ["11 Jul", "Persistent plan, spreading, contest forecast, reserve limit (COORD-4–6)", "LLM live-game review", "Hard margin −27.3 → −7.2; 0 log contradictions", "—", "good"],
+    ["Jul", "LLM as per-action decision backend", "AI decision review", "Too slow, costly, non-deterministic", "—", "bad"],
+    { g: "August: AI lab, plans and LLM commander" },
+    ["6 Aug", "YouTube rule fixes (8\" deep-strike screen, battle-shock target value)", "YouTube corpus (1,029 videos)", "Rules alignment", "—", "good"],
+    ["6 Aug", "YouTube behaviour weights (Hidden, Overwatch, battle-shock)", "YouTube corpus", "No gain; head-to-head 6–12", "−2.05", "warn"],
+    ["7 Aug", "Melee damage overflow cap (D1)", "Combat-math oracle", "Neutral; correct maths", "−0.74", "good"],
+    ["7 Aug", "Scoring-horizon model", "AI overhaul plan", "Clearly worse", "−4.29", "bad"],
+    ["11–21 Aug", "AI battle plans (Plan Editor, plan picker)", "Plan-maker work", "Plans followed exactly; no win gain", "+0.92", "warn"],
+    ["25 Aug", "Free-Grab Grip Ork plan", "Claude via Plan Editor", "11–1 vs old plan", "+21.1", "good"],
+    ["26 Aug", "Custodes plans Auric Vice v1–v3", "Claude via Plan Editor", "All below formula", "−21.9 / −14.4", "bad"],
+    ["26 Aug", "LLM commander (order weight 8)", "LLM per battle round", "10 of 12 games identical", "−1.4", "bad"],
+    ["27 Aug", "LLM commander (order weight 40)", "Threshold hunt", "95% obeyed, no effect", "+0.3", "bad"],
+    ["27 Aug", "Offline loop: Custodes aggression, turns-away penalty", "3 LLM analysis views", "Null", "−0.4", "bad"],
+    ["27 Aug", "Difficulty switches connected", "AI dossier review", "Tiers now differ", "—", "good"],
+    ["27 Aug", "Competitive as default difficulty", "Tier strength test", "Competitive vs Normal", "+24", "good"],
+    { g: "October: K-card suggestion reviews" },
+    ["26 Oct", "Good/Bad call saves AI test cases", "Player review", "Review becomes a regression test", "—", "good"],
+    ["26 Oct", "Heroic Intervention values the real target (11e)", "Suggestion review", "Score 2.8 → 5.2 in test", "—", "good"],
+    ["27 Oct", "RACE-1: objective race, distance cost, long-trip Advance", "Suggestion review", "Positive, wide range", "+4.75", "good"],
+    ["27 Oct", "Objective assignment: per-model hold, closer-unit rule, backfill", "Suggestion review", "4/4 tests (0/4 on old code)", "—", "good"],
+    ["27 Oct", "Score-or-hold secondary advice", "Suggestion review", "New windowed scenario passes", "—", "good"],
+    ["28 Oct", "Charge-steer limit, terrain dogleg, terrain-objective gap, Advance odds", "Suggestion review", "Telemon ends 8\" from objective (was 11.6\")", "—", "good"]
+  ];
+  var tb = document.getElementById("tbody");
+  rows.forEach(function (r) {
+    var tr = document.createElement("tr");
+    if (r.g) { tr.className = "grp"; tr.innerHTML = '<td colspan="6">' + r.g + "</td>"; tb.appendChild(tr); return; }
+    tr.innerHTML = "<td class=\"mono\">" + r[0] + "</td><td>" + r[1] + "</td><td>" + r[2] + "</td><td>" + r[3] + "</td><td class=\"num\">" + r[4] +
+      '</td><td><span class="chip ' + r[5] + '"><span class="ic" aria-hidden="true">' + ICON[r[5]] + "</span>" + WORD[r[5]] + "</span></td>";
+    tb.appendChild(tr);
+  });
+})();
+</script>
+</body>
+</html>
