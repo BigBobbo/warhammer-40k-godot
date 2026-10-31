@@ -1,0 +1,391 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index dee1aee0..3f5bc056 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1665,6 +1665,20 @@ const FIX_REINFORCE_INSURANCE: float = 1.0
+ const FIX_RI_RACE: float = 1.0
+ const FIX_RI_ASSAULT: float = 1.0
+ const FIX_RI_QUARTER: float = 1.0
++# FIX_CHARGE_TARGET (CHARGE_TARGET): two charge-valuation errors corrected.
++# (1) CT-CAP: ch_damage credited the full expected melee damage, also the part
++# beyond the target's remaining wounds — 3 Allarus (7.5 dmg) at a 2-wound
++# remnant booked 15 points of damage for 2 wounds' worth of kill.
++# (2) CT-FALLBACK: 11e 11.04 picks targets after the roll, and the post-roll
++# step (_select_post_roll_charge_targets) re-picks the best enemy in reach when
++# the roll misses every declared target. A declaration's value is therefore its
++# expected value over 2D6 INCLUDING that fallback; the multi-target combos
++# already counted low rolls on the near target, single-target declarations did
++# not — so "near remnant + far unit" beat "valuable target, near remnant as the
++# fallback". Allarus Custodians charging Blade Champion Alpha (83%) instead of
++# a remnant + 28% second target measured +5.75 VP over 24 rollouts (LLM-critic
++# cluster charge_target). 0 = previous behaviour.
++const FIX_CHARGE_TARGET: float = 1.0
+ # RI-QUARTER: share of the quarter VP counted for each later battle round
+ # (the unit usually stays in the quarter it entered, but may move or die).
+ const RI_QUARTER_LATER_ROUND_SHARE: float = 0.5
+@@ -16976,6 +16990,8 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 	# suggestion — only the focused unit may win the pick.
+ 	var unit_best := {}  # uid -> {score, target_name, prob}
+ 	var focus_charge: bool = _suggest_focus_unit_id != "" and charger_targets.has(_suggest_focus_unit_id)
++	# FIX_CHARGE_TARGET (CT-FALLBACK): 11e only — the post-roll re-pick exists there.
++	var ct_fallback_on: bool = get_param("FIX_CHARGE_TARGET", FIX_CHARGE_TARGET) > 0.0 and GameConstants.edition >= 11
+ 
+ 	for uid in charger_targets:
+ 		var unit = snapshot.get("units", {}).get(uid, {})
+@@ -17115,8 +17131,13 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 				"action": target_info.action,
+ 				"need": charge_distance_needed,
+ 				"prob": charge_prob,
++				"ow_dmg": ow_risk.expected_damage,
+ 			})
+ 
++			# FIX_CHARGE_TARGET (CT-FALLBACK): picked after every target of this
++			# unit is scored (the fallback needs the whole list) — see below.
++			if ct_fallback_on:
++				continue
+ 			if score > float(unit_best.get(uid, {}).get("score", -INF)):
+ 				unit_best[uid] = {"score": score, "target_name": target_name, "prob": charge_prob}
+ 			if score > best_score and may_pick:
+@@ -17129,13 +17150,40 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 				best_description = "%s declares charge against %s (%.0f%% chance, %.1f\" away, expected %.1f melee dmg vs %.0f HP%s)" % [
+ 					unit_name, target_name, charge_prob * 100.0, dist, melee_dmg, target_hp, ow_desc]
+ 
++		# FIX_CHARGE_TARGET (CT-FALLBACK): a single-target declaration is worth
++		# its target on rolls that reach it PLUS, on the lower rolls that miss
++		# it, the enemy the post-roll step re-picks instead (the best-scoring
++		# one in reach) — the same expected value over 2D6 the multi-target
++		# combos below are scored on, so the two compare like for like.
++		if ct_fallback_on:
++			for st in scored_targets:
++				var st_fb = _charge_post_roll_fallback_ev([st.target_id], scored_targets)
++				var st_score = float(st.score)
++				if st_fb > 0.0:
++					var st_terms: Dictionary = charge_eval[uid][st.target_id].get("terms", {})
++					st_score += _t_add(st_terms, "ch_post_roll_fallback", st_fb)
++					charge_eval[uid][st.target_id]["score"] = st_score
++					print("AIDecisionMaker: [CHARGE_TARGET] %s -> %s: +%.1f for the post-roll fallback on rolls under %d (single %.1f -> %.1f)" % [
++						unit_name, st.target_name, st_fb, maxi(ceili(float(st.need)), 2), float(st.score), st_score])
++				if st_score > float(unit_best.get(uid, {}).get("score", -INF)):
++					unit_best[uid] = {"score": st_score, "target_name": st.target_name, "prob": st.prob}
++				if st_score > best_score and may_pick:
++					best_score = st_score
++					best_action = st.action
++					var st_ow_desc = ""
++					if float(st.ow_dmg) > 0.0:
++						st_ow_desc = ", overwatch risk: %.1f dmg" % float(st.ow_dmg)
++					best_description = "%s declares charge against %s (%.0f%% chance, %.1f\" away, expected %.1f melee dmg vs %.0f HP%s)" % [
++						unit_name, st.target_name, float(st.prob) * 100.0, float(st.dist), float(st.melee_dmg), float(st.target_hp), st_ow_desc]
++
+ 		# --- T7-50: Evaluate multi-target charge combinations ---
+ 		# 11e 11.04: targets are picked after the roll, so a declaration that
+ 		# lists several targets pays off on high rolls and still takes the
+ 		# nearest on low ones — scored as an expected value over 2D6.
+ 		if scored_targets.size() >= 2:
+ 			var multi_target_result = _evaluate_multi_target_charge(
+-				uid, unit, unit_name, scored_targets, melee_bonus, ow_risk, snapshot, player)
++				uid, unit, unit_name, scored_targets, melee_bonus, ow_risk, snapshot, player,
++				scored_targets if ct_fallback_on else [])
+ 			if multi_target_result.score > float(unit_best.get(uid, {}).get("score", -INF)):
+ 				unit_best[uid] = {"score": multi_target_result.score, "target_name": "several units", "prob": -1.0}
+ 			if multi_target_result.score > best_score and may_pick:
+@@ -17371,10 +17419,35 @@ static func _charge_success_probability(distance_needed: float) -> float:
+ 
+ # --- T7-50: Multi-target charge evaluation ---
+ 
++static func _charge_post_roll_fallback_ev(declared_ids: Array, scored_targets: Array) -> float:
++	"""FIX_CHARGE_TARGET (CT-FALLBACK): expected value, over the 2D6 rolls that
++	reach NONE of `declared_ids`, of the target _select_post_roll_charge_targets
++	re-picks instead — the highest raw target score among the scored targets the
++	roll reaches, worth its value-if-reached (score / probability, the same
++	value the multi-target combos credit)."""
++	var declared_need := 99
++	for st in scored_targets:
++		if st.target_id in declared_ids:
++			declared_need = mini(declared_need, maxi(ceili(float(st.need)), 2))
++	var ev := 0.0
++	for r in range(2, mini(declared_need, 13)):
++		var pick = null
++		for st in scored_targets:
++			if st.target_id in declared_ids or float(st.prob) <= 0.0:
++				continue
++			if maxi(ceili(float(st.need)), 2) > r:
++				continue
++			if pick == null or float(st.target_score) > float(pick.target_score):
++				pick = st
++		if pick == null:
++			continue
++		ev += float(6 - absi(r - 7)) / 36.0 * float(pick.score) / float(pick.prob)
++	return ev
++
+ static func _evaluate_multi_target_charge(
+ 		charger_id: String, charger: Dictionary, charger_name: String,
+ 		scored_targets: Array, melee_bonus: float, ow_risk: Dictionary,
+-		snapshot: Dictionary, player: int) -> Dictionary:
++		snapshot: Dictionary, player: int, fallback_pool: Array = []) -> Dictionary:
+ 	"""Evaluate multi-target charge combinations (2-3 targets).
+ 	11e 11.04: after the roll the unit may select every enemy within 12" and
+ 	within the roll as a charge target and must end engaged with all of them.
+@@ -17395,7 +17468,7 @@ static func _evaluate_multi_target_charge(
+ 		for j in range(i + 1, sorted_targets.size()):
+ 			var combo = [sorted_targets[i], sorted_targets[j]]
+ 			var combo_result = _score_multi_target_combo(
+-				charger_id, charger, charger_name, combo, melee_bonus, ow_risk, snapshot, player)
++				charger_id, charger, charger_name, combo, melee_bonus, ow_risk, snapshot, player, fallback_pool)
+ 			if combo_result.score > best_multi.score:
+ 				best_multi = combo_result
+ 
+@@ -17406,7 +17479,7 @@ static func _evaluate_multi_target_charge(
+ 				for k in range(j + 1, sorted_targets.size()):
+ 					var combo = [sorted_targets[i], sorted_targets[j], sorted_targets[k]]
+ 					var combo_result = _score_multi_target_combo(
+-						charger_id, charger, charger_name, combo, melee_bonus, ow_risk, snapshot, player)
++						charger_id, charger, charger_name, combo, melee_bonus, ow_risk, snapshot, player, fallback_pool)
+ 					if combo_result.score > best_multi.score:
+ 						best_multi = combo_result
+ 
+@@ -17415,7 +17488,7 @@ static func _evaluate_multi_target_charge(
+ static func _score_multi_target_combo(
+ 		charger_id: String, charger: Dictionary, charger_name: String,
+ 		combo: Array, melee_bonus: float, ow_risk: Dictionary,
+-		snapshot: Dictionary, player: int) -> Dictionary:
++		snapshot: Dictionary, player: int, fallback_pool: Array = []) -> Dictionary:
+ 	"""Score declaring a charge with this target set (11e: targets picked after
+ 	the roll). Score = expected value over the 2D6 roll of the best subset in
+ 	reach: best target in full + MULTI_CHARGE_EXTRA_TARGET_SHARE per extra."""
+@@ -17507,6 +17580,13 @@ static func _score_multi_target_combo(
+ 		ev += p_r * v
+ 	if p_all <= 0.0:
+ 		return result  # no roll reaches every target: a smaller combo covers it
++	# FIX_CHARGE_TARGET (CT-FALLBACK): rolls under every declared target still
++	# charge the enemy the post-roll step re-picks (empty pool = fix off).
++	var combo_ids := []
++	for e in reach:
++		combo_ids.append(e.t.target_id)
++	var combo_fb = _charge_post_roll_fallback_ev(combo_ids, fallback_pool) if not fallback_pool.is_empty() else 0.0
++	ev += combo_fb
+ 
+ 	var target_names = []
+ 	var target_ids = []
+@@ -17543,7 +17623,16 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
+ 
+ 	# --- Expected melee damage ---
+ 	var melee_damage = _estimate_melee_damage(charger, target)
+-	score += _t_add(terms, "ch_damage", melee_damage * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT))  # Weight melee damage highly
++	# FIX_CHARGE_TARGET (CT-CAP): damage past the target's remaining wounds
++	# removes nothing — credit at most what is left of the unit.
++	var credited_damage = melee_damage
++	if get_param("FIX_CHARGE_TARGET", FIX_CHARGE_TARGET) > 0.0:
++		var ct_hp = _calculate_kill_threshold(target)
++		if ct_hp > 0.0 and melee_damage > ct_hp:
++			credited_damage = ct_hp
++			print("AIDecisionMaker: [CHARGE_TARGET] CT-CAP %s -> %s: damage credit %.1f capped at %.0f wounds left" % [
++				_dn(charger, ""), _dn(target, ""), melee_damage, ct_hp])
++	score += _t_add(terms, "ch_damage", credited_damage * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT))  # Weight melee damage highly
+ 
+ 	# --- Target value factors ---
+ 	var target_keywords = target.get("meta", {}).get("keywords", [])
+diff --git a/40k/tests/unit/test_ai_fix_charge_target.gd b/40k/tests/unit/test_ai_fix_charge_target.gd
+new file mode 100644
+index 00000000..6b1182fe
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_charge_target.gd
+@@ -0,0 +1,199 @@
++extends SceneTree
++
++# FIX_CHARGE_TARGET — charge declarations valued as what the charge can really
++# take (critic cluster "charge_target", round 5).
++#
++# Critic finding s7480_r3_p2_charge_1 (value-checked: +5.75 VP [1.46, 10.04]
++# over 24 paired seeds): Allarus Custodians declared at "Allarus Custodians
++# (a 2-wound remnant, 3+) + Allarus Custodians #2 (9+)" instead of Blade
++# Champion Alpha (7 HP CHARACTER, 5+).
++#
++#   CT-CAP       ch_damage credited all 7.5 expected damage against the
++#                2-wound remnant (15 points for 2 wounds' worth of kill);
++#                the credit is now capped at the target's remaining wounds.
++#   CT-FALLBACK  11e 11.04 picks targets after the roll; when the roll misses
++#                every declared target the post-roll step re-picks the best
++#                enemy in reach. A single-target declaration is now worth that
++#                fallback on the rolls under its target, as the multi-target
++#                combos already were — "Blade Champion, remnant if the roll is
++#                short" is valued like for like against "remnant + far unit".
++#   FIX_CHARGE_TARGET = 0 restores the old behaviour.
++#
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_charge_target.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++const AIDifficultyConfig = preload("res://scripts/AIDifficultyConfig.gd")
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== FIX_CHARGE_TARGET: charge targets valued by what the charge can take ===\n")
++	# Competitive: no score noise (see test_ai_charge_decisions.gd).
++	AIDecisionMaker._current_difficulty = AIDifficultyConfig.Difficulty.COMPETITIVE
++	var prev_edition = GameConstants.edition
++	GameConstants.edition = 11
++	AIDecisionMaker._config_overrides["FIX_CHARGE_TARGET"] = 1.0
++	_test_damage_credit_capped_at_remaining_wounds()
++	_test_full_strength_target_not_capped()
++	_test_fallback_ev_counts_lower_rolls()
++	_test_finding_charges_the_valuable_target()
++	_test_lone_remnant_still_charged()
++	_test_param_zero_restores_base()
++	AIDecisionMaker._charge_coordination.clear()
++	AIDecisionMaker._config_overrides.erase("FIX_CHARGE_TARGET")
++	GameConstants.edition = prev_edition
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++# ---------------------------------------------------------------------------
++# Fixtures (40 px per inch, 32 mm bases)
++# ---------------------------------------------------------------------------
++
++func _snapshot() -> Dictionary:
++	return {
++		"battle_round": 3,
++		"meta": {"battle_round": 3},
++		"board": {"objectives": [], "terrain_features": [], "deployment_zones": []},
++		"units": {},
++	}
++
++func _melee(wname: String, ws: int, s: int, ap: int, d: int, a: int) -> Dictionary:
++	return {"name": wname, "type": "Melee", "weapon_skill": str(ws), "strength": str(s),
++		"ap": ("-%d" % ap) if ap > 0 else "0", "damage": str(d), "attacks": str(a)}
++
++# Models at the given positions; `dead` of them (from the end) are removed.
++func _add(snap: Dictionary, uid: String, owner: int, positions: Array, weapons: Array,
++		toughness: int, save_val: int, wounds: int, keywords: Array = ["INFANTRY"],
++		dead: int = 0, last_wounds: int = -1) -> Dictionary:
++	var models := []
++	for i in range(positions.size()):
++		var alive := i < positions.size() - dead
++		var cw := wounds if alive else 0
++		if alive and last_wounds > 0 and i == positions.size() - dead - 1:
++			cw = last_wounds
++		models.append({"id": "m%d" % (i + 1), "alive": alive, "base_mm": 32, "base_type": "circular",
++			"base_dimensions": {}, "position": positions[i], "wounds": wounds, "current_wounds": cw})
++	var u := {"id": uid, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": uid, "keywords": keywords, "weapons": weapons,
++			"stats": {"move": 6, "toughness": toughness, "save": save_val, "wounds": wounds,
++				"leadership": 6, "objective_control": 2}},
++		"models": models, "flags": {}}
++	snap.units[uid] = u
++	return u
++
++# The finding's shape. The charger: 3 elite models in a row (x 1000..1120).
++#   remnant  one 3W model left of a 3-model unit, on 2 wounds, 2" off the
++#            charger's left end (3+);
++#   far      a fresh 3-model 3W unit 8.5" further left, near the remnant (9+);
++#   champ    a 7W CHARACTER 4.3" off the charger's right end (5+), too far
++#            from the remnant for one charge to engage both.
++func _finding_snapshot(with_champ: bool = true, with_far: bool = true) -> Dictionary:
++	var snap := _snapshot()
++	var spear := _melee("Guardian spear", 2, 7, 2, 2, 5)
++	_add(snap, "allarus", 2, [Vector2(1000, 1000), Vector2(1060, 1000), Vector2(1120, 1000)], [spear], 6, 2, 3)
++	_add(snap, "remnant", 1, [Vector2(870, 1000), Vector2(870, 1060), Vector2(870, 1120)], [spear], 6, 2, 3,
++		["INFANTRY"], 2, 2)
++	if with_far:
++		_add(snap, "far", 1, [Vector2(610, 1000), Vector2(610, 1060), Vector2(610, 1120)], [spear], 6, 2, 3)
++	if with_champ:
++		_add(snap, "champ", 1, [Vector2(1342, 1000)], [_melee("Sword", 2, 6, 2, 2, 6)], 5, 3, 7,
++			["INFANTRY", "CHARACTER"])
++	return snap
++
++func _charge_actions(snap: Dictionary, uid: String) -> Array:
++	var acts := []
++	for tid in snap.units:
++		if snap.units[tid].owner != snap.units[uid].owner:
++			acts.append({"type": "DECLARE_CHARGE", "actor_unit_id": uid, "payload": {"target_unit_ids": [tid]}})
++	acts.append({"type": "SKIP_CHARGE", "actor_unit_id": uid})
++	acts.append({"type": "END_CHARGE"})
++	return acts
++
++func _declared(snap: Dictionary) -> Array:
++	AIDecisionMaker._charge_coordination.clear()
++	var d = AIDecisionMaker._decide_charge(snap, _charge_actions(snap, "allarus"), 2)
++	print("  decision: %s — %s" % [d.get("type", ""), d.get("_ai_description", "")])
++	if d.get("type", "") != "DECLARE_CHARGE":
++		return []
++	var ids: Array = d.get("payload", {}).get("target_unit_ids", []).duplicate()
++	ids.sort()
++	return ids
++
++# ---------------------------------------------------------------------------
++# CT-CAP
++# ---------------------------------------------------------------------------
++
++func _test_damage_credit_capped_at_remaining_wounds() -> void:
++	var snap := _finding_snapshot()
++	var dmg := AIDecisionMaker._estimate_melee_damage(snap.units.allarus, snap.units.remnant)
++	var hp := AIDecisionMaker._calculate_kill_threshold(snap.units.remnant)
++	_assert(dmg > hp, "setup: the charger's damage (%.2f) exceeds the remnant's %.0f wounds" % [dmg, hp])
++	var terms := {}
++	AIDecisionMaker._score_charge_target(snap.units.allarus, snap.units.remnant, snap, 2, terms)
++	var w := AIDecisionMaker.CHARGE_MELEE_DAMAGE_WEIGHT
++	_assert(absf(float(terms.get("ch_damage", 0.0)) - hp * w) < 0.01,
++		"ch_damage credits only the remnant's wounds (%.2f, want %.2f)" % [float(terms.get("ch_damage", 0.0)), hp * w])
++
++func _test_full_strength_target_not_capped() -> void:
++	var snap := _finding_snapshot()
++	var dmg := AIDecisionMaker._estimate_melee_damage(snap.units.allarus, snap.units.far)
++	var terms := {}
++	AIDecisionMaker._score_charge_target(snap.units.allarus, snap.units.far, snap, 2, terms)
++	var w := AIDecisionMaker.CHARGE_MELEE_DAMAGE_WEIGHT
++	_assert(dmg < AIDecisionMaker._calculate_kill_threshold(snap.units.far) and absf(float(terms.get("ch_damage", 0.0)) - dmg * w) < 0.01,
++		"a target the charge cannot overkill keeps its full damage credit (%.2f)" % float(terms.get("ch_damage", 0.0)))
++
++# ---------------------------------------------------------------------------
++# CT-FALLBACK
++# ---------------------------------------------------------------------------
++
++func _test_fallback_ev_counts_lower_rolls() -> void:
++	# A 5+ target with a 3+ fallback worth 10 if reached: rolls 3 and 4
++	# (5/36) re-pick the fallback.
++	var pool := [
++		{"target_id": "a", "need": 5.0, "prob": 30.0 / 36.0, "score": 20.0, "target_score": 20.0},
++		{"target_id": "b", "need": 3.0, "prob": 35.0 / 36.0, "score": 10.0 * 35.0 / 36.0, "target_score": 8.0},
++	]
++	var fb = (AIDecisionMaker as Script).call("_charge_post_roll_fallback_ev", ["a"], pool)  # .call: absent on the base code
++	_assert(fb != null and absf(float(fb) - 10.0 * 5.0 / 36.0) < 0.01, "fallback EV = P(roll 3-4) x fallback value (%s, want %.3f)" % [str(fb), 10.0 * 5.0 / 36.0])
++	var none = (AIDecisionMaker as Script).call("_charge_post_roll_fallback_ev", ["b"], pool)
++	_assert(none != null and float(none) == 0.0, "the nearest target has no fallback below it (%s)" % str(none))
++
++# ---------------------------------------------------------------------------
++# Decision (drives _decide_charge)
++# ---------------------------------------------------------------------------
++
++func _test_finding_charges_the_valuable_target() -> void:
++	var snap := _finding_snapshot()
++	var ids := _declared(snap)
++	_assert(ids == ["champ"],
++		"the charger declares at the 7W character (remnant as the post-roll fallback), not remnant + far unit (got %s)" % str(ids))
++
++func _test_lone_remnant_still_charged() -> void:
++	# Guard: with nothing better in reach, the remnant is still charged
++	# (the fix re-ranks targets, it does not stop charges).
++	var snap := _finding_snapshot(false, false)
++	var ids := _declared(snap)
++	_assert(ids == ["remnant"], "a lone remnant in reach is still charged (got %s)" % str(ids))
++
++func _test_param_zero_restores_base() -> void:
++	AIDecisionMaker._config_overrides["FIX_CHARGE_TARGET"] = 0.0
++	var snap := _finding_snapshot()
++	var terms := {}
++	AIDecisionMaker._score_charge_target(snap.units.allarus, snap.units.remnant, snap, 2, terms)
++	var dmg := AIDecisionMaker._estimate_melee_damage(snap.units.allarus, snap.units.remnant)
++	var ids := _declared(snap)
++	AIDecisionMaker._config_overrides["FIX_CHARGE_TARGET"] = 1.0
++	_assert(absf(float(terms.get("ch_damage", 0.0)) - dmg * AIDecisionMaker.CHARGE_MELEE_DAMAGE_WEIGHT) < 0.01,
++		"FIX_CHARGE_TARGET = 0: the full damage is credited again (%.2f)" % float(terms.get("ch_damage", 0.0)))
++	_assert(ids != ["champ"], "FIX_CHARGE_TARGET = 0: the old declaration comes back (got %s)" % str(ids))

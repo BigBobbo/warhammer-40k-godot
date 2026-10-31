@@ -1,0 +1,76 @@
+{
+ "key": "charge_target",
+ "angle": "root",
+ "root_cause": "Two valuation errors in the charge score. (1) _score_charge_target credited ch_damage = full expected melee damage x2, also the part past the target's remaining wounds: at s7480 r3 P2 the Allarus (7.5 dmg) got 15 points of ch_damage against a 2-wound remnant (target_hp 2), the same order as the 7-HP Blade Champion (20). (2) 11e 11.04 targets are picked after the roll and _select_post_roll_charge_targets re-picks the best enemy in reach when the roll misses every declared target, so every declaration's real value is an EV over 2D6 including that fallback. The multi-target combos (_score_multi_target_combo) were scored that way, single-target declarations were scored as value x P(reach) with no fallback, so 'near remnant 3+ + far unit 9+' (EV 42.0) beat 'Blade Champion 5+, remnant on 3-4' (scored 32.9, real EV ~38.9). Together the remnant combo won.",
+ "fix_summary": "FIX_CHARGE_TARGET (default 1.0, 0 = base exactly). CT-CAP: ch_damage credits min(melee damage, target's remaining wounds). CT-FALLBACK (11e only): new _charge_post_roll_fallback_ev(declared, scored_targets) = sum over rolls below every declared target of P(roll) x value-if-reached (score/prob) of the target the post-roll step would re-pick (highest raw target score in reach); added as term ch_post_roll_fallback to each single-target declaration and to each multi-target combo's EV, so singles and combos compare like for like. Best-pick for the unit is taken after all its targets are scored. Log lines tagged [CHARGE_TARGET] (CT-CAP and fallback).",
+ "param": "FIX_CHARGE_TARGET",
+ "test_file": "40k/tests/unit/test_ai_fix_charge_target.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: 9/9 new test. All 21 listed tests pass (rollout_override 11, e_race_tuning 8, race_army 3, advance_probability 8, objective_race 16, plan_diminishing_returns 4, critic_round2 7, 11e_charge_ev_primary_cap 26, movement_decisions 36, plan_earmarks 35, fix_held_dup 14, fix_lone_trip 8, fix_charge_ev 11, fix_far_trip 11, fix_overcommit 8, fix_keeper_release 52, fix_lone_flip 16, fix_reinforce_insurance 24, charge_decisions 62, survival_assessment 23, multi_phase_planning 34). threat_range_awareness 34/3 (known base failures). Other charge-touching tests identical base vs fix: test_custodes_codex_other 99/0, test_t001_t002_ai_charge_fight 11/0, test_audit_already_done_pin 237/6 (same on base), test_ai_ability_awareness 'SOME TESTS FAILED' on both (fall-back description check, unrelated). New test on BASE: 5 passed, 2 failed + script error (missing fallback helper); decision check base declares at the remnant, fix at the character.",
+ "decision_checks": [
+  {
+   "job": "20261030_234707_r5c05_00__s7480_r3_p2_charge_1_6",
+   "base_choice": "Allarus Custodians -> [Allarus Custodians (2W remnant, 3+), Allarus Custodians #2 (9+)]",
+   "fix_choice": "Allarus Custodians -> [Allarus Custodians #2] single (9+) with post-roll fallback: Blade Champion Alpha on 5-8, remnant on 3-4 (scores: A#2 30.19 incl. +20.36 fallback, Blade Champion 29.00 incl. +3.08, remnant 21.57)",
+   "changed": true,
+   "measured": "alt [Blade Champion] +5.75 [1.46, 10.04] n24; fix's own choice forced on base: +4.58 [-1.29, 10.46] n12 (alt's first 12 seeds: +6.17 [-0.33, 12.66])",
+   "judgement": "partial match: the remnant is no longer the plan; Blade Champion is charged on 5-8 (20/36) instead of the remnant, A#2 kept for 9+ (10/36). Same direction and similar size as the alternative over 12 seeds, not significant alone. Step-4 A/B (2 seeds, alt BC): E +11.0, B gained P2 Punishment condemned_left +5 in both seeds and hold_min +4 in one."
+  },
+  {
+   "job": "20261030_160521_r4c14_00__s7465_r2_p1_charge_1_4 (extra, 12 seeds)",
+   "base_choice": "Stormboyz -> [Battlewagon Alpha 10+, Beastboss 11+]",
+   "fix_choice": "Stormboyz -> Beastboss single 8% (score 0.74 incl. +0.15 fallback)",
+   "changed": true,
+   "measured": "no charge +6.75 [1.62, 11.88] n12",
+   "judgement": "not matched: still charges (fix does not change charge/no-charge for low-odds units; by design, the cluster hint forbids charging less in general)."
+  },
+  {
+   "job": "20261030_160402_r4c10_00__s7461_r3_p2_charge_1_6 (extra, neutral)",
+   "base_choice": "Battlewagon Alpha -> [Beast Snagga Boyz, Beastboss]",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "Beastboss only +3.75 [-1.77, 9.27] n12 (neutral)",
+   "judgement": "unchanged; neutral finding, no harm."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160521_r4c14_00__s7465_r2_p2_charge_1_5",
+   "base_choice": "Stormboyz -> Lootas Beta (17%)",
+   "fix_choice": "Stormboyz -> Lootas Beta (17%)",
+   "changed": false,
+   "measured": "no charge harmful -5.25",
+   "judgement": "consistent (keeps the right charge)"
+  },
+  {
+   "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5",
+   "base_choice": "Stormboyz -> Blade Champion Gamma (28%)",
+   "fix_choice": "Stormboyz -> Blade Champion Gamma (28%), score 12.17 -> 10.40",
+   "changed": false,
+   "measured": "no charge harmful -3.50",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_160514_r4c15_00__s7466_r3_p2_charge_1_7",
+   "base_choice": "Battlewagon Alpha -> Lootas Alpha (42%)",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "no charge harmful -3.92",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_234707_r5c05_00__s7480_r3_p1_charge_1_5",
+   "base_choice": "Allarus Custodians -> Custodian Guard Sodality Gamma (83%)",
+   "fix_choice": "same (13.22)",
+   "changed": false,
+   "measured": "no charge neutral +3.67",
+   "judgement": "consistent (neutral)"
+  }
+ ],
+ "fires": "Replays (fix in both seats, game to end of next round): ch_post_roll_fallback term present on 7/10/2/10/11/2/8 candidates in 5/4/2/5/5/2/6 charge decisions (f1, f2, f3, g1, g2, g3, g4); decisions changed at the measured positions: f1 and f2 only. Bench (mirror_custodes_2000_postdeploy, seed 93101, fix in candidate seat only): 55 and 153 [CHARGE_TARGET] lines in the two games (CT-CAP 22/53, fallback 33/100). These lines log score changes, not only changed decisions (CT-CAP also fires from the post-roll re-pick); the number of changed declarations per game was not counted. Pair margin -1.5 (1 pair, no signal).",
+ "bench_fires_per_game": 104,
+ "risks": "(1) It re-ranks charge targets in most charge phases (frequent fires): broad effect, measured only at 1 clear finding + 4 guardrails; needs the full-game bench. (2) CT-FALLBACK lifts the score of far first-choice declarations (e.g. +62 on a 10+ target whose fallback is a near unit), which can change WHICH unit charges first (best_score across units, _build_charge_order) even when each unit's target set is similar; the charge threshold (~0.37) almost never binds so charge/no-charge is mostly unchanged, so it doesn't fix the 'should not charge' sub-findings (s7465 r2 P1 still charges). (3) In f1 the fix's own choice is A#2-first (objective x1.5) rather than Blade Champion-first; 12-seed check +4.58 but CI crosses 0. (4) CT-CAP stops paying for overkill, so a unit may now prefer a fresh big target over finishing a remnant on an objective; ch_can_wipe and objective multipliers still reward the finish, but over 5 rounds a missed 'clear the objective' kill (primary + secondaries like Assassination/Bring It Down) could cost VP. (5) Fallback model uses the AI's scored DECLARE_CHARGE targets (>=3% chance) as the selectable pool; the real pool is every enemy within 12\" and the roll, so it can slightly under-count.",
+ "drop_reason": ""
+}
