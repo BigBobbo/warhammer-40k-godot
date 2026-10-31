@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Stormboyz arrives",
+ "created": "2026-10-30 23:51:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7481_r2_p1_movement_1",
+ "note": "[LLM critic, low conf] The AI deep strikes Stormboyz (OC1) next to a centre objective it already holds with 4 OC. The same unit with an added deep_strike term of 2.0 beats Warbikers (OC2) by 1.5. This looks like a small, mostly flat choice. Fix: Give the deep-strike bonus only when the spot reaches an objective that is contested or not held. Add a term for the OC the unit adds, since a unit with higher OC has more value on a held objective under threat. Subtract a term for the threat at the landing spot.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7481_r2_p1_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_STORMBOYZ_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_STORMBOYZ_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz arrives from Deep Strike",
+ "verdict": "pending",
+ "version": 1
+}
