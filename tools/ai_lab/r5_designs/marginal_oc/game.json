@@ -1,0 +1,84 @@
+{
+ "key": "marginal_oc",
+ "angle": "game",
+ "root_cause": "The objective planner never asks whether a unit's OC changes who controls the objective it is committed to. Three different code paths do this, one per finding. (s7475 r3 P1) Pass 1 hold: on a held_threatened objective EVERY movable holder holds ('holding under threat'), whatever the margin. KEEP-OC's locked-OC release sits in a later elif and never runs for held_threatened. Custodian Guard Beta (9 OC in range) stayed on a centre held 20 vs 9 while the enemy-held obj_nml_1 (8 OC) went uncontested. COORD-5 projected 7 more enemy OC, but all of it came from enemy units locked in combat with ours. B gained by denial: the opponent's per_objective primary fell from 6 to 3 (round 3) and 15 to 12 (round 4) in the A/B records, with our own Death Trap VP the same. (s7478 r3 P2) OBJ-ASSIGN-1 swapped Custodian Guard Beta (OC 9) onto the uncontrolled, UNCONTESTED obj_home_2 in place of the Prosecutors (OC 8). Both arrive in 2 phases; the swap bought only 4\" of spare movement that nobody races for. The Prosecutors then went to the contested centre and Beta's OC was spent where 1 OC captures. (s7463 r1 P2, drift) The base now sends Kommandos to the PASS-3 support fallback: obj_center's need of 6 is filled by two Battlewagons on a 3-turn race, and LONE-TRIP filters the centre out of the Kommandos' support options. So _find_best_remaining_objective reinforces obj_nml_2, held 18 vs 0, where its OC changes nothing.",
+ "fix_summary": "FIX_MARGINAL_OC (default 1; 0 restores base exactly). Two narrow parts. (a) MOC-HOLD, pass 1: a movable holder of a held_threatened objective with no remaining need is freed when two things hold. First, the OC left without it beats the threat by MARGINAL_OC_HOLD_MARGIN=2. Left OC = friendly_oc minus its in-range OC (MissionManager predicate) minus holders already freed there. Threat = enemy OC in range now PLUS enemy OC that can walk in next move (COORD-5 reach, units engaged with ours left out). Second, it has a candidate of at most MARGINAL_OC_MAX_TURNS=2 turns, not a lost race, arriving before round 5 ends, to an objective we do not control that still needs OC. Pass 2 then assigns it normally (LONE-TRIP/RACE-SKIP still apply). The threat is the SUM of now and next-move OC, not KEEP-OC's max, to protect the held objective in later rounds. Freed holders are tallied, so two holders cannot both leave on the same surplus. (b) MOC-SWAP, OBJ-ASSIGN-1: no swap of a higher-OC unit onto an uncontrolled objective with no enemy OC in range or one move away, when both units arrive in the same Movement phase (only spare inches differ). Logs: [MARGINAL_OC] MOC-HOLD / MOC-SWAP when a decision changes; untagged 'MOC-CHECK' debug line per held_threatened holder checked.",
+ "param": "FIX_MARGINAL_OC",
+ "test_file": "40k/tests/unit/test_ai_fix_marginal_oc.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "test_ai_fix_marginal_oc: 10/10 on fix; 6 failed / 4 passed against the BASE copy (temp preload, deleted). The test drives _evaluate_all_objectives + _assign_units_to_objectives: surplus holder freed (Normal move), thin margin holds, engaged enemy not a threat, no short trip holds, uncontested no-swap, param 0 = base. All listed tests pass: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 52/0, fix_lone_flip 16/0, fix_reinforce_insurance 24/0, charge_decisions 62/0, survival_assessment 23/0, multi_phase_planning 34/0. Known failures identical on BASE: threat_range_awareness 34/3; tests/test_ai_objective_assignment_fixes 6/1 (same on fix and base). tests/test_ai_movement_coordination 7/0 and test_ai_battle_plan pass on both.",
+ "decision_checks": [
+  {
+   "job": "20261030_234632_r5c00_00__s7475_r3_p1_movement_2_5",
+   "base_choice": "Custodian Guard Sodality Beta holds obj_center (holding under threat (enemy OC 9 nearby))",
+   "fix_choice": "Custodian Guard Sodality Beta moves toward obj_nml_1 (Normal move; [MARGINAL_OC] MOC-HOLD: 11 OC left vs enemy 9 + 0 free to move in; the 7 projected OC are all engaged)",
+   "changed": true,
+   "measured": "clear: E +8.00 [3.15, 12.85] n24 (alternative = Normal move to obj_nml_1)",
+   "judgement": "Matches the alternative exactly: same unit, same objective, same mode (Normal move). Replayed twice with the final code."
+  },
+  {
+   "job": "20261030_234556_r5c03_00__s7478_r3_p2_movement_1_5",
+   "base_choice": "Custodian Guard Sodality Beta advances toward obj_home_2 (capturing it (uncontrolled) - quicker to reach than Prosecutor Squad)",
+   "fix_choice": "Prosecutors keep obj_home_2; Custodian Guard Sodality Beta moves (Normal) toward obj_nml_1 (flipping it, enemy OC 3) ([MARGINAL_OC] MOC-SWAP)",
+   "changed": true,
+   "measured": "clear: E +5.58 [1.41, 9.76] n24 for the alternative (Beta Normal move to obj_center). Fix plan forced on BASE (Beta->obj_nml_1 move + Prosecutors->obj_home_2 move): +9.25 [3.6, 14.9] over 8 seeds (horizon 1, all 8 applied, 0 identical)",
+   "judgement": "Same intent, different target. Beta leaves the uncontested capture and takes a Normal move to an objective where its OC changes control, but to obj_nml_1 (enemy OC 3; its planner score 19.8 vs centre 15.4), not obj_center. That exact plan was measured at +9.25 [3.6, 14.9] (8 seeds, fewer than the 24 the cluster required)."
+  },
+  {
+   "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_1_2",
+   "base_choice": "Kommandos moves toward obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed))",
+   "fix_choice": "unchanged: Kommandos moves toward obj_nml_2 (reinforcing)",
+   "changed": false,
+   "measured": "clear: E +4.50 [1.34, 7.66] n24 (alternative = Advance to obj_center)",
+   "judgement": "Not addressed. The cause is the pass-3 support fallback plus LONE-TRIP's support filter (the centre counts as a lone, out-raced trip for a fragile unit). Overriding LONE-TRIP to send a fragile unit into a 56-OC race is exactly what guardrail s7468 r1 P2 measured as harmful (Kommandos Advancing to the centre: -6.58), so this design leaves it alone."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r1_p2_movement_2_2",
+   "base_choice": "Kommandos holds obj_home_2 (keeping hold)",
+   "fix_choice": "Kommandos holds obj_home_2 (keeping hold)",
+   "changed": false,
+   "measured": "harmful alt (Advance centre) E -6.58",
+   "judgement": "Consistent: keeper kept (held_safe, MOC-HOLD does not apply); 0 fires in the replay."
+  },
+  {
+   "job": "20261030_234808_r5c15_00__s7490_r1_p1_movement_2_3",
+   "base_choice": "Lootas Alpha holds obj_home_1 (keeping hold)",
+   "fix_choice": "Lootas Alpha holds obj_home_1 (keeping hold)",
+   "changed": false,
+   "measured": "harmful alt (Advance centre) E -3.83",
+   "judgement": "Consistent; 0 fires."
+  },
+  {
+   "job": "20261030_234556_r5c03_00__s7478_r2_p1_movement_2_2",
+   "base_choice": "Prosecutor Squad advances toward obj_home_2 (flipping it)",
+   "fix_choice": "Prosecutor Squad advances toward obj_home_2 (flipping it)",
+   "changed": false,
+   "measured": "harmful alt (move obj_home_1) E -8.17",
+   "judgement": "Consistent; 0 fires."
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+   "base_choice": "Custodian Guard Beta moves toward obj_center (charge target)",
+   "fix_choice": "Custodian Guard Beta moves toward obj_center (charge target)",
+   "changed": false,
+   "measured": "harmful alt (hold obj_nml_2) E -15.00",
+   "judgement": "Consistent (unchanged); 0 fires."
+  },
+  {
+   "job": "20261030_234640_r5c04_00__s7479_r1_p1_movement_1_0",
+   "base_choice": "Custodian Guard Gamma advances toward obj_center (capturing it)",
+   "fix_choice": "Custodian Guard Gamma advances toward obj_center (capturing it)",
+   "changed": false,
+   "measured": "harmful alt (move obj_nml_1) E -3.92",
+   "judgement": "Consistent; 0 fires."
+  }
+ ],
+ "fires": "Finding replays (1 seed, to end of next round, both players): s7475 r3: 1 (MOC-HOLD, the decision itself); s7478 r3: 1 (MOC-SWAP, the decision itself); s7463 r1: 0. Guardrail replays (5 positions, both players, to end of next round): 0 in each. Bench mirror_custodes_2000_postdeploy, seed 93101, both seat orders: 0 and 0 [MARGINAL_OC] lines; both games ended -53 with identical margins. A second identical pair that also kept near-miss lines showed 9 MOC-CHECK evaluations in one game (margins -18 to +7; the +7 case, Prosecutors on obj_home_1, had no open objective within 2 turns) and 6 OBJ-ASSIGN-1 swaps per game, none same-phase onto an uncontested objective.",
+ "bench_fires_per_game": 0,
+ "risks": "BENCH REACH IS ZERO: neither part fired in a full Custodes-mirror game pair (seed 93101), so the bench cannot measure this design as it stands; the gain rests on the two decision checks. Rounds 3-5: MOC-HOLD leaves an objective held by a margin of at least 2 OC against everything in range plus every free enemy unit one move away. The holders left behind can still be shot or fought off it in the enemy turn. The engaged-enemy exclusion is the riskiest part: an engaged enemy unit can Fall Back and end within range, or the unit it is engaged with can be destroyed in the fight phase, which frees the enemy to walk on next turn. In round 5 a 2-turn target is cut by the arrive-before-game-end test, so only 1-turn flips release a holder late. That trades a safe hold for a flip that scores at once, and the trade is wrong when the remaining holders die. Secondary cards: freeing a holder sends a unit forward onto an enemy-held objective, which helps spread cards (Engage on All Fronts, Behind Enemy Lines, A Tempting Target / no-man's-land cards) and denial. Centre-type cards (Centre Ground) keep their units, because the remaining OC must still beat the threat. Unlike round 2's FAR-TRIP/OVERCOMMIT, nothing here holds a unit back or shortens a trip; it can only send a unit forward from a surplus. MOC-SWAP: the cheaper/lower-OC unit takes the empty objective and the higher-OC unit goes to a contested one. Risk: a contested trip is more dangerous for the elite unit, but LONE-TRIP and RACE-SKIP still filter it, and the swap is kept whenever the faster unit arrives a phase sooner. Not addressed: finding s7463 (pass-3 support reinforcing a held_safe objective with surplus OC), because fixing it means overriding LONE-TRIP, which guardrail s7468 shows is harmful.",
+ "drop_reason": ""
+}
