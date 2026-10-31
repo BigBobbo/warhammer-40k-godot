@@ -1,0 +1,4 @@
+RECHECK_SHARD pr12h2_1
+ROLLOUT_RESULT {"job":"20261030_160413_r4c08_00__s7459_r2_p2_charge_1_6","status":"ok","E":5.208,"se":2.505,"ci":[0.3,10.12],"n":24,"A":5.125,"B":10.333,"mat":-34.112,"drift":false,"a_did":"Beast Snagga Boyz declares charge against Stormboyz (28% chance, 8.9\" away, expected 12.0 melee dmg vs 22 HP, ","applied":24,"identical":2}
+ROLLOUT_RESULT {"job":"20261030_234707_r5c05_00__s7480_r3_p2_charge_1_6","status":"ok","E":11.542,"se":3.065,"ci":[5.53,17.55],"n":24,"A":-23.417,"B":-11.875,"mat":-246.856,"drift":false,"a_did":"Allarus Custodians declares a charge at Allarus Custodians + Allarus Custodians #2 — targets picked after the ","applied":24,"identical":0}
+SHARD_DONE 1/10 jobs=2

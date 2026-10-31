@@ -1,0 +1,4 @@
+RECHECK_SHARD pr12h2_9
+ROLLOUT_RESULT {"job":"20261030_234556_r5c03_00__s7478_r3_p2_movement_1_5","status":"ok","E":4.542,"se":4.607,"ci":[-4.49,13.57],"n":24,"A":10.25,"B":14.792,"mat":66.418,"drift":false,"a_did":"Custodian Guard Sodality Beta advances toward obj_home_2 (capturing it (uncontrolled) — quicker to reach than ","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3","status":"ok","E":-3.417,"se":3.164,"ci":[-9.62,2.78],"n":24,"A":-2.625,"B":-6.042,"mat":76.949,"drift":true,"a_did":"Custodian Guard Sodality Gamma moves toward obj_home_2 (moving toward charge target Custodian Guard Sodality G","applied":24,"identical":0}
+SHARD_DONE 9/10 jobs=2

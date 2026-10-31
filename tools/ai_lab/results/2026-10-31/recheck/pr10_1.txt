@@ -1,0 +1,4 @@
+RECHECK_SHARD pr10_1
+ROLLOUT_RESULT {"job":"20261030_160506_r4c12_00__s7463_r1_p2_movement_2_3","status":"ok","E":4.792,"se":1.17,"ci":[2.5,7.09],"n":24,"A":-4.458,"B":0.333,"mat":30.333,"drift":false,"a_did":"Lootas Alpha screens at (594,1499) — block Battlewagon Beta approaching obj_nml_2 (26\" away)","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_234632_r5c00_00__s7475_r2_p1_movement_2_2","status":"ok","E":4.0,"se":1.508,"ci":[1.04,6.96],"n":24,"A":6.417,"B":10.417,"mat":-55.193,"drift":false,"a_did":"Custodian Guard Sodality Alpha moves toward obj_nml_2 (moving toward charge target Custodian Guard Sodality Be","applied":24,"identical":0}
+SHARD_DONE 1/6 jobs=2

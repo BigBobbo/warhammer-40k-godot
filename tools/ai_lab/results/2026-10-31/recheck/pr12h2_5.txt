@@ -1,0 +1,4 @@
+RECHECK_SHARD pr12h2_5
+ROLLOUT_RESULT {"job":"20261030_234730_r5c09_00__s7484_r1_p1_movement_1_0","status":"ok","E":8.0,"se":2.152,"ci":[3.78,12.22],"n":24,"A":-13.958,"B":-5.958,"mat":56.875,"drift":false,"a_did":"Burna Boyz Beta screens at (1600,320) — backfield gap (nearest friendly: 9\")","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_160415_r4c09_00__s7460_r1_p1_movement_2_0","status":"ok","E":6.0,"se":2.243,"ci":[1.6,10.4],"n":24,"A":-11.292,"B":-5.292,"mat":-86.184,"drift":true,"a_did":"Lootas Alpha holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_center)","applied":24,"identical":0}
+SHARD_DONE 5/10 jobs=2

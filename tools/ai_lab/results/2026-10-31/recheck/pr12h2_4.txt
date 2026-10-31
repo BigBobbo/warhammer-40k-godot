@@ -1,0 +1,4 @@
+RECHECK_SHARD pr12h2_4
+ROLLOUT_RESULT {"job":"20261030_160521_r4c14_00__s7465_r2_p1_charge_1_4","status":"ok","E":-1.125,"se":3.684,"ci":[-8.35,6.1],"n":24,"A":-16.458,"B":-17.583,"mat":51.443,"drift":false,"a_did":"Stormboyz declares a charge at Battlewagon Alpha + Beastboss — targets picked after the roll: Battlewagon Alph","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_160506_r4c12_00__s7463_r1_p2_movement_2_3","status":"ok","E":-1.625,"se":1.391,"ci":[-4.35,1.1],"n":24,"A":-1.75,"B":-3.375,"mat":-13.84,"drift":false,"a_did":"Lootas Alpha screens at (594,1499) — block Battlewagon Beta approaching obj_nml_2 (26\" away)","applied":24,"identical":0}
+SHARD_DONE 4/10 jobs=2

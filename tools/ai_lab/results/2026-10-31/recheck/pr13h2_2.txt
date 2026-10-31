@@ -1,0 +1,3 @@
+RECHECK_SHARD pr13h2_2
+ROLLOUT_RESULT {"job":"20261030_234736_r5c07_00__s7482_r3_p2_charge_1_6","status":"ok","E":0.75,"se":1.436,"ci":[-2.06,3.56],"n":24,"A":16.75,"B":17.5,"mat":-5.975,"drift":false,"a_did":"Lootas Gamma declares charge against Beast Snagga Boyz (42% chance, 7.8\" away, expected 2.7 melee dmg vs 3 HP,","applied":24,"identical":6}
+SHARD_DONE 2/3 jobs=1

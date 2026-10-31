@@ -1,0 +1,4 @@
+RECHECK_SHARD pr12h2_8
+ROLLOUT_RESULT {"job":"20261030_234632_r5c00_00__s7475_r3_p1_movement_2_5","status":"ok","E":6.667,"se":3.575,"ci":[-0.34,13.67],"n":24,"A":4.417,"B":11.083,"mat":65.548,"drift":false,"a_did":"Custodian Guard Sodality Beta holds obj_center (holding under threat (enemy OC 9 nearby))","applied":24,"identical":2}
+ROLLOUT_RESULT {"job":"20261030_020603_sweep2_10__s7421_r2_p1_movement_2_1","status":"ok","E":14.833,"se":3.929,"ci":[7.13,22.53],"n":24,"A":29.25,"B":44.083,"mat":-24.501,"drift":false,"a_did":"Custodian Guard Sodality Gamma moves toward obj_nml_2 (moving toward charge target Scout Squad Alpha, obj: 9.8","applied":24,"identical":0}
+SHARD_DONE 8/10 jobs=2
