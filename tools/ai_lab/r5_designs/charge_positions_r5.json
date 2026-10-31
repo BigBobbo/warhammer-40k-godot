@@ -1,0 +1,1715 @@
+[
+ {
+  "job": "20261030_005434_sweep1_00__s7401_r2_p2_charge_1_1",
+  "case": "40k/tests/rollout_cases/s1a/20261030_005434_sweep1_00__s7401_r2_p2_charge_1_1.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "targets": []
+   }
+  ],
+  "E": -1.75,
+  "ci": [
+   -9.76,
+   6.26
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Beta (9.3\" away, 17% chance)",
+  "better_option": "unlisted: do not charge, keep Custodian Guard Sodality Delta on the CENTER objective",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_005434_sweep1_00__s7401_r2_p2_charge_2_2",
+  "case": "40k/tests/rollout_cases/s1a/20261030_005434_sweep1_00__s7401_r2_p2_charge_2_2.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A_P2",
+    "targets": []
+   }
+  ],
+  "E": 2.17,
+  "ci": [
+   -4.17,
+   8.51
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Beta (10.6\" away, 8% chance)",
+  "better_option": "unlisted: do not charge, stay on CENTER",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_005434_sweep1_01__s7402_r2_p1_charge_1_4",
+  "case": "40k/tests/rollout_cases/s1a/20261030_005434_sweep1_01__s7402_r2_p1_charge_1_4.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "targets": []
+   }
+  ],
+  "E": 0.67,
+  "ci": [
+   -10.47,
+   11.8
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Alpha (8.0\" away, 28% chance)",
+  "better_option": "unlisted: Gamma does not charge. It stays back or moves to contest NML-1 at range.",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_010357_sweep1_02__s7403_r3_p1_charge_1_6",
+  "case": "40k/tests/rollout_cases/s1b/20261030_010357_sweep1_02__s7403_r3_p1_charge_1_6.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_A",
+    "targets": []
+   }
+  ],
+  "E": -3.67,
+  "ci": [
+   -5.82,
+   -1.52
+  ],
+  "n": 12,
+  "class": "harmful",
+  "chosen_option": "Charge Custodian Guard Sodality Gamma (7.5\" away, 42% chance)",
+  "better_option": "Charge Blade Champion Gamma (8.3\" away, 0% chance)",
+  "tag": "KEY_harmful_charging_was_right"
+ },
+ {
+  "job": "20261030_010419_sweep1_03__s7404_r2_p2_charge_1_4",
+  "case": "40k/tests/rollout_cases/s1a/20261030_010419_sweep1_03__s7404_r2_p2_charge_1_4.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "E": -0.67,
+  "ci": [
+   -6.14,
+   4.81
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Allarus Custodians (2.0\" away, 100% chance)",
+  "better_option": "unlisted: do not charge with Kommandos. Keep them back and shoot the Allarus with Lootas and Burna Boyz.",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_010419_sweep1_03__s7404_r3_p1_charge_1_5",
+  "case": "40k/tests/rollout_cases/s1a/20261030_010419_sweep1_03__s7404_r3_p1_charge_1_5.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "targets": []
+   }
+  ],
+  "E": -0.42,
+  "ci": [
+   -3.17,
+   2.34
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Lootas Beta (8.9\" away, 28% chance)",
+  "better_option": "unlisted: do not charge (targets [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_010419_sweep1_03__s7404_r3_p2_charge_1_7",
+  "case": "40k/tests/rollout_cases/s1a/20261030_010419_sweep1_03__s7404_r3_p2_charge_1_7.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": [
+     "U_ALLARUS_CUSTODIANS_A"
+    ]
+   }
+  ],
+  "E": 1.0,
+  "ci": [
+   -1.19,
+   3.19
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Alpha (4.8\" away, 83% chance)",
+  "better_option": "Charge Allarus Custodians (5.9\" away, 72% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_011609_sweep1_05__s7406_r2_p2_charge_1_7",
+  "case": "40k/tests/rollout_cases/s1b/20261030_011609_sweep1_05__s7406_r2_p2_charge_1_7.json",
+  "matchup": "custodes_lions vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_THUNDERWOLF_CAVALRY_A",
+    "targets": []
+   }
+  ],
+  "E": -0.5,
+  "ci": [
+   -1.76,
+   0.76
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Delta (8.5\" away, 28% chance)",
+  "better_option": "Charge Blade Champion Alpha (7.0\" away, 0% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_012004_sweep2_01__s7412_r2_p2_charge_1_2",
+  "case": "40k/tests/rollout_cases/s1b/20261030_012004_sweep2_01__s7412_r2_p2_charge_1_2.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "targets": [
+     "U_BLADE_CHAMPION_A"
+    ]
+   }
+  ],
+  "E": -0.42,
+  "ci": [
+   -6.28,
+   5.44
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Delta (5.8\" away, 72% chance)",
+  "better_option": "Charge Blade Champion Alpha (6.7\" away, 58% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_012004_sweep2_01__s7412_r3_p2_charge_1_4",
+  "case": "40k/tests/rollout_cases/s1b/20261030_012004_sweep2_01__s7412_r3_p2_charge_1_4.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A_P2",
+    "targets": []
+   }
+  ],
+  "E": -0.42,
+  "ci": [
+   -4.48,
+   3.64
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Alpha (6.8\" away, 58% chance)",
+  "better_option": "unlisted: do not charge, hold position and keep Allarus Custodians near HOME 2",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_012005_sweep2_00__s7411_r2_p2_charge_1_4",
+  "case": "40k/tests/rollout_cases/s1b/20261030_012005_sweep2_00__s7411_r2_p2_charge_1_4.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "targets": []
+   }
+  ],
+  "E": 1.83,
+  "ci": [
+   -3.35,
+   7.01
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Beta (9.7\" away, 17% chance)",
+  "better_option": "Do not charge (targets: [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_012005_sweep2_00__s7411_r2_p2_charge_2_5",
+  "case": "40k/tests/rollout_cases/s1b/20261030_012005_sweep2_00__s7411_r2_p2_charge_2_5.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "targets": []
+   }
+  ],
+  "E": 3.25,
+  "ci": [
+   -2.63,
+   9.13
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Beta (5.9\" away, 72% chance)",
+  "better_option": "unlisted: do not charge, or declare the charge against both Blade Champion Beta and Custodian Guard Sodality Alpha with other P2 units joining",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_012809_sweep1_07__s7408_r2_p2_charge_1_3",
+  "case": "40k/tests/rollout_cases/s1c/20261030_012809_sweep1_07__s7408_r2_p2_charge_1_3.json",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "E": -0.17,
+  "ci": [
+   -7.75,
+   7.42
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Lootas Beta (8.6\" away, 28% chance)",
+  "better_option": "unlisted: do not charge and hold near obj_center, or only take the Burna Boyz Beta option if the unit is willing to commit",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_012809_sweep1_07__s7408_r2_p2_charge_2_4",
+  "case": "40k/tests/rollout_cases/s1c/20261030_012809_sweep1_07__s7408_r2_p2_charge_2_4.json",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOOTAS_C_P2",
+    "targets": []
+   }
+  ],
+  "E": 1.42,
+  "ci": [
+   -5.37,
+   8.2
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Burna Boyz Beta (7.6\" away, 42% chance)",
+  "better_option": "unlisted: do not charge, keep Lootas Gamma in the ruin to shoot next turn",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_012809_sweep1_07__s7408_r3_p1_charge_2_9",
+  "case": "40k/tests/rollout_cases/s1c/20261030_012809_sweep1_07__s7408_r3_p1_charge_2_9.json",
+  "matchup": "Orks_2000 vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": -5.08,
+  "ci": [
+   -12.76,
+   2.59
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Zodgrod Wortsnagga (10.8\" away, 8% chance)",
+  "better_option": "unlisted: do not charge (targets [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_012833_sweep2_02__s7413_r2_p1_charge_1_3",
+  "case": "40k/tests/rollout_cases/s1c/20261030_012833_sweep2_02__s7413_r2_p1_charge_1_3.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "targets": []
+   }
+  ],
+  "E": -0.61,
+  "ci": [
+   -2.99,
+   1.77
+  ],
+  "n": 36,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Alpha (10.0\" away, 8% chance)",
+  "better_option": "Charge phase: do not charge (targets [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_012920_sweep2_03__s7414_r3_p1_charge_1_5",
+  "case": "40k/tests/rollout_cases/s1c/20261030_012920_sweep2_03__s7414_r3_p1_charge_1_5.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "targets": []
+   }
+  ],
+  "E": -1.67,
+  "ci": [
+   -4.73,
+   1.4
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Delta (8.5\" away, 28% chance)",
+  "better_option": "",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_013700_sweep2_04__s7415_r2_p1_charge_1_4",
+  "case": "40k/tests/rollout_cases/s1c/20261030_013700_sweep2_04__s7415_r2_p1_charge_1_4.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "E": 4.42,
+  "ci": [
+   -3.22,
+   12.05
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Gamma (8.0\" away, 28% chance)",
+  "better_option": "",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_013700_sweep2_04__s7415_r2_p1_charge_2_5",
+  "case": "40k/tests/rollout_cases/s1c/20261030_013700_sweep2_04__s7415_r2_p1_charge_2_5.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOOTAS_A",
+    "targets": []
+   }
+  ],
+  "E": 9.0,
+  "ci": [
+   4.06,
+   13.94
+  ],
+  "n": 12,
+  "class": "clear",
+  "chosen_option": "Charge Prosecutor Squad (2.0\" away, 97% chance)",
+  "better_option": "unlisted: do not charge with Lootas Alpha and stay on the center objective",
+  "tag": "KEY_clear_dont_charge"
+ },
+ {
+  "job": "20261030_013700_sweep2_04__s7415_r3_p1_charge_1_6",
+  "case": "40k/tests/rollout_cases/s1c/20261030_013700_sweep2_04__s7415_r3_p1_charge_1_6.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "E": -1.08,
+  "ci": [
+   -5.18,
+   3.02
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Alpha (3.9\" away, 92% chance)",
+  "better_option": "unlisted: do not charge (targets [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_013744_sweep2_05__s7416_r2_p1_charge_1_3",
+  "case": "40k/tests/rollout_cases/s1c/20261030_013744_sweep2_05__s7416_r2_p1_charge_1_3.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": -1.17,
+  "ci": [
+   -3.49,
+   1.16
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Alpha (5.3\" away, 72% chance)",
+  "better_option": "unlisted: do not charge, or pick a charge only when the expected damage justifies the retaliation",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_013744_sweep2_05__s7416_r3_p1_charge_1_6",
+  "case": "40k/tests/rollout_cases/s1c/20261030_013744_sweep2_05__s7416_r3_p1_charge_1_6.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "E": -2.17,
+  "ci": [
+   -9.17,
+   4.84
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Beta (5.8\" away, 72% chance)",
+  "better_option": "Do not charge with Kommandos (targets empty)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_014802_sweep2_06__s7417_r2_p1_charge_1_2",
+  "case": "40k/tests/rollout_cases/s1d/20261030_014802_sweep2_06__s7417_r2_p1_charge_1_2.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "E": 1.17,
+  "ci": [
+   -1.99,
+   4.32
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Zodgrod Wortsnagga (9.6\" away, 17% chance)",
+  "better_option": "unlisted: do not charge with Allarus Custodians",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_014802_sweep2_06__s7417_r2_p2_charge_1_4",
+  "case": "40k/tests/rollout_cases/s1d/20261030_014802_sweep2_06__s7417_r2_p2_charge_1_4.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": 1.33,
+  "ci": [
+   -0.31,
+   2.98
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Beta (9.2\" away, 17% chance)",
+  "better_option": "unlisted: do not charge and keep Stormboyz on obj_nml_1",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_014802_sweep2_06__s7417_r2_p2_charge_2_5",
+  "case": "40k/tests/rollout_cases/s1d/20261030_014802_sweep2_06__s7417_r2_p2_charge_2_5.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOOTAS_A",
+    "targets": []
+   }
+  ],
+  "E": 0.08,
+  "ci": [
+   -1.61,
+   1.78
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Gamma (9.0\" away, 28% chance)",
+  "better_option": "unlisted: do not charge (targets [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_014802_sweep2_06__s7417_r3_p2_charge_1_8",
+  "case": "40k/tests/rollout_cases/s1d/20261030_014802_sweep2_06__s7417_r3_p2_charge_1_8.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "E": -0.25,
+  "ci": [
+   -4.38,
+   3.88
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Beta (4.0\" away, 83% chance)",
+  "better_option": "unlisted: do not charge, keep Kommandos back",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_014824_sweep2_07__s7418_r2_p2_charge_1_3",
+  "case": "40k/tests/rollout_cases/s1d/20261030_014824_sweep2_07__s7418_r2_p2_charge_1_3.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": 0.83,
+  "ci": [
+   -5.26,
+   6.93
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Gamma (8.7\" away, 28% chance)",
+  "better_option": "unlisted: do not charge (targets [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_015935_sweep2_08__s7419_r3_p2_charge_2_2",
+  "case": "40k/tests/rollout_cases/s1e/20261030_015935_sweep2_08__s7419_r3_p2_charge_2_2.json",
+  "matchup": "sw11e_gw_import_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_PROSECUTORS_A",
+    "targets": []
+   }
+  ],
+  "E": 8.17,
+  "ci": [
+   5.23,
+   11.11
+  ],
+  "n": 36,
+  "class": "clear",
+  "chosen_option": "Charge Scout Squad Beta (4.7\" away, 83% chance)",
+  "better_option": "Charge Scout Squad Beta (4.7\" away, 83% chance) with targets [] (do not charge)",
+  "tag": "KEY_clear_dont_charge"
+ },
+ {
+  "job": "20261030_015944_sweep2_09__s7420_r2_p1_charge_1_4",
+  "case": "40k/tests/rollout_cases/s1e/20261030_015944_sweep2_09__s7420_r2_p1_charge_1_4.json",
+  "matchup": "sw11e_gw_import_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "targets": []
+   }
+  ],
+  "E": 0.5,
+  "ci": [
+   -3.06,
+   4.06
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Delta (4.8\" away, 83% chance)",
+  "better_option": "unlisted: do not charge with Logan Grimnar, and keep him back with the Scouts",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_020603_sweep2_10__s7421_r2_p1_charge_1_2",
+  "case": "40k/tests/rollout_cases/s1e/20261030_020603_sweep2_10__s7421_r2_p1_charge_1_2.json",
+  "matchup": "custodes_lions vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "targets": []
+   }
+  ],
+  "E": -0.83,
+  "ci": [
+   -5.83,
+   4.17
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Chaplain on Bike (8.5\" away, 28% chance)",
+  "better_option": "unlisted: do not charge; Delta stays on obj_nml_1",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_020603_sweep2_10__s7421_r2_p2_charge_1_4",
+  "case": "40k/tests/rollout_cases/s1e/20261030_020603_sweep2_10__s7421_r2_p2_charge_1_4.json",
+  "matchup": "custodes_lions vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "targets": []
+   }
+  ],
+  "E": 1.5,
+  "ci": [
+   -2.67,
+   5.67
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Gamma (8.7\" away, 28% chance)",
+  "better_option": "unlisted: do not charge; keep the Terminator Assault Squad on the centre objective",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_020728_sweep2_11__s7422_r2_p1_charge_1_5",
+  "case": "40k/tests/rollout_cases/s1e/20261030_020728_sweep2_11__s7422_r2_p1_charge_1_5.json",
+  "matchup": "custodes_lions vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "targets": [
+     "U_CAPTAIN_ON_BIKE_A"
+    ]
+   }
+  ],
+  "E": 0.42,
+  "ci": [
+   -0.4,
+   1.23
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Wulfen with Storm Shields (10.2\" away, 8% chance)",
+  "better_option": "Charge Captain on Bike (10.3\" away, 8% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_020728_sweep2_11__s7422_r2_p2_charge_1_6",
+  "case": "40k/tests/rollout_cases/s1e/20261030_020728_sweep2_11__s7422_r2_p2_charge_1_6.json",
+  "matchup": "custodes_lions vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_WULFEN_WITH_STORM_SHIELDS_A",
+    "targets": [
+     "U_CUSTODIAN_GUARD_D"
+    ]
+   }
+  ],
+  "E": 0.25,
+  "ci": [
+   -1.18,
+   1.68
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Delta (2.1\" away, 97% chance)",
+  "better_option": "",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_021358_sweep2_12__s7423_r3_p2_charge_1_7",
+  "case": "40k/tests/rollout_cases/s1f/20261030_021358_sweep2_12__s7423_r3_p2_charge_1_7.json",
+  "matchup": "Orks_2000 vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "targets": [
+     "U_LOOTAS_A",
+     "U_ZODGROD_WORTSNAGGA_A"
+    ]
+   }
+  ],
+  "E": 1.33,
+  "ci": [
+   -3.96,
+   6.62
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Lootas Alpha (2.7\" away, 97% chance)",
+  "better_option": "unlisted: Charge Lootas Alpha and Zodgrod Wortsnagga together",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_021506_sweep2_13__s7424_r3_p2_charge_1_5",
+  "case": "40k/tests/rollout_cases/s1f/20261030_021506_sweep2_13__s7424_r3_p2_charge_1_5.json",
+  "matchup": "Orks_2000 vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "targets": []
+   }
+  ],
+  "E": -3.0,
+  "ci": [
+   -9.0,
+   3.0
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Lootas Beta (3.0\" away, 97% chance)",
+  "better_option": "unlisted: do not charge, and keep the Terminator Assault Squad on NML 2",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_022532_sweep2_14__s7425_r2_p1_charge_1_4",
+  "case": "40k/tests/rollout_cases/s1f/20261030_022532_sweep2_14__s7425_r2_p1_charge_1_4.json",
+  "matchup": "sw11e_gw_import_2000 vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "targets": []
+   }
+  ],
+  "E": 0.08,
+  "ci": [
+   -2.15,
+   2.31
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Beastboss (9.6\" away, 17% chance)",
+  "better_option": "unlisted: do not charge, and hold CENTER",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_022912_sweep2_15__s7426_r2_p2_charge_1_6",
+  "case": "40k/tests/rollout_cases/s1g/20261030_022912_sweep2_15__s7426_r2_p2_charge_1_6.json",
+  "matchup": "sw11e_gw_import_2000 vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOOTAS_A",
+    "targets": []
+   }
+  ],
+  "E": -1.92,
+  "ci": [
+   -4.8,
+   0.96
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Captain on Bike (4.0\" away, 83% chance)",
+  "better_option": "unlisted: do not charge with Lootas Alpha",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_022912_sweep2_15__s7426_r3_p1_charge_1_8",
+  "case": "40k/tests/rollout_cases/s1g/20261030_022912_sweep2_15__s7426_r3_p1_charge_1_8.json",
+  "matchup": "sw11e_gw_import_2000 vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_WULFEN_WITH_STORM_SHIELDS_A",
+    "targets": [
+     "U_ZODGROD_WORTSNAGGA_A"
+    ]
+   }
+  ],
+  "E": 2.83,
+  "ci": [
+   -2.13,
+   7.8
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Lootas Beta (3.1\" away, 92% chance)",
+  "better_option": "Charge Zodgrod Wortsnagga (4.9\" away, 83% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r2_p1_charge_1_3",
+  "case": "40k/tests/rollout_cases/r2c00/20261030_063335_r2c00_00__s7431_r2_p1_charge_1_3.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "E": -5.08,
+  "ci": [
+   -12.25,
+   2.08
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Gamma (9.5\" away, 17% chance)",
+  "better_option": "unlisted: do not charge (targets [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r2_p1_charge_2_4",
+  "case": "40k/tests/rollout_cases/r2c00/20261030_063335_r2c00_00__s7431_r2_p1_charge_2_4.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "targets": []
+   }
+  ],
+  "E": -0.14,
+  "ci": [
+   -3.48,
+   3.2
+  ],
+  "n": 36,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Gamma (10.8\" away, 8% chance)",
+  "better_option": "unlisted: do not charge. Keep Custodian Guard Sodality Delta on HOME 2 and use it to shoot or hold.",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r2_p2_charge_1_2",
+  "case": "40k/tests/rollout_cases/r2c00/20261030_063335_r2c00_00__s7431_r2_p2_charge_1_2.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "targets": []
+   }
+  ],
+  "E": -1.17,
+  "ci": [
+   -6.16,
+   3.83
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Alpha (9.1\" away, 17% chance)",
+  "better_option": "unlisted: do not charge (targets [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7",
+  "case": "40k/tests/rollout_cases/r2c00/20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "E": -5.0,
+  "ci": [
+   -9.22,
+   -0.78
+  ],
+  "n": 12,
+  "class": "harmful",
+  "chosen_option": "Charge Blade Champion Alpha (8.4\" away, 28% chance)",
+  "better_option": "unlisted: do not charge with Allarus Custodians; keep it back as a shooter and objective holder",
+  "tag": "KEY_harmful_charging_was_right"
+ },
+ {
+  "job": "20261030_063341_r2c03_00__s7434_r3_p1_charge_1_6",
+  "case": "40k/tests/rollout_cases/r2c03/20261030_063341_r2c03_00__s7434_r3_p1_charge_1_6.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "targets": [
+     "U_BLADE_CHAMPION_A_P2"
+    ]
+   }
+  ],
+  "E": 2.08,
+  "ci": [
+   -3.09,
+   7.25
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Delta (3.8\" away, 92% chance)",
+  "better_option": "Charge Blade Champion Alpha (6.6\" away, 58% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063348_r2c02_00__s7433_r2_p2_charge_1_5",
+  "case": "40k/tests/rollout_cases/r2c02/20261030_063348_r2c02_00__s7433_r2_p2_charge_1_5.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A_P2",
+    "targets": []
+   }
+  ],
+  "E": -3.17,
+  "ci": [
+   -9.86,
+   3.53
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Beta (8.2\" away, 28% chance)",
+  "better_option": "unlisted: do not charge, hold position or shoot instead",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063442_r2c07_00__s7438_r2_p1_charge_1_5",
+  "case": "40k/tests/rollout_cases/r2c07/20261030_063442_r2c07_00__s7438_r2_p1_charge_1_5.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "E": 4.75,
+  "ci": [
+   -5.72,
+   15.22
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Battlewagon Beta (8.6\" away, 28% chance)",
+  "better_option": "unlisted: do not charge. Shoot Battlewagon Beta with the Balistus Grenade Launcher and Guardian Spear instead, or move toward obj_nml_2.",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063442_r2c07_00__s7438_r2_p2_charge_1_6",
+  "case": "40k/tests/rollout_cases/r2c07/20261030_063442_r2c07_00__s7438_r2_p2_charge_1_6.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": 2.67,
+  "ci": [
+   -0.5,
+   5.83
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Gamma (7.7\" away, 42% chance)",
+  "better_option": "Charge Blade Champion Gamma (7.7\" away, 42% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p1_charge_1_6",
+  "case": "40k/tests/rollout_cases/r2c06/20261030_063500_r2c06_00__s7437_r2_p1_charge_1_6.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": [
+     "U_LOOTAS_A"
+    ]
+   }
+  ],
+  "E": 3.83,
+  "ci": [
+   -0.58,
+   8.24
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Mek Beta (8.3\" away, 28% chance)",
+  "better_option": "Charge Lootas Alpha (8.5\" away, 28% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p1_charge_2_7",
+  "case": "40k/tests/rollout_cases/r2c06/20261030_063500_r2c06_00__s7437_r2_p1_charge_2_7.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "targets": []
+   }
+  ],
+  "E": 2.17,
+  "ci": [
+   -1.31,
+   5.65
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Mek Beta (10.9\" away, 8% chance)",
+  "better_option": "unlisted: do not charge with Custodian Guard Sodality Beta; hold the center objective and shoot instead",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r2_p2_charge_1_11",
+  "case": "40k/tests/rollout_cases/r2c06/20261030_063500_r2c06_00__s7437_r2_p2_charge_1_11.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": 1.5,
+  "ci": [
+   -0.67,
+   3.67
+  ],
+  "n": 36,
+  "class": "neutral",
+  "chosen_option": "Charge Allarus Custodians (10.4\" away, 8% chance)",
+  "better_option": "unlisted: do not charge (targets [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r3_p2_charge_1_14",
+  "case": "40k/tests/rollout_cases/r2c06/20261030_063500_r2c06_00__s7437_r3_p2_charge_1_14.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": -0.42,
+  "ci": [
+   -5.66,
+   4.82
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Allarus Custodians (6.9\" away, 58% chance)",
+  "better_option": "unlisted: do not charge with Stormboyz; keep them back to screen or hold the objectives they already control",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063500_r2c06_00__s7437_r3_p2_charge_2_15",
+  "case": "40k/tests/rollout_cases/r2c06/20261030_063500_r2c06_00__s7437_r3_p2_charge_2_15.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_A",
+    "targets": []
+   }
+  ],
+  "E": -2.92,
+  "ci": [
+   -6.87,
+   1.04
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Alpha (2.7\" away, 97% chance)",
+  "better_option": "unlisted: hold the Battlewagon on or near an objective (obj_nml_1) and let the Lootas and other units shoot, or charge only if the expected damage is higher",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r2_p2_charge_2_6",
+  "case": "40k/tests/rollout_cases/r2c10/20261030_063510_r2c10_00__s7441_r2_p2_charge_2_6.json",
+  "matchup": "custodes_lions vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "targets": []
+   }
+  ],
+  "E": -2.92,
+  "ci": [
+   -7.12,
+   1.29
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Beta (7.5\" away, 42% chance)",
+  "better_option": "unlisted: do not charge, hold the center objective",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r3_p1_charge_1_7",
+  "case": "40k/tests/rollout_cases/r2c10/20261030_063510_r2c10_00__s7441_r3_p1_charge_1_7.json",
+  "matchup": "custodes_lions vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "targets": []
+   }
+  ],
+  "E": -0.25,
+  "ci": [
+   -1.72,
+   1.22
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Logan Grimnar (10.8\" away, 8% chance)",
+  "better_option": "unlisted: do not charge, stay on obj_nml_1 and shoot",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063510_r2c10_00__s7441_r3_p2_charge_2_10",
+  "case": "40k/tests/rollout_cases/r2c10/20261030_063510_r2c10_00__s7441_r3_p2_charge_2_10.json",
+  "matchup": "custodes_lions vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "targets": []
+   }
+  ],
+  "E": 0.94,
+  "ci": [
+   0.12,
+   1.77
+  ],
+  "n": 36,
+  "class": "clear",
+  "chosen_option": "Charge Blade Champion Alpha (8.5\" away, 28% chance)",
+  "better_option": "unlisted: do not charge. Keep Logan with the Terminator Assault Squad near obj_center.",
+  "tag": "KEY_clear_dont_charge"
+ },
+ {
+  "job": "20261030_063517_r2c11_00__s7442_r3_p2_charge_1_3",
+  "case": "40k/tests/rollout_cases/r2c11/20261030_063517_r2c11_00__s7442_r3_p2_charge_1_3.json",
+  "matchup": "custodes_lions vs sw11e_gw_import_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "targets": [
+     "U_CUSTODIAN_GUARD_D"
+    ]
+   }
+  ],
+  "E": -0.08,
+  "ci": [
+   -1.23,
+   1.06
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Delta (2.0\" away, 97% chance)",
+  "better_option": "Charge Custodian Guard Sodality Delta (2.0\" away, 97% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063518_r2c08_00__s7439_r2_p1_charge_1_4",
+  "case": "40k/tests/rollout_cases/r2c08/20261030_063518_r2c08_00__s7439_r2_p1_charge_1_4.json",
+  "matchup": "sw11e_gw_import_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+    "targets": []
+   }
+  ],
+  "E": 0.83,
+  "ci": [
+   -4.1,
+   5.76
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Delta (9.5\" away, 17% chance)",
+  "better_option": "unlisted: do not charge. Move the Terminators toward obj_nml_1 or the Custodians so they charge next turn, or hold them as a threat.",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_063518_r2c08_00__s7439_r3_p1_movement_2_5",
+  "case": "40k/tests/rollout_cases/r2c08/20261030_063518_r2c08_00__s7439_r3_p1_movement_2_5.json",
+  "matchup": "sw11e_gw_import_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_LOGAN_GRIMNAR_A",
+    "targets": [
+     "U_ALLARUS_CUSTODIANS_A"
+    ]
+   }
+  ],
+  "E": 0.0,
+  "ci": [
+   0.0,
+   0.0
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Move obj_nml_1 (supporting nearby objective \u2014 worth ~8 VP)",
+  "better_option": "unlisted: move toward the wounded Allarus Custodians (U_ALLARUS_CUSTODIANS_A) at 7.6 in to charge or shoot it, staying with the army",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160248_r4c00_00__s7451_r2_p1_charge_1_6",
+  "case": "40k/tests/rollout_cases/r4c00/20261030_160248_r4c00_00__s7451_r2_p1_charge_1_6.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "targets": []
+   }
+  ],
+  "E": -1.833,
+  "ci": [
+   -7.0,
+   3.33
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Delta (8.6\" away, 28% chance)",
+  "better_option": "unlisted: do not charge. Hold position or move toward objective obj_nml_1 or obj_home_1.",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160254_r4c02_00__s7453_r2_p2_charge_1_2",
+  "case": "40k/tests/rollout_cases/r4c02/20261030_160254_r4c02_00__s7453_r2_p2_charge_1_2.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "targets": []
+   }
+  ],
+  "E": -0.083,
+  "ci": [
+   -4.73,
+   4.57
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Beta (9.6\" away, 17% chance)",
+  "better_option": "unlisted: do not charge, stay on the center objective",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160256_r4c01_00__s7452_r2_p1_charge_1_4",
+  "case": "40k/tests/rollout_cases/r4c01/20261030_160256_r4c01_00__s7452_r2_p1_charge_1_4.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "E": -1.667,
+  "ci": [
+   -4.73,
+   1.4
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Alpha (9.4\" away, 17% chance)",
+  "better_option": "unlisted: do not charge; keep Allarus Custodians where they are",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r2_p2_charge_1_2",
+  "case": "40k/tests/rollout_cases/pr8/20261030_160317_r4c03_00__s7454_r2_p2_charge_1_2.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "targets": []
+   }
+  ],
+  "E": 2.444,
+  "ci": [
+   -1.43,
+   6.32
+  ],
+  "n": 36,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Beta (9.0\" away, 28% chance)",
+  "better_option": "unlisted: do not charge, stay on obj_center",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160353_r4c07_00__s7458_r2_p2_charge_1_2",
+  "case": "40k/tests/rollout_cases/r4c07/20261030_160353_r4c07_00__s7458_r2_p2_charge_1_2.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "targets": [
+     "U_CUSTODIAN_GUARD_B"
+    ]
+   }
+  ],
+  "E": -2.583,
+  "ci": [
+   -6.0,
+   0.83
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Beta (8.3\" away, 28% chance)",
+  "better_option": "",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160417_r4c06_00__s7457_r2_p2_charge_1_3",
+  "case": "40k/tests/rollout_cases/pr8/20261030_160417_r4c06_00__s7457_r2_p2_charge_1_3.json",
+  "matchup": "custodes_lions vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_PROSECUTORS_A_P2",
+    "targets": []
+   }
+  ],
+  "E": 3.805,
+  "ci": [
+   0.2,
+   7.41
+  ],
+  "n": 36,
+  "class": "clear",
+  "chosen_option": "Charge Prosecutor Squad (10.2\" away, 8% chance)",
+  "better_option": "Charge Blade Champion Alpha (2.0\" away, 97% chance) is not good either, because a 3-model Prosecutor squad would die to the Champion in melee. Better: do not charge.",
+  "tag": "KEY_clear_dont_charge"
+ },
+ {
+  "job": "20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3",
+  "case": "40k/tests/rollout_cases/r4c16/20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "E": 2.639,
+  "ci": [
+   0.4,
+   4.88
+  ],
+  "n": 36,
+  "class": "clear",
+  "chosen_option": "Charge Mek Beta (9.9\" away, 17% chance)",
+  "better_option": "unlisted: do not charge (targets [])",
+  "tag": "KEY_clear_dont_charge"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r2_p2_charge_1_4",
+  "case": "40k/tests/rollout_cases/r4c17/20261030_160517_r4c17_00__s7468_r2_p2_charge_1_4.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "E": 0.25,
+  "ci": [
+   -4.73,
+   5.23
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Gamma (7.2\" away, 42% chance)",
+  "better_option": "unlisted: do not charge with Kommandos. Shoot or move them to a useful objective instead.",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r3_p1_charge_1_5",
+  "case": "40k/tests/rollout_cases/r4c17/20261030_160517_r4c17_00__s7468_r3_p1_charge_1_5.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": [
+     "U_BURNA_BOYZ_B"
+    ]
+   }
+  ],
+  "E": 0.25,
+  "ci": [
+   -5.25,
+   5.75
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Lootas Beta (3.2\" away, 92% chance)",
+  "better_option": "Charge Burna Boyz Beta (6.4\" away, 58% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160517_r4c17_00__s7468_r3_p2_charge_1_8",
+  "case": "40k/tests/rollout_cases/r4c17/20261030_160517_r4c17_00__s7468_r3_p2_charge_1_8.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "E": -3.167,
+  "ci": [
+   -8.08,
+   1.75
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Allarus Custodians (3.8\" away, 92% chance)",
+  "better_option": "unlisted: do not charge. Keep the Kommandos near obj_home_2 and shoot instead.",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2",
+  "case": "40k/tests/rollout_cases/r4c18/20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": 4.333,
+  "ci": [
+   1.37,
+   7.3
+  ],
+  "n": 36,
+  "class": "clear",
+  "chosen_option": "Charge Blade Champion Alpha (8.5\" away, 28% chance)",
+  "better_option": "unlisted: do not charge with Stormboyz; keep them back or screen",
+  "tag": "KEY_clear_dont_charge"
+ },
+ {
+  "job": "20261030_160602_r4c23_00__s7474_r2_p1_charge_1_1",
+  "case": "40k/tests/rollout_cases/r4c23/20261030_160602_r4c23_00__s7474_r2_p1_charge_1_1.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": -4.25,
+  "ci": [
+   -8.97,
+   0.47
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Beta (9.9\" away, 17% chance)",
+  "better_option": "unlisted: do not charge, keep Stormboyz back as an objective screen",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160602_r4c23_00__s7474_r3_p1_charge_1_5",
+  "case": "40k/tests/rollout_cases/r4c23/20261030_160602_r4c23_00__s7474_r3_p1_charge_1_5.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_B",
+    "targets": []
+   }
+  ],
+  "E": 1.583,
+  "ci": [
+   -4.18,
+   7.35
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Alpha (3.6\" away, 92% chance)",
+  "better_option": "unlisted: do not charge with Battlewagon Beta",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r2_p2_charge_1_2",
+  "case": "40k/tests/rollout_cases/r4c22/20261030_160610_r4c22_00__s7473_r2_p2_charge_1_2.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "E": -2.417,
+  "ci": [
+   -6.82,
+   1.98
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Lootas Gamma (10.6\" away, 8% chance)",
+  "better_option": "unlisted: do not charge (targets [])",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160610_r4c22_00__s7473_r3_p2_charge_2_4",
+  "case": "40k/tests/rollout_cases/r4c22/20261030_160610_r4c22_00__s7473_r3_p2_charge_2_4.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "targets": []
+   }
+  ],
+  "E": -0.333,
+  "ci": [
+   -0.99,
+   0.32
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Battlewagon Beta (8.2\" away, 28% chance)",
+  "better_option": "unlisted: do not charge, keep Custodian Guard Sodality Beta on NML 2",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160613_r4c21_00__s7472_r2_p1_charge_1_6",
+  "case": "40k/tests/rollout_cases/r4c21/20261030_160613_r4c21_00__s7472_r2_p1_charge_1_6.json",
+  "matchup": "Orks_2000 vs custodes_lions",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": [
+     "U_CUSTODIAN_GUARD_B"
+    ]
+   }
+  ],
+  "E": -3.917,
+  "ci": [
+   -8.11,
+   0.28
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Blade Champion Gamma (3.8\" away, 92% chance)",
+  "better_option": "Charge Custodian Guard Sodality Beta (5.2\" away, 72% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": -3.5,
+  "ci": [
+   -5.64,
+   -1.36
+  ],
+  "n": 12,
+  "class": "harmful",
+  "chosen_option": "Charge Blade Champion Gamma (8.7\" away, 28% chance)",
+  "better_option": "unlisted: do not charge, keep Stormboyz near the centre objective",
+  "tag": "KEY_harmful_charging_was_right"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_2_6",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r2_p2_charge_2_6.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BURNA_BOYZ_A",
+    "targets": []
+   }
+  ],
+  "E": 2.167,
+  "ci": [
+   0.05,
+   4.28
+  ],
+  "n": 12,
+  "class": "clear",
+  "chosen_option": "Charge Blade Champion Gamma (5.5\" away, 72% chance)",
+  "better_option": "unlisted: do not charge. Keep Burna Boyz Alpha on the centre objective and use Burna flamers in the next Shooting phase.",
+  "tag": "KEY_clear_dont_charge"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r3_p2_charge_1_8",
+  "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r3_p2_charge_1_8.json",
+  "matchup": "custodes_lions vs Orks_2000",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": [
+     "U_CUSTODIAN_GUARD_B"
+    ]
+   }
+  ],
+  "E": 0.75,
+  "ci": [
+   -4.79,
+   6.29
+  ],
+  "n": 12,
+  "class": "neutral",
+  "chosen_option": "Charge Custodian Guard Sodality Gamma (2.0\" away, 100% chance)",
+  "better_option": "Charge Custodian Guard Sodality Beta (2.1\" away, 97% chance)",
+  "tag": "other"
+ },
+ {
+  "job": "20261030_160514_r4c15_00__s7466_r3_p2_charge_1_7",
+  "case": "40k/tests/rollout_cases/r4c15/20261030_160514_r4c15_00__s7466_r3_p2_charge_1_7.json",
+  "matchup": "orks vs orks",
+  "alt": "see the case file (critic alternative: no charge; the AI charged a Battlewagon at 42%)",
+  "E": -3.92,
+  "ci": null,
+  "n": 12,
+  "class": "harmful",
+  "tag": "KEY_harmful_charging_was_right",
+  "note": "from sweep r4c15 own 12-seed value check: charging was right"
+ }
+]
