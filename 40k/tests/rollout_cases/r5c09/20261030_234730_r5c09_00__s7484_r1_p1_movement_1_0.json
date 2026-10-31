@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 9\"))",
+ "created": "2026-10-30 23:49:51",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7484_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent Burna Boyz Beta to a far-corner 'backfield gap' screen position. The screen scored 2.76 and the moves to objectives scored 17 to 26. The 'screen_denial' assignment overrode the better options. Fix: Pick the assigned action only if its score is within a small margin of the best option. Score a screen only against a real enemy charge or deep strike lane that it blocks. Do not send a unit to the far side of the board for a screen. Otherwise fall back to the highest-scoring objective option.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7484_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:1600,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 9\")",
+ "verdict": "bad",
+ "version": 1
+}
