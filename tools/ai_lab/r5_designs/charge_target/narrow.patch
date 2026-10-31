@@ -1,0 +1,267 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index dee1aee0..01e2dd6b 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1673,6 +1673,21 @@ const RI_QUARTER_LATER_ROUND_SHARE: float = 0.5
+ # one move, our shooting and charges act on its approach first, and LONE-TRIP
+ # pins 18 OC vs 20 as a fight worth joining (test_ai_fix_lone_trip).
+ const RI_RACE_LOST_RATIO: float = 1.5
++# Charge target value (FIX_CHARGE_TARGET): 1 = a charge target's expected
++# melee damage term (ch_damage) counts no more than the wounds the target has
++# left when the charger's expected damage is at least
++# CHARGE_TARGET_OVERKILL_RATIO x those wounds. Damage beyond a unit's last
++# wound is wasted, and the kill itself is already paid by ch_can_wipe — so a
++# 2-wound Allarus remnant scored like a fresh squad (7.5 dmg -> ch_damage 15)
++# and, with the 3" short-charge bonus, pulled the charge (and a multi-target
++# declaration) away from a full-health Blade Champion 4.3" away (LLM-critic
++# cluster charge_target, s7480 r3 P2; charging the Blade Champion measured
++# +5.75 VP over 24 rollouts). The ratio gate keeps near-exact kills (7.1 vs 7,
++# 8.9 vs 7) untouched. CT-COMBO: such a target also joins no multi-target
++# declaration (it gives no lock-down, and a low roll re-picks it after the
++# roll anyway). 0 = previous behaviour.
++const FIX_CHARGE_TARGET: float = 1.0
++const CHARGE_TARGET_OVERKILL_RATIO: float = 2.0
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -17115,6 +17130,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 				"action": target_info.action,
+ 				"need": charge_distance_needed,
+ 				"prob": charge_prob,
++				# FIX_CHARGE_TARGET (CT-COMBO): gross overkill on a nearly dead target
++				"ct_overkill": get_param("FIX_CHARGE_TARGET", FIX_CHARGE_TARGET) > 0.0 and target_hp > 0.0
++					and melee_dmg >= target_hp * get_param("CHARGE_TARGET_OVERKILL_RATIO", CHARGE_TARGET_OVERKILL_RATIO),
+ 			})
+ 
+ 			if score > float(unit_best.get(uid, {}).get("score", -INF)):
+@@ -17133,9 +17151,25 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 		# 11e 11.04: targets are picked after the roll, so a declaration that
+ 		# lists several targets pays off on high rolls and still takes the
+ 		# nearest on low ones — scored as an expected value over 2D6.
+-		if scored_targets.size() >= 2:
++		# FIX_CHARGE_TARGET (CT-COMBO): a target the charger kills with a fraction
++		# of its attacks joins no multi-target declaration. It adds no lock-down
++		# (it is dead), a low roll still re-picks it after the roll (11.02, see
++		# _select_post_roll_charge_targets), and as the cheap low-roll leg it
++		# pulled the declaration away from the valuable target — whose charge
++		# move then could not engage both and dropped it.
++		var combo_targets = scored_targets
++		if get_param("FIX_CHARGE_TARGET", FIX_CHARGE_TARGET) > 0.0 and scored_targets.size() >= 2:
++			combo_targets = scored_targets.filter(func(st): return not bool(st.get("ct_overkill", false)))
++			if combo_targets.size() != scored_targets.size():
++				var ct_dropped := []
++				for st in scored_targets:
++					if bool(st.get("ct_overkill", false)):
++						ct_dropped.append(st.target_name)
++				print("AIDecisionMaker: [CHARGE_TARGET] %s: %s left out of multi-target declarations (gross overkill: dead to a fraction of the attacks)" % [
++					unit_name, ", ".join(ct_dropped)])
++		if combo_targets.size() >= 2:
+ 			var multi_target_result = _evaluate_multi_target_charge(
+-				uid, unit, unit_name, scored_targets, melee_bonus, ow_risk, snapshot, player)
++				uid, unit, unit_name, combo_targets, melee_bonus, ow_risk, snapshot, player)
+ 			if multi_target_result.score > float(unit_best.get(uid, {}).get("score", -INF)):
+ 				unit_best[uid] = {"score": multi_target_result.score, "target_name": "several units", "prob": -1.0}
+ 			if multi_target_result.score > best_score and may_pick:
+@@ -17543,7 +17577,15 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
+ 
+ 	# --- Expected melee damage ---
+ 	var melee_damage = _estimate_melee_damage(charger, target)
+-	score += _t_add(terms, "ch_damage", melee_damage * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT))  # Weight melee damage highly
++	# FIX_CHARGE_TARGET (CT-OVERKILL): gross overkill counts only the wounds left.
++	var damage_for_value = melee_damage
++	if get_param("FIX_CHARGE_TARGET", FIX_CHARGE_TARGET) > 0.0:
++		var ct_hp = _calculate_kill_threshold(target)
++		if ct_hp > 0.0 and melee_damage >= ct_hp * get_param("CHARGE_TARGET_OVERKILL_RATIO", CHARGE_TARGET_OVERKILL_RATIO):
++			damage_for_value = ct_hp
++			print("AIDecisionMaker: [CHARGE_TARGET] %s -> %s: expected %.1f melee dmg vs %.0f wounds left — damage value capped at %.0f" % [
++				_dn(charger, ""), _dn(target, ""), melee_damage, ct_hp, ct_hp])
++	score += _t_add(terms, "ch_damage", damage_for_value * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT))  # Weight melee damage highly
+ 
+ 	# --- Target value factors ---
+ 	var target_keywords = target.get("meta", {}).get("keywords", [])
+diff --git a/40k/tests/unit/test_ai_fix_charge_target.gd b/40k/tests/unit/test_ai_fix_charge_target.gd
+new file mode 100644
+index 00000000..a0778601
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_charge_target.gd
+@@ -0,0 +1,180 @@
++extends SceneTree
++
++# FIX_CHARGE_TARGET (LLM-critic cluster charge_target, round 5) — a nearly dead
++# charge target is not worth more than a fresh one.
++#
++# Finding s7480 r3 P2 (Custodes mirror, value-checked +5.75 VP [1.46, 10.04]
++# over 24 paired seeds): Allarus Custodians charged an Allarus remnant with 2
++# wounds left (2.0" away) instead of a full-health Blade Champion 4.3" away.
++# ch_damage paid the charger's whole expected damage (7.5 x 2 = 15) although
++# only 2 wounds could be taken — the same as a fresh 6-wound squad — and the 3"
++# short-charge bonus then put the remnant on top. Damage beyond a unit's last
++# wound is wasted, and the kill itself is already paid by ch_can_wipe.
++#
++#   CT-OVERKILL  when the expected damage is at least CHARGE_TARGET_OVERKILL_RATIO
++#                (2) x the target's wounds left, ch_damage counts only those
++#                wounds. Near-exact kills (below the ratio) are untouched.
++#   CT-COMBO     such a target joins no multi-target declaration: the base
++#                code declared "remnant + Blade Champion", and the charge move
++#                (unable to engage both) dropped the Blade Champion, so the game
++#                played out exactly as the remnant-only charge (E 0.00 over 12
++#                rollouts). A low roll still re-picks the remnant after the roll.
++#   FIX_CHARGE_TARGET = 0 restores the old behaviour.
++#
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_charge_target.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++const AIDifficultyConfig = preload("res://scripts/AIDifficultyConfig.gd")
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== FIX_CHARGE_TARGET: overkill on a nearly dead target is not value ===\n")
++	# Competitive: no score noise.
++	AIDecisionMaker._current_difficulty = AIDifficultyConfig.Difficulty.COMPETITIVE
++	AIDecisionMaker._config_overrides["FIX_CHARGE_TARGET"] = 1.0
++	_test_setup_overkill()
++	_test_remnant_damage_capped()
++	_test_near_exact_kill_untouched()
++	_test_decision_picks_fresh_target()
++	_test_remnant_joins_no_multi_target_declaration()
++	_test_param_zero_restores_base()
++	AIDecisionMaker._charge_coordination.clear()
++	AIDecisionMaker._config_overrides.erase("FIX_CHARGE_TARGET")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++# ---------------------------------------------------------------------------
++# Fixtures (40 px per inch, 32 mm bases)
++# ---------------------------------------------------------------------------
++
++func _snapshot() -> Dictionary:
++	return {
++		"battle_round": 3,
++		"board": {"objectives": [], "terrain_features": [], "deployment_zones": []},
++		"units": {},
++	}
++
++func _melee(wname: String, ws: int, s: int, ap: int, d: int, a: int) -> Dictionary:
++	return {"name": wname, "type": "Melee", "weapon_skill": str(ws), "strength": str(s),
++		"ap": ("-%d" % ap) if ap > 0 else "0", "damage": str(d), "attacks": str(a)}
++
++# `n` models in a row from `pos`, 60 px (1.5") apart; `left` = wounds left on
++# each model (defaults to full).
++func _add(snap: Dictionary, uid: String, owner: int, pos: Vector2, n: int, weapons: Array,
++		toughness: int = 4, save_val: int = 3, wounds: int = 1, left: int = -1) -> Dictionary:
++	var models := []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32, "base_type": "circular",
++			"base_dimensions": {}, "position": Vector2(pos.x + i * 60, pos.y),
++			"wounds": wounds, "current_wounds": wounds if left < 0 else left})
++	var u := {"id": uid, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": uid, "keywords": ["INFANTRY"], "weapons": weapons,
++			"stats": {"move": 6, "toughness": toughness, "save": save_val, "wounds": wounds,
++				"leadership": 6, "objective_control": 1}},
++		"models": models, "flags": {}}
++	snap.units[uid] = u
++	return u
++
++# The finding's shape: an elite melee charger (P2) between a 1-model remnant
++# with 2 wounds left, 2" away, and a fresh 9-wound unit 3" away on the other
++# side — too far apart for one charge to reach both, so the choice is one or
++# the other (as Allarus remnant vs Blade Champion was).
++func _finding_snapshot() -> Dictionary:
++	var snap := _snapshot()
++	_add(snap, "allarus", 2, Vector2(1000, 1200), 1, [_melee("Guardian spear", 2, 7, 2, 2, 10)], 6, 2, 3)
++	# 32 mm base = 0.63" radius (25.2 px); edge-to-edge 2.0" above, 3.0" below
++	_add(snap, "remnant", 1, Vector2(1000, 1200 - 25.2 - 80 - 25.2), 1, [], 6, 2, 3, 2)
++	_add(snap, "fresh", 1, Vector2(1000, 1200 + 25.2 + 120 + 25.2), 3, [], 6, 2, 3)
++	return snap
++
++func _charge_actions(uid: String, tids: Array) -> Array:
++	var acts := []
++	for tid in tids:
++		acts.append({"type": "DECLARE_CHARGE", "actor_unit_id": uid, "payload": {"target_unit_ids": [tid]}})
++	acts.append({"type": "SKIP_CHARGE", "actor_unit_id": uid})
++	acts.append({"type": "END_CHARGE"})
++	return acts
++
++func _ch_damage(snap: Dictionary, tid: String) -> float:
++	var terms := {}
++	AIDecisionMaker._score_charge_target(snap.units.allarus, snap.units[tid], snap, 2, terms)
++	return float(terms.get("ch_damage", 0.0))
++
++# ---------------------------------------------------------------------------
++
++func _test_setup_overkill() -> void:
++	var snap := _finding_snapshot()
++	var dmg := AIDecisionMaker._estimate_melee_damage(snap.units.allarus, snap.units.remnant)
++	var hp := AIDecisionMaker._calculate_kill_threshold(snap.units.remnant)
++	_assert(hp == 2.0 and dmg >= 2.0 * hp,
++		"setup: the remnant has 2 wounds left and the charger's expected damage %.2f is >= 2x that" % dmg)
++
++func _test_remnant_damage_capped() -> void:
++	var snap := _finding_snapshot()
++	var w := AIDecisionMaker.get_param("CHARGE_MELEE_DAMAGE_WEIGHT", AIDecisionMaker.CHARGE_MELEE_DAMAGE_WEIGHT)
++	var d := _ch_damage(snap, "remnant")
++	_assert(absf(d - 2.0 * w) < 0.01, "ch_damage on the remnant counts its 2 wounds left (%.2f, want %.2f)" % [d, 2.0 * w])
++
++func _test_near_exact_kill_untouched() -> void:
++	# Expected damage below 2x the wounds left: ch_damage keeps the full damage.
++	var snap := _finding_snapshot()
++	var w := AIDecisionMaker.get_param("CHARGE_MELEE_DAMAGE_WEIGHT", AIDecisionMaker.CHARGE_MELEE_DAMAGE_WEIGHT)
++	var dmg := AIDecisionMaker._estimate_melee_damage(snap.units.allarus, snap.units.fresh)
++	var d := _ch_damage(snap, "fresh")
++	_assert(absf(d - dmg * w) < 0.01, "ch_damage on the fresh unit is unchanged (%.2f, want %.2f)" % [d, dmg * w])
++
++func _test_decision_picks_fresh_target() -> void:
++	var snap := _finding_snapshot()
++	AIDecisionMaker._charge_coordination.clear()
++	var d = AIDecisionMaker._decide_charge(snap, _charge_actions("allarus", ["remnant", "fresh"]), 2)
++	var tids = d.get("payload", {}).get("target_unit_ids", [])
++	_assert(d.get("type", "") == "DECLARE_CHARGE" and tids == ["fresh"],
++		"the charger declares on the fresh unit, not the 2-wound remnant (got %s %s: %s)" % [d.get("type", ""), str(tids), d.get("_ai_description", "")])
++
++func _test_param_zero_restores_base() -> void:
++	var snap := _finding_snapshot()
++	AIDecisionMaker._config_overrides["FIX_CHARGE_TARGET"] = 0.0
++	var dmg := AIDecisionMaker._estimate_melee_damage(snap.units.allarus, snap.units.remnant)
++	var w := AIDecisionMaker.get_param("CHARGE_MELEE_DAMAGE_WEIGHT", AIDecisionMaker.CHARGE_MELEE_DAMAGE_WEIGHT)
++	var d := _ch_damage(snap, "remnant")
++	AIDecisionMaker._charge_coordination.clear()
++	var dec = AIDecisionMaker._decide_charge(snap, _charge_actions("allarus", ["remnant", "fresh"]), 2)
++	AIDecisionMaker._config_overrides["FIX_CHARGE_TARGET"] = 1.0
++	_assert(absf(d - dmg * w) < 0.01, "FIX_CHARGE_TARGET = 0: ch_damage pays the full damage again (%.2f)" % d)
++	_assert(dec.get("payload", {}).get("target_unit_ids", []) == ["remnant"],
++		"FIX_CHARGE_TARGET = 0: the old choice (the remnant) comes back (got %s)" % str(dec.get("payload", {}).get("target_unit_ids", [])))
++
++# Two-model charger with the remnant 2" above and the fresh unit 3" below:
++# close enough that the multi-target pass treats "both" as reachable.
++func _combo_snapshot() -> Dictionary:
++	var snap := _snapshot()
++	_add(snap, "allarus", 2, Vector2(1000, 1200), 2, [_melee("Guardian spear", 2, 7, 2, 2, 5)], 6, 2, 3)
++	_add(snap, "remnant", 1, Vector2(1030, 1200 - 25.2 - 80 - 25.2), 1, [], 6, 2, 3, 2)
++	_add(snap, "fresh", 1, Vector2(1000, 1200 + 25.2 + 120 + 25.2), 3, [], 6, 2, 3)
++	return snap
++
++func _test_remnant_joins_no_multi_target_declaration() -> void:
++	var snap := _combo_snapshot()
++	AIDecisionMaker._charge_coordination.clear()
++	AIDecisionMaker._config_overrides["FIX_CHARGE_TARGET"] = 0.0
++	var base = AIDecisionMaker._decide_charge(snap, _charge_actions("allarus", ["remnant", "fresh"]), 2)
++	AIDecisionMaker._config_overrides["FIX_CHARGE_TARGET"] = 1.0
++	var base_t = base.get("payload", {}).get("target_unit_ids", [])
++	_assert(base_t.size() == 2 and "remnant" in base_t,
++		"setup (fix off): the base AI declares remnant + fresh as a multi-target charge (got %s)" % str(base_t))
++	AIDecisionMaker._charge_coordination.clear()
++	var d = AIDecisionMaker._decide_charge(snap, _charge_actions("allarus", ["remnant", "fresh"]), 2)
++	var tids = d.get("payload", {}).get("target_unit_ids", [])
++	_assert(d.get("type", "") == "DECLARE_CHARGE" and tids == ["fresh"],
++		"the remnant joins no multi-target declaration: the charge goes at the fresh unit alone (got %s %s)" % [d.get("type", ""), str(tids)])

@@ -1,0 +1,76 @@
+{
+ "key": "charge_target",
+ "angle": "narrow",
+ "root_cause": "_score_charge_target's ch_damage paid the charger's whole expected melee damage even when it was several times the target's wounds left: at s7480 r3 P2 an Allarus remnant with 2 wounds left got ch_damage 15 (7.5 dmg x 2), the same as the 6-wound Allarus #2, and with the 97% chance and the 3\" short-charge multipliers (x1.56) it scored 41.1 vs the full-health Blade Champion's 32.9. The kill itself is already paid by ch_can_wipe/ch_can_halve, so the excess was pure overkill. Second leg (found while checking the fix): even with the damage capped (remnant single 21.6 < BC 32.9) the T7-50 multi-target pass declared 'remnant + Blade Champion' (EV 36.0), because the remnant is the cheap low-roll leg; in play the charge move could not engage both and dropped the Blade Champion, so that declaration played out identically to the base (forced 'remnant + BC' vs base: E 0.00 [0,0] over 12 paired seeds, every game identical). The extra findings (s7465 r2 P1 Stormboyz, s7461 r3 P2 Battlewagon) have a different cause (low-odds / low-damage multi-target declarations with no gross overkill) and are not addressed by this narrow design.",
+ "fix_summary": "FIX_CHARGE_TARGET (1.0) with CHARGE_TARGET_OVERKILL_RATIO 2.0. Two gated conditions on existing rules, no new scoring: (CT-OVERKILL) in _score_charge_target, when expected melee damage >= 2 x the target's remaining wounds, ch_damage uses the remaining wounds instead of the expected damage (near-exact kills like 7.1 vs 7 or 8.9 vs 7 untouched); (CT-COMBO) in _evaluate_best_charge, a target in that gross-overkill state is left out of the multi-target (T7-50) combos - it still competes as a single target, and a low roll still re-picks it post-roll via _select_post_roll_charge_targets. Logs [CHARGE_TARGET] at each capped evaluation and each combo exclusion. FIX_CHARGE_TARGET=0 restores the base exactly (test checks both the term and the decision).",
+ "param": "FIX_CHARGE_TARGET",
+ "test_file": "40k/tests/unit/test_ai_fix_charge_target.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "All listed tests pass with the fix: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks, fix_held_dup, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 52/0, fix_lone_flip 16/0, fix_reinforce_insurance 24/0, charge_decisions 62/0, survival_assessment 23/0, multi_phase_planning 34/0, fix_charge_target 8/0 (BASE copy: 5 passed, 3 failed). Known base failures unchanged: threat_range_awareness 34/3; test_ai_ability_awareness 72/1 ('fall back' ability detection) fails identically on BASE.",
+ "decision_checks": [
+  {
+   "job": "20261030_234707_r5c05_00__s7480_r3_p2_charge_1_6",
+   "base_choice": "Allarus Custodians declares at Allarus Custodians (2 wounds left, 3+) + Allarus Custodians #2 (9+)",
+   "fix_choice": "Allarus Custodians declares charge against Blade Champion Alpha (83%, 4.3\")",
+   "changed": true,
+   "measured": "clear: E +5.75 [1.46, 10.04] n24 (charge Blade Champion only)",
+   "judgement": "matches the alternative exactly (same unit, same single target). With CT-OVERKILL alone the AI declared 'remnant + Blade Champion', which measured E 0.00 over 12 seeds (identical games) - hence CT-COMBO."
+  },
+  {
+   "job": "20261030_160521_r4c14_00__s7465_r2_p1_charge_1_4",
+   "base_choice": "Stormboyz declares at Battlewagon Alpha + Beastboss (10+/11+)",
+   "fix_choice": "unchanged: Stormboyz declares at Battlewagon Alpha + Beastboss (10+/11+)",
+   "changed": false,
+   "measured": "extra finding, 12 seeds: no charge +6.75 [1.62, 11.88]",
+   "judgement": "not addressed (Beastboss 11.85 dmg vs 6 HP is just under the 2x gate; the issue there is a low-odds charge, which the narrow angle does not touch)."
+  },
+  {
+   "job": "20261030_160402_r4c10_00__s7461_r3_p2_charge_1_6",
+   "base_choice": "Battlewagon Alpha declares at Beast Snagga Boyz + Beastboss",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "extra finding, neutral: +3.75 [-1.77, 9.27] n12",
+   "judgement": "not addressed (no overkill: 1.8-3.6 dmg vs 6-11 HP); neutral finding, so no change is acceptable."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160521_r4c14_00__s7465_r2_p2_charge_1_5",
+   "base_choice": "Stormboyz charge Lootas Beta (17%, 7.1 dmg vs 7 HP)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "harmful (no charge): -5.25 [-9.93, -0.57] n12",
+   "judgement": "consistent: the charge the measurement says was right is kept (1.02x overkill, below the gate)."
+  },
+  {
+   "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5",
+   "base_choice": "Stormboyz charge Blade Champion Gamma (28%, 8.9 dmg vs 7 HP)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "harmful (no charge): -3.50 [-5.64, -1.36] n12",
+   "judgement": "consistent: kept (1.27x, below the gate)."
+  },
+  {
+   "job": "20261030_160514_r4c15_00__s7466_r3_p2_charge_1_7",
+   "base_choice": "Battlewagon Alpha charge Lootas Alpha (42%, 2.7 dmg vs 9 HP)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "harmful (no charge): -3.92 [-7.47, -0.36] n12",
+   "judgement": "consistent: kept; the fix never fired in this replay."
+  },
+  {
+   "job": "20261030_234707_r5c05_00__s7480_r3_p1_charge_1_5",
+   "base_choice": "Allarus Custodians charge Custodian Guard Sodality Gamma (83%, 3.3 dmg vs 5 HP)",
+   "fix_choice": "unchanged",
+   "changed": false,
+   "measured": "neutral (no charge +3.67 [-3.28, 10.61] n12)",
+   "judgement": "consistent: no change at a neutral position."
+  }
+ ],
+ "fires": "[CHARGE_TARGET] lines (each capped target evaluation incl. post-roll re-scoring, plus each combo exclusion) in the fix replays from the saved position to the end of the next battle round, both players: s7480 r3 P2 3 (1 combo exclusion; changed the finding decision), s7480 r3 P1 7 (1), s7470 r2 P2 18 (3), s7465 r2 P2 7 (1), s7465 r2 P1 33 (12), s7461 r3 P2 25 (12), s7466 r3 P2 0. At the 7 decision positions it changed exactly 1 decision (the finding). Orks charge pools (Stormboyz/Battlewagons vs Gretchin, Meks, Lootas remnants) hit the gate often in evaluation; how many of those flipped a decision was not measured per game. Bench (mirror_custodes_2000_postdeploy, 1 pair, candidate seat): game M1 50 lines (16 combo exclusions), game M2 41 lines (13 combo exclusions) - mean 45.5 per game; fires only in the candidate seat (BASE has no such tag). Pair margin E -6.0 (n=1, noise, not a result).",
+ "bench_fires_per_game": "45.5",
+ "risks": "(1) Fires often in evaluation with Orks (many cheap remnants in charge range); each fire lowers a remnant's value, so the AI may leave more nearly dead units alive in melee range - those can still score OC on objectives, hold secondaries (e.g. a 1-model remnant on an objective, or keep the opponent from Assassination/No Prisoners-type kill cards for us). Mitigation: ch_can_wipe/ch_can_halve (+8) and objective/short-charge multipliers still reward the kill, and only the overkill part of ch_damage is removed. (2) Dropping a remnant from multi-target combos can lose real value when the geometry DOES allow engaging both (remnant + main target): the old EV credited ~20% extra; post-roll re-pick still covers low rolls. (3) Full-game effect untested (rounds 3-5 lesson: one-round rollouts miss later scoring); the ratio 2.0 is a judgement value, picked to leave the measured guardrails (1.02x, 1.27x) untouched. (4) The [CHARGE_TARGET] log fires on evaluations, not only on changed decisions, so fire counts overstate decision changes.",
+ "drop_reason": ""
+}
