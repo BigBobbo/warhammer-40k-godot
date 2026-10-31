@@ -1,0 +1,232 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index dee1aee0..ac28c8a4 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1660,6 +1660,17 @@ const FIX_CHARGE_EV: float = 0.0
+ # reinforce_insurance; the Advance measured +4.36 VP over 36 rollouts, the
+ # gain from the quarter tier). 0 = previous behaviour.
+ const FIX_REINFORCE_INSURANCE: float = 1.0
++# ATTACK-MOVE (FIX_ATTACK_MOVE): after the capture passes, a unit sent to
++# flip or capture an objective the plan still leaves short (its OC need stays
++# above 0 once every unit is assigned — the unit cannot take it and nobody
++# joins it) is sent instead to its top-scored objective when that one is
++# enemy-held, already covered by friends moving or holding there, and no
++# slower to reach. A lone 9-OC trip onto an 11-OC objective changes nothing;
++# a third unit on the enemy-held centre keeps the flip (Custodian Guard Alpha
++# s7475 r2: Normal move to obj_center +4.0 VP over 24 rollouts; Beta s7455 r2
++# +5.9 over 36 — the gain is denying the enemy's centre hold). 0 = previous
++# behaviour.
++const FIX_ATTACK_MOVE: float = 1.0
+ # Part switches under the master (each read at its own branch; 0 removes only
+ # that part, the master at 0 removes all three).
+ const FIX_RI_RACE: float = 1.0
+@@ -10715,6 +10726,49 @@ static func _assign_units_to_objectives(
+ 		apply_capture_assignment.call(cand)
+ 		assignments[cand.unit_id]["reason"] += " — backfilling for a unit that went hunting"
+ 
++	# ATTACK-MOVE (FIX_ATTACK_MOVE): a capture the plan leaves short goes to the
++	# unit's top-scored enemy-held objective that friends already cover instead.
++	if get_param("FIX_ATTACK_MOVE", FIX_ATTACK_MOVE) >= 0.5:
++		for am_uid in assignments.keys():
++			var am_cur: Dictionary = assignments[am_uid]
++			var am_oid = str(am_cur.get("objective_id", ""))
++			if am_cur.get("assign_pass", "") != "capture" or am_cur.get("action", "") not in ["move", "advance"] \
++					or int(obj_oc_remaining.get(am_oid, 0)) <= 0:
++				continue
++			var am_eval = _get_obj_eval_by_id(obj_evaluations, am_oid)
++			if am_eval.is_empty() or am_eval.get("is_home", false) or am_eval.get("state", "") in ["held_safe", "held_threatened"]:
++				continue
++			var am_top: Dictionary = {}
++			for am_c in candidates:
++				if am_c.unit_id == am_uid and (am_top.is_empty() or float(am_c.score) > float(am_top.score)):
++					am_top = am_c
++			if am_top.is_empty() or am_top.objective_id == am_oid or am_top.action not in ["move", "advance"] \
++					or float(am_top.score) <= float(am_cur.get("score", 0.0)) \
++					or int(obj_oc_remaining.get(am_top.objective_id, 0)) > 0 \
++					or int(am_top.turns_to_reach) > int(am_cur.get("turns_to_reach", 1)) \
++					or too_late.call(am_top) or race_hopeless.call(am_top):
++				continue
++			var am_top_eval = _get_obj_eval_by_id(obj_evaluations, am_top.objective_id)
++			if am_top_eval.get("state", "") not in ["enemy_weak", "enemy_strong", "contested"]:
++				continue
++			var am_friends: Array = []
++			for am_o in assignments:
++				if str(am_o) != str(am_uid) and str(assignments[am_o].get("objective_id", "")) == str(am_top.objective_id) \
++						and assignments[am_o].get("action", "") in ["hold", "move", "advance"]:
++					am_friends.append(_dn(snapshot.get("units", {}).get(am_o, {}), am_o))
++			if am_friends.is_empty():
++				continue
++			var am_short = int(obj_oc_remaining.get(am_oid, 0))
++			obj_oc_remaining[am_oid] = am_short + int(am_cur.get("oc_consumed", 0))
++			assignments.erase(am_uid)
++			assigned_unit_ids.erase(am_uid)
++			apply_capture_assignment.call(am_top)
++			assignments[am_uid]["coordination_note"] = "not going alone to %s — it would still need %d more OC there and no other unit joins it; joining %s on %s instead" % [
++				am_oid, am_short, ", ".join(am_friends), am_top.objective_id]
++			print("AIDecisionMaker: [ATTACK_MOVE] %s: %s -> %s (%s left %d OC short, nobody joins; %s already on %s, score %.1f vs %.1f, %d vs %d turn(s))" % [
++				am_uid, am_oid, am_top.objective_id, am_oid, am_short, ", ".join(am_friends), am_top.objective_id,
++				float(am_top.score), float(am_cur.get("score", 0.0)), int(am_top.turns_to_reach), int(am_cur.get("turns_to_reach", 1))])
++
+ 	# PASS 3: Assign remaining units — screening / deep strike denial / support
+ 	# Difficulty gate (use_screening, Hard+): the deep-strike denial,
+ 	# screen-protect and corridor-block passes below only run when the gate
+diff --git a/40k/tests/unit/test_ai_fix_attack_move.gd b/40k/tests/unit/test_ai_fix_attack_move.gd
+new file mode 100644
+index 00000000..db3192dc
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_attack_move.gd
+@@ -0,0 +1,154 @@
++extends SceneTree
++
++# ATTACK-MOVE (FIX_ATTACK_MOVE): after the capture passes, a unit sent to flip
++# an objective the plan still leaves short (the OC need stays above 0 — the
++# unit cannot take it alone and nobody joins it) goes instead to its
++# top-scored objective when that one is enemy-held, already covered by
++# friends, and no slower to reach. LLM-critic cluster attack_move
++# (value-checked, 2026-10-31): s7475 r2, Custodian Guard Alpha sent to flip an
++# 11-OC objective with 9 OC while two Guard squads took the enemy-held centre;
++# a Normal move to the centre measured +4.0 VP over 24 seeds (s7455 r2 +5.9
++# over 36).
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_attack_move.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const OBJ_C := Vector2(880, 1200)    # enemy-held centre, weakly held
++const OBJ_FAR := Vector2(880, 400)   # enemy-held, strongly held
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== A short lone flip joins the covered enemy-held objective (ATTACK-MOVE) ===\n")
++	AIDecisionMaker._config_overrides["FIX_ATTACK_MOVE"] = 1.0
++	test_short_flip_joins_covered_centre()
++	test_flip_that_gets_filled_is_kept()
++	test_held_top_objective_not_stacked()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_ATTACK_MOVE")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot() -> Dictionary:
++	var objs = [{"id": "obj_c", "position": OBJ_C, "zone": "no_mans_land"},
++		{"id": "obj_far", "position": OBJ_FAR, "zone": "no_mans_land"}]
++	return {"battle_round": 2, "meta": {"battle_round": 2},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
++
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, positions: Array, move: int = 6, oc: int = 2) -> void:
++	var models = []
++	for i in range(positions.size()):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32,
++			"base_type": "circular", "base_dimensions": {},
++			"position": positions[i], "wounds": 3, "current_wounds": 3})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 200, "stats": {"move": move, "toughness": 6, "save": 3,
++			"wounds": 3, "leadership": 6, "objective_control": oc}, "keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++
++func _row(center: Vector2, n: int) -> Array:
++	var out = []
++	for i in range(n):
++		out.append(Vector2(center.x + (i - (n - 1) / 2.0) * 45.0, center.y))
++	return out
++
++# Enemy: 5 models (10 OC) on obj_c, 6 models (12 OC) on obj_far. Ours: two
++# 4-model squads (8 OC each) just below obj_c, and "lone" (4 models, 8 OC)
++# between the two objectives, nearer obj_c.
++func _board(enemies: Dictionary, far_models: int = 6, c_models: int = 5) -> Dictionary:
++	var snap = _snapshot()
++	_add_unit(snap, "e_c", 1, _row(OBJ_C + Vector2(0, -1.0 * PX), c_models))
++	_add_unit(snap, "e_far", 1, _row(OBJ_FAR + Vector2(0, -1.0 * PX), far_models))
++	enemies["e_c"] = snap.units["e_c"]
++	enemies["e_far"] = snap.units["e_far"]
++	_add_unit(snap, "f1", 2, _row(OBJ_C + Vector2(-4.0 * PX, 7.0 * PX), 4))
++	_add_unit(snap, "f2", 2, _row(OBJ_C + Vector2(4.0 * PX, 7.0 * PX), 4))
++	_add_unit(snap, "lone", 2, _row(OBJ_C + Vector2(10.0 * PX, -8.0 * PX), 4))
++	return snap
++
++func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p2 = {}
++	AIDecisionMaker._secondary_awareness_p2 = {}
++	var friendlies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 2:
++			friendlies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, 2)
++	for ev in evals:
++		print("  eval %s: state %s, friendly %d, enemy %d" % [ev.id, ev.state, int(ev.friendly_oc), int(ev.enemy_oc)])
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, 2)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	for c in AIDecisionMaker._last_movement_candidates.get("lone", []):
++		print("    lone cand %s %s score %.1f ttr %d" % [c.action, c.objective_id, float(c.score), int(c.turns_to_reach)])
++	return plan
++
++func _goes_to(plan: Dictionary, uid: String, oid: String) -> bool:
++	var a: Dictionary = plan.get(uid, {})
++	return str(a.get("objective_id", "")) == oid and str(a.get("action", "")) in ["move", "advance"]
++
++func test_short_flip_joins_covered_centre() -> void:
++	print("\n--- obj_c (10 enemy OC) covered by f1+f2 (16 OC); lone (8 OC) would flip obj_far (12 OC) alone ---")
++	var enemies = {}
++	var snap = _board(enemies)
++	var plan = _plan(snap, ["f1", "f2", "lone"], enemies)
++	_assert(_goes_to(plan, "f1", "obj_c") or _goes_to(plan, "f2", "obj_c"), "a friend squad takes obj_c")
++	_assert(_goes_to(plan, "lone", "obj_c"),
++		"lone joins the covered enemy-held obj_c instead of a short flip of obj_far (%s %s)" % [
++			str(plan.get("lone", {}).get("action", "")), str(plan.get("lone", {}).get("objective_id", ""))])
++
++func test_flip_that_gets_filled_is_kept() -> void:
++	print("\n--- obj_far held by 3 enemy models (6 OC): lone's 8 OC flips it alone ---")
++	var enemies = {}
++	var snap = _board(enemies, 3)
++	var plan = _plan(snap, ["f1", "f2", "lone"], enemies)
++	_assert(not _goes_to(plan, "lone", "obj_c") or float(plan.get("lone", {}).get("score", 0.0)) > 0.0,
++		"a flip lone can complete is not redirected by ATTACK-MOVE (%s %s)" % [
++			str(plan.get("lone", {}).get("action", "")), str(plan.get("lone", {}).get("objective_id", ""))])
++	_assert(not str(plan.get("lone", {}).get("coordination_note", "")).begins_with("not going alone to obj_far — it would still need"),
++		"no ATTACK-MOVE note when the flip completes")
++
++func test_held_top_objective_not_stacked() -> void:
++	print("\n--- obj_c already held by us (f1 on it): lone is not stacked there ---")
++	var enemies = {}
++	var snap = _board(enemies)
++	snap.units.erase("e_c")
++	enemies.erase("e_c")
++	snap.units["f1"].models[0].position = OBJ_C
++	snap.units["f1"].models[1].position = OBJ_C + Vector2(45, 0)
++	snap.units["f1"].models[2].position = OBJ_C + Vector2(-45, 0)
++	snap.units["f1"].models[3].position = OBJ_C + Vector2(0, 45)
++	var plan = _plan(snap, ["f1", "f2", "lone"], enemies)
++	_assert(not str(plan.get("lone", {}).get("coordination_note", "")).begins_with("not going alone to"),
++		"ATTACK-MOVE does not stack onto an objective we already hold")
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_ATTACK_MOVE = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_ATTACK_MOVE"] = 0.0
++	var enemies = {}
++	var snap = _board(enemies)
++	var plan = _plan(snap, ["f1", "f2", "lone"], enemies)
++	AIDecisionMaker._config_overrides["FIX_ATTACK_MOVE"] = 1.0
++	_assert(_goes_to(plan, "lone", "obj_far"),
++		"with the fix off lone goes on the short flip of obj_far (%s %s)" % [
++			str(plan.get("lone", {}).get("action", "")), str(plan.get("lone", {}).get("objective_id", ""))])
