@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Burna Boyz Alpha (P1)",
+ "created": "2026-10-31 00:02:39",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7483_r2_p2_shooting_2",
+ "note": "[LLM critic, medium conf] Battlewagon Alpha shoots far Burna Boyz Alpha for 0.47 expected damage instead of near Stormboyz for 0.78. Fix: Add an objective-contest bonus for targets on or near contested objectives. Add a threat term for fast units within charge range of the shooter. Cap the kill-chance bonus when the kill chance is below about 15 percent.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7483_r2_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A_P2",
+  "choice": "desc:Big shoota \u2192 enemy Burna Boyz Alpha (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha shoots at Burna Boyz Alpha \u2014 expected 0.5 dmg vs 5 HP (9% kill)",
+ "verdict": "pending",
+ "version": 1
+}

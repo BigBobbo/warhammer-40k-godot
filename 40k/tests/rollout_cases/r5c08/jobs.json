@@ -1,0 +1,231 @@
+[
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r1_p1_movement_1_0",
+  "case": "20261030_234810_r5c08_00__s7483_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI sent Burna Boyz Beta to an empty backfield corner as a screen. The unit then does nothing useful in round 1. It picked an option that scored 1.79 over options that scored up to 26.5.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7483",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234810_r5c08_00"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r1_p1_movement_2_1",
+  "case": "20261030_234810_r5c08_00__s7483_r1_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_KOMMANDOS_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Kommandos to obj_home_1, which P1 already holds with 38 OC. The move adds no OC and no VP. The top-scoring option, Advance obj_center at 14.29, was skipped.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7483",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234810_r5c08_00"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r1_p1_shooting_1_2",
+  "case": "20261030_234810_r5c08_00__s7483_r1_p1_shooting_1_2.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BURNA_BOYZ_B",
+    "target": "U_KOMMANDOS_A_P2"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI shoots a big shoota at a target 36 in away for 0.2 expected damage and a 2% kill chance. It also records already_allocated 10.11 and target_value 8.41, which inflate the focus-fire plan. The shot is weak and gains little.",
+  "better_option": "Big shoota \u2192 enemy Kommandos (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7483",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234810_r5c08_00"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r1_p2_movement_1_3",
+  "case": "20261030_234810_r5c08_00__s7483_r1_p2_movement_1_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B_P2",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent a 5-model Burna Boyz unit to a 'backfield gap' screen position far from any enemy and from the army. Round 1 offers no threat to screen against, so the move wastes the unit's turn.",
+  "better_option": "Hold obj_home_2 (on objective, OC needed)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7483",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234810_r5c08_00"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r1_p2_movement_2_4",
+  "case": "20261030_234810_r5c08_00__s7483_r1_p2_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_B_P2",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI sent Lootas Beta out of its home ruin to screen a Battlewagon it cannot reach this turn. The Screen option scored 6.4, far below the other options, and was chosen only through an override.",
+  "better_option": "Hold obj_home_2 (on objective, OC needed)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7483",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234810_r5c08_00"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r2_p1_charge_1_5",
+  "case": "20261030_234810_r5c08_00__s7483_r2_p1_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Stormboyz charge Zodgrod at 28% chance for a net score of only 0.73. A success would give up a held objective and expose a 140 pt unit.",
+  "better_option": "unlisted: do not charge, and keep Stormboyz on the center objective",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7483",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234810_r5c08_00"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r2_p2_shooting_2_6",
+  "case": "20261030_234810_r5c08_00__s7483_r2_p2_shooting_2_6.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Battlewagon Alpha shoots far Burna Boyz Alpha for 0.47 expected damage instead of near Stormboyz for 0.78.",
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7483",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234810_r5c08_00"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r2_p2_charge_2_7",
+  "case": "20261030_234810_r5c08_00__s7483_r2_p2_charge_2_7.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges a battered 4-model unit into an 11-wound Battlewagon. It expects about 1.8 damage and invites a strong melee reply.",
+  "better_option": "unlisted: do not charge; keep the unit back to hold or screen",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7483",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234810_r5c08_00"
+ },
+ {
+  "job": "20261030_234810_r5c08_00__s7483_r3_p2_shooting_1_8",
+  "case": "20261030_234810_r5c08_00__s7483_r3_p2_shooting_1_8.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot a lone 4-wound Mek with 0.64 expected damage and a 16% kill chance, while the same shot would kill about 0.8 of a 1-wound model.",
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7483",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234810_r5c08_00"
+ }
+]
