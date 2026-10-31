@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 23\"))",
+ "created": "2026-10-30 23:48:17",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7485_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Burna Boyz Beta alone to a far-flank screen point, although its own reasoning says it stays with the army. The screen option scored 2.87 against 30.77 for obj_center. Fix: Only allow a screen assignment if the screen point is within about one move or 12 in of friendly units. Otherwise fall back to the highest-scoring option. Never let a forced assignment pick an option that scores far below the best one.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7485_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:1600,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta screens at (1600,960) \u2014 backfield gap (nearest friendly: 23\")",
+ "verdict": "bad",
+ "version": 1
+}
