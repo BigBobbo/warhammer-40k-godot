@@ -1,78 +1,387 @@
 {
   "id": "T07_terrain_cover_icons",
-  "covers": ["design_guidelines.T07", "board.terrain.cover_icons", "settings.show_terrain_cover_labels", "ui.settings_menu.visual"],
+  "covers": [
+    "design_guidelines.T07",
+    "board.terrain.cover_icons",
+    "terrain.cover_icons",
+    "settings.show_terrain_cover_labels",
+    "ui.settings_menu.visual"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 6,
-  "description": "Per-tile cover icons rendered on top of every terrain piece. Each icon node named TerrainCoverIcon_<terrain_id> with a Label whose text matches the derived cover_type (+1 / +2 / LB). The overlay is now OFF by default (uncluttered board) and is opt-in via Settings > Visual > 'Terrain Cover Labels' (SettingsService.show_terrain_cover_labels). Asserts: one icon per terrain feature is built, the first icon's Label is a valid cover glyph with the expected alpha and a centroid within tolerance of its feature, at least one 'LB' (line-block) chip is present, the overlay defaults hidden, enabling the setting shows it live and disabling hides it again. pixel_diff confirms the board region differs between the overlay-off and overlay-on captures.",
-
+  "description": "Per-tile cover icons on every terrain piece (doc §6). Each icon is BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_<terrain_id>: a shield at the piece's polygon area centroid whose Label is TerrainManager.cover_type_of(piece) — the 11e category on the doc's light/heavy/blocking ladder (exposed +1, light +2, dense LB). The chips are opt-in (later design decision: Settings > Visual > 'Terrain Cover Labels', OFF by default), so the scenario turns them on through the real Settings menu (Escape, Visual tab, click the checkbox, Escape) and off again the same way. Asserts per terrain_id: the node exists, sits within 8px of its polygon centroid, modulate.a >= 0.8 and its label matches the cover type; on the fitted whole-board view the overlay-on capture differs from the overlay-off capture by > 1% overall and > 1% of the board region; every glyph keeps a 1:1 upright on-screen size at the fitted view, zoom 1.0, zoom 0.5 and with the board rotated 90 degrees; no icon touches a token base at the fixture's deployment positions; icons draw below the tokens; and the icons rebuild (same names, labels, centroids) when the shipped default layout is loaded.",
   "regions": {
-    "board": [0, 0, 1920, 1080]
+    "board": [
+      574,
+      100,
+      772,
+      950
+    ]
   },
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "emit_pressed": true,
+      "comment": "Player 2's drawn-secondaries review (not under test) — closed so the board is unobstructed"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var d = tree.root.get_node_or_null(\"SecondaryMissionReviewDialog\")\nreturn (d == null or not d.visible) and ToastManager.active_toasts.is_empty()",
+      "equals": true,
+      "timeout_s": 8.0,
+      "poll_s": 0.25
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/BoardRoot/TerrainCoverOverlay\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "SettingsService.show_terrain_cover_labels",
-      "equals": false },
-
-    { "act": "execute_script",
+      "equals": false,
+      "comment": "Later design decision: the chips are opt-in (Settings > Visual), OFF by default"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").visible",
-      "equals": false },
-
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "TerrainManager.terrain_features.size()",
-      "expect_min": 1 },
-
-    { "act": "execute_script",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").get_child_count() == TerrainManager.terrain_features.size()",
-      "equals": true },
-
-    { "act": "execute_script", "multiline": true,
-      "script": "var ov = node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\")\nreturn ov.get_child(0).get_node(\"Label\").text in [\"LB\", \"+2\", \"+1\"]",
-      "equals": true },
-
-    { "act": "execute_script", "multiline": true,
-      "script": "var ov = node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\")\nvar n = 0\nfor c in ov.get_children():\n\tvar l = c.get_node_or_null(\"Label\")\n\tif l != null and l.text == \"LB\":\n\t\tn += 1\nreturn n",
-      "expect_min": 1 },
-
-    { "act": "execute_script", "multiline": true,
-      "script": "return node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").get_child(0).modulate.a",
-      "expect_min": 0.8 },
-
-    { "act": "execute_script", "multiline": true,
-      "script": "var icon = node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").get_child(0)\nreturn icon.position.distance_to(TerrainManager.terrain_features[0].position)",
-      "expect_max": 8.0 },
-
-    { "act": "screenshot", "label": "T07_overlay_off" },
-
-    { "act": "execute_script",
-      "script": "SettingsService.set_show_terrain_cover_labels(true)" },
-    { "act": "wait_frames", "frames": 6 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").visible",
-      "equals": true },
-
-    { "act": "screenshot", "label": "T07_overlay_on" },
-
-    { "act": "execute_script",
-      "script": "SettingsService.set_show_terrain_cover_labels(false)" },
-    { "act": "wait_frames", "frames": 6 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").visible",
-      "equals": false },
-
-    { "act": "pixel_diff",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bad = []\nfor f in TerrainManager.terrain_features:\n\tvar id = str(f.get(\"id\", \"\"))\n\tvar icon = node.get_node_or_null(\"Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_\" + id)\n\tif icon == null:\n\t\tbad.append(id + \": no icon\")\n\t\tcontinue\n\tvar poly = f.get(\"polygon\", PackedVector2Array())\n\tvar a2 = 0.0\n\tvar acc = Vector2.ZERO\n\tfor i in range(poly.size()):\n\t\tvar p = poly[i]\n\t\tvar q = poly[(i + 1) % poly.size()]\n\t\tvar cr = p.x * q.y - q.x * p.y\n\t\ta2 += cr\n\t\tacc += (p + q) * cr\n\tvar d = icon.position.distance_to(acc / (3.0 * a2))\n\tif d > 8.0:\n\t\tbad.append(\"%s: %.1fpx from its polygon centroid\" % [id, d])\nreturn bad",
+      "equals": [],
+      "comment": "Tier A: every terrain_id has BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_<id> within 8px of its polygon (area) centroid"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bad = []\nfor f in TerrainManager.terrain_features:\n\tvar id = str(f.get(\"id\", \"\"))\n\tvar icon = node.get_node_or_null(\"Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_\" + id)\n\tif icon == null or icon.modulate.a < 0.8:\n\t\tbad.append(id)\nreturn bad",
+      "equals": [],
+      "comment": "Tier A: every icon modulate.a >= 0.8"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var legend = {\"exposed\": \"+1\", \"light\": \"+2\", \"dense\": \"LB\"}\nvar bad = []\nfor f in TerrainManager.terrain_features:\n\tvar id = str(f.get(\"id\", \"\"))\n\tvar icon = node.get_node_or_null(\"Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_\" + id)\n\tvar text = \"<no icon>\" if icon == null else icon.get_node(\"Label\").text\n\tvar want = TerrainManager.cover_type_of(f)\n\tif text != want or text != legend.get(str(f.get(\"category\", \"\")), \"?\"):\n\t\tbad.append(\"%s: label %s, cover_type %s, category %s\" % [id, text, want, str(f.get(\"category\", \"\"))])\nreturn bad",
+      "equals": [],
+      "comment": "Tier A: every icon's Label == TerrainManager.cover_type_of(piece) == the doc legend for its 11e category"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var seen = {}\nfor c in node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").get_children():\n\tseen[c.get_node(\"Label\").text] = true\nreturn seen.size()",
+      "expect_min": 2,
+      "comment": "both LB (dense) and +2 (light) glyphs render on this layout"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\")\nfor t in node.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif \"base_shape\" in t:\n\t\treturn ov.z_index < t.z_index\nreturn false",
+      "equals": true,
+      "comment": "icons draw below the tokens"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T07_overlay_off"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape",
+      "comment": "Escape opens the in-game Settings menu (nothing else is open)"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var m = node.get_node(\"Main\")\nreturn m._settings_menu != null and is_instance_valid(m._settings_menu)",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.2
+    },
+    {
+      "act": "click_node",
+      "button_text": "Visual"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return node.get_node(\"Main\")._settings_menu._terrain_cover_checkbox.button_pressed",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lg = node.get_node(\"Main\")._settings_menu.find_child(\"TerrainCoverLegend\", true, false)\nreturn lg != null and lg.is_visible_in_tree() and \"+1 = exposed\" in lg.text and \"+2 = light\" in lg.text and \"LB = dense\" in lg.text",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "button_text": "Terrain Cover Labels (LB / +2 / +1 chips on terrain)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return [SettingsService.show_terrain_cover_labels, node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").visible]",
+      "equals": [
+        true,
+        true
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lg = node.get_node(\"Main\")._settings_menu.find_child(\"TerrainCoverLegend\", true, false)\nvar sc = lg.get_parent()\nwhile sc != null and not (sc is ScrollContainer):\n\tsc = sc.get_parent()\nsc.ensure_control_visible(lg)\nreturn sc != null",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "T07_settings_legend"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape",
+      "comment": "Escape closes the Settings menu again"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var m = node.get_node(\"Main\")\nreturn (m._settings_menu == null or not is_instance_valid(m._settings_menu)) and ToastManager.active_toasts.is_empty()",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.2
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T07_overlay_on"
+    },
+    {
+      "act": "pixel_diff",
       "before": "T07_overlay_off",
-      "after":  "T07_overlay_on",
-      "expect_min_pct": 0.015 },
-
-    { "act": "expect_baseline_unchanged" }
+      "after": "T07_overlay_on",
+      "expect_min_pct": 1.01,
+      "comment": "Tier A: total_diff_pct > 1.0"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T07_overlay_off",
+      "after": "T07_overlay_on",
+      "region": "board",
+      "expect_min_pct": 1.01,
+      "comment": "Tier A: regions.board.diff_pct > 1.0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bad = []\nfor c in node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").get_children():\n\tif not c.is_visible_in_tree() or c.modulate.a < 0.8:\n\t\tbad.append(str(c.name))\nreturn bad",
+      "equals": [],
+      "comment": "every icon is actually visible once the setting is on"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bad = []\nfor c in node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").get_children():\n\tvar xf = c.get_global_transform_with_canvas()\n\tif absf(xf.get_scale().x - 1.0) > 0.02 or absf(xf.get_rotation()) > 0.01:\n\t\tbad.append(\"%s: on-screen scale %.3f, rotation %.3f\" % [c.name, xf.get_scale().x, xf.get_rotation()])\nreturn bad",
+      "equals": [],
+      "comment": "fitted whole-board view: every glyph keeps its 1:1 on-screen size, upright"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor t in node.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif (\"base_shape\" in t) and t.base_shape != null and t.visible:\n\t\tn += 1\nreturn n",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\")\nvar hits = []\nfor icon in ov.get_children():\n\tvar half = Vector2(TerrainCoverOverlay.ICON_WIDTH, TerrainCoverOverlay.ICON_HEIGHT) * 0.5 * icon.scale.x\n\tvar r = Rect2(icon.position - half, half * 2.0)\n\tvar corners = [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]\n\tfor t in node.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\t\tif not (\"base_shape\" in t) or t.base_shape == null or not t.visible:\n\t\t\tcontinue\n\t\tvar rot = float(t.model_data.get(\"rotation\", 0.0))\n\t\tvar hit = r.has_point(t.position) or t.base_shape.contains_point(icon.position, t.position, rot)\n\t\tfor i in range(4):\n\t\t\tif hit:\n\t\t\t\tbreak\n\t\t\thit = t.base_shape.overlaps_with_segment(t.position, rot, corners[i], corners[(i + 1) % 4])\n\t\tif hit:\n\t\t\thits.append(\"%s x %s\" % [icon.name, str(t.model_data.get(\"id\", t.name))])\nreturn hits",
+      "equals": [],
+      "comment": "no icon footprint touches a token base at the fixture's deployment positions (fitted view = largest icons in board units)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = node.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 1.0\nm.view_offset = Vector2(880, 1500) - Vector2(960, 540) / 1.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 1.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "T07_zoom_1_0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bad = []\nfor c in node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").get_children():\n\tvar xf = c.get_global_transform_with_canvas()\n\tif absf(xf.get_scale().x - 1.0) > 0.02 or absf(xf.get_rotation()) > 0.01:\n\t\tbad.append(\"%s: on-screen scale %.3f, rotation %.3f\" % [c.name, xf.get_scale().x, xf.get_rotation()])\nreturn bad",
+      "equals": []
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = node.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 0.5\nm.view_offset = Vector2(880, 1200) - Vector2(960, 540) / 0.5\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 0.5
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "T07_zoom_0_5"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bad = []\nfor c in node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").get_children():\n\tvar xf = c.get_global_transform_with_canvas()\n\tif absf(xf.get_scale().x - 1.0) > 0.02 or absf(xf.get_rotation()) > 0.01:\n\t\tbad.append(\"%s: on-screen scale %.3f, rotation %.3f\" % [c.name, xf.get_scale().x, xf.get_rotation()])\nreturn bad",
+      "equals": []
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "node.get_node(\"Main\").rotate_board_view(PI / 2.0)\nreturn node.get_node(\"Main\").view_rotation",
+      "expect_min": 1.5
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bad = []\nfor c in node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").get_children():\n\tvar xf = c.get_global_transform_with_canvas()\n\tif absf(xf.get_scale().x - 1.0) > 0.02 or absf(xf.get_rotation()) > 0.01:\n\t\tbad.append(\"%s: on-screen scale %.3f, rotation %.3f\" % [c.name, xf.get_scale().x, xf.get_rotation()])\nreturn bad",
+      "equals": [],
+      "comment": "board rotated 90 degrees: glyphs stay upright"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "node.get_node(\"Main\").rotate_board_view(-PI / 2.0)\nreturn node.get_node(\"Main\").view_rotation",
+      "expect_max": 0.001
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "TerrainManager.load_terrain_layout(TerrainManager.DEFAULT_LAYOUT)\nreturn TerrainManager.current_layout == TerrainManager.DEFAULT_LAYOUT",
+      "equals": true,
+      "comment": "the shipped default layout: icons rebuild on terrain_loaded"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").get_child_count() == TerrainManager.terrain_features.size()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bad = []\nfor f in TerrainManager.terrain_features:\n\tvar id = str(f.get(\"id\", \"\"))\n\tvar icon = node.get_node_or_null(\"Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_\" + id)\n\tif icon == null:\n\t\tbad.append(id + \": no icon\")\n\t\tcontinue\n\tvar poly = f.get(\"polygon\", PackedVector2Array())\n\tvar a2 = 0.0\n\tvar acc = Vector2.ZERO\n\tfor i in range(poly.size()):\n\t\tvar p = poly[i]\n\t\tvar q = poly[(i + 1) % poly.size()]\n\t\tvar cr = p.x * q.y - q.x * p.y\n\t\ta2 += cr\n\t\tacc += (p + q) * cr\n\tvar d = icon.position.distance_to(acc / (3.0 * a2))\n\tif d > 8.0:\n\t\tbad.append(\"%s: %.1fpx from its polygon centroid\" % [id, d])\nreturn bad",
+      "equals": []
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var legend = {\"exposed\": \"+1\", \"light\": \"+2\", \"dense\": \"LB\"}\nvar bad = []\nfor f in TerrainManager.terrain_features:\n\tvar id = str(f.get(\"id\", \"\"))\n\tvar icon = node.get_node_or_null(\"Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_\" + id)\n\tvar text = \"<no icon>\" if icon == null else icon.get_node(\"Label\").text\n\tvar want = TerrainManager.cover_type_of(f)\n\tif text != want or text != legend.get(str(f.get(\"category\", \"\")), \"?\"):\n\t\tbad.append(\"%s: label %s, cover_type %s, category %s\" % [id, text, want, str(f.get(\"category\", \"\"))])\nreturn bad",
+      "equals": []
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape",
+      "comment": "Escape opens the in-game Settings menu (nothing else is open)"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var m = node.get_node(\"Main\")\nreturn m._settings_menu != null and is_instance_valid(m._settings_menu)",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.2
+    },
+    {
+      "act": "click_node",
+      "button_text": "Visual"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return node.get_node(\"Main\")._settings_menu._terrain_cover_checkbox.button_pressed",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "button_text": "Terrain Cover Labels (LB / +2 / +1 chips on terrain)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return [SettingsService.show_terrain_cover_labels, node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").visible]",
+      "equals": [
+        false,
+        false
+      ]
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape",
+      "comment": "Escape closes the Settings menu again"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var m = node.get_node(\"Main\")\nreturn (m._settings_menu == null or not is_instance_valid(m._settings_menu)) and ToastManager.active_toasts.is_empty()",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.2
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

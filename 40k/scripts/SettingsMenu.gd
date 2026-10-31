@@ -245,6 +245,17 @@ func _build_ui() -> void:
 	_terrain_debug_checkbox = _add_checkbox_row(visual_content, "Terrain Debug Labels (internal ids + LoS badges)", "_on_terrain_debug_labels_toggled")
 	_terrain_scatter_checkbox = _add_checkbox_row(visual_content, "Terrain Scatter Props (crates, sandbags, trees)", "_on_terrain_scatter_toggled")
 	_terrain_cover_checkbox = _add_checkbox_row(visual_content, "Terrain Cover Labels (LB / +2 / +1 chips on terrain)", "_on_terrain_cover_labels_toggled")
+	# T07: the legend for those chips. The numbers are a light / heavy /
+	# blocking ladder over the 11e terrain categories, not save modifiers
+	# (11e cover worsens the attack's BS by 1 whatever the category).
+	var cover_help = Label.new()
+	cover_help.name = "TerrainCoverLegend"
+	cover_help.text = "A shield at the centre of each terrain piece shows its category: +1 = exposed (Infantry, Beasts and Swarms inside it get cover), +2 = light (cover, and no line of sight can be drawn across it), LB = dense (as light, and its solid walls block line of sight)."
+	cover_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cover_help.custom_minimum_size = Vector2(620, 0)
+	cover_help.add_theme_font_size_override("font_size", 16)
+	cover_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	visual_content.add_child(cover_help)
 	_los_debug_out_of_range_checkbox = _add_checkbox_row(visual_content, "LoS Debug: include units out of weapon range", "_on_los_debug_out_of_range_toggled")
 	var los_range_help = Label.new()
 	los_range_help.text = "Affects the line-of-sight overlay (hold L). On by default: enemies no weapon in the selected unit could reach are still checked and drawn dashed amber, labelled \"is out of range\" — that is what explains a squad you can plainly see but cannot select. Turn it off to skip them entirely, for a quieter board and a faster overlay on a crowded one."

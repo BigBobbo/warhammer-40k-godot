@@ -83,6 +83,11 @@
 #     kept, re-confirm + Start Sequence still work), rejected outside the step
 #     and once the targets are locked in (a defender SMOKESCREEN used against
 #     them, or an Unpredictable Genius roll)
+#   - T07 terrain cover icons: TerrainManager.cover_type_of (11e category ->
+#     +1 / +2 / LB, height ignored), TerrainCoverOverlay.centroid_of (polygon
+#     area centroid, not the vertex average), one TerrainCoverIcon_<id> per
+#     piece of the default layout (label, centroid, alpha, below tokens), names
+#     kept across a terrain reload, constant upright on-screen size
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -330,6 +335,7 @@ TESTS=(
     "tests/test_phase_bar.gd"
     "tests/test_hover_forecast.gd"
     "tests/test_weapon_order_cancel.gd"
+    "tests/test_terrain_cover_overlay.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

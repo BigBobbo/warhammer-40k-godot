@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.61.0",
+      "date": "2026-10-31",
+      "summary": "The terrain cover labels (Settings > Visual > Terrain Cover Labels) are now readable at any zoom and show each piece's 11th-edition terrain category, with a legend under the setting.",
+      "changes": [
+        "With Terrain Cover Labels turned on, every terrain piece shows a small shield at its centre: +1 for exposed terrain, +2 for light terrain and LB for dense terrain. The legend under the setting says what each one means.",
+        "The shields stay the same size on screen whether you zoom in or out, and stay upright when you rotate the board. Before, they shrank with the board until they were unreadable at the whole-board view.",
+        "Labels now follow the terrain's 11th-edition category only. Before, height also counted, so a tall ruin of light terrain was wrongly marked LB.",
+        "The shields are drawn under the models and under the movement, threat and engagement overlays, so they never hide a model or a range ring. Before, they were drawn on top of the models."
+      ]
+    },
+    {
       "version": "1.60.0",
       "date": "2026-10-31",
       "summary": "Choosing the firing order for a unit's guns now has a way back: press Esc, or the new 'Back to Targets' button, to return to aiming with every gun still assigned and nothing rolled.",

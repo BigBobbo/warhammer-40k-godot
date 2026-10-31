@@ -792,6 +792,30 @@ static func category_of(piece: Dictionary) -> String:
 		_:
 			return CATEGORY_EXPOSED
 
+## T07 (design doc §6): the cover glyph a terrain piece shows on the board
+## (TerrainCoverOverlay) — its 11e category on the doc's light / heavy /
+## blocking ladder:
+##   exposed -> "+1"  only the 13.08 benefit of cover for INFANTRY / BEASTS /
+##                    SWARM models within its area; sight lines pass through.
+##   light   -> "+2"  cover too, and its area is Obscuring (13.10): no sight
+##                    line can be drawn across it.
+##   dense   -> "LB"  as light, plus Solid features (13.11) that block line of
+##                    sight through them at ground level.
+## Height is deliberately ignored: in 11e it changes movement and plunging
+## fire, not what cover a piece gives.
+const COVER_TYPE_EXPOSED := "+1"
+const COVER_TYPE_LIGHT := "+2"
+const COVER_TYPE_DENSE := "LB"
+
+static func cover_type_of(piece: Dictionary) -> String:
+	match category_of(piece):
+		CATEGORY_DENSE:
+			return COVER_TYPE_DENSE
+		CATEGORY_LIGHT:
+			return COVER_TYPE_LIGHT
+		_:
+			return COVER_TYPE_EXPOSED
+
 ## Numeric feature height in inches. Explicit "height_inches" wins;
 ## otherwise derived from the legacy height_category labels
 ## (low <2", medium 2-5", tall >5") at documented representative values.

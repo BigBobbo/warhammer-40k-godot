@@ -521,7 +521,7 @@ Locks in use:
     single-player scenario. (e) The lock case gives the Witchseekers SMOKE as a setup step
     (as iss15_smokescreen_reactive_11e does), so the defender is offered SMOKESCREEN.
 
-- [ ] **T07 — Per-tile cover icons on terrain**
+- [x] **T07 — Per-tile cover icons on terrain**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/BoardVisual.gd` or new
     `40k/scripts/TerrainCoverOverlay.gd`, `40k/deployment_zones/` data files (read
@@ -542,9 +542,67 @@ Locks in use:
       `total_diff_pct > 1.0` AND `regions["board"].diff_pct > 1.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Every terrain piece has a visible cover icon.
-    - [ ] Icons readable at zoom 1.0 and still recognizable at zoom 0.5.
-    - [ ] Icons don't overlap tokens at default deployment positions.
+    - [x] Every terrain piece has a visible cover icon.
+      *(T07_overlay_on, fitted view: 36 shields for the fixture's 44 pieces. The other 8
+      are area boundaries whose single feature has the identical footprint
+      (area-short-line-23/catwalk-25, area-long-line-27/gantry-29, area-medium-35/
+      generator-37, area-short-line-39/pipe-41 and their mirrors): each pair stacks two
+      identical shields on one centroid and reads as one. The scenario asserts every icon
+      is_visible_in_tree with modulate.a >= 0.8.)*
+    - [x] Icons readable at zoom 1.0 and still recognizable at zoom 0.5.
+      *(T07_zoom_1_0 / T07_zoom_0_5: the shield is 30x34 px on screen with 17 px LB / +2
+      text at both zooms, upright. The scenario asserts on-screen scale 1.0 at the fitted
+      view, zoom 1.0, zoom 0.5 and with the board rotated 90 degrees. At the zoom-0.3 view
+      the fixture opens at, the three +2 shields of the top-left corner ruins (2" apart)
+      touch each other but stay legible.)*
+    - [x] Icons don't overlap tokens at default deployment positions.
+      *(T07_overlay_on and the zoom-0.3 opening view: the nearest shield is ~10 px below
+      the Caladius base on the top edge, and the bottom-edge Ork tokens are clear. The
+      scenario tests every icon footprint against every token base (BaseShape overlap) at
+      the fitted view: none. Icons now also draw below the tokens (z 2 vs 10).)*
+  - **Note (2026-10-31 audit):** what had shipped was `TerrainCoverOverlay.gd`, one
+    `TerrainCoverIcon_<id>` per piece, made opt-in by a later decision (Settings > Visual >
+    Terrain Cover Labels, OFF by default). Gaps: (1) icons were 28 board px, so ~8 px at
+    the zoom-0.3 view the fixture opens at; the overlay on/off diff was 0.05% (Tier A
+    wants > 1%), the scenario's bound was 0.015% and its "board" region the whole frame.
+    (2) The scenario checked child(0) only, against `position`, not every terrain_id by
+    name against its polygon centroid. (3) No terrain carries a `cover_type`; the overlay
+    derived one from height (obscuring or tall -> LB, medium -> +2, else +1), labelled
+    "10e rules". The game is 11e only, where cover follows the category: a light tall ruin
+    read LB and a light medium one +2 under identical rules. (4) z_index 50 drew the icons
+    over the tokens (10), contrary to its own comment. (5) The fallback centroid was the
+    vertex average (up to 47 px off on the trapezoids). (6) A terrain reload queue_free'd
+    the old icons, so all 44 new ones came back as `@Node2D@N` and no
+    `TerrainCoverIcon_<id>` lookup worked (probed at HEAD). Changed on this pass:
+    (1) `TerrainManager.cover_type_of(piece)`: the 11e category on the doc's
+    light/heavy/blocking ladder (exposed +1, light +2, dense LB; height ignored), which
+    the overlay labels from. (2) Icons keep a constant 30x34 px upright size on screen
+    (counter-scaled and counter-rotated against BoardRoot's zoom and rotation), with a
+    pale rim and outlined 17 px text, at z_index 2: above the terrain art, below the
+    movement/threat/engagement overlays and the tokens. (3) `centroid_of()` is the
+    polygon area centroid. (4) Rebuilds free the old icons at once. (5) A legend under the
+    Settings checkbox explains +1 / +2 / LB. Tier A: scenario 66/66. Per terrain_id: the
+    node, <= 8 px from its polygon centroid (computed in the step), modulate.a >= 0.8,
+    label == cover_type_of == the legend for its category. The chips are switched on and
+    off through the real Settings menu (Escape, Visual, checkbox, Escape). pixel_diff
+    total 1.58% (> 1.0) and board region [574,100,772,950] 4.47% (> 1.0). On-screen scale
+    1 at every tested zoom, no icon/token overlap, icons below the tokens, and the same
+    checks after `TerrainManager.DEFAULT_LAYOUT` is loaded. New gated test
+    `tests/test_terrain_cover_overlay.gd` (34 checks; 3 of 4 fail at HEAD). Gate 180/180
+    (known XFAIL only). 17 reachable sp/visual scenarios pass; terrain_11e_layouts is a
+    listed XFAIL; terrain_11e_menu_matchup fails identically at HEAD without this change
+    (main-menu matchup dropdown and objective positions, unrelated).
+    Deviations: (a) The opt-in decision stands, so the icons are not on by default; the
+    scenario turns them on through Settings. (b) `cover_type` is derived
+    (`TerrainManager.cover_type_of`), not stored on the terrain, and follows the 11e
+    categories, so "+2" means light terrain (cover, and its area blocks sight lines), not
+    a +2 modifier: 11e cover always worsens BS by 1. The Settings legend says what each
+    glyph means. (c) co_pretrigger plays on legacy_fallback_mirror_1 (its layout_2 was
+    deleted), the frozen copy of the default take_and_hold_mirror_1, so the scenario also
+    loads `TerrainManager.DEFAULT_LAYOUT` and re-asserts nodes, centroids and labels.
+    (d) The diff is taken at the fitted whole-board view, after closing P2's
+    drawn-secondaries review, which otherwise covers the board. (e) The 8 coincident
+    area/feature pairs keep both nodes (Tier A wants one per id) but render as one shield.
 
 - [ ] **T08 — Two-ring token (faction inner + player-slot outer)**
   - **Lock:** TokenLayer  • **Doc:** §2  • **Depends:** T01, T02
