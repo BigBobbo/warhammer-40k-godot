@@ -1,0 +1,191 @@
+{
+  "id": "ai_makari_advance_charge",
+  "covers": [
+    "ai.movement.charge_option",
+    "ai.movement.advance_and_charge",
+    "ai.movement.melee_seeker_character",
+    "codex.orks.datasheet_abilities.makari.ai",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "ork11e_ab_move_start",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "ADV-CHG-1 / CHG-OPT-1 / MELEE-SEEK-2 / MAKARI-R1. Battle round 1, P1 (Orks) Movement. Ghazghkull (M8, not riled up, no Waaagh! called) stands 16\" (base edge to edge) from P2's Custodian Guard Sodality. At Movement phase entry the AI decides the movement_phase_start window: it spends MAKARI, HOIST DAT BANNER! in round 1 on Ghazghkull because riling him up turns a 42% Move-then-charge into an ~84% Advance-then-charge. Suggest (K) then shows the new scored 'Advance → charge Custodian Guard Sodality' option picked over the objective moves, with its charge odds. Letting the AI play (both seats AI so the Custodes seat answers its own saves): Ghazghkull Advances at the Guard and declares the charge in the Charge phase (allowed: riled up).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "round 1 (Makari picks = 1), P2 has no CP (no reactive prompts for the human seat), Ghazghkull placed 16\" (edge) from the Guard; the rest of P1 stays where the fixture has it",
+      "script": "GameState.state.meta[\"battle_round\"] = 1\nGameState.state.players[\"2\"][\"cp\"] = 0\nvar gz = GameState.state.units[\"U_GHAZGHKULL_THRAKA_A\"]\nvar cg = GameState.state.units[\"U_CUSTODIAN_GUARD_B\"]\nvar y := 880.0\nfor _i in range(3):\n\tfor m in gz.models:\n\t\tm[\"position\"] = {\"x\": 880.0, \"y\": y}\n\tvar e = AIDecisionMaker._get_closest_model_distance_inches(gz, cg)\n\ty += (e - 16.0) * 40.0\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nreturn \"%.1f\" % AIDecisionMaker._get_closest_model_distance_inches(gz, cg)",
+      "equals": "16.0"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_GHAZGHKULL_THRAKA_A\").flags.get(\"ork11e_riled_up\", false)",
+      "equals": false,
+      "comment": "not riled up before the Movement phase"
+    },
+    {
+      "act": "execute_script",
+      "script": "return AIDecisionMaker._can_advance_and_charge(GameState.get_unit(\"U_GHAZGHKULL_THRAKA_A\"))",
+      "equals": false,
+      "comment": "ADV-CHG-1: the Waaagh! rule TEXT no longer counts as advance-and-charge",
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return AIDecisionMaker._is_melee_seeker(GameState.get_unit(\"U_GHAZGHKULL_THRAKA_A\"))",
+      "equals": true,
+      "comment": "MELEE-SEEK-2: high-damage melee character despite Mork's Roar",
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the AI seat decides the movement_phase_start window synchronously at phase entry; the seat is handed back to HUMAN right after so the Suggest card can be opened before the AI moves",
+      "script": "AIPlayer.configure({1: \"AI\", 2: \"HUMAN\"})\nPhaseManager.transition_to_phase(7)\nAIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})\nreturn GameState.get_unit(\"U_GHAZGHKULL_THRAKA_A\").flags.get(\"ork11e_riled_up\", false)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(GameState.get_unit(\"U_GHAZGHKULL_THRAKA_A\").flags.get(\"ork11e_ab_riled\", {}).get(\"source\", \"\"))",
+      "equals": "Makari",
+      "comment": "MAKARI-R1: riled up by Makari, Hoist Dat Banner! in round 1"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text",
+      "comment": "logged for the transcript"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"MOVEMENT · Ghazghkull Thraka\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Picked: Advance → charge Custodian Guard Sodality\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Move → charge Custodian Guard Sodality\")",
+      "equals": true,
+      "comment": "the Move-then-charge option is listed too"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Chance the charge connects\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0,
+      "comment": "preview only — nothing executed yet"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_suggest_advance_charge"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"})",
+      "comment": "both seats AI for the play-out: the Custodes seat answers its own save / reaction windows"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 10.0
+    },
+    {
+      "act": "execute_script",
+      "script": "str(AIPlayer.get_action_log())",
+      "comment": "logged for the transcript"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(AIPlayer.get_action_log()).contains(\"Ghazghkull Thraka advances to attack Custodian Guard Sodality\")",
+      "equals": true,
+      "comment": "Movement: the Advance-and-charge option executed as an Advance"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(AIPlayer.get_action_log()).contains(\"Ghazghkull Thraka charges into Custodian Guard Sodality\")",
+      "equals": true,
+      "comment": "Charge: the Advance did not stop the charge (riled up by Makari) and it connected"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_GHAZGHKULL_THRAKA_A\").flags.get(\"advanced\", false)",
+      "equals": true,
+      "comment": "Ghazghkull Advanced this turn (flag still set: same turn)"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_ghazghkull_charged"
+    }
+  ]
+}

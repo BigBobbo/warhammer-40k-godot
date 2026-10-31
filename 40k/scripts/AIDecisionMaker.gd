@@ -2380,7 +2380,65 @@ static func _is_melee_focused_unit(unit: Dictionary) -> bool:
 		if attacks >= 4:
 			strong_ranged = true
 			break
-	return not strong_ranged
+	if not strong_ranged:
+		return true
+	# MELEE-SEEK-2: a strong gun does not make a melee CHARACTER a shooter.
+	# A non-vehicle CHARACTER whose melee output is high in absolute terms and
+	# dwarfs its ranged output against a reference elite target (Ghazghkull:
+	# Gork's Klaw S14 D4 vs a BS5+ S6 D1 gun) still seeks melee. Scoped to
+	# characters on purpose: the 2026-07-10 benchmark (see _is_melee_seeker)
+	# showed mixed squads and vehicles (Lootas, Battlewagon) must stay on
+	# mission, and a ratio alone flips the Battlewagon (tracks vs no guns).
+	var ratio := get_param("MELEE_SEEKER_OUTPUT_RATIO", MELEE_SEEKER_OUTPUT_RATIO)
+	if ratio <= 0.0:
+		return false
+	var kws: Array = unit.get("meta", {}).get("keywords", [])
+	if not "CHARACTER" in kws or "VEHICLE" in kws:
+		return false
+	var profile := _unit_reference_output(unit)
+	return profile.melee >= get_param("MELEE_SEEKER_MIN_OUTPUT", MELEE_SEEKER_MIN_OUTPUT) \
+		and profile.melee >= ratio * maxf(profile.ranged, 0.01)
+
+## MELEE-SEEK-2: per-model expected damage of the unit's best melee weapon (plus
+## any [EXTRA ATTACKS] weapons) and of its ranged weapons (best profile per
+## multi-profile weapon, every weapon fires) against a reference elite target
+## (T5, Sv3+, W3, no invuln). Target-agnostic, so it classifies the unit, not
+## a matchup. {melee: float, ranged: float}
+const MELEE_SEEKER_OUTPUT_RATIO: float = 2.5
+const MELEE_SEEKER_MIN_OUTPUT: float = 5.0  # per-model reference damage (Warboss 5.6, Ghazghkull 13.5)
+const _REF_TOUGHNESS := 5
+const _REF_SAVE := 3
+const _REF_WOUNDS := 3.0
+static func _unit_reference_output(unit: Dictionary) -> Dictionary:
+	var best_melee := 0.0
+	var extra_melee := 0.0
+	var ranged_by_name := {}
+	for w in unit.get("meta", {}).get("weapons", []):
+		var wtype := str(w.get("type", "")).to_lower()
+		var attacks := _parse_average_damage(str(w.get("attacks", "1")))
+		var dmg := minf(_parse_average_damage(str(w.get("damage", "1"))), _REF_WOUNDS)
+		var strength := int(str(w.get("strength", "4")).to_int())
+		var ap := absi(int(str(w.get("ap", "0")).to_int()))
+		var skill_str := str(w.get("weapon_skill" if wtype == "melee" else "ballistic_skill",
+			w.get("ws" if wtype == "melee" else "bs", "4"))).replace("+", "")
+		var special := str(w.get("special_rules", "")).to_lower()
+		var p_hit := 1.0 if ("torrent" in special or not skill_str.is_valid_int()) else _hit_probability(int(skill_str))
+		var p_wound := _wound_probability(maxi(strength, 1), _REF_TOUGHNESS)
+		var p_unsaved := 1.0 - _save_probability(_REF_SAVE, ap)
+		var out := attacks * p_hit * p_wound * p_unsaved * dmg
+		if wtype == "melee":
+			if "extra attacks" in special:
+				extra_melee += out
+			else:
+				best_melee = maxf(best_melee, out)
+		elif wtype == "ranged":
+			# "Mork's Roar – Aimed" / "– Point Blank" are one weapon: best profile.
+			var base := str(w.get("name", "")).split(" – ")[0].split(" - ")[0]
+			ranged_by_name[base] = maxf(float(ranged_by_name.get(base, 0.0)), out)
+	var ranged := 0.0
+	for k in ranged_by_name:
+		ranged += float(ranged_by_name[k])
+	return {"melee": best_melee + extra_melee, "ranged": ranged}
 
 # SOAK-5: single source of truth for "should this unit leave its objective
 # assignment to seek melee?" — used by the hold-decision, melee-aggression and
@@ -2401,6 +2459,168 @@ static func _is_melee_focused_unit(unit: Dictionary) -> bool:
 # stay bonuses, R1 setup moves) — just not WHO seeks.
 static func _is_melee_seeker(unit: Dictionary) -> bool:
 	return _is_melee_focused_unit(unit)
+
+# =============================================================================
+# CHG-OPT-1: MOVE / ADVANCE -> CHARGE AS SCORED MOVEMENT OPTIONS
+# =============================================================================
+# The movement planner used to build ONLY objective options ("Move/Advance
+# obj_X"); a unit's charge plan just nudged those by a small charge_lane term.
+# A melee unit 17" from an enemy therefore never weighed "Advance and charge
+# it" against "walk to the objective" — the option did not exist. These options
+# put the charge on the same score sheet: expected melee damage x the chance
+# the charge connects (edge distance after the move, 2D6 — plus the Advance D6
+# when the unit may still charge after Advancing, ADV-CHG-1), plus a share of
+# any objective the target sits on and the plan's lock-a-shooter bonus, minus
+# the danger of standing short if the charge fails.
+const CHARGE_OPTION_ENABLED: float = 1.0
+const CHARGE_OPTION_DAMAGE_WEIGHT: float = 3.0     # score per expected wound dealt (before x chance)
+const CHARGE_OPTION_MIN_CHANCE: float = 0.2        # options below this chance are not offered
+const CHARGE_OPTION_OBJECTIVE_SHARE: float = 0.5   # share of the target's objective value won by locking it
+const CHARGE_OPTION_MIN_SCORE: float = 3.0         # bar for a unit the objective passes left unassigned
+const CHARGE_OPTION_SHOOTING_FORFEIT: float = 3.0  # Advancing without advance-and-shoot loses the shooting phase
+
+## CHG-OPT-1: chance a charge from `edge_in` (closest model edge to edge, terrain
+## penalty included) connects after the unit first travels `travel_in`. A move
+## cannot end inside Engagement Range, so the remaining gap never drops below it.
+static func _charge_chance_after_travel(edge_in: float, travel_in: float) -> float:
+	var er_in := _engagement_range_px() / PIXELS_PER_INCH
+	var left := maxf(edge_in - travel_in, er_in)
+	return _charge_success_probability(_charge_roll_needed(left))
+
+## CHG-OPT-1: {p_move, p_advance, edge_in} for `unit` charging `enemy` this turn.
+## p_advance averages the Advance D6 (1..6, no re-roll — conservative); whether
+## the unit may charge after Advancing is the caller's question (ADV-CHG-1).
+static func charge_odds_this_turn(unit: Dictionary, enemy: Dictionary) -> Dictionary:
+	var centroid = _get_unit_centroid(unit)
+	var ec = _get_unit_centroid(enemy)
+	if centroid == Vector2.INF or ec == Vector2.INF:
+		return {}
+	var kws: Array = unit.get("meta", {}).get("keywords", [])
+	var edge_in := _get_closest_model_distance_inches(unit, enemy)
+	if edge_in == INF:
+		return {}
+	edge_in += _estimate_charge_terrain_penalty(centroid, ec, "FLY" in kws, kws)
+	var move_in := float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+	var p_adv := 0.0
+	for d in range(1, 7):
+		p_adv += _charge_chance_after_travel(edge_in, move_in + float(d)) / 6.0
+	return {"p_move": _charge_chance_after_travel(edge_in, move_in), "p_advance": p_adv, "edge_in": edge_in}
+
+## CHG-OPT-1: the unit's best "Move -> charge X" and "Advance -> charge X"
+## options (at most one of each), as movement candidates. Offered to melee
+## seekers and to units the phase plan already intends to charge with.
+static func _charge_option_candidates(unit: Dictionary, unit_id: String, move_types: Array,
+		enemies: Dictionary, snapshot: Dictionary, player: int, centroid: Vector2,
+		move_strategy: Dictionary, obj_evaluations: Array, threat_data: Array,
+		has_ranged: bool, unit_oc: int) -> Array:
+	if get_param("CHARGE_OPTION_ENABLED", CHARGE_OPTION_ENABLED) <= 0.0 or enemies.is_empty():
+		return []
+	if not _unit_has_melee_weapons(unit):
+		return []
+	if not _is_melee_seeker(unit) and _get_charge_intent(unit_id, player).is_empty():
+		return []
+	var can_move := "BEGIN_NORMAL_MOVE" in move_types
+	var can_adv_charge := "BEGIN_ADVANCE" in move_types and _can_advance_and_charge(unit)
+	if not can_move and not can_adv_charge:
+		return []
+	var unit_name := _dn(unit, unit_id)
+	var move_in := float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+	var min_chance := get_param("CHARGE_OPTION_MIN_CHANCE", CHARGE_OPTION_MIN_CHANCE)
+	var dmg_weight := get_param("CHARGE_OPTION_DAMAGE_WEIGHT", CHARGE_OPTION_DAMAGE_WEIGHT)
+	var aggression := float(move_strategy.get("aggression", 1.0))
+	var survival := float(move_strategy.get("survival", 1.0))
+	var lock_targets: Array = _get_phase_plan(player).get("lock_targets", [])
+	var unit_kws: Array = unit.get("meta", {}).get("keywords", [])
+	var current_threat := {}
+	if not threat_data.is_empty():
+		current_threat = _evaluate_position_threat(centroid, threat_data, unit)
+	var best := {}  # mode -> candidate
+	for eid in enemies:
+		var enemy: Dictionary = enemies[eid]
+		if _get_alive_models(enemy).is_empty():
+			continue
+		if "AIRCRAFT" in enemy.get("meta", {}).get("keywords", []) and not "FLY" in unit_kws:
+			continue
+		var odds := charge_odds_this_turn(unit, enemy)
+		if odds.is_empty() or float(odds.edge_in) > move_in + 6.0 + 12.0 + 1.0:
+			continue
+		var ec = _get_unit_centroid(enemy)
+		# Value of the fight: expected wounds (capped at what the target has left).
+		var wpm := _get_target_wounds_per_model(enemy)
+		var wounds_left := 0.0
+		for m in _get_alive_models(enemy):
+			wounds_left += float(m.get("current_wounds", m.get("wounds", max(wpm, 1))))
+		var dmg := minf(_estimate_melee_damage(unit, enemy, snapshot), maxf(wounds_left, 1.0))
+		var lock_bonus := get_param("PHASE_PLAN_LOCK_SHOOTER_BONUS", PHASE_PLAN_LOCK_SHOOTER_BONUS) if eid in lock_targets else 0.0
+		var obj_bonus := 0.0
+		var obj_label := ""
+		for ev in obj_evaluations:
+			if _unit_has_model_in_control_range(enemy, ev.position) and float(ev.priority) > 0.0:
+				var ob := float(ev.priority) * get_param("CHARGE_OPTION_OBJECTIVE_SHARE", CHARGE_OPTION_OBJECTIVE_SHARE) \
+						* float(move_strategy.get("objective_priority", 1.0))
+				if ob > obj_bonus:
+					obj_bonus = ob
+					obj_label = str(ev.id)
+		for mode in ["charge_move", "charge_advance"]:
+			if mode == "charge_move" and not can_move:
+				continue
+			if mode == "charge_advance" and not can_adv_charge:
+				continue
+			var p := float(odds.p_move) if mode == "charge_move" else float(odds.p_advance)
+			if p < min_chance:
+				continue
+			var terms := {}
+			var score := 0.0
+			score += _t_add(terms, "charge_damage", p * dmg * dmg_weight * aggression)
+			if lock_bonus > 0.0:
+				score += _t_add(terms, "charge_lock_shooter", p * lock_bonus)
+			if obj_bonus > 0.0:
+				score += _t_add(terms, "charge_objective", p * obj_bonus)
+			if mode == "charge_advance" and has_ranged and not _can_advance_and_shoot(unit):
+				score += _t_add(terms, "shooting_forfeited", -get_param("CHARGE_OPTION_SHOOTING_FORFEIT", CHARGE_OPTION_SHOOTING_FORFEIT))
+			# A failed charge leaves the unit standing where the move ended.
+			if not current_threat.is_empty():
+				var travel_px := (move_in + (3.5 if mode == "charge_advance" else 0.0)) * PIXELS_PER_INCH
+				var dest: Vector2 = centroid + (ec - centroid).normalized() * minf(travel_px, maxf(0.0, centroid.distance_to(ec) - _engagement_range_px()))
+				var dest_threat = _evaluate_position_threat(dest, threat_data, unit)
+				var inc := float(dest_threat.total_threat) - float(current_threat.total_threat)
+				if inc > 0.5:
+					score += _t_add(terms, "failed_charge_danger", -(1.0 - p) * inc * survival)
+			var verb := "Advance" if mode == "charge_advance" else "Move"
+			var tname := _dn(enemy, eid)
+			var reason := "%d%% to connect from %.1f\" (edge), ~%.1f wounds expected%s" % [
+				int(round(p * 100.0)), float(odds.edge_in), dmg,
+				(", target holds %s" % obj_label) if obj_label != "" else ""]
+			var cand := {
+				"unit_id": unit_id,
+				"objective_id": "charge:%s:%s" % [mode, eid],
+				"objective_pos": ec,
+				"score": score,
+				"earmark": "",
+				"action": mode,
+				"reason": reason,
+				"charge_label": "%s → charge %s" % [verb, tname],
+				"target_id": eid,
+				"target_name": tname,
+				"charge_chance": p,
+				"distance": centroid.distance_to(ec),
+				"gap_inches": float(odds.edge_in),
+				"adv_chance": 0.0,
+				"unit_oc": unit_oc,
+				"already_on_obj": false,
+				"turns_to_reach": 1.0,
+				"move_inches": move_in,
+				"vp_value": 0.0,
+				"score_terms": terms,
+			}
+			if not best.has(mode) or score > float(best[mode].score):
+				best[mode] = cand
+	var out: Array = []
+	for mode in best:
+		out.append(best[mode])
+		print("AIDecisionMaker: [CHG-OPT] %s option: %s — score %.1f (%s)" % [
+			unit_name, best[mode].charge_label, float(best[mode].score), best[mode].reason])
+	return out
 
 ## COORD-4: The single melee chase gate — decides at PLAN TIME whether a unit
 ## abandons its objective assignment to seek an enemy, so the battle plan can
@@ -2501,9 +2721,7 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
 			return {}
 
 	# --- Advance vs normal move (port of the former advance decision) ---
-	var can_advance_and_charge_flag = unit.get("flags", {}).get("effect_advance_and_charge", false)
-	if not can_advance_and_charge_flag:
-		can_advance_and_charge_flag = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
+	var can_advance_and_charge_flag = _can_advance_and_charge(unit)  # ADV-CHG-1
 	var dist_after_normal_move = enemy_dist - move_inches
 	var in_charge_range_after_normal = dist_after_normal_move <= charge_range_inches
 	var should_advance = false
@@ -2681,6 +2899,30 @@ static func _waaagh_effects_summary() -> String:
 	if GameConstants.edition >= 11:
 		return "riled up: 5+ invuln, ranged [ASSAULT], advance and charge"
 	return "advance and charge, +1 S/A melee, 5+ invuln"
+
+## ADV-CHG-1: may `unit` declare a charge after Advancing THIS turn? The same
+## predicate ChargePhase._can_unit_charge enforces: an advance-and-charge effect
+## (riled up / Waaagh!, Makari, codex grants, flag) or 10e Adrenaline Junkies.
+## Replaces the old ability-TEXT heuristic ("any ability mentions both 'advance'
+## and 'charge'"), which the Ork Waaagh! rule text always satisfies — so the AI
+## planned Advance-then-charge for Orks that were NOT riled up and the engine
+## then refused the charge.
+static func _can_advance_and_charge(unit: Dictionary) -> bool:
+	if EffectPrimitivesData.has_effect_advance_and_charge(unit):
+		return true
+	var fam = _faction_ability_manager()
+	return fam != null and bool(fam.unit_has_adrenaline_junkies(unit))
+
+## ADV-CHG-1: may `unit` shoot every weapon after Advancing THIS turn? Mirrors
+## ShootingPhase._can_unit_shoot's advanced-unit exemption (advance-and-shoot
+## effect, detachment [ASSAULT], 10e Adrenaline Junkies) instead of ability text.
+static func _can_advance_and_shoot(unit: Dictionary) -> bool:
+	if EffectPrimitivesData.has_effect_advance_and_shoot(unit):
+		return true
+	var fam = _faction_ability_manager()
+	if fam == null:
+		return false
+	return bool(fam.unit_has_detachment_assault(unit)) or bool(fam.unit_has_adrenaline_junkies(unit))
 
 static func decide(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
 	_current_difficulty = difficulty
@@ -3808,6 +4050,12 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 					if unit_candidates[ci].get("objective_id", "") == assign_obj_id:
 						chosen_idx = ci
 						break
+			elif assignment.has("charge_option_key"):
+				# CHG-OPT-1: the scored charge option this attack came from.
+				for ci in range(unit_candidates.size()):
+					if unit_candidates[ci].get("objective_id", "") == assignment.charge_option_key:
+						chosen_idx = ci
+						break
 			var cand_cards = []
 			var synthetic_chosen := {}
 			if chosen_idx < 0 and not assignment.is_empty():
@@ -3840,9 +4088,12 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 				var cand_vp = float(cand.get("vp_value", 0.0))
 				var vp_note = " — worth ~%.0f VP" % cand_vp if cand_vp >= 1.0 else ""
 				var cand_desc = "%s %s (%s%s)" % [str(cand.get("action", "move")).capitalize(), cand.get("objective_id", "?"), cand.get("reason", ""), vp_note]
+				var is_charge_opt: bool = cand.has("charge_label")
+				if is_charge_opt:
+					cand_desc = "%s (%s)" % [cand.charge_label, cand.get("reason", "")]
 				# The assigned candidate carries the assignment's reason (it may
 				# have been enriched during the greedy pass — capture/reinforce/etc.)
-				if cand_i == chosen_idx and not assignment.is_empty():
+				if cand_i == chosen_idx and not assignment.is_empty() and not is_charge_opt:
 					cand_desc = "%s %s (%s%s)" % [str(assignment.get("action", cand.get("action", "move"))).capitalize(), assign_obj_id, assignment.get("reason", cand.get("reason", "")), vp_note]
 				# A2: the real additive terms this candidate's score was built from
 				# (sum == score), plus the per-candidate descriptors that are NOT
@@ -3859,6 +4110,8 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 					cand_terms["gap_inches"] = float(cand.gap_inches)
 				if float(cand.get("adv_chance", 0.0)) > 0.0:
 					cand_terms["adv_chance"] = float(cand.adv_chance)
+				if is_charge_opt:
+					cand_terms["charge_chance"] = float(cand.get("charge_chance", 0.0))
 				cand_terms["assigned_by"] = assign_pass_name
 				cand_cards.append({
 					"description": cand_desc,
@@ -3887,7 +4140,11 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 					"hold":
 						why = assignment.get("reason", "holding is worth more than the raw score shows")
 					"attack":
-						why = "melee seeker override — " + str(assignment.get("reason", ""))
+						if str(assignment.get("assign_pass", "")) == "charge":
+							why = str(assignment.get("coordination_note",
+								"higher-scored objectives are already covered by other units this turn — charging instead"))
+						else:
+							why = "melee seeker override — " + str(assignment.get("reason", ""))
 					_:
 						if assignment.has("coordination_note"):
 							why = str(assignment.coordination_note)
@@ -8902,6 +9159,9 @@ static func _assign_units_to_objectives(
 
 	# Build all (unit, objective) candidate pairs with scores
 	var candidates = []
+	# CHG-OPT-1: scored "Move/Advance -> charge X" options, kept apart from the
+	# objective candidates (they have no OC need) and resolved in PASS 2.4.
+	var charge_options = []
 	for unit_id in movable_units:
 		var unit = snapshot.get("units", {}).get(unit_id, {})
 		var centroid = _get_unit_centroid(unit)
@@ -9379,6 +9639,11 @@ static func _assign_units_to_objectives(
 				"score_terms": score_terms
 			})
 
+		# CHG-OPT-1: Move/Advance-then-charge options for this unit.
+		charge_options.append_array(_charge_option_candidates(
+			unit, unit_id, move_types, enemies, snapshot, player, centroid,
+			move_strategy, obj_evaluations, threat_data, has_ranged, unit_oc))
+
 	# Sort by score (highest first)
 	candidates.sort_custom(func(a, b): return a.score > b.score)
 
@@ -9585,6 +9850,52 @@ static func _assign_units_to_objectives(
 		apply_capture_assignment.call(cand)
 
 	# =========================================================================
+	# PASS 2.4 (CHG-OPT-1): SCORED CHARGE OPTIONS. A unit whose best
+	# "Move/Advance -> charge X" option out-scores what the objective passes
+	# gave it (or that they left unassigned) attacks instead; the OC it would
+	# have brought re-opens for the COORD-4 backfill below. Runs before the
+	# melee chase gate so a scored charge wins over the gate's thresholds.
+	# =========================================================================
+	var best_charge_by_unit := {}
+	for co in charge_options:
+		var co_uid = co.unit_id
+		if not best_charge_by_unit.has(co_uid) or float(co.score) > float(best_charge_by_unit[co_uid].score):
+			best_charge_by_unit[co_uid] = co
+	for co_uid in best_charge_by_unit:
+		var co = best_charge_by_unit[co_uid]
+		var cur: Dictionary = assignments.get(co_uid, {})
+		var cur_score: float = float(cur.get("score", 0.0)) if not cur.is_empty() else get_param("CHARGE_OPTION_MIN_SCORE", CHARGE_OPTION_MIN_SCORE)
+		var co_name = _dn(snapshot.get("units", {}).get(co_uid, {}), co_uid)
+		if float(co.score) <= cur_score:
+			print("AIDecisionMaker: [CHG-OPT] %s keeps %s %s (%.1f) over %s (%.1f)" % [
+				co_name, cur.get("action", "no assignment"), cur.get("objective_id", ""), cur_score, co.charge_label, float(co.score)])
+			continue
+		var co_oid = str(cur.get("objective_id", ""))
+		var co_reopened = int(cur.get("oc_consumed", 0))
+		if co_reopened > 0 and obj_oc_remaining.has(co_oid):
+			obj_oc_remaining[co_oid] = obj_oc_remaining[co_oid] + co_reopened
+			print("AIDecisionMaker: [CHG-OPT] %s: OC need re-opened to %d (%s is charging instead)" % [
+				co_oid, obj_oc_remaining[co_oid], co_name])
+		assignments[co_uid] = {
+			"objective_id": co_oid,  # kept as fallback if the target dies before this unit acts
+			"objective_pos": cur.get("objective_pos", Vector2.INF),
+			"action": "attack",
+			"assign_pass": "charge",
+			"attack_target_id": co.target_id,
+			"attack_target_name": co.target_name,
+			"attack_advance": co.action == "charge_advance",
+			"charge_option_key": co.objective_id,
+			"score": co.score,
+			"score_terms": (co.get("score_terms", {}) as Dictionary).duplicate(),
+			"reason": co.reason,
+			"distance": co.distance,
+			"unit_oc": co.unit_oc,
+		}
+		assigned_unit_ids[co_uid] = true
+		print("AIDecisionMaker: [CHG-OPT] %s converted to %s (%.1f > %.1f for %s %s)" % [
+			co_name, co.charge_label, float(co.score), cur_score, cur.get("action", "no assignment"), co_oid])
+
+	# =========================================================================
 	# PASS 2.5 (COORD-4): ATTACK-INTENT CONVERSION — melee seekers that would
 	# abandon their objective for a nearby enemy decide it HERE, at plan time,
 	# so (a) the plan announces the attack truthfully, and (b) the objective's
@@ -9625,6 +9936,22 @@ static func _assign_units_to_objectives(
 			"distance": gate.distance_inches * PIXELS_PER_INCH,
 			"unit_oc": a.get("unit_oc", 1),
 		}
+		# CHG-OPT-1: when the unit has a scored charge option against the gate's
+		# target, the attack IS that option — take its Move-vs-Advance choice
+		# (by charge odds, ADV-CHG-1-aware) and its score/terms/reason, so the
+		# card shows the real option instead of a bare "closing to charge range".
+		var g_co: Dictionary = {}
+		for co in charge_options:
+			if co.unit_id == uid and co.target_id == gate.target_id \
+					and (g_co.is_empty() or float(co.score) > float(g_co.score)):
+				g_co = co
+		if not g_co.is_empty():
+			var g_a: Dictionary = assignments[uid]
+			g_a["attack_advance"] = g_co.action == "charge_advance"
+			g_a["charge_option_key"] = g_co.objective_id
+			g_a["score"] = g_co.score
+			g_a["score_terms"] = (g_co.get("score_terms", {}) as Dictionary).duplicate()
+			g_a["reason"] = "%s — %s" % [g_co.charge_label, g_co.reason]
 		print("AIDecisionMaker: [COORD-4] %s converted to ATTACK %s (%.1f\" away) — %s" % [
 			a_unit_name, gate.target_name, gate.distance_inches, gate.reason])
 
@@ -9904,7 +10231,7 @@ static func _assign_units_to_objectives(
 	# and re-narrated ALL units' assignments, flooding the game log with
 	# near-identical blocks.
 	_last_movement_candidates.clear()
-	for cand in candidates:
+	for cand in candidates + charge_options:  # CHG-OPT-1: charge options show on the card too
 		var c_uid = cand.unit_id
 		if not _last_movement_candidates.has(c_uid):
 			_last_movement_candidates[c_uid] = []
@@ -10625,14 +10952,11 @@ static func _should_unit_advance(
 	var unit_id = unit.get("id", "")
 	# Note: we check flags directly since leader bonuses should already be applied
 	# by UnitAbilityManager during the movement phase
-	var adv_and_shoot = unit.get("flags", {}).get("effect_advance_and_shoot", false)
-	var adv_and_charge = unit.get("flags", {}).get("effect_advance_and_charge", false)
-
-	# Also check via description-based detection for broader coverage
-	if not adv_and_shoot:
-		adv_and_shoot = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "shoot")
-	if not adv_and_charge:
-		adv_and_charge = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
+	# ADV-CHG-1: the engine's own predicates, not ability-description text
+	# (the Ork Waaagh! rule text mentions both words whether or not the unit
+	# is riled up this turn).
+	var adv_and_shoot = _can_advance_and_shoot(unit)
+	var adv_and_charge = _can_advance_and_charge(unit)
 
 	if adv_and_shoot:
 		print("AIDecisionMaker: %s has Advance and Shoot — advancing has no shooting penalty" % _dn(unit, unit_id))
@@ -10701,17 +11025,14 @@ static func _long_trip_advance_saves_turn(dist_inches: float, move_inches: float
 ## units, units without ranged weapons, or nothing in weapon range right now.
 static func _should_unit_advance_long_trip(unit: Dictionary, has_ranged: bool,
 		max_weapon_range: float, enemies: Dictionary, centroid: Vector2) -> bool:
-	var adv_and_charge: bool = unit.get("flags", {}).get("effect_advance_and_charge", false) \
-			or (AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge"))
+	var adv_and_charge: bool = _can_advance_and_charge(unit)  # ADV-CHG-1
 	if not adv_and_charge:
 		var charge_reach_px := (float(unit.get("meta", {}).get("stats", {}).get("move", 6)) + 12.0) * PIXELS_PER_INCH
 		for enemy_id in enemies:
 			var ec = _get_unit_centroid(enemies[enemy_id])
 			if ec != Vector2.INF and centroid.distance_to(ec) <= charge_reach_px:
 				return false
-	if unit.get("flags", {}).get("effect_advance_and_shoot", false):
-		return true
-	if AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "shoot"):
+	if _can_advance_and_shoot(unit):  # ADV-CHG-1
 		return true
 	if not has_ranged:
 		return true

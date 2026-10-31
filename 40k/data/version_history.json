@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.57.0",
+      "date": "2026-10-31",
+      "summary": "The AI now weighs 'Advance and charge' / 'Move and charge' as real movement options, and only plans an Advance-then-charge when the unit is actually allowed to charge after Advancing.",
+      "changes": [
+        "AI melee units now get scored 'Move → charge X' and 'Advance → charge X' options alongside the objective moves. They're scored on expected melee damage times the chance the charge connects (measured base to base), plus any objective the target holds, minus the danger of standing short if it fails. The Suggest (K) card lists them with 'Chance the charge connects'.",
+        "'Advance → charge' is only offered when the rules let the unit charge after Advancing (riled up by Waaagh! or Makari, or a similar ability). Before, the AI read the Ork Waaagh! rule text as meaning every Ork could always Advance and charge, even when the charge would be refused.",
+        "High-damage melee characters such as Ghazghkull, Warbosses, Marneus Calgar and Logan Grimnar now count as melee hunters even though they carry a strong gun.",
+        "The AI now uses Makari, Hoist Dat Banner! in battle round 1 when riling a unit up turns a long-shot charge into a likely Advance-and-charge. It picks the unit that gains the most."
+      ]
+    },
+    {
       "version": "1.56.1",
       "date": "2026-10-28",
       "summary": "Terrain objectives now count as 'in range' everywhere, and the AI takes the shortest route onto them.",

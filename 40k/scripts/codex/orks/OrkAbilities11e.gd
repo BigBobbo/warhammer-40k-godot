@@ -1827,7 +1827,47 @@ static func _rile_value(unit_id: String) -> float:
 		best = minf(best, dist_in(unit_id, eid))
 	if best < INF:
 		v += maxf(0.0, 12.0 - best) / 2.0
+	# ADV-CHG-1: a unit that riling up lets Advance-and-charge an enemy this
+	# turn is the best pick (+1 per 5% of charge odds gained).
+	v += 20.0 * _rile_charge_gain(unit_id)
 	return v
+
+## MAKARI-R1: min charge-odds gain that justifies spending Makari in round 1.
+const MAKARI_R1_MIN_CHARGE_GAIN := 0.25
+const MAKARI_R1_MIN_ADVANCE_CHANCE := 0.35
+
+static var _aidm_script = null
+static func _aidm():
+	if _aidm_script == null:
+		_aidm_script = load("res://scripts/AIDecisionMaker.gd")
+	return _aidm_script
+
+## ADV-CHG-1: how much riling `unit_id` up raises its best charge odds THIS
+## turn — max over enemies of (Advance-then-charge odds - Move-then-charge
+## odds), counted only when the Advance odds reach MAKARI_R1_MIN_ADVANCE_CHANCE.
+## 0 when it is already riled up / may already charge after Advancing, or has
+## no melee weapons.
+static func _rile_charge_gain(unit_id: String) -> float:
+	var u := Common.unit(unit_id)
+	if u.is_empty() or group_riled_up(unit_id):
+		return 0.0
+	var ai = _aidm()
+	if ai == null or not bool(ai._unit_has_melee_weapons(u)) or bool(ai._can_advance_and_charge(u)):
+		return 0.0
+	var gain := 0.0
+	for eid in _enemy_heads(int(u.get("owner", 0))):
+		var odds: Dictionary = ai.charge_odds_this_turn(u, Common.unit(eid))
+		if odds.is_empty() or float(odds.get("p_advance", 0.0)) < MAKARI_R1_MIN_ADVANCE_CHANCE:
+			continue
+		gain = maxf(gain, float(odds.p_advance) - float(odds.p_move))
+	return gain
+
+## MAKARI-R1: best _rile_charge_gain over the ORKS units Makari could pick.
+static func _makari_best_charge_gain(player: int) -> float:
+	var best := 0.0
+	for fid in _friendly_heads(player, func(f): return group_has_keyword(f, "ORKS")):
+		best = maxf(best, _rile_charge_gain(str(fid)))
+	return best
 
 static func _gretchin_alive(unit_id: String) -> Array:
 	var out: Array = []
@@ -2312,8 +2352,19 @@ static func ai_score(player: int, sid: String, target_unit_id: String, window_id
 			return 2.5
 		"warpath":
 			return 2.0 if _engaged(target_unit_id) else 0.0
-		"intimidating_motivation", "get_back_in_da_race", "keep_huntin", "makari":
-			return 2.5 if (slug != "makari" or _round() >= 2) else 0.0
+		"intimidating_motivation", "get_back_in_da_race", "keep_huntin":
+			return 2.5
+		"makari":
+			# Once per battle and its pick count grows with the round, so round 1
+			# spends it only when riling a unit up turns a long shot into a real
+			# Advance-and-charge this turn (ADV-CHG-1 / MAKARI-R1).
+			if _round() >= 2:
+				return 2.5
+			var gain := _makari_best_charge_gain(player)
+			if gain >= MAKARI_R1_MIN_CHARGE_GAIN:
+				Common.log_info("OrkAbilities11e: MAKARI round 1 — riling up turns on an Advance-and-charge (+%d%% charge odds)" % int(round(gain * 100.0)))
+				return 2.5
+			return 0.0
 		"clever_know_wotz":
 			return 2.0
 		"shokk_boosta":
