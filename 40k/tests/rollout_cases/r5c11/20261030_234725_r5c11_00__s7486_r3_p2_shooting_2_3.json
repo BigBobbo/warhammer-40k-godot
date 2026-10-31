@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Deffgun \u2192 enemy Burna Boyz Beta (P1)",
+ "created": "2026-10-30 23:57:28",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7486_r3_p2_shooting_2",
+ "note": "[LLM critic, medium conf] The AI added a Deffgun shot to Burna Boyz Beta, which already has more expected damage allocated (4.36) than its 4 HP. This is probably overkill. Fix: Cap the already_allocated bonus once allocated expected damage reaches the target's remaining wounds. Past that point, score the shot on marginal expected kills only. Add a bonus for targets whose models contest an objective that the opponent holds.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7486_r3_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C_P2",
+  "choice": "desc:Deffgun \u2192 enemy Burna Boyz Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma shoots at Burna Boyz Beta \u2014 expected 1.2 dmg vs 4 HP (31% kill); Lootas Beta \u2014 expected 0.2 dmg vs 3 HP (7% kill)",
+ "verdict": "pending",
+ "version": 1
+}

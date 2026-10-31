@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (2 units already committed) \u2014 worth ~6 VP)",
+ "created": "2026-10-30 23:48:10",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7486_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends the Kommandos 30 in across the board to obj_nml_2, which two units already cover. This wastes the unit for several turns and adds almost no VP. Fix: Cut expected_vp to near zero when committed units already hold or will take the objective. Compute turns_to_reach from distance divided by M, with a penalty for trips of more than 3 turns. Apply contest_race fairly to all options, or reward moves that stay near the army's main force.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7486_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A_P2",
+  "choice": "pos:390,1740",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos moves toward obj_nml_2 (reinforcing obj_nml_2 (2 units already committed), obj: 30.6\" away)",
+ "verdict": "pending",
+ "version": 1
+}

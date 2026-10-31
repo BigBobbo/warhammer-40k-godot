@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Warbikers Alpha arrives",
+ "created": "2026-10-30 23:51:03",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7486_r2_p2_movement_2",
+ "note": "[LLM critic, low conf] Warbikers Alpha arrives far forward at 41, 11 and does not hold any objective on arrival. Two other units tie or nearly tie, so the choice looks arbitrary. Fix: Add a bonus when the arrival spot is within objective range now and holds it. Add a penalty for the number of enemy long-range shooters that can see the spot. Break ties by safety.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7486_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "choice": "key:U_WARBIKERS_A_P2",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_WARBIKERS_A_P2"
+ },
+ "source": "llm_critic",
+ "suggestion": "Warbikers Alpha arrives from Strategic Reserves",
+ "verdict": "pending",
+ "version": 1
+}
