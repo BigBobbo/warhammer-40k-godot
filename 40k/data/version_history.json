@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.2",
+      "date": "2026-10-31",
+      "summary": "The AI now measures distance to enemy units between the two closest models, not the middle of each squad.",
+      "changes": [
+        "When the AI plans a charge or decides whether to close in on an enemy, it now measures from its nearest model to the enemy's nearest model (edge to edge), the way the rules measure. Before, it measured centre to centre, so a squad ~15\" away could read as ~20\" and the AI under-rated its Advance-and-charge chances.",
+        "The Suggest card's 'closing the distance' and 'Charge intent' lines now show that true closest-model distance."
+      ]
+    },
+    {
       "version": "1.56.1",
       "date": "2026-10-28",
       "summary": "Terrain objectives now count as 'in range' everywhere, and the AI takes the shortest route onto them.",

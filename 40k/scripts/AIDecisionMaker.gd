@@ -2527,6 +2527,7 @@ static func _melee_chase_gate(unit: Dictionary, unit_id: String, assignment: Dic
 
 static func _get_nearest_enemy_for_charge(unit: Dictionary, enemies: Dictionary) -> Dictionary:
 	"""Find the nearest enemy unit and return {enemy_id, enemy_unit, distance_inches, centroid}.
+	distance_inches is the closest-model edge-to-edge gap (AI-DIST), not centroid distance.
 	Factors in terrain penalties to prefer enemies reachable without climbing through terrain."""
 	var centroid = _get_unit_centroid(unit)
 	if centroid == Vector2.INF:
@@ -2543,8 +2544,16 @@ static func _get_nearest_enemy_for_charge(unit: Dictionary, enemies: Dictionary)
 		var ec = _get_unit_centroid(enemy)
 		if ec == Vector2.INF:
 			continue
-		var raw_dist_px = centroid.distance_to(ec)
-		var raw_dist_inches = raw_dist_px / PIXELS_PER_INCH
+		# AI-DIST: measure the CLOSEST models edge-to-edge (how 40k measures
+		# distance between units), not centroid-to-centroid. Centroid distance
+		# overstated the gap by ~half of each unit's frontage (e.g. Meganobz
+		# reported 19.8" from a unit actually ~15" away), which made charge
+		# planning far too pessimistic. Centroid is still used for the terrain
+		# path estimate below.
+		var raw_dist_inches = _get_closest_model_distance_inches(unit, enemy)
+		if raw_dist_inches == INF:
+			raw_dist_inches = centroid.distance_to(ec) / PIXELS_PER_INCH
+		var raw_dist_px = raw_dist_inches * PIXELS_PER_INCH
 		# Add terrain penalty to effective distance so we prefer unobstructed charge paths
 		var terrain_penalty = _estimate_charge_terrain_penalty(centroid, ec, has_fly, unit_keywords)
 		var effective_dist_inches = raw_dist_inches + terrain_penalty
@@ -3562,8 +3571,12 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 			if enemy_centroid == Vector2.INF:
 				continue
 
-			var dist_px = centroid.distance_to(enemy_centroid)
-			var dist_inches = dist_px / PIXELS_PER_INCH
+			# AI-DIST: closest-model edge-to-edge distance (was centroid-to-centroid,
+			# which overstated the gap and mis-scored charge reliability).
+			var dist_inches = _get_closest_model_distance_inches(unit, enemy)
+			if dist_inches == INF:
+				dist_inches = centroid.distance_to(enemy_centroid) / PIXELS_PER_INCH
+			var dist_px = dist_inches * PIXELS_PER_INCH
 
 			# Can this unit plausibly reach the enemy after moving + charging?
 			# Use total reach + engagement range for generous estimate

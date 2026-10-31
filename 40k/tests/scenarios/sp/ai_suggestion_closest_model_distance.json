@@ -1,0 +1,112 @@
+{
+  "id": "ai_suggestion_closest_model_distance",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "ai.movement.melee_chase_distance"
+  ],
+  "fixture": "ork11e_ab_charge",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "AI-DIST: distances the AI reasons with to an enemy unit are measured between the two CLOSEST models (edge-to-edge), not unit centroid to centroid. 9 Beast Snagga Boyz (2 rows) and a 3-model Custodian Guard Sodality line are placed so the nearest bases are 14.2\" apart while the centroids are 20.1\" apart. The AI's nearest-enemy helper returns 14.2\" and the Suggest card's charge-intent line reports 14.2\", never 20.1\".",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sb = GameState.state.units[\"U_BEAST_SNAGGA_BOYZ_B\"]\nfor k in [\"moved\", \"advanced\", \"fell_back\", \"remained_stationary\", \"has_shot\", \"cannot_charge\", \"move_cap_inches\"]:\n\tsb.flags.erase(k)\nvar i = 0\nfor m in sb.models:\n\tm[\"position\"] = {\"x\": 1350.0 + (i % 5) * 60.0, \"y\": 600.0 + int(i / 5) * 60.0}\n\tm[\"alive\"] = i < 9\n\ti += 1\nvar cg = GameState.state.units[\"U_CUSTODIAN_GUARD_B\"]\ni = 0\nfor m in cg.models:\n\tm[\"position\"] = {\"x\": 580.0 + i * 73.0, \"y\": 630.0}\n\ti += 1\nvar dread = GameState.state.units[\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"]\ndread.models[0][\"position\"] = {\"x\": 1600.0, \"y\": 2250.0}\nvar wb = GameState.state.units[\"U_WARBOSS_IN_MEGA_ARMOUR_A\"]\nwb.models[0][\"position\"] = {\"x\": 150.0, \"y\": 2300.0}\nwb.flags[\"moved\"] = true\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nvar edge = AIDecisionMaker._get_closest_model_distance_inches(sb, cg)\nvar cen = AIDecisionMaker._get_unit_centroid(sb).distance_to(AIDecisionMaker._get_unit_centroid(cg)) / 40.0\nreturn \"edge=%.1f centroid=%.1f\" % [edge, cen]",
+      "equals": "edge=14.2 centroid=20.1",
+      "comment": "geometry: 9 Boyz (2 rows) vs a 3-model Custodian Guard line — closest bases 14.2\" apart edge-to-edge, unit centroids 20.1\" apart"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = AIDecisionMaker._get_nearest_enemy_for_charge(GameState.state.units[\"U_BEAST_SNAGGA_BOYZ_B\"], {\"U_CUSTODIAN_GUARD_B\": GameState.state.units[\"U_CUSTODIAN_GUARD_B\"]})\nreturn \"%.1f\" % n.distance_inches",
+      "equals": "14.2",
+      "comment": "AI-DIST: the AI's nearest-enemy distance is the closest-model edge gap, not the centroid gap"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Custodian Guard Sodality\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Charge intent: Beast Snagga Boyz → Custodian Guard Sodality (14.2\\\" away)\")",
+      "equals": true,
+      "comment": "the card's charge-intent line reports the 14.2\" closest-model gap"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"20.1\\\"\")",
+      "equals": false,
+      "comment": "the 20.1\" centroid gap must not appear anywhere on the card"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0,
+      "comment": "preview only — nothing executed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var rich = tree.root.get_node(\"Main\")._ai_suggestion_panel._rich\nvar t = rich.get_parsed_text()\nvar at = t.find(\"Charge intent\")\nif at < 0:\n\treturn -1\nvar para = t.substr(0, at).count(\"\\n\")\nrich.scroll_to_paragraph(maxi(para - 3, 0))\nreturn para",
+      "expect_min": 1,
+      "comment": "scroll the card so the AI's-notes charge-intent line is on screen for the screenshot"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_suggest_closest_model_distance"
+    }
+  ]
+}
