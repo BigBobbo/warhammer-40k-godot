@@ -1,0 +1,92 @@
+{
+ "key": "ranged_hold_vs_centre",
+ "angle": "narrow",
+ "root_cause": "Not the Heavy scoring itself: at both findings the planner first REFUSED Lootas Alpha its pick in the capture pass and left it over. s7462 r1 P2: LONE-TRIP refused obj_center ('not going alone ... ~30 enemy OC vs the 10 OC we would have') although Lootas Beta was already assigned ADVANCE obj_center (LONE-TRIP only counts units that arrive no later; Beta needs 3 turns, Alpha 2) and Kommandos + Mek Beta were sent there later in the same plan; the support fallback then picked obj_nml_1 (Move, 3 turns) and T7-26 held the unit still for +1 to hit (dist 25.6\" > 2 moves, so the Heavy override never yields). s7463 r1 P2: obj_center (its top candidate, 27.9) needed no more OC after the two Battlewagons, obj_nml_1 was RACE-SKIPped (57 enemy OC), and the leftover became a T7-42 corridor block (score 9.7) 26\" from obj_nml_2. Common thread: a round-1 Heavy-armed ranged leftover is parked (support side objective + Heavy hold, or corridor block) instead of joining the plan's own push on the centre it reaches in 2 turns. Where B gained (f1, 2 seeds, effect +11.0 both seeds): in round 2 the deciding Orks scored Consecrate hold_more +4 and the opponent lost Triangulation hold_min (-4): Lootas Alpha's 10 OC at the centre swung objective control; no secondary-card or kill differences.",
+ "fix_summary": "FIX_RANGED_CENTRE (default 1.0) in _assign_units_to_objectives, leftover loop, before screen/corridor-block/support: in battle round 1 only, for ONE unit per plan that (a) the capture pass refused its pick (extra_obj_skipped: DIM-RETURNS/TOO-LATE/RACE-SKIP/LONE-TRIP/FAR-TRIP), (b) has ranged weapons, is not a melee seeker, and has Heavy weapons (_get_unit_heavy_weapon_data.has_heavy), (c) has a move/advance candidate to the objective within 4\" of the board centre with turns_to_reach <= 2 that is not TOO-LATE / RACE-SKIP, and (d) the plan already sends another unit there (assignments move/advance or incoming movers): assign it that candidate (its own action, Advance at all findings), assign_pass 'ranged_centre', log [RANGED_CENTRE]. Value 0 restores the base exactly (the block is skipped). ~45 lines, no scoring change.",
+ "param": "FIX_RANGED_CENTRE",
+ "test_file": "40k/tests/unit/test_ai_fix_ranged_centre.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "Fix: test_ai_fix_ranged_centre 8/8; BASE copy 6 passed 2 failed (the two join-the-centre checks). All 21 listed tests pass (rollout_override 11, e_race_tuning 8, race_army 3, advance_probability 8, objective_race 16, plan_diminishing_returns 4, critic_round2 7, 11e_charge_ev_primary_cap 26, movement_decisions 36, plan_earmarks 35, fix_held_dup 14, fix_lone_trip 8, fix_charge_ev 11, fix_far_trip 11, fix_overcommit 8, fix_keeper_release 52, fix_lone_flip 16, fix_reinforce_insurance 24, charge_decisions 62, survival_assessment 23, multi_phase_planning 34) plus test_ai_fall_back_positioning 15/15; test_ai_threat_range_awareness 34/3 failed identically on BASE (known).",
+ "decision_checks": [
+  {
+   "job": "20261030_160400_r4c11_00__s7462_r1_p2_movement_1_0",
+   "base_choice": "Lootas Alpha holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_nml_1)",
+   "fix_choice": "Lootas Alpha advances toward obj_center (joining Lootas Beta at the centre)",
+   "changed": true,
+   "measured": "clear: E +5.62 [3.42, 7.83] n24",
+   "judgement": "matches the alternative exactly (U_LOOTAS_A_P2, obj_center, advance)"
+  },
+  {
+   "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_2_3",
+   "base_choice": "Lootas Alpha screens at (594,1499) \u2014 block Battlewagon Beta approaching obj_nml_2 (26\" away)",
+   "fix_choice": "Lootas Alpha advances toward obj_center (joining Battlewagon Beta, Battlewagon Alpha at the centre)",
+   "changed": true,
+   "measured": "clear: E +4.79 [2.50, 7.09] n24",
+   "judgement": "matches the alternative exactly (obj_center, advance). A first, broader version (no Heavy gate, no one-per-plan cap) also sent Burna Boyz Alpha/Beta and Mek Beta to the centre here; narrowed before all reported checks"
+  },
+  {
+   "job": "20261030_160415_r4c09_00__s7460_r1_p1_movement_2_0 (extra, 12 seeds)",
+   "base_choice": "Lootas Alpha holds for Heavy weapon bonus (obj obj_center) [case record; not re-replayed on base]",
+   "fix_choice": "Lootas Alpha advances toward obj_center (joining Battlewagon Beta at the centre)",
+   "changed": true,
+   "measured": "clear: E +2.58 [0.19, 4.98] n12",
+   "judgement": "matches the alternative (obj_center, advance)"
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_234808_r5c15_00__s7490_r1_p1_movement_2_3",
+   "base_choice": "Lootas Alpha holds obj_home_1 (keeping hold)",
+   "fix_choice": "Lootas Alpha holds obj_home_1 (keeping hold) \u2014 unchanged",
+   "changed": false,
+   "measured": "harmful: E -3.83 n12 for Advancing to the centre",
+   "judgement": "consistent (keeper untouched: assigned in the capture pass). Note: the rule fired later in that phase for a different unit (P1 Lootas Gamma -> centre, joining Lootas Beta)"
+  },
+  {
+   "job": "20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1",
+   "base_choice": "Lootas Gamma advances toward obj_nml_1 (racing)",
+   "fix_choice": "same \u2014 unchanged, 0 fires in the game",
+   "changed": false,
+   "measured": "harmful: E -5.50 n12 for the centre",
+   "judgement": "consistent"
+  },
+  {
+   "job": "20261030_160514_r4c15_00__s7466_r1_p2_movement_1_0",
+   "base_choice": "Lootas Gamma advances toward obj_center (flipping it)",
+   "fix_choice": "same \u2014 unchanged",
+   "changed": false,
+   "measured": "harmful: E -6.67 n12 for a Normal move",
+   "judgement": "consistent (mode kept as Advance). The rule fired for another unit (P2 Lootas Alpha -> centre, joining Lootas Gamma)"
+  },
+  {
+   "job": "20261030_063438_r2c04_00__s7435_r1_p1_movement_2_0",
+   "base_choice": "Lootas Gamma screens at (1232,1528) \u2014 block Custodian Guard Sodality Beta approaching obj_center",
+   "fix_choice": "same \u2014 unchanged, 0 fires",
+   "changed": false,
+   "measured": "neutral: E +0.11 n36",
+   "judgement": "consistent (neutral, left alone)"
+  },
+  {
+   "job": "20261030_160400_r4c11_00__s7462_r1_p1_movement_1_2",
+   "base_choice": "Lootas Gamma screens at (1016,1574) \u2014 block Battlewagon Alpha approaching obj_center (22\" away)",
+   "fix_choice": "Lootas Gamma screens at (1224,1339) \u2014 block Battlewagon Beta approaching obj_center (21\" away)",
+   "changed": false,
+   "measured": "neutral: E -0.58 n12 for the centre",
+   "judgement": "unit not moved toward the alternative (still a corridor block); its block target changed because the rule sent P1 Lootas Alpha to the centre earlier in the phase"
+  },
+  {
+   "job": "20261030_160400_r4c11_00__s7462_r3_p1_movement_1_8",
+   "base_choice": "Lootas Gamma holds for Heavy (round 3)",
+   "fix_choice": "not replayed: the rule is gated to battle_round <= 1 (unit test test_round_two_keeps_the_base_plan)",
+   "changed": false,
+   "measured": "neutral: E -1.33 n12",
+   "judgement": "untouched by construction"
+  }
+ ],
+ "fires": "Replays (8 games, A branch, rounds 1-2, both players): 7 fires, all round 1, all Lootas: s7462 r1p2 2 (P2 Lootas Alpha = finding; P1 Lootas Alpha), s7463 1 (finding), s7460 1 (finding), s7490 1 (P1 Lootas Gamma), s7466 1 (P2 Lootas Alpha), s7462 r1p1 1 (P1 Lootas Alpha), s7470 0, s7435 0 -> ~0.9 per game, max 1 per player-phase observed. Bench (step 9b, mirror_orks_2000_postdeploy, seed 93101, 1 pair): 0 fires in BOTH games ([RANGED_CENTRE] grep count 0/0); the pair is identical (margin -23 in both seat orders, 589 actions each). Reason checked with a round-1 probe of the fixture: the bench Orks list (Stompa, Wazdakka, Deffkoptas, Stormboyz, Warbikers, Gretchin, Mek, Deffkilla Wartrikes) has no Lootas; the leftover/refused units there (Gretchin, Mek, Wartrikes, Deffkoptas) have no Heavy weapons, so the Heavy gate excludes them.",
+ "bench_fires_per_game": 0,
+ "risks": "(1) Bench reach is 0 in the Orks mirror (no Lootas in the bench list); the asym and Custodes fixtures were not probed - the full-game bench cannot measure this fix as is, and widening the Heavy gate to make it fire would hit Gretchin/Mek/Burna Boyz leftovers that no finding covers. (2) It overrides LONE-TRIP for a fragile unit (Lootas: 1-wound models) whenever ANY friendly unit is sent to the centre, even one that arrives a turn later; if that friend dies or is diverted the Lootas stand alone in a ~30-OC centre (LONE-TRIP's original failure mode, round 3 lesson). (3) Advancing gives up the round-1 shooting of a Heavy unit (Deffguns); measured value is only to the end of round 2 (primary hold_more/hold_min swing); later-round effects (losing a 10-model shooting unit at the centre in round 2-3, vs secondary cards like Centre Ground that it helps) are unmeasured. (4) In mirrors it also changes the opponent's Lootas (both seats fire), and moves other units' screen/block targets in the same phase (s7462 r1p1). (5) One-per-plan cap is per re-plan: a later unit in the same phase can fire again after the first has moved (not observed above: max 1 per player-phase in 8 games).",
+ "drop_reason": ""
+}
