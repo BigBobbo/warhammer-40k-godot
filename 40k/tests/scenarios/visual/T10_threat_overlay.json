@@ -1,59 +1,441 @@
 {
   "id": "T10_threat_overlay",
-  "covers": ["design_guidelines.T10", "board.threat_overlay"],
+  "covers": [
+    "design_guidelines.T10",
+    "board.threat_overlay",
+    "scripts.ThreatOverlay",
+    "input.threat_overlay_tab",
+    "shooting.tab_cycle_shooter"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 8,
-  "description": "Held-Tab threat overlay. active=false at idle; set_active(true) spawns two rings per enemy unit (shoot=MARGINAL_YELLOW, charge=INVALID_RED). set_active(false) tears down. co_pretrigger has active_player=2, so all P1 units are enemies and contribute rings.",
-
+  "regions": {
+    "board": [
+      384,
+      146,
+      1092,
+      900
+    ],
+    "hud_right": [
+      1522,
+      100,
+      398,
+      980
+    ],
+    "offboard_left": [
+      342,
+      150,
+      38,
+      880
+    ]
+  },
+  "description": "T10 (design guidelines §6): holding Tab paints the enemy's threat ranges, releasing it removes them; off by default. ThreatOverlay (/root/Main/BoardRoot/ThreatOverlay) draws, for every enemy unit on the table, its shooting range in MARGINAL_YELLOW (CanvasGroup fill at 15% alpha) and its 12\" charge-threat range in INVALID_RED (fill at 10% alpha), both measured base edge to base edge from every alive model like the engine's range checks; each fill layer is one CanvasGroup so overlaps never stack, each unit gets ONE outline (the union of its models' circles: yellow solid, red dashed), and everything is clipped to the board. Melee-only units (the Blade Champion) have no shooting ring (radius_px 0). Fixture co_pretrigger, Shooting phase, hot-seat, P2 (Orks) active: the viewer is P2, the enemy is Player 1's 8 units on the table (the Caladius is in reserves) -> 16 rendered_rings. Player path: the real Tab key through the OS-event pipeline (simulate_key state press / release). In the Shooting phase Tab is also 'cycle shooter' (shoot_cycle_eligible_unit), and ShootingController._input runs before Main's, so it used to swallow the press: it now hands the press to ThreatOverlay.begin_tap_or_hold - held 0.2 s it becomes the threat view (no cycle), a quick tap still cycles the shooter on key-up. Checks: baseline off/empty/hidden; held: Tab down in Input, active, viewer 2, 16 rings == 2 x the enemy count taken from GameState independently, every shoot entry MARGINAL_YELLOW and every charge entry INVALID_RED with one of each per enemy unit, radii = range x 40 px + base extent (Telemon 72\", Contemptor 18\", Custodian Guard 24\", ...), fill alphas 0.15 / 0.10 on CanvasGroups, shooter not cycled; released: inactive, empty, hidden. pixel_diff (framed at x0.62 on the Custodes half): before->held 45.8% full frame (bound > 2.0) and 96.1% of the board region (> 80), right HUD 0.0% (< 0.5), before->after 0.0% (< 0.5). No flicker: three more press/hold/release cycles give exactly one on/off each (activation_count 4), the same three layer nodes, and a fourth hold paints the identical frame (held vs held_again 0.0%, < 0.5); a key-repeat (echo) Tab while held is consumed - focus stays on a focused HUD button and nothing toggles; releasing Tab with Shift down still turns it off. A quick tap cycles the shooter and never shows the overlay. The scripted path (assigning ThreatOverlay.active) builds 16 rings and clears them. After END_SHOOTING (Charge phase) Tab shows the view within two frames (no tap meaning there).",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 0.62\nm.view_offset = Vector2(880, 690) - Vector2(930, 575) / 0.62\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 0.62,
+      "comment": "Deterministic framing (x0.62): the Custodes half of the board, where every enemy unit and its rings sit."
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return ToastManager.active_toasts.size()",
+      "equals": 0,
+      "timeout_s": 10,
+      "poll_s": 0.25,
+      "comment": "The phase-change 'Game autosaved' toast must be gone before the baseline (it alone diffs ~1.6%)."
+    },
+    {
+      "act": "wait_for_tweens",
+      "timeout_s": 5
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/BoardRoot/ThreatOverlay\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active",
-      "equals": false },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings.size()",
-      "equals": 0 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").set_active(true)" },
-    { "act": "wait_frames", "frames": 3 },
-
-    { "act": "execute_script",
+      "equals": false,
+      "comment": "Tier A: off by default."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings.is_empty()",
+      "equals": true,
+      "comment": "Tier A: nothing rendered at baseline."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Off by default; the three persistent layers exist and are hidden.\nvar to = tree.root.get_node(\"Main/BoardRoot/ThreatOverlay\")\nvar names = []\nfor c in to.get_children():\n\tnames.append(str(c.name))\nif names != [\"ShootFill\", \"ChargeFill\", \"Outlines\"]:\n\treturn \"layers: %s\" % str(names)\nif to.activation_count != 0:\n\treturn \"activation_count %d at start\" % to.activation_count\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.active_shooter_id",
+      "equals": "",
+      "comment": "No shooter armed at the start (the tap check below needs this)."
+    },
+    {
+      "act": "screenshot",
+      "label": "T10_before"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Tab",
+      "state": "press",
+      "comment": "Player path: hold Tab. In the Shooting phase ShootingController hands the press to ThreatOverlay.begin_tap_or_hold (Tab is also 'cycle shooter'); held past 0.2 s it becomes the threat view."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The Tab press went through the OS-event pipeline (Input) and is still held.\nreturn Input.is_key_pressed(KEY_TAB)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true,
+      "comment": "Tier A: Tab held -> active."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").is_tap_pending()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").last_change_reason",
+      "equals": "shared key held 0.2s",
+      "comment": "Turned on by the Shooting-phase hold, not by a script."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").viewer_player_id",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings.size()",
-      "expect_min": 2 },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings[0].color_slot",
-      "equals": "MARGINAL_YELLOW" },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings[1].color_slot",
-      "equals": "INVALID_RED" },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings[1].kind",
-      "equals": "charge" },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings[0].kind",
-      "equals": "shoot" },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").get_child_count()",
-      "expect_min": 2 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").set_active(false)" },
-    { "act": "wait_frames", "frames": 3 },
-    { "act": "execute_script",
+      "equals": 16,
+      "comment": "Tier A: 2 x 8 enemy units (literal from the fixture)."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Independent of ThreatOverlay: P2 (the Orks, active in this hot-seat game) is\n# the viewer, so the enemy units are Player 1's units on the table (deployed,\n# not embarked, with an alive placed model). The Caladius is in reserves.\nvar enemy = []\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.owner) != 1:\n\t\tcontinue\n\tif int(u.status) == GameStateData.UnitStatus.UNDEPLOYED or int(u.status) == GameStateData.UnitStatus.IN_RESERVES:\n\t\tcontinue\n\tif u.get(\"embarked_in\", null) != null:\n\t\tcontinue\n\tvar placed = false\n\tfor m in u.models:\n\t\tif m.get(\"alive\", true) and m.get(\"position\", null) != null:\n\t\t\tplaced = true\n\tif placed:\n\t\tenemy.append(uid)\nif enemy.size() != 8:\n\treturn \"fixture drift: %d P1 units on the table\" % enemy.size()\nvar to = tree.root.get_node(\"Main/BoardRoot/ThreatOverlay\")\nif to.rendered_rings.size() != 2 * enemy.size():\n\treturn \"%d rings for %d enemy units\" % [to.rendered_rings.size(), enemy.size()]\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Tier A: rendered_rings.size() == 2 * enemy_unit_count, the count taken from GameState independently."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every shoot entry is MARGINAL_YELLOW, every charge entry INVALID_RED, and each\n# enemy unit has exactly one of each; no friendly (P2) unit is painted.\nvar to = tree.root.get_node(\"Main/BoardRoot/ThreatOverlay\")\nvar seen = {}\nvar bad = []\nfor r in to.rendered_rings:\n\tvar uid = str(r.unit_id)\n\tif int(GameState.state.units[uid].owner) != 1:\n\t\tbad.append(uid + \" is not an enemy unit\")\n\tif r.kind == \"shoot\":\n\t\tif r.color_slot != \"MARGINAL_YELLOW\":\n\t\t\tbad.append(uid + \" shoot slot \" + str(r.color_slot))\n\telif r.kind == \"charge\":\n\t\tif r.color_slot != \"INVALID_RED\":\n\t\t\tbad.append(uid + \" charge slot \" + str(r.color_slot))\n\telse:\n\t\tbad.append(uid + \" kind \" + str(r.kind))\n\tvar key = uid + \"/\" + str(r.kind)\n\tif seen.has(key):\n\t\tbad.append(\"duplicate \" + key)\n\tseen[key] = true\nfor r in to.rendered_rings:\n\tfor k in [\"shoot\", \"charge\"]:\n\t\tif not seen.has(str(r.unit_id) + \"/\" + k):\n\t\t\tbad.append(str(r.unit_id) + \" has no \" + k + \" entry\")\nreturn \"ok\" if bad.is_empty() else \", \".join(bad)",
+      "equals": "ok",
+      "comment": "Tier A: every shoot entry MARGINAL_YELLOW, every charge entry INVALID_RED, one of each per enemy unit."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Ranges are measured base edge to base edge (as the engine does): a ring's\n# radius from a model's centre is range x 40 px + that model's base extent.\nvar to = tree.root.get_node(\"Main/BoardRoot/ThreatOverlay\")\nvar ring = {}\nfor r in to.rendered_rings:\n\tring[str(r.unit_id) + \"/\" + str(r.kind)] = r\nvar units = GameState.state.units\nvar bad = []\nvar want = {\n\t\"U_SHIELD_CAPTAIN_A/charge\": 12.0, \"U_SHIELD_CAPTAIN_A/shoot\": 12.0,\n\t\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H/charge\": 12.0, \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H/shoot\": 18.0,\n\t\"U_TELEMON_HEAVY_DREADNOUGHT_I/shoot\": 72.0, \"U_CUSTODIAN_GUARD_B/shoot\": 24.0,\n\t\"U_CUSTODIAN_GUARD_B/charge\": 12.0, \"U_SHIELD_CAPTAIN_JETBIKE_A/shoot\": 24.0,\n}\nfor key in want:\n\tvar uid = key.split(\"/\")[0]\n\tvar ext = 0.0\n\tfor m in units[uid].models:\n\t\text = maxf(ext, Measurement.base_extent_px(m))\n\tvar expect = want[key] * 40.0 + ext\n\tif not ring.has(key):\n\t\tbad.append(key + \" missing\")\n\telif absf(float(ring[key].radius_px) - expect) > 0.5:\n\t\tbad.append(\"%s radius %.1f, want %.1f\" % [key, float(ring[key].radius_px), expect])\n\telif absf(float(ring[key].range_inches) - want[key]) > 0.01:\n\t\tbad.append(\"%s range %.1f, want %.1f\" % [key, float(ring[key].range_inches), want[key]])\n# The Blade Champion carries only melee weapons: no shooting threat at all.\nvar bc = ring.get(\"U_BLADE_CHAMPION_A/shoot\", null)\nif bc == null or float(bc.radius_px) != 0.0 or float(bc.range_inches) != 0.0:\n\tbad.append(\"melee-only Blade Champion got a shooting ring: \" + str(bc))\nreturn \"ok\" if bad.is_empty() else \", \".join(bad)",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Shown, with the doc's alphas on the two fill layers (the whole merged layer\n# composites at that alpha, so overlaps never stack).\nvar to = tree.root.get_node(\"Main/BoardRoot/ThreatOverlay\")\nif not to.is_visible_in_tree():\n\treturn \"overlay not visible\"\nvar sa = to.get_node(\"ShootFill\").self_modulate.a\nvar ca = to.get_node(\"ChargeFill\").self_modulate.a\nif absf(sa - 0.15) > 0.001 or absf(ca - 0.10) > 0.001:\n\treturn \"fill alphas %.3f / %.3f\" % [sa, ca]\nif not (to.get_node(\"ShootFill\") is CanvasGroup and to.get_node(\"ChargeFill\") is CanvasGroup):\n\treturn \"fill layers are not CanvasGroups\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.active_shooter_id",
+      "equals": "",
+      "comment": "Holding Tab did not also cycle the shooter."
+    },
+    {
+      "act": "screenshot",
+      "label": "T10_held"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Tab",
+      "state": "release"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false,
+      "comment": "Tier A: released -> inactive."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").last_change_reason",
+      "equals": "key released",
+      "comment": "Turned off by the Tab key-up event itself."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings.is_empty()",
+      "equals": true,
+      "comment": "Tier A: released -> no rings."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").visible",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "T10_after"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T10_before",
+      "after": "T10_held",
+      "expect_min_pct": 2.0,
+      "comment": "Tier A: baseline vs held > 2.0%."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T10_before",
+      "after": "T10_held",
+      "region": "board",
+      "expect_min_pct": 80.0,
+      "comment": "The board is almost entirely washed: the Telemon's 72\" guns reach every point of it (measured 96.1%)."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T10_before",
+      "after": "T10_held",
+      "region": "hud_right",
+      "expect_max_pct": 0.5,
+      "comment": "The world-space overlay never paints over the right HUD column."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T10_before",
+      "after": "T10_held",
+      "region": "offboard_left",
+      "expect_max_pct": 0.5,
+      "comment": "Clipped to the battlefield: the grey margin left of the board stays untouched although the rings extend past the edge."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T10_before",
+      "after": "T10_after",
+      "expect_max_pct": 0.5,
+      "comment": "Tier A: baseline vs released < 0.5% (cleanly removed)."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Tab",
+      "hold_s": 0.35,
+      "comment": "Repeated press/hold/release x3 (Tier B: no flicker)."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Tab",
+      "hold_s": 0.35
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Tab",
+      "hold_s": 0.35
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Three more press/hold/release cycles: exactly one on/off per press (4 in all),\n# nothing left on, and the same three layer nodes (no node churn).\nvar to = tree.root.get_node(\"Main/BoardRoot/ThreatOverlay\")\nvar names = []\nfor c in to.get_children():\n\tnames.append(str(c.name))\nif names != [\"ShootFill\", \"ChargeFill\", \"Outlines\"]:\n\treturn \"layers: %s\" % str(names)\nif to.activation_count != 4:\n\treturn \"activation_count %d after 4 presses\" % to.activation_count\nif to.active or not to.rendered_rings.is_empty() or to.visible or to.is_tap_pending():\n\treturn \"still on after release\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Tab",
+      "state": "press"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings.size()",
-      "equals": 0 },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": 16,
+      "comment": "Still 16 after repeated presses: nothing accumulates."
+    },
+    {
+      "act": "screenshot",
+      "label": "T10_held_again"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T10_held",
+      "after": "T10_held_again",
+      "expect_max_pct": 0.5,
+      "comment": "Every press paints the same frame."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Key repeat while Tab is held: Tab echoes must be consumed, or each one reaches\n# the GUI as ui_focus_next and hops the focus ring round the HUD.\nvar to = tree.root.get_node(\"Main/BoardRoot/ThreatOverlay\")\nif not to.active:\n\treturn \"overlay not on before the echo\"\nvar btn = null\nvar stack = [tree.root.get_node(\"Main/HUD_Right\")]\nwhile not stack.is_empty() and btn == null:\n\tvar n = stack.pop_front()\n\tif n is Button and n.is_visible_in_tree() and not n.disabled and n.focus_mode == Control.FOCUS_ALL:\n\t\tbtn = n\n\tstack.append_array(n.get_children())\nif btn == null:\n\treturn \"no focusable HUD button\"\nbtn.grab_focus()\nvar vp = tree.root.get_viewport()\nif vp.gui_get_focus_owner() != btn:\n\treturn \"could not focus \" + str(btn.name)\nvar ev = InputEventKey.new()\nev.keycode = KEY_TAB\nev.physical_keycode = KEY_TAB\nev.pressed = true\nev.echo = true\nInput.parse_input_event(ev)\nInput.flush_buffered_events()\nvar focus_now = vp.gui_get_focus_owner()\nif focus_now != null:\n\tfocus_now.release_focus()\nif focus_now != btn:\n\treturn \"echo moved focus from %s to %s\" % [btn.name, str(focus_now.name) if focus_now != null else \"null\"]\nif not to.active or to.activation_count != 5:\n\treturn \"echo changed the overlay: active=%s count=%d\" % [str(to.active), to.activation_count]\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Tab",
+      "state": "release",
+      "shift": true,
+      "comment": "Released while Shift is down: the release still counts (modifier-strict matching used to strand the overlay on)."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").last_change_reason",
+      "equals": "key released",
+      "comment": "The Shift+Tab key-up itself turned it off (not the stuck-key fallback in _process)."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings.is_empty()",
+      "equals": true
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Tab",
+      "comment": "A quick TAP of Tab in the Shooting phase still cycles the shooter."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.active_shooter_id != \"\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The tap cycled the shooter and never showed the overlay.\nvar to = tree.root.get_node(\"Main/BoardRoot/ThreatOverlay\")\nif to.activation_count != 5:\n\treturn \"tap turned the overlay on (activation_count %d)\" % to.activation_count\nif to.active or to.is_tap_pending():\n\treturn \"still on / pending after the tap\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "node.active = true\nreturn node.rendered_rings.size()",
+      "node": "/root/Main/BoardRoot/ThreatOverlay",
+      "equals": 16,
+      "comment": "Scripted path the task allows: assigning ThreatOverlay.active builds the rings too."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "node.active = false\nreturn node.rendered_rings.size()",
+      "node": "/root/Main/BoardRoot/ThreatOverlay",
+      "equals": 0
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING"
+      },
+      "comment": "Outside the Shooting phase Tab has no tap meaning: the view shows at once."
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Tab",
+      "state": "press"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active",
+      "equals": true,
+      "comment": "Charge phase: on within two frames of the press (no 0.2 s hold wait)."
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").last_change_reason",
+      "equals": "key held"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings.size()",
+      "equals": 16
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Tab",
+      "state": "release"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active",
+      "equals": false
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

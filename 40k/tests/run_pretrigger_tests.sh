@@ -94,6 +94,13 @@
 #     P2); SlotRing.scale > FactionRing.scale, both alpha >= 0.9, painted only
 #     by the letter style, geometry inside the base / clear of the centre, the
 #     MA-20 type ring just inside the slot ring, stop_pulse back to rest alpha
+#   - T10 held-key threat overlay: melee-only units get no shooting ring,
+#     reserves / embarked / destroyed units no rings, one union outline per
+#     unit (attached leader folded in), radius = range + base extent, slots
+#     MARGINAL_YELLOW / INVALID_RED on 0.15 / 0.10 CanvasGroup fills clipped to
+#     the board; Tab press / echo / release-with-Shift, the Shooting-phase
+#     tap (cycle shooter) vs hold (overlay) hand-off, stuck-key + focus-loss
+#     release, the viewer's seat against the AI
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -344,6 +351,7 @@ TESTS=(
     "tests/test_terrain_cover_overlay.gd"
     "tests/test_two_ring_token.gd"
     "tests/test_unit_exhaustion.gd"
+    "tests/test_threat_overlay.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

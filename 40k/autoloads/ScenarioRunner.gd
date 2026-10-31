@@ -1237,31 +1237,40 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	var shift: bool = bool(step.get("shift", false))
 	var alt: bool = bool(step.get("alt", false))
 	var meta: bool = bool(step.get("meta", false))
-	var press := InputEventKey.new()
-	press.keycode = kc
-	press.physical_keycode = kc
-	press.unicode = uni
-	press.ctrl_pressed = ctrl
-	press.shift_pressed = shift
-	press.alt_pressed = alt
-	press.meta_pressed = meta
-	press.pressed = true
-	Input.parse_input_event(press)
-	await get_tree().process_frame
-	if hold_s > 0.0:
+	# Optional `state` (mirrors simulate_joy_button): "tap" (default) presses,
+	# waits hold_s, releases; "press" only puts the key DOWN, so it stays held
+	# across the following steps (screenshot / assert a held-key overlay such as
+	# T10's Tab threat view); "release" only lets go of an earlier "press".
+	var state: String = str(step.get("state", "tap"))
+	if not state in ["tap", "press", "release"]:
+		return {"pass": false, "error": "simulate_key: unknown state '%s' (tap | press | release)" % state}
+	if state in ["tap", "press"]:
+		var press := InputEventKey.new()
+		press.keycode = kc
+		press.physical_keycode = kc
+		press.unicode = uni
+		press.ctrl_pressed = ctrl
+		press.shift_pressed = shift
+		press.alt_pressed = alt
+		press.meta_pressed = meta
+		press.pressed = true
+		Input.parse_input_event(press)
+		await get_tree().process_frame
+	if state == "tap" and hold_s > 0.0:
 		await get_tree().create_timer(hold_s).timeout
-	var release := InputEventKey.new()
-	release.keycode = kc
-	release.physical_keycode = kc
-	release.unicode = uni
-	release.ctrl_pressed = ctrl
-	release.shift_pressed = shift
-	release.alt_pressed = alt
-	release.meta_pressed = meta
-	release.pressed = false
-	Input.parse_input_event(release)
-	await get_tree().process_frame
-	return {"pass": true, "hold_s": hold_s, "ctrl": ctrl, "shift": shift, "alt": alt, "meta": meta}
+	if state in ["tap", "release"]:
+		var release := InputEventKey.new()
+		release.keycode = kc
+		release.physical_keycode = kc
+		release.unicode = uni
+		release.ctrl_pressed = ctrl
+		release.shift_pressed = shift
+		release.alt_pressed = alt
+		release.meta_pressed = meta
+		release.pressed = false
+		Input.parse_input_event(release)
+		await get_tree().process_frame
+	return {"pass": true, "state": state, "hold_s": hold_s, "ctrl": ctrl, "shift": shift, "alt": alt, "meta": meta}
 
 
 func _do_simulate_wheel(step: Dictionary) -> Dictionary:

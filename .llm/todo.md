@@ -787,7 +787,7 @@ Locks in use:
     because its `flags.moved` is left over from its own turn. The client path is verified
     headless only (`GameManager.apply_result`), not in a two-instance game.
 
-- [ ] **T10 — Held-key threat overlay (Tab)**
+- [x] **T10 — Held-key threat overlay (Tab)**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/Main.gd` (input handling), new
     `40k/scripts/ThreatOverlay.gd`
@@ -813,11 +813,68 @@ Locks in use:
       removed).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Yellow rings visible around every enemy unit.
-    - [ ] Red rings (charge threat) larger than yellow (shooting range may be
+    - [x] Yellow rings visible around every enemy unit.
+      *(T10_held: a solid yellow ring round every Custodes unit that has a ranged weapon: the
+      Custodian Guard's 24" (one outline round all four models), the Jetbike Shield-Captain's 24",
+      the Contemptor's 18", and the 12" rings of the Shield-Captain and both Witchseeker squads,
+      which show yellow between the red dashes of the charge ring on top of them. Two units have
+      no yellow ring on the board, by design: the Blade Champion carries only melee weapons, and
+      the Telemon's 72" ring lies past every board edge, so its 15% wash tints the whole board.)*
+    - [x] Red rings (charge threat) larger than yellow (shooting range may be
           larger or smaller depending on weapon, but each ring distinct).
-    - [ ] Released → board returns to pre-Tab state exactly.
-    - [ ] No flicker during repeated Tab press/release.
+      *(T10_held: eight dashed red 12" rings, one per enemy unit, each distinct from the solid
+      yellow rings. They sit inside the 18-72" yellow rings and on top of the 12" ones. The red
+      wash inside them reads redder than the yellow wash outside.)*
+    - [x] Released → board returns to pre-Tab state exactly.
+      *(T10_after against T10_before: no ring, no tint, pixel_diff 0.0% full frame.)*
+    - [x] No flicker during repeated Tab press/release.
+      *(Four press/hold/release cycles turn the view on and off exactly once each, with the same
+      three layer nodes. T10_held_again after them is pixel-identical to T10_held (0.0%). A
+      key-repeat Tab while held changes nothing and no longer hops the HUD focus.)*
+  - **Note (2026-10-31 audit):** what had shipped drew one filled Polygon2D disc per enemy unit
+    at its first model's centre, radius = range only. Eight overlapping 15% discs stacked to a
+    near-opaque yellow-orange wash that ran past the board under the HUD. No ring had an
+    outline, so none could be told apart. A melee-only unit got a made-up 24" shooting circle,
+    and "enemy" meant the opponent of the active player, which is wrong on the AI's turn and in
+    network play. `active` was a plain var, so the task's `active = true` route did nothing.
+    Holding Tab never worked in the Shooting phase: `shoot_cycle_eligible_unit` is also Tab, and
+    ShootingController._input runs before Main's, so the press only cycled the shooter. The old
+    scenario hid this by calling `set_active(true)` in that very phase. Key repeat leaked to the
+    GUI as focus navigation, and releasing Tab with Shift down left the view stuck on. Changed on
+    this pass: `ThreatOverlay` builds three persistent layers (`ShootFill` / `ChargeFill`
+    CanvasGroups at 0.15 / 0.10 alpha so overlaps composite once, plus `Outlines`), so toggling
+    only flips `visible`. Each enemy unit gets one outline: the exact union of its alive
+    models' circles, radius = range x 40 px + base extent (edge to edge, as the engine measures).
+    An attached leader folds into its bodyguard's entry with its own gun range. The yellow ring
+    is solid and the red one dashed (as T30), 2 screen px wide at any zoom, everything clipped
+    to the board. Melee-only units have no shooting threat (`radius_px` 0). The viewer is the
+    local seat online, the human seat against the AI, the active player in hot-seat. Rings
+    rebuild on `phase_action_taken` / `phase_changed` while held. `handle_key_event()` (called
+    from Main._input) consumes key repeat and honours the release whatever the modifiers. If the
+    key-up is lost (focus change, a dialog), `_process` sees the key up and stands down, and a
+    focus-out notification does the same. In the Shooting phase ShootingController hands a
+    shared-key press to `begin_tap_or_hold()`: released within 0.2 s it cycles the shooter on
+    the key-up, held longer it shows the view and does not cycle. `simulate_key` gained
+    `state: press | release` so a scenario can hold a key across steps. Tier A: scenario 74/74,
+    on co_pretrigger in the Shooting phase, through the real Tab key. Baseline is off and empty.
+    Held: active, 16 rings == 2 x 8 enemy units counted from GameState independently, every
+    shoot entry MARGINAL_YELLOW and every charge entry INVALID_RED. Released: off and empty.
+    pixel_diff before -> held 45.8% (> 2.0); board region 96.1%, right HUD and off-board margin
+    0.0%. Before -> after 0.0% (< 0.5). New gated test `tests/test_threat_overlay.gd` (81
+    checks). Both went red under scratch sabotage probes: the old Shooting-phase swallow, a
+    modifier-strict release, leaked key repeat, the 24" fallback, a plain `active` var, no board
+    clip, no tie-break for identical circles. Gate 183/183 (known XFAIL only). Visual suite: 42
+    pass, the only failure T39 at its known step 33 (T23 / T27 / T45 known, not re-run). Six
+    keyboard sp scenarios: five pass, split_fire_spinbox_commit XFAIL (listed). Deviations:
+    (a) Outlines at 0.9 alpha were added; the 15% / 10% alpha apply to the fills, since a
+    15%-alpha ring line cannot be seen on the board. (b) Melee-only units keep a `shoot` entry
+    with `radius_px` 0.0, so the 2 x enemy count holds, but draw no yellow. (c) A
+    multi-model unit's ring is the union outline of its models' circles (doc §5), not one circle.
+    (d) `rendered_rings` entries also carry `range_inches`, and the overlay exposes
+    `viewer_player_id`, `activation_count` and `last_change_reason` for scenarios.
+    (e) Shooting phase: a hold must pass 0.2 s before the view shows, and a tap still cycles,
+    on the key-up rather than the key-down. (f) The vs-AI viewer and the focus-loss release are
+    verified headless only.
 
 - [ ] **T11 — LOS line tool**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02

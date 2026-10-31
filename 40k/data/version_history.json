@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.64.0",
+      "date": "2026-10-31",
+      "summary": "Hold Tab to see where the enemy can shoot and charge you: each enemy unit's shooting range is shaded yellow and its 12\" charge range red, one clear ring per unit, until you let go.",
+      "changes": [
+        "Hold Tab to show the enemy's threat ranges and let go to hide them. It is off the rest of the time.",
+        "Yellow shows everywhere one of the unit's guns can reach and red (with a dashed ring) its 12\" charge range, both measured from the edge of its models' bases as the rules measure. A unit with only melee weapons shows only the red ring.",
+        "Each enemy unit gets one ring, even a mob of twenty models: the outline goes round the whole unit. Overlapping shading no longer piles up into a solid blob, and the rings stop at the edge of the battlefield.",
+        "Works in the Shooting phase too: a quick tap of Tab still cycles to the next unit that can shoot, and holding it shows the threat view instead. Before, holding Tab there only changed the shooter.",
+        "Against the AI the view always shows the AI's units, even during the AI's turn.",
+        "Holding Tab no longer makes the keyboard focus jump between buttons, and letting go always hides the view, even if you pressed Shift or switched windows while holding it."
+      ]
+    },
+    {
       "version": "1.63.0",
       "date": "2026-10-31",
       "summary": "Units that have already acted this phase now go dim, on the battlefield and in the Roster strip, so you can see at a glance who still has something to do.",

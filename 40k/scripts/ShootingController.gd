@@ -5318,6 +5318,16 @@ func _handle_shooting_keyboard_shortcut(event: InputEventKey) -> bool:
 			return true
 
 	if _shoot_action_matches(kbm, event, "shoot_cycle_eligible_unit", [KEY_TAB]):
+		# T10: the held threat overlay shares this key by default (Tab). Cycling
+		# on the press meant holding Tab to read enemy ranges swapped the
+		# shooter and never showed the overlay (this _input runs before Main's).
+		# Hand the press over instead: a TAP cycles on the key-up, a HOLD shows
+		# the threat view and does not cycle.
+		var threat_overlay := _threat_overlay_sharing_key(kbm, event)
+		if threat_overlay != null:
+			DebugLogger.info("T10: Tab pressed in the Shooting phase — tap cycles the shooter, hold shows the threat overlay")
+			threat_overlay.begin_tap_or_hold(Callable(self, "_keyboard_cycle_units").bind(event.shift_pressed))
+			return true
 		# Cycle through eligible units that haven't shot yet
 		print("T5-UX12: Keyboard shortcut — Cycle Units (shoot_cycle_eligible_unit)")
 		_keyboard_cycle_units(event.shift_pressed)
@@ -5361,6 +5371,18 @@ func _shoot_action_matches(kbm: Node, event: InputEventKey, action_id: String, f
 		if event.keycode == kc:
 			return true
 	return false
+
+# T10: the battle scene's ThreatOverlay when this key event is ALSO its held
+# key (same key and modifiers) — i.e. "cycle shooter" and "threat overlay" are
+# bound together, as they are by default (Tab). Null otherwise, and in the
+# unit-test stub, which has no Main scene.
+func _threat_overlay_sharing_key(kbm: Node, event: InputEventKey) -> Node:
+	if kbm == null or not kbm.has_method("matches_action") or not kbm.matches_action(event, "threat_overlay"):
+		return null
+	var overlay = SceneRefs.main_path("BoardRoot/ThreatOverlay")
+	if overlay == null or not overlay.has_method("begin_tap_or_hold"):
+		return null
+	return overlay
 
 # T5-UX12: Deselect the current shooter and clear assignments
 func _keyboard_deselect_shooter() -> void:

@@ -7088,11 +7088,15 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
-	# T10: threat overlay held key (rebindable: threat_overlay, default Tab). Press -> on, release -> off.
-	if event is InputEventKey and not event.echo and KeybindingManager.matches_action(event, "threat_overlay"):
+	# T10: threat overlay held key (rebindable: threat_overlay, default Tab).
+	# Press -> on, release -> off. ThreatOverlay.handle_key_event() owns the
+	# rules: key repeat is consumed (held Tab must not also walk GUI focus),
+	# the release counts whatever modifiers are down by then, and a
+	# Shooting-phase tap that ShootingController handed over (Tab is "cycle
+	# shooter" there too) resolves on this key-up.
+	if event is InputEventKey:
 		var to = get_node_or_null("BoardRoot/ThreatOverlay")
-		if to != null:
-			to.set_active(event.pressed)
+		if to != null and to.handle_key_event(event):
 			get_viewport().set_input_as_handled()
 			return
 
