@@ -3,7 +3,7 @@
   "covers": ["design_guidelines.T19", "tokens.active_pulse"],
   "fixture": "co_pretrigger",
   "transition_to_phase": 10,
-  "description": "TokenVisual.start_pulse() begins a 2s loop varying SlotRing modulate.a between 0.7 and 1.0. is_pulsing flips true. stop_pulse() restores 0.7 alpha and resets the flag.",
+  "description": "TokenVisual.start_pulse() begins a 2s loop varying SlotRing modulate.a between 0.7 and 1.0. is_pulsing flips true. stop_pulse() returns the slot ring to its resting alpha (T08_RING_ALPHA, the painted T08 ring's 1.0) and resets the flag.",
 
   "steps": [
     { "act": "wait_seconds", "seconds": 0.4 },
@@ -31,7 +31,7 @@
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).is_pulsing",
       "equals": false },
     { "act": "execute_script",
-      "script": "is_equal_approx(main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"SlotRing\").modulate.a, 0.7)",
+      "script": "is_equal_approx(main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"SlotRing\").modulate.a, main.get_node(\"BoardRoot/TokenLayer\").get_child(0).T08_RING_ALPHA)",
       "equals": true },
 
     { "act": "expect_baseline_unchanged" }

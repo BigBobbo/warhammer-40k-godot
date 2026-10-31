@@ -88,6 +88,12 @@
 #     area centroid, not the vertex average), one TerrainCoverIcon_<id> per
 #     piece of the default layout (label, centroid, alpha, below tokens), names
 #     kept across a terrain reload, constant upright on-screen size
+#   - T08 two-ring token: FactionRing (the unit's army-data colour from the
+#     owner's faction palette, distinct per same-name squad, follows Change
+#     Color) inside SlotRing (UIConstants player-slot colour: TEAL P1, MAGENTA
+#     P2); SlotRing.scale > FactionRing.scale, both alpha >= 0.9, painted only
+#     by the letter style, geometry inside the base / clear of the centre, the
+#     MA-20 type ring just inside the slot ring, stop_pulse back to rest alpha
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -336,6 +342,7 @@ TESTS=(
     "tests/test_hover_forecast.gd"
     "tests/test_weapon_order_cancel.gd"
     "tests/test_terrain_cover_overlay.gd"
+    "tests/test_two_ring_token.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

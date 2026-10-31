@@ -604,7 +604,7 @@ Locks in use:
     drawn-secondaries review, which otherwise covers the board. (e) The 8 coincident
     area/feature pairs keep both nodes (Tier A wants one per id) but render as one shield.
 
-- [ ] **T08 — Two-ring token (faction inner + player-slot outer)**
+- [x] **T08 — Two-ring token (faction inner + player-slot outer)**
   - **Lock:** TokenLayer  • **Doc:** §2  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/TokenVisual.gd`
   - **Change:** Replace single-color base ring with two concentric rings: inner =
@@ -625,10 +625,74 @@ Locks in use:
       same fixture in the **token region**: `regions["token_swatch"].diff_pct > 8.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Two rings visually distinct (different hue and thickness).
-    - [ ] Faction inner ring matches the army's chosen color.
-    - [ ] Player-slot outer ring is the same color across all units of that player.
-    - [ ] Rings do not occlude the central glyph/letter.
+    - [x] Two rings visually distinct (different hue and thickness).
+      *(T08_after, engagement zoom x3: a thin teal (P1) / magenta (P2) ring on the rim, a
+      thicker crimson or gold band inside it, slate between them. Widths at zoom 1: 40mm
+      base 3.5 vs 5.7 px, 32mm 2.8 vs 4.5 px; on an oval base (T08_oval_closeup) both rings
+      follow the outline.)*
+    - [x] Faction inner ring matches the army's chosen color.
+      *(T08_army_panel: each unit's inner ring is the colour of its swatch in the Army
+      Overview (U), the army-data colour from the faction palette; the scenario checks all 36
+      tokens against their swatch. T08_change_color: after Pale gold is picked for the
+      Custodian Guard in that panel, their four inner rings repaint pale gold. One colour per
+      squad, not one per army — deviation (a).)*
+    - [x] Player-slot outer ring is the same color across all units of that player.
+      *(T08_p1_row / T08_p2_row: every P1 token — infantry, both dreadnoughts, the oval
+      Caladius, both Witchseekers squads — wears the teal ring and every P2 token the magenta
+      one; the scenario asserts SlotRing == the owner's slot colour on all 36 tokens.)*
+    - [x] Rings do not occlude the central glyph/letter.
+      *(T08_after: both rings sit in the outer quarter of the base and are painted beneath
+      the art, so the Custodian sprite and the Witchseekers' WI* letter are untouched;
+      glyph_p1 / glyph_p2 pixel_diff against the pre-T08 token: 0.0%.)*
+  - **Note (2026-10-31 audit):** what had shipped were `FactionRing` / `SlotRing` as empty
+    Node2D markers: they painted nothing (the only ring on screen was the letter style's
+    single unit-colour ring), rested at alpha 0.35 / 0.7, and SlotRing was scaled 1.2, i.e.
+    outside the base. The scenario (co_pretrigger, Custodes vs Orks) checked only that
+    child(0) had both nodes, alpha > 0 and the scale order, so it passed with no ring drawn.
+    T19's pulse tweened the invisible SlotRing, and MA-20's model-type ring sat on the rim
+    where the outer ring belongs. Changed on this pass: the letter style (the default)
+    paints both rings beneath the art (Layer 2c, replacing `_draw_unit_color_ring`), read
+    from the ring nodes at paint time: modulate = colour, scale.x = mid-line radius / base
+    radius (FactionRing 0.74, SlotRing 0.94), visible = painted. Widths max(3.5, 0.18r) and
+    max(2.5, 0.11r), the outer edge held on the rim, both at alpha 1.0. FactionRing = the
+    unit's stored army-data colour, SlotRing = `UIConstants.player_slot_color(owner)`; both
+    re-read on every repaint, so Change Color and an owner change show. In the other unit
+    styles and in debug mode the rings are not painted and the nodes report visible=false.
+    `stop_pulse()` returns SlotRing to the resting alpha and the letter style repaints
+    while it pulses (T19). The MA-20 ring moved just inside the slot ring. Tier A: scenario
+    41/41 on mirror_custodes_postdeploy. All 36 tokens: SlotRing == the owner's slot
+    colour, FactionRing == the unit's army-data colour (in the owner's faction palette),
+    SlotRing.scale > FactionRing.scale, both alpha >= 0.9, both painted. A P1 Custodes
+    token has FactionRing d9b333 (the Custodes gold, FactionPalettes primary) with SlotRing
+    == FRIENDLY_PLAYER_TEAL. All 8 P2 Witchseekers have SlotRing == ENEMY_PLAYER_MAGENTA
+    and FactionRing == their own army colour. Sampling the live frame on each ring's
+    mid-line shows the node colours painted (slot 29-32/32 hits, faction 24-31/32; art and
+    labels cover the rest). pixel_diff token_swatch 26.1% (> 8.0) against the pre-T08 token.
+    The HEAD build and six scratch sabotage probes (constant slot colour, nothing painted,
+    slot ring painted in the faction colour, inner band over the centre, no repaint sync,
+    one colour per army) each turned a different set of checks red. New gated test
+    `tests/test_two_ring_token.gd` (81 checks; 21 fail at HEAD). Gate 181/181 (known XFAIL
+    only). Visual suite: 42 pass (baseline 41), failures only T23 / T27 / T39 (known) and
+    T45 (XFAIL). 22 token sp scenarios: 19 pass, 3 listed XFAILs with their recorded counts.
+    Deviations: (a) The inner ring is the unit's colour from the army data (a faction
+    palette colour, auto-assigned per squad and changed with Right-click > Change Color or
+    the army panel swatch), not one colour per army. The later Ring Only decision
+    (v0.41.0 / v0.42.1) uses that ring to tell squads apart, and the roster cards show the
+    same per-unit colour; one army colour would have erased both. The first squad of an army
+    gets the palette primary (Custodes gold d9b333). A token with no unit falls back to
+    `UIConstants.faction_color_for_player` (T41). (b) The only fixture with P1 Custodes +
+    P2 Witchseekers is mirror_custodes_postdeploy: Witchseekers are an Anathema Psykana unit
+    of the Custodes army (keyword ADEPTUS CUSTODES), so P2's colours come from the Custodes
+    palette too and no "Witchseekers blue" exists in army data. The scenario asserts their
+    own army colour plus MAGENTA instead, and that the mirror's shared inner colours are told
+    apart by the slot ring. Setup privilege moves the P2 Witchseekers beside the P1
+    Custodian Guard for one engagement-zoom frame. (c) Painted by the letter style only (the
+    default, and the only style that had the single unit-colour ring); classic / enhanced /
+    style_a / style_b keep their own rims. (d) The pre-T08 baseline is rebuilt in the run (no
+    slot ring, one unit-colour band at the old ring's geometry); it matches the old build's
+    render of the same frame at 0.0% in token_swatch, and old build vs new also diffs 26.1%.
+    (e) T19's scenario now expects `stop_pulse()` to return the ring to `T08_RING_ALPHA`
+    (1.0), not 0.7.
 
 - [ ] **T09 — Exhaustion grayscale for acted units**
   - **Lock:** TokenLayer + HUD-Left  • **Doc:** §8  • **Depends:** T01, T02, T08

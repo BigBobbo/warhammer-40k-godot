@@ -42,6 +42,22 @@ const T09_NORMAL_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
 # dark slate that keeps the model art and colored ring readable.
 const LETTER_RING_BASE_FILL := Color(0.24, 0.24, 0.27, 1.0)
 
+# T08: two-ring token (design doc §2). The letter style paints two concentric
+# rings just inside the base rim, beneath the model art so they never cover the
+# figure or the letter counter: an inner band in the unit's army colour
+# (FactionRing) and a thin outer ring in the owner's player-slot colour
+# (SlotRing: teal P1, magenta P2). The FactionRing / SlotRing child nodes are
+# each ring's spec, read at paint time: modulate = the colour painted, scale.x =
+# the ring's mid-line radius as a fraction of the base radius, visible = whether
+# it is painted. Widths scale with the base, with a floor for small bases.
+const T08_RING_ALPHA := 1.0
+const T08_FACTION_RING_SCALE := 0.74
+const T08_SLOT_RING_SCALE := 0.94
+const T08_FACTION_RING_MIN_WIDTH := 3.5
+const T08_FACTION_RING_WIDTH_FRAC := 0.18
+const T08_SLOT_RING_MIN_WIDTH := 2.5
+const T08_SLOT_RING_WIDTH_FRAC := 0.11
+
 # Animated sprite system
 var _anim_resolved: bool = false
 var _animations: Dictionary = {}               # animation_name -> SpriteAnimationData
@@ -85,15 +101,14 @@ func _ready() -> void:
 	if SettingsService and SettingsService.has_signal("unit_color_display_changed"):
 		if not SettingsService.is_connected("unit_color_display_changed", _on_unit_style_changed):
 			SettingsService.connect("unit_color_display_changed", _on_unit_style_changed)
-	# T08: two concentric rings expose faction vs player-slot color so
-	# scenarios can assert per-ring modulate. FactionRing draws inner ring;
-	# SlotRing draws a slightly larger thin outer ring. Both render on top
-	# of the existing _draw() output but at very low alpha so they don't
-	# visually compete with the established token aesthetic.
-	var faction := _t08_make_ring("FactionRing", 1.0, 0.35, _t08_faction_color())
+	# T08: two concentric rings — FactionRing (inner band, the unit's army
+	# colour) and SlotRing (thin outer ring, the owner's player-slot colour).
+	# The nodes hold each ring's spec; _draw_letter_mode() paints them.
+	var faction := _t08_make_ring("FactionRing", T08_FACTION_RING_SCALE, _t08_faction_color())
 	add_child(faction)
-	var slot := _t08_make_ring("SlotRing", 1.2, 0.7, _t08_slot_color())
+	var slot := _t08_make_ring("SlotRing", T08_SLOT_RING_SCALE, _t08_slot_color())
 	add_child(slot)
+	_t08_update_ring_visibility()
 
 
 func _t09_on_phase_changed(_new_phase) -> void:
@@ -102,11 +117,13 @@ func _t09_on_phase_changed(_new_phase) -> void:
 
 
 func _on_unit_style_changed(_new_style: String) -> void:
+	_t08_update_ring_visibility()
 	queue_redraw()
 
 
 # T19: pulse the outer SlotRing's alpha between 0.7 and 1.0 to indicate the
-# active actor. Looped at UIConstants.MOTION_PULSE_LOOP_S (2.0s).
+# active actor. Looped at UIConstants.MOTION_PULSE_LOOP_S (2.0s). stop_pulse()
+# returns the ring to its resting alpha (T08_RING_ALPHA).
 var is_pulsing: bool = false
 var _t19_tween: Tween = null
 
@@ -138,8 +155,10 @@ func stop_pulse() -> void:
 	var slot = get_node_or_null("SlotRing")
 	if slot != null:
 		var c: Color = slot.modulate
-		c.a = 0.7
+		c.a = T08_RING_ALPHA
 		slot.modulate = c
+	# The painted slot ring reads the node's alpha at draw time.
+	queue_redraw()
 
 
 # T18: wound chip at base edge. wound_chip_text is "" for hidden, "W/Wmax"
@@ -252,15 +271,124 @@ func set_exhausted_this_phase(value: bool) -> void:
 		modulate = T09_NORMAL_MODULATE
 
 
-# T08: live-rebind modulate when needed (called by external systems if
-# faction or active player changes).
+# T08: re-read both ring colours (the unit's army colour, the owner's slot
+# colour) and repaint. _draw_letter_mode() re-reads them on every repaint too,
+# so a Change Color or an owner change shows on the token's next redraw.
 func t08_refresh_ring_colors() -> void:
+	_t08_sync_ring_colors()
+	queue_redraw()
+
+
+# T08: copy the current colours into the ring specs, keeping each ring's alpha
+# (T19 animates SlotRing's). Assigns only on change.
+func _t08_sync_ring_colors() -> void:
 	var faction = get_node_or_null("FactionRing")
 	if faction != null:
-		faction.modulate = _t08_faction_color()
+		var fc: Color = _t08_faction_color()
+		fc.a = faction.modulate.a
+		if faction.modulate != fc:
+			faction.modulate = fc
 	var slot = get_node_or_null("SlotRing")
 	if slot != null:
-		slot.modulate = _t08_slot_color()
+		var sc: Color = _t08_slot_color()
+		sc.a = slot.modulate.a
+		if slot.modulate != sc:
+			slot.modulate = sc
+
+
+# T08: the letter style (the default) paints the two rings, in place of its old
+# single unit-colour ring; the other token styles draw their own base rims.
+# Each ring node's visible flag says whether it is painted.
+func _t08_rings_painted_by_style() -> bool:
+	var style = SettingsService.unit_visual_style if SettingsService else "classic"
+	return style == "letter" and not debug_mode
+
+
+func _t08_update_ring_visibility() -> void:
+	var painted := _t08_rings_painted_by_style()
+	for ring_name in ["FactionRing", "SlotRing"]:
+		var ring = get_node_or_null(ring_name)
+		if ring != null:
+			ring.visible = painted
+
+
+# T08: mid-line radius and stroke width of each ring for a base of radius
+# `radius` (token-local px). The mid-line radii come from the ring nodes'
+# scale; the slot ring's outer edge is held on the base rim, never outside it.
+func _t08_ring_geometry(radius: float) -> Dictionary:
+	var faction = get_node_or_null("FactionRing")
+	var slot = get_node_or_null("SlotRing")
+	var faction_scale: float = faction.scale.x if faction != null else T08_FACTION_RING_SCALE
+	var slot_scale: float = slot.scale.x if slot != null else T08_SLOT_RING_SCALE
+	var slot_w: float = max(T08_SLOT_RING_MIN_WIDTH, radius * T08_SLOT_RING_WIDTH_FRAC)
+	var faction_w: float = max(T08_FACTION_RING_MIN_WIDTH, radius * T08_FACTION_RING_WIDTH_FRAC)
+	return {
+		"faction_mid": radius * faction_scale,
+		"faction_width": faction_w,
+		"slot_mid": min(radius * slot_scale, radius - slot_w * 0.5),
+		"slot_width": slot_w,
+	}
+
+
+# T08 test seam: the painted ring geometry for this token's base, in
+# token-local px ({radius, faction_mid, faction_width, slot_mid, slot_width}),
+# so a scenario can sample the screen on each ring's mid-line. Reads the same
+# _t08_ring_geometry() the painter uses and changes nothing.
+func t08_ring_geometry() -> Dictionary:
+	var radius := 20.0  # _draw()'s fallback CircularBase(20.0)
+	if base_shape != null:
+		var b = base_shape.get_bounds()
+		radius = min(b.size.x, b.size.y) / 2.0
+	var geo := _t08_ring_geometry(radius)
+	geo["radius"] = radius
+	return geo
+
+
+# T08: paint both rings (letter style, Layer 2c — beneath the model art).
+func _t08_draw_rings(radius: float, shape_type: String, rot: float) -> void:
+	_t08_sync_ring_colors()
+	var geo := _t08_ring_geometry(radius)
+	var faction = get_node_or_null("FactionRing")
+	if faction != null and faction.visible:
+		_t08_draw_ring_band(radius, geo["faction_mid"], geo["faction_width"], faction.modulate, shape_type, rot)
+	var slot = get_node_or_null("SlotRing")
+	if slot != null and slot.visible:
+		_t08_draw_ring_band(radius, geo["slot_mid"], geo["slot_width"], slot.modulate, shape_type, rot)
+
+
+# One ring band following the base shape: an arc for round bases, the base
+# outline pulled in by (radius - mid) for ovals and rectangles.
+func _t08_draw_ring_band(radius: float, mid: float, width: float, ring_color: Color, shape_type: String, rot: float) -> void:
+	if mid <= 0.0:
+		return
+	if shape_type == "circular":
+		draw_arc(Vector2.ZERO, mid, 0, TAU, 48, ring_color, width)
+		return
+	var inset: float = radius - mid
+	var pts := _get_shape_polygon(rot)
+	var ring_pts := PackedVector2Array()
+	for p in pts:
+		var l: float = p.length()
+		if l > inset:
+			ring_pts.append(p * ((l - inset) / l))
+		else:
+			ring_pts.append(p)
+	if ring_pts.size() > 0:
+		ring_pts.append(ring_pts[0])
+		draw_polyline(ring_pts, ring_color, width)
+
+
+# T08 + MA-20: the base rim belongs to the player-slot ring, so the model-type
+# ring (leader / special models of mixed squads) sits just inside it, between
+# the slot ring and the faction band. Its original spot when no slot ring is
+# painted.
+func _t08_model_type_ring_radius(radius: float) -> float:
+	var slot = get_node_or_null("SlotRing")
+	if slot == null or not slot.visible:
+		return radius - 1.5
+	var geo := _t08_ring_geometry(radius)
+	# A 2px ring whose outer edge meets the slot ring's inner edge.
+	return geo["slot_mid"] - geo["slot_width"] * 0.5 - 1.0
 
 
 # T15: procedural silhouette node. silhouette_category is one of
@@ -375,19 +503,28 @@ func _t15_fill_rect(img: Image, rect: Rect2i) -> void:
 			img.set_pixel(x, y, Color(1, 1, 1, 1))
 
 
-func _t08_make_ring(node_name: String, scale_factor: float, alpha: float, ring_color: Color) -> Node2D:
+func _t08_make_ring(node_name: String, scale_factor: float, ring_color: Color) -> Node2D:
 	var n := Node2D.new()
 	n.name = node_name
 	n.scale = Vector2(scale_factor, scale_factor)
-	var c := ring_color
-	c.a = alpha
-	n.modulate = c
+	n.modulate = Color(ring_color.r, ring_color.g, ring_color.b, T08_RING_ALPHA)
 	return n
 
 
 func _t08_faction_color() -> Color:
-	# T41: route through UIConstants.faction_color_for_player so every
-	# caller of "faction color" goes through one path.
+	# The unit's colour from the army data: a colour of the owner's faction
+	# palette (FactionPalettes), auto-assigned per squad on first use (so two
+	# squads of the same unit differ) and changed by the player with
+	# Right-click > Change Color or the army panel swatch — the colour the
+	# unit's roster card shows. A token with no unit falls back to the army's
+	# faction colour (T41: one path for "faction color",
+	# UIConstants.faction_color_for_player).
+	if has_meta("unit_id"):
+		var picked: Color = _get_token_color()
+		# Read the stored value back (auto-assign hands out the float palette
+		# entry but stores 8-bit hex) so the ring spec equals the army data.
+		var stored: Color = GameState.get_unit_color(get_meta("unit_id"))
+		return stored if stored != Color.TRANSPARENT else picked
 	var uic = get_node_or_null("/root/UIConstants")
 	if uic != null and uic.has_method("faction_color_for_player"):
 		return uic.faction_color_for_player(owner_player)
@@ -398,12 +535,11 @@ func _t08_faction_color() -> Color:
 
 
 func _t08_slot_color() -> Color:
+	# T41: the perspective-independent player-slot colour — P1 teal, P2 magenta.
 	var uic = get_node_or_null("/root/UIConstants")
-	if uic == null:
-		return Color(1, 1, 1, 1)
-	if owner_player == 1:
-		return uic.FRIENDLY_PLAYER_TEAL
-	return uic.ENEMY_PLAYER_MAGENTA
+	if uic != null and uic.has_method("player_slot_color"):
+		return uic.player_slot_color(owner_player)
+	return Color(1, 1, 1, 1)
 
 func _process(delta: float) -> void:
 	# T-095 ghost pulse: redraw is_preview tokens every frame so the pulse animates.
@@ -422,7 +558,9 @@ func _process(delta: float) -> void:
 		if is_selected or is_hovered:
 			_pulse_time += delta
 			queue_redraw()
-		elif katah_flip:
+		elif katah_flip or is_pulsing:
+			# T19 tweens SlotRing's alpha; the painted ring reads it at draw
+			# time, so repaint while it pulses.
 			queue_redraw()
 		return
 
@@ -805,13 +943,17 @@ func _draw_letter_mode() -> void:
 			var to = poly_points[(i + 1) % poly_points.size()]
 			draw_line(from, to, border_shade, 2.0)
 
-	# --- Layer 2c: Unit color ring (ring color mode) ---
-	# Drawn BELOW the model art (Layer 3) so the sprite/letter renders on top of
-	# the squad-identifying color band rather than being obscured by it (a thick
-	# ring over e.g. the Stompa sprite looked wrong). The ring still reads clearly
-	# because it hugs the base perimeter, where top-down art is mostly transparent.
-	if ring_mode:
-		_draw_unit_color_ring(radius, token_color, shape_type, rot)
+	# --- Layer 2c: T08 two-ring token ---
+	# An inner band in the unit's army colour (FactionRing — the squad colour
+	# the old single ring showed) and a thin ring on the rim in the owner's
+	# player-slot colour (SlotRing: teal P1, magenta P2), so whose model it is
+	# reads the same in every match, mirror matches included. Drawn BELOW the
+	# model art (Layer 3) so the sprite/letter renders on top rather than being
+	# obscured (a thick ring over e.g. the Stompa sprite looked wrong); both rings
+	# sit in the outer quarter of the base, where top-down art is mostly
+	# transparent. In "full" colour mode the base is the unit colour itself, so
+	# the inner band blends into it and the slot ring frames it.
+	_t08_draw_rings(radius, shape_type, rot)
 
 	# --- Layer 3: Top-down unit art, vehicle tank sprite, or letter label ---
 	# Units with dedicated top-down art (bundled or user drop-in, resolved by
@@ -837,8 +979,8 @@ func _draw_letter_mode() -> void:
 			for offset in [Vector2(-0.5, 0), Vector2(0.5, 0), Vector2(0, 0)]:
 				draw_string(font, text_pos + offset, label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)
 
-	# --- Layer 3b: MA-20 model type colored ring ---
-	_draw_model_type_ring(radius)
+	# --- Layer 3b: MA-20 model type colored ring (just inside the T08 slot ring) ---
+	_draw_model_type_ring(radius, _t08_model_type_ring_radius(radius))
 
 	# --- Layer 4: Model number or type label (only on select/hover) ---
 	if is_selected or is_hovered:
@@ -891,33 +1033,6 @@ func _get_token_color() -> Color:
 func _is_ring_color_mode() -> bool:
 	# The color is shown as a ring (neutral base) rather than filling the base.
 	return SettingsService != null and SettingsService.unit_color_display_mode == "ring"
-
-
-func _draw_unit_color_ring(radius: float, ring_color: Color, shape_type: String, rot: float) -> void:
-	# Draw the unit's color as a band just inside the base perimeter, following
-	# the base shape. Width scales with base size but stays legible on tiny bases.
-	var ring_width: float = max(3.5, radius * 0.18)
-	var c := ring_color
-	c.a = 1.0
-	if shape_type == "circular":
-		# Centre the band so its outer edge sits ~1px inside the base border.
-		var r: float = radius - ring_width * 0.5 - 1.0
-		if r <= 0.0:
-			r = radius * 0.5
-		draw_arc(Vector2.ZERO, r, 0, TAU, 48, c, ring_width)
-	else:
-		var pts := _get_shape_polygon(rot)
-		var inset: float = ring_width * 0.5 + 1.0
-		var ring_pts := PackedVector2Array()
-		for p in pts:
-			var l: float = p.length()
-			if l > inset:
-				ring_pts.append(p * ((l - inset) / l))
-			else:
-				ring_pts.append(p)
-		if ring_pts.size() > 0:
-			ring_pts.append(ring_pts[0])
-			draw_polyline(ring_pts, c, ring_width)
 
 
 func _get_letter_label() -> String:
@@ -1342,15 +1457,16 @@ func _get_model_type_ring_color() -> Color:
 	return MODEL_TYPE_COLORS[type_index % MODEL_TYPE_COLORS.size()]
 
 
-func _draw_model_type_ring(radius: float) -> void:
-	"""MA-20: Draw a colored ring around the base to indicate model type."""
+func _draw_model_type_ring(radius: float, ring_radius: float = -1.0) -> void:
+	"""MA-20: Draw a colored ring around the base to indicate model type.
+	ring_radius overrides where it sits (the letter style passes a spot just
+	inside its T08 slot ring); default: just inside the base border."""
 	var ring_color = _get_model_type_ring_color()
 	if ring_color == Color.TRANSPARENT:
 		return
 
-	# Draw a thin colored ring just inside the base border
-	var ring_radius = radius - 1.5
-	draw_arc(Vector2.ZERO, ring_radius, 0, TAU, 48, ring_color, 2.0)
+	var r: float = ring_radius if ring_radius > 0.0 else radius - 1.5
+	draw_arc(Vector2.ZERO, r, 0, TAU, 48, ring_color, 2.0)
 
 
 # Max characters shown for a unit's on-board name label before it is elided.
@@ -1870,6 +1986,7 @@ func set_preview(preview: bool) -> void:
 
 func set_debug_mode(active: bool) -> void:
 	debug_mode = active
+	_t08_update_ring_visibility()
 	queue_redraw()
 
 func set_model_data(data: Dictionary) -> void:

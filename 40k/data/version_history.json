@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.62.0",
+      "date": "2026-10-31",
+      "summary": "Every model now shows two rings on its base: its unit's colour inside and a thin teal (Player 1) or magenta (Player 2) ring on the edge, so you can always tell whose model it is - even when both armies are the same faction.",
+      "changes": [
+        "The single coloured ring on each base is now two rings. The inner, thicker ring is still the unit's own colour from your army (the colour Right-click > Change Color or the army panel swatch picks, so two squads of the same unit still look different).",
+        "The thin outer ring on the edge of the base is always teal for Player 1 and magenta for Player 2, on every model, whatever army each player brought. In a mirror match - Custodes against Custodes - the two sides' models were the same colours before; the outer ring now tells them apart.",
+        "Both rings sit under the model art, so they never cover the figure or the letter on the base.",
+        "The small coloured ring that marks a squad leader or special model (for example a Boss Nob) now sits just inside the outer ring instead of on top of it."
+      ]
+    },
+    {
       "version": "1.61.0",
       "date": "2026-10-31",
       "summary": "The terrain cover labels (Settings > Visual > Terrain Cover Labels) are now readable at any zoom and show each piece's 11th-edition terrain category, with a legend under the setting.",
