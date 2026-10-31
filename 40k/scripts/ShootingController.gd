@@ -1126,6 +1126,7 @@ func phase_signal_map() -> Dictionary:
 		"dice_rolled": _on_dice_rolled,
 		"saves_required": _on_saves_required,
 		"weapon_order_required": _on_weapon_order_required,
+		"weapon_order_cancelled": _on_weapon_order_cancelled,  # T06: Esc / Back to Targets
 		"shooting_begun": _on_shooting_begun,  # T5-MP3 remote visual feedback
 		"next_weapon_confirmation_required": _on_next_weapon_confirmation_required,
 		"reactive_stratagem_opportunity": _on_reactive_stratagem_opportunity,
@@ -3406,6 +3407,8 @@ func _activate_resolution_dock(assignments: Array) -> void:
 func _dock_auto_start_single_weapon(order: Array) -> void:
 	if resolution_dock == null or not resolution_dock.is_active():
 		return
+	# T06: no order to choose for one weapon type — the ordering step ends here.
+	resolution_dock.mark_order_started()
 	emit_signal("shoot_action_requested", {
 		"type": "RESOLVE_WEAPON_SEQUENCE",
 		"payload": {"weapon_order": order, "fast_roll": false}
@@ -3419,6 +3422,47 @@ func _deactivate_resolution_dock() -> void:
 
 func _on_dock_action_requested(action: Dictionary) -> void:
 	emit_signal("shoot_action_requested", action)
+
+## T06 (design guidelines §3): Esc on the weapon-order panel. While the dock is
+## in its "queued" state (targets confirmed, nothing rolled yet) this backs out
+## to target selection with every assignment kept — the dock's "Back to
+## Targets" button sends the same action. Returns true when the cancel was
+## requested. Past the ordering step (dice are rolling) there is nothing to
+## cancel; when the targets are locked in (the opponent already reacted) the
+## dock says why instead. Either way the shooter is never deselected while the
+## dock is up: that used to leave the dock waiting on a weapon order with the
+## controller's shooter wiped (ESC / pad B half-state).
+func cancel_weapon_order() -> bool:
+	if resolution_dock == null or not resolution_dock.is_active():
+		return false
+	if not resolution_dock.is_ordering():
+		print("ShootingController: T06 cancel ignored — the dock is past the weapon-order step (%s)" % resolution_dock.state)
+		return false
+	var reason := ""
+	if current_phase and current_phase.has_method("weapon_order_cancel_block_reason"):
+		reason = current_phase.weapon_order_cancel_block_reason()
+	if reason != "":
+		print("ShootingController: T06 cancel refused — %s" % reason)
+		resolution_dock.show_cancel_refusal(reason)
+		return false
+	print("ShootingController: T06 cancelling the weapon order for %s" % active_shooter_id)
+	emit_signal("shoot_action_requested", {"type": "CANCEL_WEAPON_ORDER", "actor_unit_id": active_shooter_id})
+	return true
+
+## T06: the phase handed the declaration back — retire the dock and rebuild the
+## declaration panel from the phase (resync_from_phase retires the dock once
+## resolution_state is empty and mirrors the restored pending assignments into
+## the weapon tree / target list / chips). The fire lines CONFIRM_TARGETS drew
+## go too: nothing was fired.
+func _on_weapon_order_cancelled(shooter_id: String) -> void:
+	print("ShootingController: T06 weapon order cancelled for %s — back to targeting" % shooter_id)
+	_clear_shooting_line_visuals()
+	resync_from_phase()
+	_refresh_target_chips()
+	# The COMBINED FORECAST card the declaration showed before Confirm.
+	_update_aggregate_damage_preview()
+	if dice_log_display:
+		DiceLogFormatter.info(dice_log_display, "Weapon order cancelled — targets kept, nothing rolled")
 
 func _connect_staged_dialog_signals(dialog) -> void:
 	# Wire the staged hit/wound pause controls (non-networked sequential mode).
@@ -5160,6 +5204,21 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
+	# T06: while the weapon-order panel (the resolution dock's ordering step) is
+	# up, the targets are confirmed and the phase waits on the order. The board
+	# stays visible and keeps answering the mouse (hover still draws the LoS
+	# line), but a board click must not pick another shooter or re-aim guns
+	# behind the panel: the old modal swallowed these clicks, and the
+	# "WeaponOrderDialog" guard in _try_click_select_shooter never sees the dock.
+	# The panel says how to change targets instead (Esc). Not consumed, so
+	# Main's own board handling still runs.
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
+			and resolution_dock and resolution_dock.is_active() and resolution_dock.is_ordering() \
+			and get_viewport().gui_get_hovered_control() == null:
+		print("ShootingController: T06 board click ignored — the weapon-order panel is up")
+		resolution_dock.show_board_click_hint()
+		return
+
 	# Click-to-select shooter: a left-click on a friendly unit's model selects
 	# it as the active shooter (same as clicking its row in the unit list),
 	# asking first when the current shooter already has staged assignments.
@@ -5245,6 +5304,13 @@ func _handle_shooting_keyboard_shortcut(event: InputEventKey) -> bool:
 			return true
 
 	if _shoot_action_matches(kbm, event, "shoot_cancel_target", [KEY_ESCAPE]):
+		# T06: the weapon-order panel (the resolution dock) owns Esc while it
+		# is up — back to targeting from the ordering step, a no-op once dice
+		# are rolling. Never a deselect mid-activation.
+		if resolution_dock and resolution_dock.is_active():
+			print("T06: Keyboard shortcut — Esc on the weapon-order panel (dock state %s)" % resolution_dock.state)
+			cancel_weapon_order()
+			return true
 		# Deselect current shooter / cancel assignments
 		if active_shooter_id != "":
 			print("T5-UX12: Keyboard shortcut — Deselect Shooter (shoot_cancel_target)")
@@ -5298,6 +5364,13 @@ func _shoot_action_matches(kbm: Node, event: InputEventKey, action_id: String, f
 
 # T5-UX12: Deselect the current shooter and clear assignments
 func _keyboard_deselect_shooter() -> void:
+	# T06: while the resolution dock is up the shooter is mid-activation, so
+	# Esc / pad B mean "back out of the weapon order", never "deselect" (that
+	# wiped the shooter here while the dock kept the phase waiting).
+	if resolution_dock and resolution_dock.is_active():
+		cancel_weapon_order()
+		return
+
 	# Clear assignments first
 	if not weapon_assignments.is_empty():
 		_on_clear_pressed()

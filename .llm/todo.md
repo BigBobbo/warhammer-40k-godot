@@ -437,7 +437,7 @@ Locks in use:
     scenario fixture is `audit_383_battleshock_shoot`, not co_pretrigger: no P2 unit has
     an eligible target in co_pretrigger.
 
-- [ ] **T06 — Convert Weapon Order modal to side-anchored panel**
+- [x] **T06 — Convert Weapon Order modal to side-anchored panel**
   - **Lock:** HUD-Right  • **Doc:** §3  • **Depends:** T01, T02
   - **Touches:** wherever the Weapon Order modal instantiates today
     (likely `ShootingController.gd` + a dialog scene)
@@ -460,10 +460,66 @@ Locks in use:
     - All existing weapon-order regression scenarios still pass.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Tokens at original positions visible while panel is open.
-    - [ ] Panel has all controls the old modal had.
-    - [ ] ESC dismisses without committing.
-    - [ ] No layout overlap with the existing right-side phase controls.
+    - [x] Tokens at original positions visible while panel is open.
+      *(T06_after next to T06_before: every token is where it was and the camera has not
+      moved (view_zoom / view_offset asserted). Only the [A] target chip and the fire line
+      differ, 0.36% of the left 60%. Pointing at the Witchseekers still draws the LoS line,
+      with no Control under the cursor.)*
+    - [x] Panel has all controls the old modal had.
+      *(T06_after: one row per gun naming its target, each with ▲▼; Roll to Hit ▶ is
+      Start Sequence (same RESOLVE_WEAPON_SEQUENCE, fast_roll false); Fast Roll All ⏩;
+      plus ◀ Back to Targets (Esc), which the modal never had. The modal's "Dmg | Atks |
+      Total Potential" line is the dock's expected-damage figure (B5), and its log is the
+      Dice Log tab (B2).)*
+    - [x] ESC dismisses without committing.
+      *(T06_esc matches T06_before: right panel 0.0% different, the same three assignments,
+      nothing rolled, shooter still active. T06_locked: after the defender's SMOKESCREEN the
+      button is greyed out and Esc only explains why.)*
+    - [x] No layout overlap with the existing right-side phase controls.
+      *(T06_after / T06_locked / T06_rolling: the dock sits inside HUD_Right under SHOOTING
+      CONTROLS and clear of the End Shooting Phase button, the top bar and the phase strip,
+      all asserted by rect.)*
+  - **Note (2026-10-31 audit):** what had shipped was `WeaponOrderPanel.gd`, a panel at
+    `/root/Main/WeaponOrderPanel` that nothing opened. Its Start Sequence emitted a signal
+    nobody heard, its rows were bare labels, and it was pinned over the HUD_Right column
+    (x 1560), where the shooting controls live. The scenario only called `open_for()`. By
+    then B2 (audit 2026-07) had already moved single-player weapon ordering out of the
+    centred WeaponOrderDialog and into the right HUD, as the shooting resolution dock's
+    "queued" state, with the board visible. What was missing was Esc and any way back. Esc
+    and pad B deselected the shooter while the dock kept the phase waiting on an order (a
+    half-state), and a board click could re-aim guns or pick another shooter behind the
+    dock. Changed on this pass: (1) New `CANCEL_WEAPON_ORDER` action. ShootingPhase keeps
+    the declaration from CONFIRM_TARGETS and hands it back unchanged: nothing rolled, the
+    shooter still selected. It is refused once the targets are locked in: a stratagem used
+    since the declaration (new `StratagemManager.usage_count`), or an Unpredictable Genius
+    roll. (2) The dock's ordering step has "◀ Back to Targets (Esc)", greyed out with the
+    reason when locked. Esc and pad B send the same action, never deselect while the dock is
+    up, and do nothing once dice roll. A board click while ordering no longer re-aims or
+    switches shooter; the panel tells the player to press Esc. After Back, the declaration
+    panel looks as it did before Confirm, including the COMBINED FORECAST card.
+    (3) `SceneRefs.board_screen_rect()`, moved out of ReservesTray, backs the
+    no-intersection check. (4) The dead stub is gone, and T45's existence check now points
+    at the dock's Back button. Tier A: scenario 104/104. It covers: the Confirm click
+    reaching awaiting_weapon_order; dock left edge / viewport width 0.79; HUD_Right anchors
+    1/1; no intersection with the board rect; pixel_diff board_left 0.36% (< 1), board rect
+    0.56% (< 1), right_panel 53.6% (> 10); a dispatched CONFIRM_TARGETS returning success
+    and weapon_order_required. New gated test `tests/test_weapon_order_cancel.gd` (47
+    checks) fails at HEAD. Gate: 179/179 (known XFAIL only). Visual suite: 42 passing
+    (baseline 41); T23, T27 and T39 fail as before, and T45 is XFAIL. Of the 23 sp scenarios
+    that reach the dock, Esc, pad B or the reserves tray, 18 pass; the other 5 are the
+    T4-tutorial XFAILs, which fail before the dock opens.
+    Deviations: (a) The panel is the B2 dock (`.../ShootingPanel/ResolutionDock`), not a
+    node renamed `WeaponOrderPanel`. Renaming it would break the 30 scenarios that address
+    the dock, and the dock is the whole resolution surface; a second panel would duplicate
+    it. (b) There is no BEGIN_WEAPON_ORDER action. CONFIRM_TARGETS with two or more weapon
+    types is what begins the weapon order. (c) "anchor_left >= 0.6" is read as the dock's
+    left edge over the viewport width. The dock sits in containers; its HUD_Right column
+    carries the right anchors. (d) Networked play still uses the WeaponOrderDialog, popped
+    at the bottom centre, and its Esc only hides it. Moving MP onto the dock is the B2
+    follow-up that needs the save broadcast/ack sync
+    (docs/SHOOTING_MULTI_TARGET_UX_AUDIT_2026-07.md) and cannot be checked by a
+    single-player scenario. (e) The lock case gives the Witchseekers SMOKE as a setup step
+    (as iss15_smokescreen_reactive_11e does), so the defender is offered SMOKESCREEN.
 
 - [ ] **T07 — Per-tile cover icons on terrain**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02

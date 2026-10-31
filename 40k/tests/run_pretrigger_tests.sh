@@ -78,6 +78,11 @@
 #     cancelling, re-roll crits, overkill, 10e rules at edition 10), the
 #     P3-114 card wrapper, the hover hook + test_hover_target_id seam, and the
 #     HoverForecast card rows
+#   - T06 weapon-order panel Esc: CANCEL_WEAPON_ORDER backs the weapon-order
+#     step out to targeting with the declaration intact (nothing rolled, shooter
+#     kept, re-confirm + Start Sequence still work), rejected outside the step
+#     and once the targets are locked in (a defender SMOKESCREEN used against
+#     them, or an Unpredictable Genius roll)
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -324,6 +329,7 @@ TESTS=(
     "tests/test_drag_ruler_budget.gd"
     "tests/test_phase_bar.gd"
     "tests/test_hover_forecast.gd"
+    "tests/test_weapon_order_cancel.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

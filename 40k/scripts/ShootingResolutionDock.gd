@@ -20,6 +20,85 @@ extends ResolutionDockBase
 #         between | complete_ready
 var active_shooter_id: String = ""
 
+# T06 (design guidelines §3): the ordering step (state "queued" until Roll /
+# Fast Roll starts the sequence) IS the weapon-order panel — side-anchored in
+# the right HUD column, the board left visible. Esc / this button back out to
+# target selection with the assignments kept (CANCEL_WEAPON_ORDER). Shown only
+# while ordering; disabled, with the reason, once the targets are locked in
+# (the opponent reacted to them).
+var cancel_button: Button = null
+const CANCEL_TEXT := "◀ Back to Targets (Esc)"
+const CANCEL_TOOLTIP := "Go back to choosing targets. Your weapon assignments are kept and nothing is rolled."
+# Set once the sequence is started. The "queued" state alone can't tell: with
+# the Pauses policy auto-continuing, the dock stays "queued" while dice roll.
+var _order_started: bool = false
+
+func _ready() -> void:
+	super._ready()
+	cancel_button = Button.new()
+	cancel_button.name = "DockCancelButton"
+	cancel_button.text = CANCEL_TEXT
+	cancel_button.tooltip_text = CANCEL_TOOLTIP
+	cancel_button.custom_minimum_size = Vector2(230, 30)
+	cancel_button.visible = false
+	cancel_button.pressed.connect(_on_cancel_pressed)
+	_WhiteDwarfTheme.apply_secondary_button(cancel_button)
+	add_child(cancel_button)
+	# Right under Fast Roll, above the Pauses row: the ordering step's three
+	# exits (Roll / Fast Roll / Back) stay together.
+	move_child(cancel_button, fast_button.get_index() + 1)
+
+## True while the player is still choosing the firing order (nothing rolled).
+func is_ordering() -> bool:
+	return state == "queued" and not _order_started
+
+## The sequence has been started (Roll to Hit / Fast Roll All, or the
+## single-weapon auto-start): the ordering step is over.
+func mark_order_started() -> void:
+	_order_started = true
+	_sync_cancel_button()
+
+func _on_cancel_pressed() -> void:
+	if not is_ordering():
+		return
+	emit_signal("action_requested", {"type": "CANCEL_WEAPON_ORDER", "actor_unit_id": active_shooter_id})
+
+## Only the ordering step can go back; enabled while the phase still allows it.
+func _sync_cancel_button() -> void:
+	if cancel_button == null:
+		return
+	cancel_button.visible = is_ordering()
+	if not cancel_button.visible:
+		return
+	var reason := ""
+	if phase and phase.has_method("weapon_order_cancel_block_reason"):
+		reason = str(phase.weapon_order_cancel_block_reason())
+	cancel_button.disabled = reason != ""
+	cancel_button.tooltip_text = CANCEL_TOOLTIP if reason == "" else "Targets are locked in: %s." % reason
+
+## Esc pressed while the targets are locked in: say why, in the panel.
+func show_cancel_refusal(reason: String) -> void:
+	status_label.text = "Targets are locked in: %s." % reason
+	_sync_cancel_button()
+
+## A board click while the panel is up does nothing (the guns are aimed). In
+## the ordering step, tell the player how to change targets instead.
+func show_board_click_hint() -> void:
+	if not is_ordering():
+		return
+	if cancel_button != null and cancel_button.disabled:
+		status_label.text = cancel_button.tooltip_text
+	else:
+		status_label.text = "Targets are set — press Esc (Back to Targets) to change them."
+
+func _on_stage_paused(stage: String, info: Dictionary) -> void:
+	super._on_stage_paused(stage, info)
+	_sync_cancel_button()
+
+func on_saves_pending(target_name: String) -> void:
+	super.on_saves_pending(target_name)
+	_sync_cancel_button()
+
 # ---------------------------------------------------------------------------
 # Base hooks
 # ---------------------------------------------------------------------------
@@ -41,6 +120,7 @@ func activate(p_assignments: Array, p_phase, p_controller, shooter_id: String) -
 	_activate_common(p_assignments, p_phase, p_controller)
 	active_shooter_id = shooter_id
 	state = "queued"
+	_order_started = false
 
 	var shooter_name := shooter_id
 	if phase and phase.has_method("get_unit"):
@@ -55,7 +135,9 @@ func activate(p_assignments: Array, p_phase, p_controller, shooter_id: String) -
 
 func deactivate() -> void:
 	active_shooter_id = ""
+	_order_started = false
 	super.deactivate()
+	_sync_cancel_button()
 
 # ---------------------------------------------------------------------------
 # Queue rendering
@@ -185,6 +267,7 @@ func _set_state_queued() -> void:
 	_clear_modifiers()
 	_clear_reroll_chips()
 	_rebuild_queue()
+	_sync_cancel_button()
 
 func on_next_weapon(remaining: Array, next_index: int, last_result: Dictionary) -> void:
 	if state == "idle":
@@ -207,6 +290,7 @@ func on_next_weapon(remaining: Array, next_index: int, last_result: Dictionary) 
 		var nxt = remaining[0]
 		status_label.text = "Next: %s" % _assignment_label(nxt)
 	_rebuild_queue()
+	_sync_cancel_button()
 
 func _stamp_result_note(idx: int, last_result: Dictionary) -> void:
 	if idx < 0 or idx >= assignments.size() or last_result.is_empty():
@@ -239,6 +323,7 @@ func _clean_order() -> Array:
 func _primary_pressed_other(current_state: String) -> void:
 	match current_state:
 		"queued":
+			mark_order_started()
 			emit_signal("action_requested", {
 				"type": "RESOLVE_WEAPON_SEQUENCE",
 				"payload": {"weapon_order": _clean_order(), "fast_roll": false}
@@ -254,6 +339,7 @@ func _primary_pressed_other(current_state: String) -> void:
 func _on_fast_pressed() -> void:
 	match state:
 		"queued":
+			mark_order_started()
 			emit_signal("action_requested", {
 				"type": "RESOLVE_WEAPON_SEQUENCE",
 				"payload": {"weapon_order": _clean_order(), "fast_roll": true}

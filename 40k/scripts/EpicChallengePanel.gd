@@ -2,7 +2,8 @@ extends PanelContainer
 class_name EpicChallengePanel
 
 # EpicChallengePanel — side-anchored variant of the Epic Challenge decision
-# dialog (T20, doc §3). Mirrors T06's WeaponOrderPanel pattern.
+# dialog (T20, doc §3). (T06's weapon-order panel ended up as the shooting
+# resolution dock's ordering step in the right HUD, not a panel like this.)
 #
 # Public API:
 #   open_for(challenger_id, defender_id, effect_preview: String)

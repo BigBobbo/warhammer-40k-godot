@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.60.0",
+      "date": "2026-10-31",
+      "summary": "Choosing the firing order for a unit's guns now has a way back: press Esc, or the new 'Back to Targets' button, to return to aiming with every gun still assigned and nothing rolled.",
+      "changes": [
+        "After you confirm targets for a unit with two or more kinds of gun, the firing-order list in the right-hand panel has a '◀ Back to Targets (Esc)' button under Fast Roll All. It, or the Esc key, takes you back to choosing targets with all your assignments kept, so you can change them and confirm again. Nothing has been rolled at that point.",
+        "Once your opponent has used a stratagem against the targets you declared (Smokescreen, for example), the targets are locked in: the button is greyed out, its tooltip says why, and Esc shows the reason in the panel instead.",
+        "Esc (or B on a controller) while the firing-order list or the dice are up no longer deselects the shooter. Before, it cleared the shooter and left the list on screen with nothing behind it.",
+        "Clicking the battlefield while the firing-order list is up no longer re-aims guns or picks another unit in the background. The panel tells you to press Esc to change targets. The battlefield stays visible and still shows the line of sight when you point at an enemy."
+      ]
+    },
+    {
       "version": "1.59.0",
       "date": "2026-10-31",
       "summary": "In the Shooting phase, resting the cursor on an enemy your shooter can hit now shows a forecast card beside the cursor: the weapon against that target, the dice it needs, and the expected hits, wounds and damage, with cover already counted.",

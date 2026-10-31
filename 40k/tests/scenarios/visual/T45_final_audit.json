@@ -33,7 +33,7 @@
       "script": "get_node_or_null(\"/root/Main/DatasheetModal\") != null",
       "equals": true },
     { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/Main/WeaponOrderPanel\") != null",
+      "script": "get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockCancelButton\") != null",
       "equals": true },
     { "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/EpicChallengePanel\") != null",
