@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.56.8",
+      "date": "2026-10-31",
+      "summary": "The AI no longer Advances toward a unit it means to charge when the Advance would cost it the charge.",
+      "changes": [
+        "Movement: Orks (and any unit without an advance-and-charge effect) no longer Advance toward a unit they mean to charge when the Advance would forfeit the charge. They make a Normal move toward it instead and keep the charge.",
+        "Movement: while a Waaagh! is active (or another advance-and-charge effect applies), those units still Advance toward their target, because then the Advance does not stop the charge."
+      ]
+    },
+    {
       "version": "1.56.7",
       "date": "2026-10-30",
       "summary": "The AI shares its units between objectives better: fewer wasted reinforcements, and no lone units sent to flip strongly held objectives.",

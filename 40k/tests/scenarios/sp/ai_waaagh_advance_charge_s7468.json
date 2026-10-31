@@ -1,0 +1,162 @@
+{
+  "id": "ai_waaagh_advance_charge_s7468",
+  "covers": [
+    "ai.movement.melee_chase",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "critic_waaagh_s7468_r3",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "WAAAGH-ADV-CHARGE (critic round 4). Saved position from critic game s7468 (Custodes vs Orks): round 3, Player 2 (Orks) Movement. The Stormboyz (M12) plan to charge the Prosecutor Squad 12.0 in away this turn, and a Normal move brings them into charge range. The AI's melee chase gate matched 'advance' and 'charge' in the text of the Orks' Waaagh! army rule and treated the unit as always able to charge after Advancing, so it Advanced 'to attack'. But that clause applies only while the unit is riled up, and P2's once-per-battle War Cry is already spent: the rules engine (ChargePhase, EffectPrimitives.has_effect_advance_and_charge) does not let a unit that Advanced declare a charge, so the Advance forfeits the charge a Normal move keeps (rollout value check: a Normal move to obj_nml_1 instead was +6.14 VP [3.08, 9.19] over 36 seeds). With the fix the chase gate asks the rules engine instead of the ability text: the Stormboyz make a Normal move to attack the Prosecutor Squad and keep the charge (the same move mode as the measured alternative, not the alternative itself, which was a Normal move to obj_nml_1). With an active Waaagh! (or another advance-and-charge effect) the unit still Advances. The scenario opens Suggest (K) twice on the same position: first with FIX_WAAAGH_ADVANCE_CHARGE=0 (the reviewed plan: 'Stormboyz advances to attack Prosecutor Squad'), then with the fix on ('Stormboyz moves to attack Prosecutor Squad'). Nothing is executed.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.load_player_profile(2, {\"parameters\": {\"FIX_WAAAGH_ADVANCE_CHARGE\": 0.0}})\nreturn true",
+      "equals": true,
+      "comment": "BEFORE: switch the fix off for P2 (the Orks, the player deciding this movement phase)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Stormboyz advances to attack Prosecutor Squad (12.0\\\" away — closing to charge range (0.0\\\" after move))\")",
+      "equals": true,
+      "comment": "fix off: the card's headline is the reviewed move (an Advance 'to attack')"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(tree.root.get_node(\"Main\")._ai_suggestion_panel._decision.get(\"type\", \"\"))",
+      "equals": "BEGIN_ADVANCE",
+      "comment": "fix off: the action the card would take is BEGIN_ADVANCE"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Charge intent: Stormboyz → Prosecutor Squad (12.0\\\" away)\")",
+      "equals": true,
+      "comment": "fix off: the AI also plans to charge the Prosecutor Squad this turn"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return EffectPrimitivesData.has_effect_advance_and_charge(GameState.state.units[\"U_STORMBOYZ_A\"])",
+      "equals": false,
+      "comment": "the rules engine's own test (ChargePhase): no advance-and-charge effect is active on the Stormboyz, so after an Advance they could not declare that charge (the reviewed mistake)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"FIX_WAAAGH_ADVANCE_CHARGE=0.000\")",
+      "equals": true,
+      "comment": "fix off: the card was built with the switch at 0 (developer details)"
+    },
+    {
+      "act": "screenshot",
+      "label": "00_fix_off_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.clear_player_profile(2)\nreturn true",
+      "equals": true,
+      "comment": "AFTER: fix on (default)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Stormboyz moves to attack Prosecutor Squad (12.0\\\" away — closing to charge range (0.0\\\" after move))\")",
+      "equals": true,
+      "comment": "fix on: the card's headline is the same attack as a Normal move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(tree.root.get_node(\"Main\")._ai_suggestion_panel._decision.get(\"type\", \"\"))",
+      "equals": "BEGIN_NORMAL_MOVE",
+      "comment": "fix on: the action the card would take is BEGIN_NORMAL_MOVE"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Stormboyz advances to attack\")",
+      "equals": false,
+      "comment": "fix on: no Advance toward the unit it means to charge"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Charge intent: Stormboyz → Prosecutor Squad (12.0\\\" away)\")",
+      "equals": true,
+      "comment": "fix on: the charge the Normal move keeps"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"FIX_WAAAGH_ADVANCE_CHARGE=1.000\")",
+      "equals": true,
+      "comment": "fix on (default): the card was built with the switch at 1 (developer details)"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fix_on_after"
+    }
+  ]
+}
