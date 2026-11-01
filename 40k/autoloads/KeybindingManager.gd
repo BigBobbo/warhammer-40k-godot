@@ -441,7 +441,16 @@ func load_bindings(path: String = SAVE_PATH) -> void:
 		if _fpz_plain_f and _fvb_plain_f:
 			_fpz.key = _fpz.default_key
 			_fpz.alt_key = _fpz.default_alt_key
-			DebugLogger.info("[KeybindingManager] Migrated stale focus_p2_zone=F binding to unbound (F is Fit View to Board)", {"config": path})
+			var _msg := "[KeybindingManager] Migrated stale focus_p2_zone=F binding to unbound (F is Fit View to Board)"
+			print(_msg)
+			# DebugLogger is looked up through the tree, not named: tests that
+			# load this script with .new() from a SceneTree's _init() compile it
+			# before any autoload is registered, and a bare DebugLogger
+			# identifier then fails to compile (test_weapon_range_panel_unbound).
+			var _main_loop = Engine.get_main_loop()
+			var _logger = (_main_loop as SceneTree).root.get_node_or_null("DebugLogger") if _main_loop is SceneTree else null
+			if _logger != null and _logger.has_method("info"):
+				_logger.info(_msg, {"config": path})
 	print("[KeybindingManager] Loaded keybindings from %s" % path)
 
 # ============================================================================
