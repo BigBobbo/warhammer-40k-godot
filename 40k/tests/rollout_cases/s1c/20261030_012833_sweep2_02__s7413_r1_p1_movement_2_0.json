@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (capturing it (uncontrolled) \u2014 worth ~8 VP)",
+ "created": "2026-10-30 01:29:10",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7413_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends Prosecutor Squad to obj_nml_1, which friendly units already hold. This adds no control and wastes the unit's move. Fix: Compute the marginal gain of sending a unit to an objective. If friendly units already hold it and no enemy is within threat range, set expected_vp and objective_priority near zero. Send the unit to an unheld objective instead.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7413_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:1100,390",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad moves toward obj_nml_1 (capturing it (uncontrolled), obj: 5.7\" away)",
+ "verdict": "bad",
+ "version": 1
+}

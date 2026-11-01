@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Terminator Assault Squad arrives",
+ "created": "2026-10-30 02:31:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7426_r2_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI deep struck the 395 point Terminator Assault Squad onto its own safe home objective. This wastes the arrival, because the squad has no target and the objective is already held. Fix: Score arrive_objectives only by the marginal change in control, meaning newly taken or newly contested objectives, and give zero for objectives already held with no enemy OC nearby. Add a term for distance to enemy units and charge reach. For melee deep strikers, penalise placement more than 20 in from any enemy.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7426_r2_p1_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_TERMINATOR_ASSAULT_SQUAD_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_TERMINATOR_ASSAULT_SQUAD_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Terminator Assault Squad arrives from Deep Strike",
+ "verdict": "bad",
+ "version": 1
+}

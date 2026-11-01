@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Allarus Custodians (8.6\" away, 28% chance)",
+ "created": "2026-10-30 23:48:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7479_r3_p1_charge_1",
+ "note": "[LLM critic, medium conf] Beta declares a charge at a 28% chance against 18-wound Allarus. The AI's own ch_retaliation of -10 is nearly as large as its ch_damage of 15. The positive score comes from unscaled terms, not a clear gain. Fix: Multiply ch_damage and ch_tie_up_shooter by charge probability. Add a penalty for exposing a unit below half wounds to counter-charge and retaliation. Require a positive expected points trade before declaring a low-probability charge.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7479_r3_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:225,434",
+  "decision": "charge",
+  "targets": "U_ALLARUS_CUSTODIANS_A_P2,U_BLADE_CHAMPION_A_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta declares a charge at Allarus Custodians + Blade Champion Alpha \u2014 targets picked after the roll: Allarus Custodians on 9+ (28%), Blade Champion Alpha on 11+ (8%), overwatch risk: 0.4 dmg",
+ "verdict": "pending",
+ "version": 1
+}

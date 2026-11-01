@@ -1,0 +1,4 @@
+RECHECK_SHARD pr10_3
+ROLLOUT_RESULT {"job":"20261030_160400_r4c11_00__s7462_r1_p1_shooting_2_5","status":"ok","E":0.042,"se":0.765,"ci":[-1.46,1.54],"n":24,"A":2.125,"B":2.167,"mat":11.947,"drift":false,"a_did":"Lootas Alpha shoots at Burna Boyz Alpha — expected 1.0 dmg vs 5 HP (21% kill)","applied":24,"identical":10}
+ROLLOUT_RESULT {"job":"20261030_234707_r5c05_00__s7480_r2_p1_movement_2_3","status":"ok","E":0.958,"se":2.235,"ci":[-3.42,5.34],"n":24,"A":8.458,"B":9.417,"mat":69.689,"drift":false,"a_did":"Custodian Guard Sodality Beta advances toward obj_home_2 (flipping it (enemy holds with OC 3), needs 3 more OC","applied":24,"identical":0}
+SHARD_DONE 3/6 jobs=2

@@ -1,0 +1,234 @@
+[
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r1_p2_movement_1_0",
+  "case": "20261030_160413_r4c08_00__s7459_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_MEK_B_P2",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a lone OC1 character on a 2-turn walk toward obj_center. The 'worth ~10 VP' figure looks inflated. The objective may already be taken by Lootas Beta, which advances there.",
+  "better_option": "Hold obj_home_2 (on objective, OC needed \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00"
+ },
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r1_p2_movement_2_1",
+  "case": "20261030_160413_r4c08_00__s7459_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a 5-model Burna unit alone to a far corner for a 'screen' with a score of 1.2. It rejected a central objective advance worth 43 and ignored the unit's role as a flamer unit.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00"
+ },
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r1_p1_movement_2_2",
+  "case": "20261030_160413_r4c08_00__s7459_r1_p1_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A",
+    "objective": "obj_home_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "A Lootas unit with a 48 in Deffgun walks 42 in alone to the enemy home objective. It would arrive on turn 5 and would give up its firing and objective roles.",
+  "better_option": "Hold obj_home_1 (on objective, OC needed \u2014 worth ~12 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00"
+ },
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r2_p2_movement_1_3",
+  "case": "20261030_160413_r4c08_00__s7459_r2_p2_movement_1_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_STORMBOYZ_A_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI deep strikes Stormboyz to an isolated edge spot that holds no objective. It gains little primary VP and exposes the unit to counter-attack.",
+  "better_option": "unlisted: arrive Stormboyz near obj_center (22.0, 30.0) or obj_nml_2 (17.5, 51.3). Prefer a spot more than 9 in from enemies that supports a Player 2 objective.",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00"
+ },
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r2_p2_movement_2_4",
+  "case": "20261030_160413_r4c08_00__s7459_r2_p2_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_TANKBUSTAS_A_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Tankbustas arrive on the far left edge, far from every objective P2 holds. They are slow and have no screen, so they add little to the fight for the center. The one in-range target is Gretchin, a poor use of anti-tank rockets.",
+  "better_option": "unlisted: Tankbustas arrive on a legal edge spot nearer obj_center or obj_home_2, with enemy targets inside 24 in",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00"
+ },
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r2_p2_shooting_2_5",
+  "case": "20261030_160413_r4c08_00__s7459_r2_p2_shooting_2_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_B_P2",
+    "target": "U_STORMBOYZ_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shoots a far, isolated 5-model unit at long range for 0.5 damage. It ignores Stormboyz, which are in rapid fire range and are the real threat to P2 objectives.",
+  "better_option": "Big shoota \u2192 enemy Stormboyz (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00"
+ },
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r2_p2_charge_1_6",
+  "case": "20261030_160413_r4c08_00__s7459_r2_p2_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI declares a 28% charge that costs 5.4 overwatch damage on a unit with 11 wounds. The charge gives only about 3.4 expected damage, so the net result is negative.",
+  "better_option": "unlisted: do not charge, keep Beast Snagga Boyz near CENTER and HOME 2",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00"
+ },
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r2_p2_charge_2_7",
+  "case": "20261030_160413_r4c08_00__s7459_r2_p2_charge_2_7.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends 140 points of Stormboyz at a Battlewagon on a 28% roll. They are poor at hurting a T11 vehicle and would then sit in engagement with it.",
+  "better_option": "unlisted: do not charge with Stormboyz",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00"
+ },
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r3_p1_movement_1_8",
+  "case": "20261030_160413_r4c08_00__s7459_r3_p1_movement_1_8.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": [
+     "U_LOOTAS_B_P2"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a nearly dead Stormboyz to the center and labels it an attack on Battlewagon Beta. The unit cannot hurt a T11 vehicle, and one OC cannot flip a center the enemy holds with OC 13.",
+  "better_option": "unlisted: Stormboyz stays out of enemy shooting and charges a weak enemy shooter such as Lootas Beta, or screens near home",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00"
+ }
+]

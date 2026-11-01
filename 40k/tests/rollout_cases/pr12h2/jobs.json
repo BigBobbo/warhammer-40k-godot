@@ -1,0 +1,592 @@
+[
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r1_p1_movement_2_2",
+  "case": "20261030_160413_r4c08_00__s7459_r1_p1_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A",
+    "objective": "obj_home_1",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "A Lootas unit with a 48 in Deffgun walks 42 in alone to the enemy home objective. It would arrive on turn 5 and would give up its firing and objective roles.",
+  "better_option": "Hold obj_home_1 (on objective, OC needed \u2014 worth ~12 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00",
+  "from_batch": "r4c08",
+  "purpose": "v2"
+ },
+ {
+  "job": "20261030_160413_r4c08_00__s7459_r2_p2_charge_1_6",
+  "case": "20261030_160413_r4c08_00__s7459_r2_p2_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI declares a 28% charge that costs 5.4 overwatch damage on a unit with 11 wounds. The charge gives only about 3.4 expected damage, so the net result is negative.",
+  "better_option": "unlisted: do not charge, keep Beast Snagga Boyz near CENTER and HOME 2",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "priority_assets",
+   "seeds": "7459",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160413_r4c08_00",
+  "from_batch": "r4c08",
+  "purpose": "v2"
+ },
+ {
+  "job": "20261030_234804_r5c12_00__s7487_r2_p2_charge_1_3",
+  "case": "20261030_234804_r5c12_00__s7487_r2_p2_charge_1_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a Blade Champion at 28% odds. It overrates the damage and ignores that the Blade Champion would kill many Kommandos in return.",
+  "better_option": "unlisted: do not charge with Kommandos (targets [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7487",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234804_r5c12_00",
+  "from_batch": "r5c12",
+  "purpose": "v2"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r1_p2_movement_1_2",
+  "case": "20261030_160521_r4c14_00__s7465_r1_p2_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gretchin march to a far-left backfield corner to screen, and they leave the nearby center objective and the right flank empty.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00",
+  "from_batch": "r4c14",
+  "purpose": "v2"
+ },
+ {
+  "job": "20261030_160521_r4c14_00__s7465_r2_p1_charge_1_4",
+  "case": "20261030_160521_r4c14_00__s7465_r2_p1_charge_1_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Stormboyz declare a 17% charge at a 16 wound Battlewagon. The Stormboyz cannot hurt it much and would be left alone deep in enemy lines.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7465",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160521_r4c14_00",
+  "from_batch": "r4c14",
+  "purpose": "v2+info:charge_target"
+ },
+ {
+  "job": "20261030_234730_r5c09_00__s7484_r1_p1_movement_1_0",
+  "case": "20261030_234730_r5c09_00__s7484_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Burna Boyz Beta to a far-corner 'backfield gap' screen position. The screen scored 2.76 and the moves to objectives scored 17 to 26. The 'screen_denial' assignment overrode the better options.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7484",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234730_r5c09_00",
+  "from_batch": "r5c09",
+  "purpose": "v2"
+ },
+ {
+  "job": "20261030_234630_r5c02_00__s7477_r1_p1_movement_2_0",
+  "case": "20261030_234630_r5c02_00__s7477_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI sent the Prosecutor Squad to a backfield screen spot. It rejected the top-scored move to obj_nml_1 for a reason that applies only to obj_home_2, so the override reason does not match the choice.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7477",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234630_r5c02_00",
+  "from_batch": "r5c02",
+  "purpose": "v2"
+ },
+ {
+  "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_1_2",
+  "case": "20261030_160506_r4c12_00__s7463_r1_p2_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_KOMMANDOS_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Kommandos walk to a home objective that is already held with 20 OC. The AI rejects an Advance to obj_center by 0.11 points even though it values obj_center at about 7 VP.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "priority_assets",
+   "seeds": "7463",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160506_r4c12_00",
+  "from_batch": "r4c12",
+  "purpose": "info:marginal_oc"
+ },
+ {
+  "job": "20261030_234632_r5c00_00__s7475_r3_p1_movement_2_5",
+  "case": "20261030_234632_r5c00_00__s7475_r3_p1_movement_2_5.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Custodian Guard Sodality Beta to hold a centre objective that is already held 20 to 9. It could instead advance toward the enemy-held obj_nml_1.",
+  "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "take_and_hold",
+   "seeds": "7475",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234632_r5c00_00",
+  "from_batch": "r5c00",
+  "purpose": "info:marginal_oc"
+ },
+ {
+  "job": "20261030_234556_r5c03_00__s7478_r3_p2_movement_1_5",
+  "case": "20261030_234556_r5c03_00__s7478_r3_p2_movement_1_5.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a 3-model Custodian Guard unit with OC 9 on a 2-turn trip to an uncontested home objective, instead of backing the contested centre fight.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~13 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "reconnaissance",
+   "seeds": "7478",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234556_r5c03_00",
+  "from_batch": "r5c03",
+  "purpose": "info:marginal_oc"
+ },
+ {
+  "job": "20261030_234707_r5c05_00__s7480_r1_p1_movement_1_0",
+  "case": "20261030_234707_r5c05_00__s7480_r1_p1_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gamma went back to hold home. It is the only unit on home now, but Alpha is near and could hold home instead. That would free Gamma to move forward. The hold bonus is low in round 1 with no enemy nearby.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7480",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234707_r5c05_00",
+  "from_batch": "r5c05",
+  "purpose": "info:marginal_oc"
+ },
+ {
+  "job": "20261030_234707_r5c05_00__s7480_r3_p2_charge_1_6",
+  "case": "20261030_234707_r5c05_00__s7480_r3_p2_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A_P2",
+    "targets": [
+     "U_BLADE_CHAMPION_A"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends 3 Allarus models (18 wounds) at a 2-wound lone model. This wastes most of the unit's melee output. The 97% chance and the ch_short_charge bonus push the score above the higher-value Blade Champion Alpha.",
+  "better_option": "Charge Blade Champion Alpha (4.3\" away, 83% chance)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "purge_the_foe",
+   "seeds": "7480",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234707_r5c05_00",
+  "from_batch": "r5c05",
+  "purpose": "info:charge_target"
+ },
+ {
+  "job": "20261030_160402_r4c10_00__s7461_r3_p2_charge_1_6",
+  "case": "20261030_160402_r4c10_00__s7461_r3_p2_charge_1_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BATTLEWAGON_A_P2",
+    "targets": [
+     "U_BEASTBOSS_A"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges the Beast Snagga Boyz and Beastboss with its Battlewagon. The scores tie at 2.51, and a ch_retaliation of -4.0 shows the risk. The charge value is thin and it scores no objective gain.",
+  "better_option": "Charge Beastboss (5.1\" away, 72% chance)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "take_and_hold",
+   "seeds": "7461",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160402_r4c10_00",
+  "from_batch": "r4c10",
+  "purpose": "info:charge_target"
+ },
+ {
+  "job": "20261030_160400_r4c11_00__s7462_r1_p2_movement_1_0",
+  "case": "20261030_160400_r4c11_00__s7462_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Lootas Alpha to obj_nml_1, which is already covered by Battlewagon Beta. The unit then moves a 25.6 in trip with no firing lane. It also sent the 10 OC to a contest it cannot win.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7462",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160400_r4c11_00",
+  "from_batch": "r4c11",
+  "purpose": "info:ranged_hold_vs_centre"
+ },
+ {
+  "job": "20261030_160506_r4c12_00__s7463_r1_p2_movement_2_3",
+  "case": "20261030_160506_r4c12_00__s7463_r1_p2_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI chose a flat 8.0 'screen' score over objective moves that score 22 to 28. The screen option has no threat, distance or objective terms, so it cannot be compared fairly.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "priority_assets",
+   "seeds": "7463",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160506_r4c12_00",
+  "from_batch": "r4c12",
+  "purpose": "info:ranged_hold_vs_centre"
+ },
+ {
+  "job": "20261030_160415_r4c09_00__s7460_r1_p1_movement_2_0",
+  "case": "20261030_160415_r4c09_00__s7460_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Lootas Alpha advances 21 in to obj_nml_2, which is already held by Mek Beta. Obj_center scores the same and is not held.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "reconnaissance",
+   "seeds": "7460",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160415_r4c09_00",
+  "from_batch": "r4c09",
+  "purpose": "info:ranged_hold_vs_centre"
+ },
+ {
+  "job": "20261030_234632_r5c00_00__s7475_r2_p1_movement_2_2",
+  "case": "20261030_234632_r5c00_00__s7475_r2_p1_movement_2_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Alpha alone on a 3-turn walk to an objective the enemy holds with OC 11. It skipped obj_center, where the main fight will be.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "disruption",
+   "disposition2": "take_and_hold",
+   "seeds": "7475",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234632_r5c00_00",
+  "from_batch": "r5c00",
+  "purpose": "info:attack_move"
+ },
+ {
+  "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+  "case": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta moves 18 in toward obj_nml_1 to flip an OC 11 enemy hold. Beta has OC 9 and needs two turns to arrive. The move is only sound if Gamma and Champion Gamma join it.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7455",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160257_r4c04_00",
+  "from_batch": "pr8",
+  "purpose": "info:attack_move"
+ },
+ {
+  "job": "20261030_020603_sweep2_10__s7421_r2_p1_movement_2_1",
+  "case": "20261030_020603_sweep2_10__s7421_r2_p1_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends Gamma to an objective that P1 already holds, with reasoning that says it needs 2 more OC. Gamma could instead head for the enemy-held center.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~7 VP)",
+  "config": {
+   "stage": "all",
+   "run_dir": null,
+   "cases": [],
+   "seeds": "7421",
+   "label": "sweep2_10",
+   "army1": "custodes_lions",
+   "army2": "sw11e_gw_import_2000",
+   "zone": "crucible_of_battle",
+   "layout": "",
+   "mission": "take_and_hold",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "layout_variant": 3,
+   "seat": 0,
+   "phases": "MOVEMENT,SHOOTING,CHARGE,FIGHT",
+   "per_phase": 2,
+   "stride": 2,
+   "max_captures": 40,
+   "max_round": 3,
+   "time_scale": 2.0,
+   "max_seconds": 1800.0,
+   "poll": 0.3,
+   "no_shots": false,
+   "review_model": "claude-sonnet-5-5",
+   "synth_model": "claude-opus-5-5",
+   "jobs": 4,
+   "timeout": 180,
+   "synth_timeout": 900,
+   "fresh": false,
+   "repeats": 1,
+   "no_synth": true,
+   "verify_timeout": 1800,
+   "from_verdicts": null,
+   "verdict": "bad",
+   "value_run": false,
+   "value_seeds": 12,
+   "value_horizon": 1,
+   "value_lanes": 4
+  },
+  "run_dir": "20261030_020603_sweep2_10",
+  "from_batch": "s1e",
+  "purpose": "info:attack_move"
+ },
+ {
+  "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3",
+  "case": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a lone 3-model unit into a stack of enemy units to flip nml_1. It cannot flip it and will probably die. The center, worth 20 VP, was dropped as 'already taken' even though Beta is still 9 in away.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~20 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "purge_the_foe",
+   "seeds": "7454",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160317_r4c03_00",
+  "from_batch": "r4c03",
+  "purpose": "info:attack_move"
+ }
+]

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Alpha (7.5\" away, 42% chance)",
+ "created": "2026-10-30 16:12:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7471_r2_p1_charge_2",
+ "note": "[LLM critic, medium conf] The AI sends 8 Beast Snagga Boyz at 42% odds to deal about 2.3 damage to a 240pt Custodian unit. Expected damage is tiny and the retaliation is heavy. The positive terms (ch_gang_up, ch_below_half, ch_tie_up_shooter) outweigh the real cost. Fix: Cap the gang-up and below-half bonuses by the charging unit's real expected damage against the target. Scale ch_retaliation by the target's full melee output against the charger's wounds. Require the net expected points trade to be positive before a charge with success below 50%.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7471_r2_p1_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:1054,1278",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz declares charge against Custodian Guard Sodality Alpha (42% chance, 7.5\" away, expected 2.3 melee dmg vs 5 HP, overwatch risk: 0.8 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,156 @@
+[
+ {
+  "job": "20261030_234630_r5c02_00__s7477_r1_p1_movement_2_0",
+  "case": "20261030_234630_r5c02_00__s7477_r1_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI sent the Prosecutor Squad to a backfield screen spot. It rejected the top-scored move to obj_nml_1 for a reason that applies only to obj_home_2, so the override reason does not match the choice.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7477",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234630_r5c02_00"
+ },
+ {
+  "job": "20261030_234630_r5c02_00__s7477_r2_p2_movement_2_1",
+  "case": "20261030_234630_r5c02_00__s7477_r2_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Gamma advances 42.7 in alone toward the enemy home objective. It will take about 4 turns to arrive, and it forfeits Assault-only shooting and charges along the way. The AI overrode the better centre option because the centre already had enough OC.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7477",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234630_r5c02_00"
+ },
+ {
+  "job": "20261030_234630_r5c02_00__s7477_r2_p1_charge_1_2",
+  "case": "20261030_234630_r5c02_00__s7477_r2_p1_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta declares a 28% charge on Delta. A success would leave Beta alone in the middle of several enemy melee units, and a failure wastes the turn.",
+  "better_option": "Do not charge (targets: []). Keep Beta near the center and shoot or hold.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7477",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234630_r5c02_00"
+ },
+ {
+  "job": "20261030_234630_r5c02_00__s7477_r3_p2_movement_1_3",
+  "case": "20261030_234630_r5c02_00__s7477_r3_p2_movement_1_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_D_P2",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Delta holds obj_center, which P2 already controls with OC 14 against 3. The plan puts three units on that one objective, so Delta adds almost no control.",
+  "better_option": "Move obj_home_2 (moving to objective)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7477",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234630_r5c02_00"
+ },
+ {
+  "job": "20261030_234630_r5c02_00__s7477_r3_p1_movement_1_4",
+  "case": "20261030_234630_r5c02_00__s7477_r3_p1_movement_1_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a weakened 2-model unit with OC 6 to obj_center, which the enemy holds with OC 23. The unit cannot flip it and is likely to be charged and destroyed.",
+  "better_option": "Move obj_home_1 (moving to objective \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7477",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234630_r5c02_00"
+ },
+ {
+  "job": "20261030_234630_r5c02_00__s7477_r3_p1_shooting_1_5",
+  "case": "20261030_234630_r5c02_00__s7477_r3_p1_shooting_1_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "target": "U_CUSTODIAN_GUARD_A_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shoots Beta, a full-health 15 HP unit, with 0.9 expected damage. Alpha (P2) at 13 HP is a slightly better target, and the options score almost the same.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Alpha (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "priority_assets",
+   "seeds": "7477",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_234630_r5c02_00"
+ }
+]

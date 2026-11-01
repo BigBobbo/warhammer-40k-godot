@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~7 VP)",
+ "created": "2026-10-30 16:03:03",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7451_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] Gamma moves normally toward obj_center, which Alpha already covers, and does not advance. A move toward the center objective is reasonable, but the choice has a contest_race penalty of -13.74 and the option text says it is still 2 turns away. Fix: When a second unit reinforces an objective that is still uncontrolled, add a bonus for arriving in the same turn as the first unit. Then the AI will compare advance and move by whether the pair can hold the objective on arrival. Also remove the contest_race penalty when no enemy unit can reach the objective before the AI arr",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7451_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 20.0\" away)",
+ "verdict": "pending",
+ "version": 1
+}

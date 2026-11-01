@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 18\"))",
+ "created": "2026-10-30 23:46:27",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7478_r1_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent the Prosecutor Squad to a screen point. A free objective (obj_nml_2) was available, and the unit could reach it next turn. The screen option scored 5.0 against 24.9 for obj_nml_2. It won only because an override rule removed the objective options. Fix: Apply the lone-unit danger check to each objective option on its own. Do not assign Screen as a fallback for the whole unit. Give a screen only a value tied to a real enemy threat or a real unit to protect. Compare it with the best safe objective on one scale.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7478_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A_P2",
+  "choice": "pos:320,1520",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad screens at (320,1520) \u2014 backfield gap (nearest friendly: 18\")",
+ "verdict": "bad",
+ "version": 1
+}

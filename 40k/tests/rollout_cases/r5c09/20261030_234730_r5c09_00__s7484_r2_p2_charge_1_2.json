@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Mek Beta (8.5\" away, 28% chance)",
+ "created": "2026-10-30 23:54:32",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7484_r2_p2_charge_1",
+ "note": "[LLM critic, high conf] The AI charged a 28% chance target with a heavy negative net chance term, and the final score was positive only because of large bonus terms, so the charge is poor value. Fix: Cap ch_damage at the target's remaining wounds. Multiply all kill bonuses by charge probability. Do not stack can_wipe, can_halve and character bonuses on one kill. Make order_round_aggression scale with charge probability. Require a minimum charge probability, such as 40 percent, unless the target is worth a lot.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7484_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A_P2",
+  "choice": "pos:1175,319",
+  "decision": "charge",
+  "targets": "U_MEK_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares charge against Mek Beta (28% chance, 8.5\" away, expected 17.8 melee dmg vs 2 HP, overwatch risk: 5.4 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

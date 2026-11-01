@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Mek Beta (P2)",
+ "created": "2026-10-30 01:43:14",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7408_r2_p1_shooting_1",
+ "note": "[LLM critic, medium conf] The AI shot Mek Beta, a 4-wound character, with 10% kill odds. The kill_threshold term of 4.0 is higher than the expected damage and decides the pick. The shot has little value either way. Fix: Multiply the kill bonus by the actual kill probability. Add a target-value term based on points and the threat the target poses to the shooter. Prefer a target the shot can wear down, such as a 9-model unit that is worth 100 points, over a single model that is unlikely to die.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7408_r2_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A",
+  "choice": "desc:Big shoota \u2192 enemy Mek Beta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha shoots at Mek Beta \u2014 expected 0.4 dmg vs 4 HP (10% kill)",
+ "verdict": "pending",
+ "version": 1
+}

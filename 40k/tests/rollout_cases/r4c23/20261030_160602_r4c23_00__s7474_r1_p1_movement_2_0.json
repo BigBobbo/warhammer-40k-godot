@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 22\"))",
+ "created": "2026-10-30 16:07:03",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7474_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sends Gretchin on a trip of about 29 in to an empty corner to screen. Gretchin move only 6 in. The screen position has no clear threat to block. Fix: Score a screen position only if it blocks an enemy charge or move lane to a friendly unit or objective. Reject screen goals farther than 2 turns of movement from the unit. Compare the screen score against the objective options. Do not use a fixed base bonus.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7474_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:1600,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (1600,320) \u2014 backfield gap (nearest friendly: 22\")",
+ "verdict": "bad",
+ "version": 1
+}

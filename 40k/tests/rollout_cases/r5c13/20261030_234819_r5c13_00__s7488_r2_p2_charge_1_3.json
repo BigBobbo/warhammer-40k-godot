@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Beta (9.5\" away, 17% chance)",
+ "created": "2026-10-30 23:52:49",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7488_r2_p2_charge_1",
+ "note": "[LLM critic, medium conf] The AI charges a weak 12 HP Kommandos unit into elite Custodians at 17% success. The chosen score of 4.38 comes mostly from bonus terms, and the 17% chance is penalised too little. Fix: Multiply every upside term (damage, points trade, tie-up, aggression bonus) by the charge probability. Cap the aggression bonus when charge probability is below 30%. Compute melee damage with the target's real save and invulnerable save. Raise retaliation when several enemy units can reach the charger. Reject any charge whose final score is below zero once the upside is probability-wei",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7488_r2_p2_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_KOMMANDOS_A",
+  "choice": "pos:659,1120",
+  "decision": "charge",
+  "targets": "U_CUSTODIAN_GUARD_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Kommandos declares charge against Custodian Guard Sodality Beta (17% chance, 9.5\" away, expected 8.9 melee dmg vs 12 HP, overwatch risk: 0.8 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

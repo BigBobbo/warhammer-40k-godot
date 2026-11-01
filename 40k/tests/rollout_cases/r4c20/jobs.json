@@ -1,0 +1,306 @@
+[
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r1_p2_movement_1_0",
+  "case": "20261030_160630_r4c20_00__s7471_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI pulls a 4-model OC2 unit back to screen a home objective that Custodian Guard Gamma already covers, instead of supporting obj_center. The screen value looks flat and inflated.",
+  "better_option": "Move obj_center (moving to objective)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r1_p1_movement_1_1",
+  "case": "20261030_160630_r4c20_00__s7471_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a 12 in-range flamer unit alone to an open backfield gap. It rejected the centre objective, which was its top-scored option, because of a contest_race penalty.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~5 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r2_p2_charge_1_2",
+  "case": "20261030_160630_r4c20_00__s7471_r2_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI declares an 8% charge on a 6 HP character and leaves the center objective for a likely failed move, because the charge score is positive only through inflated damage and bonus terms.",
+  "better_option": "unlisted: do not charge. Stay on obj_center.",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r2_p2_charge_2_3",
+  "case": "20261030_160630_r4c20_00__s7471_r2_p2_charge_2_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI declares a charge with an 8% success chance. It is below the charge_threshold of 0.23. Large flat bonuses make the score positive anyway, and the charge risks 7.6 dmg of overwatch.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r2_p1_movement_1_4",
+  "case": "20261030_160630_r4c20_00__s7471_r2_p1_movement_1_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_TANKBUSTAS_A",
+    "objective": "obj_nml_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 2,
+  "summary": "Tankbustas arrive alone beside an objective that 9 enemy OC hold. They cannot take it, and the Custodians can charge them next turn.",
+  "better_option": "unlisted: arrive on a safe edge near own side, or near obj_nml_1, and support the army",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r2_p1_charge_1_5",
+  "case": "20261030_160630_r4c20_00__s7471_r2_p1_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI charges the wounded Custodian Guard Alpha at 28% and counts a wipe, but the damage estimate looks inflated and the Stormboyz are exposed afterward.",
+  "better_option": "unlisted: do not charge with Stormboyz",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r2_p1_charge_2_6",
+  "case": "20261030_160630_r4c20_00__s7471_r2_p1_charge_2_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends 8 Beast Snagga Boyz at 42% odds to deal about 2.3 damage to a 240pt Custodian unit. Expected damage is tiny and the retaliation is heavy. The positive terms (ch_gang_up, ch_below_half, ch_tie_up_shooter) outweigh the real cost.",
+  "better_option": "Charge Custodian Guard Sodality Alpha with no charge, or hold the Boyz back for a combined charge with Stormboyz and Beastboss",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r3_p2_shooting_1_7",
+  "case": "20261030_160630_r4c20_00__s7471_r3_p2_shooting_1_7.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "target": "U_BURNA_BOYZ_B"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI split the Allarus weapons across two targets. The Balistus Grenade Launcher goes to Lootas Beta (14% kill) and the Guardian Spear goes to Burna Boyz Beta. Neither target is likely to die.",
+  "better_option": "Balistus Grenade Launcher \u2192 enemy Burna Boyz Beta (P1)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r3_p1_movement_1_8",
+  "case": "20261030_160630_r4c20_00__s7471_r3_p1_movement_1_8.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI kept 3 Burna Boyz as a screen with a flat screen_base 8.0 score. The unit sits exposed in front of the army and is likely to die to a charge without adding much.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r3_p1_movement_2_9",
+  "case": "20261030_160630_r4c20_00__s7471_r3_p1_movement_2_9.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_LOOTAS_C",
+    "target": "U_CUSTODIAN_GUARD_D"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 2,
+  "summary": "The AI moves a fragile shooting unit toward the enemy-held center, which ends inside Custodian charge range and loses the Heavy bonus. It gains no objective this turn.",
+  "better_option": "unlisted: stay in place and shoot Custodian Guard Sodality Delta with the Deffguns and mega-blastas",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r3_p1_shooting_2_10",
+  "case": "20261030_160630_r4c20_00__s7471_r3_p1_shooting_2_10.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_B",
+    "target": "U_ALLARUS_CUSTODIANS_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot the Big shoota at the full-health Allarus Custodians #3, 30.8 in away, for 0.1 expected damage. It ignored the 2-wound Allarus Custodians, which is closer and nearly dead.",
+  "better_option": "Big shoota \u2192 enemy Allarus Custodians (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ },
+ {
+  "job": "20261030_160630_r4c20_00__s7471_r3_p1_charge_1_11",
+  "case": "20261030_160630_r4c20_00__s7471_r3_p1_charge_1_11.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Stormboyz charge Blade Champion Beta, a T7 2+ save 4+ invulnerable character with 7 wounds. The AI overrates the damage and adds no retaliation penalty for this target.",
+  "better_option": "unlisted: do not charge with Stormboyz",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7471",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160630_r4c20_00"
+ }
+]

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_nml_1 (sole holder \u2014 leaving would drop control \u2014 worth ~10 VP)",
+ "created": "2026-10-30 16:03:22",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7452_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI holds NML 1 with a unit that is already redundant there. It calls the unit the sole holder, but Custodian Guard Gamma is next to it. The unit could advance toward the center objective. Fix: Compute whether the objective stays held without this unit, counting other friendly OC in range. Add a threat check: reduce the hold bonus when no enemy can reach the objective next turn. Prefer to free the redundant unit for another objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7452_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:987,387",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad holds obj_nml_1 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

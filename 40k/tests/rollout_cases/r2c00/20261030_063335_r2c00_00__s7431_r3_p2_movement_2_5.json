@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~6 VP)",
+ "created": "2026-10-30 06:36:06",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7431_r3_p2_movement_2",
+ "note": "[LLM critic, high conf] Beta moves to reinforce obj_nml_2, which Gamma already holds with 9 OC. It skips obj_center, which it could flip. Fix: Subtract the value of an objective that is already held with OC well above any enemy threat in reach. Add a bonus for flipping an enemy-held objective. Make any override that rejects the top option name that option and give a real reason.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7431_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "pos:540,1970",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_nml_2 (moving toward charge target Custodian Guard Sodality Gamma, obj: 15.8\" away)",
+ "verdict": "bad",
+ "version": 1
+}

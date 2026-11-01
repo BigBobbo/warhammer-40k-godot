@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (2 units already committed) \u2014 worth ~9 VP)",
+ "created": "2026-10-30 23:50:05",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7482_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends a fragile OC1 Mek toward obj_center, which is already reinforced by 2 units, and it walks a lone character ahead of its army. The reasoning says it is staying with the army. Fix: Discount expected_vp and objective_priority by the number of units already committed to an objective, and set them to near zero when committed OC already exceeds the enemy's reachable OC. Add a penalty for sending a low-wound CHARACTER ahead of the main body into enemy firing range. Prefer to keep such units near a screen or on a safe objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7482_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_MEK_B_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Mek Beta moves toward obj_center (reinforcing obj_center (2 units already committed), obj: 14.8\" away)",
+ "verdict": "pending",
+ "version": 1
+}

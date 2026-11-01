@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_1 (reinforcing obj_nml_1 (1 unit already committed) \u2014 worth ~4 VP)",
+ "created": "2026-10-30 06:35:09",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7438_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Beta on a 3-turn trek across the board to obj_nml_1, which Alpha already covers. Beta adds no VP there, and the center is left empty. Fix: When an objective already has enough committed OC to win it, set the marginal expected_vp for extra units to 0. Then send those units to the nearest uncovered objective, such as center, or hold them as a screen. Apply the primary-cap override only after this redundancy check.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7438_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:1370,700",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_nml_1 (reinforcing obj_nml_1 (1 unit already committed), obj: 27.9\" away)",
+ "verdict": "bad",
+ "version": 1
+}

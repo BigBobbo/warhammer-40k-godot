@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Mek Beta (P1)",
+ "created": "2026-10-30 23:50:31",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7485_r1_p2_shooting_1",
+ "note": "[LLM critic, low conf] The Battlewagon fires 3 Big shoota shots at Mek Beta, a 4-wound character, for only 0.57 expected damage and a 14 percent kill chance. Focus-fire bonuses drive the pick, not real damage. Fix: Scale the focus-fire and kill_threshold bonus by the joint probability that all allocated shooters kill the target. Compare it with the expected models killed from spreading fire on 1-wound units. Reduce the bonus when weak weapons target a multi-wound model.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7485_r1_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_B_P2",
+  "choice": "desc:Big shoota \u2192 enemy Mek Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Beta shoots at Mek Beta \u2014 expected 0.6 dmg vs 4 HP (14% kill)",
+ "verdict": "pending",
+ "version": 1
+}

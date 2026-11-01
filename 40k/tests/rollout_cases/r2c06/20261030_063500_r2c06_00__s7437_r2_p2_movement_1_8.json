@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Stormboyz arrives",
+ "created": "2026-10-30 06:38:54",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7437_r2_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI arrives Stormboyz at a spot 6 in from obj_nml_2. Units cannot move after a deep strike arrival, so they will not control it this turn. The arrive_objectives term of 11.63 looks like credit for proximity, not for control. Fix: For reserve arrivals, score objective value only if the placement is in range of the objective. Give a small value for being near it. Choose the in-range spot first when one is legal.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7437_r2_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_STORMBOYZ_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_STORMBOYZ_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz arrives from Deep Strike",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_center (keeping hold \u2014 the other unit(s) here are freed to move \u2014 worth ~2 VP)",
+ "created": "2026-10-30 06:36:06",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7434_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI keeps Beta on the center objective, where five other units already hold it, and the 'freed to move' note shows it knows this. Beta stays idle instead of helping elsewhere. Fix: When other friendly units on an objective already give control with margin, drop stay_on_objective for the surplus units. Add a term that rewards moving them to objectives that face nearby enemy threats or hold only thin OC.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7434_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B_P2",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta holds obj_center (keeping hold \u2014 the other unit(s) here are freed to move)",
+ "verdict": "pending",
+ "version": 1
+}

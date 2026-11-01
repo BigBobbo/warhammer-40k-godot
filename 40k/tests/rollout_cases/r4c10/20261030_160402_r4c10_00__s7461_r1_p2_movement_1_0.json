@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_1 (capturing it (uncontrolled) \u2014 worth ~8 VP with the 1 other objective(s) this plan takes \u2014 worth ~13 VP)",
+ "created": "2026-10-30 16:04:39",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7461_r1_p2_movement_1",
+ "note": "[LLM critic, low conf] The AI advances a 10-model Lootas unit with OC1 alone toward obj_nml_1. The advance costs no shooting this turn, but the unit then holds the far objective with little OC and no screen. Fix: When a unit is sent to a forward objective, weigh its OC against expected enemy OC and firepower there. Penalise fragile OC1 shooters sent alone to far objectives. Prefer a firing position within the army's cover and screen, and keep expected_vp consistent with the shown reasoning text.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7461_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A_P2",
+  "choice": "pos:1500,990",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha advances toward obj_nml_1 (capturing it (uncontrolled) \u2014 worth ~8 VP with the 1 other objective(s) this plan takes)",
+ "verdict": "pending",
+ "version": 1
+}

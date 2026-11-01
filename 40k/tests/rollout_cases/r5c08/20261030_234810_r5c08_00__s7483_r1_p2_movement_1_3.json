@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 10\"))",
+ "created": "2026-10-30 23:51:54",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7483_r1_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent a 5-model Burna Boyz unit to a 'backfield gap' screen position far from any enemy and from the army. Round 1 offers no threat to screen against, so the move wastes the unit's turn. Fix: Scale screen_base by the enemy threat that the screen position blocks, such as enemy units that can reach the screened unit next turn or that could deep strike there. Give a screen with no threat a base near 0. Add a bonus for units that are useful elsewhere, such as Burna Boyz with a 12 in flamer for staying near home or the centre line.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7483_r1_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B_P2",
+  "choice": "pos:1600,1520",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta screens at (1600,1520) \u2014 backfield gap (nearest friendly: 10\")",
+ "verdict": "pending",
+ "version": 1
+}

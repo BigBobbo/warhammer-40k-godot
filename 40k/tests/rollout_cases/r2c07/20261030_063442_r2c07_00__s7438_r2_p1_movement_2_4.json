@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_2 (flipping it (enemy holds with OC 20), needs 12 more OC after this unit)",
+ "created": "2026-10-30 06:36:35",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7438_r2_p1_movement_2",
+ "note": "[LLM critic, high conf] The AI sent Beta alone toward the enemy home objective, 33.6 in away. The goal is unreachable for four turns, and the enemy holds it with OC 20. The score is negative, but the capture assignment still overrode all positive options. Fix: Reject any capture assignment where the chosen option has a negative score, or where turns_to_reach is 3 or more, and the OC needed exceeds what the assigned units can bring. Re-score all options instead. Also require the assignment to be reachable within 2 turns, or cancel it.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7438_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:1060,1890",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_home_2 (flipping it (enemy holds with OC 20), needs 12 more OC after this unit, obj: 33.6\" away)",
+ "verdict": "bad",
+ "version": 1
+}

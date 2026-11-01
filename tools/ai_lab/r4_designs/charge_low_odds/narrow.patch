@@ -1,0 +1,217 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index c4b8d98..fa2742f 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1626,6 +1626,20 @@ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+ # target without it. 0 = V6 behaviour (every declared charger counts).
+ # Off since the round-1 bundle test (2026-10-30, vs V6, 3 fixtures): with it +0.97 [-1.17, +3.12], without it +1.58 [-0.27, +3.42]. Kept for a later test.
+ const FIX_CHARGE_EV: float = 0.0
++# Charge (FIX_CHARGE_LOW_ODDS): 1 = a low-odds charge (under
++# CHARGE_LOW_ODDS_MAX_PROB) by a unit that trades down on points per wound
++# must still clear CHARGE_LOW_ODDS_MIN_SCORE once the overwatch it eats on a
++# FAILED roll is booked (Fire Overwatch is resolved before the roll; the
++# overwatch multiplier only charges it on the success share). Otherwise the
++# charge is not declared. The round-2 / faction threshold cuts (x0.5, /1.8)
++# leave a ~0.25 bar that any positive score clears, so a 17% charge by a
++# 270-pt unit into a 4-wound Mek went ahead. Only in the rounds that cut the
++# threshold (STRATEGY_EARLY_CHARGE, rounds 1-2): from round 3 a long-shot
++# charge onto objectives is often right. 0 = base behaviour.
++const FIX_CHARGE_LOW_ODDS: float = 1.0
++const CHARGE_LOW_ODDS_MAX_PROB: float = 0.30
++const CHARGE_LOW_ODDS_MAX_ROUND: float = 2.0
++const CHARGE_LOW_ODDS_MIN_SCORE: float = 1.0
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -16616,6 +16630,22 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
+ 				print("AIDecisionMaker: [T7-11] %s has Deadly Demise D%d and is doomed — charge bonus x%.2f" % [
+ 					unit_name, dd_val, dd_bonus])
+ 
++			# CH-LOW-ODDS (FIX_CHARGE_LOW_ODDS): a low-odds charge that trades
++			# down must clear an un-lowered bar after the failed-roll overwatch.
++			if get_param("FIX_CHARGE_LOW_ODDS", FIX_CHARGE_LOW_ODDS) > 0.0 \
++					and charge_prob < get_param("CHARGE_LOW_ODDS_MAX_PROB", CHARGE_LOW_ODDS_MAX_PROB) \
++					and float(charge_battle_round) <= get_param("CHARGE_LOW_ODDS_MAX_ROUND", CHARGE_LOW_ODDS_MAX_ROUND) \
++					and _get_trade_efficiency(unit, target_unit) < 1.0:
++				var lo_fail_ow: float = (1.0 - charge_prob) * float(ow_risk.expected_damage) \
++					* get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT) \
++					* get_param("CHARGE_RETALIATION_WEIGHT", CHARGE_RETALIATION_WEIGHT)
++				var lo_min: float = get_param("CHARGE_LOW_ODDS_MIN_SCORE", CHARGE_LOW_ODDS_MIN_SCORE)
++				if score > 0.0 and score - lo_fail_ow < lo_min:
++					print("AIDecisionMaker: [CHARGE_LOW_ODDS] %s -> %s dropped: %.0f%% chance, trades down (x%.2f), score %.2f - failed-roll overwatch %.2f < %.2f" % [
++						unit_name, target_name, charge_prob * 100.0, _get_trade_efficiency(unit, target_unit), score, lo_fail_ow, lo_min])
++					_t_add(ch_terms, "ch_low_odds", -score)
++					score = 0.0
++
+ 			# T7-40: Apply difficulty noise to charge scoring
+ 			var ch_noisy = _apply_difficulty_noise(score)
+ 			_t_add(ch_terms, "difficulty_noise", ch_noisy - score)
+diff --git a/40k/tests/unit/test_ai_fix_charge_low_odds.gd b/40k/tests/unit/test_ai_fix_charge_low_odds.gd
+new file mode 100644
+index 0000000..7c8aecd
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_charge_low_odds.gd
+@@ -0,0 +1,163 @@
++extends SceneTree
++
++# FIX_CHARGE_LOW_ODDS — a low-odds, trading-down charge must clear an
++# un-lowered bar once the overwatch it eats on a FAILED roll is booked.
++#
++# Critic finding s7467_r2_p1_charge_1 (value-checked: not charging is
++# +2.64 VP [0.40, 4.88] over 36 paired seeds): round 2, the 270-pt Allarus
++# Custodians declared a 17% charge (9.9") at a 4-wound Mek with 7.2 dmg of
++# Ork overwatch waiting. Score 1.60 against a 0.23 bar: the round-2 cut
++# (STRATEGY_EARLY_CHARGE x0.5) leaves a bar any positive score clears, and the
++# overwatch multiplier only charges overwatch on the 17% success share,
++# although Fire Overwatch is resolved before the roll. Not charging kept the
++# Allarus free for Fire Overwatch / Heroic Intervention and round-3 scoring.
++#
++#   CH-LOW-ODDS  charge chance < CHARGE_LOW_ODDS_MAX_PROB, battle round <=
++#                CHARGE_LOW_ODDS_MAX_ROUND, and the charger trades down on
++#                points per wound: score - (1 - p) x overwatch dmg x 2 x 0.5
++#                must reach CHARGE_LOW_ODDS_MIN_SCORE, else the charge is not
++#                declared.
++#   FIX_CHARGE_LOW_ODDS = 0 restores the base behaviour.
++#
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_charge_low_odds.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++const AIDifficultyConfig = preload("res://scripts/AIDifficultyConfig.gd")
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== FIX_CHARGE_LOW_ODDS: low-odds trading-down charges ===\n")
++	# Competitive: no score noise, and trade analysis on (the -s harness would
++	# otherwise default the difficulty static, see test_ai_charge_decisions.gd).
++	AIDecisionMaker._current_difficulty = AIDifficultyConfig.Difficulty.COMPETITIVE
++	AIDecisionMaker._config_overrides["FIX_CHARGE_LOW_ODDS"] = 1.0
++	_test_setup()
++	_test_finding_shape_skips()
++	_test_param_zero_restores_base()
++	_test_round_three_still_charges()
++	_test_favourable_trade_still_charges()
++	_test_good_odds_still_charges()
++	AIDecisionMaker._charge_coordination.clear()
++	AIDecisionMaker._config_overrides.erase("FIX_CHARGE_LOW_ODDS")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++# ---------------------------------------------------------------------------
++# Fixtures (40 px per inch, 32 mm bases)
++# ---------------------------------------------------------------------------
++
++func _melee(wname: String, ws: int, s: int, ap: int, d: int, a: int) -> Dictionary:
++	return {"name": wname, "type": "Melee", "weapon_skill": str(ws), "strength": str(s),
++		"ap": ("-%d" % ap) if ap > 0 else "0", "damage": str(d), "attacks": str(a)}
++
++func _ranged(wname: String, bs: int, s: int, ap: int, d: int, a: int) -> Dictionary:
++	return {"name": wname, "type": "Ranged", "range": "36", "ballistic_skill": str(bs), "strength": str(s),
++		"ap": ("-%d" % ap) if ap > 0 else "0", "damage": str(d), "attacks": str(a)}
++
++# `n` models in a row from `pos`, 60 px (1.5") apart.
++func _add(snap: Dictionary, uid: String, owner: int, pos: Vector2, n: int, weapons: Array,
++		points: int, toughness: int, save_val: int, wounds: int, keywords: Array = ["INFANTRY"]) -> Dictionary:
++	var models := []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32, "base_type": "circular",
++			"base_dimensions": {}, "position": Vector2(pos.x + i * 60, pos.y),
++			"wounds": wounds, "current_wounds": wounds})
++	var u := {"id": uid, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": uid, "keywords": keywords, "weapons": weapons, "points": points,
++			"stats": {"move": 6, "toughness": toughness, "save": save_val, "wounds": wounds,
++				"leadership": 6, "objective_control": 1}},
++		"models": models, "flags": {}}
++	snap.units[uid] = u
++	return u
++
++# The finding's shape: an elite 3-model charger (90 pts per wound) 9.4" from a
++# cheap 4-wound character (15 pts per wound), with a heavy shooting unit that
++# can Fire Overwatch (the defender has CP). `gap_px` = edge-to-edge distance.
++func _finding_snapshot(battle_round: int = 2, charger_points: int = 270, gap_px: float = 376.0,
++		with_shooter: bool = true) -> Dictionary:
++	var snap := {
++		"battle_round": battle_round,
++		"meta": {"battle_round": battle_round},
++		"board": {"objectives": [], "terrain_features": [], "deployment_zones": []},
++		"players": {"1": {"cp": 3, "vp": 0}, "2": {"cp": 3, "vp": 0}},
++		"units": {},
++	}
++	var base_px := 32.0 / 25.4 * 40.0  # 32 mm base diameter in px
++	_add(snap, "allarus", 1, Vector2(800, 800), 1,
++		[_melee("Guardian spear", 2, 8, 2, 2, 6)], charger_points, 7, 2, 3)
++	_add(snap, "mek", 2, Vector2(800, 800 + base_px + gap_px), 1,
++		[_melee("Toolz", 3, 5, 0, 1, 3)], 60, 5, 5, 4, ["INFANTRY", "CHARACTER"])
++	if with_shooter:
++		_add(snap, "lootas", 2, Vector2(1400, 1400), 5,
++			[_ranged("Deffgun", 4, 9, 2, 2, 12)], 75, 5, 5, 1)
++	return snap
++
++func _charge_actions(uid: String, tid: String) -> Array:
++	return [{"type": "DECLARE_CHARGE", "actor_unit_id": uid, "payload": {"target_unit_ids": [tid]}},
++		{"type": "SKIP_CHARGE", "actor_unit_id": uid}, {"type": "END_CHARGE"}]
++
++func _decide(snap: Dictionary) -> Dictionary:
++	AIDecisionMaker._charge_coordination.clear()
++	return AIDecisionMaker._decide_charge(snap, _charge_actions("allarus", "mek"), 1)
++
++func _prob(snap: Dictionary) -> float:
++	var d := AIDecisionMaker._get_closest_model_distance_inches(snap.units.allarus, snap.units.mek)
++	return AIDecisionMaker._charge_success_probability(AIDecisionMaker._charge_roll_needed(d))
++
++# ---------------------------------------------------------------------------
++
++func _test_setup() -> void:
++	var snap := _finding_snapshot()
++	var p := _prob(snap)
++	_assert(p > 0.1 and p < 0.3, "setup: low-odds charge (%.0f%% chance)" % (p * 100.0))
++	var trade := AIDecisionMaker._get_trade_efficiency(snap.units.allarus, snap.units.mek)
++	_assert(trade < 1.0, "setup: the charger trades down (trade x%.2f)" % trade)
++	var ow: Dictionary = AIDecisionMaker._estimate_overwatch_risk(snap.units.allarus, snap, 1)
++	_assert(float(ow.expected_damage) >= 2.0, "setup: heavy overwatch waits (%.1f dmg)" % float(ow.expected_damage))
++
++func _test_finding_shape_skips() -> void:
++	var d := _decide(_finding_snapshot())
++	_assert(d.get("type", "") == "SKIP_CHARGE",
++		"round 2: an elite unit does not declare a %s-odds charge into a cheap target under heavy overwatch (got %s: %s)" % [
++			"17%", d.get("type", ""), d.get("_ai_description", "")])
++
++func _test_param_zero_restores_base() -> void:
++	AIDecisionMaker._config_overrides["FIX_CHARGE_LOW_ODDS"] = 0.0
++	var d := _decide(_finding_snapshot())
++	AIDecisionMaker._config_overrides["FIX_CHARGE_LOW_ODDS"] = 1.0
++	_assert(d.get("type", "") == "DECLARE_CHARGE",
++		"FIX_CHARGE_LOW_ODDS = 0: the base AI declares that charge (got %s: %s)" % [d.get("type", ""), d.get("_ai_description", "")])
++
++func _test_round_three_still_charges() -> void:
++	# Round 3 keeps the full charge bar; the rule only covers the rounds that
++	# cut it. 8.4" gap (28%): the base AI declares this one in round 3.
++	var snap := _finding_snapshot(3, 270, 336.0)
++	var p := _prob(snap)
++	var d := _decide(snap)
++	_assert(p < 0.3 and d.get("type", "") == "DECLARE_CHARGE",
++		"round 3: a %.0f%%-odds trading-down charge is still declared (got %s: %s)" % [p * 100.0, d.get("type", ""), d.get("_ai_description", "")])
++
++func _test_favourable_trade_still_charges() -> void:
++	# A cheap charger (10 pts per wound) into the same target trades up: untouched.
++	var d := _decide(_finding_snapshot(2, 30))
++	_assert(d.get("type", "") == "DECLARE_CHARGE",
++		"a low-odds charge that trades UP is still declared (got %s: %s)" % [d.get("type", ""), d.get("_ai_description", "")])
++
++func _test_good_odds_still_charges() -> void:
++	# 5" gap: well over 30% — the rule does not apply.
++	var snap := _finding_snapshot(2, 270, 200.0)
++	var p := _prob(snap)
++	var d := _decide(snap)
++	_assert(p >= 0.3 and d.get("type", "") == "DECLARE_CHARGE",
++		"a %.0f%%-odds charge by the same unit is still declared (got %s: %s)" % [p * 100.0, d.get("type", ""), d.get("_ai_description", "")])

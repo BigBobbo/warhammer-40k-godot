@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~11 VP)",
+ "created": "2026-10-30 16:07:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7470_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] Beta sends a second Custodian Guard unit to the centre. The 'contest_race' term is -17.89, yet 'objective_priority' of 32.77 outweighs it. The unit arrives a turn after Gamma and may arrive alone. Fix: When one unit is already committed to an objective, scale the second unit's 'expected_vp' and 'objective_priority' by the marginal OC gain. Add a penalty when the arrival turn is later than the first unit's. Prefer keeping two OC3 units together for mutual support.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7470_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta moves toward obj_center (reinforcing obj_center (1 unit already committed), obj: 20.9\" away)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P2)",
+ "created": "2026-10-30 23:48:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7479_r3_p1_shooting_1",
+ "note": "[LLM critic, low conf] The AI shot Delta, which is not contesting the home objective, instead of Allarus Custodians, which is. Both shots deal about 1.8 damage and kill nothing. Fix: Add an objective-pressure term to target_value. Raise the value of targets whose OC is in range of an objective we hold with a margin of 2 OC or less. Raise it further when the damage could remove a model. Lower the value of targets that are not on or near an objective.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7479_r3_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta shoots at Custodian Guard Sodality Delta \u2014 expected 1.8 dmg vs 15 HP (12% kill)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,1193 @@
+{
+ "base_sha": "5e70bc2",
+ "clusters": [
+  {
+   "key": "reinforce_insurance",
+   "title": "Reinforcing an objective we already hold instead of using the unit where it scores more",
+   "hint": "The AI sends a unit to reinforce an objective it already holds (pass-2 'reinforcing it (we hold with OC N, enemy can bring ~M)') when a forward objective, a table quarter or a kill elsewhere is worth more. At s7437 r2 the Allarus hold obj_center with OC 6; COORD-5 counts ~7 enemy OC one move away and asks for 2 more OC, so pass 2 sends Custodian Guard Beta to the centre at its full hold value (48.2) instead of Advancing to obj_nml_2 (30.7). Forcing Beta -> obj_nml_2 (Advance) measured +4.36 over 36 seeds in one-round rollouts and +19.0 [3.3, 34.7] over 12 full games. ROUND 3 TRIED a fix (REINFORCE-CAP: price the reinforcement as insurance = hold terms x the chance the enemy brings enough OC, when no single projected enemy unit can contest alone) and DROPPED it after review: (1) COORD-5's projection counts only units whose centroid is within M+2\"+range; Gretchin (10 OC, 11.4\") and Lootas (10 OC, 9.9\") could each take the 6-OC centre with an average Advance, and the Ork AI put Gretchin on the centre in 3 of 4 fix replays (secured it in one) - the cap fired only through that blind spot; (2) the holders (Allarus) declared charges off the centre in 4 of 4 replays (CH-LEAVE only halves the score), so 'held' overstated the OC that stays; (3) the gain came from table quarters under Reconnaissance Sweep (Beta Advancing reached a quarter; walking there measured -4.0), plus kills and denial - the cap ignored cards. Also found: RACE-1's long-trip Advance test and _should_unit_advance ignore [ASSAULT] (Beta's Guardian Spear is [ASSAULT], so Advancing costs it no shooting). The round-3 patch and both reviews are in tools/ai_lab/r4_designs/reinforce_insurance/ (round3_attempt.patch, round3_reviews.json): read them first and do not repeat the dropped design. Directions the reviewer suggested: an [ASSAULT]-aware Advance rules fix; valuing an uncovered table quarter for quarter-scoring cards (Reconnaissance Sweep primary, Engage on All Fronts secondary) near its VP; a threat model that uses Advance reach and leaves out holders that will charge off. Guardrail s7418 r3 p2 shows holding the centre INSTEAD of attacking out was harmful (-8.33): do not fix this by vetoing the holders' charges.",
+   "findings": [
+    {
+     "job": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4",
+     "case": "40k/tests/rollout_cases/pr4/20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 2,
+     "player": 1,
+     "ai_chose": "Move obj_center (reinforcing it (we hold with OC 6, enemy can bring ~7) \u2014 worth ~7 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_nml_2",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~7 VP)",
+     "measured": "clear: E +4.36 [0.61, 8.12] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_014824_sweep2_07__s7418_r1_p2_movement_1_0",
+     "case": "40k/tests/rollout_cases/s1d/20261030_014824_sweep2_07__s7418_r1_p2_movement_1_0.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~3 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_MEK_B",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~3 VP)",
+     "measured": "clear: E +2.67 [0.36, 4.97] over 36 seeds (one-round rollouts)"
+    }
+   ],
+   "guardrails": [
+    {
+     "job": "20261030_014802_sweep2_06__s7417_r1_p2_movement_1_0",
+     "case": "40k/tests/rollout_cases/s1d/20261030_014802_sweep2_06__s7417_r1_p2_movement_1_0.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_MEK_B",
+       "objective": "obj_home_2",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_home_2 (moving to objective \u2014 worth ~4 VP)",
+     "measured": "harmful: E -5.42 [-9.20, -1.64] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+     "case": "40k/tests/rollout_cases/r2c00/20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B_P2",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
+     "measured": "harmful: E -6.83 [-11.05, -2.62] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_014824_sweep2_07__s7418_r2_p2_movement_2_2",
+     "case": "40k/tests/rollout_cases/s1d/20261030_014824_sweep2_07__s7418_r2_p2_movement_2_2.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 2,
+     "player": 2,
+     "ai_chose": "Move obj_center (supporting nearby objective \u2014 worth ~7 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_MEK_B",
+       "objective": "obj_home_2",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_home_2 (advancing for extra range)",
+     "measured": "harmful: E -3.67 [-7.33, -0.01] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4",
+     "case": "40k/tests/rollout_cases/s1d/20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Attack Blade Champion Gamma (closing to charge range (0.0\" after move))",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_STORMBOYZ_A",
+       "objective": "obj_center",
+       "mode": "hold"
+      }
+     ],
+     "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~6 VP)",
+     "measured": "harmful: E -8.33 [-12.33, -4.34] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063442_r2c07_00__s7438_r3_p2_movement_2_7",
+     "case": "40k/tests/rollout_cases/r2c07/20261030_063442_r2c07_00__s7438_r3_p2_movement_2_7.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Advance obj_nml_2 (reinforcing it (we hold with OC 6, enemy can bring ~7), needs 7 more OC after this unit \u2014 backfilling for a unit that went hunting \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_BURNA_BOYZ_A",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~2 VP)",
+     "measured": "neutral: E -0.25 [-5.08, 4.58] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_021506_sweep2_13__s7424_r3_p1_movement_2_6",
+     "case": "40k/tests/rollout_cases/s1f/20261030_021506_sweep2_13__s7424_r3_p1_movement_2_6.json",
+     "matchup": "Orks_2000 vs sw11e_gw_import_2000",
+     "round": 3,
+     "player": 1,
+     "ai_chose": "Advance obj_center (reinforcing it (we hold with OC 10, enemy can bring ~11), needs 2 more OC after this unit \u2014 switched from obj_nml_2 to backfill for a unit that went hunting \u2014 worth ~13 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_LOOTAS_A",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_center (reinforcing it (we hold with OC 10, enemy can bring ~11), needs 2 more OC after this unit \u2014 switched from obj_nml_2 to backfill for a unit that went hunting \u2014 worth ~13 VP)",
+     "measured": "neutral: E -1.83 [-5.35, 1.69] over 12 seeds (one-round rollouts)"
+    }
+   ]
+  },
+  {
+   "key": "keeper_reach",
+   "title": "The sole keeper of a safe home objective still stays put where V9's release does not fire (Custodes mirror)",
+   "hint": "V9 (5e70bc2) has KEEPER-RELEASE (FIX_KEEPER_RELEASE=1, _keeper_release_check / _keeper_release_threat / _keeper_release_primary_counts in AIDecisionMaker.gd): the sole keeper of OUR HOME objective leaves only if it is not fragile, its best other candidate beats holding by KEEPER_RELEASE_MIN_GAIN (5), our primary pays nothing for home, no enemy model can be in range by the end of the enemy's next turn (on-board: M + 12\" + 6\" (+6\" if it may advance and charge) to the objective's range/hosting area; reserves that can arrive), and another unit can step back onto home in one move and is not sent elsewhere by pass 2. It made the measured move at s7437 (Custodes vs Orks, +7.30 n36) but it NEVER fires in the Custodes mirror: the round-3 bench had 42/42 identical V9-vs-V7D pairs there (reviewers: the nearest enemy is 23.4\" from the home area vs a 24\" reach for M6). Round 4 found the same mistake exactly there: s7453 (P2, round 1) and s7454 (P1, round 1), Custodian Guard kept as 'sole holder' of home; moving it to obj_center measured +6.17 and +4.83 (36 seeds each). In both, the decider's card is Take and Hold. First find WHICH V9 condition blocks each release (threat reach margin? the card counting home? the backup? the margin?) by replaying with the V9 code and reading the [KEEPER_RELEASE] lines. Then widen only what the evidence supports (for example a realistic reach model instead of the max-roll worst case, or how a hold rule that counts home is valued in round 1), keep s7437 releasing, and respect the guardrails: at s7451 (Custodes mirror, P2, round 1) keeping hold was RIGHT (-4.33), at s7420 leaving was harmful (-2.00), and fragile keepers stay. A separate revision is changing the Advance->Normal-move conversion block after pass 2 (record/pace); do not edit that block. Use the new param FIX_KEEPER_REACH for your change (FIX_KEEPER_RELEASE stays as is).",
+   "findings": [
+    {
+     "job": "20261030_160254_r4c02_00__s7453_r1_p2_movement_2_0",
+     "case": "40k/tests/rollout_cases/r4c02/20261030_160254_r4c02_00__s7453_r1_p2_movement_2_0.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Hold obj_home_2 (sole holder \u2014 leaving would drop control \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B_P2",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+     "measured": "clear: E +6.17 [3.42, 8.91] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160317_r4c03_00__s7454_r1_p1_movement_1_1",
+     "case": "40k/tests/rollout_cases/r4c03/20261030_160317_r4c03_00__s7454_r1_p1_movement_1_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_home_1 (sole holder \u2014 leaving would drop control)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_center",
+     "measured": "clear: E +4.83 [3.08, 6.59] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1",
+     "case": "40k/tests/rollout_cases/r2c06/20261030_063500_r2c06_00__s7437_r1_p1_movement_2_1.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_home_1 (sole holder \u2014 leaving would drop control)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_A",
+       "objective": "obj_nml_1",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+     "measured": "clear: E +7.30 [4.98, 9.63] over 36 seeds (one-round rollouts)"
+    }
+   ],
+   "guardrails": [
+    {
+     "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1",
+     "case": "40k/tests/rollout_cases/r4c00/20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Hold obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B_P2",
+       "objective": "obj_nml_2",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~4 VP)",
+     "measured": "harmful: E -4.33 [-7.47, -1.19] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_015944_sweep2_09__s7420_r1_p1_movement_2_1",
+     "case": "40k/tests/rollout_cases/s1e/20261030_015944_sweep2_09__s7420_r1_p1_movement_2_1.json",
+     "matchup": "sw11e_gw_import_2000 vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_home_1 (sole holder \u2014 leaving would drop control \u2014 worth ~8 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_THUNDERWOLF_CAVALRY_B",
+       "objective": "obj_nml_1",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_nml_1 (moving to objective \u2014 worth ~12 VP)",
+     "measured": "harmful: E -2.00 [-2.68, -1.32] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160257_r4c04_00__s7455_r1_p1_movement_2_2",
+     "case": "40k/tests/rollout_cases/r4c04/20261030_160257_r4c04_00__s7455_r1_p1_movement_2_2.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_home_1 (sole holder \u2014 leaving would drop control \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_PROSECUTORS_A",
+       "objective": "obj_nml_1",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+     "measured": "neutral: E -2.75 [-6.40, 0.90] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160353_r4c07_00__s7458_r1_p2_movement_2_0",
+     "case": "40k/tests/rollout_cases/r4c07/20261030_160353_r4c07_00__s7458_r1_p2_movement_2_0.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Hold obj_home_2 (sole holder \u2014 leaving would drop control \u2014 worth ~5 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_C_P2",
+       "objective": "obj_nml_2",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~9 VP)",
+     "measured": "neutral: E +2.17 [-6.01, 10.34] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063348_r2c02_00__s7433_r1_p2_movement_1_2",
+     "case": "40k/tests/rollout_cases/r2c02/20261030_063348_r2c02_00__s7433_r1_p2_movement_1_2.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Hold obj_home_2 (sole holder \u2014 leaving would drop control \u2014 worth ~2 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_A_P2",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+     "measured": "neutral: E -0.25 [-3.82, 3.32] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160256_r4c01_00__s7452_r1_p1_movement_2_1",
+     "case": "40k/tests/rollout_cases/r4c01/20261030_160256_r4c01_00__s7452_r1_p1_movement_2_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_nml_1 (sole holder \u2014 leaving would drop control \u2014 worth ~10 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_PROSECUTORS_A",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+     "measured": "neutral: E +0.33 [-5.31, 5.97] over 12 seeds (one-round rollouts)"
+    }
+   ]
+  },
+  {
+   "key": "lone_flip",
+   "title": "A lone unit is sent to flip an objective the enemy holds with far more OC, while a winnable objective is dropped as 'already taken'",
+   "hint": "At s7454 r3 (Custodes mirror, P2) Custodian Guard Gamma (3 models) was sent to flip obj_nml_1, which the enemy holds with OC 14 ('needs 6 more OC after this unit'); Advancing to obj_center instead measured +21.50 [16.93, 26.07] over 36 seeds. The critic: the centre (~20 VP) was dropped as 'already taken' although the friendly unit heading there (Beta) was still 9\" away; count a unit as taking an objective only when it is in range now; reject or heavily penalise an objective where enemy OC in range exceeds the unit's OC plus allies that can arrive. Read the decision record first: which pass made this choice (capture, attack conversion, support), why obj_center's need was 0, and how the flip was scored. LESSON: round 2's FIX_FAR_TRIP (skip 2+-turn trips the race says are lost) passed every gate and still lost 6.26 VP per game in the Custodes mirror (units held back scored less on secondary cards), and FIX_OVERCOMMIT gave no gain; both are off. Do not build a broad trip or race veto. Guardrails where the AI's own (flip / supporting) move was RIGHT: s7455 r3 (-15.0), s7431 r3 (-6.83); several flip moves measured neutral (s7458 r1, s7455 r2 / r3, s7457 r3, s7452 r2). Use the param FIX_LONE_FLIP. UPDATE 18:40: s7455 r2 p1 movement_2_4 (Beta moves toward obj_nml_1 / a charge target to flip an OC 11 hold; alternative Normal move to obj_center) was a guardrail at 12 seeds (+8.0, neutral) and is now CONFIRMED at 36 seeds (+5.92 [1.30, 10.53]): it is a second finding in the same direction as s7454 r3.",
+   "findings": [
+    {
+     "job": "20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3",
+     "case": "40k/tests/rollout_cases/r4c03/20261030_160317_r4c03_00__s7454_r3_p2_movement_1_3.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Move obj_nml_1 (flipping it (enemy holds with OC 14), needs 6 more OC after this unit \u2014 worth ~11 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_C_P2",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective \u2014 worth ~20 VP)",
+     "measured": "clear: E +21.50 [16.93, 26.07] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4",
+     "case": "40k/tests/rollout_cases/pr8/20261030_160257_r4c04_00__s7455_r2_p1_movement_2_4.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 1,
+     "ai_chose": "Move obj_nml_1 (flipping it (enemy holds with OC 11) \u2014 worth ~3 VP)",
+     "ai_did": "Custodian Guard Sodality Beta moves toward obj_nml_1 (moving toward charge target Blade Champion Alpha, obj: 1",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+     "measured": "clear: E +5.92 [1.30, 10.53] over 36 seeds (one-round rollouts)"
+    }
+   ],
+   "guardrails": [
+    {
+     "job": "20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5",
+     "case": "40k/tests/rollout_cases/r4c04/20261030_160257_r4c04_00__s7455_r3_p2_movement_2_5.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Move obj_center (supporting nearby objective \u2014 worth ~7 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B_P2",
+       "objective": "obj_nml_2",
+       "mode": "hold"
+      }
+     ],
+     "better_option": "Hold obj_nml_2 (on objective, OC needed \u2014 worth ~3 VP)",
+     "measured": "harmful: E -15.00 [-23.39, -6.61] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+     "case": "40k/tests/rollout_cases/r2c00/20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Move obj_nml_2 (reinforcing obj_nml_2 (1 unit already committed) \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B_P2",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
+     "measured": "harmful: E -6.83 [-11.05, -2.62] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1",
+     "case": "40k/tests/rollout_cases/r4c07/20261030_160353_r4c07_00__s7458_r1_p1_movement_1_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Move obj_center (flipping it (enemy holds with OC 11), needs 3 more OC after this unit \u2014 worth ~1 VP with the 1 other objective(s) this plan takes \u2014 worth ~4 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_A",
+       "objective": "obj_nml_2",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~4 VP)",
+     "measured": "neutral: E -6.25 [-14.42, 1.92] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4",
+     "case": "40k/tests/rollout_cases/r4c06/20261030_160417_r4c06_00__s7457_r3_p1_movement_1_4.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 3,
+     "player": 1,
+     "ai_chose": "Move obj_nml_2 (flipping it (enemy holds with OC 15), needs 7 more OC after this unit \u2014 quicker to reach than Custodian Guard Sodality Beta (13.8\" away, there in 2 turns at M8 vs 16.8\" away, there in 2 turns at M8))",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_A",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective)",
+     "measured": "neutral: E +1.83 [-6.54, 10.21] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160256_r4c01_00__s7452_r2_p1_movement_2_2",
+     "case": "40k/tests/rollout_cases/r4c01/20261030_160256_r4c01_00__s7452_r2_p1_movement_2_2.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 1,
+     "ai_chose": "Move obj_nml_2 (flipping it (enemy holds with OC 6), needs 8 more OC after this unit \u2014 worth ~6 VP)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~9 VP)",
+     "measured": "neutral: E +1.08 [-3.89, 6.06] over 12 seeds (one-round rollouts)"
+    }
+   ]
+  },
+  {
+   "key": "charge_low_odds",
+   "title": "Declaring a low-odds charge (17-28%) whose expected gain is smaller than what the charge costs",
+   "hint": "Two round-2 charges in the Custodes vs Orks fixture were worse than not charging over 36 seeds: s7469 r2 P2 Stormboyz (140 pts) declare a 28% charge (8.5 in) at Blade Champion Alpha (T7, 2+ save, 4+ invulnerable, on an objective) with 'expected 8.9 melee dmg vs 7 HP' (+4.33 [1.37, 7.30] for no charge), and s7467 r2 P1 Allarus Custodians (270 pts) declare a 17% charge (9.9 in) at a 4-wound Mek (+2.64 [0.40, 4.88]). The critic notes repeat across rounds: expected melee damage overstated against 2+/4++ targets, the failure and overwatch cost understated, bonus terms (order_round_aggression, kill/objective bonuses) lifting a charge above the AI's own odds threshold. In 11e a failed charge does not move the unit (core rules), so the cost of a failed charge is overwatch (Fire Overwatch) and what else the unit gives up, and the cost of a successful one includes the fight back and being locked in combat (and CH-LEAVE when it leaves an objective). Round 1's FIX_CHARGE_EV (gang-up bonus counts only real help) is OFF since the round-1 bundle test; round 3's low-odds charge finding faded with more seeds. IMPORTANT: low odds alone are not the cause. Guardrails where the AI's own charge was right: s7431 r3 Allarus 28% at Blade Champion Alpha (-5.00 [-9.22, -0.78], harmful), s7403 r3 Battlewagon 42% (-3.67 harmful); s7431 r2 Allarus 17% (-5.08 neutral), s7433 r2 Allarus 28% (-3.17 neutral), s7408 r3 Stormboyz (-5.08 neutral) lean the same way. Find what separates the findings from these (damage model, target value, what the charger leaves, what the target does next) before you design. Re-check running (pr8, 24 seeds): s7454 r2 Delta 28% at Blade Champion Beta (+5.42 n12), s7457 r2 Prosecutors 8% (+4.50 n12); their cases are in 40k/tests/rollout_cases/pr8/. UPDATE 18:40: the pr8 re-check CONFIRMED s7457 r2 Prosecutors 8% charge -> no charge (+3.81 [0.20, 7.41], 36 seeds; now a finding) and did NOT confirm s7454 r2 Delta 28% at Blade Champion Beta (+2.44 [-1.43, 6.32], 36 seeds; now a neutral guardrail).",
+   "findings": [
+    {
+     "job": "20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2",
+     "case": "40k/tests/rollout_cases/r4c18/20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 2,
+     "player": 2,
+     "ai_chose": "Charge Blade Champion Alpha (8.5\" away, 28% chance)",
+     "ai_did": "Stormboyz declares charge against Blade Champion Alpha (28% chance, 8.5\" away, expected 8.9 melee dmg vs 7 HP,",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_STORMBOYZ_A",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge with Stormboyz; keep them back or screen",
+     "measured": "clear: E +4.33 [1.37, 7.30] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3",
+     "case": "40k/tests/rollout_cases/r4c16/20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 2,
+     "player": 1,
+     "ai_chose": "Charge Mek Beta (9.9\" away, 17% chance)",
+     "ai_did": "Allarus Custodians declares charge against Mek Beta (17% chance, 9.9\" away, expected 13.3 melee dmg vs 4 HP, o",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_ALLARUS_CUSTODIANS_A",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge (targets [])",
+     "measured": "clear: E +2.64 [0.40, 4.88] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160417_r4c06_00__s7457_r2_p2_charge_1_3",
+     "case": "40k/tests/rollout_cases/pr8/20261030_160417_r4c06_00__s7457_r2_p2_charge_1_3.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 2,
+     "ai_chose": "Charge Prosecutor Squad (10.2\" away, 8% chance)",
+     "ai_did": "Prosecutor Squad declares charge against Prosecutor Squad (8% chance, 10.2\" away, expected 0.7 melee dmg vs 1 ",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_PROSECUTORS_A_P2",
+       "targets": []
+      }
+     ],
+     "better_option": "Charge Blade Champion Alpha (2.0\" away, 97% chance) is not good either, because a 3-model Prosecutor squad would die to the Champion in melee. Better: do not charge.",
+     "measured": "clear: E +3.81 [0.20, 7.41] over 36 seeds (one-round rollouts)"
+    }
+   ],
+   "guardrails": [
+    {
+     "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5",
+     "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 2,
+     "player": 2,
+     "ai_chose": "Charge Blade Champion Gamma (8.7\" away, 28% chance)",
+     "ai_did": "Stormboyz declares charge against Blade Champion Gamma (28% chance, 8.7\" away, expected 8.9 melee dmg vs 7 HP,",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_STORMBOYZ_A",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge, keep Stormboyz near the centre objective",
+     "measured": "harmful: E -3.50 [-5.64, -1.36] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7",
+     "case": "40k/tests/rollout_cases/r2c00/20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 3,
+     "player": 1,
+     "ai_chose": "Charge Blade Champion Alpha (8.4\" away, 28% chance)",
+     "ai_did": "Allarus Custodians declares charge against Blade Champion Alpha (28% chance, 8.4\" away, expected 10.0 melee dm",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_ALLARUS_CUSTODIANS_A",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge with Allarus Custodians; keep it back as a shooter and objective holder",
+     "measured": "harmful: E -5.00 [-9.22, -0.78] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_010357_sweep1_02__s7403_r3_p1_charge_1_6",
+     "case": "40k/tests/rollout_cases/s1b/20261030_010357_sweep1_02__s7403_r3_p1_charge_1_6.json",
+     "matchup": "Orks_2000 vs custodes_lions",
+     "round": 3,
+     "player": 1,
+     "ai_chose": "Charge Custodian Guard Sodality Gamma (7.5\" away, 42% chance)",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_BATTLEWAGON_A",
+       "targets": []
+      }
+     ],
+     "better_option": "Charge Blade Champion Gamma (8.3\" away, 0% chance)",
+     "measured": "harmful: E -3.67 [-5.82, -1.52] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063335_r2c00_00__s7431_r2_p1_charge_1_3",
+     "case": "40k/tests/rollout_cases/r2c00/20261030_063335_r2c00_00__s7431_r2_p1_charge_1_3.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 1,
+     "ai_chose": "Charge Custodian Guard Sodality Gamma (9.5\" away, 17% chance)",
+     "ai_did": "Allarus Custodians declares charge against Custodian Guard Sodality Gamma (17% chance, 9.5\" away, expected 10.",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_ALLARUS_CUSTODIANS_A",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge (targets [])",
+     "measured": "neutral: E -5.08 [-12.25, 2.08] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063348_r2c02_00__s7433_r2_p2_charge_1_5",
+     "case": "40k/tests/rollout_cases/r2c02/20261030_063348_r2c02_00__s7433_r2_p2_charge_1_5.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 2,
+     "ai_chose": "Charge Blade Champion Beta (8.2\" away, 28% chance)",
+     "ai_did": "Allarus Custodians declares charge against Blade Champion Beta (28% chance, 8.2\" away, expected 10.0 melee dmg",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_ALLARUS_CUSTODIANS_A_P2",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge, hold position or shoot instead",
+     "measured": "neutral: E -3.17 [-9.86, 3.53] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_012809_sweep1_07__s7408_r3_p1_charge_2_9",
+     "case": "40k/tests/rollout_cases/s1c/20261030_012809_sweep1_07__s7408_r3_p1_charge_2_9.json",
+     "matchup": "Orks_2000 vs Orks_2000",
+     "round": 3,
+     "player": 1,
+     "ai_chose": "Charge Zodgrod Wortsnagga (10.8\" away, 8% chance)",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_STORMBOYZ_A",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge (targets [])",
+     "measured": "neutral: E -5.08 [-12.76, 2.59] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063510_r2c10_00__s7441_r3_p2_charge_2_10",
+     "case": "40k/tests/rollout_cases/r2c10/20261030_063510_r2c10_00__s7441_r3_p2_charge_2_10.json",
+     "matchup": "custodes_lions vs sw11e_gw_import_2000",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Charge Blade Champion Alpha (8.5\" away, 28% chance)",
+     "ai_did": "Logan Grimnar declares charge against Blade Champion Alpha (28% chance, 8.5\" away, expected 5.0 melee dmg vs 7",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_LOGAN_GRIMNAR_A",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge. Keep Logan with the Terminator Assault Squad near obj_center.",
+     "measured": "clear: E +0.94 [0.12, 1.77] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160317_r4c03_00__s7454_r2_p2_charge_1_2",
+     "case": "40k/tests/rollout_cases/pr8/20261030_160317_r4c03_00__s7454_r2_p2_charge_1_2.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 2,
+     "player": 2,
+     "ai_chose": "Charge Blade Champion Beta (9.0\" away, 28% chance)",
+     "ai_did": "Custodian Guard Sodality Delta declares charge against Blade Champion Beta (28% chance, 9.0\" away, expected 10",
+     "alternative": [
+      {
+       "kind": "charge",
+       "unit": "U_CUSTODIAN_GUARD_D_P2",
+       "targets": []
+      }
+     ],
+     "better_option": "unlisted: do not charge, stay on obj_center",
+     "measured": "neutral: E +2.44 [-1.43, 6.32] over 36 seeds (one-round rollouts)"
+    }
+   ]
+  },
+  {
+   "key": "screen_vs_objective",
+   "title": "A unit is spent on a screen position (backfield gap / deep-strike denial) while an objective nobody holds is within reach",
+   "hint": "s7467 r1 P2 (Orks vs Custodes): Gretchin are sent to screen a 'backfield gap' at (1600,1520) near obj_nml_2, but the plan does not take obj_nml_2, which nobody holds; Advancing the Gretchin onto obj_nml_2 measured +3.64 [1.82, 5.46] over 36 seeds. Screens are chosen in the movement planner's screening step (roles: backfield gap, deny deep strike near a home objective, screening valuable friendlies, block an approaching enemy unit) after objective assignment; check how a screen's flat score compares with the objective value the unit gives up, and whether objectives that need no fight (uncontrolled, no enemy near) are offered to screen-role units at all. 22 measured screen positions exist (tools/ai_lab/r4_designs/measured_positions.json, search 'screen'): most are neutral and point both ways. Same direction (objective better, not significant): s7456 r1 Prosecutors deep-strike screen vs obj_home_2 (+3.25), s7438 r1 Prosecutors vs obj_nml_1 (+2.42), s7451 r1 Prosecutors vs obj_nml_1 (+1.58), s7474 r1 Gretchin backfield gap vs obj_nml_1 (+1.50). Opposite direction (the screen was right): s7408 r1 Burna Boyz B 'screening valuable friendlies' vs Normal move to obj_center (-5.83 [-10.75, -0.92], harmful), s7437 r1 Burna backfield gap vs Advance obj_center (-3.25), s7408 r1 Burna backfield gap (-2.83), s7423 r1 Gretchin backfield gap vs obj_nml_1 (-2.25). Find what separates the finding from the opposite-direction positions (is the objective empty and uncontested? can the unit hold it? does the screen protect something that matters, e.g. against deep strike or a charge?) before you design. Only one finding is confirmed: keep the trigger narrow.",
+   "findings": [
+    {
+     "job": "20261030_160457_r4c16_00__s7467_r1_p2_movement_2_1",
+     "case": "40k/tests/rollout_cases/r4c16/20261030_160457_r4c16_00__s7467_r1_p2_movement_2_1.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Screen (block Blade Champion Gamma approaching obj_nml_2 (16\" away))",
+     "ai_did": "Gretchin screens at (1600,1520) \u2014 backfield gap (nearest friendly: 9\")",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_GRETCHIN_A",
+       "objective": "obj_nml_2",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+     "measured": "clear: E +3.64 [1.82, 5.46] over 36 seeds (one-round rollouts)"
+    }
+   ],
+   "guardrails": [
+    {
+     "job": "20261030_012809_sweep1_07__s7408_r1_p1_movement_1_1",
+     "case": "40k/tests/rollout_cases/s1c/20261030_012809_sweep1_07__s7408_r1_p1_movement_1_1.json",
+     "matchup": "Orks_2000 vs Orks_2000",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Screen (screening valuable friendlies from enemy threats)",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_BURNA_BOYZ_B",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
+     "measured": "harmful: E -5.83 [-10.75, -0.92] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063500_r2c06_00__s7437_r1_p2_movement_2_3",
+     "case": "40k/tests/rollout_cases/r2c06/20261030_063500_r2c06_00__s7437_r1_p2_movement_2_3.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Screen (backfield gap (nearest friendly: 11\"))",
+     "ai_did": "Burna Boyz Alpha screens at (320,2160) \u2014 backfield gap (nearest friendly: 11\")",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_BURNA_BOYZ_A",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+     "measured": "neutral: E -3.25 [-8.45, 1.95] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_012809_sweep1_07__s7408_r1_p1_movement_2_2",
+     "case": "40k/tests/rollout_cases/s1c/20261030_012809_sweep1_07__s7408_r1_p1_movement_2_2.json",
+     "matchup": "Orks_2000 vs Orks_2000",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Screen (backfield gap (nearest friendly: 22\"))",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_BURNA_BOYZ_A",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+     "measured": "neutral: E -2.83 [-10.66, 5.00] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_021358_sweep2_12__s7423_r1_p1_movement_2_1",
+     "case": "40k/tests/rollout_cases/s1f/20261030_021358_sweep2_12__s7423_r1_p1_movement_2_1.json",
+     "matchup": "Orks_2000 vs sw11e_gw_import_2000",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Screen (backfield gap (nearest friendly: 14\"))",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_GRETCHIN_A",
+       "objective": "obj_nml_1",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+     "measured": "neutral: E -2.25 [-5.91, 1.41] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160307_r4c05_00__s7456_r1_p2_movement_2_1",
+     "case": "40k/tests/rollout_cases/r4c05/20261030_160307_r4c05_00__s7456_r1_p2_movement_2_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Screen (deny deep strike near home objective obj_home_2)",
+     "ai_did": "Prosecutor Squad screens at (1320,1815) \u2014 deny deep strike near home objective obj_home_2",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_PROSECUTORS_A_P2",
+       "objective": "obj_home_2",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_home_2 (advancing for extra range)",
+     "measured": "neutral: E +3.25 [-1.81, 8.31] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063442_r2c07_00__s7438_r1_p1_movement_2_1",
+     "case": "40k/tests/rollout_cases/r2c07/20261030_063442_r2c07_00__s7438_r1_p1_movement_2_1.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Hold obj_home_1 (sole holder \u2014 leaving would drop control)",
+     "ai_did": "Prosecutor Squad screens at (761,742) \u2014 deny deep strike near home objective obj_home_1",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_PROSECUTORS_A",
+       "objective": "obj_nml_1",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+     "measured": "neutral: E +2.42 [-2.96, 7.79] over 12 seeds (one-round rollouts)"
+    }
+   ]
+  },
+  {
+   "key": "waaagh_advance_charge",
+   "title": "Ork units are treated as able to charge after Advancing on every turn (the Waaagh! rule text is misread), so melee units Advance 'to attack' and lose the charge",
+   "hint": "Two Ork melee units Advanced 'to attack' when a Normal move would have reached charge range, and could then not charge: s7468 r3 P2 Stormboyz 'advances to attack Prosecutor Squad (12.0 in away - closing to charge range (0.0 in after move))' vs a Normal move to obj_nml_1: +6.14 [3.08, 9.19] over 36 seeds (CONFIRMED); s7473 r3 P1 Beast Snagga Boyz 'advances to attack Allarus Custodians (9.5 in - closing to charge range (3.5 in after move))' vs a Normal move onto obj_center: +11.25 [5.09, 17.41] over 12 seeds (24-seed re-check pr9 running); s7472 r3 P1 Beast Snagga Boyz the same pattern: +2.00 [-4.12, 8.12] (12 seeds, same direction). LIKELY ROOT CAUSE (verify it, do not take it on trust): the melee chase gate in AIDecisionMaker.gd (~line 2643, 'Advance vs normal move') sets can_advance_and_charge_flag from flags.effect_advance_and_charge OR AIAbilityAnalyzerData.unit_has_ability_containing(unit, 'advance') AND ...(unit, 'charge'); with that flag it always Advances. EVERY unit in 40k/armies/Orks_2000.json has the army ability 'Waaagh!' whose description contains both words ('...that advance move does not prevent that unit from being eligible to declare a charge' - but only WHILE the unit is riled up, i.e. for one turn after the once-per-battle War Cry). The game itself sets flags.effect_advance_and_charge while the Waaagh! is active (40k/autoloads/FactionAbilityManager.gd ~lines 462, 616, 812), and ChargePhase refuses a charge after an Advance without that flag (40k/phases/ChargePhase.gd ~2019-2041). The same text test is used in _should_unit_advance (AI-GAP-4, ~line 11549: 'has Advance and Charge - advancing allows charge' -> always Advance) and in _should_unit_advance_long_trip (RACE-1, ~line 11633: skips the 'enemy within charge reach' check), so it may also make Ork shooting units (Lootas, Burna Boyz, Tankbustas) Advance and lose their shooting. A legitimate advance-and-charge ability exists elsewhere (Custodes Blade Champion 'Swift Onslaught', while leading a unit): keep that working. Guardrails: Ork Advances toward objectives that were right or neutral (s7436 r3 Lootas Beta -5.25, s7438 r1 Lootas Gamma -2.75, s7437 r1 Lootas Alpha -0.58, s7438 r1 Beast Snagga +0.08) and s7442 r2 (a non-Ork Terminator Assault Squad attack advance, 0.0). This bug is in every bench game with Orks (Orks mirror and Custodes vs Orks fixtures), so a fix will fire there; think hard about full-game effects of Ork units Advancing less (slower to objectives in rounds 1-2, more charges, more shooting).",
+   "findings": [
+    {
+     "job": "20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6",
+     "case": "40k/tests/rollout_cases/pr8/20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 3,
+     "player": 2,
+     "ai_chose": "Attack Prosecutor Squad (closing to charge range (0.0\" after move))",
+     "ai_did": "Stormboyz advances to attack Prosecutor Squad (12.0\" away \u2014 closing to charge range (0.0\" after move))",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_STORMBOYZ_A",
+       "objective": "obj_nml_1",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Attack Prosecutor Squad (closing to charge range (0.0\" after move))",
+     "measured": "clear: E +6.14 [3.08, 9.19] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5",
+     "case": "40k/tests/rollout_cases/r4c22/20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5.json",
+     "matchup": "Orks_2000 vs custodes_lions",
+     "round": 3,
+     "player": 1,
+     "ai_chose": "Attack Allarus Custodians (closing to charge range (3.5\" after move))",
+     "ai_did": "Beast Snagga Boyz advances to attack Allarus Custodians (9.5\" away \u2014 closing to charge range (3.5\" after move)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_BEAST_SNAGGA_BOYZ_A",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~4 VP)",
+     "measured": "clear: E +10.03 [6.82, 13.23] over 36 seeds (one-round rollouts)"
+    }
+   ],
+   "guardrails": [
+    {
+     "job": "20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1",
+     "case": "40k/tests/rollout_cases/r4c19/20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Advance obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 3 turns) \u2014 worth ~5 VP)",
+     "ai_did": "Lootas Gamma advances toward obj_nml_1 (racing for it (enemy can have ~16 OC there before we arrive in 3 turns",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_LOOTAS_C",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+     "measured": "harmful: E -5.50 [-10.10, -0.90] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7",
+     "case": "40k/tests/rollout_cases/r4c21/20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7.json",
+     "matchup": "Orks_2000 vs custodes_lions",
+     "round": 3,
+     "player": 1,
+     "ai_chose": "Attack Blade Champion Gamma (closing to charge range (1.8\" after move))",
+     "ai_did": "Beast Snagga Boyz advances to attack Blade Champion Gamma (7.8\" away \u2014 closing to charge range (1.8\" after mov",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_BEAST_SNAGGA_BOYZ_A",
+       "objective": "obj_nml_1",
+       "mode": "hold"
+      }
+     ],
+     "better_option": "Hold obj_nml_1 (on objective, OC needed \u2014 worth ~8 VP)",
+     "measured": "neutral: E +2.00 [-4.12, 8.12] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063415_r2c05_00__s7436_r3_p1_movement_2_4",
+     "case": "40k/tests/rollout_cases/r2c05/20261030_063415_r2c05_00__s7436_r3_p1_movement_2_4.json",
+     "matchup": "Orks_2000 vs custodes_lions",
+     "round": 3,
+     "player": 1,
+     "ai_chose": "Advance obj_nml_1 (flipping it (enemy holds with OC 2) \u2014 worth ~11 VP)",
+     "ai_did": "Lootas Beta advances toward obj_nml_1 (flipping it (enemy holds with OC 2))",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_LOOTAS_B",
+       "objective": "obj_center",
+       "mode": "hold"
+      }
+     ],
+     "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~15 VP)",
+     "measured": "neutral: E -5.25 [-17.51, 7.01] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063442_r2c07_00__s7438_r1_p2_movement_1_2",
+     "case": "40k/tests/rollout_cases/r2c07/20261030_063442_r2c07_00__s7438_r1_p2_movement_1_2.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Advance obj_center (racing for it (enemy can have ~16 OC there before we arrive in 2 turns) \u2014 quicker to reach than Beast Snagga Boyz (16.2\" away, there in 3 turns at M6 vs 21.2\" away, there in 3 turns at M6) \u2014 worth ~6 VP)",
+     "ai_did": "Lootas Gamma advances toward obj_center (racing for it (enemy can have ~16 OC there before we arrive in 2 turn",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_LOOTAS_C",
+       "objective": "obj_nml_2",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+     "measured": "neutral: E -2.75 [-5.65, 0.15] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063500_r2c06_00__s7437_r1_p2_movement_1_2",
+     "case": "40k/tests/rollout_cases/r2c06/20261030_063500_r2c06_00__s7437_r1_p2_movement_1_2.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Advance obj_center (racing for it (enemy can have ~16 OC there before we arrive in 2 turns), needs 2 more OC after this unit \u2014 worth ~8 VP)",
+     "ai_did": "Lootas Alpha advances toward obj_center (racing for it (enemy can have ~16 OC there before we arrive in 2 turn",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_LOOTAS_A",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+     "measured": "neutral: E -0.58 [-3.91, 2.75] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063442_r2c07_00__s7438_r1_p2_movement_2_3",
+     "case": "40k/tests/rollout_cases/r2c07/20261030_063442_r2c07_00__s7438_r1_p2_movement_2_3.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Advance obj_nml_1 (flipping it (enemy holds with OC 11) \u2014 worth ~2 VP with the 3 other objective(s) this plan takes \u2014 worth ~6 VP)",
+     "ai_did": "Beast Snagga Boyz advances toward obj_nml_1 (flipping it (enemy holds with OC 11) \u2014 worth ~2 VP with the 2 oth",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_BEAST_SNAGGA_BOYZ_A",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+     "measured": "neutral: E +0.08 [-4.26, 4.42] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_063517_r2c11_00__s7442_r2_p2_movement_2_2",
+     "case": "40k/tests/rollout_cases/r2c11/20261030_063517_r2c11_00__s7442_r2_p2_movement_2_2.json",
+     "matchup": "custodes_lions vs sw11e_gw_import_2000",
+     "round": 2,
+     "player": 2,
+     "ai_chose": "Attack Blade Champion Beta (closing to charge range (6.7\" after move))",
+     "ai_did": "Terminator Assault Squad advances to attack Blade Champion Beta (11.7\" away \u2014 closing to charge range (6.7\" af",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_TERMINATOR_ASSAULT_SQUAD_A",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing for extra range \u2014 worth ~7 VP)",
+     "measured": "neutral: E +0.00 [0.00, 0.00] over 12 seeds (one-round rollouts)"
+    }
+   ]
+  },
+  {
+   "key": "r1_home_capture",
+   "title": "Round 1: a strong unit is sent back to capture our own home objective (often a second unit for it) instead of going forward",
+   "hint": "Confirmed over 36 seeds with the V9 AI: s7468 r1 P1 (Custodes vs Orks): Custodian Guard Gamma 'moves toward obj_home_1 (capturing it (uncontrolled), obj 9.4 in away)' while Alpha is ALSO sent there; Gamma ADVANCING to obj_center instead: +6.86 [4.45, 9.27]. s7451 r1 P2 (Custodes mirror): Gamma makes a Normal move toward obj_center ('2 turns away', contest_race -13.74); ADVANCING there: +5.86 [3.09, 8.63] (Gamma's Guardian Spear is [ASSAULT], so Advancing costs no shooting; RACE-1's long-trip Advance test and _should_unit_advance may ignore [ASSAULT] - the reinforce_insurance designs found this too). Older confirmed findings of the same kind (round 2 sweeps, older AI; replay them to see what V9 does now): s7412 r1 P1 Beta 'Move obj_home_1 (capturing it (uncontrolled))' vs Advance obj_nml_1 +2.86 [1.27, 4.45]; s7411 r1 P1 Gamma 'Move obj_home_1 (capturing it (uncontrolled))' vs Advance obj_nml_1 +2.50 [0.71, 4.29]. Questions: why is an uncontrolled home objective that needs 1 OC given a second capturer (does the need ledger count the first unit's OC? pass order? COORD-5?), what is a home capture worth in round 1 under each primary card (11e cards rotate by seed), and when does the enemy threaten home. Guardrails (the AI's own forward choice or home hold was right): s7404 r1 P1 Alpha racing obj_nml_2 instead of the centre (-6.58 harmful), s7468 r1 P2 Kommandos keeping home (-6.58 harmful), s7451 r1 P2 keeping home (-4.33 harmful), s7420 r1 P2 racing obj_nml_1 (-4.67), s7422 r1 P1 Beta capturing home (+0.72 neutral), s7404 r1 P1 Prosecutors capturing home (0.0). Related clusters already in judge panels: keeper_reach (a sole KEEPER of home leaving in round 1) and reinforce_insurance; your fix must not undo them - this cluster is about units SENT to home, not the keeper that stands on it.",
+   "findings": [
+    {
+     "job": "20261030_160517_r4c17_00__s7468_r1_p1_movement_1_0",
+     "case": "40k/tests/rollout_cases/pr8/20261030_160517_r4c17_00__s7468_r1_p1_movement_1_0.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Move obj_home_1 (capturing it (uncontrolled) \u2014 worth ~2 VP)",
+     "ai_did": "Custodian Guard Sodality Gamma moves toward obj_home_1 (capturing it (uncontrolled), obj: 9.4\" away)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_C",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+     "measured": "clear: E +6.86 [4.45, 9.27] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0",
+     "case": "40k/tests/rollout_cases/r4c00/20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Move obj_center (reinforcing obj_center (1 unit already committed) \u2014 worth ~7 VP)",
+     "ai_did": "Custodian Guard Sodality Gamma moves toward obj_center (reinforcing obj_center (1 unit already committed), obj",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_C_P2",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center",
+     "measured": "clear: E +5.86 [3.09, 8.63] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_012004_sweep2_01__s7412_r1_p1_movement_2_0",
+     "case": "40k/tests/rollout_cases/s1b/20261030_012004_sweep2_01__s7412_r1_p1_movement_2_0.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Move obj_home_1 (capturing it (uncontrolled) \u2014 worth ~6 VP)",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_nml_1",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+     "measured": "clear: E +2.86 [1.27, 4.45] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_012005_sweep2_00__s7411_r1_p1_movement_2_1",
+     "case": "40k/tests/rollout_cases/s1b/20261030_012005_sweep2_00__s7411_r1_p1_movement_2_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Move obj_home_1 (capturing it (uncontrolled))",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_C",
+       "objective": "obj_nml_1",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+     "measured": "clear: E +2.50 [0.71, 4.29] over 36 seeds (one-round rollouts)"
+    }
+   ],
+   "guardrails": [
+    {
+     "job": "20261030_010419_sweep1_03__s7404_r1_p1_movement_1_0",
+     "case": "40k/tests/rollout_cases/s1a/20261030_010419_sweep1_03__s7404_r1_p1_movement_1_0.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Advance obj_nml_2 (racing for it (enemy can have ~14 OC there before we arrive in 2 turns) \u2014 worth ~6 VP with the 2 other objective(s) this plan takes \u2014 worth ~10 VP)",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_A",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+     "measured": "harmful: E -6.58 [-11.59, -1.58] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160517_r4c17_00__s7468_r1_p2_movement_2_2",
+     "case": "40k/tests/rollout_cases/r4c17/20261030_160517_r4c17_00__s7468_r1_p2_movement_2_2.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Hold obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move \u2014 worth ~1 VP)",
+     "ai_did": "Kommandos holds obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_KOMMANDOS_A",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~5 VP)",
+     "measured": "harmful: E -6.58 [-10.39, -2.78] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1",
+     "case": "40k/tests/rollout_cases/r4c00/20261030_160248_r4c00_00__s7451_r1_p2_movement_2_1.json",
+     "matchup": "custodes_lions vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Hold obj_home_2 (keeping hold \u2014 the other unit(s) here are freed to move)",
+     "ai_did": "Custodian Guard Sodality Beta moves toward obj_center (capturing it (uncontrolled), obj: 19.7\" away)",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B_P2",
+       "objective": "obj_nml_2",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~4 VP)",
+     "measured": "harmful: E -4.33 [-7.47, -1.19] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_015944_sweep2_09__s7420_r1_p2_movement_1_0",
+     "case": "40k/tests/rollout_cases/s1e/20261030_015944_sweep2_09__s7420_r1_p2_movement_1_0.json",
+     "matchup": "sw11e_gw_import_2000 vs custodes_lions",
+     "round": 1,
+     "player": 2,
+     "ai_chose": "Advance obj_nml_1 (racing for it (enemy can have ~28 OC there before we arrive in 3 turns) \u2014 worth ~3 VP with the 1 other objective(s) this plan takes \u2014 worth ~6 VP)",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+     "measured": "neutral: E -4.67 [-10.78, 1.44] over 12 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_020728_sweep2_11__s7422_r1_p1_movement_1_0",
+     "case": "40k/tests/rollout_cases/s1e/20261030_020728_sweep2_11__s7422_r1_p1_movement_1_0.json",
+     "matchup": "custodes_lions vs sw11e_gw_import_2000",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Move obj_home_1 (capturing it (uncontrolled))",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_CUSTODIAN_GUARD_B",
+       "objective": "obj_center",
+       "mode": "move"
+      }
+     ],
+     "better_option": "Move obj_center (moving to objective \u2014 worth ~4 VP)",
+     "measured": "neutral: E +0.72 [-1.86, 3.30] over 36 seeds (one-round rollouts)"
+    },
+    {
+     "job": "20261030_010419_sweep1_03__s7404_r1_p1_movement_2_1",
+     "case": "40k/tests/rollout_cases/s1a/20261030_010419_sweep1_03__s7404_r1_p1_movement_2_1.json",
+     "matchup": "custodes_lions vs Orks_2000",
+     "round": 1,
+     "player": 1,
+     "ai_chose": "Move obj_home_1 (capturing it (uncontrolled) \u2014 worth ~2 VP)",
+     "ai_did": "",
+     "alternative": [
+      {
+       "kind": "move",
+       "unit": "U_PROSECUTORS_A",
+       "objective": "obj_center",
+       "mode": "advance"
+      }
+     ],
+     "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+     "measured": "neutral: E +0.00 [0.00, 0.00] over 12 seeds (one-round rollouts)"
+    }
+   ]
+  }
+ ]
+}

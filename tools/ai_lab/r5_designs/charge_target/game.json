@@ -1,0 +1,76 @@
+{
+ "key": "charge_target",
+ "angle": "game",
+ "root_cause": "Two scoring gaps in the charge declaration. (1) _score_charge_target credits the charger's full expected melee damage as ch_damage even beyond the target's remaining wounds, and the probability/short-charge multipliers (x1.2 x1.3 for a 3\" charge) then scale that phantom damage. At s7480 r3 P2 the Allarus were credited 7.5 dmg (ch_damage 15) against a 2-wound Allarus remnant 2\" away (score 41.96) vs 10 dmg (ch_damage 20) against Blade Champion Alpha with 7 wounds (32.94); with wounds capped the remnant scores 21.6 and the Blade Champion 25.9. (2) _score_multi_target_combo floors an extra target's lock-down share at 0 after subtracting the damage it deals back, so a combo with an extra that adds nothing scores >= the single declaration (it also books the fallback target, which the post-roll re-pick already gives a single declaration in 11e since targets are picked after the roll). The AI therefore declared remnant + Allarus #2 (s7480) and Beast Snagga Boyz (value 0) + Beastboss (s7461). Game-level: in branch B of s7480 the Allarus killed the Blade Champion, which freed Custodian Guard Alpha to fight Blade Champion Gamma, the remnant was left to a weaker unit, the Allarus consolidated to CENTER, and P2 scored Punishment (condemned_left +5) and +5..+9 primary (B-A +11.0 over 2 seeds); in A the big hitter spent its whole fight on 2 wounds.",
+ "fix_summary": "FIX_CHARGE_TARGET (default 1.0, tag [CHARGE_TARGET]). CH-OVERKILL: in _evaluate_best_charge, when a charger has two or more targets above the 3% skip, _score_charge_target(..., cap_overkill=true) credits melee damage only up to the target's remaining wounds (+ CHARGE_TARGET_OVERKILL_SHARE x excess, default 0; the kill keeps its ch_can_halve/ch_can_wipe bonuses). A charger with one target keeps its old score, so its charge/no-charge call is unchanged. CH-EXTRA: _score_multi_target_combo marks a combo whose non-top member has extra <= 0 (hits back at least its lock-down share) and _evaluate_multi_target_charge skips it; the direct combo scorer is unchanged (its existing test still passes). 0 = base behaviour exactly (both branches gated).",
+ "param": "FIX_CHARGE_TARGET",
+ "test_file": "40k/tests/unit/test_ai_fix_charge_target.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "test_ai_fix_charge_target: === Results: 6 passed, 0 failed ===; test_ai_rollout_override: === Results: 11 passed, 0 failed ===; test_ai_e_race_tuning: === Results: 8 passed, 0 failed ===; test_ai_race_army: === Results: 3 passed, 0 failed ===; test_ai_advance_probability: === Results: 8 passed, 0 failed ===; test_ai_objective_race: === Results: 16 passed, 0 failed ===; test_ai_plan_diminishing_returns: === Results: 4 passed, 0 failed ===; test_ai_critic_round2: === Results: 7 passed, 0 failed ===; test_ai_11e_charge_ev_primary_cap: === Results: 26 passed, 0 failed ===; test_ai_movement_decisions: === Results: 36 passed, 0 failed ===; test_ai_plan_earmarks: === Results: 35 passed, 0 failed ===; test_ai_fix_held_dup: === Results: 14 passed, 0 failed ===; test_ai_fix_lone_trip: === Results: 8 passed, 0 failed ===; test_ai_fix_charge_ev: === Results: 11 passed, 0 failed ===; test_ai_fix_far_trip: === Results: 11 passed, 0 failed ===; test_ai_fix_overcommit: === Results: 8 passed, 0 failed ===; test_ai_fix_keeper_release: === Results: 52 passed, 0 failed ===; test_ai_fix_lone_flip: === Results: 16 passed, 0 failed ===; test_ai_fix_reinforce_insurance: === Results: 24 passed, 0 failed ===; test_ai_charge_decisions: === Results: 62 passed, 0 failed ===; test_ai_survival_assessment: === Results: 23 passed, 0 failed ===; test_ai_multi_phase_planning: === Results: 34 passed, 0 failed ===; test_ai_ability_awareness: === Results: 72 passed, 1 failed ===; test_ai_threat_range_awareness: === Results: 34 passed, 3 failed ===; RT_DONE | Known/base failures: test_ai_threat_range_awareness 3 failed (known on base), test_ai_ability_awareness 1 failed ('fall back' ability detection, also fails on BASE). test_ai_11e_charge_ev_primary_cap initially failed when CH-EXTRA lived inside _score_multi_target_combo; moved the drop to _evaluate_multi_target_charge -> 26/26.",
+ "decision_checks": [
+  {
+   "job": "20261030_234707_r5c05_00__s7480_r3_p2_charge_1_6",
+   "base_choice": "Allarus Custodians declares at Allarus Custodians (2-wound remnant, 3+) + Allarus Custodians #2 (9+)",
+   "fix_choice": "Allarus Custodians declares charge against Blade Champion Alpha (83%, 4.3\")",
+   "changed": true,
+   "measured": "clear: E +5.75 [1.46, 10.04] n24 (alternative = Blade Champion Alpha alone)",
+   "judgement": "matches the alternative exactly (same unit, same single target). Scores: remnant 21.6 (was 41.96), Blade Champion 25.9 (was 32.94); remnant+#2 and remnant+Blade combos dropped by CH-EXTRA."
+  },
+  {
+   "job": "20261030_160521_r4c14_00__s7465_r2_p1_charge_1_4",
+   "base_choice": "Stormboyz declares at Battlewagon Alpha (10+) + Beastboss (11+)",
+   "fix_choice": "Stormboyz declares charge against Beastboss alone (8%, 10.8\")",
+   "changed": true,
+   "measured": "extra finding, 12 seeds: E +6.75 [1.62, 11.88] for NO charge",
+   "judgement": "changed but NOT the alternative's intent: still charges (single Beastboss; a 10 roll still re-picks Battlewagon via the post-roll step, so play is close to the base combo). The fix does not lower the charge rate, by design (hint: no 'charge less' rule)."
+  },
+  {
+   "job": "20261030_160402_r4c10_00__s7461_r3_p2_charge_1_6",
+   "base_choice": "Battlewagon Alpha declares at Beast Snagga Boyz (value 0) + Beastboss",
+   "fix_choice": "Battlewagon Alpha declares charge against Beastboss alone (72%, 5.1\")",
+   "changed": true,
+   "measured": "extra finding, 12 seeds: neutral E +3.75 [-1.77, 9.27] (alternative = Beastboss alone)",
+   "judgement": "matches the alternative exactly (CH-EXTRA drops the combo with the zero-value Beast Snagga Boyz)."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160521_r4c14_00__s7465_r2_p2_charge_1_5",
+   "base_choice": "Stormboyz charge Lootas Beta (17%)",
+   "fix_choice": "Stormboyz charge Lootas Beta (17%)",
+   "changed": false,
+   "measured": "harmful: not charging E -5.25 [-9.93, -0.57] n12",
+   "judgement": "consistent: the right charge is kept"
+  },
+  {
+   "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5",
+   "base_choice": "Stormboyz charge Blade Champion Gamma (28%)",
+   "fix_choice": "Stormboyz charge Blade Champion Gamma (28%)",
+   "changed": false,
+   "measured": "harmful: not charging E -3.50 [-5.64, -1.36] n12",
+   "judgement": "consistent: kept (8.9 dmg vs 7 HP is capped but still the pick above the bar)"
+  },
+  {
+   "job": "20261030_160514_r4c15_00__s7466_r3_p2_charge_1_7",
+   "base_choice": "Battlewagon Alpha charge Lootas Alpha (42%)",
+   "fix_choice": "Battlewagon Alpha charge Lootas Alpha (42%)",
+   "changed": false,
+   "measured": "harmful: not charging E -3.92 [-7.47, -0.36] n12",
+   "judgement": "consistent: kept"
+  },
+  {
+   "job": "20261030_234707_r5c05_00__s7480_r3_p1_charge_1_5",
+   "base_choice": "Allarus Custodians charge Custodian Guard Sodality Gamma (83%)",
+   "fix_choice": "Allarus Custodians charge Custodian Guard Sodality Gamma (83%)",
+   "changed": false,
+   "measured": "neutral: not charging +3.67 [-3.28, 10.61] n12",
+   "judgement": "no change; consistent with neutral"
+  }
+ ],
+ "fires": "Log lines fire per evaluation (each charge-phase evaluation, both players), not per changed decision. Replays (1 seed, to end of next round), [CHARGE_TARGET] lines / CH-OVERKILL / CH-EXTRA / 'Best charge' declarations: s7480 P2 54/12/42/6; s7465 P1 76/13/63/12; s7461 P2 102/12/90/6; guard s7465 P2 50/15/35/12; s7470 P2 101/11/90/11; s7466 P2 21/0/21/3; s7480 P1 24/5/19/9. Decisions changed: the decision unit in all 3 findings, none of the 4 guardrail decision units; after the decision point, every multi-target declaration the base made in these replays (0-2 per game) became a single declaration (e.g. s7465 P2 Stormboyz Beastboss + Mek Beta -> Beastboss; s7470 Custodian Guard Gamma 3-target -> Beast Snagga Boyz; s7480 P1 CG Delta CG Beta + Blade Champion Gamma -> CG Beta). Bench reach: 1 pair on mirror_custodes_2000_postdeploy (seed 93101, candidate seat only has the code): game M1 133 [CHARGE_TARGET] lines (15 CH-OVERKILL, 118 CH-EXTRA), game M2 357 (43 CH-OVERKILL, 314 CH-EXTRA); mean 245 lines/game. It fires in the bench in both games. Pair result (reach only, n=1): E -2.5 (margins -53 / -48).",
+ "bench_fires_per_game": 245.0,
+ "risks": "(1) CH-EXTRA is broad in practice: almost every extra target hits back for more than its 0.2 lock-down share, so it removes nearly all multi-target declarations (0 in all 7 fix replays vs 0-2 per game on base). The 11e post-roll re-pick keeps the fallback value, so the main loss is the lock-down of a second unit when both are reached; the gain is fewer multi-target charge moves that fail coherency (seen in s7480 base: a 3-target declaration failed its move) and fewer units hitting the charger in later fight phases. Rounds 3-5: a charger locked with one unit instead of two consolidates/falls back more freely toward objectives (helps primary and Centre Ground / Engage-type secondaries); a second shooter that would have been locked keeps shooting (can cost a unit late). (2) CH-OVERKILL only re-ranks targets for a charger with a choice; it can still lower the best score toward the bar in rare low-value cases (none seen in the 7 replays: every base charge/no-charge call was kept). Late game (round 4-5) finishing a 1-2 wound remnant on an objective is worth OC/primary and kills for destroyed-per-unit secondaries (e.g. Delaying Action destroyed_per_unit): ch_can_wipe (+5), ch_can_halve (+3) and ch_target_on_objective (x1.5, x more in round 4+) are untouched, so a remnant on an objective still competes, but a big hitter will now more often go for the high-wound / character target and leave remnants to cheaper units or shooting; if nothing else can reach the remnant it may survive and score for the enemy. (3) No units are held back (the round-2 failure mode): the fix never turns a charge into no charge by itself and does not touch movement. (4) Not measured over full games; the single bench pair is reach only.",
+ "drop_reason": ""
+}

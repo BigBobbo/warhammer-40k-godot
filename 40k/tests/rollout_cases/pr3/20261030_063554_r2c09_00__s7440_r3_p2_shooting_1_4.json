@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Ancient in Terminator Armour (P1)",
+ "created": "2026-10-30 06:40:53",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7440_r3_p2_shooting_1",
+ "note": "[LLM critic, low conf] The AI shot the Ancient (0.89 expected damage, 18% kill chance) instead of the Wulfen (1.33 expected damage). The 18% kill figure looks too high for that damage against 5 wounds. Fix: Compute kill chance from the real damage distribution over the wounds left. Do not use a flat fraction. Score expected models killed times points per model. Count damage already allocated to a target as progress toward a kill, not as a penalty.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7440_r3_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Ancient in Terminator Armour (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma shoots at Ancient in Terminator Armour \u2014 expected 0.9 dmg vs 5 HP (18% kill)",
+ "verdict": "pending",
+ "version": 1
+}

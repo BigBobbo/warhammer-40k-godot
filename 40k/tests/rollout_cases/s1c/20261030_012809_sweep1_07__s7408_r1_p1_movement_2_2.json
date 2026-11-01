@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 22\"))",
+ "created": "2026-10-30 01:31:58",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7408_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent a short-range flamer unit alone to a far flank screen point. The reason text talks about obj_home_2, which is not the choice, and the screen score has a large distance penalty. Fix: Apply the not-racing override only to the objective it names. When the best screen option has a large screen_distance penalty, or ends more than 12 inches from friendly units, prefer moving the unit toward a nearby central objective with the army. Also treat short-range flamer units as poor lone screeners.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7408_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "pos:1600,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha screens at (1600,960) \u2014 backfield gap (nearest friendly: 22\")",
+ "verdict": "pending",
+ "version": 1
+}

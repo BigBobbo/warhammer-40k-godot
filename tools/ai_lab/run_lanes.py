@@ -133,6 +133,15 @@ def run_one(seed: int, args, stamp: str, ud: str, season: str, sha: str) -> dict
         cmd.append("--bench-p1-profile=%s" % args.p1_profile)
     if args.p2_profile:
         cmd.append("--bench-p2-profile=%s" % args.p2_profile)
+    # AB-SEAT: per-seat AIDecisionMaker version (tools/ai_lab/ai_versions.py)
+    if getattr(args, "p1_ai", ""):
+        cmd.append("--bench-p1-ai=%s" % args.p1_ai)
+    if getattr(args, "p2_ai", ""):
+        cmd.append("--bench-p2-ai=%s" % args.p2_ai)
+    if getattr(args, "bench_11e", False):
+        cmd.append("--bench-11e")
+    if getattr(args, "dispositions", ""):
+        cmd.append("--bench-dispositions=%s" % args.dispositions)
     # PM-10: a wh40k_ai_plan per seat. The AIBenchmarkRunner flags already
     # exist (PM-2a); this just plumbs them through the lane driver so a paired
     # campaign can hold the plan constant and vary PLANS_ENABLED in the profile.
@@ -173,7 +182,17 @@ def run_one(seed: int, args, stamp: str, ud: str, season: str, sha: str) -> dict
     # oversubscribed lanes) while the game was still progressing. Both are
     # unusable as data, but only `stalled` indicates an AI defect.
     status = outcome.get("status", "missing")
-    if status == "completed":
+    # FIRE-COUNT: AI_LAB_KEEP_LOG_GREP (comma-separated substrings, e.g. the
+    # fix log tags "[KEEPER_RELEASE],[LONE_FLIP]") keeps only the matching lines
+    # of a completed game's log, so a benchmark can count per game how often a
+    # fix changed a decision. Unset = delete the log, as before.
+    keep_tags = [t for t in os.environ.get("AI_LAB_KEEP_LOG_GREP", "").split(",") if t]
+    if status == "completed" and keep_tags:
+        with open(log_path, errors="replace") as src:
+            kept = [line for line in src if any(t in line for t in keep_tags)]
+        with open(log_path, "w") as dst:
+            dst.writelines(kept)
+    elif status == "completed":
         os.remove(log_path)
     else:
         with open(log_path, "rb") as src, gzip.open(log_path + ".gz", "wb") as dst:

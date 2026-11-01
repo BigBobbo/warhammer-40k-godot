@@ -1,0 +1,108 @@
+[
+ {
+  "job": "20261030_160457_r4c16_00__s7467_r1_p2_movement_2_1",
+  "case": "20261030_160457_r4c16_00__s7467_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gretchin go to a screen position near obj_nml_2 in a block role, but the plan does not take or hold obj_nml_2, which nobody holds. The screen only has value if it really blocks the Blade Champion.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "priority_assets",
+   "seeds": "7467",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160457_r4c16_00",
+  "from_batch": "r4c16"
+ },
+ {
+  "job": "20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3",
+  "case": "20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends its 270 point Allarus unit on a 17% charge at a 4 wound Mek. The roll almost always fails, and a failed charge wastes the unit's turn.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "priority_assets",
+   "seeds": "7467",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160457_r4c16_00",
+  "from_batch": "r4c16"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2",
+  "case": "20261030_160548_r4c18_00__s7469_r2_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Stormboyz (140pts) charge a T7, 2+ save, 4+ invulnerable Blade Champion on an objective at 28% odds. The 8.9 expected damage is far too high.",
+  "better_option": "unlisted: do not charge with Stormboyz; keep them back or screen",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00",
+  "from_batch": "r4c18"
+ },
+ {
+  "job": "20261030_160548_r4c18_00__s7469_r2_p1_movement_2_3",
+  "case": "20261030_160548_r4c18_00__s7469_r2_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "The AI kept Beta at home as the sole holder. The OC data says Beta is not in range, so it holds nothing, and a 9 OC unit idles far from the fight.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~5 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "take_and_hold",
+   "disposition2": "disruption",
+   "seeds": "7469",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_160548_r4c18_00",
+  "from_batch": "r4c18"
+ }
+]

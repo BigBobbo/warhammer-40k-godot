@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Thunderwolf Cavalry Alpha arrives",
+ "created": "2026-10-30 01:33:14",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7407_r2_p2_movement_1",
+ "note": "[LLM critic, low conf] Thunderwolf Cavalry Alpha arrives on the exposed left flank, 14.7 in from the nearest objective. It cannot take the objective this turn and may take heavy fire from Lootas and Kommandos. Fix: Add an arrival threat penalty from the enemy shooting that can reach the spot next turn, scaled by unit points. Also prefer spots within one move of an objective the unit can take.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7407_r2_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_THUNDERWOLF_CAVALRY_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_THUNDERWOLF_CAVALRY_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Thunderwolf Cavalry Alpha arrives from Strategic Reserves",
+ "verdict": "pending",
+ "version": 1
+}

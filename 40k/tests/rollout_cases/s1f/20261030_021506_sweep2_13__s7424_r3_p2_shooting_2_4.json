@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Twin bolt rifle \u2192 enemy Lootas Beta (P1)",
+ "created": "2026-10-30 02:24:05",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7424_r3_p2_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot Lootas Beta. It treated expected damage divided by wounds as a 47% kill chance, but the real chance to kill 4 models with 6 weak shots through cover is very low. Fix: Compute the real kill probability from the hit, wound and save distribution, including cover and rapid fire range. Scale the kill bonus by that probability. Give a bonus for targets that are within 12 in, because rapid fire and charge threat both apply there.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7424_r3_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_OUTRIDER_SQUAD_A",
+  "choice": "desc:Twin bolt rifle \u2192 enemy Lootas Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Outrider Squad shoots at Lootas Beta \u2014 expected 1.9 dmg vs 4 HP (47% kill)",
+ "verdict": "pending",
+ "version": 1
+}

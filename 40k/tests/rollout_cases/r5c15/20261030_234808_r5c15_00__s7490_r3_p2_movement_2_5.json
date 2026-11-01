@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_center (reinforcing it (we hold with OC 2, enemy can bring ~30), needs 6 more OC after this unit \u2014 worth ~8 VP)",
+ "created": "2026-10-30 23:52:49",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7490_r3_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI moves the wounded Gamma unit to obj_center, which already has strong Custodian support and is held by us. The move is reasonable but adds little. Its threat_delta of -16.71 is ignored in the score, which is only 0.31 ahead of the obj_nml_2 option. Fix: Count nearby friendly OC that will reach the objective this turn when computing the reinforcement need. Cap objective_priority for a unit that adds only marginal control. Scale threat_delta by the unit's remaining wounds.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7490_r3_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma moves toward obj_center (moving toward charge target Beastboss, obj: 4.5\" away)",
+ "verdict": "pending",
+ "version": 1
+}

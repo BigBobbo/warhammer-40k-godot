@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Twin bolt rifle \u2192 enemy Stormboyz (P1)",
+ "created": "2026-10-30 02:23:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7424_r3_p2_shooting_1",
+ "note": "[LLM critic, medium conf] The AI shot 2 twin bolt rifle attacks at Stormboyz for about 0.9 damage and a 4% kill chance. The Lootas Gamma option offers a similar damage output with a better kill chance, and the Lootas hit harder next turn. Fix: For a shooter that cannot realistically kill the target, make the score depend mainly on expected damage in target points. Add the target's threat to the shooter's own army. Weight kill_fraction more strongly. Prefer finishing partly damaged units.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7424_r3_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CHAPLAIN_ON_BIKE_A",
+  "choice": "desc:Twin bolt rifle \u2192 enemy Stormboyz (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Chaplain on Bike shoots at Stormboyz \u2014 expected 0.9 dmg vs 22 HP (4% kill)",
+ "verdict": "pending",
+ "version": 1
+}

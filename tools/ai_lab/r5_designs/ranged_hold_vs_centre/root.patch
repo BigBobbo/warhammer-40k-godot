@@ -1,0 +1,363 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index dee1aee0..2fd33c00 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1673,6 +1673,20 @@ const RI_QUARTER_LATER_ROUND_SHARE: float = 0.5
+ # one move, our shooting and charges act on its approach first, and LONE-TRIP
+ # pins 18 OC vs 20 as a fight worth joining (test_ai_fix_lone_trip).
+ const RI_RACE_LOST_RATIO: float = 1.5
++# Movement plan (RANGED-CENTRE): 1 = a capture trip's reach (gap_in ->
++# turns_to_reach, and through it the contest race, distance penalty, LONE-TRIP's
++# threat window and the T7-26 Heavy hold's "reachable this turn") is priced the
++# way the unit really gets there: (a) on an 11e terrain objective (14.01: the
++# hosting AREA is the objective) the gap is the nearest alive model's distance
++# to that area — FIX-HELD-DUP already reads "on it" that way, the reach still
++# measured centroid -> marker point less 3"; (b) a trip the plan Advances on
++# because the Advance reaches range THIS turn (gap in (M, M + 2"]) costs one
++# turn, not the Normal-move ceil(gap / M). Lootas 7.3" from the centre's ruin
++# (19.6" centroid -> marker) were priced as a 2-turn lost race into ~30 enemy
++# OC, LONE-TRIP vetoed the centre and the unit held for its Heavy bonus; one
++# Advance put it on the centre (LLM-critic cluster ranged_hold_vs_centre: +5.62
++# VP over 24 rollouts). 0 = previous behaviour.
++const FIX_RANGED_CENTRE: float = 1.0
+ const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+ const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+ const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+@@ -9525,6 +9539,7 @@ static func _assign_units_to_objectives(
+ 				and _should_unit_advance_long_trip(unit, has_ranged, max_weapon_range, enemies, centroid)
+ 
+ 		var race_same_turn: bool = get_param("PLAN_RACE_SAME_TURN", 1.0) >= 0.5
++		var rc_on: bool = get_param("FIX_RANGED_CENTRE", FIX_RANGED_CENTRE) >= 0.5
+ 		for eval in obj_evaluations:
+ 			var obj_pos = eval.position
+ 			var obj_id = eval.id
+@@ -9546,6 +9561,25 @@ static func _assign_units_to_objectives(
+ 			# FIX-HELD-DUP: a model on the 11e hosting area holds it too
+ 			if not already_on_obj and not (hd_obj_by_id.get(obj_id, {}) as Dictionary).is_empty():
+ 				already_on_obj = _unit_in_objective_range(unit, hd_obj_by_id[obj_id], hd_mm)
++			# RANGED-CENTRE (FIX_RANGED_CENTRE): the reach as the unit really
++			# gets there — the nearest model to an 11e hosting area, and one turn
++			# for a trip it Advances on because the Advance reaches range now.
++			var rc_turns_base: float = turns_to_reach
++			if rc_on and long_adv_ok and not already_on_obj and gap_in > move_inches + 2.0 \
++					and _long_trip_advance_saves_turn(gap_in, move_inches):
++				rc_turns_base = max(1.0, ceil(gap_in / (move_inches + get_param("ADVANCE_EXPECTED_EXTRA_INCHES", ADVANCE_EXPECTED_EXTRA_INCHES))))
++			var rc_adv_now := false
++			if rc_on and not already_on_obj:
++				if not (hd_obj_by_id.get(obj_id, {}) as Dictionary).is_empty():
++					gap_in = minf(gap_in, _rc_host_gap_inches(unit, hd_obj_by_id[obj_id], hd_mm))
++				turns_to_reach = max(1.0, ceil(gap_in / move_inches)) if move_inches > 0 else 99.0
++				if gap_in > move_inches and gap_in <= move_inches + 2.0:
++					rc_adv_now = _should_unit_advance(
++						unit, gap_in, move_inches, has_ranged, max_weapon_range,
++						enemies, centroid, battle_round, eval
++					)
++					if rc_adv_now and "BEGIN_ADVANCE" in move_types:
++						turns_to_reach = 1.0
+ 			# RACE-1: a long trip the unit will Advance on is costed (distance,
+ 			# contest race) at the Advance pace it will actually travel.
+ 			var long_adv: bool = long_adv_ok and not already_on_obj \
+@@ -9983,7 +10017,8 @@ static func _assign_units_to_objectives(
+ 				reason = "on objective, OC needed"
+ 			elif gap_in > move_inches and gap_in <= move_inches + 2.0:
+ 				# Advance consideration (Task 3) — on the gap to control range
+-				var should_advance = _should_unit_advance(
++				# (RANGED-CENTRE: already asked above, on the corrected gap)
++				var should_advance = rc_adv_now if rc_on else _should_unit_advance(
+ 					unit, gap_in, move_inches, has_ranged, max_weapon_range,
+ 					enemies, centroid, battle_round, eval
+ 				)
+@@ -10052,6 +10087,11 @@ static func _assign_units_to_objectives(
+ 				"vp_value": eval.get("vp_value", 0.0),
+ 				"score_terms": score_terms
+ 			})
++			if rc_on:
++				# RANGED-CENTRE: the corrected gap (T7-26's "reachable this turn")
++				# and the turns the previous pricing gave (the [RANGED_CENTRE] log)
++				candidates[candidates.size() - 1]["gap_in"] = gap_in
++				candidates[candidates.size() - 1]["rc_turns_base"] = rc_turns_base
+ 
+ 	# Sort by score (highest first)
+ 	candidates.sort_custom(func(a, b): return a.score > b.score)
+@@ -11110,6 +11150,19 @@ static func _assign_units_to_objectives(
+ 			kr_home, kr_uid, kr_oid, str(kr_t.action).to_upper(), float(kr_trip.score),
+ 			float(kr.hold.score), kr.why])
+ 
++	# RANGED-CENTRE (FIX_RANGED_CENTRE): name the trips the plan takes at a
++	# reach the previous pricing put further away.
++	for rc_uid in assignments:
++		var rc_a: Dictionary = assignments[rc_uid]
++		if rc_a.has("rc_turns_base") and str(rc_a.get("action", "")) in ["move", "advance"] \
++				and float(rc_a.get("turns_to_reach", 1.0)) < float(rc_a.rc_turns_base):
++			var rc_msg := "[RANGED_CENTRE] %s -> %s (%s): %.1f\" from range, %d turn(s) — the previous pricing gave %d" % [
++				_dn(snapshot.get("units", {}).get(rc_uid, {}), rc_uid), str(rc_a.get("objective_id", "")),
++				str(rc_a.get("action", "")).to_upper(), float(rc_a.get("gap_in", 0.0)),
++				int(rc_a.get("turns_to_reach", 1.0)), int(rc_a.rc_turns_base)]
++			print("AIDecisionMaker: " + rc_msg)
++			_debug_log_info(rc_msg)
++
+ 	# COORD-3: stash each unit's candidate list so its decision card can be
+ 	# emitted ONCE, at the moment the unit actually acts (see
+ 	# _finalize_movement_decision). Previously every decide() call re-recorded
+@@ -12255,6 +12308,21 @@ static func _unit_in_objective_range(unit: Dictionary, objective: Dictionary, mm
+ 			return true
+ 	return false
+ 
++## RANGED-CENTRE (FIX_RANGED_CENTRE): inches the unit's nearest alive model
++## still has to cover to be within range of `objective` by MissionManager's
++## measure (model_gap_to_objective_range_px: on an 11e terrain objective the
++## distance to the hosting area, else to 3" of the marker). INF when no model
++## can be measured.
++static func _rc_host_gap_inches(unit: Dictionary, objective: Dictionary, mm) -> float:
++	var best := INF
++	if mm == null or not mm.has_method("model_gap_to_objective_range_px"):
++		return best
++	for model in unit.get("models", []):
++		if not model.get("alive", true) or _get_model_position(model) == Vector2.INF:
++			continue
++		best = minf(best, float(mm.model_gap_to_objective_range_px(model, objective)) / PIXELS_PER_INCH)
++	return best
++
+ ## The OC a unit brings once its models stand in range — every alive model's
+ ## own OC (14.02), the planner's capacity for "how much of an objective's need
+ ## does this unit cover". A unit with no OC stat at all keeps the planner's
+@@ -12463,11 +12531,26 @@ static func _should_hold_for_heavy_bonus(
+ 	var dist_to_obj_inches = dist_to_obj / PIXELS_PER_INCH
+ 	if dist_to_obj_inches <= move_inches:
+ 		return false  # Can reach objective this turn, prioritize that
++	# RANGED-CENTRE (FIX_RANGED_CENTRE): the reach tests below on the plan's own
++	# gap (the nearest model to the hosting area / control range) as well.
++	var rc_gap_in: float = dist_to_obj_inches
++	if assignment.has("gap_in") and get_param("FIX_RANGED_CENTRE", FIX_RANGED_CENTRE) >= 0.5:
++		rc_gap_in = minf(rc_gap_in, float(assignment.gap_in))
++	var rc_skip := func(why: String) -> bool:
++		var rc_msg := "[RANGED_CENTRE] %s skips the Heavy hold — %.1f\" from range of %s, %s (%.1f\" centroid -> marker)" % [
++			_dn(unit, "unit"), rc_gap_in, str(assignment.get("objective_id", "")), why, dist_to_obj_inches]
++		print("AIDecisionMaker: " + rc_msg)
++		_debug_log_info(rc_msg)
++		return false
++	if rc_gap_in <= move_inches:
++		return rc_skip.call("reachable this move")
+ 
+ 	# If objective is high-priority and close (2 turns), don't hold
+ 	var obj_priority = assignment.get("score", 0.0)
+ 	if obj_priority >= get_param("HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE", HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE) and dist_to_obj_inches <= move_inches * 2:
+ 		return false  # High priority objective within 2 turns overrides Heavy bonus
++	if obj_priority >= get_param("HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE", HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE) and rc_gap_in <= move_inches * 2:
++		return rc_skip.call("a high-priority objective within 2 moves")
+ 
+ 	# If the unit intends to charge, don't hold for Heavy bonus
+ 	var unit_id = unit.get("id", unit.get("meta", {}).get("id", ""))
+diff --git a/40k/tests/unit/test_ai_fix_ranged_centre.gd b/40k/tests/unit/test_ai_fix_ranged_centre.gd
+new file mode 100644
+index 00000000..56d32e55
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_ranged_centre.gd
+@@ -0,0 +1,207 @@
++extends SceneTree
++
++# RANGED-CENTRE (FIX_RANGED_CENTRE): a capture trip's reach is priced the way
++# the unit really gets there — (a) on an 11e terrain objective (14.01: the
++# hosting AREA is the objective) from the nearest model to that area, not the
++# centroid to the marker point; (b) a trip the plan Advances on because the
++# Advance reaches range this turn costs one turn, not ceil(gap / M).
++# LLM-critic cluster ranged_hold_vs_centre (value-checked, 2026-10-30): Lootas
++# 7.3" from the centre's ruin (19.6" centroid -> marker) were priced as a
++# 2-turn lost race into ~30 enemy OC, LONE-TRIP vetoed the centre and the unit
++# held still for its Heavy bonus; one Advance put it on the centre (+5.62 VP
++# over 24 rollouts).
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_ranged_centre.gd
++
++const AIDM_PATH := "res://scripts/AIDecisionMaker.gd"
++const GameStateData = preload("res://autoloads/GameState.gd")
++# s7462 r1 P2 movement (Orks mirror): the finding's saved position
++const F1_SAVE := "res://tests/rollout_cases/r4c11/s7462_r1_p2_movement_1.w40ksave"
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0
++const OBJ_X := Vector2(880, 1200)
++
++var AIDM
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	create_timer(0.2).timeout.connect(_run)
++
++func _run():
++	print("\n=== Reach priced as the unit gets there (RANGED-CENTRE) ===\n")
++	AIDM = load(AIDM_PATH)
++	AIDM._config_overrides["FIX_RANGED_CENTRE"] = 1.0
++	test_advance_now_trip_costs_one_turn()
++	test_already_on_objective_unchanged()
++	test_param_zero_restores_base()
++	test_saved_position_lootas_go_forward()
++	AIDM._config_overrides.erase("FIX_RANGED_CENTRE")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++# ---------------------------------------------------------------------------
++# Fabricated board: open-ground marker (no hosting area) — part (b)
++# ---------------------------------------------------------------------------
++
++func _snapshot() -> Dictionary:
++	return {"battle_round": 1, "meta": {"battle_round": 1},
++		"board": {"objectives": [{"id": "obj_x", "position": OBJ_X, "zone": "no_mans_land"}],
++			"terrain_features": []}, "units": {}}
++
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int,
++		toughness: int, wounds: int, move: int = 6) -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32,
++			"base_type": "circular", "base_dimensions": {},
++			"position": Vector2(pos.x + (i - (n - 1) / 2.0) * 45.0, pos.y), "wounds": wounds, "current_wounds": wounds})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 120, "stats": {"move": move, "toughness": toughness, "save": 5,
++			"wounds": wounds, "leadership": 7, "objective_control": 2}, "keywords": ["INFANTRY"], "weapons": []},
++		"models": models, "flags": {}}
++
++# A fragile 5-model squad (OC 10) 7" from control range of obj_x (M6: one
++# Advance, two Normal moves); two enemy OC 10 squads 16" above obj_x — out of
++# one enemy move (M + 2" + range), inside two.
++func _board(snap: Dictionary, enemies: Dictionary) -> void:
++	_add_unit(snap, "fragile", 2, OBJ_X + Vector2(0, (7.0 + 3.79) * PX), 5, 3, 1)
++	for i in range(2):
++		var eid = "theirs_%d" % i
++		_add_unit(snap, eid, 1, OBJ_X + Vector2((i - 0.5) * 300.0, -16.0 * PX), 5, 4, 2)
++		enemies[eid] = snap.units[eid]
++
++func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary) -> Dictionary:
++	AIDM._primary_awareness_p2 = {}
++	AIDM._secondary_awareness_p2 = {}
++	var friendlies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 2:
++			friendlies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDM._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, 1)
++	var plan = AIDM._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, 1)
++	for uid in plan:
++		print("  %s: %s %s [%s] turns %s (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("turns_to_reach", "")),
++			str(plan[uid].get("reason", "")).substr(0, 100)])
++	return plan
++
++func _cand(uid: String, oid: String) -> Dictionary:
++	for c in AIDM._last_movement_candidates.get(uid, []):
++		if str(c.get("objective_id", "")) == oid:
++			return c
++	return {}
++
++func test_advance_now_trip_costs_one_turn() -> void:
++	print("\n--- fragile squad 7\" from range (M6), 20 enemy OC two moves out, none one move out ---")
++	var snap = _snapshot()
++	var enemies = {}
++	_board(snap, enemies)
++	var plan = _plan(snap, ["fragile"], enemies)
++	var c = _cand("fragile", "obj_x")
++	_assert(str(c.get("action", "")) == "advance" and int(c.get("turns_to_reach", 0)) == 1,
++		"the Advance that reaches range this turn is priced as 1 turn (action %s, turns %s)" % [
++			str(c.get("action", "")), str(c.get("turns_to_reach", ""))])
++	_assert(not c.get("race_lost", false), "no 2-turn contest race is charged against it")
++	var a: Dictionary = plan.get("fragile", {})
++	_assert(str(a.get("objective_id", "")) == "obj_x" and str(a.get("action", "")) == "advance",
++		"the squad Advances onto obj_x instead of being kept off it as a lost lone trip (%s %s)" % [
++			str(a.get("action", "")), str(a.get("objective_id", ""))])
++
++func test_already_on_objective_unchanged() -> void:
++	print("\n--- a squad already on obj_x is not repriced ---")
++	var snap = _snapshot()
++	var enemies = {}
++	_add_unit(snap, "holder", 2, OBJ_X + Vector2(0, 1.0 * PX), 5, 3, 1)
++	for i in range(2):
++		var eid = "theirs_%d" % i
++		_add_unit(snap, eid, 1, OBJ_X + Vector2((i - 0.5) * 300.0, -16.0 * PX), 5, 4, 2)
++		enemies[eid] = snap.units[eid]
++	var plan = _plan(snap, ["holder"], enemies)
++	var c = _cand("holder", "obj_x")
++	_assert(not c.has("gap_in") or c.get("already_on_obj", false), "the holder's candidate is the hold")
++	_assert(str(plan.get("holder", {}).get("action", "")) == "hold", "it still holds obj_x")
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_RANGED_CENTRE = 0 ---")
++	AIDM._config_overrides["FIX_RANGED_CENTRE"] = 0.0
++	var snap = _snapshot()
++	var enemies = {}
++	_board(snap, enemies)
++	var plan = _plan(snap, ["fragile"], enemies)
++	var c = _cand("fragile", "obj_x")
++	AIDM._config_overrides["FIX_RANGED_CENTRE"] = 1.0
++	_assert(int(c.get("turns_to_reach", 0)) == 2 and not c.has("gap_in"),
++		"with the fix off the trip is priced at 2 turns as before (turns %s)" % str(c.get("turns_to_reach", "")))
++	_assert(not (str(plan.get("fragile", {}).get("objective_id", "")) == "obj_x" \
++			and str(plan.get("fragile", {}).get("action", "")) in ["move", "advance"]),
++		"…and LONE-TRIP keeps the squad off obj_x as before")
++
++# ---------------------------------------------------------------------------
++# The finding's saved position: terrain-hosted centre — part (a), driven
++# through AIDecisionMaker.decide() for the movement phase
++# ---------------------------------------------------------------------------
++
++func _decide_for(save_path: String, focus: String) -> Dictionary:
++	var root = (Engine.get_main_loop() as SceneTree).root
++	var ser = root.get_node_or_null("StateSerializer")
++	var gs = root.get_node_or_null("GameState")
++	var tm = root.get_node_or_null("TerrainManager")
++	if ser == null or gs == null or tm == null:
++		_assert(false, "StateSerializer / GameState / TerrainManager autoloads are reachable")
++		return {}
++	var f = FileAccess.open(save_path, FileAccess.READ)
++	if f == null:
++		_assert(false, "saved position %s is readable" % save_path)
++		return {}
++	var state: Dictionary = ser.deserialize_game_state(f.get_as_text())
++	f.close()
++	gs.state = state
++	tm.load_terrain_from_save(state.board.get("terrain_features", []))
++	var player = int(state.get("meta", {}).get("active_player", 1))
++	var mp = load("res://phases/MovementPhase.gd").new()
++	root.add_child(mp)
++	mp.enter_phase(state)
++	var act := {}
++	# Units the plan moves before the focus unit stay put (marked as moved),
++	# so the focus unit's own decision is the one returned.
++	for _step in range(30):
++		act = AIDM.decide(7, gs.state, mp.get_available_actions(), player, 3)
++		var uid = str(act.get("actor_unit_id", ""))
++		print("  decide: %s %s — %s" % [act.get("type", ""), uid, str(act.get("_ai_description", "")).substr(0, 110)])
++		if uid == focus or uid == "" or str(act.get("type", "")) == "END_MOVEMENT":
++			break
++		gs.state.units[uid]["flags"]["moved"] = true
++		gs.state.units[uid]["flags"]["remained_stationary"] = true
++		mp.game_state_snapshot = gs.state
++	mp.queue_free()
++	return act
++
++func test_saved_position_lootas_go_forward() -> void:
++	print("\n--- s7462 r1 P2: Lootas Alpha, 19.6\" centroid -> centre marker, 7.3\" from the centre's ruin ---")
++	AIDM._turn_movement_plan.clear()
++	var act = _decide_for(F1_SAVE, "U_LOOTAS_A_P2")
++	if act.is_empty():
++		return
++	var c = _cand("U_LOOTAS_A_P2", "obj_center")
++	print("  obj_center candidate: action %s, turns %s, gap %s\", score %.1f" % [
++		str(c.get("action", "")), str(c.get("turns_to_reach", "")), str(c.get("gap_in", "?")), float(c.get("score", 0.0))])
++	_assert(int(c.get("turns_to_reach", 0)) == 1 and str(c.get("action", "")) == "advance",
++		"the centre is priced as one Advance from the hosting area (not a 2-turn trip)")
++	_assert(str(act.get("actor_unit_id", "")) == "U_LOOTAS_A_P2" and str(act.get("type", "")) == "BEGIN_ADVANCE",
++		"Lootas Alpha Advances forward instead of holding still for its Heavy bonus (%s: %s)" % [
++			str(act.get("type", "")), str(act.get("_ai_description", ""))])

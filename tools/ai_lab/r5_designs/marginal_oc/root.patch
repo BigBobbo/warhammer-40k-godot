@@ -1,0 +1,277 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index dee1aee0..8284df4b 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1627,6 +1627,24 @@ const FIX_HELD_DUP: float = 1.0
+ # an enemy-held centre (5 vs 8 OC) marked it "already taken" and the next unit
+ # was sent to flip a 14-OC objective alone. 0 = the holder's OC is consumed.
+ const FIX_LONE_FLIP: float = 1.0
++# MARGINAL-OC (FIX_MARGINAL_OC): a unit's OC is worth something at an
++# objective only where it changes (or keeps) who controls it. Two places
++# credited OC that changes nothing. (a) Pass 1 held EVERY movable unit on a
++# held_threatened objective, although the need ledger (enemy OC - friendly OC
++# + 1, COORD-5's projected need too) already said the OC there is surplus
++# (need 0): a holder is now kept only while the OC that stays without it (and
++# without the holders freed before it) does not beat the threat the ledger
++# sizes with (max of enemy OC in range and one enemy move away); a surplus
++# holder goes to pass 2 like held_safe extras do. (b) OBJ-ASSIGN-1 swapped a
++# quicker unit in for the greedy pick even when both arrive in the same
++# Movement phase (scored in the same Command phase: no VP gained) — so a
++# Custodian Guard unit (OC 9) took an uncontested objective needing OC 1 from
++# a Prosecutor Squad and was taken away from the contested centre. A
++# same-phase swap that parks more OC there than the greedy pick (and the need)
++# would is no longer made. Custodian Guard Beta held a centre we held with
++# OC 20 vs 9 (moving to the enemy-held obj_nml_1 measured +8.0 VP, 24
++# rollouts); the swap cost +5.6 VP (24 rollouts). 0 = previous behaviour.
++const FIX_MARGINAL_OC: float = 1.0
+ # Charge (RETALIATION): share of the surviving target's melee damage on the
+ # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+@@ -10119,6 +10137,9 @@ static func _assign_units_to_objectives(
+ 	var keeper_released := {}  # unit_id -> _keeper_release_check result
+ 	# LONE-FLIP (FIX_LONE_FLIP): read once, reused by pass 2.5.
+ 	var lone_flip_on = get_param("FIX_LONE_FLIP", FIX_LONE_FLIP) >= 0.5
++	# MARGINAL-OC (FIX_MARGINAL_OC): read once; OC of surplus holders freed per objective.
++	var marginal_oc_on = get_param("FIX_MARGINAL_OC", FIX_MARGINAL_OC) >= 0.5
++	var moc_freed_oc := {}  # objective_id -> OC of holders freed from it so far
+ 	for cand in candidates:
+ 		var uid = cand.unit_id
+ 		var oid = cand.objective_id
+@@ -10135,6 +10156,17 @@ static func _assign_units_to_objectives(
+ 		var should_hold = false
+ 		if remaining > 0:
+ 			should_hold = true  # OC still needed at this objective
++		elif obj_state == "held_threatened" and marginal_oc_on \
++				and _marginal_oc_holder_surplus(eval_for_obj, int(cand.unit_oc), int(moc_freed_oc.get(oid, 0))):
++			# MARGINAL-OC (a): the need ledger has this objective covered and the
++			# OC that stays without this unit still beats the threat — its OC
++			# changes nothing here; pass 2 may use it where it does.
++			moc_freed_oc[oid] = int(moc_freed_oc.get(oid, 0)) + int(cand.unit_oc)
++			print("AIDecisionMaker: [MARGINAL_OC] %s: %s freed from a held_threatened objective — friendly OC %d, %d stays without it (and %d already freed) vs threat %d (enemy %d in range, ~%d one move away)" % [
++				oid, uid, int(eval_for_obj.get("friendly_oc", 0)),
++				int(eval_for_obj.get("friendly_oc", 0)) - int(moc_freed_oc[oid]), int(moc_freed_oc[oid]) - int(cand.unit_oc),
++				maxi(int(eval_for_obj.get("enemy_oc", 0)), int(eval_for_obj.get("projected_enemy_oc", 0))),
++				int(eval_for_obj.get("enemy_oc", 0)), int(eval_for_obj.get("projected_enemy_oc", 0))])
+ 		elif obj_state == "held_threatened":
+ 			should_hold = true  # Threatened, keep defender
+ 		elif obj_keeper.get(oid, {}).get("uid", "") == uid and locked_oc_holds.call(oid) \
+@@ -10598,6 +10630,16 @@ static func _assign_units_to_objectives(
+ 						and alt_arrival.spare_in >= cand_arrival.spare_in + closer_min_in)
+ 			if not quicker:
+ 				continue
++			# MARGINAL-OC (b): arriving in the same phase scores in the same
++			# Command phase — no VP gained — so the swap must not park more OC
++			# here than the greedy pick (or the need) would: that surplus changes
++			# nothing here and is taken from where it would.
++			if alt_arrival.phases == cand_arrival.phases \
++					and get_param("FIX_MARGINAL_OC", FIX_MARGINAL_OC) >= 0.5 \
++					and int(alt.unit_oc) > maxi(int(cand.unit_oc), remaining):
++				print("AIDecisionMaker: [MARGINAL_OC] %s: not swapping %s (OC %d) in for %s (OC %d) — same arrival phase (%d), need %d: its surplus OC would change nothing here" % [
++					oid, alt.unit_id, int(alt.unit_oc), uid, int(cand.unit_oc), int(cand_arrival.phases), remaining])
++				continue
+ 			if closer.is_empty() or alt_arrival.phases < closer_arrival.phases \
+ 					or (alt_arrival.phases == closer_arrival.phases and alt_arrival.spare_in > closer_arrival.spare_in):
+ 				closer = alt
+@@ -12203,6 +12245,15 @@ static func _capture_arrival(cand: Dictionary) -> Dictionary:
+ 	var phases = maxi(1, int(ceil(gap_in / move_in)))
+ 	return {"phases": phases, "spare_in": float(phases) * move_in - gap_in}
+ 
++## MARGINAL-OC (FIX_MARGINAL_OC): true when a holder of OC `unit_oc` on the
++## objective `eval` can leave without changing control — the friendly OC that
++## stays (minus `freed_oc` already let go) still beats the threat the need
++## ledger sizes with: max(enemy OC in range, COORD-5's OC one enemy move away).
++static func _marginal_oc_holder_surplus(eval: Dictionary, unit_oc: int, freed_oc: int) -> bool:
++	var stays: int = int(eval.get("friendly_oc", 0)) - freed_oc - unit_oc
++	var threat: int = maxi(int(eval.get("enemy_oc", 0)), int(eval.get("projected_enemy_oc", 0)))
++	return stays > 0 and stays > threat
++
+ static func _arrival_text(cand: Dictionary, arrival: Dictionary) -> String:
+ 	var turns = "this turn" if int(arrival.phases) == 1 else "in %d turns" % int(arrival.phases)
+ 	return "%.1f\" away, there %s" % [float(cand.distance) / PIXELS_PER_INCH, turns]
+diff --git a/40k/tests/unit/test_ai_fix_marginal_oc.gd b/40k/tests/unit/test_ai_fix_marginal_oc.gd
+new file mode 100644
+index 00000000..caab4211
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_marginal_oc.gd
+@@ -0,0 +1,181 @@
++extends SceneTree
++
++# MARGINAL-OC (FIX_MARGINAL_OC): a unit's OC is worth something at an
++# objective only where it changes (or keeps) who controls it.
++# (a) Pass 1 held every movable unit on a held_threatened objective even when
++#     the need ledger said the OC there is surplus (need 0). A holder whose OC
++#     the objective keeps control without is now freed to pass 2.
++# (b) OBJ-ASSIGN-1 swapped a quicker unit in for the greedy pick even when
++#     both arrive in the same Movement phase — no VP gained — parking a big OC
++#     unit on an objective needing OC 1.
++# LLM-critic cluster marginal_oc (value-checked, round 5): s7475 r3 P1,
++# Custodian Guard Beta held a centre held with OC 20 vs 9 (moving to the
++# enemy-held obj_nml_1 measured +8.0 VP, 24 seeds); s7478 r3 P2, the
++# same-phase swap onto an uncontested home objective (+5.6 VP, 24 seeds).
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_marginal_oc.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const OBJ_X := Vector2(880, 1200)     # the objective we hold
++const OBJ_E := Vector2(880, 1800)     # enemy-held, 15" away
++const OBJ_H := Vector2(400, 400)      # uncontrolled, nobody near it
++
++const GUN := [{"name": "Long gun", "type": "Ranged", "range": "60", "attacks": "2", "ballistic_skill": "3",
++	"strength": "4", "ap": "0", "damage": "1", "special_rules": ""}]
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== OC that changes no control is not credited (MARGINAL-OC) ===\n")
++	AIDecisionMaker._config_overrides["FIX_MARGINAL_OC"] = 1.0
++	test_surplus_holder_is_freed()
++	test_needed_holder_stays()
++	test_same_phase_swap_not_made()
++	test_sooner_swap_still_made()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_MARGINAL_OC")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot(objs: Array) -> Dictionary:
++	return {"battle_round": 3, "meta": {"battle_round": 3},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
++
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, positions: Array, move: int = 6,
++		weapons: Array = [], oc: int = 2) -> void:
++	var models = []
++	for i in range(positions.size()):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32,
++			"base_type": "circular", "base_dimensions": {},
++			"position": positions[i], "wounds": 3, "current_wounds": 3})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 200, "stats": {"move": move, "toughness": 6, "save": 3,
++			"wounds": 3, "leadership": 6, "objective_control": oc}, "keywords": ["INFANTRY"], "weapons": weapons},
++		"models": models, "flags": {}}
++
++func _row(center: Vector2, n: int) -> Array:
++	var out = []
++	for i in range(n):
++		out.append(Vector2(center.x + (i - (n - 1) / 2.0) * 45.0, center.y))
++	return out
++
++func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p2 = {}
++	AIDecisionMaker._secondary_awareness_p2 = {}
++	var friendlies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 2:
++			friendlies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, 3)
++	for ev in evals:
++		print("  eval %s: state %s, friendly %d, enemy %d, projected %d" % [ev.id, ev.state,
++			int(ev.friendly_oc), int(ev.enemy_oc), int(ev.get("projected_enemy_oc", 0))])
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, 3)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	return plan
++
++func _holds(plan: Dictionary, uid: String, oid: String) -> bool:
++	var a: Dictionary = plan.get(uid, {})
++	return str(a.get("objective_id", "")) == oid and str(a.get("action", "")) == "hold"
++
++func _goes_to(plan: Dictionary, uid: String, oid: String) -> bool:
++	var a: Dictionary = plan.get(uid, {})
++	return str(a.get("objective_id", "")) == oid and str(a.get("action", "")) in ["move", "advance"]
++
++# obj_x: our two 5-model squads (OC 10 each) on it, an enemy pair (OC 4) in
++# range too -> held_threatened, need 0. obj_e 15" south: enemy-held (OC 4).
++# `extra_enemy` adds a 5-model enemy squad (OC 10) 7" off obj_x.
++func _held_board(enemies: Dictionary, extra_enemy: bool) -> Dictionary:
++	var snap = _snapshot([{"id": "obj_x", "position": OBJ_X, "zone": "no_mans_land"},
++		{"id": "obj_e", "position": OBJ_E, "zone": "no_mans_land"}])
++	_add_unit(snap, "hold_a", 2, _row(OBJ_X + Vector2(0, -1.0 * PX), 5))
++	_add_unit(snap, "hold_b", 2, _row(OBJ_X + Vector2(0, 1.0 * PX), 5))
++	_add_unit(snap, "foe_x", 1, _row(OBJ_X + Vector2(0, 2.5 * PX), 2))
++	enemies["foe_x"] = snap.units["foe_x"]
++	_add_unit(snap, "foe_e", 1, _row(OBJ_E, 2))
++	enemies["foe_e"] = snap.units["foe_e"]
++	if extra_enemy:
++		_add_unit(snap, "foe_near", 1, _row(OBJ_X + Vector2(0, -7.0 * PX), 5))
++		enemies["foe_near"] = snap.units["foe_near"]
++	return snap
++
++func test_surplus_holder_is_freed() -> void:
++	print("\n--- obj_x held 20 OC vs 4: one holder's OC is surplus ---")
++	var enemies = {}
++	var snap = _held_board(enemies, false)
++	var plan = _plan(snap, ["hold_a", "hold_b"], enemies)
++	var holding := 0
++	for uid in ["hold_a", "hold_b"]:
++		if _holds(plan, uid, "obj_x"):
++			holding += 1
++	_assert(holding == 1, "exactly one squad keeps obj_x (holding: %d)" % holding)
++	_assert(_goes_to(plan, "hold_a", "obj_e") or _goes_to(plan, "hold_b", "obj_e"),
++		"the surplus squad goes to flip the enemy-held obj_e")
++
++func test_needed_holder_stays() -> void:
++	print("\n--- obj_x held 20 OC vs 4 in range + 10 one move away: both holders needed ---")
++	var enemies = {}
++	var snap = _held_board(enemies, true)
++	var plan = _plan(snap, ["hold_a", "hold_b"], enemies)
++	_assert(_holds(plan, "hold_a", "obj_x") and _holds(plan, "hold_b", "obj_x"),
++		"both squads hold obj_x (without either, 10 OC would not beat the 10 the enemy can bring one move away)")
++
++# obj_h uncontrolled (need 1). `small`: 2 models OC 1, M7, 15.4" away, with a
++# gun that keeps an enemy in range (the greedy pick). `big`: 3 models OC 3,
++# M8, 13.4" away — same arrival phase (2), more spare inches.
++func _swap_board(enemies: Dictionary, big_dist_in: float) -> Dictionary:
++	var snap = _snapshot([{"id": "obj_h", "position": OBJ_H, "zone": "no_mans_land"}])
++	_add_unit(snap, "small", 2, _row(OBJ_H + Vector2(0, 15.4 * PX), 2), 7, GUN, 1)
++	_add_unit(snap, "big", 2, _row(OBJ_H + Vector2(big_dist_in * PX, 0), 3), 8, [], 3)
++	_add_unit(snap, "foe_far", 1, _row(OBJ_H + Vector2(0, 40.0 * PX), 2))
++	enemies["foe_far"] = snap.units["foe_far"]
++	return snap
++
++func test_same_phase_swap_not_made() -> void:
++	print("\n--- same-phase swap: big (OC 9) would replace small (OC 2) on an objective needing 1 ---")
++	var enemies = {}
++	var snap = _swap_board(enemies, 13.4)
++	var plan = _plan(snap, ["small", "big"], enemies)
++	_assert(_goes_to(plan, "small", "obj_h") and str(plan.get("small", {}).get("assign_pass", "")) == "capture",
++		"the greedy pick (small) captures obj_h (pass %s)" % str(plan.get("small", {}).get("assign_pass", "")))
++	_assert(not (_goes_to(plan, "big", "obj_h") and str(plan.get("big", {}).get("assign_pass", "")) == "capture"),
++		"the big unit is not swapped in to capture obj_h for no earlier arrival")
++
++func test_sooner_swap_still_made() -> void:
++	print("\n--- a phase-sooner swap is unchanged: big 6\" away arrives this turn ---")
++	var enemies = {}
++	var snap = _swap_board(enemies, 6.0)
++	var plan = _plan(snap, ["small", "big"], enemies)
++	_assert(_goes_to(plan, "big", "obj_h"), "big, a whole phase sooner, takes obj_h")
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_MARGINAL_OC = 0: base behaviour ---")
++	AIDecisionMaker._config_overrides["FIX_MARGINAL_OC"] = 0.0
++	var enemies = {}
++	var plan = _plan(_held_board(enemies, false), ["hold_a", "hold_b"], enemies)
++	_assert(_holds(plan, "hold_a", "obj_x") and _holds(plan, "hold_b", "obj_x"), "off: both holders hold (base)")
++	enemies = {}
++	plan = _plan(_swap_board(enemies, 13.4), ["small", "big"], enemies)
++	_assert(_goes_to(plan, "big", "obj_h"), "off: the same-phase swap is made (base)")
++	AIDecisionMaker._config_overrides["FIX_MARGINAL_OC"] = 1.0

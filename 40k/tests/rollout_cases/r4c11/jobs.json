@@ -1,0 +1,234 @@
+[
+ {
+  "job": "20261030_160400_r4c11_00__s7462_r1_p2_movement_1_0",
+  "case": "20261030_160400_r4c11_00__s7462_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent Lootas Alpha to obj_nml_1, which is already covered by Battlewagon Beta. The unit then moves a 25.6 in trip with no firing lane. It also sent the 10 OC to a contest it cannot win.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7462",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160400_r4c11_00"
+ },
+ {
+  "job": "20261030_160400_r4c11_00__s7462_r1_p2_movement_2_1",
+  "case": "20261030_160400_r4c11_00__s7462_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_B_P2",
+    "objective": "obj_home_2",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 2,
+  "summary": "The AI advances Lootas Beta alone toward obj_center. The advance gives up its shooting, and the unit will not reach the objective for 3 turns.",
+  "better_option": "Hold obj_home_2 (on objective, OC needed \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7462",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160400_r4c11_00"
+ },
+ {
+  "job": "20261030_160400_r4c11_00__s7462_r1_p1_movement_1_2",
+  "case": "20261030_160400_r4c11_00__s7462_r1_p1_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI used Lootas, the army's long-range guns, as a screen to block a Battlewagon. The Battlewagon has Big shoota 36 in range and 10 in move, so the screen is thin and would likely be shot or ignored.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~9 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7462",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160400_r4c11_00"
+ },
+ {
+  "job": "20261030_160400_r4c11_00__s7462_r1_p1_movement_2_3",
+  "case": "20261030_160400_r4c11_00__s7462_r1_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI chose the Screen option (8.0 flat). It ignored round 1 and the fact that the enemy is far away. The flat screen_base has no threat term. This sends a cheap unit forward with no real threat to screen against. The Advance obj_center option scored higher but was not chosen.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~9 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7462",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160400_r4c11_00"
+ },
+ {
+  "job": "20261030_160400_r4c11_00__s7462_r1_p1_shooting_1_4",
+  "case": "20261030_160400_r4c11_00__s7462_r1_p1_shooting_1_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_BATTLEWAGON_A",
+    "target": "U_LOOTAS_C_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends the Big shoota at Burna Boyz Alpha, a low-value 5-model unit, with only 0.47 expected damage and a 9% kill chance. The pick is driven by the already_allocated term, not by a real kill chance.",
+  "better_option": "Big shoota \u2192 enemy Lootas Gamma (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7462",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160400_r4c11_00"
+ },
+ {
+  "job": "20261030_160400_r4c11_00__s7462_r1_p1_shooting_2_5",
+  "case": "20261030_160400_r4c11_00__s7462_r1_p1_shooting_2_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_LOOTAS_A",
+    "target": "U_LOOTAS_C_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Deffgun fires at Burna Boyz Alpha, a 12 in flamer unit in cover, because kill_threshold favours small units. Expected damage is only 1.0.",
+  "better_option": "Deffgun \u2192 enemy Lootas Gamma (P2)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7462",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160400_r4c11_00"
+ },
+ {
+  "job": "20261030_160400_r4c11_00__s7462_r2_p1_movement_2_6",
+  "case": "20261030_160400_r4c11_00__s7462_r2_p1_movement_2_6.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends Lootas Gamma 16.5 in back to a home objective that already has 24 OC and no enemy nearby, which wastes its shooting.",
+  "better_option": "unlisted: hold in place and shoot Beastboss or Beast Snagga Boyz with the Heavy bonus",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7462",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160400_r4c11_00"
+ },
+ {
+  "job": "20261030_160400_r4c11_00__s7462_r3_p2_movement_2_7",
+  "case": "20261030_160400_r4c11_00__s7462_r3_p2_movement_2_7.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_A_P2",
+    "objective": "obj_center",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The suggestion text says hold for the Heavy bonus, but the chosen option is a 6 in move toward obj_center. That objective is already held with 2 units committed, and the move gives up the Heavy bonus.",
+  "better_option": "unlisted: hold position and shoot with the Deffgun for the Heavy bonus",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7462",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160400_r4c11_00"
+ },
+ {
+  "job": "20261030_160400_r4c11_00__s7462_r3_p1_movement_1_8",
+  "case": "20261030_160400_r4c11_00__s7462_r3_p1_movement_1_8.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends Lootas Gamma 27 in to obj_nml_1, which is already held with 13 OC and no enemy nearby. The unit would take 3 turns to arrive and would not shoot meanwhile.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "Orks_2000",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "purge_the_foe",
+   "seeds": "7462",
+   "layout_variant": 3
+  },
+  "run_dir": "20261030_160400_r4c11_00"
+ }
+]

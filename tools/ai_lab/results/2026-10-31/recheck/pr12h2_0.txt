@@ -1,0 +1,4 @@
+RECHECK_SHARD pr12h2_0
+ROLLOUT_RESULT {"job":"20261030_160413_r4c08_00__s7459_r1_p1_movement_2_2","status":"ok","E":4.583,"se":2.151,"ci":[0.37,8.8],"n":24,"A":-6.042,"B":-1.458,"mat":-58.539,"drift":false,"a_did":"Lootas Alpha advances toward obj_home_2 (flipping it (enemy holds with OC 15), needs 6 more OC after this unit","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_234707_r5c05_00__s7480_r1_p1_movement_1_0","status":"ok","E":5.708,"se":2.871,"ci":[0.08,11.33],"n":24,"A":13.917,"B":19.625,"mat":-147.527,"drift":false,"a_did":"Custodian Guard Sodality Gamma holds obj_home_1 (sole holder — leaving would drop control)","applied":24,"identical":0}
+SHARD_DONE 0/10 jobs=2

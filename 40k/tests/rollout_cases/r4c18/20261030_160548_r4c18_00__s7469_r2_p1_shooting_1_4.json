@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Lootas Gamma (P2)",
+ "created": "2026-10-30 16:09:05",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7469_r2_p1_shooting_1",
+ "note": "[LLM critic, low conf] The AI shot at Lootas Gamma for 0.9 expected damage and a 12% kill chance. Stormboyz are inside rapid fire range and give 2.33 expected damage. Fix: Cut the already_allocated bonus unless the combined expected damage of the planned shooters reaches about 50% of the kill threshold. Add a bonus for targets in rapid fire range. Add a threat term for fast units that can charge objectives next turn.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7469_r2_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Lootas Gamma (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha shoots at Lootas Gamma \u2014 expected 0.9 dmg vs 8 HP (12% kill)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_center (holding under threat (enemy OC 6 nearby) \u2014 worth ~13 VP)",
+ "created": "2026-10-30 23:56:21",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7489_r3_p1_movement_2",
+ "note": "[LLM critic, low conf] The AI sends Lootas Gamma toward obj_center under a 'hold' label, but the unit is 12.68 in away and cannot reach it this turn. Center is already held, and the move may put the Lootas within charge range of Custodians. Fix: Give no marginal VP to objectives already held with a safe OC margin. Apply stay_on_objective only if the unit is on the objective now. Add a charge-threat penalty for fragile shooters that end within enemy charge range. Prefer a firing position in cover outside charge range.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7489_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma holds obj_center (holding under threat (enemy OC 6 nearby))",
+ "verdict": "pending",
+ "version": 1
+}

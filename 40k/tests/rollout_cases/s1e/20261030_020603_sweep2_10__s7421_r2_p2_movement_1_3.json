@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Thunderwolf Cavalry Alpha arrives",
+ "created": "2026-10-30 02:09:38",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7421_r2_p2_movement_1",
+ "note": "[LLM critic, low conf] The AI arrives the Thunderwolf Cavalry Alpha at the east edge, 9.7 in from obj_nml_1. The unit has only OC2 and cannot beat the OC 11 of the Custodians there. It may take heavy charge fire from Delta and Alpha. Fix: Scale arrive_objectives by the unit's OC compared with the enemy OC at the target objective. Add a penalty for arriving within charge range of several high-damage enemy units. Prefer high-OC Battleline units for contested or holding roles.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7421_r2_p2_movement_1.w40ksave",
+ "signature": {
+  "choice": "key:U_THUNDERWOLF_CAVALRY_A",
+  "decision": "reserves_arrival",
+  "type": "PLACE_REINFORCEMENT",
+  "unit_id": "U_THUNDERWOLF_CAVALRY_A"
+ },
+ "source": "llm_critic",
+ "suggestion": "Thunderwolf Cavalry Alpha arrives from Strategic Reserves",
+ "verdict": "pending",
+ "version": 1
+}

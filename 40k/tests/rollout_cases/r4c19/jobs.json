@@ -1,0 +1,235 @@
+[
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r1_p2_movement_1_0",
+  "case": "20261030_160624_r4c19_00__s7470_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_MEK_B",
+    "objective": "obj_nml_1",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sends a lone Mek (OC1, 4 wounds) toward the center as a fourth unit, and also scores it as worth 8 VP. The Mek adds little and would arrive alone after two turns.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~5 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "take_and_hold",
+   "seeds": "7470",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160624_r4c19_00"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1",
+  "case": "20261030_160624_r4c19_00__s7470_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 2,
+  "summary": "The AI sent a lone 10-model Lootas unit on a 27 in advance to obj_nml_1. It will arrive late, and the Custodians will contest the objective first. The advance also gives up shooting.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~8 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "take_and_hold",
+   "seeds": "7470",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160624_r4c19_00"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r1_p1_movement_1_2",
+  "case": "20261030_160624_r4c19_00__s7470_r1_p1_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Beta sends a second Custodian Guard unit to the centre. The 'contest_race' term is -17.89, yet 'objective_priority' of 32.77 outweighs it. The unit arrives a turn after Gamma and may arrive alone.",
+  "better_option": "Advance obj_nml_1 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "take_and_hold",
+   "seeds": "7470",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160624_r4c19_00"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p2_movement_1_3",
+  "case": "20261030_160624_r4c19_00__s7470_r2_p2_movement_1_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_WARBIKERS_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI chose the fragile Stormboyz for the central drop. A +2.0 arrive_deep_strike bonus decided it, although Warbikers score higher on arrive_objectives.",
+  "better_option": "Warbikers Alpha arrives",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "take_and_hold",
+   "seeds": "7470",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160624_r4c19_00"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p2_movement_2_4",
+  "case": "20261030_160624_r4c19_00__s7470_r2_p2_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent a single 10-model Lootas unit with OC 1 alone on a 2-turn advance to a contested objective. The same unit gave up its firing turn, and its enemy-OC estimate of about 16 shows it cannot win the objective.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~10 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "take_and_hold",
+   "seeds": "7470",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160624_r4c19_00"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5",
+  "case": "20261030_160624_r4c19_00__s7470_r2_p2_charge_1_5.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_STORMBOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends Stormboyz at a 7-wound Blade Champion with a 28% chance. The score uses an inflated damage estimate and has no retaliation penalty.",
+  "better_option": "unlisted: do not charge, keep Stormboyz near the centre objective",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "take_and_hold",
+   "seeds": "7470",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160624_r4c19_00"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p2_charge_2_6",
+  "case": "20261030_160624_r4c19_00__s7470_r2_p2_charge_2_6.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BURNA_BOYZ_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a 60 pt Burna squad into a 195 pt Blade Champion that supports can reach. The squad deals about 0.7 damage and will be wiped. The gang-up bonus of 5.0 outweighs a retaliation penalty of -4.44.",
+  "better_option": "unlisted: do not charge. Keep Burna Boyz Alpha on the centre objective and use Burna flamers in the next Shooting phase.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "take_and_hold",
+   "seeds": "7470",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160624_r4c19_00"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r2_p1_movement_2_7",
+  "case": "20261030_160624_r4c19_00__s7470_r2_p1_movement_2_7.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_home_1",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Beta travels 25.9 in, a 3-turn trip, to the empty obj_nml_1. Other Custodian units are much closer to it and can take it. The score also lets a large contest_race penalty be outweighed by a huge objective_priority.",
+  "better_option": "Move obj_home_1 (moving to objective)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "take_and_hold",
+   "seeds": "7470",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160624_r4c19_00"
+ },
+ {
+  "job": "20261030_160624_r4c19_00__s7470_r3_p2_charge_1_8",
+  "case": "20261030_160624_r4c19_00__s7470_r3_p2_charge_1_8.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_BEAST_SNAGGA_BOYZ_A",
+    "targets": [
+     "U_CUSTODIAN_GUARD_B"
+    ]
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI chose to charge Gamma, which has 11 wounds and is already tied up with the Beastboss. Beta is wounded, stands on the centre objective and scores about the same.",
+  "better_option": "Charge Custodian Guard Sodality Beta (2.1\" away, 97% chance)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "take_and_hold",
+   "seeds": "7470",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160624_r4c19_00"
+ }
+]

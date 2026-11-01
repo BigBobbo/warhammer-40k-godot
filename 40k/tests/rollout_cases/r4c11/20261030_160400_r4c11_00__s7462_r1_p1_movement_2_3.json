@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+ "created": "2026-10-30 16:06:32",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7462_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI chose the Screen option (8.0 flat). It ignored round 1 and the fact that the enemy is far away. The flat screen_base has no threat term. This sends a cheap unit forward with no real threat to screen against. The Advance obj_center option scored higher but was not chosen. Fix: Scale the screen score by the enemy threat reach to the screened units. Give a screen score near zero when no enemy can reach the screened units next turn. Compare the screen score to the objective options on the same scale.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7462_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:641,1187",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (641,1187) \u2014 screening valuable friendlies from enemy threats",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Burna Boyz Beta (7.6\" away, 42% chance)",
+ "created": "2026-10-30 01:39:14",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7408_r2_p2_charge_2",
+ "note": "[LLM critic, medium conf] A 4-model Lootas shooting unit with weak melee (A2 S4) charges a flamer unit at 42%. It gives up its ruin and its Deffgun and Mega-blasta shooting for a fight it likely loses. Fix: Scale tie-up and gang-up bonuses by the charging unit's expected melee damage. Subtract the unit's shooting value if it has no close-quarters weapon. Add an expected-loss term from the target's melee output and from overwatch. Forbid charges by ranged-focused units when melee damage is below the target's expected return damage.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7408_r2_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C_P2",
+  "choice": "pos:526,935",
+  "decision": "charge",
+  "targets": "U_BURNA_BOYZ_B,U_LOOTAS_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma declares a charge at Burna Boyz Beta + Lootas Beta \u2014 targets picked after the roll: Burna Boyz Beta on 8+ (42%), Lootas Beta on 9+ (28%), overwatch risk: 5.4 dmg",
+ "verdict": "bad",
+ "version": 1
+}

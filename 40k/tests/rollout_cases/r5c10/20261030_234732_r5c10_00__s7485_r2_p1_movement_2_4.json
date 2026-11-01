@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+ "created": "2026-10-30 23:51:51",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7485_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent the Gretchin to a generic Screen spot at (17.4, 37.2), near Stormboyz. The Screen option scored a flat 8.0 with no threat or objective reasoning, while moving to obj_center scored 20.0 and was overridden. Fix: Score Screen from the threat it blocks: the screened unit's value times the chance an enemy reaches it, minus the Gretchin's own exposure. Apply the lone-unit override to every objective option, not only far ones. Prefer an objective that friendly units already contest, such as obj_center, where Battlewagon Beta and Mek Beta also head.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7485_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_GRETCHIN_A",
+  "choice": "pos:697,1490",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Gretchin screens at (697,1490) \u2014 screening valuable friendlies from enemy threats",
+ "verdict": "pending",
+ "version": 1
+}

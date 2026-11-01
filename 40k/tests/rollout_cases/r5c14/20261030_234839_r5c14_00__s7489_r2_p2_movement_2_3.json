@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 10\"))",
+ "created": "2026-10-30 23:50:44",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7489_r2_p2_movement_2",
+ "note": "[LLM critic, medium conf] The AI chose a backfield screen with score 0.11. The 29.17 option, moving to obj_nml_1, was legal and clearly better. The screen sends the unit to a useless corner and wastes its turn. Fix: When an override rejects only one dangerous objective, keep the other safe objectives as candidates. Score a screen option by the threat it blocks or the objective it supports. A spot with no nearby threat or friendly unit should score near zero. Penalize screen spots that are far from the army and from all objectives.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7489_r2_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:320,2160",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad screens at (320,2160) \u2014 backfield gap (nearest friendly: 10\")",
+ "verdict": "bad",
+ "version": 1
+}

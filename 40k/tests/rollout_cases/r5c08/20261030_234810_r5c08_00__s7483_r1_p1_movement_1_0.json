@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 14\"))",
+ "created": "2026-10-30 23:48:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7483_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent Burna Boyz Beta to an empty backfield corner as a screen. The unit then does nothing useful in round 1. It picked an option that scored 1.79 over options that scored up to 26.5. Fix: Give screen options a score only when an enemy threat range covers the screened friendly unit. Penalise a screen spot far from the army's centroid or threat axis. If the override rejects obj_nml_2, fall back to the next-best objective option, not to a screen.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7483_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:1600,320",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta screens at (1600,320) \u2014 backfield gap (nearest friendly: 14\")",
+ "verdict": "bad",
+ "version": 1
+}

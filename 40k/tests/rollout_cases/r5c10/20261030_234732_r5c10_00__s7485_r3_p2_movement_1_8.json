@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (reinforcing obj_nml_2 (4 units already committed) \u2014 worth ~6 VP)",
+ "created": "2026-10-31 00:01:59",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7485_r3_p2_movement_1",
+ "note": "[LLM critic, medium conf] The AI sends Stormboyz on a 3-turn trip to reinforce obj_nml_2. That objective is already held, and four other units are already committed to it. The Stormboyz are fast and could instead go for the enemy's weakly held obj_nml_1 or support the centre. Fix: Scale objective_priority and expected_vp down by the number of units already committed, so that marginal VP goes to zero once an objective is covered. Penalise turns_to_reach instead of adding it as a bonus. Prefer fast units for contesting enemy-held objectives that are near them.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7485_r3_p2_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A_P2",
+  "choice": "pos:390,1980",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz moves toward obj_nml_2 (moving toward charge target Lootas Gamma, obj: 45.3\" away)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,155 @@
+[
+ {
+  "job": "20261030_160457_r4c16_00__s7467_r1_p2_movement_1_0",
+  "case": "20261030_160457_r4c16_00__s7467_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_BURNA_BOYZ_A",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent a short-range Burna unit to screen alone toward the centre. Burna weapons reach only 12 in, and the enemy is 28 in away. The screen term (block_priority 8.99) outranks all objective terms in the final choice.",
+  "better_option": "Move obj_home_2 (moving to objective \u2014 worth ~2 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "priority_assets",
+   "seeds": "7467",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160457_r4c16_00"
+ },
+ {
+  "job": "20261030_160457_r4c16_00__s7467_r1_p2_movement_2_1",
+  "case": "20261030_160457_r4c16_00__s7467_r1_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_GRETCHIN_A",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Gretchin go to a screen position near obj_nml_2 in a block role, but the plan does not take or hold obj_nml_2, which nobody holds. The screen only has value if it really blocks the Blade Champion.",
+  "better_option": "Advance obj_nml_2 (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "priority_assets",
+   "seeds": "7467",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160457_r4c16_00"
+ },
+ {
+  "job": "20261030_160457_r4c16_00__s7467_r2_p1_shooting_2_2",
+  "case": "20261030_160457_r4c16_00__s7467_r2_p1_shooting_2_2.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "target": "U_LOOTAS_B"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "Delta shoots Gretchin for the most raw damage, but this kills cheap models and leaves the dangerous Lootas Beta untouched.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Lootas Beta (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "priority_assets",
+   "seeds": "7467",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160457_r4c16_00"
+ },
+ {
+  "job": "20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3",
+  "case": "20261030_160457_r4c16_00__s7467_r2_p1_charge_1_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends its 270 point Allarus unit on a 17% charge at a 4 wound Mek. The roll almost always fails, and a failed charge wastes the unit's turn.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "priority_assets",
+   "seeds": "7467",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160457_r4c16_00"
+ },
+ {
+  "job": "20261030_160457_r4c16_00__s7467_r3_p2_movement_2_4",
+  "case": "20261030_160457_r4c16_00__s7467_r3_p2_movement_2_4.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_B",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a ranged Lootas unit on a 26 in advance to an uncontested far objective. This gives up shooting for 3 turns. The pick also scored lower than three other options.",
+  "better_option": "Move obj_home_2 (moving to objective)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "priority_assets",
+   "seeds": "7467",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160457_r4c16_00"
+ },
+ {
+  "job": "20261030_160457_r4c16_00__s7467_r3_p2_shooting_2_5",
+  "case": "20261030_160457_r4c16_00__s7467_r3_p2_shooting_2_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_KOMMANDOS_A",
+    "target": "U_BLADE_CHAMPION_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI chose the Slugga, which has 1 attack and 12 in range, for 0.2 expected damage. The Kustom Shoota (18 in, 4 attacks, rapid fire) was never offered as an option. Both listed targets were very hard (T7 or T8, 2+ save, 4+ invulnerable).",
+  "better_option": "unlisted: Kustom Shoota at Blade Champion Alpha (3 wounds left) or at Allarus Custodians",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "priority_assets",
+   "seeds": "7467",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_160457_r4c16_00"
+ }
+]

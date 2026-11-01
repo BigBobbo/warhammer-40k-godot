@@ -1,0 +1,128 @@
+[
+ {
+  "job": "20261030_234804_r5c12_00__s7487_r1_p2_movement_1_0",
+  "case": "20261030_234804_r5c12_00__s7487_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_LOOTAS_C",
+    "objective": "obj_home_2",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a fragile Lootas unit toward a screen point beside the enemy Custodians, about 33 inches away. It did not pick the friendly-side option that scored 8.43.",
+  "better_option": "Advance obj_home_2 (advancing to arrive a turn sooner)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7487",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234804_r5c12_00"
+ },
+ {
+  "job": "20261030_234804_r5c12_00__s7487_r2_p1_shooting_1_1",
+  "case": "20261030_234804_r5c12_00__s7487_r2_p1_shooting_1_1.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "target": "U_BATTLEWAGON_B"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shot at Battlewagon Alpha for 0.56 expected damage, the same as Battlewagon Beta. The damage is trivial against 16 HP, and the focus-fire plan lists Battlewagon Beta as a target that already has allocated shots.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Battlewagon Beta (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7487",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234804_r5c12_00"
+ },
+ {
+  "job": "20261030_234804_r5c12_00__s7487_r2_p1_charge_1_2",
+  "case": "20261030_234804_r5c12_00__s7487_r2_p1_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends a lone 5-wound model to charge a 15 HP Battlewagon. It expects 2.2 damage and 7.6 overwatch damage, and it leaves the contested objective.",
+  "better_option": "unlisted: do not charge, stay on obj_nml_2",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7487",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234804_r5c12_00"
+ },
+ {
+  "job": "20261030_234804_r5c12_00__s7487_r2_p2_charge_1_3",
+  "case": "20261030_234804_r5c12_00__s7487_r2_p2_charge_1_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a Blade Champion at 28% odds. It overrates the damage and ignores that the Blade Champion would kill many Kommandos in return.",
+  "better_option": "unlisted: do not charge with Kommandos (targets [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7487",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234804_r5c12_00"
+ },
+ {
+  "job": "20261030_234804_r5c12_00__s7487_r3_p2_charge_1_4",
+  "case": "20261030_234804_r5c12_00__s7487_r3_p2_charge_1_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_KOMMANDOS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 2,
+  "summary": "The AI charges 10 Kommandos into 2 Custodian Guard at 58%. It uses an expected damage of 8.9 that is far too high for T7, 2+ save, 4+ invulnerable targets.",
+  "better_option": "Do not charge (targets: [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "Orks_2000",
+   "zone": "crucible_of_battle",
+   "disposition1": "purge_the_foe",
+   "disposition2": "disruption",
+   "seeds": "7487",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_234804_r5c12_00"
+ }
+]

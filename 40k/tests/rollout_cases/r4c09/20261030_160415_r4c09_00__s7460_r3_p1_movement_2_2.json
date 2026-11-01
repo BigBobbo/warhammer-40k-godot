@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_center (holding under threat (enemy OC 0 nearby) \u2014 worth ~7 VP)",
+ "created": "2026-10-30 16:15:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7460_r3_p1_movement_2",
+ "note": "[LLM critic, medium conf] Lootas Alpha moves onto obj_center, which Stormboyz already hold with no enemy near. The unit adds almost no VP there and does not help to hold obj_nml_2. Fix: Count objective value as the marginal change in hold probability and VP when this unit is added. If other friendly units already hold the objective with a clear OC margin and no enemy is within charge range, reduce its priority and stay_on_objective. Prefer a contested or weakly held objective, or a firing position, instead.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7460_r3_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha holds obj_center (holding under threat (enemy OC 0 nearby))",
+ "verdict": "pending",
+ "version": 1
+}

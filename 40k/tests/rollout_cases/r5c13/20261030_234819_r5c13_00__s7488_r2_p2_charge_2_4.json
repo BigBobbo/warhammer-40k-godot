@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Gamma (9.9\" away, 17% chance)",
+ "created": "2026-10-30 23:53:02",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7488_r2_p2_charge_2",
+ "note": "[LLM critic, medium conf] The AI declared a 17% charge at a 7-wound Blade Champion with 3.0 expected damage. The score stays positive only because flat bonuses outweigh the 'ch_chance' and 'ch_retaliation' penalties. Fix: Multiply the whole positive benefit (damage, points trade, character, aggression) by charge probability. Add a hard floor of about 30 percent charge chance unless the target can be killed. Score ch_damage as kill probability rather than raw expected damage.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7488_r2_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:560,1160",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_C",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz declares charge against Blade Champion Gamma (17% chance, 9.9\" away, expected 3.0 melee dmg vs 7 HP, overwatch risk: 0.8 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

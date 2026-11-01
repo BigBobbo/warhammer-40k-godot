@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P1)",
+ "created": "2026-10-30 01:22:46",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7411_r2_p2_shooting_1",
+ "note": "[LLM critic, medium conf] The AI shot at distant Delta for 0.6 expected damage. A target in rapid fire range would take 1.19 expected damage. Fix: Only apply the already_allocated focus-fire bonus when the combined expected damage of the planned shooters gives a real chance to kill the target. Otherwise rank by expected damage plus the threat the target poses to held objectives. Weight targets inside half weapon range higher for rapid fire weapons.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7411_r2_p2_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A_P2",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha shoots at Custodian Guard Sodality Delta \u2014 expected 0.6 dmg vs 15 HP (4% kill)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Prosecutor Squad (2.0\" away, 97% chance)",
+ "created": "2026-10-30 01:42:42",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7415_r2_p1_charge_2",
+ "note": "[LLM critic, medium conf] The AI charges a 100pt Lootas unit off the center objective to hit a 45pt squad for 2.4 expected damage. The objective penalty is outweighed by bonus terms. Fix: If the charge leaves a held objective and nobody else would keep control, subtract the full VP and denial value of that objective. Also cap the sum of the short-charge, tie-up and aggression bonuses so they cannot outweigh it. Require expected damage or points trade to be clearly positive before a unit leaves an objective.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7415_r2_p1_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A",
+  "choice": "pos:826,1457",
+  "decision": "charge",
+  "targets": "U_PROSECUTORS_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha declares charge against Prosecutor Squad (97% chance, 2.0\" away, expected 2.4 melee dmg vs 4 HP, overwatch risk: 0.8 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

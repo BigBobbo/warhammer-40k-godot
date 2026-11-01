@@ -1,0 +1,156 @@
+[
+ {
+  "job": "20261030_063321_r2c01_00__s7432_r2_p1_movement_2_0",
+  "case": "20261030_063321_r2c01_00__s7432_r2_p1_movement_2_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI sent Alpha on a three-turn trip to an enemy-held objective because obj_center already had enough OC. Alpha would arrive late and mostly alone.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~7 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7432",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063321_r2c01_00"
+ },
+ {
+  "job": "20261030_063321_r2c01_00__s7432_r2_p2_movement_2_1",
+  "case": "20261030_063321_r2c01_00__s7432_r2_p2_movement_2_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_PROSECUTORS_A_P2",
+    "objective": "obj_nml_2",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI chose Screen at (22.8,47.0) with score 8.0 over Move obj_nml_2 at 33.9. The override reason it gave was about the lone trip to obj_center, not about obj_nml_2.",
+  "better_option": "Move obj_nml_2 (moving to objective \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7432",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063321_r2c01_00"
+ },
+ {
+  "job": "20261030_063321_r2c01_00__s7432_r3_p1_movement_1_2",
+  "case": "20261030_063321_r2c01_00__s7432_r3_p1_movement_1_2.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "objective": "obj_center",
+    "mode": "hold"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends one 3-model unit 22 in alone, a 3-turn trip, into 3 enemy units to flip obj_nml_1. It gives up the strong 22.25 hold option because the centre is already assigned.",
+  "better_option": "Hold obj_center (on objective, OC needed \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7432",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063321_r2c01_00"
+ },
+ {
+  "job": "20261030_063321_r2c01_00__s7432_r3_p1_movement_2_3",
+  "case": "20261030_063321_r2c01_00__s7432_r3_p1_movement_2_3.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "objective": "obj_center",
+    "mode": "move"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sends Beta (OC 9) alone into the enemy-held ruin at obj_nml_1, where the enemy has OC 15. Beta cannot flip the objective and would be charged and killed by three nearby enemy units.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~3 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7432",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063321_r2c01_00"
+ },
+ {
+  "job": "20261030_063321_r2c01_00__s7432_r3_p1_shooting_1_4",
+  "case": "20261030_063321_r2c01_00__s7432_r3_p1_shooting_1_4.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "target": "U_PROSECUTORS_A_P2"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 1,
+  "summary": "Alpha shoots at a 270pt unit at long range for 0.9 expected damage and a 7% kill chance. A 47% chance to kill the 2-wound Prosecutor Squad was available.",
+  "better_option": "Guardian Spear \u2013 Ranged \u2192 enemy Prosecutor Squad (P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7432",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063321_r2c01_00"
+ },
+ {
+  "job": "20261030_063321_r2c01_00__s7432_r3_p2_shooting_1_5",
+  "case": "20261030_063321_r2c01_00__s7432_r3_p2_shooting_1_5.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "target": "U_BLADE_CHAMPION_A"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI picked the full-wounds Delta unit, where the focus fire plan shows a 15% kill chance. Blade Champion Alpha has only 7 wounds and is in line of sight at 7.0 in, but the AI did not list it as an option.",
+  "better_option": "unlisted: Guardian Spear \u2013 Ranged \u2192 enemy Blade Champion Alpha (P1)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "reconnaissance",
+   "disposition2": "take_and_hold",
+   "seeds": "7432",
+   "layout_variant": 2
+  },
+  "run_dir": "20261030_063321_r2c01_00"
+ }
+]

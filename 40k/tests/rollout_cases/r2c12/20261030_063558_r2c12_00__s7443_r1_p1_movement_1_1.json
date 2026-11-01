@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (backfield gap (nearest friendly: 13\"))",
+ "created": "2026-10-30 06:37:17",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7443_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] The AI sent 10 OC2 Beast Snagga Boyz to screen a gap on its own, even though every objective option scored higher. The override says other units cover the objectives, but that coverage is weak. Fix: Only apply the 'objectives already covered' override when the committed OC at each objective is at least the enemy's OC plus a margin. Give screen_base a smaller value for high-OC battleline units, and cap it below the best objective score. Penalise screens that have no friendly unit nearby.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7443_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A",
+  "choice": "pos:960,960",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz screens at (960,960) \u2014 backfield gap (nearest friendly: 13\")",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_2 (sole holder \u2014 leaving would drop control \u2014 worth ~5 VP)",
+ "created": "2026-10-30 16:04:16",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7458_r1_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI kept Gamma at home because it was the sole holder, but no enemy can threaten home in round 1, so the unit's turn is mostly wasted. Fix: Apply the sole-holder override only when an enemy can reach the objective next turn, using move plus charge range. Also count other friendly units that are near enough to hold the objective. Otherwise let the unit reinforce a contested or fragile objective.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7458_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C_P2",
+  "choice": "pos:1060,1890",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma holds obj_home_2 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

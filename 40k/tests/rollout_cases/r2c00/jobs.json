@@ -1,0 +1,205 @@
+[
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r1_p2_movement_1_0",
+  "case": "20261030_063335_r2c00_00__s7431_r1_p2_movement_1_0.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI kept Beta on a home objective that no enemy can reach this turn. It also sent three units to NML 2 and none to CENTER.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~4 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7431",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063335_r2c00_00"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r1_p1_movement_1_1",
+  "case": "20261030_063335_r2c00_00__s7431_r1_p1_movement_1_1.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI sent a lone 3-model Custodian Guard unit 44.9 in across the board to the enemy home objective. That option had the lowest score and took 4 turns to reach.",
+  "better_option": "Advance obj_center (advancing to arrive a turn sooner \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7431",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063335_r2c00_00"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r2_p2_charge_1_2",
+  "case": "20261030_063335_r2c00_00__s7431_r2_p2_charge_1_2.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_A_P2",
+    "targets": []
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI declares a 17% charge on two units, a double-target charge that needs 10+. This is below its own 0.233 charge threshold. If the charge lands, Alpha is engaged by a Blade Champion and a Guard unit that hit harder than it does.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7431",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063335_r2c00_00"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r2_p1_charge_1_3",
+  "case": "20261030_063335_r2c00_00__s7431_r2_p1_charge_1_3.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a 17% chance target. It scores the charge as positive even though the expected value is poor. A failed charge wastes the unit's turn. A successful charge leaves the unit deep in the enemy group.",
+  "better_option": "unlisted: do not charge (targets [])",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7431",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063335_r2c00_00"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r2_p1_charge_2_4",
+  "case": "20261030_063335_r2c00_00__s7431_r2_p1_charge_2_4.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI picked an 8% charge for Delta because ch_damage, ch_can_wipe and ch_points_trade outweigh a ch_chance penalty that is too small.",
+  "better_option": "unlisted: do not charge. Keep Custodian Guard Sodality Delta on HOME 2 and use it to shoot or hold.",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7431",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063335_r2c00_00"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+  "case": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5.json",
+  "alt": [
+   {
+    "kind": "move",
+    "unit": "U_CUSTODIAN_GUARD_B_P2",
+    "objective": "obj_center",
+    "mode": "advance"
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "Beta moves to reinforce obj_nml_2, which Gamma already holds with 9 OC. It skips obj_center, which it could flip.",
+  "better_option": "Move obj_center (moving to objective \u2014 worth ~6 VP)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7431",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063335_r2c00_00"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r3_p1_shooting_2_6",
+  "case": "20261030_063335_r2c00_00__s7431_r3_p1_shooting_2_6.json",
+  "alt": [
+   {
+    "kind": "shoot",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "target": "U_BLADE_CHAMPION_A_P2"
+   }
+  ],
+  "verdict": "questionable",
+  "severity": 1,
+  "summary": "The AI shoots at a full-health 15 HP Guard unit for 2.5 expected damage and a 17% kill chance. It ignores a 1-wound Blade Champion that one unsaved wound would kill.",
+  "better_option": "unlisted: Balistus Grenade Launcher at Blade Champion Alpha (U_BLADE_CHAMPION_A_P2)",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7431",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063335_r2c00_00"
+ },
+ {
+  "job": "20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7",
+  "case": "20261030_063335_r2c00_00__s7431_r3_p1_charge_1_7.json",
+  "alt": [
+   {
+    "kind": "charge",
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "targets": []
+   }
+  ],
+  "verdict": "flawed",
+  "severity": 2,
+  "summary": "The AI charges a 270 point Allarus Custodians at a 1 wound Blade Champion with a 28% chance. The Blade Champion options have no ch_retaliation term, so they outscore the other options by about 11 points.",
+  "better_option": "unlisted: do not charge with Allarus Custodians; keep it back as a shooter and objective holder",
+  "config": {
+   "army1": "custodes_lions",
+   "army2": "custodes_lions",
+   "zone": "crucible_of_battle",
+   "disposition1": "priority_assets",
+   "disposition2": "disruption",
+   "seeds": "7431",
+   "layout_variant": 1
+  },
+  "run_dir": "20261030_063335_r2c00_00"
+ }
+]

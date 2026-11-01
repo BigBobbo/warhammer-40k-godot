@@ -1,0 +1,250 @@
+diff --git a/40k/scripts/AIDecisionMaker.gd b/40k/scripts/AIDecisionMaker.gd
+index dee1aee0..8b4eb7cf 100644
+--- a/40k/scripts/AIDecisionMaker.gd
++++ b/40k/scripts/AIDecisionMaker.gd
+@@ -1627,6 +1627,16 @@ const FIX_HELD_DUP: float = 1.0
+ # an enemy-held centre (5 vs 8 OC) marked it "already taken" and the next unit
+ # was sent to flip a 14-OC objective alone. 0 = the holder's OC is consumed.
+ const FIX_LONE_FLIP: float = 1.0
++# RANGED-CENTRE (FIX_RANGED_CENTRE): in battle round 1, ONE ranged unit with
++# Heavy weapons (per plan) that the capture pass refused its pick (DIM-RETURNS / TOO-LATE / RACE-SKIP /
++# LONE-TRIP / FAR-TRIP) and left over joins the plan's push on the CENTRE
++# objective — its own candidate there, reachable within 2 turns — when the
++# plan already sends another unit to it, instead of screening, blocking a
++# corridor or "supporting" a side objective (where a Heavy weapon then held
++# it still). At the findings (Orks mirror s7462 / s7463 r1, Lootas) Advancing
++# to the centre measured +5.6 / +4.8 VP (24 seeds). Keepers, units the
++# capture pass assigned and later rounds are untouched. 0 = previous behaviour.
++const FIX_RANGED_CENTRE: float = 1.0
+ # Charge (RETALIATION): share of the surviving target's melee damage on the
+ # charger counted against the charge (x CHARGE_MELEE_DAMAGE_WEIGHT).
+ const CHARGE_RETALIATION_WEIGHT: float = 0.5
+@@ -10804,12 +10814,56 @@ static func _assign_units_to_objectives(
+ 	# F007: screeners are spaced so their denial bubbles touch (2R), derived
+ 	# from the real arrival stand-off rather than a hardcoded 18".
+ 	var screen_spacing_px = _screen_spacing_px(snapshot, player)
++	var ranged_centre_on = get_param("FIX_RANGED_CENTRE", FIX_RANGED_CENTRE) >= 0.5 and battle_round <= 1
++	var board_centre := Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
++	var ranged_centre_used := false
+ 	for entry in unassigned_units:
+ 		var unit_id = entry.unit_id
+ 		var unit = entry.unit
+ 		var centroid = entry.centroid
+ 		var is_screen_candidate = _is_screening_candidate(unit)
+ 
++		# --- RANGED-CENTRE (FIX_RANGED_CENTRE): a round-1 ranged leftover the
++		# capture pass refused its pick joins the plan's push on the centre ---
++		# Heavy-armed units only (the ones T7-26 then holds still), one per plan.
++		if ranged_centre_on and not ranged_centre_used and extra_obj_skipped.has(unit_id) \
++				and _unit_has_ranged_weapons(unit) and not _is_melee_seeker(unit) \
++				and bool(_get_unit_heavy_weapon_data(unit).get("has_heavy", false)):
++			var rc_cand: Dictionary = {}
++			for rc_c in candidates:
++				if rc_c.unit_id != unit_id or rc_c.action not in ["move", "advance"] \
++						or rc_c.get("already_on_obj", false):
++					continue
++				var rc_pos: Vector2 = rc_c.get("objective_pos", Vector2.INF)
++				if rc_pos == Vector2.INF or rc_pos.distance_to(board_centre) > 4.0 * PIXELS_PER_INCH:
++					continue
++				if int(rc_c.get("turns_to_reach", 99)) > 2 or too_late.call(rc_c) or race_hopeless.call(rc_c):
++					continue
++				rc_cand = rc_c
++				break
++			if not rc_cand.is_empty():
++				var rc_oid := str(rc_cand.objective_id)
++				var rc_with: Array = (incoming_names.get(rc_oid, []) as Array).duplicate()
++				for a_uid in assignments:
++					if str(a_uid) != str(unit_id) and str(assignments[a_uid].get("objective_id", "")) == rc_oid \
++							and assignments[a_uid].get("action", "") in ["move", "advance"]:
++						rc_with.append(_dn(snapshot.get("units", {}).get(a_uid, {}), a_uid))
++				if not rc_with.is_empty():
++					var rc_skip: Dictionary = extra_obj_skipped[unit_id]
++					assignments[unit_id] = rc_cand.duplicate()
++					assignments[unit_id]["assign_pass"] = "ranged_centre"
++					assignments[unit_id]["reason"] = "joining %s at the centre" % ", ".join(rc_with)
++					if str(rc_skip.get("objective_id", "")) != rc_oid:
++						assignments[unit_id]["coordination_note"] = "not taking %s — joining %s at %s instead" % [
++							str(rc_skip.get("objective_id", "?")), ", ".join(rc_with), rc_oid]
++					assigned_unit_ids[unit_id] = true
++					support_counts[rc_oid] = support_counts.get(rc_oid, 0) + 1
++					ranged_centre_used = true
++					print("AIDecisionMaker: [RANGED_CENTRE] %s: %s %s (%d turn(s), score %.1f) — joining %s; the capture pass refused %s" % [
++						unit_id, str(rc_cand.action).to_upper(), rc_oid, int(rc_cand.turns_to_reach),
++						float(rc_cand.score), ", ".join(rc_with), str(rc_skip.get("objective_id", "?"))])
++					continue
++
+ 		# --- SCREENING ASSIGNMENT ---
+ 		# If enemy has reserves and this unit is a screening candidate, assign to denial
+ 		if has_enemy_reserves and is_screen_candidate and denial_idx < denial_positions.size():
+diff --git a/40k/tests/unit/test_ai_fix_ranged_centre.gd b/40k/tests/unit/test_ai_fix_ranged_centre.gd
+new file mode 100644
+index 00000000..41aa9cc8
+--- /dev/null
++++ b/40k/tests/unit/test_ai_fix_ranged_centre.gd
+@@ -0,0 +1,166 @@
++extends SceneTree
++
++# RANGED-CENTRE (FIX_RANGED_CENTRE): in battle round 1, a ranged unit the
++# capture pass refused its pick (here LONE-TRIP: a fragile squad, the enemy can
++# have 20 OC at the centre next move) and left over joins the plan's push on
++# the CENTRE objective when the plan already sends another unit there, instead
++# of "supporting" a side objective (where a Heavy weapon then held it still) or
++# blocking a corridor. LLM-critic cluster ranged_hold_vs_centre (value-checked,
++# 2026-10-31): Lootas held for Heavy (s7462 r1) / blocked a corridor 26" from
++# the objective it protected (s7463 r1); Advancing to the centre measured
++# +5.6 / +4.8 VP over 24 seeds. Later rounds, melee units, units without a
++# friend going to the centre and FIX_RANGED_CENTRE = 0 keep the base plan.
++# Run with: godot --headless --path 40k -s tests/unit/test_ai_fix_ranged_centre.gd
++
++const GameStateData = preload("res://autoloads/GameState.gd")
++const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
++
++const MOVABLE := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"]
++const PX := 40.0  # pixels per inch
++const OBJ_C := Vector2(880, 1200)    # the centre objective (board centre)
++const OBJ_SIDE := Vector2(200, 1700) # a quiet objective on our side, nobody near it
++
++var _pass_count: int = 0
++var _fail_count: int = 0
++
++func _init():
++	print("\n=== Round-1 ranged leftovers join the centre push (RANGED-CENTRE) ===\n")
++	AIDecisionMaker._config_overrides["FIX_RANGED_CENTRE"] = 1.0
++	test_ranged_leftover_joins_the_centre_push()
++	test_no_friend_going_keeps_the_base_plan()
++	test_round_two_keeps_the_base_plan()
++	test_melee_unit_keeps_the_base_plan()
++	test_non_heavy_unit_keeps_the_base_plan()
++	test_param_zero_restores_base()
++	AIDecisionMaker._config_overrides.erase("FIX_RANGED_CENTRE")
++	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
++	quit(1 if _fail_count > 0 else 0)
++
++func _assert(condition: bool, message: String) -> void:
++	if condition:
++		_pass_count += 1
++		print("PASS: %s" % message)
++	else:
++		_fail_count += 1
++		print("FAIL: %s" % message)
++
++func _snapshot(battle_round: int = 1) -> Dictionary:
++	var objs = [{"id": "obj_center", "position": OBJ_C, "zone": "no_mans_land"},
++		{"id": "obj_side", "position": OBJ_SIDE, "zone": "no_mans_land"}]
++	return {"battle_round": battle_round, "meta": {"battle_round": battle_round},
++		"board": {"objectives": objs, "terrain_features": []}, "units": {}}
++
++# `n` models (OC 2 each) whose centroid is at `pos`. weapon: "ranged", "melee" or "".
++func _add_unit(snapshot: Dictionary, unit_id: String, owner: int, pos: Vector2, n: int,
++		toughness: int, wounds: int, move: int = 6, weapon: String = "") -> void:
++	var models = []
++	for i in range(n):
++		models.append({"id": "m%d" % (i + 1), "alive": true, "base_mm": 32,
++			"base_type": "circular", "base_dimensions": {},
++			"position": Vector2(pos.x + (i - (n - 1) / 2.0) * 45.0, pos.y), "wounds": wounds, "current_wounds": wounds})
++	var weapons = []
++	if weapon == "ranged":
++		weapons.append({"name": "Deffgun", "type": "Ranged", "range": "48", "attacks": "2",
++			"ballistic_skill": "5", "strength": "8", "ap": "-1", "damage": "2", "special_rules": "heavy"})
++	elif weapon == "ranged_plain":
++		weapons.append({"name": "Shoota", "type": "Ranged", "range": "18", "attacks": "2",
++			"ballistic_skill": "5", "strength": "4", "ap": "0", "damage": "1", "special_rules": ""})
++	elif weapon == "melee":
++		weapons.append({"name": "Choppa", "type": "Melee", "range": "Melee", "attacks": "4",
++			"weapon_skill": "3", "strength": "5", "ap": "-1", "damage": "1", "special_rules": ""})
++	snapshot.units[unit_id] = {
++		"id": unit_id, "owner": owner, "status": GameStateData.UnitStatus.DEPLOYED,
++		"meta": {"name": unit_id, "points": 200, "stats": {"move": move, "toughness": toughness, "save": 3,
++			"wounds": wounds, "leadership": 6, "objective_control": 2}, "keywords": ["INFANTRY"], "weapons": weapons},
++		"models": models, "flags": {}}
++
++# Two 5-model OC 2 enemy squads `enemy_dist` inches above the centre (20 OC).
++func _add_enemies(snap: Dictionary, enemies: Dictionary, enemy_dist: float) -> void:
++	for i in range(2):
++		var eid = "theirs_%d" % i
++		_add_unit(snap, eid, 1, OBJ_C + Vector2((i - 0.5) * 300.0, -enemy_dist * PX), 5, 4, 2)
++		enemies[eid] = snap.units[eid]
++
++# The board of the findings: a fragile ranged squad 8" below the centre that
++# LONE-TRIP refuses (20 enemy OC one move away vs its 8), and — with_friend — a
++# durable squad 16" out that the capture pass sends to the centre first (it
++# arrives later, so LONE-TRIP does not count it). obj_side is held already, so
++# the capture pass has nothing left for the squad: it is a leftover.
++func _board(battle_round: int, with_friend: bool, weapon: String) -> Array:
++	var snap = _snapshot(battle_round)
++	var enemies = {}
++	var movable_ids = ["lootas"]
++	# obj_side is already held by a squad that is not moving: no OC needed there
++	_add_unit(snap, "keeper", 2, OBJ_SIDE, 5, 4, 2)
++	if with_friend:
++		_add_unit(snap, "wagon", 2, OBJ_C + Vector2(300, 16.0 * PX), 5, 7, 6, 6)
++		movable_ids.insert(0, "wagon")
++	_add_unit(snap, "lootas", 2, OBJ_C + Vector2(0, 8.0 * PX), 4, 3, 1, 6, weapon)
++	_add_enemies(snap, enemies, 10.0)
++	return [snap, movable_ids, enemies]
++
++func _plan(snap: Dictionary, movable_ids: Array, enemies: Dictionary) -> Dictionary:
++	AIDecisionMaker._primary_awareness_p2 = {}
++	AIDecisionMaker._secondary_awareness_p2 = {}
++	var friendlies = {}
++	var movable = {}
++	for uid in snap.units:
++		if int(snap.units[uid].owner) == 2:
++			friendlies[uid] = snap.units[uid]
++	for uid in movable_ids:
++		movable[uid] = MOVABLE
++	var objectives = []
++	for o in snap.board.objectives:
++		objectives.append(o.position)
++	var br = int(snap.battle_round)
++	var evals = AIDecisionMaker._evaluate_all_objectives(snap, objectives, 2, enemies, friendlies, br)
++	var plan = AIDecisionMaker._assign_units_to_objectives(snap, movable, evals, objectives, enemies, friendlies, 2, br)
++	for uid in plan:
++		print("  %s: %s %s [%s] (%s)" % [uid, plan[uid].get("action", ""), plan[uid].get("objective_id", ""),
++			plan[uid].get("assign_pass", ""), str(plan[uid].get("reason", "")).substr(0, 110)])
++	return plan
++
++func _goes_to(plan: Dictionary, uid: String, oid: String) -> bool:
++	var a: Dictionary = plan.get(uid, {})
++	return str(a.get("objective_id", "")) == oid and str(a.get("action", "")) in ["move", "advance"]
++
++func test_ranged_leftover_joins_the_centre_push() -> void:
++	print("\n--- round 1: fragile ranged squad refused the centre (LONE-TRIP), a durable squad sent there ---")
++	var b = _board(1, true, "ranged")
++	var plan = _plan(b[0], b[1], b[2])
++	_assert(_goes_to(plan, "wagon", "obj_center"), "precondition: the durable squad is sent to the centre")
++	_assert(_goes_to(plan, "lootas", "obj_center"), "the ranged leftover joins the centre push (was: support elsewhere)")
++	_assert(str(plan.get("lootas", {}).get("assign_pass", "")) == "ranged_centre", "assigned by the RANGED-CENTRE pass")
++
++func test_no_friend_going_keeps_the_base_plan() -> void:
++	print("\n--- round 1, no other unit sent to the centre ---")
++	var b = _board(1, false, "ranged")
++	var plan = _plan(b[0], b[1], b[2])
++	_assert(not _goes_to(plan, "lootas", "obj_center"), "it is not sent to the centre alone (LONE-TRIP stands)")
++
++func test_round_two_keeps_the_base_plan() -> void:
++	print("\n--- round 2, same board ---")
++	var b = _board(2, true, "ranged")
++	var plan = _plan(b[0], b[1], b[2])
++	_assert(str(plan.get("lootas", {}).get("assign_pass", "")) != "ranged_centre" and not _goes_to(plan, "lootas", "obj_center"),
++		"round 2 keeps the base plan")
++
++func test_melee_unit_keeps_the_base_plan() -> void:
++	print("\n--- round 1, a fragile squad with no ranged weapons ---")
++	var b = _board(1, true, "melee")
++	var plan = _plan(b[0], b[1], b[2])
++	_assert(str(plan.get("lootas", {}).get("assign_pass", "")) != "ranged_centre", "a unit without ranged weapons is not touched")
++
++func test_param_zero_restores_base() -> void:
++	print("\n--- FIX_RANGED_CENTRE = 0 ---")
++	AIDecisionMaker._config_overrides["FIX_RANGED_CENTRE"] = 0.0
++	var b = _board(1, true, "ranged")
++	var plan = _plan(b[0], b[1], b[2])
++	AIDecisionMaker._config_overrides["FIX_RANGED_CENTRE"] = 1.0
++	_assert(not _goes_to(plan, "lootas", "obj_center"), "with the fix off the ranged squad is not sent to the centre (base)")
++
++func test_non_heavy_unit_keeps_the_base_plan() -> void:
++	print("\n--- round 1, a fragile ranged squad without Heavy weapons ---")
++	var b = _board(1, true, "ranged_plain")
++	var plan = _plan(b[0], b[1], b[2])
++	_assert(str(plan.get("lootas", {}).get("assign_pass", "")) != "ranged_centre", "a ranged unit without Heavy weapons is not touched")

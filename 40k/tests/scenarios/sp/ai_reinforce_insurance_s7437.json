@@ -1,0 +1,147 @@
+{
+  "id": "ai_reinforce_insurance_s7437",
+  "covers": [
+    "ai.movement.objective_assignment",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "critic_reinforce_insurance_s7437_r2",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "REINFORCE-INSURANCE (critic round 4). Saved position from critic game s7437 (Custodes vs Orks, Reconnaissance Sweep primary): round 2, Player 1 Movement. The Allarus Custodians already hold the centre objective with OC 6. The AI sent Custodian Guard Sodality Beta 11.4 in forward to 'reinforce' that centre at its full hold value (score 48.2 vs 30.7 for obj_nml_2), but the Ork units whose front models are one move away can stand on the centre with about 42 OC next turn against our 17 with Beta, so the extra OC cannot keep it. Advancing Beta toward obj_nml_2 instead also ends its move wholly within a table quarter no other P1 unit covers, which Reconnaissance Sweep pays for (rollout value check: the Advance was +4.36 VP over 36 seeds, +19.0 VP over 12 full games). The fix prices what the old valuation missed: a one-move reinforcement the enemy can out-number 1.5 to 1 after its next move keeps only half its value (RI-RACE, enemy reach measured from each unit's nearest model, as control is), the table-quarter VP of the spot the unit ends its move in is counted (RI-QUARTER), and Advancing costs no shooting when every ranged weapon is [ASSAULT] (RI-ASSAULT). The scenario opens Suggest (K) twice on the same position: first with FIX_REINFORCE_INSURANCE=0 (the reviewed plan: Beta moves to obj_center 'reinforcing it'), then with the fix on (Beta advances toward obj_nml_2, 38.3; the centre reinforcement drops to 34.8 after the race penalty). Nothing is executed.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.load_player_profile(1, {\"parameters\": {\"FIX_REINFORCE_INSURANCE\": 0.0}})\nreturn true",
+      "equals": true,
+      "comment": "BEFORE: switch the fix off for P1 (the master switch turns off RI-RACE, RI-ASSAULT and RI-QUARTER)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta moves toward obj_center\")",
+      "equals": true,
+      "comment": "fix off: the card's headline is the reviewed move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta [movement]: chose Move obj_center (reinforcing it\")",
+      "equals": true,
+      "comment": "fix off: the reviewed mistake is reproduced (Beta reinforces the centre P1 already holds)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"reinforce_race=\")",
+      "equals": false,
+      "comment": "fix off: no race test on the reinforcement"
+    },
+    {
+      "act": "screenshot",
+      "label": "00_fix_off_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.clear_player_profile(1)\nreturn true",
+      "equals": true,
+      "comment": "AFTER: fix on (default)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta advances toward obj_nml_2\")",
+      "equals": true,
+      "comment": "fix on: the card's headline is the Advance toward obj_nml_2"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta [movement]: chose Advance obj_nml_2\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta [movement]: chose Move obj_center\")",
+      "equals": false,
+      "comment": "fix on: Beta no longer reinforces the centre"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"reinforce_race=\")",
+      "equals": true,
+      "comment": "RI-RACE: the centre reinforcement is priced against the enemy OC that can reach it next move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"quarter_vp=\")",
+      "equals": true,
+      "comment": "RI-QUARTER: the uncovered table quarter on the way to obj_nml_2 is priced in VP"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fix_on_after"
+    }
+  ]
+}

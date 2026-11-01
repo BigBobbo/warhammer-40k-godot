@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_home_2 (flipping it (enemy holds with OC 6), needs 3 more OC after this unit \u2014 worth ~1 VP with the 2 other objective(s) this plan takes \u2014 worth ~4 VP)",
+ "created": "2026-10-30 01:41:19",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7415_r2_p1_movement_2",
+ "note": "[LLM critic, high conf] The AI sent a lone Lootas unit with OC1 on a 3-turn advance to an enemy home objective. That objective has OC 11 of enemy models on it. The unit cannot flip it, and it gives up its shooting. Fix: Make the override pick the best remaining option by score, not a fixed objective. Reject any objective where enemy OC in range is far above the unit's OC and no other unit is committed. Reject targets that need 3 or more turns. Add a penalty for a lone unit with OC1 going deep into enemy territory. Use live enemy OC from the board. Do not use stale values.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7415_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_A",
+  "choice": "pos:890,1860",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Alpha advances toward obj_home_2 (flipping it (enemy holds with OC 6), needs 3 more OC after this unit \u2014 worth ~1 VP with the 2 other objective(s) this plan takes)",
+ "verdict": "bad",
+ "version": 1
+}

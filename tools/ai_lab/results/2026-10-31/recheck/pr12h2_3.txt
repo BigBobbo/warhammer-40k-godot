@@ -1,0 +1,4 @@
+RECHECK_SHARD pr12h2_3
+ROLLOUT_RESULT {"job":"20261030_160521_r4c14_00__s7465_r1_p2_movement_1_2","status":"ok","E":11.792,"se":2.513,"ci":[6.87,16.72],"n":24,"A":1.458,"B":13.25,"mat":-11.591,"drift":false,"a_did":"Gretchin screens at (320,2160) — backfield gap (nearest friendly: 10\")","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_160400_r4c11_00__s7462_r1_p2_movement_1_0","status":"ok","E":6.25,"se":1.416,"ci":[3.48,9.02],"n":24,"A":-14.75,"B":-8.5,"mat":5.133,"drift":false,"a_did":"Lootas Alpha holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_nml_1)","applied":24,"identical":0}
+SHARD_DONE 3/10 jobs=2

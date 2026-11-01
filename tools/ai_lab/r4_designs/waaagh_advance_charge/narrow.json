@@ -1,0 +1,75 @@
+{
+ "key": "waaagh_advance_charge",
+ "angle": "narrow",
+ "root_cause": "In _melee_chase_gate ('Advance vs normal move'), can_advance_and_charge falls back to a text match: any unit with an ability whose text contains 'advance' and one containing 'charge'. Every Ork unit has the 'Waaagh!' army rule, whose text grants advance-and-charge only WHILE riled up; the game marks that with flags.effect_advance_and_charge and ChargePhase refuses a charge after an Advance without it. So every Ork chaser converted to ATTACK always Advanced, even when a Normal move already reached charge range. Verified: s7468 r3 Stormboyz (12.0\" from Prosecutors) Advanced, could not charge in round 3, only charged in round 4. s7473 r3 Beast Snagga Boyz Advanced too, but the attached Beastboss's Keep Huntin'! let it charge anyway; there the 2-seed alternative (Normal move onto obj_center) gained VP by keeping the Boyz alive and denying the opponent's Punishment secondary (condemned_left +5 twice in A, 0 in B; B 16.5 vs A -1.0), i.e. by NOT charging, which this narrow fix does not address.",
+ "fix_summary": "One gate on the existing text-match fallback in _melee_chase_gate: when FIX_WAAAGH_ADVANCE_CHARGE >= 0.5, the flag is not set, and every ability that names both 'advance' and 'charge' is the Waaagh! rule (new helper _advance_charge_text_is_only_waaagh), the unit is treated as unable to advance-and-charge. Effect: a non-riled-up Ork chaser makes a Normal move when that reaches 12\" charge range, and still Advances when it does not. Riled-up units (flag set), other advance+charge abilities (e.g. Swift Onslaught), non-Ork units, _should_unit_advance (AI-GAP-4) and the RACE-1 long-trip path are untouched, so Ork shooting units (Lootas etc.) keep their current Advances. Logs [WAAAGH_ADVANCE_CHARGE] when it turns an Advance into a Normal move. Param 0 = base.",
+ "param": "FIX_WAAAGH_ADVANCE_CHARGE",
+ "test_file": "40k/tests/unit/test_ai_fix_waaagh_advance_charge.gd",
+ "test_fails_on_base": true,
+ "test_passes_on_fix": true,
+ "related_tests_ok": true,
+ "related_tests_detail": "All 18 listed tests pass with the fix (rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 22/0, survival_assessment 23/0, multi_phase_planning 34/0). test_ai_ability_awareness 72/1 fails the same check ('fall back' text) on BASE too (AIAbilityAnalyzer, not this code). New test: 6/0 on fix, 5/1 on BASE (the Normal-move check fails). Test drives _decide_movement.",
+ "decision_checks": [
+  {
+   "job": "20261030_160517_r4c17_00__s7468_r3_p2_movement_2_6",
+   "base_choice": "Stormboyz ADVANCES to attack Prosecutor Squad (12.0\"); no charge in round 3",
+   "fix_choice": "Stormboyz NORMAL move to attack Prosecutor Squad (0.0\" after move); charges Prosecutors in round 3 (rolled 7), holds obj_nml_1 in round 4",
+   "changed": true,
+   "measured": "clear: alt = Normal move to obj_nml_1, E +6.14 [3.08, 9.19] (36 seeds)",
+   "judgement": "Partial match: same mode as the alternative (Normal move instead of Advance) and the unit regains its round-3 charge; target is the enemy (sitting toward obj_nml_1), not the objective itself. 1-seed replay value 1.0 vs 12.0 base (single seed, not a measurement)."
+  },
+  {
+   "job": "20261030_160610_r4c22_00__s7473_r3_p1_movement_2_5",
+   "base_choice": "Beast Snagga Boyz ADVANCES to attack Allarus Custodians (9.5\"), Keep Huntin'! lets it charge anyway",
+   "fix_choice": "Beast Snagga Boyz NORMAL move to attack Allarus Custodians (3.5\" after move), still charges (rolled 10)",
+   "changed": true,
+   "measured": "clear: alt = Normal move onto obj_center (stay), E +11.25 [5.09, 17.41] (12 seeds)",
+   "judgement": "Mode matches (Normal move) but intent does NOT: the alternative's gain comes from not leaving obj_center / not charging into Custodians (opponent's Punishment +5 x2 denied). The fix still attacks. 1-seed replay value 35.0 vs 5.0 base (noise-level, single seed)."
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_160613_r4c21_00__s7472_r3_p1_movement_1_7",
+   "base_choice": "Beast Snagga Boyz ADVANCES to attack Blade Champion Gamma (7.8\")",
+   "fix_choice": "NORMAL move to attack Blade Champion Gamma (1.8\" after move), charges it (rolled 6)",
+   "changed": true,
+   "measured": "neutral: alt hold obj_nml_1 E +2.00 [-4.12, 8.12]",
+   "judgement": "Changed mode only (not toward the hold alternative, not away from it); consistent with neutral. 1-seed value 6.0 vs -6.0 base."
+  },
+  {
+   "job": "20261030_063415_r2c05_00__s7436_r3_p1_movement_2_4",
+   "base_choice": "Lootas Beta advances toward obj_nml_1",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -5.25 (AI's Advance likely right)",
+   "judgement": "Unchanged, consistent."
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r1_p2_movement_1_2",
+   "base_choice": "Lootas Gamma advances toward obj_center",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -2.75",
+   "judgement": "Unchanged, consistent."
+  },
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r1_p2_movement_1_2",
+   "base_choice": "Lootas Alpha advances toward obj_center",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E -0.58",
+   "judgement": "Unchanged, consistent."
+  },
+  {
+   "job": "20261030_063517_r2c11_00__s7442_r2_p2_movement_2_2",
+   "base_choice": "Terminator Assault Squad advances to attack Blade Champion Beta (11.7\")",
+   "fix_choice": "same",
+   "changed": false,
+   "measured": "neutral: E 0.00",
+   "judgement": "Unchanged (non-Ork, and a Normal move does not reach charge range), consistent."
+  }
+ ],
+ "fires": "Captured stdout of 1-seed replays (both players): f1 1 (Stormboyz), f2 1 (Beast Snagga Boyz), g1 1 (Beast Snagga Boyz), g2/g4/g5 0. Full game from s7438 r1 (Custodes vs Orks, rounds 1-5): 2 fires (Stormboyz toward Allarus Custodians, Stormboyz toward Blade Champion Beta) = every Ork COORD-4 attack conversion in that game. Fires only for Ork melee chasers converted to ATTACK, not riled up, within move+12\" of the target.",
+ "risks": "(1) Ork chasers close 1-6\" less per turn (no Advance roll) when a Normal move already reaches 12\": end position is further from the target and maybe from objectives, so charge distances are longer (e.g. 3.3\" vs 2.1\") and late-game objective/secondary positioning (rounds 3-5: Engage on All Fronts, Centre Ground, Behind Enemy Lines) can be slightly worse. (2) Units with a leader granting advance-and-charge not reflected in flags at plan time (Beastboss Keep Huntin'!, used when the unit is selected to move) lose the extra Advance distance they could have used (s7473/s7472). (3) Does not address the s7473 finding's real gain (staying on obj_center instead of charging); a separate gate on leaving a held objective would be needed. (4) Charging more in round 3 also exposes Ork melee units to the fight phase sooner (Custodes kill Boyz efficiently), which a 1-round horizon may not price; but the base already intended these charges and only failed them by misreading rules.",
+ "drop_reason": ""
+}

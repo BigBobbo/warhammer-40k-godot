@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (racing for it (enemy can have ~30 OC there before we arrive in 2 turns) \u2014 worth ~15 VP)",
+ "created": "2026-10-30 06:34:17",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7434_r1_p1_movement_1",
+ "note": "[LLM critic, medium conf] Beta advances toward obj_center, but Alpha already heads there. Two Custodian Guard units at one objective is more OC than the plan needs, and Beta cannot arrive for two turns. Fix: Count OC already assigned to an objective by earlier units in the plan. Cut the objective_priority for later units once that OC covers the threat. Add a bonus for contesting objectives the enemy holds.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7434_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Beta advances toward obj_center (racing for it (enemy can have ~30 OC there before we arrive in 2 turns))",
+ "verdict": "pending",
+ "version": 1
+}

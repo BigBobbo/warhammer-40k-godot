@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Screen (screening valuable friendlies from enemy threats)",
+ "created": "2026-10-30 16:15:01",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7471_r3_p1_movement_1",
+ "note": "[LLM critic, low conf] The AI kept 3 Burna Boyz as a screen with a flat screen_base 8.0 score. The unit sits exposed in front of the army and is likely to die to a charge without adding much. Fix: Score the Screen option with the same terms as other options: threat exposure, expected loss, and the actual charge lanes it blocks. Reject a screen position that puts a fragile unit in front of the army where it blocks nothing. Add a term for the unit's own firepower, such as Burna torrent at 12 in, when it can shoot nearby enemies.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7471_r3_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "pos:663,1016",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta holds screening position (screening valuable friendlies from enemy threats)",
+ "verdict": "pending",
+ "version": 1
+}

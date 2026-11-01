@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Blade Champion Alpha (2.7\" away, 97% chance)",
+ "created": "2026-10-30 06:45:04",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7437_r3_p2_charge_2",
+ "note": "[LLM critic, medium conf] The AI charges the Blade Champion with the Battlewagon, a poor melee unit. The retaliation term is large but the character bonus and short-charge bonus outweigh it. Fix: Compute retaliation from the target's real melee profile against the charger's toughness and save, and cap the bonus terms (ch_short_charge, ch_character) so they cannot outweigh expected damage taken. Require that expected damage dealt exceeds half the target's wounds, or that the charge secures an objective.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7437_r3_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_A",
+  "choice": "pos:1553,900",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_A,U_CUSTODIAN_GUARD_D",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Alpha declares a charge at Blade Champion Alpha + Custodian Guard Sodality Delta \u2014 targets picked after the roll: Blade Champion Alpha on 3+ (97%), Custodian Guard Sodality Delta on 5+ (83%), overwatch risk: 0.2 dmg",
+ "verdict": "pending",
+ "version": 1
+}

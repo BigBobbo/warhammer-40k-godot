@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Beastboss (8.6\" away, 28% chance)",
+ "created": "2026-10-30 23:53:56",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7485_r2_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI sent 140 pts of Stormboyz at a 6 HP Beastboss on a 28% charge. The positive terms (ch_damage, ch_can_wipe, ch_can_halve, ch_character, order_round_aggression) outweigh the ch_chance penalty. The result is a marginal, high-risk charge. Fix: Multiply ch_damage, ch_can_wipe and ch_can_halve by charge_probability. Add a ch_retaliation term for every target, based on enemy units within 12 in of the charge destination. Require a minimum net score before declaring a charge, so a roughly 2 point margin does not trigger it. Cap order_round_aggression so it cannot overri",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7485_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_STORMBOYZ_A",
+  "choice": "pos:1145,1728",
+  "decision": "charge",
+  "targets": "U_BEASTBOSS_A_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Stormboyz declares charge against Beastboss (28% chance, 8.6\" away, expected 11.9 melee dmg vs 6 HP, overwatch risk: 5.4 dmg)",
+ "verdict": "bad",
+ "version": 1
+}

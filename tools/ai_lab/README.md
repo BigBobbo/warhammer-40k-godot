@@ -24,6 +24,7 @@ nothing could learn from them.
 | M2 | `run_lanes.py` | Plays one arm across concurrent lanes into a season |
 | M2 | `determinism_check.py` | Proves two same-seed seasons are identical |
 | M2 | `run_paired.py` | **The evaluator**: side-swapped pairs, sequential stopping |
+| AB-SEAT | `ai_versions.py` | **Old vs new AI code**: each seat plays its own `AIDecisionMaker.gd` from a git ref (`extract V0=<ref>`, `run --base V0 --cand V3`); same side-swapped E as run_paired |
 | M3 | `sensitivity_screen.py` | Ranks which constants actually move the margin |
 | M4 | `cem_driver.py` | Cross-entropy search with racing over the ranked dims |
 | — | `gate_candidate.py` | The five accept/reject gates a change must clear |
@@ -129,6 +130,34 @@ godot --headless --path 40k --script tests/make_2000pt_fixture.gd -- \
 `--mirror` takes a list name (`--mirror=<list>`); a bare `--mirror` is a hard
 error, because it used to be silently ignored and produced a fixture named
 like a mirror whose two sides were packed independently.
+
+### Reserve fixtures (added 2026-10-31, opt-in)
+
+The six fixtures above have every unit on the table and none in reserve, so
+AI code that only runs when the enemy has reserves (deep-strike denial
+screens, reserve-backed keepers) never runs in them. Three opt-in fixtures
+add the reserves the AI's own Formations logic picks (`--reserves=ai`,
+built from the committed fixture with `--base`):
+
+| fixture | in reserve, per side |
+|---|---|
+| `mirror_custodes_2000_reserves_postdeploy` | Allarus A, Custodian Guard D + Blade Champion A (Warlord, attached), Custodian Guard A; all Deep Strike; 825/2000 pts, 4/11 units |
+| `mirror_orks_2000_reserves_postdeploy` | Stormboyz C, D (Strategic Reserves), Deffkoptas A, B (Deep Strike); 410/1975 pts, 4/17 units (the shipped Recon Stomps plan) |
+| `asym_2000_reserves_postdeploy` | Custodes set (P1) + Ork set (P2) |
+
+```bash
+godot --headless --path 40k --script tests/make_2000pt_fixture.gd -- \
+    --base=mirror_custodes_2000_postdeploy --reserves=ai --out=mirror_custodes_2000_reserves_postdeploy
+```
+
+They are an extra gate for reserve-dependent fixes only; the three standard
+fixtures stay the ship gate. Known caveats (smoke games + review, 2026-10-31):
+the AI's Deep Strike placements for Deffkoptas are often rejected (walls) and
+those units are destroyed at the end of round 3, so prefer the Custodes and
+asym reserve fixtures; destroyed reserve units keep `IN_RESERVES` and can
+still "arrive" (engine bug); `fixture_check.py` passes these fixtures only
+without `--strict`. After any rebuild delete the stale copies in
+`user://saves/` (the runner copies a fixture only when it is absent).
 
 ## M1 — game records
 
@@ -295,6 +324,70 @@ A game that exceeds its wall clock while still making progress is reported as
 stall-rate guardrail depend on machine load — three oversubscribed Ork lanes
 produced three "stalls" that were nothing of the kind. **Do not run more lanes
 than you have cores minus one.**
+
+## Benchmark rules: legacy fixture vs `--bench-11e` (2026-10-29)
+
+The mirror fixtures were saved before the 11e mission system, so on their own
+they play **legacy Take and Hold** (5 VP per objective incl. home, 15/turn cap)
+with the **10e tactical secondary deck**. Board, terrain, deployment
+(Crucible of Battle) and armies are 11e. The AI then has no primary card to
+plan for, so card-driven logic (diminishing returns, primary cap) never runs.
+
+- `--bench-11e` (runner) / `--rules11e` (`ai_versions.py run`): 11e GDM
+  primary cards from the disposition pairing (rotates through the 25 pairings
+  by seed, or fixed with `--bench-dispositions=p1,p2`) and a fresh 11e
+  secondary deck built by the normal Command-phase flow. Use this for any
+  question about how the AI plays the real game.
+- The RESULT/record carries `rules` (`11e`, `11e_primary_only`,
+  `legacy_fixture`) and `dispositions`, so seasons cannot be mixed by accident.
+- `perf_seconds` in the RESULT splits wall time: snapshot build,
+  `get_available_actions`, `route_action` (engine), AI `decide_*` per seat and
+  phase, `step_<ACTION>` per action type, and `check_all_objectives`.
+
+Measured on one legacy game (seed 9101, 310 s, CPU-bound — time scale and
+rendering do not matter): engine `route_action` 137 s, available actions 30 s,
+AI decide 24 s, snapshot 5 s.
+
+After OBJ-CACHE (2026-10-29: per-recompute model OC memo + signature cache in
+MissionManager), the same 11e game on a free CPU: 341 s -> 244 s (-28%),
+objective-control checks 94 s -> 10.6 s; identical result and decisions.
+`--bench-no-objective-cache` / `--bench-verify-objective-cache` switch the
+cache off or recompute on every hit (mismatches in `perf_seconds`).
+
+## Value check: counterfactual rollouts (`rollout.py`, `rollout_batch.py`) — 2026-10-30
+
+What is ONE decision worth? From a saved position (an LLM-critic case), play
+the AI's own choice (branch A) and a proposed alternative (branch B, a one-shot
+forced decision via `AIBenchmarkRunner --bench-override`, AIDecisionMaker
+ROLLOUT hooks for move / shoot / charge) forward to a fixed horizon over paired
+seeds, and compare `value = decider VP gained - opponent VP gained`.
+`--bench-stop-round=N` stops the game the moment round N+1 begins (before it
+scores), so the cut-off is exact.
+
+Measured on 4 critic findings (12 seeds each):
+
+| Case | Effect (B - A), end of next round | sd/seed | Full game | sd/seed |
+|---|---|---|---|---|
+| hold home -> advance to NML (flawed per reviewer) | -13.1 VP [-17.8, -8.4] | 8.3 | -11.4 [-28.6, +5.7] | 30.3 |
+| Prosecutors -> home instead of centre | -0.3 [-1.7, +1.2] | 2.6 | | |
+| shoot Guard Delta instead of Gamma | -2.1 [-4.0, -0.2] | 3.4 | | |
+| do not charge | -0.1 [-2.4, +2.2] | 4.1 | +4.2 [-9.9, +18.3] | 24.9 |
+
+The short horizon gives the same answer with 4-6x less noise per seed
+(15-36x fewer seeds) and 2.7x faster games (~55 s vs ~160 s from round 1-2).
+Two A runs on one seed are identical, and A replays the reviewed decision.
+
+Pipeline (critic -> value -> fix -> bundle):
+1. `40k/tools/llm_critic/sweep.py` — many critic games side by side (own
+   `GODOT_MCP_PORT` each), 11e dispositions + official layouts; the reviewer
+   returns its better option as a machine-readable `alternative`;
+   `critic.py value` writes the rollout jobs.
+2. `rollout_batch.py pack` copies the cases into `40k/tests/rollout_cases/`
+   (tracked, so sibling cloud sessions can run them); `run --shard k/N` per
+   machine; `table` ranks the effects.
+3. Positive findings -> param-gated fixes with failing-first tests.
+4. Bundle test (`ai_versions.py run --rules11e --fixture ...`, 3 matchups),
+   then switch fix groups off with `--cand-profile` to attribute.
 
 ## Not built yet
 

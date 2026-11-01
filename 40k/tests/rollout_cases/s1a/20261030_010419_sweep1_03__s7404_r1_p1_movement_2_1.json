@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_home_1 (capturing it (uncontrolled) \u2014 worth ~2 VP)",
+ "created": "2026-10-30 01:05:09",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7404_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI moved Prosecutor Squad to obj_home_1, which P1 already holds. It labels the objective as uncontrolled, so the reason is wrong. The move is safe but may add no VP. Fix: Set expected_vp to 0 when the friendly side already controls the objective with a margin and no enemy can reach it soon. Keep a cheap unit there only when no better assignment exists. Score the extra OC only if it changes who controls the objective.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7404_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_PROSECUTORS_A",
+  "choice": "pos:430,340",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Prosecutor Squad moves toward obj_home_1 (capturing it (uncontrolled), obj: 4.8\" away)",
+ "verdict": "pending",
+ "version": 1
+}

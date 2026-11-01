@@ -1,0 +1,4 @@
+RECHECK_SHARD pr12h2_2
+ROLLOUT_RESULT {"job":"20261030_234804_r5c12_00__s7487_r2_p2_charge_1_3","status":"ok","E":-0.083,"se":3.425,"ci":[-6.8,6.63],"n":24,"A":-19.0,"B":-19.083,"mat":-56.935,"drift":false,"a_did":"Kommandos declares charge against Blade Champion Beta (28% chance, 8.3\" away, expected 8.9 melee dmg vs 7 HP, ","applied":24,"identical":0}
+ROLLOUT_RESULT {"job":"20261030_160402_r4c10_00__s7461_r3_p2_charge_1_6","status":"ok","E":0.083,"se":1.853,"ci":[-3.55,3.72],"n":24,"A":-33.708,"B":-33.625,"mat":202.417,"drift":false,"a_did":"Battlewagon Alpha declares a charge at Beast Snagga Boyz + Beastboss — targets picked after the roll: Beast Sn","applied":24,"identical":2}
+SHARD_DONE 2/10 jobs=2

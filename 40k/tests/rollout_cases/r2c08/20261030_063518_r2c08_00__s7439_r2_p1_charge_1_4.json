@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Delta (9.5\" away, 17% chance)",
+ "created": "2026-10-30 06:38:41",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7439_r2_p1_charge_1",
+ "note": "[LLM critic, high conf] The AI charged a 17% target with a 395-point unit. Ending the charge with a score of 19.7 comes only from the large ch_damage, ch_points_trade and order_round_aggression terms, which are not scaled by the odds. Fix: Reject any charge whose probability is below charge_threshold before scoring. Multiply the damage, points-trade and aggression terms by charge_probability, or subtract an expected cost for a failed charge. A failed charge wastes the unit's turn and leaves it exposed to the Custodians' counter-charge.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7439_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_TERMINATOR_ASSAULT_SQUAD_A",
+  "choice": "pos:1310,670",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_A,U_CUSTODIAN_GUARD_D",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Terminator Assault Squad declares a charge at Custodian Guard Sodality Delta + Blade Champion Alpha \u2014 targets picked after the roll: Custodian Guard Sodality Delta on 10+ (17%), Blade Champion Alpha on 11+ (8%), overwatch risk: 0.4 dmg",
+ "verdict": "bad",
+ "version": 1
+}

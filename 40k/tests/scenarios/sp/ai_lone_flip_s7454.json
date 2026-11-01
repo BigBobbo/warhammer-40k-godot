@@ -1,0 +1,141 @@
+{
+  "id": "ai_lone_flip_s7454",
+  "covers": [
+    "ai.movement.objective_assignment",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "critic_lone_flip_s7454_r3",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "LONE-FLIP (critic round 4). Saved position from critic game s7454 (Custodes mirror): round 3, Player 2 Movement. P1 holds the centre objective with OC 8; P2 already has OC 5 in range of it, and Custodian Guard Sodality Beta, part of that 5, holds. The AI subtracted Beta's whole OC from the centre's need a second time, read the centre as 'already taken by Beta', and sent Custodian Guard Sodality Gamma (3 models) alone to flip obj_nml_1, which the enemy holds with OC 14 ('needs 6 more OC after this unit'): it cannot flip it and will probably die (rollout value check: Gamma Advancing to the centre instead was +21.5 VP [16.9, 26.1] over 36 seeds). With the fix a unit that holds adds no OC the count did not already include, so the centre still needs 4 OC: the plan sends Custodian Guard Sodality Alpha to flip it with a Normal move, Beta keeps holding, and Gamma goes to obj_home_2 instead of the lone flip (not the measured alternative itself, which was Gamma Advancing to the centre). The scenario opens Suggest (K) twice on the same position: first with FIX_LONE_FLIP=0 (the reviewed plan: Gamma to obj_nml_1, the centre 'already taken'), then with the fix on. Nothing is executed.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.load_player_profile(2, {\"parameters\": {\"FIX_LONE_FLIP\": 0.0}})\nreturn true",
+      "equals": true,
+      "comment": "BEFORE: switch the fix off for P2 (the player deciding this movement phase)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Gamma moves toward obj_nml_1\")",
+      "equals": true,
+      "comment": "fix off: the card's headline is the reviewed move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Gamma [movement]: chose Move obj_nml_1 (flipping it (enemy holds with OC 14)\")",
+      "equals": true,
+      "comment": "fix off: the reviewed mistake is reproduced (Gamma sent alone to flip an OC 14 objective)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"sent to obj_nml_1 instead\")",
+      "equals": true,
+      "comment": "fix off: the centre reads as already taken by Beta"
+    },
+    {
+      "act": "screenshot",
+      "label": "00_fix_off_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.clear_player_profile(2)\nreturn true",
+      "equals": true,
+      "comment": "AFTER: fix on (default)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"obj_center is already taken by Custodian Guard Sodality Beta —\")",
+      "equals": false,
+      "comment": "fix on: the centre is no longer read as 'already taken' by Beta alone (Beta's in-range OC is not subtracted twice)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Gamma [movement]: chose\")",
+      "equals": true,
+      "comment": "MERGE: the card is still Gamma's decision. Gamma's objective is no longer pinned: with main's terrain-aware gap obj_nml_1's area is 4.1\" from Gamma (one Normal move, not the 2-turn race the lab measured from the centroid), so the plan now prefers it over obj_home_2 — a lone 1-move flip the race guards (RACE-1/FAR-TRIP/LONE-TRIP, 2+ turn trips) do not cover; flagged as a follow-up"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Alpha (OC3): MOVE obj_center\")",
+      "equals": true,
+      "comment": "fix on: the centre still needs OC, so Alpha goes to flip it (Normal move)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"Main\")._ai_suggestion_panel.full_text.contains(\"Custodian Guard Sodality Beta (OC3): HOLD obj_center\")",
+      "equals": true,
+      "comment": "Beta keeps holding the centre"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.get_action_log().size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fix_on_after"
+    }
+  ]
+}

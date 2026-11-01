@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Lootas Beta (P1)",
+ "created": "2026-10-30 16:28:52",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7465_r3_p2_shooting_2",
+ "note": "[LLM critic, medium conf] The AI sent a long-range big shoota volley at Lootas Beta for 0.2 expected damage. The unit's Burna flamers were never listed as an option. Fix: Evaluate every weapon on the unit per target. Include short-range auto-hit weapons such as torrent. Do not add already_allocated as a bonus unless the added shots raise the kill chance. Prefer finishing a target that others have already hurt.",
+ "phase_name": "Shooting",
+ "player": 2,
+ "round": 3,
+ "save_file": "s7465_r3_p2_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A_P2",
+  "choice": "desc:Big shoota \u2192 enemy Lootas Beta (P1)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha shoots at Lootas Beta \u2014 expected 0.2 dmg vs 6 HP (4% kill)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,211 @@
+{
+ "key": "reinforce_insurance",
+ "angle": "root",
+ "param": "FIX_REINFORCE_INSURANCE",
+ "base": "V9R = 5e70bc2 + keeper_release_rev_vs_v9.patch",
+ "apply_conflicts": "none: root.patch applied cleanly on V9R with git apply -3 (no hand resolution)",
+ "required_changes": [
+  {
+   "change": "Split the switch: FIX_RI_RACE / FIX_RI_ASSAULT / FIX_RI_QUARTER under master FIX_REINFORCE_INSURANCE; extend param-zero test",
+   "applied": true,
+   "how_or_why_not": "3 consts (1.0) + _ri_part_on(part) = master>=0.5 and get_param(part)>=0.5, read at each branch. test_param_zero_restores_base now checks master 0: no race cost, [ASSAULT] walks 3 turns, flat 4.2 secondary_spread returns; new test_part_switches_remove_only_their_part checks each part at 0 removes only its part. determinism_check: master 0 == V9R exactly on s7437."
+  },
+  {
+   "change": "RI-RACE on 11e hosting areas",
+   "applied": true,
+   "how_or_why_not": "_ri_enemy_next_move_oc(obj_pos, [[marker, board entry]...], enemies, hd_obj, hd_mm): skips units already _unit_in_objective_range of hd_obj; gap per alive model = hd_mm.model_gap_to_objective_range_px (marker distance - CR only when hd_obj empty / hd_mm null); counted when gap <= M+2\"; on_other via _unit_in_objective_range against other objectives' board entries (marker fallback). Test test_race_reads_hosting_area: on-area enemy 5\" from marker not re-counted, enemy 6.4\" from area edge counted (3 vs marker-only 4). s7437 still fires: 42 vs 17 (the judge's number). Guardrails re-run: none moved."
+  },
+  {
+   "change": "RI-QUARTER coverage: drop attached characters and embarked units; zero offset for holders; Advance pace for 'advance' actions",
+   "applied": true,
+   "how_or_why_not": "Quarter pricing moved after the action is decided (only additive terms in between, so totals are unaffected otherwise); ri_others erases unit, attachment_data.attached_characters, transport_data.embarked_units and units with embarked_in == unit; offset 0 for action hold, M+ADVANCE_EXPECTED_EXTRA_INCHES for action advance (covers both long_adv and the (M, M+2] band), M otherwise. Test test_attached_leader_moves_with_its_squad: led squad + leader the only cover of a quarter -> no quarter_vp (fails with the erase removed: 9.0)."
+  },
+  {
+   "change": "RI-ASSAULT logging and guard",
+   "applied": true,
+   "how_or_why_not": "Branch returns true silently when no enemy centroid is within max_weapon_range (base answer); otherwise, unless flags.effect_advance_and_charge, returns false when any enemy within M+12\"; only then logs and returns true. Note: the planner can call the function once per candidate objective, so the log count is per evaluated candidate, not strictly per changed unit decision."
+  }
+ ],
+ "grafts": [
+  {
+   "graft": "(a/b/c) carry s7437 on the quarter mechanism (RACE-SKIP exemption / higher RI-QUARTER weight / narrow's pass-2 gate)",
+   "applied": false,
+   "why": "not small; needs its own measured arm. Arms show the flip already needs RI-QUARTER (FIX_RI_QUARTER=0 reverts it)."
+  },
+  {
+   "graft": "pass-2 quarter ledger from narrow",
+   "applied": false,
+   "why": "touches pass-2 assignment state; not small, left for a later round"
+  },
+  {
+   "graft": "step value toward a tier",
+   "applied": false,
+   "why": "changes pricing in every Reconnaissance Sweep game; unmeasured"
+  },
+  {
+   "graft": "RI-RACE loss-factor tweaks (command-phase only, Centre Ground, P2 round 5, Advance reach)",
+   "applied": false,
+   "why": "unmeasured tuning; not clearly safe"
+  },
+  {
+   "graft": "pass-3 support move Advance (s7451)",
+   "applied": false,
+   "why": "separate change with its own switch; out of scope. s7451 unchanged by the final."
+  },
+  {
+   "graft": "EoAF one-shot pricing guard",
+   "applied": false,
+   "why": "not applicable: the final does not price Engage on All Fronts"
+  }
+ ],
+ "decision_checks": [
+  {
+   "job": "20261030_063500_r2c06_00__s7437_r2_p1_movement_2_4",
+   "base_choice": "V9R replay: Beta moves toward obj_center (reinforcing / charge target Mek Beta); design report base: same",
+   "final_choice": "Beta ADVANCES toward obj_nml_2 (RI-QUARTER +9.0 advance; RI-RACE centre 42 vs 17 OC, area-correct)",
+   "changed": true,
+   "matches_alt_intent": true,
+   "measured": "clear +7.75 [1.97,13.53] n12; +4.36 n36; full game +19.0 n12"
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r1_p2_movement_1_0",
+   "base_choice": "design report base: Mek Beta moves toward obj_home_2 (finding drifted)",
+   "final_choice": "Mek Beta moves toward obj_home_2",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear +2.67 n36 (alt advance obj_center; round-1 AI, no longer reproduces)"
+  },
+  {
+   "job": "20261030_160248_r4c00_00__s7451_r1_p2_movement_1_0 (extra)",
+   "base_choice": "V9R replay: Gamma moves (walks) toward obj_center",
+   "final_choice": "Gamma moves (walks) toward obj_center",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear +5.86 [3.09,8.63] n36 for Advance obj_center; the walk comes from pass 3 (_find_best_remaining_objective), which RI-ASSAULT does not reach"
+  },
+  {
+   "job": "20261030_160257_r4c04_00__s7455_r1_p2_movement_2_0 (extra)",
+   "base_choice": "V9R replay: Prosecutor Squad advances toward obj_center",
+   "final_choice": "Prosecutor Squad advances toward obj_center (0 RI fires in this game)",
+   "changed": false,
+   "matches_alt_intent": false,
+   "measured": "clear +4.30 [1.30,7.31] n36 for Normal move to obj_nml_2; final does not make advancing more likely (identical choice, no RI fire)"
+  }
+ ],
+ "guardrail_checks": [
+  {
+   "job": "20261030_014802_sweep2_06__s7417_r1_p2_movement_1_0",
+   "base_choice": "design report base: Mek Beta holds obj_home_2",
+   "final_choice": "Mek Beta holds obj_home_2",
+   "changed": false,
+   "matches_alt_intent": false,
+   "moved_toward_harmful": false,
+   "measured": "harmful -5.42 (alt move obj_home_2); base already there (drift)"
+  },
+  {
+   "job": "20261030_063335_r2c00_00__s7431_r3_p2_movement_2_5",
+   "base_choice": "design report base: Beta moves toward obj_center",
+   "final_choice": "Beta moves (walks) toward obj_center",
+   "changed": false,
+   "matches_alt_intent": false,
+   "moved_toward_harmful": false,
+   "measured": "harmful -6.83 (alt ADVANCE obj_center); final still walks"
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r2_p2_movement_2_2",
+   "base_choice": "design report base: Mek Beta moves toward obj_center",
+   "final_choice": "Mek Beta moves toward obj_center",
+   "changed": false,
+   "matches_alt_intent": false,
+   "moved_toward_harmful": false,
+   "measured": "harmful -3.67 (alt move obj_home_2)"
+  },
+  {
+   "job": "20261030_014824_sweep2_07__s7418_r3_p2_movement_1_4",
+   "base_choice": "design report base: Stormboyz advance to attack Blade Champion Gamma",
+   "final_choice": "same",
+   "changed": false,
+   "matches_alt_intent": false,
+   "moved_toward_harmful": false,
+   "measured": "harmful -8.33 (alt hold obj_center)"
+  },
+  {
+   "job": "20261030_063442_r2c07_00__s7438_r3_p2_movement_2_7",
+   "base_choice": "design report base: Burna Boyz Alpha screens",
+   "final_choice": "same",
+   "changed": false,
+   "matches_alt_intent": false,
+   "moved_toward_harmful": false,
+   "measured": "neutral -0.25"
+  },
+  {
+   "job": "20261030_021506_sweep2_13__s7424_r3_p1_movement_2_6",
+   "base_choice": "V9R replay: Lootas Alpha holds obj_center (drifted from the recorded Advance)",
+   "final_choice": "Lootas Alpha holds obj_center",
+   "changed": false,
+   "matches_alt_intent": false,
+   "moved_toward_harmful": false,
+   "measured": "neutral -1.83 (alt move obj_center)"
+  }
+ ],
+ "extra_checks": [
+  {
+   "check": "s7437 r2 p1 per-part arms (1 seed each, decision only; 36 seeds left to the bench)",
+   "result": "all on: Beta ADVANCES obj_nml_2 (value 20). FIX_RI_RACE=0: Beta moves obj_center (8). FIX_RI_ASSAULT=0: moves obj_center (14). FIX_RI_QUARTER=0: moves obj_center (8). Master=0: moves obj_center (14). The flip needs ALL THREE parts (not RI-RACE alone). 12 full games from s7437 left to the bench."
+  },
+  {
+   "check": "param-0 identity (determinism_check.py, master FIX_REINFORCE_INSURANCE=0 vs V9R, s7437 seed 5001)",
+   "result": "PASS: outcome, trajectory and decisions identical (288 actions, 118 decision records)"
+  },
+  {
+   "check": "s7424 r3 p1 guardrail",
+   "result": "V9R and final both: Lootas Alpha holds obj_center; unchanged, 0 RI fires"
+  },
+  {
+   "check": "in-band harmful s7413 r2 p1 (alt Guard A move obj_center, -4.58)",
+   "result": "V9R: Alpha MOVES obj_nml_2; final: Alpha ADVANCES obj_nml_2 (RI-ASSAULT, mode change only). Not toward the harmful alt."
+  },
+  {
+   "check": "in-band harmful s7419 r1 p2 (alt Guard A hold obj_home_2, -5.08)",
+   "result": "V9R: Alpha moves obj_center; final: Alpha ADVANCES obj_nml_2. Changed, but away from the harmful hold; this change has no measurement of its own."
+  },
+  {
+   "check": "in-band harmful s7431 r3 p2 (alt Beta ADVANCE obj_center, -6.83)",
+   "result": "final walks to obj_center (same as design base); not toward the harmful Advance"
+  },
+  {
+   "check": "in-band harmful s7411 r3 p1 (alt Guard B move obj_center, -2.25)",
+   "result": "V9R and final: Beta moves obj_nml_2; unchanged"
+  },
+  {
+   "check": "s7421 r2 p1 (clear +9.81, alt Guard C ADVANCE obj_center)",
+   "result": "V9R and final: Gamma moves obj_nml_2. RI-RACE fired on Gamma->obj_nml_2 (35 vs 15) but the choice did not move; it did not move AWAY from the alt either"
+  },
+  {
+   "check": "s7454 r3 p2 must stay unchanged",
+   "result": "V9R and final: Gamma moves obj_nml_1; unchanged"
+  },
+  {
+   "check": "per-part changed-decision counts on 2-3 seeds of each bench fixture",
+   "result": "left to the bench (only sweep-position one-round replays counted here, see fires)"
+  },
+  {
+   "check": "paired side-swapped 3-fixture bench vs V9R with switch-off and forced-disposition arms",
+   "result": "left to the bench"
+  },
+  {
+   "check": "related unit tests + new hosting-area and attached-leader tests",
+   "result": "all listed pass; new test 24/0 on final, 11 pass / 13 fail on V9R; known base failures unchanged (threat_range_awareness 34/3, objective_assignment_fixes 6/1)"
+  }
+ ],
+ "fires": "[REINFORCE_INSURANCE] log lines per one-round replay (both players, decision round to end of next round), final code: s7437 f1 RACE 1/ASSAULT 2/QUARTER 2; s7418r1 0/2/2; s7451 0/2/0; s7455 0/0/0; s7417 0/0/0; s7431 0/5/0; s7418r2 0/4/2; s7418r3 0/2/6; s7438 0/1/0; s7424 0/0/0; s7413 0/3/0; s7419 0/1/1; s7411 0/7/0; s7421 2/4/0; s7454 0/4/0. Total 15 games: RI-RACE 3, RI-ASSAULT 37, RI-QUARTER 13. Bench-fixture counts left to the bench.",
+ "tests": {
+  "test_fails_on_v9r": true,
+  "test_passes": true,
+  "related_ok": true,
+  "detail": "test_ai_fix_reinforce_insurance: final 24 passed 0 failed; V9R temp copy (preload ai_versions/BASE) 11 passed 13 failed. Related: rollout_override 11/0, e_race_tuning 8/0, race_army 3/0, advance_probability 8/0, objective_race 16/0, plan_diminishing_returns 4/0, critic_round2 7/0, 11e_charge_ev_primary_cap 26/0, movement_decisions 36/0, plan_earmarks 35/0, fix_held_dup 14/0, fix_lone_trip 8/0, fix_charge_ev 11/0, fix_far_trip 11/0, fix_overcommit 8/0, fix_keeper_release 52/0, survival_assessment 23/0, multi_phase_planning 34/0. Known base failures unchanged: threat_range_awareness 34/3, test_ai_objective_assignment_fixes 6/1."
+ },
+ "risks": "(1) RI-ASSAULT is the broadest part (37 log lines over 15 one-round replays): it changed s7413 (move->Advance obj_nml_2) and s7419 (centre walk -> Advance obj_nml_2) with no measurement of its own; neither moved toward the harmful alternative. Needs its own switch-off arm on the bench. (2) The s7437 flip needs all three parts together (each part off reverts it), so the gain cannot be attributed to one part; the bench arms should be read that way. (3) RI-QUARTER multiplier (1 + 0.5 x later rounds) is largest early; Reconnaissance Sweep fires only for the holder of that card. (4) s7451 (+5.86) and s7455 are untouched; the s7421 clear alt is not reached. (5) Only one-seed decision replays were run; all VP effects are left to the bench.",
+ "verdict": "ready",
+ "not_ready_reason": ""
+}

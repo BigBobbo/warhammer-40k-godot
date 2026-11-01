@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P2)",
+ "created": "2026-10-30 06:36:48",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7434_r3_p1_shooting_1",
+ "note": "[LLM critic, medium conf] Gamma shoots Delta for about 1.8 expected damage. Rapid-fire range and the Blade Champion in sight were not weighed. Delta is the best listed target, but the pick is weak. Fix: Add a term for denying an enemy-held objective and a term for the target's melee threat to the shooter. Score shooting as a plan with the Prosecutors, so that fire from both units goes on one target to raise kill odds.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7434_r3_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "desc:Guardian Spear \u2013 Ranged \u2192 enemy Custodian Guard Sodality Delta (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma shoots at Custodian Guard Sodality Delta \u2014 expected 1.8 dmg vs 15 HP (12% kill)",
+ "verdict": "pending",
+ "version": 1
+}

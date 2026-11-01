@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_center (capturing it (uncontrolled) \u2014 worth ~8 VP)",
+ "created": "2026-10-30 16:03:14",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7452_r1_p1_movement_1",
+ "note": "[LLM critic, low conf] The AI advances toward obj_center. Even a 6 on the advance roll (14 in) falls short of 15.26 in, so the advance gains nothing over a normal move. Fix: Choose advance only if the maximum advance distance (M plus 6) can reach the objective, or if an enemy threat forces a faster move. Otherwise move normally and keep the unit's options. Count 'expected_vp' only for objectives that are not already held.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7452_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:880,1200",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha advances toward obj_center (capturing it (uncontrolled))",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Beast Snagga Boyz (P2)",
+ "created": "2026-10-30 23:50:21",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7483_r1_p1_shooting_1",
+ "note": "[LLM critic, high conf] The AI shoots a big shoota at a target 36 in away for 0.2 expected damage and a 2% kill chance. It also records already_allocated 10.11 and target_value 8.41, which inflate the focus-fire plan. The shot is weak and gains little. Fix: Drop a shooter from a focus-fire plan when its expected damage is under about 5% of the target's remaining wounds. Choose its target by expected damage and by cover or visibility instead of by the plan. Treat a shot beyond half range as a low-value shot, and consider moving or advancing the unit toward an objective instead.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7483_r1_p1_shooting_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_B",
+  "choice": "desc:Big shoota \u2192 enemy Beast Snagga Boyz (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Beta shoots at Beast Snagga Boyz \u2014 expected 0.2 dmg vs 11 HP (2% kill)",
+ "verdict": "bad",
+ "version": 1
+}

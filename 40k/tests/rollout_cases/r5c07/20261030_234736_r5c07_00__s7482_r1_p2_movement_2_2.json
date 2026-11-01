@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (capturing it (uncontrolled) \u2014 worth ~9 VP)",
+ "created": "2026-10-30 23:50:20",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7482_r1_p2_movement_2",
+ "note": "[LLM critic, low conf] The AI sends Lootas Gamma 15.6 in toward obj_nml_2. It cannot arrive this turn, loses the Heavy bonus, and a closer unit could take the objective. Fix: Add a redundancy penalty when a nearer friendly unit is already assigned to the same non-home objective. Add a penalty for Heavy units that lose the Heavy bonus and cannot arrive this turn. Cap the expected_vp credit when the card pays a flat amount for non-home objectives.",
+ "phase_name": "Movement",
+ "player": 2,
+ "round": 1,
+ "save_file": "s7482_r1_p2_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_C_P2",
+  "choice": "pos:389,1794",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Gamma holds for Heavy weapon bonus (+1 to hit, 3.3 extra expected hits, obj obj_nml_2)",
+ "verdict": "pending",
+ "version": 1
+}

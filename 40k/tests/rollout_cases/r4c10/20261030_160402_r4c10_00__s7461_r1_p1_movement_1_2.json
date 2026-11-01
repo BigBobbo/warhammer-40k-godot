@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Advance obj_nml_2 (capturing it (enemy can bring ~5 OC next move) \u2014 worth ~10 VP)",
+ "created": "2026-10-30 16:06:41",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7461_r1_p1_movement_1",
+ "note": "[LLM critic, low conf] The AI sends a 10-model Lootas unit on an advance to obj_nml_2, which is 18.6 in away, so it cannot shoot this turn. The unit is a 48 in shooter, and the objective is 2 turns away. Fix: Subtract a penalty for advancing with a heavy-weapon shooter that has a target within weapon range. Cap the VP value of a second non-home objective at the marginal award from the primary card. Do not send a lone shooter to an objective that Kommandos already cover.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7461_r1_p1_movement_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_LOOTAS_B",
+  "choice": "pos:260,1410",
+  "decision": "movement",
+  "type": "BEGIN_ADVANCE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Lootas Beta advances toward obj_nml_2 (capturing it (enemy can bring ~5 OC next move))",
+ "verdict": "pending",
+ "version": 1
+}

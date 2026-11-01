@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Move obj_nml_2 (flipping it (enemy holds with OC 11), needs 3 more OC after this unit \u2014 worth ~3 VP)",
+ "created": "2026-10-30 23:47:31",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7475_r2_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI sent Alpha alone on a 3-turn walk to an objective the enemy holds with OC 11. It skipped obj_center, where the main fight will be. Fix: Do not send a unit alone to an objective the enemy holds with higher total OC unless that unit can win it. Check that it can arrive within 2 turns. Keep units concentrated where enemy units cluster, and cut the spread bonus for single-unit trips.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7475_r2_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:429,1914",
+  "decision": "movement",
+  "type": "BEGIN_NORMAL_MOVE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha moves toward obj_nml_2 (moving toward charge target Custodian Guard Sodality Beta, obj: 24.8\" away)",
+ "verdict": "bad",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Gretchin (P2)",
+ "created": "2026-10-30 16:24:17",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7465_r3_p1_shooting_2",
+ "note": "[LLM critic, low conf] The AI fired a weak big shoota (0.5 expected damage) at Gretchin, the lowest-value target, because of a large already_allocated term. Stormboyz are the closer threat. Fix: Cap or scale the focus-fire bonus by the real chance the group kills the target. Add a target_value weight for units that threaten the shooter or objectives, such as fast Stormboyz.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7465_r3_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BURNA_BOYZ_A",
+  "choice": "desc:Big shoota \u2192 enemy Gretchin (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Burna Boyz Alpha shoots at Gretchin \u2014 expected 0.5 dmg vs 10 HP (5% kill)",
+ "verdict": "pending",
+ "version": 1
+}

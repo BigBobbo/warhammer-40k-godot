@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Hold obj_home_1 (sole holder \u2014 leaving would drop control)",
+ "created": "2026-10-30 06:35:45",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7437_r1_p1_movement_2",
+ "note": "[LLM critic, medium conf] The AI kept Alpha on HOME 1 because it is the sole holder. Nothing threatens the objective in round 1, and other nearby units could hold it instead. Fix: Before applying the sole-holder override, check whether another friendly unit can take or keep the objective this turn. Also check whether an enemy can contest it. If a cheap unit can hold it and no threat exists, release the heavy unit to move forward. Cap the secondary terms to avoid inflated advance scores.",
+ "phase_name": "Movement",
+ "player": 1,
+ "round": 1,
+ "save_file": "s7437_r1_p1_movement_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_A",
+  "choice": "pos:510,340",
+  "decision": "movement",
+  "type": "REMAIN_STATIONARY"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Alpha holds obj_home_1 (sole holder \u2014 leaving would drop control)",
+ "verdict": "pending",
+ "version": 1
+}

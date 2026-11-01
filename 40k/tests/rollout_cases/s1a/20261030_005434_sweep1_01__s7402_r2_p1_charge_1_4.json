@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Custodian Guard Sodality Alpha (8.0\" away, 28% chance)",
+ "created": "2026-10-30 00:57:22",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7402_r2_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI charged Guard Alpha at a 28% chance, with 3 Guard against 3 Guard. The charge term ch_chance (-12.67) is large but the damage terms still push the score positive. Fix: Weight the total expected gain (damage, halving, tie-up, objective bonus) by charge probability. Add a term for the chance to be charged back, and for the cost of a failed charge, which leaves the unit out of position. Require a minimum charge probability, such as 35%, unless the target is a high-value kill.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7402_r2_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+  "choice": "pos:1490,1116",
+  "decision": "charge",
+  "targets": "U_BLADE_CHAMPION_B_P2,U_CUSTODIAN_GUARD_A_P2",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Custodian Guard Sodality Gamma declares a charge at Custodian Guard Sodality Alpha + Blade Champion Beta \u2014 targets picked after the roll: Custodian Guard Sodality Alpha on 9+ (28%), Blade Champion Beta on 11+ (8%), overwatch risk: 0.2 dmg",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Lootas Beta (3.2\" away, 92% chance)",
+ "created": "2026-10-30 16:11:07",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7468_r3_p1_charge_1",
+ "note": "[LLM critic, medium conf] The AI sends the Allarus into two nearly dead Lootas units that other Custodians already engage. This adds little damage and wastes the Allarus charge. Fix: For each target, subtract the expected damage that friendly engaged units will deal in the Fight phase. Zero the tie-up and lock-shooter bonuses when the target is already engaged. Raise the value of free, unengaged threats such as Burna Boyz. Make the overwatch penalty match the damage figure in the reasoning.",
+ "phase_name": "Charge",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7468_r3_p1_charge_1.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_ALLARUS_CUSTODIANS_A",
+  "choice": "pos:1132,1353",
+  "decision": "charge",
+  "targets": "U_BURNA_BOYZ_B,U_LOOTAS_A,U_LOOTAS_B",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Allarus Custodians declares a charge at Lootas Beta + Lootas Alpha + Burna Boyz Beta \u2014 targets picked after the roll: Lootas Beta on 4+ (92%), Lootas Alpha on 4+ (92%), Burna Boyz Beta on 7+ (58%), overwatch risk: 2.9 dmg",
+ "verdict": "pending",
+ "version": 1
+}

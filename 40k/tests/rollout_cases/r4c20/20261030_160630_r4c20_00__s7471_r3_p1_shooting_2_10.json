@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Allarus Custodians #3 (P2)",
+ "created": "2026-10-30 16:16:29",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.6",
+ "id": "s7471_r3_p1_shooting_2",
+ "note": "[LLM critic, medium conf] The AI shot the Big shoota at the full-health Allarus Custodians #3, 30.8 in away, for 0.1 expected damage. It ignored the 2-wound Allarus Custodians, which is closer and nearly dead. Fix: Compute marginal_value from the kill chance on remaining wounds and weight it by target_value. Prefer a target with few wounds left when damage is equal. Use the actual wounds left for kill_threshold.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 3,
+ "save_file": "s7471_r3_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_B",
+  "choice": "desc:Big shoota \u2192 enemy Allarus Custodians #3 (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Beta shoots at Allarus Custodians #3 \u2014 expected 0.1 dmg vs 6 HP (2% kill)",
+ "verdict": "pending",
+ "version": 1
+}

@@ -1,0 +1,25 @@
+{
+ "chosen_option": "Big shoota \u2192 enemy Wulfen with Storm Shields (P2)",
+ "created": "2026-10-30 06:41:40",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.5",
+ "id": "s7443_r2_p1_shooting_2",
+ "note": "[LLM critic, medium conf] Battlewagon Beta shot the far Wulfen for 0.5 damage and a 3% kill chance instead of the close Terminator Assault Squad that it can hit with rapid fire. Fix: Give the already_allocated bonus only when the combined expected damage can plausibly reach the target's kill threshold. Scale it by kill probability. Add a threat term for enemy units that can charge next turn, based on distance and points.",
+ "phase_name": "Shooting",
+ "player": 1,
+ "round": 2,
+ "save_file": "s7443_r2_p1_shooting_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BATTLEWAGON_B",
+  "choice": "desc:Big shoota \u2192 enemy Wulfen with Storm Shields (P2)",
+  "decision": "shooting",
+  "type": "SHOOT"
+ },
+ "source": "llm_critic",
+ "suggestion": "Battlewagon Beta shoots at Wulfen with Storm Shields \u2014 expected 0.5 dmg vs 17 HP (3% kill)",
+ "verdict": "pending",
+ "version": 1
+}

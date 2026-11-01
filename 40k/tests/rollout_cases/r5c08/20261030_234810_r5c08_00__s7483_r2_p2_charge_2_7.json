@@ -1,0 +1,26 @@
+{
+ "chosen_option": "Charge Battlewagon Beta (5.6\" away, 72% chance)",
+ "created": "2026-10-31 00:03:22",
+ "difficulty": "Competitive",
+ "difficulty_level": 3,
+ "focus_unit_id": "",
+ "format": "wh40k_ai_test_case",
+ "game_version": "1.56.7",
+ "id": "s7483_r2_p2_charge_2",
+ "note": "[LLM critic, medium conf] The AI charges a battered 4-model unit into an 11-wound Battlewagon. It expects about 1.8 damage and invites a strong melee reply. Fix: Scale the flat gang-up and tie-up bonuses by the charger's expected damage and by its survival chance after retaliation. Reduce or remove them when the chargers are badly under strength. Add a 'do not charge' option, scored against the value of keeping the unit alive. Check whether ch_damage re-counts melee_damage.",
+ "phase_name": "Charge",
+ "player": 2,
+ "round": 2,
+ "save_file": "s7483_r2_p2_charge_2.w40ksave",
+ "signature": {
+  "actor_unit_id": "U_BEAST_SNAGGA_BOYZ_A_P2",
+  "choice": "pos:749,1575",
+  "decision": "charge",
+  "targets": "U_BATTLEWAGON_B,U_STORMBOYZ_A",
+  "type": "DECLARE_CHARGE"
+ },
+ "source": "llm_critic",
+ "suggestion": "Beast Snagga Boyz declares a charge at Battlewagon Beta + Stormboyz \u2014 targets picked after the roll: Battlewagon Beta on 6+ (72%), Stormboyz on 11+ (8%), overwatch risk: 1.9 dmg",
+ "verdict": "pending",
+ "version": 1
+}
